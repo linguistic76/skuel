@@ -40,7 +40,6 @@ Rate Limiting:
     apply the thresholds).
 """
 
-import secrets
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -48,6 +47,7 @@ from typing import Any
 
 from core.models.type_hints import UserUID
 from core.utils.timestamp_helpers import as_utc, now_utc
+from core.utils.uid_generator import UIDGenerator
 
 
 class AuthEventType(StrEnum):
@@ -103,7 +103,7 @@ class AuthEventType(StrEnum):
 
 def generate_auth_event_uid() -> str:
     """Generate a unique auth event UID."""
-    return f"auth_{secrets.token_hex(16)}"
+    return UIDGenerator.generate_random_uid("auth")
 
 
 @dataclass(frozen=True)

@@ -33,17 +33,22 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
+from core.utils.uid_grammar import hashed_uid
 
 if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
 
 
+#: The instruction set enrichment reads when the caller names none.
+DEFAULT_INSTRUCTION_SET_NAME = "Default Report Formatting"
+
+
 def instruction_set_uid(name: str) -> str:
     """The uid an instruction set named ``name`` takes when none is given.
 
-    One of ``uid_grammar.UID_EXEMPTIONS`` (``instruction_set``).
+    Derived from the name, case and spaces folded, so one name names one set.
     """
-    return f"instructions:{name.lower().replace(' ', '-')}"
+    return hashed_uid("instructions", name.lower().replace(" ", "-"))
 
 
 class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
@@ -315,7 +320,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             Result containing instruction text
         """
         if not instructions_uid:
-            instructions_uid = "instructions:default-report-formatting"
+            instructions_uid = instruction_set_uid(DEFAULT_INSTRUCTION_SET_NAME)
 
         # Load from Neo4j (instructions stored as Exercise Entity nodes)
         result = await self.backend.load_exercise_instructions(instructions_uid)  # type: ignore[attr-defined]

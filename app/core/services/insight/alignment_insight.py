@@ -42,7 +42,7 @@ async def persist_principle_alignment_insight(  # skuel-lint: disable=SKUEL005 -
         return
 
     insight = PersistedInsight(
-        uid=PersistedInsight.generate_uid(InsightType.PRINCIPLE_ALIGNMENT, entity_uid),
+        uid=PersistedInsight.generate_uid(),
         user_uid=user_uid,
         insight_type=InsightType.PRINCIPLE_ALIGNMENT,
         domain=domain,

@@ -16,6 +16,7 @@ from typing import Any
 from core.models.enums import Domain, EntityStatus
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.timestamp_helpers import as_utc, today_in
+from core.utils.uid_grammar import hashed_uid
 from core.utils.zone_context import current_zone
 
 
@@ -243,7 +244,7 @@ def generate_progress_uid(
     """
     Generate unique UID for progress record.
 
-    Format: progress.{user_uid}.{entity_uid}.{timestamp_ms}
+    ``hashed_uid("progress", user_uid, entity_uid, timestamp_ms)``.
 
     Args:
         user_uid: User identifier
@@ -257,7 +258,7 @@ def generate_progress_uid(
         timestamp = datetime.now()
 
     timestamp_ms = int(timestamp.timestamp() * 1000)
-    return f"progress.{user_uid}.{entity_uid}.{timestamp_ms}"
+    return hashed_uid("progress", user_uid, entity_uid, str(timestamp_ms))
 
 
 # ============================================================================

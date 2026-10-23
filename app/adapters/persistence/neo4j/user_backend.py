@@ -44,6 +44,7 @@ from core.ports.query_types import MasteredWriteRow
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
 
@@ -973,9 +974,8 @@ class UserBackend(Neo4jSessionRunner):
             Result[bool]: Success status
         """
         import json
-        from uuid import uuid4
 
-        message_uid = f"msg_{uuid4().hex[:12]}"
+        message_uid = UIDGenerator.generate_random_uid("msg")
         # Neo4j node properties cannot be maps; serialize metadata as a JSON string.
         metadata_json: str | None = json.dumps(metadata) if metadata else None
 

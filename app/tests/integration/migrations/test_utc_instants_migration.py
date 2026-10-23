@@ -32,6 +32,7 @@ import pytest
 import pytest_asyncio
 import time_machine
 
+from adapters.persistence.neo4j.backends import collab_backends
 from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, TasksBackend
 from adapters.persistence.neo4j.backends.collab_backends import GroupBackend, NotificationBackend
 from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
@@ -184,7 +185,10 @@ async def _seed(driver: Any) -> Corpus:
     assert touched.is_ok
 
     # The enrollment handler's default group and membership: aware, one moment.
-    with time_machine.travel(_at("2026-09-22T10:00:00.654321"), tick=False):
+    with (
+        _the_old_default_group_uid(),
+        time_machine.travel(_at("2026-09-22T10:00:00.654321"), tick=False),
+    ):
         await handle_path_step_enrolled(
             PathStepEnrolled(user_uid=UserUID(STUDENT), ps_uid="ps.utcmig.step"),
             user_entry_backend=_NoAdmin(),
@@ -216,6 +220,19 @@ async def _seed(driver: Any) -> Corpus:
         notification_uid=str(rows[0]["uid"]),
         report_uid=str(report[0]["uid"]),
     )
+
+
+def _old_default_group_uid(teacher_uid: str) -> str:
+    """The default group's uid on the graph this migration reads: prefix + teacher."""
+    return f"{migration.DEFAULT_GROUP_UID_PREFIX}{teacher_uid}"
+
+
+@contextmanager
+def _the_old_default_group_uid() -> Iterator[None]:
+    """The enrollment writer before the uid grammar's one shape: ``group_default_{teacher}``."""
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(collab_backends, "default_group_uid", _old_default_group_uid)
+        yield
 
 
 @contextmanager

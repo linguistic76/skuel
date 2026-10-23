@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-15
+updated: 2026-10-23
 related_skills: [learning-loop]
 ---
 
@@ -153,7 +153,7 @@ auto-enrolls the student in the admin's default group via MERGE — idempotent, 
 This ensures ASSIGNED exercises with `FOR_GROUP` constraints are accessible to all
 enrolled students without requiring explicit group management.
 
-Default group UID pattern: `group_default_{admin_uid}`.
+Default group uid: `default_group_uid(admin_uid)` — a hash of the admin's uid; the group carries `is_default = true`.
 Backend methods: `GroupBackend.get_or_create_default_group()` + `ensure_group_member()`.
 
 ### `/teaching/students` Submission-Based (updated 2026-04-02)

@@ -155,7 +155,7 @@ class ActivityReport(UserOwnedEntity):
         """
         from core.utils.uid_generator import UIDGenerator
 
-        uid = UIDGenerator.generate_uid("ar")
+        uid = UIDGenerator.generate_random_uid("ar")
         # The title names the range the report COUNTS. A partial report of an
         # open calendar period is counted through its data cutoff, not the
         # period's end, and says so everywhere only the title is shown (recent

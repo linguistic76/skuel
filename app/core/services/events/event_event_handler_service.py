@@ -214,9 +214,7 @@ class EventEventHandlerService:
                 # Persist chronic rescheduling insight
                 if self.insight_store:
                     insight = PersistedInsight(
-                        uid=PersistedInsight.generate_uid(
-                            InsightType.IMBALANCE_DETECTED, EntityUID(event.event_uid)
-                        ),
+                        uid=PersistedInsight.generate_uid(),
                         user_uid=event.user_uid,
                         insight_type=InsightType.IMBALANCE_DETECTED,
                         domain="events",
@@ -298,9 +296,7 @@ class EventEventHandlerService:
                 # Persist overcommitment insight
                 if self.insight_store:
                     insight = PersistedInsight(
-                        uid=PersistedInsight.generate_uid(
-                            InsightType.IMBALANCE_DETECTED, EntityUID(event.event_uid)
-                        ),
+                        uid=PersistedInsight.generate_uid(),
                         user_uid=event.user_uid,
                         insight_type=InsightType.IMBALANCE_DETECTED,
                         domain="events",

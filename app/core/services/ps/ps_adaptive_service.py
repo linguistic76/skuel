@@ -32,6 +32,7 @@ from core.models.pathways.mastery import (
     LearningVelocity,
     Mastery,
     MasteryLevel,
+    mastery_uid,
 )
 from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
@@ -434,7 +435,7 @@ class PsAdaptiveService:
                 sel_category = str(sel_category_raw) if sel_category_raw else None
 
                 mastery = Mastery(
-                    uid=f"mastery_{user_uid}_{ku_uid}",
+                    uid=mastery_uid(user_uid, ku_uid),
                     user_uid=user_uid,
                     knowledge_uid=ku_uid,
                     sel_category=sel_category,

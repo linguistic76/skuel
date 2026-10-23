@@ -48,12 +48,12 @@ All 6 share the facade shape above; the table lists what each adds:
 
 | Domain | Purpose | UID Prefix | Special Features |
 |--------|---------|------------|------------------|
-| **Tasks** | Work items with dependencies | `task_{slug}_{random}` | Progress tracking, scheduling |
-| **Goals** | Desired outcomes | `goal_{slug}_{random}` | Milestones, progress percentage |
-| **Habits** | Recurring behaviors | `habit_{slug}_{random}` | Streak tracking, habit loop (`cue` / `routine` / `reward`) |
-| **Events** | Time commitments | `event_{slug}_{random}` | Habit integration, learning bridge, calendar polymorphism |
-| **Choices** | Decisions | `choice_{slug}_{random}` | Options at creation, outcome tracking |
-| **Principles** | Core values | `principle_{slug}_{random}` | Reflections, alignment tracking |
+| **Tasks** | Work items with dependencies | `task_{16 hex}` | Progress tracking, scheduling |
+| **Goals** | Desired outcomes | `goal_{16 hex}` | Milestones, progress percentage |
+| **Habits** | Recurring behaviors | `habit_{16 hex}` | Streak tracking, habit loop (`cue` / `routine` / `reward`) |
+| **Events** | Time commitments | `event_{16 hex}` | Habit integration, learning bridge, calendar polymorphism |
+| **Choices** | Decisions | `choice_{16 hex}` | Options at creation, outcome tracking |
+| **Principles** | Core values | `principle_{16 hex}` | Reflections, alignment tracking |
 
 Events additionally has `habits` (`EventsHabitIntegrationService`), which materializes a recurring habit as calendar events; its `learning` slot is `EventsLearningService`. The **Calendar** cross-cutting system aggregates Events alongside Tasks, Habits, and Goals — Calendar is the scheduling system, Events are the things being scheduled.
 

@@ -274,20 +274,26 @@ def _backend_for_moves(
     tracked_rows: list[dict],
     live_uids: list[str],
     entity_contents: dict[str, str] | None = None,
+    periods: dict[str, str] | None = None,
 ) -> MagicMock:
     """Mocked backend: gone rows come from get_tracked_files_under; the
     metadata lookup answers per-path from the same rows (a canonical-path
     subset query, like the real Cypher); get_entity_contents answers per-uid
-    from ``entity_contents`` (only live nodes with non-empty content yield a
-    row, like the real Cypher)."""
+    from ``entity_contents`` with each node's ``period_key`` from ``periods``
+    (only live nodes with non-empty content yield a row, like the real Cypher)."""
     backend = MagicMock()
     backend.get_tracked_files_under = AsyncMock(return_value=Result.ok(tracked_rows))
 
     contents = entity_contents or {}
+    period_of = periods or {}
 
     async def _contents_for(uids: list[str]) -> Result[list[dict]]:
         return Result.ok(
-            [{"uid": uid, "content": contents[uid]} for uid in uids if uid in contents]
+            [
+                {"uid": uid, "content": contents[uid], "period_key": period_of.get(uid)}
+                for uid in uids
+                if uid in contents
+            ]
         )
 
     backend.get_entity_contents = AsyncMock(side_effect=_contents_for)
@@ -381,12 +387,12 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(old_path),
-                    "entity_uid": "ue_ee90ef12",
+                    "entity_uid": "ue_ee90ef12ee90ef12",
                     "content_hash": _sha("original body"),
                 },
                 {"file_path": str(anchor), "entity_uid": "ue_anchor", "content_hash": "other"},
             ],
-            live_uids=["ue_ee90ef12"],
+            live_uids=["ue_ee90ef12ee90ef12"],
         )
         tracker = IngestionTracker(backend)
 
@@ -570,12 +576,12 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(old_path),
-                    "entity_uid": "ue_ab12cd34",
+                    "entity_uid": "ue_ab12cd34ab12cd34",
                     "content_hash": _sha("frozen pre-rename file bytes"),
                 }
             ],
-            live_uids=["ue_ab12cd34"],
-            entity_contents={"ue_ab12cd34": _LONG_BODY},
+            live_uids=["ue_ab12cd34ab12cd34"],
+            entity_contents={"ue_ab12cd34ab12cd34": _LONG_BODY},
         )
         tracker = IngestionTracker(backend)
 
@@ -585,7 +591,7 @@ class TestDetectAndApplyMoves:
         assert len(result.value.applied) == 1
         move = result.value.applied[0]
         assert (
-            move.entity_uid == "ue_ab12cd34"
+            move.entity_uid == "ue_ab12cd34ab12cd34"
         )  # minted uid-less shape — the only sanctioned source
         assert move.old_path == str(old_path)
         assert move.new_path == str(new_path.resolve())
@@ -598,7 +604,7 @@ class TestDetectAndApplyMoves:
             "file_path": str(new_path.resolve()),
             "content_hash": _file_hash(new_path),
             "file_mtime": PENDING_MTIME,
-            "entity_uid": "ue_ab12cd34",
+            "entity_uid": "ue_ab12cd34ab12cd34",
             "authored_edges": [],
         }
         backend.delete_ingestion_metadata.assert_awaited_once_with([str(old_path)])
@@ -620,12 +626,12 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(old_path),
-                    "entity_uid": "ue_ab12cd34",
+                    "entity_uid": "ue_ab12cd34ab12cd34",
                     "content_hash": _sha("frozen pre-rename file bytes"),
                 }
             ],
-            live_uids=["ue_ab12cd34"],
-            entity_contents={"ue_ab12cd34": _LONG_BODY},
+            live_uids=["ue_ab12cd34ab12cd34"],
+            entity_contents={"ue_ab12cd34ab12cd34": _LONG_BODY},
         )
         tracker = IngestionTracker(backend)
 
@@ -665,12 +671,12 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(old_path),
-                    "entity_uid": "ue_bb34ef56",
+                    "entity_uid": "ue_bb34ef56bb34ef56",
                     "content_hash": _sha("frozen pre-rename file bytes"),
                 }
             ],
-            live_uids=["ue_bb34ef56"],
-            entity_contents={"ue_bb34ef56": _LONG_BODY},
+            live_uids=["ue_bb34ef56bb34ef56"],
+            entity_contents={"ue_bb34ef56bb34ef56": _LONG_BODY},
         )
         tracker = IngestionTracker(backend)
 
@@ -696,12 +702,12 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(old_path),
-                    "entity_uid": "ue_cc56ab78",
+                    "entity_uid": "ue_cc56ab78cc56ab78",
                     "content_hash": _sha("frozen pre-rename file bytes"),
                 }
             ],
-            live_uids=["ue_cc56ab78"],
-            entity_contents={"ue_cc56ab78": _LONG_BODY},
+            live_uids=["ue_cc56ab78cc56ab78"],
+            entity_contents={"ue_cc56ab78cc56ab78": _LONG_BODY},
         )
         tracker = IngestionTracker(backend)
 
@@ -723,12 +729,12 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(old_path),
-                    "entity_uid": "ue_dd78cd90",
+                    "entity_uid": "ue_dd78cd90dd78cd90",
                     "content_hash": _sha("frozen pre-rename file bytes"),
                 }
             ],
-            live_uids=["ue_dd78cd90"],
-            entity_contents={"ue_dd78cd90": _LONG_BODY},
+            live_uids=["ue_dd78cd90dd78cd90"],
+            entity_contents={"ue_dd78cd90dd78cd90": _LONG_BODY},
         )
         tracker = IngestionTracker(backend)
 
@@ -759,12 +765,12 @@ class TestDetectAndApplyMoves:
                 },
                 {
                     "file_path": str(tmp_path / "edited.md"),
-                    "entity_uid": "ue_ee90ef12",
+                    "entity_uid": "ue_ee90ef12ee90ef12",
                     "content_hash": _sha("frozen pre-rename file bytes"),
                 },
             ],
-            live_uids=["ue_pure", "ue_ee90ef12"],
-            entity_contents={"ue_ee90ef12": _LONG_BODY},
+            live_uids=["ue_pure", "ue_ee90ef12ee90ef12"],
+            entity_contents={"ue_ee90ef12ee90ef12": _LONG_BODY},
         )
         tracker = IngestionTracker(backend)
 
@@ -772,17 +778,22 @@ class TestDetectAndApplyMoves:
 
         assert result.is_ok
         by_uid = {move.entity_uid: move for move in result.value.applied}
-        assert set(by_uid) == {"ue_pure", "ue_ee90ef12"}
+        assert set(by_uid) == {"ue_pure", "ue_ee90ef12ee90ef12"}
         assert by_uid["ue_pure"].similarity is None  # exact hash — no score
-        assert by_uid["ue_ee90ef12"].similarity is not None
-        assert by_uid["ue_ee90ef12"].similarity >= SIMILARITY_MOVE_THRESHOLD
+        assert by_uid["ue_ee90ef12ee90ef12"].similarity is not None
+        assert by_uid["ue_ee90ef12ee90ef12"].similarity >= SIMILARITY_MOVE_THRESHOLD
         assert backend.update_ingestion_metadata.await_count == 2
         assert backend.delete_ingestion_metadata.await_count == 2
 
     # ---- Codex #618 candidacy gates: similarity is uid-less-UserEntry-only ----
 
     async def _similarity_case(
-        self, tmp_path, file_name: str, file_text: str, row_uid: str = "ue_aa11bb22"
+        self,
+        tmp_path,
+        file_name: str,
+        file_text: str,
+        row_uid: str = "ue_aa11bb22aa11bb22",
+        period_key: str | None = None,
     ):
         """One gone row (minted-uid unless overridden, content=_LONG_BODY) vs one new file."""
         new_path = tmp_path / file_name
@@ -797,6 +808,7 @@ class TestDetectAndApplyMoves:
             ],
             live_uids=[row_uid],
             entity_contents={row_uid: _LONG_BODY},
+            periods={row_uid: period_key} if period_key else None,
         )
         tracker = IngestionTracker(backend)
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
@@ -828,7 +840,7 @@ class TestDetectAndApplyMoves:
         )
         assert result.is_ok
         assert len(result.value.applied) == 1
-        assert result.value.applied[0].entity_uid == "ue_aa11bb22"
+        assert result.value.applied[0].entity_uid == "ue_aa11bb22aa11bb22"
 
     @pytest.mark.asyncio
     async def test_empty_string_uid_still_a_destination(self, tmp_path) -> None:
@@ -842,7 +854,7 @@ class TestDetectAndApplyMoves:
         )
         assert result.is_ok
         assert len(result.value.applied) == 1
-        assert result.value.applied[0].entity_uid == "ue_aa11bb22"
+        assert result.value.applied[0].entity_uid == "ue_aa11bb22aa11bb22"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -885,7 +897,7 @@ class TestDetectAndApplyMoves:
         )
         assert result.is_ok
         assert len(result.value.applied) == 1
-        assert result.value.applied[0].entity_uid == "ue_aa11bb22"
+        assert result.value.applied[0].entity_uid == "ue_aa11bb22aa11bb22"
 
     @pytest.mark.asyncio
     async def test_non_user_entry_type_never_a_destination(self, tmp_path) -> None:
@@ -919,22 +931,49 @@ class TestDetectAndApplyMoves:
 
     @pytest.mark.asyncio
     async def test_authored_uid_gone_row_never_a_source(self, tmp_path) -> None:
-        # Codex #618 P1, other direction: a gone AUTHORED/periodic identity
-        # (here a derived periodic uid) is stable across paths — bridging it
-        # onto a uid-less note would fuse the new note into the deleted
-        # note's identity. Only minted `ue_<8hex>` uids are move sources — a
-        # periodic uid is `ue_<16hex>`, kept out by its length; the content
-        # fetch must not even be attempted.
+        # Codex #618 P1, other direction: a gone AUTHORED identity is stable
+        # across paths — bridging it onto a uid-less note would fuse the new
+        # note into the deleted note's identity. Only a generated uid can be
+        # a minted one, so the content fetch is not even attempted.
         result, backend = await self._similarity_case(
             tmp_path,
             "similar-note.md",
             f"---\ntype: user_entry\n---\n{_LONG_BODY} Small addition.",
-            row_uid=periodic_note_uid("daily", "user_mike", "2026-07-12"),
+            row_uid="ue.worldview",
         )
         assert result.is_ok
         assert result.value.applied == ()
         backend.get_entity_contents.assert_not_called()
         backend.update_ingestion_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_periodic_gone_row_never_a_source(self, tmp_path) -> None:
+        # A periodic note's uid derives from its period (``period_key``), so it
+        # is stable across paths like an authored one. Its uid has the minted
+        # shape — the node's period is what keeps it out.
+        result, backend = await self._similarity_case(
+            tmp_path,
+            "similar-note.md",
+            f"---\ntype: user_entry\n---\n{_LONG_BODY} Small addition.",
+            row_uid=periodic_note_uid("daily", "user_mike", "2026-07-12"),
+            period_key="2026-07-12",
+        )
+        assert result.is_ok
+        assert result.value.applied == ()
+        backend.update_ingestion_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_note_with_no_period_is_a_source(self, tmp_path) -> None:
+        # A note with no period — a periodic kind with no period field among
+        # them — mints its uid (a plain living draft), so a moved one keeps
+        # its node like any other.
+        result, _backend = await self._similarity_case(
+            tmp_path,
+            "similar-note.md",
+            f"---\ntype: user_entry\n---\n{_LONG_BODY} Small addition.",
+        )
+        assert result.is_ok
+        assert [move.entity_uid for move in result.value.applied] == ["ue_aa11bb22aa11bb22"]
 
     @pytest.mark.asyncio
     async def test_list_frontmatter_skipped_not_fatal(self, tmp_path) -> None:

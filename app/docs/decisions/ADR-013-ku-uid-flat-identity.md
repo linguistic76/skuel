@@ -421,10 +421,10 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
     namespace is optional: Kus and PathSteps come in families and carry one
     (`ku.mindfulness.attention`); Resources, LearningPaths and the content vault's activities are
     flat lists and do not (`resource.tao-te-ching`). Either way it stays a human hint, never read.
-  - **generated** — `{prefix}_{opaque}`, minted by code (`task_a1b2c3d4`).
+  - **generated** — `{prefix}_{16 hex}`, minted by code (`task_3f9a0c41d2e87b65`).
 
-  A prefix is a lowercase word; a segment is lowercase words joined by single hyphens; an opaque
-  part is lowercase letters and digits. No segment holds a `_` or `:`, so no generated uid fits
+  A prefix is a lowercase word; a segment is lowercase words joined by single hyphens; a
+  generated uid's opaque part is 16 lowercase hex digits. No segment holds a `_` or `:`, so no generated uid fits
   inside another uid, and composites like `hc.user_admin.habit_…` or `group_default_user_admin`
   are outside the shapes. The rule lives in one module, `core/utils/uid_grammar.py`,
   which `validate_uid_format` and `UIDGenerator` both use.
@@ -443,14 +443,16 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
   once a writer stops minting its shape. A chunk uid is `chunk_{hash(store, parent, index)}`,
   and a `:Content` node has no uid — it is reached through its entity's `HAS_CONTENT` edge, so
   no node shares an entity's uid. A periodic note's uid is `ue_{hash(kind, owner, period)}`
-  (`periodic_note_uid`), with its kind and period in its metadata. The uid arc migrates the
-  rest: the remaining generated shapes (`{prefix}_{slug}_{8 hex}`,
-  habit completions, insights, the default group, bare-UUID SearchEvents, transcriptions,
-  instruction sets); each becomes `{prefix}_{hash(parts)}` where the old id was derived, so a
-  re-ingest still lands on the same node. Invoices leave with the local invoice module
-  (ADR-052 Phase 5). A user uid is `user_{username}` and registration admits any username, so
+  (`periodic_note_uid`), with its kind and period in its metadata. A uid derived from its
+  parts — a habit completion, a personal-vault file, the default group, an instruction set, and
+  the staged progress, embedding and mastery records — is `hashed_uid(prefix, *parts)`, so the same parts land on the same node; every other
+  generated uid is random (`UIDGenerator.generate_random_uid`). The default group is
+  recognised by its `is_default` property, never by its uid. Invoices leave with the local
+  invoice module (ADR-052 Phase 5). A user uid is `user_{username}` and registration admits any username, so
   `create_user` can mint outside the grammar (`user_Jane-Doe`); a username rule at registration
   or a generated user uid is unruled. `./dev uid-census` reads every live uid against the grammar, per label.
-- **Every generated uid moves to one shape.** Today `{prefix}_{8 hex}`, `{prefix}_{12 hex}` and
-  `{prefix}_{slug}_{8 hex}` are all minted; the arc's last migration renames all of them, the
-  two that already fit included.
+- **Every generated uid has one shape**, `{prefix}_{16 hex}` — 64 bits, random or hashed; no
+  uid carries its entity's title. Existing uids of the older widths and shapes were renamed in
+  place by `scripts/migrations/generated_uids_2026_10.py` (random-born ones to
+  `hashed_uid(prefix, old uid)`), every value naming one rewritten with them. Each uid-bearing
+  label outside `:Entity` and `:User` carries its own uid uniqueness constraint.

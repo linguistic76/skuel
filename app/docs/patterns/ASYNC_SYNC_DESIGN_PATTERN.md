@@ -1,6 +1,6 @@
 ---
 title: Async/Sync Design Pattern
-updated: 2026-09-28
+updated: 2026-10-23
 category: patterns
 related_skills:
 - python
@@ -188,7 +188,7 @@ def day_of(instant: datetime, zone: tzinfo) -> date:
     """NO I/O - the calendar day an instant falls on in a zone"""
     return as_utc(instant).astimezone(zone).date()
 
-# core/utils/uid_generator.py — UIDGenerator.generate_uid("task") -> "task_a1b2c3d4"
+# core/utils/uid_generator.py — UIDGenerator.generate_random_uid("task") -> "task_3f9a0c41d2e87b65"
 ```
 
 ## Decision Criteria

@@ -14,7 +14,7 @@ than what the content vault can (ADR-070 Decision 11):
   share one namespace across every user and the curriculum, so two learners
   writing ``uid: task.morning-run`` would collide; a file that has one is refused,
   and the reason tells its author to remove the line. A personal Activity or
-  life-path file has its own uid (``task_{slug}_{suffix}``, the API's form) —
+  life-path file has its own uid (``task_{16 hex}``, the API's shape) —
   derived from its owner and path, so the first sync and any re-sync agree whether
   or not a tracker row landed — and keeps it through its tracker row, so a rename
   keeps the entity and two users with the same filename hold two entities. An
@@ -36,7 +36,6 @@ See: /docs/decisions/ADR-070-bidirectional-vault-bridge.md,
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
@@ -44,7 +43,7 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.services.mixins.link_edge_guard import LinkEdge, partition_link_edges
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.result_simplified import Result
-from core.utils.uid_grammar import slugify
+from core.utils.uid_grammar import hashed_uid
 
 from .config import ENTITY_CONFIGS
 from .detector import detect_entity_type, is_edge_type, read_document
@@ -229,10 +228,10 @@ def personal_file_uid(
     this vault's owner alone — that is what carries an entity across a rename. Anything
     else — no row, a row from when the file was another type, an Edge file's identity,
     a node deleted in the app, a node someone else holds — gives the file the uid
-    derived from its owner and canonical path: ``{prefix}_{slug}_{8 hex}``. Derived,
-    not random, so a sync whose tracker stamp was lost derives the same uid next time
-    instead of creating a second entity, and two owners never derive the same one.
-    A stem with no ASCII letter or digit derives ``{prefix}_{8 hex}``.
+    derived from its owner and canonical path: ``hashed_uid(prefix, owner, path)``.
+    Derived, not random, so a sync whose tracker stamp was lost derives the same uid
+    next time instead of creating a second entity, and two owners never derive the
+    same one.
     """
     config = ENTITY_CONFIGS[entity_type]
     if (
@@ -241,9 +240,7 @@ def personal_file_uid(
         and tracked.owners == frozenset({owner_uid})
     ):
         return tracked.uid
-    digest = hashlib.sha256(f"{owner_uid}\0{file_path.resolve()}".encode()).hexdigest()[:8]
-    slug = slugify(file_path.stem)
-    return f"{config.uid_prefix}_{slug}_{digest}" if slug else f"{config.uid_prefix}_{digest}"
+    return hashed_uid(config.uid_prefix, owner_uid, str(file_path.resolve()))
 
 
 # ---------------------------------------------------------------------------

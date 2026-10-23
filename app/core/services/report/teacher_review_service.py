@@ -211,7 +211,7 @@ class TeacherReviewService:
         if current.is_error:
             return Result.fail(current)
 
-        report_entity_uid = UIDGenerator.generate_uid("er")
+        report_entity_uid = UIDGenerator.generate_random_uid("er")
         now = datetime.now().isoformat()
 
         allowed_from = [status.value for status in REVIEWABLE_ENTRY_STATUSES]
@@ -322,8 +322,8 @@ class TeacherReviewService:
         from core.models.enums.learning_enums import FeedbackCategory
         from core.models.exercises.revised_exercise import FeedbackPoint, RevisedExercise
 
-        report_entity_uid = UIDGenerator.generate_uid("er")
-        re_uid = UIDGenerator.generate_uid("re")
+        report_entity_uid = UIDGenerator.generate_random_uid("er")
+        re_uid = UIDGenerator.generate_random_uid("re")
         now = datetime.now().isoformat()
 
         # Parse feedback points into domain objects for embedding text

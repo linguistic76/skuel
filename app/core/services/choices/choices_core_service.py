@@ -501,7 +501,7 @@ class ChoicesCoreService(
         # them onto ChoiceDTO.create_choice is what dropped options, choice_type,
         # decision_criteria, constraints, stakeholders and tags here: the factory
         # takes **kwargs, so every omission was silent.
-        uid = UIDGenerator.generate_uid("choice", choice_request.title)
+        uid = UIDGenerator.generate_random_uid("choice")
         entity = ConversionServiceV2.choice_create_to_pure(choice_request, uid, user_uid=user_uid)
 
         # Validate + persist, but hold the events back until the knowledge edges below

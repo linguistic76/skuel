@@ -572,7 +572,7 @@ class _SpawnOrchestrator:
         for spec in SPAWN_REGISTRY:
             for tmpl in getattr(bundle, spec.collection_attr):
                 template_to_instance[str(tmpl.uid)] = str(
-                    UIDGenerator.generate_uid(spec.uid_prefix, tmpl.title)
+                    UIDGenerator.generate_random_uid(spec.uid_prefix)
                 )
 
         # Build + persist in dependency-layer order

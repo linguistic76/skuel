@@ -172,9 +172,7 @@ class TaskEventHandlerService:
                 # Persist overdue completion insight
                 if self.insight_store:
                     insight = PersistedInsight(
-                        uid=PersistedInsight.generate_uid(
-                            InsightType.COMPLETION_PATTERN, EntityUID(event.task_uid)
-                        ),
+                        uid=PersistedInsight.generate_uid(),
                         user_uid=event.user_uid,
                         insight_type=InsightType.COMPLETION_PATTERN,
                         domain="tasks",
@@ -536,9 +534,7 @@ class TaskEventHandlerService:
             # Persist priority inflation insight
             if self.insight_store:
                 insight = PersistedInsight(
-                    uid=PersistedInsight.generate_uid(
-                        InsightType.IMBALANCE_DETECTED, EntityUID(event.task_uid)
-                    ),
+                    uid=PersistedInsight.generate_uid(),
                     user_uid=event.user_uid,
                     insight_type=InsightType.IMBALANCE_DETECTED,
                     domain="tasks",

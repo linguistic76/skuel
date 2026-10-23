@@ -14,6 +14,7 @@ See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
@@ -24,6 +25,17 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+
+def _metadata_map(raw: object) -> dict[str, Any] | None:  # boundary: stored JSON map
+    """A node's ``metadata`` JSON as a map — ``{}`` when it has none, ``None`` when unreadable."""
+    if raw is None:
+        return {}
+    try:
+        parsed = json.loads(str(raw))
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 class IngestionBackend:
@@ -283,38 +295,45 @@ class IngestionBackend:
         )
 
     async def get_entity_contents(self, uids: list[str]) -> Result[list[EntityContentRow]]:
-        """Last-ingested body (``Entity.content``) for each live entity among ``uids``.
+        """Last-ingested body and ``metadata.period_key`` of each live UserEntry among ``uids``.
 
         Feeds the move pre-pass's similarity matching (rename + edit in one
         sync): the gone row's node still holds the body as it was last
         ingested, which is compared against new files' resolved on-disk
-        content — no extra fingerprint storage needed. :Entity only — the
-        other uid-bearing shape (:Group) carries no comparable body, so its
-        rows simply never similarity-match (safe delete+create).
+        content — no extra fingerprint storage needed. :UserEntry only — the
+        similarity pass bridges uid-less vault notes and nothing else, so any
+        other node's row never similarity-matches (safe delete+create); the
+        period lets the caller leave out a periodic note, whose uid derives from it.
         A returned row doubles as the live-node proof for its uid. Nodes
-        with no ``content`` yield no row; body-chunked types (Ku, PathStep)
-        store content on the :Content subtree, not the node, so they are
-        naturally excluded — they carry authored uids and never need this.
+        with no ``content``, or whose metadata is not a JSON map, yield no row.
         """
         result = await self._executor.execute_query(
-            """
+            f"""
             UNWIND $uids AS uid
-            MATCH (e:Entity {uid: uid})
+            MATCH (e:{NeoLabel.ENTITY.value}:{NeoLabel.USER_ENTRY.value} {{uid: uid}})
             WHERE e.content IS NOT NULL AND trim(e.content) <> ''
-            RETURN uid AS uid, e.content AS content
+            RETURN uid AS uid, e.content AS content, e.metadata AS metadata
             """,
             {"uids": uids},
         )
         if result.is_error:
             return Result.fail(result)
         # Narrow the raw Cypher rows at the adapter boundary — the query
-        # guarantees both keys, str() makes the guarantee explicit to MyPy.
-        return Result.ok(
-            [
-                EntityContentRow(uid=str(record["uid"]), content=str(record["content"]))
-                for record in result.value or []
-            ]
-        )
+        # guarantees uid and content, str() makes the guarantee explicit to MyPy.
+        rows: list[EntityContentRow] = []
+        for record in result.value or []:
+            metadata = _metadata_map(record["metadata"])
+            if metadata is None:
+                continue
+            period_key = metadata.get("period_key")
+            rows.append(
+                EntityContentRow(
+                    uid=str(record["uid"]),
+                    content=str(record["content"]),
+                    period_key=str(period_key) if period_key is not None else None,
+                )
+            )
+        return Result.ok(rows)
 
     async def get_entity_owner_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
         """Owner for each user-owned node among ``uids``.

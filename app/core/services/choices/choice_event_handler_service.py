@@ -309,9 +309,7 @@ class ChoiceEventHandlerService:
                 # Persist insight for positive pattern
                 if self.insight_store:
                     insight = PersistedInsight(
-                        uid=PersistedInsight.generate_uid(
-                            InsightType.DECISION_PATTERN, EntityUID(event.choice_uid)
-                        ),
+                        uid=PersistedInsight.generate_uid(),
                         user_uid=event.user_uid,
                         insight_type=InsightType.DECISION_PATTERN,
                         domain="choices",
@@ -347,9 +345,7 @@ class ChoiceEventHandlerService:
                 # Persist insight for missing alignment
                 if self.insight_store:
                     insight = PersistedInsight(
-                        uid=PersistedInsight.generate_uid(
-                            InsightType.PRINCIPLE_ALIGNMENT, EntityUID(event.choice_uid)
-                        ),
+                        uid=PersistedInsight.generate_uid(),
                         user_uid=event.user_uid,
                         insight_type=InsightType.PRINCIPLE_ALIGNMENT,
                         domain="choices",

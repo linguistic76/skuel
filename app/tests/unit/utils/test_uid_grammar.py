@@ -11,16 +11,14 @@ from __future__ import annotations
 import importlib
 import re
 from collections.abc import Callable
-from datetime import date, datetime
-from pathlib import Path
+from datetime import date
 
 import pytest
 
-from core.models.enums.entity_enums import EntityType
 from core.utils import uid_grammar
 from core.utils.uid_grammar import (
     GENERATED_UID,
-    HASHED_UID_HEX,
+    OPAQUE_HEX,
     UID_EXEMPTIONS,
     UidVerdict,
     authored_uid_problem,
@@ -28,8 +26,11 @@ from core.utils.uid_grammar import (
     exemptions_for,
     generated_uid,
     hashed_uid,
+    is_known_uid,
     slugify,
 )
+
+HEX16 = "3f9a0c41d2e87b65"
 
 
 class TestClassify:
@@ -40,10 +41,10 @@ class TestClassify:
             "resource.tao-te-ching",
             "lp.mindfulness-101",
             "ex.sel.self-awareness",
-            "task_a1b2c3d4",
-            "task_0123456789ab",
-            "user_admin",
-            "ue_beb86ecb",
+            f"task_{HEX16}",
+            f"chunk_{HEX16}",
+            f"ue_{HEX16}",
+            f"user_{HEX16}",
         ],
     )
     def test_fits(self, uid: str) -> None:
@@ -58,6 +59,7 @@ class TestClassify:
             "ku.it's",
             "ku.café",
             "ku.with space",
+            f"task_{HEX16.upper()}",
             "",
         ],
     )
@@ -77,6 +79,11 @@ class TestClassify:
             "ku.-a",
             "5f348e63-fe54-45b9-a6b5-d4205be31270",  # no prefix
             "task_",
+            "task_a1b2c3d4",  # 8 hex: not the one width
+            "msg_0123456789ab",  # 12 hex
+            "auth_7119a485a92751a3ea752747b8b7d50c",  # 32 hex
+            "task_0123456789abcdeg",  # 16, not all hex
+            "user_admin",  # a username's uid: exempt, never the shape
         ],
     )
     def test_shape(self, uid: str) -> None:
@@ -106,34 +113,36 @@ class TestAuthoredUidProblem:
         assert problem is not None and "'ku.{slug}'" in problem
 
     def test_a_generated_uid_is_not_an_authored_one(self) -> None:
-        assert authored_uid_problem("task_a1b2c3d4", "task") is not None
+        assert authored_uid_problem(f"task_{HEX16}", "task") is not None
 
 
 class TestGeneratedUid:
     def test_builds(self) -> None:
-        assert generated_uid("task", "a1b2c3d4") == "task_a1b2c3d4"
+        assert generated_uid("task", HEX16) == f"task_{HEX16}"
 
     @pytest.mark.parametrize("prefix", ["review_request", "Task", "1x", ""])
     def test_refuses_a_bad_prefix(self, prefix: str) -> None:
         with pytest.raises(ValueError, match="uid prefix"):
-            generated_uid(prefix, "a1b2c3d4")
+            generated_uid(prefix, HEX16)
 
-    @pytest.mark.parametrize("opaque", ["a-b", "a_b", "A1", ""])
-    def test_refuses_a_bad_opaque_part(self, opaque: str) -> None:
+    @pytest.mark.parametrize(
+        "opaque", ["a1b2c3d4", "0123456789ab", HEX16 * 2, HEX16.upper(), "g" * 16, "a-b", ""]
+    )
+    def test_refuses_any_opaque_part_but_sixteen_hex_digits(self, opaque: str) -> None:
         with pytest.raises(ValueError, match="opaque"):
             generated_uid("task", opaque)
 
+    def test_the_width_is_64_bits(self) -> None:
+        """Pinned: a narrower uid collides within a corpus this size (8 hex ≈ 1% at 10k)."""
+        assert OPAQUE_HEX == 16
+
 
 class TestHashedUid:
-    def test_is_a_generated_uid_with_a_hex_opaque_part_of_the_pinned_width(self) -> None:
+    def test_is_a_generated_uid(self) -> None:
         uid = hashed_uid("chunk", "content", "ps.a.b", "3")
         assert classify(uid) is UidVerdict.FITS
         assert GENERATED_UID.fullmatch(uid)
-        assert re.fullmatch(rf"chunk_[0-9a-f]{{{HASHED_UID_HEX}}}", uid)
-
-    def test_the_width_is_64_bits(self) -> None:
-        """Pinned: a narrower hash collides within a corpus this size (8 hex ≈ 1% at 10k)."""
-        assert HASHED_UID_HEX == 16
+        assert re.fullmatch(rf"chunk_[0-9a-f]{{{OPAQUE_HEX}}}", uid)
 
     def test_the_same_parts_always_mint_the_same_uid(self) -> None:
         assert hashed_uid("chunk", "content", "ps.a.b", "3") == hashed_uid(
@@ -143,7 +152,7 @@ class TestHashedUid:
     def test_it_is_sha256_over_the_parts_joined_by_nul(self) -> None:
         import hashlib
 
-        digest = hashlib.sha256(b"content\0ps.a.b\x003").hexdigest()[:HASHED_UID_HEX]
+        digest = hashlib.sha256(b"content\0ps.a.b\x003").hexdigest()[:OPAQUE_HEX]
         assert hashed_uid("chunk", "content", "ps.a.b", "3") == f"chunk_{digest}"
 
     @pytest.mark.parametrize(
@@ -205,57 +214,6 @@ class TestSlugify:
 # ---------------------------------------------------------------------------
 
 
-def _named_generated() -> str:
-    from core.utils.uid_generator import UIDGenerator
-
-    return UIDGenerator.generate_uid("task", "Van on Monday")
-
-
-def _personal_file() -> str:
-    from core.services.ingestion.vault_policy import personal_file_uid
-
-    return personal_file_uid(EntityType.TASK, Path("/vault/plan.md"), "user_a", None)
-
-
-def _habit_completion() -> str:
-    from core.services.habits.habits_completion_service import habit_completion_uid
-
-    return habit_completion_uid("user_admin", "habit_a1b2c3d4", datetime(2026, 10, 18, 12))
-
-
-def _insight() -> str:
-    from core.models.insight.persisted_insight import InsightType, PersistedInsight
-    from core.models.type_hints import EntityUID
-
-    return PersistedInsight.generate_uid(
-        InsightType.PRINCIPLE_ALIGNMENT, EntityUID("task_a1b2c3d4")
-    )
-
-
-def _default_group() -> str:
-    from core.models.group.group import default_group_uid
-
-    return default_group_uid("user_admin")
-
-
-def _search_event() -> str:
-    from core.services.search_event_recorder import search_event_uid
-
-    return search_event_uid()
-
-
-def _transcription() -> str:
-    from core.services.transcription.transcription_service import transcription_uid
-
-    return transcription_uid()
-
-
-def _instruction_set() -> str:
-    from core.services.content_enrichment_service import instruction_set_uid
-
-    return instruction_set_uid("Reflective Journal")
-
-
 def _invoice_from_request() -> str:
     from core.models.finance.invoice import (
         InvoiceCreateRequest,
@@ -294,14 +252,6 @@ def _user_from_username() -> str:
 
 # writer path → a call of that writer
 _DRIVERS: dict[str, Callable[[], str]] = {
-    "core.utils.uid_generator:UIDGenerator.generate_uid": _named_generated,
-    "core.services.ingestion.vault_policy:personal_file_uid": _personal_file,
-    "core.services.habits.habits_completion_service:habit_completion_uid": _habit_completion,
-    "core.models.insight.persisted_insight:PersistedInsight.generate_uid": _insight,
-    "core.models.group.group:default_group_uid": _default_group,
-    "core.services.search_event_recorder:search_event_uid": _search_event,
-    "core.services.transcription.transcription_service:transcription_uid": _transcription,
-    "core.services.content_enrichment_service:instruction_set_uid": _instruction_set,
     "core.models.finance.invoice:invoice_create_request_to_dto": _invoice_from_request,
     "core.models.finance.invoice:create_invoice": _invoice_factory,
     "core.models.user.user:create_user": _user_from_username,
@@ -337,11 +287,28 @@ def test_each_writer_still_mints_its_exempt_shape(
 
 
 def test_no_exemption_admits_a_uid_that_fits() -> None:
-    for uid in ("ku.a.b", "resource.x", "task_a1b2c3d4", "user_admin"):
+    for uid in ("ku.a.b", "resource.x", f"task_{HEX16}", f"user_{HEX16}"):
         assert exemptions_for(uid) == (), uid
 
 
-def test_a_shape_two_writers_mint_names_both() -> None:
-    """``user_foo_12345678`` is a username's uid and a named generated one alike."""
-    names = [exemption.name for exemption in exemptions_for("user_foo_12345678")]
-    assert names == ["named_generated", "user_from_username"]
+@pytest.mark.parametrize(
+    "uid", ["user_admin", "user_linguistic76", "user_Jane-Doe", "user_a1b2c3d4"]
+)
+def test_every_username_uid_is_exempt(uid: str) -> None:
+    """A user uid is ``user_{username}`` until the username ruling — exempt, never renamed."""
+    assert [exemption.name for exemption in exemptions_for(uid)] == ["user_from_username"]
+
+
+class TestIsKnownUid:
+    @pytest.mark.parametrize(
+        "uid",
+        ["ku.a.b", f"task_{HEX16}", "user_admin", "invoice:5f348e63-fe54-45b9-a6b5-d4205be31270"],
+    )
+    def test_a_fitting_or_exempt_uid_is_known(self, uid: str) -> None:
+        assert is_known_uid(uid)
+
+    @pytest.mark.parametrize(
+        "uid", ["task_a1b2c3d4", "task_van-on-monday_5873a134", "ue:daily:u:d", "", "x"]
+    )
+    def test_any_other_is_not(self, uid: str) -> None:
+        assert not is_known_uid(uid)

@@ -123,7 +123,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
             return Result.fail(audience_check)
 
         display_title = title or f"Form Response ({now_in(current_zone()):%Y-%m-%d %H:%M})"
-        uid = UIDGenerator.generate_uid("fs", display_title)
+        uid = UIDGenerator.generate_random_uid("fs")
 
         schema_hash = template.schema_hash()
         processed_content = build_form_processed_content(

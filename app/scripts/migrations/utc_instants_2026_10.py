@@ -85,7 +85,6 @@ from adapters.persistence.neo4j.graph_driver import (
 )
 from core.models.enums.migration_enums import MigrationState
 from core.models.enums.neo_labels import NeoLabel
-from core.models.group.group import DEFAULT_GROUP_UID_PREFIX
 from core.models.relationship_names import RelationshipName
 
 if TYPE_CHECKING:
@@ -94,6 +93,10 @@ if TYPE_CHECKING:
 # One driver record, keyed by RETURN alias, or one statement's parameters;
 # values are heterogeneous Neo4j scalars, so the value type is a boundary.
 type Row = dict[str, Any]  # boundary: raw neo4j-driver record / query parameters
+
+# The default group's uid prefix on the graph this migration reads (its record is
+# ``applied``, 2026-09-28) — a fact of that graph, not of ``default_group_uid``.
+DEFAULT_GROUP_UID_PREFIX = "group_default_"
 
 type Target = Literal["node", "rel"]
 type Shape = Literal["string", "native", "json"]

@@ -8,29 +8,8 @@ Following clean code principle: no lambdas, only named functions.
 
 from datetime import UTC
 from typing import Any
-from uuid import uuid4
 
 from core.models.enums import EnergyLevel, TimeOfDay
-
-
-def create_step_uid() -> str:
-    """Create a unique identifier for a learning path step."""
-    return f"step_{uuid4().hex[:8]}"
-
-
-def create_path_uid() -> str:
-    """Create a unique identifier for a learning path."""
-    return f"path_{uuid4().hex[:8]}"
-
-
-def create_session_uid() -> str:
-    """Create a unique identifier for a learning session."""
-    return f"session_{uuid4().hex[:8]}"
-
-
-def create_insight_uid() -> str:
-    """Create a unique identifier for a learning insight."""
-    return f"insight_{uuid4().hex[:8]}"
 
 
 def create_default_search_fields() -> list[str]:

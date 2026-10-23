@@ -84,8 +84,8 @@ no node uid, keeps it.
 Consequences:
 - File UID and graph UID compare **directly** — no mental translation, no normalization step
   anywhere.
-- Stored UIDs are NOT being migrated to flat `{prefix}_{slug}_{random}` — the graph holds dotted
-  authored curriculum UIDs; the flat form activates only for API-created entities. Both forms
+- Stored UIDs are NOT being migrated to the generated form — the graph holds dotted authored
+  curriculum UIDs; the generated `{prefix}_{16 hex}` is for entities the app creates. Both forms
   stay sanctioned; see the never-sniff rule below.
 
 ### Separator Grammar (ratified 2026-08-14, amended 2026-10-18)
@@ -98,7 +98,7 @@ law — anything a doc or code comment says beyond this table is historical:
 |-----------|------|
 | `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `uid_grammar.slugify()` emits it, and folds input underscores into it (`active_listening` → `active-listening`) and accents to ASCII (`café` → `cafe`). Author hyphens. |
 | `.` dot | Segment separator of **authored** UIDs — authored and stored identically. Shape: `{prefix}.{slug}` or `{prefix}.{ns}.{slug}` (the grouping label is optional — Kus and PathSteps carry one, Resources and LearningPaths do not). Ingestion refuses a `uid:` line outside this shape for every type, `user_entry` included, and a file with none takes `{prefix}.{stem}` only when its stem is one segment. |
-| `_` underscore | Separator of **generated** UIDs: `{prefix}_{opaque}` (`task_a1b2c3d4`). Also the conventional filename type-prefix (`ku_attention.md`) — which, for that reason, gives no uid to a file without a `uid:` line. |
+| `_` underscore | Separator of **generated** UIDs: `{prefix}_{16 hex}` (`task_3f9a0c41d2e87b65`). Also the conventional filename type-prefix (`ku_attention.md`) — which, for that reason, gives no uid to a file without a `uid:` line. |
 | `:` colon | **In no node uid** (amended 2026-10-18 — the colon row that kept periodic-note and chunk ids is reversed). The shapes still minted with one (`transcription:`, `instructions:`, `invoice:`) are named exemptions in `uid_grammar.UID_EXEMPTIONS` until the uid arc migrates them. The `edge:` tracker-row sentinel (`ingestion_tracker.py`) keeps it: it is a tracker key, not a node uid. |
 | *(edges)* | Family. Parent/child/lineage lives **only** in graph relationships (`ORGANIZES`, `USES_KU`, `HAS_STEP`, …) — never in UID strings. |
 

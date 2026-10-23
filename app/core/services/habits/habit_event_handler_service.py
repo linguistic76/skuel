@@ -496,9 +496,7 @@ class HabitEventHandlerService:
                 if self.insight_store:
                     impact = InsightImpact.HIGH if is_very_difficult else InsightImpact.MEDIUM
                     insight = PersistedInsight(
-                        uid=PersistedInsight.generate_uid(
-                            InsightType.DIFFICULTY_PATTERN, EntityUID(event.habit_uid)
-                        ),
+                        uid=PersistedInsight.generate_uid(),
                         user_uid=event.user_uid,
                         insight_type=InsightType.DIFFICULTY_PATTERN,
                         domain="habits",

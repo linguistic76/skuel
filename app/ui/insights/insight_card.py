@@ -59,7 +59,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
 
     Example:
         insight = PersistedInsight(
-            uid="insight.difficulty_pattern.habit_meditation_abc123.20260131",
+            uid=PersistedInsight.generate_uid(),
             user_uid="user_mike",
             insight_type=InsightType.DIFFICULTY_PATTERN,
             domain="habits",
@@ -67,7 +67,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
             description="You've missed this habit 5 times in a row.",
             confidence=0.85,
             impact=InsightImpact.HIGH,
-            entity_uid="habit_meditation_abc123",
+            entity_uid="habit_3f9a0c41d2e87b65",
             recommended_actions=[{"action": "Reduce frequency", "rationale": "Build momentum"}],
         )
         InsightCard(insight)

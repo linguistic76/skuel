@@ -373,7 +373,7 @@ user_uid: UserUID = require_authenticated_user(request)
 user_uid: UserUID
 
 # Type checker catches identity mixing:
-task_uid = TaskUID("task_a1b2c3d4")
+task_uid = TaskUID("task_3f9a0c41d2e87b65")
 get_user_tasks(task_uid)  # Type error! TaskUID != UserUID
 ```
 
@@ -438,7 +438,7 @@ class Node:
 
     @classmethod
     def create(cls, title: str) -> Self:
-        return cls(uid=UIDGenerator.generate_uid("node"), title=title)  # "node_a1b2c3d4"
+        return cls(uid=UIDGenerator.generate_random_uid("node"), title=title)  # "node_3f9a0c41d2e87b65"
 ```
 
 A `NameError` from an `__annotate__` frame means something *read* the annotation at runtime:

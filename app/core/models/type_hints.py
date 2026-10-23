@@ -27,6 +27,8 @@ from typing import (
     runtime_checkable,
 )
 
+from core.utils import uid_grammar
+
 if TYPE_CHECKING:
     from core.models.enums.activity_enums import Priority
     from core.utils.result_simplified import Result as _Result
@@ -222,48 +224,19 @@ class Validatable(Protocol):
 
 def is_valid_uid(value: Any) -> TypeGuard[EntityUID]:
     """
-    Check if value is a valid UID.
+    Check if value is a uid that can name a node.
 
-    SKUEL uses two UID formats:
-    1. Dot notation (curriculum): ku.yoga.meditation, path.beginner.python
-    2. Underscore notation (activity): task_implement-auth_a1b2, event_ab12cd34
+    A uid fits the uid grammar (authored ``ku.yoga.meditation``, generated
+    ``task_3f9a0c41d2e87b65``) or has a shape ``UID_EXEMPTIONS`` names
+    (``user_{username}``) — ``uid_grammar.is_known_uid``.
 
     Args:
         value: Value to check
 
     Returns:
-        True if value matches either UID format
+        True if value is such a uid
     """
-    if not isinstance(value, str):
-        return False
-    if not value or len(value) < 2:
-        return False
-
-    # Dot notation: prefix.parts (at least prefix.something)
-    if "." in value:
-        parts = value.split(".")
-        # Must have at least prefix.slug (2 parts)
-        if len(parts) < 2:
-            return False
-        # Prefix must be alphabetic (ku, path, dom, moc, ls, lp, etc.)
-        if not parts[0].isalpha():
-            return False
-        # All parts must be non-empty
-        return all(part for part in parts)
-
-    # Underscore notation: prefix_random or prefix_slug_random
-    if "_" in value:
-        parts = value.split("_")
-        # Must have at least prefix_random (2 parts)
-        if len(parts) < 2:
-            return False
-        # Prefix must be alphabetic (task, event, habit, etc.)
-        if not parts[0].isalpha():
-            return False
-        # Last part should be alphanumeric (the random suffix)
-        return parts[-1].replace("-", "").isalnum()
-
-    return False
+    return isinstance(value, str) and uid_grammar.is_known_uid(value)
 
 
 def is_valid_email(value: Any) -> TypeGuard[Email]:

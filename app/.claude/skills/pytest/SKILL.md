@@ -76,7 +76,7 @@ async def test_create_task_success(tasks_service, sample_task):
     assert result.is_ok, f"Expected success, got: {result.error}"
 
     task = result.value
-    assert task.uid == sample_task.uid          # API-minted uids are task_{slug}_{random}
+    assert task.uid == sample_task.uid          # generated uids are task_{16 hex}
     assert task.title == sample_task.title
 ```
 

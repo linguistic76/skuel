@@ -131,10 +131,7 @@ class PrincipleDTO(UserOwnedDTO):
 
         uid = kwargs.pop("uid", None)
         if not uid:
-            if title:
-                uid = UIDGenerator.generate_uid("principle", title)
-            else:
-                uid = UIDGenerator.generate_random_uid("principle")
+            uid = UIDGenerator.generate_random_uid("principle")
 
         kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PRIVATE)

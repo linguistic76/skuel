@@ -27,6 +27,7 @@ from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.models.entity import Entity
 from core.models.enums.neo_labels import NeoLabel
+from core.models.group.group import default_group_uid
 from core.services.ps.ps_mastery_service import PsMasteryService
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -46,7 +47,7 @@ _ORPHAN_REVISION_UID = f"re_test_orphan_{_RUN}"
 _STUDENT_UID = f"user_zz_student_{_RUN}"
 _LONER_UID = f"user_zz_loner_{_RUN}"  # in no default group
 _NAMED_TEACHER_UID = f"user_zz_named_teacher_{_RUN}"  # the curriculum exercise's teacher
-_DEFAULT_GROUP_UID = f"group_default_user_zz_admin_{_RUN}"
+_DEFAULT_GROUP_UID = default_group_uid(f"user_zz_admin_{_RUN}")
 
 # --- (c) enrollment-cap fixtures --------------------------------------------
 _LEARNER_UID = f"user_zz_learner_{_RUN}"
@@ -127,7 +128,7 @@ async def default_group_graph(neo4j_driver):
         await session.run(
             """
             MERGE (g:Group {uid: $group_uid})
-            SET g.title = 'Default group (DTG test)'
+            SET g.title = 'Default group (DTG test)', g.is_default = true
             WITH g
             MATCH (u:User {uid: $user_uid})
             MERGE (u)-[:MEMBER_OF]->(g)

@@ -41,7 +41,7 @@ class TasksCoreService(BaseService[BackendOperations[Task], Task]):
 
         # 3. Create entity
         task = Task(
-            uid=generate_uid("task"),
+            uid=UIDGenerator.generate_random_uid("task"),
             title=request.title,
             description=request.description,
             priority=request.priority,

@@ -17,23 +17,23 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Domain | Label | UID Format (`ENTITY_TYPE_ARCHITECTURE.md` § the 25 types is the authority) | Example |
 |--------|-------|------------|---------|
 | **Activity (6) — user-owned** | | | |
-| Tasks | `Task` | `task_{slug}_{random}` | `task_fix-bug_abc123` |
-| Goals | `Goal` | `goal_{slug}_{random}` | `goal_launch-product_def456` |
-| Habits | `Habit` | `habit_{slug}_{random}` | `habit_daily-run_xyz789` |
-| Events | `Event` | `event_{slug}_{random}` | `event_team-standup_ghi012` |
-| Choices | `Choice` | `choice_{slug}_{random}` | `choice_accept-offer_jkl345` |
-| Principles | `Principle` | `principle_{slug}_{random}` | `principle_small-steps_mno678` |
+| Tasks | `Task` | `task_{16 hex}` | `task_3f9a0c41d2e87b65` |
+| Goals | `Goal` | `goal_{16 hex}` | `goal_3f9a0c41d2e87b65` |
+| Habits | `Habit` | `habit_{16 hex}` | `habit_3f9a0c41d2e87b65` |
+| Events | `Event` | `event_{16 hex}` | `event_3f9a0c41d2e87b65` |
+| Choices | `Choice` | `choice_{16 hex}` | `choice_3f9a0c41d2e87b65` |
+| Principles | `Principle` | `principle_{16 hex}` | `principle_3f9a0c41d2e87b65` |
 | **Curriculum (4) — shared content** | | | |
 | Knowledge Units | `Ku` | `ku.{ns}.{slug}` (vault-authored; one form) — never sniff (ADR-013) | `ku.stoicism.dichotomy-of-control` |
 | Path Steps | `PathStep` | `ps.{namespace}.{slug}` (authored = stored, dot form) | `ps.python.intro` |
 | Learning Paths | `LearningPath` | `lp.{namespace}.{slug}` (authored = stored, dot form) | `lp.python.developer` |
-| Exercises | `Exercise` | `ex.{ns}.{slug}` (vault) or `ex_{slug}_{random}` (API) | |
+| Exercises | `Exercise` | `ex.{ns}.{slug}` (vault-authored; one form) | |
 | **Curated Content — shared content** | | | |
 | Resources | `Resource` | `resource.{slug}` (authored) | |
 | **User-authored content + Reports — ADR-054** | | | |
-| User Entries | `UserEntry` | `ue_{slug}_{random}` | `ue_my-essay_abc123` |
-| Activity Reports | `ActivityReport` | `ar_{random}` | |
-| Entry Reports | `EntryReport` | `er_{random}` | |
+| User Entries | `UserEntry` | `ue_{16 hex}` | `ue_3f9a0c41d2e87b65` |
+| Activity Reports | `ActivityReport` | `ar_{16 hex}` | |
+| Entry Reports | `EntryReport` | `er_{16 hex}` | |
 | **Destination** | | | |
 | Life Path | `LifePath` | `lifepath.{slug}` (authored; no API mint) — but a *designated* path is an ordinary `LearningPath` reached through `ULTIMATE_PATH` (below) | |
 | **Not EntityTypes** | | | |

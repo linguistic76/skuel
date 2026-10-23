@@ -1,6 +1,6 @@
 ---
 title: "ADR-075: Stage-2 LocalAgentVaultAdapter — Hosted Vault Sync Transport"
-updated: 2026-09-22
+updated: 2026-10-23
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, vault-bridge, local-agent, security, websocket, ed25519]
@@ -127,7 +127,7 @@ posture as OpenSSH).
 ```cypher
 MATCH (u:User {uid: $user_uid})
 CREATE (u)-[:HAS_DEVICE]->(d:Device {
-    uid: $device_uid,          // device_<8 random>
+    uid: $device_uid,          // device_<16 hex>
     pubkey: $pubkey,           // base64url Ed25519 public key
     name: $device_name,        // user-chosen label ("mike-laptop")
     enrolled_at: datetime(),

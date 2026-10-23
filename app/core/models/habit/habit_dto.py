@@ -139,10 +139,7 @@ class HabitDTO(UserOwnedDTO):
 
         uid = kwargs.pop("uid", None)
         if not uid:
-            if title:
-                uid = UIDGenerator.generate_uid("habit", title)
-            else:
-                uid = UIDGenerator.generate_random_uid("habit")
+            uid = UIDGenerator.generate_random_uid("habit")
 
         kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PRIVATE)

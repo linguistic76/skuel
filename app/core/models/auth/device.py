@@ -32,11 +32,12 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from core.utils.uid_generator import UIDGenerator
+
 # Pairing code: 8 chars base32, 10-minute TTL, single-use (ADR-075 Decision 2).
 PAIRING_CODE_TTL_MINUTES = 10
 PAIRING_CODE_BYTES = 5  # 5 bytes -> exactly 8 base32 chars, 40 bits of entropy
 
-DEVICE_UID_PREFIX = "device_"
 DEVICE_NAME_MAX_LENGTH = 64
 
 
@@ -46,7 +47,7 @@ class Device:
     Enrolled vault-agent device stored as a Neo4j node.
 
     Attributes:
-        uid: Unique device identifier (``device_<8 hex>``)
+        uid: Unique device identifier (``device_<16 hex>``)
         user_uid: Owning user (via the HAS_DEVICE edge)
         pubkey: base64url-encoded DER SubjectPublicKeyInfo Ed25519 public key
         name: User-chosen label ("mike-laptop")
@@ -82,8 +83,8 @@ class PairingCodeIssued:
 
 
 def generate_device_uid() -> str:
-    """Generate a device UID: ``device_<8 random hex chars>`` (ADR-075)."""
-    return f"{DEVICE_UID_PREFIX}{secrets.token_hex(4)}"
+    """Generate a device UID: ``device_<16 random hex chars>`` (ADR-075)."""
+    return UIDGenerator.generate_random_uid("device")
 
 
 def generate_pairing_code() -> str:
@@ -109,7 +110,6 @@ def pairing_code_expiry(now: datetime | None = None) -> datetime:
 
 __all__ = [
     "DEVICE_NAME_MAX_LENGTH",
-    "DEVICE_UID_PREFIX",
     "PAIRING_CODE_BYTES",
     "PAIRING_CODE_TTL_MINUTES",
     "Device",

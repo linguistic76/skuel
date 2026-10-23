@@ -15,6 +15,7 @@ from typing import Any
 
 from core.models.enums import Domain
 from core.models.type_hints import EntityUID
+from core.utils.uid_grammar import hashed_uid
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -173,7 +174,7 @@ def generate_embedding_uid(
     """
     Generate unique UID for embedding record.
 
-    Format: embedding.{entity_uid}.{model}.{timestamp_ms}
+    ``hashed_uid("embedding", entity_uid, model, timestamp_ms)``.
 
     Args:
         entity_uid: Entity identifier
@@ -190,7 +191,7 @@ def generate_embedding_uid(
     model_short = model.replace("text-embedding-", "").replace("-", "")
 
     timestamp_ms = int(timestamp.timestamp() * 1000)
-    return f"embedding.{entity_uid}.{model_short}.{timestamp_ms}"
+    return hashed_uid("embedding", entity_uid, model_short, str(timestamp_ms))
 
 
 def hash_source_text(text: str) -> str:

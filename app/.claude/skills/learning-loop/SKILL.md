@@ -220,7 +220,7 @@ fulfils — refusals are 404; surfaced as the "Request AI feedback" button on
 `/gradebook/{uid}`).
 
 **Teacher transition:** students auto-join the default teacher group
-(`group_default_{admin_uid}`, the oldest admin) on PathStep enrollment, so work with no
+(`default_group_uid(admin_uid)`, the oldest admin's, flagged `is_default`) on PathStep enrollment, so work with no
 exercise can ask that teacher and be shared with the group (ADR-091 N9). A `teacher_review`
 turn-in on an exercise whose audience is `teachers` goes to its teacher directly — the
 teacher its vault file names (`teacher:` frontmatter → `(Exercise)-[:REVIEWED_BY]->(User)`,

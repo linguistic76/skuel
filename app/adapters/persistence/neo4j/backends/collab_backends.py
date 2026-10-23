@@ -259,6 +259,8 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
     ) -> Result[list[Neo4jProperties]]:
         """MERGE the admin's default group, creating it if it doesn't exist.
 
+        Keyed by ``default_group_uid``; a group this creates carries
+        ``is_default = true``, the property the co-membership predicate reads.
         Returns a record with group_uid.
         """
         query = f"""
@@ -267,6 +269,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         ON CREATE SET g.name = 'Default Group',
                       g.description = 'Auto-created default group',
                       g.is_active = true,
+                      g.is_default = true,
                       g.created_at = datetime($now)
         RETURN g.uid AS group_uid
         """

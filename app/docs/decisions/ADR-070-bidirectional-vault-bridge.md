@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-10-18
+updated: 2026-10-23
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -380,7 +380,7 @@ targets linked across users; a Group file's `owner_uid` beat the vault owner; a 
    node someone else owns; the file is refused in words that never say whose it is. The
    single-owner "stale owner" delete it replaces was the same statement as the takeover.
 3. **Per-file identity.** A uid-less personal Activity or life-path file takes
-   `{prefix}_{slug}_{8 hex}`, the hex derived from its owner and path — so a sync whose tracker
+   `hashed_uid(prefix, owner, path)` (`{prefix}_{16 hex}`) — so a sync whose tracker
    stamp was lost derives the same uid, and two owners never share one — and keeps it through
    its tracker row (re-sync, rename, retry), the path-keyed identity `user_entry` notes already
    had. The content vault keeps `{prefix}.{file stem}`.

@@ -5,7 +5,7 @@ may share with, and it is pinned here on the real Cypher because the
 default-group carve-out is a *shape* rule (which edge reaches the group), not
 a name rule a mocked backend could answer:
 
-    admin ─OWNS─▶ group_default_admin ◀─MEMBER_OF─ alice, bob   (the enrolled platform)
+    admin ─OWNS─▶ default group ◀─MEMBER_OF─ alice, bob         (the enrolled platform)
     teacher ─OWNS─▶ class ◀─MEMBER_OF─ alice, carol              (a real class)
     teacher ─OWNS─▶ old_class (inactive) ◀─MEMBER_OF─ alice, dave
 
@@ -58,7 +58,7 @@ CREATE (admin:User {uid: $admin, title: $admin_name, is_active: true}),
        (carol:User {uid: $carol, title: $carol_name, is_active: true}),
        (dave:User {uid: $dave, title: $dave_name, is_active: true}),
        (erin:User {uid: $erin, title: $erin_name, is_active: true}),
-       (dg:Group {uid: $default_group, name: 'Default Group', is_active: true}),
+       (dg:Group {uid: $default_group, name: 'Default Group', is_active: true, is_default: true}),
        (cl:Group {uid: $class, name: 'Class', is_active: true}),
        (old:Group {uid: $old_class, name: 'Old class', is_active: false})
 CREATE (admin)-[:OWNS]->(dg), (teacher)-[:OWNS]->(cl), (teacher)-[:OWNS]->(old)
@@ -149,6 +149,21 @@ class TestTheReads:
         sharing, _ = graph
         assert (await sharing.shares_group_with(ALICE, BOB)).value is False
         assert (await sharing.resolve_co_member(ALICE, "r8_bob_name")).value is None
+
+    async def test_the_default_group_is_known_by_is_default_never_by_its_uid(
+        self, graph: Any
+    ) -> None:
+        """Without the flag the default group's roster counts; with it, any group's does not."""
+        sharing, backend = graph
+        await backend.execute_query(
+            "MATCH (g:Group {uid: $uid}) SET g.is_default = false", {"uid": DEFAULT_GROUP}
+        )
+        assert (await sharing.shares_group_with(ALICE, BOB)).value is True
+        await backend.execute_query(
+            "MATCH (g:Group {uid: $uid}) SET g.is_default = true", {"uid": CLASS}
+        )
+        assert (await sharing.shares_group_with(ALICE, CAROL)).value is False
+        assert (await sharing.shares_group_with(ALICE, TEACHER)).value is True  # its owner
 
     async def test_an_inactive_group_grants_nothing(self, graph: Any) -> None:
         sharing, _ = graph
