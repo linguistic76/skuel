@@ -123,6 +123,16 @@ def test_content_uids_are_cleared_only_where_they_are_their_entitys() -> None:
     assert len(plan.stops) == 3
 
 
+def test_an_entity_holding_two_contents_is_a_stop() -> None:
+    """Each Content alone has one holder; the entity holding both is what stops the run."""
+    plan = migration.Plan()
+    migration.plan_content(
+        [{"uid": "ps.a.b", "holders": ["ps.a.b"]}, {"uid": "ps.a.b", "holders": ["ps.a.b"]}],
+        plan,
+    )
+    assert plan.stops == ["ps.a.b holds 2 Content nodes"]
+
+
 async def test_a_plan_with_a_stop_writes_nothing() -> None:
     plan = _plan(CONTENT, [_row("ps.a.b:chunk:0", None, None)])
 

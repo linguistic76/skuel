@@ -24,7 +24,9 @@ rename cannot account for:
 - a uid in neither the old shape nor the one ``chunk_uid`` mints for it;
 - two chunks the rename would give one uid, or a new uid another chunk holds;
 - a :Content node held by no entity or by more than one, or whose uid is not
-  its entity's.
+  its entity's;
+- an entity holding more than one :Content node — the uid-less MERGE would
+  bind every one of them, and its chunks would be written once per Content.
 
 States per chunk: old shape → renamed; already ``chunk_uid`` of its parent and
 sequence (a re-chunk since the code changed, or an earlier run) → left alone.
@@ -220,9 +222,15 @@ def plan_chunks(label: ChunkLabel, rows: list[Row], plan: Plan) -> None:
 
 
 def plan_content(rows: list[Row], plan: Plan) -> None:
-    """Count the Content uids to clear; a Content not held by exactly one entity is a stop."""
+    """Count the Content uids to clear; Content and entities must pair one to one.
+
+    A Content held by no entity or by several, a Content whose uid is not its
+    entity's, and an entity holding more than one Content are each a stop.
+    """
+    held_by: Counter[str] = Counter()
     for row in rows:
         uid, holders = row["uid"], [str(h) for h in row["holders"]]
+        held_by.update(holders)
         if len(holders) != 1:
             plan.stops.append(f"{_CONTENT} {uid!r} is held by {len(holders)} entities")
             continue
@@ -232,6 +240,9 @@ def plan_content(rows: list[Row], plan: Plan) -> None:
             plan.content_to_clear += 1
         else:
             plan.stops.append(f"{_CONTENT} {uid!r} is held by {holders[0]}, another uid")
+    for holder, count in sorted(held_by.items()):
+        if count > 1:
+            plan.stops.append(f"{holder} holds {count} {_CONTENT} nodes")
 
 
 async def _fetch(
