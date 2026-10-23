@@ -349,6 +349,24 @@ _STOPS: dict[str, tuple[str, dict[str, Any], str]] = {  # boundary: cypher param
         {"chunk": chunk_uid(ChunkStore.CONTENT, NOTE, 1)},
         "not chunk_uid of",
     ),
+    "an edge file naming a renamed source": (
+        "CREATE (:IngestionMetadata {file_path: '/vault/edges/applies.yaml', "
+        "entity_uid: 'edge:' + $task + '|APPLIES_KNOWLEDGE|ku.zzzgumig.stays'})",
+        {},
+        "tracker row /vault/edges/applies.yaml: its file names a renamed uid",
+    ),
+    "an edge file naming a renamed target": (
+        "CREATE (:IngestionMetadata {file_path: '/vault/edges/serves.yaml', "
+        "entity_uid: 'edge:ku.zzzgumig.stays|RELATED_TO|' + $task})",
+        {},
+        "tracker row /vault/edges/serves.yaml: its file names a renamed uid",
+    ),
+    "a file authoring an edge to a renamed uid": (
+        "MATCH (m:IngestionMetadata {file_path: $vault_file}) "
+        "SET m.authored_edges = ['RELATED_TO|outgoing|' + $task]",
+        {},
+        f"tracker row {VAULT_FILE}: its file names a renamed uid",
+    ),
     "a uid two nodes hold": (
         "CREATE (:Notification {uid: $task})",
         {},

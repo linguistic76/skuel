@@ -46,7 +46,9 @@ rename cannot account for:
   uid two nodes already hold;
 - a value naming a renamed uid any other way — inside a longer string that is
   not a JSON map, or in a JSON property that does not read back to its own text
-  — outside ``QUOTING_PROPERTIES``.
+  — outside ``QUOTING_PROPERTIES``; a tracker row's edge identity or
+  authored-edge key naming one is what its vault file declares, so the stop names
+  the file to edit.
 
 Run order (the live graph is AuraDB; run under ``direnv exec .`` so the
 credentials resolve):
@@ -102,6 +104,7 @@ OLD_DEFAULT_GROUP_PREFIX = "group_default_"
 
 _ENTITY = NeoLabel.ENTITY.value
 _USER = NeoLabel.USER.value
+_TRACKER = NeoLabel.INGESTION_METADATA.value
 _GROUP = NeoLabel.GROUP.value
 _CONTENT = NeoLabel.CONTENT.value
 _CONTENT_CHUNK = NeoLabel.CONTENT_CHUNK.value
@@ -352,9 +355,13 @@ def plan_chunks(rows: list[Row], plan: Plan) -> None:
 
 
 def _uid_pattern(uids: set[str] | dict[str, str]) -> re.Pattern[str]:
-    """Any of ``uids`` as a whole token — not inside a longer uid."""
+    """Any of ``uids`` as a whole token — not inside a longer uid.
+
+    A uid's characters are ``[a-z0-9._-]``; anything else around one — the ``:``
+    of an ``edge:`` tracker identity, a ``|``, a ``/``, a space — bounds it.
+    """
     alternatives = "|".join(re.escape(uid) for uid in sorted(uids, key=len, reverse=True))
-    return re.compile(rf"(?<![a-z0-9._:-])(?:{alternatives})(?![a-z0-9._:-])")
+    return re.compile(rf"(?<![a-z0-9._-])(?:{alternatives})(?![a-z0-9._-])")
 
 
 def _json_values(parsed: object, new_uid_of: dict[str, str]) -> object:
@@ -425,6 +432,14 @@ def plan_rewrites(target: str, rows: list[Row], plan: Plan) -> None:
                 )
             elif verdict == "quotes" and _quotes_by_design(target, row, str(key)):
                 plan.quoted[where] += 1
+            elif verdict == "quotes" and target == "node" and _TRACKER in row["labels"]:
+                # An edge identity and an authored-edge key are what a vault file
+                # declares: the file names the uid, and the run edits no file.
+                path = dict(row["props"]).get("file_path")
+                plan.stops.append(
+                    f"tracker row {path}: its file names a renamed uid ({key}) — "
+                    "edit the file to the new uid first"
+                )
             elif verdict == "quotes":
                 plan.stops.append(f"{target} {where} names a renamed uid inside other text")
 
