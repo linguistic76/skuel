@@ -231,8 +231,7 @@ class Neo4jQueryExecutor:
 
         try:
             # Mixed-label batches (User→Goal PURSUING_GOAL, User→User FOLLOWS,
-            # User→Group MEMBER_OF) — endpoints stay unlabeled; the builder
-            # excludes :Content shadows so entity endpoints can't double-bind.
+            # User→Group MEMBER_OF) — endpoints stay unlabeled.
             queries = BatchCypherBuilder.build_relationship_create_queries(
                 relationships, endpoint_label=None
             )

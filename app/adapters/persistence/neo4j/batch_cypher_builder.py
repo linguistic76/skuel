@@ -116,12 +116,10 @@ class BatchCypherBuilder:
             result = BatchCypherBuilder.build_relationship_properties_query(rels)
             records = await backend.execute_query(result.query, result.params)
         """
-        # NOT :Content — chunk-store shadow nodes share their entity's uid; an
-        # unguarded uid MATCH binds both and duplicates rows (G13).
         query = """
         UNWIND $rels as rel
         OPTIONAL MATCH (a {uid: rel.from_uid})-[r]->(b {uid: rel.to_uid})
-        WHERE type(r) = rel.rel_type AND NOT a:Content AND NOT b:Content
+        WHERE type(r) = rel.rel_type
         RETURN rel.from_uid as from_uid, rel.to_uid as to_uid, rel.rel_type as rel_type, properties(r) as props
         """
 
@@ -159,11 +157,10 @@ class BatchCypherBuilder:
             records = await backend.execute_query(result.query, result.params)
             deleted_count = records[0]["deleted_count"] if records else 0
         """
-        # NOT :Content — G13 shadow-uid guard (see build_relationship_create_query).
         query = """
         UNWIND $rels as rel
         MATCH (a {uid: rel.from_uid})-[r]-(b {uid: rel.to_uid})
-        WHERE type(r) = rel.rel_type AND NOT a:Content AND NOT b:Content
+        WHERE type(r) = rel.rel_type
         DELETE r
         RETURN count(r) as deleted_count
         """
@@ -221,13 +218,11 @@ class BatchCypherBuilder:
 
         results: dict[str, BatchQueryResult] = {}
 
-        # NOT :Content in all three below — G13 shadow-uid guard
-        # (see build_relationship_create_query).
         if outgoing:
             query = """
             UNWIND $pairs as pair
             MATCH (n {uid: pair.uid})-[r]->(related)
-            WHERE type(r) = pair.rel_type AND NOT n:Content
+            WHERE type(r) = pair.rel_type
             RETURN pair.uid as uid, pair.rel_type as rel_type, count(r) as count
             """
             pairs_data = [{"uid": uid, "rel_type": rel_type} for uid, rel_type in outgoing]
@@ -239,7 +234,7 @@ class BatchCypherBuilder:
             query = """
             UNWIND $pairs as pair
             MATCH (n {uid: pair.uid})<-[r]-(related)
-            WHERE type(r) = pair.rel_type AND NOT n:Content
+            WHERE type(r) = pair.rel_type
             RETURN pair.uid as uid, pair.rel_type as rel_type, count(r) as count
             """
             pairs_data = [{"uid": uid, "rel_type": rel_type} for uid, rel_type in incoming]
@@ -251,7 +246,7 @@ class BatchCypherBuilder:
             query = """
             UNWIND $pairs as pair
             MATCH (n {uid: pair.uid})-[r]-(related)
-            WHERE type(r) = pair.rel_type AND NOT n:Content
+            WHERE type(r) = pair.rel_type
             RETURN pair.uid as uid, pair.rel_type as rel_type, count(r) as count
             """
             pairs_data = [{"uid": uid, "rel_type": rel_type} for uid, rel_type in both]
@@ -305,18 +300,17 @@ class BatchCypherBuilder:
 
         Pure Cypher approach - relationship type is literal in the query.
 
-        ``endpoint_label`` guards against the chunk store's ``:Content`` shadow
-        nodes, which keep the SAME uid as their entity — an unguarded
-        ``MATCH {uid}`` binds both and duplicates every edge (found live:
-        doubled INTERACTION_DURING, systems review 2026-07-03):
+        ``endpoint_label`` is the label both endpoints are matched under:
 
-        - ``"Entity"`` (default) — both endpoints bound to ``:Entity``. Right
-          for registry-validated entity↔entity edges
+        - ``"Entity"`` (default) — both endpoints bound to ``:Entity``, an index
+          seek per uid. Right for registry-validated entity↔entity edges
           (``create_relationships_batch`` on the universal backend).
         - ``None`` — unlabeled endpoints for mixed-label batches
           (User→Goal PURSUING_GOAL, User→User FOLLOWS, User→Group MEMBER_OF via
-          ``Neo4jQueryExecutor``), with an explicit ``NOT :Content`` exclusion
-          so entity endpoints in those batches still can't double-bind.
+          ``Neo4jQueryExecutor``).
+
+        Endpoints are MATCHed and only the edge is MERGEd, so a uid that names
+        no node creates nothing.
 
         Args:
             rel_type: The relationship type (e.g., "APPLIES_KNOWLEDGE")
@@ -342,9 +336,7 @@ class BatchCypherBuilder:
         return f"""
         UNWIND $rels AS rel
         MATCH (a {{uid: rel.from_uid}})
-        WHERE NOT a:Content
         MATCH (b {{uid: rel.to_uid}})
-        WHERE NOT b:Content
         MERGE (a)-[r:{rel_type}]->(b)
         SET r += rel.properties
         RETURN count(r) as created_count
@@ -366,7 +358,6 @@ class BatchCypherBuilder:
             endpoint_label: Endpoint binding forwarded to
                 ``build_relationship_create_query`` — ``"Entity"`` for
                 entity↔entity batches, ``None`` for mixed User/Group batches
-                (see that method's docstring for the :Content-shadow rationale)
 
         Returns:
             List of (query, rels_data) tuples ready for execution.

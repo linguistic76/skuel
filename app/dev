@@ -455,7 +455,7 @@ case "$1" in
     echo "  ./dev eval-chunk-retrieval - hit@k eval of /search chunk retrieval (FULL tier; --json)"
     echo "  ./dev eval-askesis-draw - Askesis chunk-draw arms: intent filter vs thin-draw (FULL tier; --json)"
     echo "  ./dev eval-intent-classification - Askesis intent classification: labelled set × aggregation arms (FULL tier; --json)"
-    echo "  ./dev uid-census - Read every node uid against the uid grammar, per label (read-only)"
+    echo "  ./dev uid-census - Read every node uid against the uid grammar, per label (read-only; exits 1 on a uid two nodes hold)"
     echo "  ./dev telemetry-retention - Prune unbounded-growth telemetry (ADR-080 H0; --dry-run | --days N)"
     echo "  ./dev reconcile-learning-progress - Derived step MASTERED edges + uninitialized enrollment recounts (--dry-run)"
   echo "  ./dev reconcile-goal-tallies - Recompute TASK_BASED goals whose stored tally disagrees with their contributions (--dry-run)"

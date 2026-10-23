@@ -307,7 +307,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             params.update(far_node_params)
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-        # The anchor is bound by index seeks, NOT :Content (G13): build_uid_anchor.
+        # build_uid_anchor binds the anchor by index seeks, one per label it can carry.
         query = f"""
         {build_uid_anchor("n", "$uid", self.label)}
         {owners_line}
@@ -354,7 +354,6 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         rel_type = relationship_type.value
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
-        WHERE NOT a:Content AND NOT b:Content
         RETURN properties(r) as props
         """
 
@@ -406,7 +405,6 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         rel_type = relationship_type.value
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
-        WHERE NOT a:Content AND NOT b:Content
         SET r += $properties
         RETURN r
         """
@@ -612,7 +610,6 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         """
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
-        WHERE NOT a:Content AND NOT b:Content
         SET r = $metadata
         RETURN r
         """
@@ -659,7 +656,6 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         """
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
-        WHERE NOT a:Content AND NOT b:Content
         SET r.traversal_count = coalesce(r.traversal_count, 0) + 1,
             r.last_traversed = datetime()
         RETURN r.traversal_count as count

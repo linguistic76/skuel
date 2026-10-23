@@ -44,7 +44,9 @@ FIX categories (--apply):
 
 REPORT-ONLY categories (never touched by --apply):
   R4  Structural anomalies: :Entity nodes missing entity_type, nodes with ≠1
-      domain label, :Content nodes carrying EXTRACTED_FROM (G13).
+      domain label, :Content nodes off their subtree (another label, a uid,
+      not exactly one :Entity holder, or an edge other than HAS_CONTENT in
+      from an :Entity / HAS_CHUNK out to a :ContentChunk).
 
 Off-vault direct graph writes are sanctioned HERE and only here (R4 ruling):
 these are user/app-owned rows, not vault-governed content. Content-vault
@@ -121,10 +123,9 @@ def expected_types_by_label() -> dict[str, str]:
 def domain_label(labels: list[str]) -> str | None:
     """The single domain label of a node, or None if it doesn't have exactly one.
 
-    :Entity is the shared base label; :Content is the chunk-shadow label (G13)
-    — neither is a domain identity.
+    :Entity is the shared base label, not a domain identity.
     """
-    domain = [lb for lb in labels if lb not in ("Entity", "Content")]
+    domain = [lb for lb in labels if lb != "Entity"]
     return domain[0] if len(domain) == 1 else None
 
 
@@ -536,13 +537,23 @@ async def fetch_anomalies(driver: AsyncDriver) -> dict[str, list[dict[str, Any]]
         ),
         "not exactly one domain label": (
             "MATCH (n:Entity) "
-            "WITH n, [l IN labels(n) WHERE NOT l IN ['Entity','Content']] AS dl "
+            "WITH n, [l IN labels(n) WHERE l <> 'Entity'] AS dl "
             "WHERE size(dl) <> 1 RETURN n.uid AS uid, labels(n) AS labels"
         ),
-        ":Content carrying EXTRACTED_FROM (G13)": (
-            "MATCH (c:Content)-[:EXTRACTED_FROM]->(entry) "
-            "OPTIONAL MATCH (holder:Entity)-[:HAS_CONTENT]->(c) "
-            "RETURN holder.uid AS uid, entry.uid AS entry_uid"
+        # A :Content node carries no other label and no uid, and is reached
+        # only through its one :Entity holder's HAS_CONTENT edge; its own edges
+        # out are HAS_CHUNK to :ContentChunk. An edge is in the subtree only
+        # with both ends right.
+        ":Content off its subtree": (
+            "MATCH (c:Content) "
+            "WITH c, [l IN labels(c) WHERE l <> 'Content'] AS extra_labels, "
+            "[(holder:Entity)-[:HAS_CONTENT]->(c) | holder.uid] AS holders, "
+            "[(c)-[r]-(x) WHERE NOT (type(r) = 'HAS_CONTENT' AND endNode(r) = c AND x:Entity) "
+            "AND NOT (type(r) = 'HAS_CHUNK' AND startNode(r) = c AND x:ContentChunk) "
+            "| type(r)] AS stray "
+            "WHERE size(extra_labels) > 0 OR c.uid IS NOT NULL "
+            "OR size(holders) <> 1 OR size(stray) > 0 "
+            "RETURN holders, c.uid AS content_uid, stray, extra_labels"
         ),
     }
     for name, query in queries.items():

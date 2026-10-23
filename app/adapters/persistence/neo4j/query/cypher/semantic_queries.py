@@ -122,11 +122,9 @@ def build_semantic_merge(
     Build the MERGE query + params that persist a single semantic triple.
 
     Only the edge is merged. Both endpoints are ``MATCH``ed as ``:Entity`` —
-    an unlabeled ``MERGE`` on a uid would bind a Ku's ``:Content`` shadow
-    beside the Ku (two edges, G13) and would CREATE a bare node for a uid
-    that names nothing. A triple whose endpoint is absent therefore writes
-    nothing and returns no row; the caller reads the empty result as not
-    found.
+    a ``MERGE`` on a uid would CREATE a bare node for a uid that names
+    nothing. A triple whose endpoint is absent therefore writes nothing and
+    returns no row; the caller reads the empty result as not found.
 
     The relationship label is sourced from the ``SemanticRelationshipType``
     enum (a closed vocabulary) and validated as a safe identifier before
@@ -267,9 +265,8 @@ def build_domain_context_with_paths(
     # Build direction pattern
     direction_pattern = "" if bidirectional else ">"
 
-    # Match on the domain label when supplied (index-friendly); else on the
-    # universal :Entity label — never on uid alone, which would also bind a
-    # :Content shadow (G13).
+    # Match on the domain label when supplied; else on the universal :Entity
+    # label. Either is an index seek on the uid.
     center_pattern = (
         f"(center:{node_label} {{uid: $uid}})" if node_label else "(center:Entity {uid: $uid})"
     )

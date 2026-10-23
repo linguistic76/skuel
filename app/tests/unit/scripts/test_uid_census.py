@@ -8,7 +8,7 @@ from pathlib import Path
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
-from uid_census import label_of, render, take_census  # type: ignore[import-not-found]
+from uid_census import exit_code, label_of, render, take_census  # type: ignore[import-not-found]
 
 
 def test_label_drops_entity() -> None:
@@ -56,6 +56,12 @@ def test_no_shared_uid_renders_none() -> None:
     census = take_census([(["Entity", "Ku"], "ku.a.b"), (["ContentChunk"], "chunk_00ff")])
     assert census.shared == {}
     assert "Uids held by more than one node:\n  (none)" in render(census, {})
+
+
+def test_a_shared_uid_fails_the_census_and_a_misfit_does_not() -> None:
+    assert exit_code(take_census([(["Entity", "Ku"], "ku.a.b"), (["Group"], "ku.a.b")])) == 1
+    # Outside the charset and in no exemption: reported, never failed.
+    assert exit_code(take_census([(["Entity", "Ku"], "ku.Bad")])) == 0
 
 
 def test_a_shape_two_exemptions_share_is_counted_under_both_names() -> None:

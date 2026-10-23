@@ -29,9 +29,6 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
 _ENGAGED_WITH = RelationshipName.ENGAGED_WITH.value
-# Every uid-anchored PathStep or instance binds :Entity — a PathStep with a
-# body has a :Content shadow on the same uid, and an unlabeled anchor would
-# open, read and close the engagement against both nodes (G13).
 _OWNS = RelationshipName.OWNS.value
 # An instance's engagement_state — the spawn orchestrator writes it through
 # EngagementState, so every read and write here binds it from the enum too.
@@ -186,8 +183,6 @@ class PsEngagementBackend:
     async def delete_instance(
         self, instance_uid: str, operation: str
     ) -> Result[list[dict[str, Any]]]:
-        # :Entity — an unlabeled uid DETACH DELETE could take a :Content
-        # shadow node with it (G13); spawned instances are always entities.
         # The goals the instance contributed to are read before the DETACH takes
         # the edges, so the caller can announce the goals that lose it.
         return await self._executor.execute_write(

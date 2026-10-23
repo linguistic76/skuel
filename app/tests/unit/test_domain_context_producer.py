@@ -49,7 +49,7 @@ def test_supplied_relationship_types_build_typed_pattern() -> None:
 
 def test_entity_label_match_when_no_label() -> None:
     """``node_label=None`` binds the universal ``:Entity`` label — the intent path has only
-    the domain, and a uid-only anchor would also bind a ``:Content`` shadow (G13)."""
+    the domain, and ``:Entity`` keeps the anchor an index seek."""
     query, _ = build_domain_context_with_paths("uid", node_label=None)
     assert "MATCH (center:Entity {uid: $uid})" in query
 

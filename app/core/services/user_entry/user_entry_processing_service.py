@@ -634,10 +634,8 @@ class UserEntryProcessingService:
         existing_extracted: dict[tuple[str, str], str] = {}
         for row in extracted_rows:
             # Node label is the never-sniff-compliant type source; :Entity is
-            # the shared base label, :Content the chunk-shadow label (G13).
-            label = next(
-                (lb for lb in row.get("labels", []) if lb not in ("Entity", "Content")), None
-            )
+            # the shared base label.
+            label = next((lb for lb in row.get("labels", []) if lb != "Entity"), None)
             if label and row.get("title") and row.get("entity_uid"):
                 existing_extracted[semantic_dedup_key(label, row["title"])] = row["entity_uid"]
 
@@ -652,7 +650,7 @@ class UserEntryProcessingService:
             return await self._fail(entry, twins_result.expect_error(), phase="read_provenance")
         user_owned_semantic: dict[tuple[str, str], str] = {}
         for twin in twins_result.value or []:
-            label = next((lb for lb in twin["labels"] if lb not in ("Entity", "Content")), None)
+            label = next((lb for lb in twin["labels"] if lb != "Entity"), None)
             if label and twin["title"] and twin["entity_uid"]:
                 user_owned_semantic.setdefault(
                     semantic_dedup_key(label, twin["title"]), twin["entity_uid"]

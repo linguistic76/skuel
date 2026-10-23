@@ -15,17 +15,17 @@ RETURN t
 
 **When to use**: Any user-owned read — missing the OWNS hop is a security bug (return not-found, not forbidden).
 
-### Entity fetch with label guard (G13 shadow rule)
+### Entity fetch anchored on a label
 
 ```cypher
-// Entity-only paths — bind the universal base label
+// Entity-only paths — bind the universal base label: an index seek
 MATCH (n:Entity {uid: $uid})
 
-// Mixed-label paths (endpoints may be User/Group/…) — exclude the :Content shadow
-MATCH (n {uid: $uid}) WHERE NOT n:Content   // an AllNodesScan: on a hot path use build_uid_anchor
+// Mixed-label paths (endpoints may be User/Group/…) — build_uid_anchor("n", "$uid"):
+// one index seek per label a uid can name
 ```
 
-**When to use**: Always. An unlabeled `MATCH ({uid: $uid})` binds BOTH the entity and its `:Content` chunk-store shadow node.
+**When to use**: Always. A uid names one node (SKILL.md § 0); an unlabeled `MATCH ({uid: $uid})` finds it by an `AllNodesScan`.
 
 ### Temporal comparison on string-stored fields
 
@@ -100,7 +100,7 @@ CALL db.index.vector.queryNodes('entity_embedding_idx', 10, $embedding) YIELD no
 
 | Problem | Solution |
 |---------|----------|
-| Unlabeled `MATCH ({uid: ...})` doubles rows | Label guard: `:Entity` or `WHERE NOT n:Content` (G13) |
+| Unlabeled `MATCH ({uid: ...})` scans every node | Anchor on `:Entity`, or `build_uid_anchor` for mixed-label endpoints |
 | `string >= datetime()` → null, rows vanish | Coerce stored side: `datetime(n.field) >= datetime($w)` |
 | `date()` on a datetime string → error | `date(datetime(field))` |
 | Per-domain ownership edges (`HAS_TASK`-style) | There is one ownership edge: `(u:User)-[:OWNS]->(e)` (ADR-086) |

@@ -25,8 +25,7 @@ RETURN true as success
 // LateralRelationshipBackend.create_relationship — the edge type is validated, the
 // metadata map is merged on every call, created_at is kept from the first write.
 // Both endpoints are bound FIRST, as :Entity; a MERGE on unbound names would create
-// two anonymous nodes and link those, and an unlabeled uid would also bind a
-// :Content shadow (SKILL.md § 0).
+// two anonymous nodes and link those (SKILL.md § 0).
 MATCH (source:Entity {uid: $source_uid})
 MATCH (target:Entity {uid: $target_uid})
 MERGE (source)-[r:RELATED_TO]->(target)
@@ -38,7 +37,7 @@ RETURN r, r.created_at AS created_at
 **Trade-offs**:
 - MERGE is idempotent — safe to call multiple times
 - `SET` overwrites on every call; `ON CREATE SET` writes only on first creation — the lateral writer uses both so a re-assert keeps the original `created_at`
-- Both endpoints bind `:Entity`, as the hierarchy writer's do — SKILL.md § 0 (an unlabeled uid anchor would also bind a Ku / PathStep's `:Content` shadow and double the edge)
+- Both endpoints bind `:Entity`, as the hierarchy writer's do — SKILL.md § 0 (a label makes each anchor an index seek)
 
 **Real-world usage**: hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), LP/PS construction (`HAS_STEP`, `USES_KU`, `CONTAINS_KNOWLEDGE`). Cross-domain relationship creation (task→knowledge, goal→habit, etc.) is handled by `UnifiedRelationshipService`, not domain backends. **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
 
@@ -101,7 +100,7 @@ if not records:
 ```cypher
 // BatchCypherBuilder.build_relationship_create_query("APPLIES_KNOWLEDGE") —
 // the one batch relationship writer (rel type is literal; :Entity endpoint
-// labels guard against :Content shadow-uid double-binding)
+// labels make each endpoint an index seek)
 UNWIND $rels AS rel
 MATCH (a:Entity {uid: rel.from_uid})
 MATCH (b:Entity {uid: rel.to_uid})
@@ -113,7 +112,6 @@ RETURN count(r) as created_count
 // Habit backend — the far-node clause (build_link_far_node_clause) it adds is omitted
 UNWIND $entity_uids AS entity_uid
 MATCH (e:Habit {uid: entity_uid})
-WHERE NOT e:Content
 OPTIONAL MATCH (e)-[r:REINFORCES_KNOWLEDGE]->(related)
 RETURN entity_uid, collect(related.uid) AS related_uids
 ```

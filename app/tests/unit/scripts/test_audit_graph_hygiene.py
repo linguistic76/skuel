@@ -33,9 +33,9 @@ class TestExpectedTypes:
         assert m["Ku"] == "ku"
         assert m["PathStep"] == "path_step"
 
-    def test_domain_label_ignores_base_and_shadow_labels(self):
+    def test_domain_label_ignores_the_base_label(self):
         assert domain_label(["Entity", "Habit"]) == "Habit"
-        assert domain_label(["Entity", "Content", "PathStep"]) == "PathStep"
+        assert domain_label(["Entity", "Content", "PathStep"]) is None
         assert domain_label(["Entity"]) is None
         assert domain_label(["Entity", "Habit", "Goal"]) is None
 

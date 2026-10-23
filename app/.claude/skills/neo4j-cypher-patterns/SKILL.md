@@ -271,33 +271,27 @@ All DDL is idempotent (`IF NOT EXISTS`) — safe on every startup.
 
 ## Best Practices
 
-### 0. Never MATCH by uid without a label guard (G13 shadow rule)
+### 0. Anchor a uid on a label
 
-The chunk store's `:Content` node (`neo4j_content_adapter.py` — `MERGE (c:Content {uid: $uid})`,
-the Ku / PathStep whose body it holds) shares its entity's uid, so an unlabeled
-`MATCH (n {uid: $uid})` binds BOTH nodes — duplicated rows, doubled MERGE
-edges, misread labels. Every uid-anchored pattern under `adapters/persistence/`
-carries the guard, and `tests/unit/test_g13_shadow_uid_census.py` fails on a new
-one without it. The census reads each Cypher string on its own, so a pattern
-composed across two strings (a `match_pattern` built in Python and spliced in)
-is yours to guard where the variable is introduced. A `MERGE` on an unlabeled
-uid is worse than a double bind: it CREATES a bare node for a uid that names
-nothing — `MATCH` the endpoints with the guard, then `MERGE` only the edge
-(`build_semantic_merge`). Two sanctioned forms:
+A uid names one node, across every label — `./dev uid-census` exits 1 on a uid two
+nodes hold (no constraint can say it across labels). A `:Content` node has no uid: it is
+reached through its entity's `HAS_CONTENT` edge (`neo4j_content_adapter.py`). So a uid
+match binds at most one node, and the label decides only how it is found: a label is
+an index seek, no label is an `AllNodesScan` per uid.
 
 ```cypher
-// Entity-only paths — bind the universal base label
+// Entity-only paths — the universal base label (or the domain label)
 MATCH (n:Entity {uid: $uid})
-
-// Mixed-label paths (endpoints may be User/Group/…) — exclude the shadow
-MATCH (n {uid: $uid}) WHERE NOT n:Content
 ```
 
-The second form has no label, so it plans as an `AllNodesScan` per uid. On a hot path
-— the link-edge guard's endpoint reads, the keyed anchor reads — bind the uid with
-`build_uid_anchor` (`adapters/persistence/neo4j/endpoint_queries.py`) instead: a `CALL`
-`UNION` of one index seek per label a uid can name (`:Entity`, `:User`, `:Group`, plus the
-backend's own label), which still sees a User or a Group and binds nothing else.
+Where an endpoint may be a User or a Group (outside `:Entity`), bind the uid with
+`build_uid_anchor` (`adapters/persistence/neo4j/endpoint_queries.py`): a `CALL` `UNION`
+of one index seek per label a uid can name (`:Entity`, `:User`, `:Group`, plus the
+backend's own label), which sees a User or a Group and binds no node of any other
+label. An unlabeled `MATCH (n {uid: $uid})` binds the same node, by a scan.
+
+A `MERGE` on a uid CREATES a bare node for a uid that names nothing — `MATCH` the
+endpoints, then `MERGE` only the edge (`build_semantic_merge`).
 
 ### 1. Always Use Parameters
 

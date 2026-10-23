@@ -324,9 +324,8 @@ class LateralRelationshipBackend:
         """MERGE a lateral relationship between two entities (upsert, idempotent).
 
         Both ends bind ``:Entity`` — the label every endpoint carries by the
-        ``check_entities_exist`` contract, and the guard that keeps a Ku or
-        PathStep with a body from binding its ``:Content`` shadow too (G13);
-        every writer and reader in this block binds the same way.
+        ``check_entities_exist`` contract; every writer and reader in this block
+        binds the same way.
 
         ``created_at`` is stamped ``ON CREATE`` only, so re-asserting an existing
         edge refreshes its metadata without rewriting when the edge first
@@ -767,8 +766,6 @@ class LateralRelationshipBackend:
         caller cannot tell the two apart. ``None`` counts any entity. The aggregate always yields one
         row, so a missing entity is a count of 0, not an empty result.
         """
-        # :Entity for the same reason as below — a :Content shadow shares its
-        # entity's uid (G13).
         return await self.executor.execute_query(
             """
             MATCH (entity:Entity {uid: $entity_uid})
@@ -794,9 +791,8 @@ class LateralRelationshipBackend:
         absent, zeroing BOTH counts — a missing target would read as a missing
         source.
         """
-        # :Entity throughout this validation block — a :Content shadow shares
-        # its entity's uid, so unlabeled uid MATCHes double-count/misvalidate
-        # (G13); lateral-relationship endpoints are always entities.
+        # :Entity throughout this validation block — lateral-relationship
+        # endpoints are always entities.
         return await self.executor.execute_query(
             """
             OPTIONAL MATCH (source:Entity {uid: $source_uid})

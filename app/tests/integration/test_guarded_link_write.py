@@ -116,7 +116,6 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:  # boundary: fast
         CREATE (:Entity:Ku {uid: $draft, title: $draft, entity_type: 'ku',
                             publication_state: 'draft'})
         CREATE (:Entity:Ku {uid: $ku_two, title: $ku_two, entity_type: 'ku'})
-        CREATE (:Content {uid: $ku})
         WITH 1 AS one
         MATCH (alice:User {uid: $alice})
         CREATE (g:Group {uid: $group, title: $group, owner_uid: $alice})
@@ -400,7 +399,6 @@ class TestTheUidBoundReads:
             HABIT: ["Entity", "Habit"],
             ALICE: ["User"],
             GROUP: ["Group"],
-            # The :Content shadow sharing the Ku's uid is not read.
             KU: ["Entity", "Ku"],
             # A node outside :Entity, :User and :Group reads as no node, as MISSING does.
         }
