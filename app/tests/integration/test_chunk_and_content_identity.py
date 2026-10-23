@@ -5,9 +5,9 @@
 - A chunk's uid is ``chunk_uid(store, parent, index)``: in the uid grammar, and the
   same on every re-chunk of the same body, so a queued ``ChunkEmbeddingRequested``
   still names the chunks a later re-ingest re-creates.
-- Every reader that used to find Content by uid starts at the entity now: the
-  embedding worker's store-by-uid, the batch re-chunk (which stores under the
-  entity's uid) and the vector search's parent scope.
+- Every read of a body reaches its Content through the entity: the batch re-chunk
+  (which stores under the entity's uid) and the vector search's parent scope; the
+  embedding worker stores by chunk uid, which a re-chunk re-creates.
 - The app creates a uniqueness constraint on each chunk label; the store's
   delete-then-recreate of the same uids passes it, a second node on a uid does not.
 """
