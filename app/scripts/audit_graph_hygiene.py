@@ -44,8 +44,9 @@ FIX categories (--apply):
 
 REPORT-ONLY categories (never touched by --apply):
   R4  Structural anomalies: :Entity nodes missing entity_type, nodes with ≠1
-      domain label, :Content nodes off their subtree (a uid, no single
-      :Entity holder, or an edge other than HAS_CONTENT in / HAS_CHUNK out).
+      domain label, :Content nodes off their subtree (another label, a uid,
+      not exactly one :Entity holder, or an edge other than HAS_CONTENT in
+      from an :Entity / HAS_CHUNK out to a :ContentChunk).
 
 Off-vault direct graph writes are sanctioned HERE and only here (R4 ruling):
 these are user/app-owned rows, not vault-governed content. Content-vault
@@ -539,15 +540,20 @@ async def fetch_anomalies(driver: AsyncDriver) -> dict[str, list[dict[str, Any]]
             "WITH n, [l IN labels(n) WHERE l <> 'Entity'] AS dl "
             "WHERE size(dl) <> 1 RETURN n.uid AS uid, labels(n) AS labels"
         ),
-        # A :Content node has no uid and is reached only through its one
-        # holder's HAS_CONTENT edge; its own edges out are HAS_CHUNK.
+        # A :Content node carries no other label and no uid, and is reached
+        # only through its one :Entity holder's HAS_CONTENT edge; its own edges
+        # out are HAS_CHUNK to :ContentChunk. An edge is in the subtree only
+        # with both ends right.
         ":Content off its subtree": (
             "MATCH (c:Content) "
-            "WITH c, [(holder:Entity)-[:HAS_CONTENT]->(c) | holder.uid] AS holders, "
-            "[(c)-[r]-() WHERE NOT (type(r) = 'HAS_CONTENT' AND endNode(r) = c) "
-            "AND NOT (type(r) = 'HAS_CHUNK' AND startNode(r) = c) | type(r)] AS stray "
-            "WHERE c.uid IS NOT NULL OR size(holders) <> 1 OR size(stray) > 0 "
-            "RETURN holders, c.uid AS content_uid, stray"
+            "WITH c, [l IN labels(c) WHERE l <> 'Content'] AS extra_labels, "
+            "[(holder:Entity)-[:HAS_CONTENT]->(c) | holder.uid] AS holders, "
+            "[(c)-[r]-(x) WHERE NOT (type(r) = 'HAS_CONTENT' AND endNode(r) = c AND x:Entity) "
+            "AND NOT (type(r) = 'HAS_CHUNK' AND startNode(r) = c AND x:ContentChunk) "
+            "| type(r)] AS stray "
+            "WHERE size(extra_labels) > 0 OR c.uid IS NOT NULL "
+            "OR size(holders) <> 1 OR size(stray) > 0 "
+            "RETURN holders, c.uid AS content_uid, stray, extra_labels"
         ),
     }
     for name, query in queries.items():
