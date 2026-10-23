@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from collections import Counter
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -43,7 +44,8 @@ def _plan(label: Any, rows: list[Any], elsewhere: frozenset[str] = frozenset()) 
     """Plan ``rows``; the graph's uids are theirs plus ``elsewhere`` (other nodes)."""
     plan = migration.Plan()
     migration.plan_chunks(label, rows, plan)
-    held = {row["uid"] for row in rows if row["uid"] is not None} | elsewhere
+    held = Counter(row["uid"] for row in rows if row["uid"] is not None)
+    held.update(elsewhere)
     migration.plan_collisions(plan, held)
     return plan
 
@@ -121,8 +123,16 @@ def test_two_labels_minting_one_new_uid_is_a_stop() -> None:
     plan = migration.Plan()
     same = migration.Rename(old="x:chunk:0", new="chunk_00", parent="x")
     plan.renames = {"ContentChunk": [same], "ReferenceChunk": [same]}
-    migration.plan_collisions(plan, set())
+    migration.plan_collisions(plan, Counter())
     assert plan.stops == ["2 chunks would all become chunk_00"]
+
+
+def test_a_uid_two_nodes_already_hold_is_a_stop() -> None:
+    """Two chunks already on one new-shape uid plan no write, and still stop the run."""
+    uid = chunk_uid(ChunkStore.CONTENT, "ps.a.b", 0)
+    plan = _plan(CONTENT, [_row(uid, "ps.a.b", 0), _row(uid, "ps.a.b", 0)])
+    assert plan.writes == 0
+    assert plan.stops == [f"{uid} is already held by 2 nodes"]
 
 
 def test_content_uids_are_cleared_only_where_they_are_their_entitys() -> None:

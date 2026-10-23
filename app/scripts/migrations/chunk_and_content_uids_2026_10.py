@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Chunk uids into the grammar; :Content loses its uid
-====================================================
+Chunk uids into the grammar; :Content without a uid
+=====================================================
 
-Moves the stored chunk and Content identities onto the ones the code now writes
-(uid grammar arc PR 2, ``app/plans/uid-grammar-arc.md``):
+Renames every chunk uid of the shape ``{parent}:chunk:{n}`` to the one the chunk
+stores mint, and clears the uid a :Content node shares with its entity:
 
     (:ContentChunk {uid: "{parent}:chunk:{n}"})    →  chunk_uid(CONTENT, parent, n)
     (:ReferenceChunk {uid: "{parent}:chunk:{n}"})  →  chunk_uid(REFERENCE, parent, n)
@@ -24,6 +24,7 @@ rename cannot account for:
 - a uid in neither the old shape nor the one ``chunk_uid`` mints for it;
 - two chunks the rename would give one uid, or a new uid any node in the graph
   already holds;
+- a uid two nodes already hold, other than a :Content node's and its entity's;
 - a :Content node held by no entity or by more than one, or whose uid is not
   its entity's;
 - an entity holding more than one :Content node — the uid-less MERGE would
@@ -41,8 +42,9 @@ credentials resolve):
 2. Census (no flag); ``--manifest PATH`` writes every rename as JSON.
 3. ``--confirm``: one transaction. Every rename and every cleared Content uid is
    counted inside it, and a count that differs from the census rolls it back.
-4. The script reads the graph again: no chunk uid outside the grammar, no
-   :Content with a uid, no uid on two nodes, every embedding still there.
+4. The script reads the graph again — after a ``--confirm`` that had nothing to
+   write too: no chunk uid outside the grammar, no :Content with a uid, no uid on
+   two nodes, every embedding still there.
 5. Boot the app (it creates the chunk uniqueness constraints).
 
 Usage:
@@ -146,7 +148,7 @@ REMOVE c.uid
 RETURN count(c) AS cleared
 """
 
-_ALL_UIDS = "MATCH (n) WHERE n.uid IS NOT NULL RETURN n.uid AS uid"
+_ALL_UIDS = f"MATCH (n) WHERE n.uid IS NOT NULL AND NOT n:{_CONTENT} RETURN n.uid AS uid"
 
 _SHARED_UIDS = """
 MATCH (n) WHERE n.uid IS NOT NULL
@@ -215,12 +217,17 @@ def plan_chunks(label: ChunkLabel, rows: list[Row], plan: Plan) -> None:
     plan.renames[label.label] = renames
 
 
-def plan_collisions(plan: Plan, held: set[str]) -> None:
-    """Stop on a new uid two renames share, or one a node in the graph already holds.
+def plan_collisions(plan: Plan, held: Counter[str]) -> None:
+    """Stop on any uid that would name, or already names, more than one node.
 
-    ``held`` is every uid in the graph, of any label — a uid names one node, so a
-    new chunk uid must be free graph-wide, not only among its own label.
+    ``held`` counts the nodes holding each uid in the graph, of any label, not
+    counting :Content nodes (``plan_content`` pairs those with their entity). A
+    uid names one node, so a uid already held twice stops the run, and a new chunk
+    uid must be free graph-wide, not only among its own label.
     """
+    for uid, count in sorted(held.items()):
+        if count > 1:
+            plan.stops.append(f"{uid} is already held by {count} nodes")
     renames = [rename for label_renames in plan.renames.values() for rename in label_renames]
     for new_uid, count in sorted(Counter(rename.new for rename in renames).items()):
         if count > 1:
@@ -269,7 +276,7 @@ async def census(driver: AsyncDriver) -> Plan:
     plan = Plan()
     for label in CHUNK_LABELS:
         plan_chunks(label, await _fetch(driver, label.rows_query), plan)
-    plan_collisions(plan, {str(row["uid"]) for row in await _fetch(driver, _ALL_UIDS)})
+    plan_collisions(plan, Counter(str(row["uid"]) for row in await _fetch(driver, _ALL_UIDS)))
     plan_content(await _fetch(driver, _CONTENT_ROWS), plan)
     return plan
 
@@ -398,12 +405,11 @@ async def main() -> int:
         if not args.confirm:
             print("\nCENSUS ONLY — nothing written. Stop the app, then re-run with --confirm.")
             return 0
-        if not plan.writes:
+        if plan.writes:
+            renamed, cleared = await migrate(driver, plan)
+            print(f"\nRenamed {renamed}; cleared {cleared} {_CONTENT} uid(s).")
+        else:
             print("\nNothing to rename.")
-            return 0
-
-        renamed, cleared = await migrate(driver, plan)
-        print(f"\nRenamed {renamed}; cleared {cleared} {_CONTENT} uid(s).")
 
         print("\n=== AFTER ===")
         failures = await _read_back(driver, plan)
