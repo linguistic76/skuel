@@ -892,6 +892,7 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
 
         Creates:
         - Entity.uid UNIQUENESS constraint (base label — globally unique uid)
+        - ContentChunk.uid and ReferenceChunk.uid UNIQUENESS constraints (2)
         - UID indexes for the per-type labels (18) and :Group (1)
         - user_uid indexes for the user-owned domain labels (12)
         - Status indexes for time-sensitive domains (4)
@@ -922,6 +923,14 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             results["created"].append("Entity_uid_unique")
         else:
             results["failed"].append("Entity_uid_unique")
+
+        # A chunk uid is a hash of its store, parent and index (``chunk_uid``), so
+        # two chunks on one uid would be a hash collision — refused here rather
+        # than stored. The backing index also makes each store-by-uid a seek.
+        for chunk_label in (NeoLabel.CONTENT_CHUNK, NeoLabel.REFERENCE_CHUNK):
+            chunk_unique = await self._create_unique_constraint(chunk_label, "uid")
+            name = f"{chunk_label}_uid_unique"
+            results["created" if chunk_unique.is_ok else "failed"].append(name)
 
         async def _idx(name: str, label: NeoLabel, field: str) -> None:
             """Create a single named index and track result."""

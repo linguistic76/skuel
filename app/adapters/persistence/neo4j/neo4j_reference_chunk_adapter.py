@@ -24,7 +24,7 @@ __version__ = "1.0"
 
 from typing import Any
 
-from core.models.ps_content.content_chunks import ContentChunk
+from core.models.ps_content.content_chunks import ChunkStore, ContentChunk
 from core.ports.query_types import ReferenceChunkHit, ShelvedBook
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -68,6 +68,9 @@ class Neo4jReferenceChunkAdapter:
         service fails fast on not-found before reaching here; this is a
         belt-and-braces guard, not the primary existence check.
 
+        Every chunk must be a ``ChunkStore.REFERENCE`` chunk; a body chunk is
+        refused before anything is written, so the two stores never hold one uid.
+
         Args:
             resource_uid: The pre-existing Resource UID (canon book)
             chunks: Prose-tuned reference chunks to persist
@@ -75,6 +78,14 @@ class Neo4jReferenceChunkAdapter:
         Returns:
             True if all chunks were created, False on mismatch or error
         """
+        foreign = [chunk.chunk_id for chunk in chunks if chunk.store is not ChunkStore.REFERENCE]
+        if foreign:
+            logger.error(
+                f"Refusing to store {len(foreign)} chunk(s) minted for another store "
+                f"on the shelf under {resource_uid}"
+            )
+            return False
+
         try:
             # Embedding carry-over map: source_text -> embedding fields of the
             # outgoing chunk set. Read BEFORE the delete below.

@@ -85,7 +85,7 @@ async def force_ingestion_service(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MATCH (c:Content {uid: $uid})
+            MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(c:Content)
             OPTIONAL MATCH (c)-[:HAS_CHUNK]->(chunk:ContentChunk)
             DETACH DELETE c, chunk
             """,
@@ -102,7 +102,7 @@ async def _chunk_counts(neo4j_driver) -> tuple[int, int]:
     async with neo4j_driver.session() as session:
         res = await session.run(
             """
-            MATCH (:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+            MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(:Content)-[:HAS_CHUNK]->(chunk:ContentChunk)
             RETURN count(chunk) AS total,
                    count(chunk.force_test_marker) AS marked
             """,
@@ -116,7 +116,7 @@ async def _mark_chunks(neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MATCH (:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+            MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(:Content)-[:HAS_CHUNK]->(chunk:ContentChunk)
             SET chunk.force_test_marker = true
             """,
             {"uid": _PS_UID},

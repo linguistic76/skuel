@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.ports.query_types import EntityContentRow
@@ -345,17 +346,11 @@ class IngestionBackend:
 
         Each item carries {file_path, entity_uid}. Matches the entity across the
         two uid-bearing node shapes ingestion can create (:Entity multi-label,
-        :Group). The content subtree hangs off the entity as
-        (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) — all of
-        it is deleted leaf-first (DETACH DELETE on the entity alone would orphan the content
-        side, leaving deleted material in chunk regeneration scans and the
-        vector index). A canon-shelved Resource additionally hangs
-        (Resource)-[:HAS_REFERENCE_CHUNK]->(ReferenceChunk) directly off the
-        entity — deleted here too so reconciling a book away can't orphan its
-        reference chunks + vectors in the referencechunk vector index (their
-        own store's delete-then-create only covers a re-ingest, not entity
-        removal). Missing entities (already deleted by hand) still get their
-        metadata row cleaned up.
+        :Group). The entity's chunk subtree — its Content and ContentChunks, and a
+        canon-shelved Resource's ReferenceChunks — is deleted leaf-first before it
+        (``build_content_subtree_delete``), so no deleted material is left in the
+        chunk regeneration scans or either vector index. Missing entities (already
+        deleted by hand) still get their metadata row cleaned up.
 
         A deleted note takes its ``EXTRACTED_FROM`` edges with it (DETACH), so
         every Task tracked from it by a 🆔-bearing edge is stamped first —
@@ -377,12 +372,7 @@ class IngestionBackend:
             MATCH (s:IngestionMetadata {{file_path: item.file_path}})
             OPTIONAL MATCH (e:Entity {{uid: item.entity_uid}})
             OPTIONAL MATCH (g:Group {{uid: item.entity_uid}})
-            OPTIONAL MATCH (e)-[:HAS_CONTENT]->(content:Content)
-            OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
-            OPTIONAL MATCH (e)-[:HAS_REFERENCE_CHUNK]->(refchunk:ReferenceChunk)
-            DETACH DELETE chunk, refchunk
-            WITH DISTINCT item, s, e, g, content
-            DETACH DELETE content
+            {build_content_subtree_delete("e")}
             WITH DISTINCT item, s, e, g
             OPTIONAL MATCH (t:Task)-[x:EXTRACTED_FROM]->(e)
             WHERE x.vault_id IS NOT NULL

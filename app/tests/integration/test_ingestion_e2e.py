@@ -24,10 +24,13 @@ import pytest_asyncio
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.models.ps_content.content_chunks import ChunkStore, chunk_uid
 from core.services.ingestion.batch import ingest_directory
 from core.services.ingestion.ingestion_history import IngestionHistoryService
 from core.services.ingestion.types import IncrementalStats, IngestionStats
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+
+_E2E_CHUNK_UID = chunk_uid(ChunkStore.CONTENT, "ku.e2e-test-02", 0)
 
 # ============================================================================
 # FIXTURES
@@ -392,11 +395,12 @@ async def test_deletion_propagation_removes_entity(
         await session.run(
             """
             MATCH (e:Entity {uid: 'ku.e2e-test-02'})
-            MERGE (c:Content {uid: 'ku.e2e-test-02'})
-            MERGE (e)-[:HAS_CONTENT]->(c)
-            CREATE (ch:ContentChunk {uid: 'ku.e2e-test-02-chunk-0'})
+            MERGE (e)-[:HAS_CONTENT]->(c:Content)
+            SET c.body = 'e2e-test-02 body'
+            CREATE (ch:ContentChunk {uid: $chunk_uid})
             CREATE (c)-[:HAS_CHUNK {sequence: 0}]->(ch)
-            """
+            """,
+            chunk_uid=_E2E_CHUNK_UID,
         )
 
     (valid_ku_directory / "ku-02.md").unlink()
@@ -423,10 +427,11 @@ async def test_deletion_propagation_removes_entity(
         # regeneration scans or the vector index to resurface.
         orphans = await session.run(
             """
-            OPTIONAL MATCH (c:Content {uid: 'ku.e2e-test-02'})
-            OPTIONAL MATCH (ch:ContentChunk {uid: 'ku.e2e-test-02-chunk-0'})
+            OPTIONAL MATCH (c:Content {body: 'e2e-test-02 body'})
+            OPTIONAL MATCH (ch:ContentChunk {uid: $chunk_uid})
             RETURN count(c) + count(ch) AS n
-            """
+            """,
+            chunk_uid=_E2E_CHUNK_UID,
         )
         assert (await orphans.single())["n"] == 0
 

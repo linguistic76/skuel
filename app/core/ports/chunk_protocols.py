@@ -27,16 +27,17 @@ if TYPE_CHECKING:
 
 
 class BatchChunkingCandidate(TypedDict):
-    """One :Content row needing chunk regeneration.
+    """One entity whose :Content needs chunk regeneration.
 
     Shape returned by the candidate-discovery Cypher in
     ``BatchChunkingBackend.fetch_regeneration_candidates`` — four Neo4j
-    columns: ``c.uid``, ``c.body``, ``c.format``, and the parent's domain
+    columns: ``uid`` (the parent entity's uid, which the re-chunk stores under),
+    the Content's ``body`` and ``format``, and the parent's domain
     ``entity_label``. The query guards ``body`` against null/empty, but
     ``format`` is returned as-is, so it may be ``None`` for legacy content that
     predates the format field. ``entity_label`` is the parent Entity's domain
     label (e.g. ``"Ku"``, ``"PathStep"``) — used to resolve per-domain chunking
-    params; ``None`` when no parent Entity is linked (falls back to defaults).
+    params (``None`` falls back to defaults).
     """
 
     uid: str

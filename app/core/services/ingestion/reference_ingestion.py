@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.ps_content.content_chunks import (
     ChunkingParams,
+    ChunkStore,
     ContentChunk,
     ContentChunkingStrategy,
     chunk_version_tag,
@@ -129,7 +130,8 @@ def _consolidate_chunks(
     granular for canon voice-infusion and too many to embed in one pass. This
     packs consecutive fragments up to ``max_chunk_size`` words into coherent
     passages, re-sequencing ``chunk_index`` so every ``chunk_id`` stays unique,
-    and drops blank/heading-only fragments. Reference-path only — curriculum
+    and drops blank/heading-only fragments. Each passage is a ``ChunkStore.REFERENCE``
+    chunk, so its uid can never be a body chunk's. Reference-path only — curriculum
     chunking is untouched. Merged chunks carry ``chunk_version_tag(params)`` so
     their staleness is isolated from the ``v1`` curriculum corpus.
     """
@@ -172,6 +174,7 @@ def _consolidate_chunks(
                 heading=merged_heading,
                 section_path=merged_section_path,
                 chunking_version=version,
+                store=ChunkStore.REFERENCE,
             )
         )
         index += 1

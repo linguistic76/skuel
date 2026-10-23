@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-10-23
 related_skills: [base-ai-service]
 ---
 
@@ -181,15 +181,15 @@ at store time saves nothing — the API call already happened):
   current, so the coarse timestamp filter converges instead of re-flagging the node forever.
 - **Failure mode is open:** any freshness-read error embeds the full batch — correctness
   over savings.
-- **Chunks need no hash field:** their uids are deterministic (`{parent_uid}:chunk:{index}`)
-  and `store_chunk_embeddings` writes `embedding_source_text` (= the exact text the vector
+- **Chunks need no hash field:** their uids are deterministic (`chunk_uid(store, parent_uid,
+  index)` — `chunk_{hash}` of the three) and `store_chunk_embeddings` writes `embedding_source_text` (= the exact text the vector
   was generated from, passed per chunk — NOT the node-current context window, which could
   have been rewritten by a conflicting re-chunk between event publish and store; L3a ruling
   2026-07-02), so raw text equality is the check. What chunks needed instead was
-  persistence that stops destroying good vectors: `store_content_with_chunks` now deletes
-  only vanished uids and MERGEs survivors, wiping embedding fields only when the stored
-  source text no longer matches the incoming context window. The worker then skips fresh
-  chunks per parent before generation. Chunk staleness in the backfill stays
+  persistence that keeps good vectors: `store_content_with_chunks` replaces the chunk set in
+  one statement and carries each old embedding over to the new chunk whose context window
+  equals its `embedding_source_text`, leaving the embedding fields empty otherwise. The
+  worker then skips fresh chunks per parent before generation. Chunk staleness in the backfill stays
   version-mismatch-only — a changed chunk re-enters the *coverage* predicate
   (`embedding IS NULL`), not the stale one.
 - **Rollout:** pre-hash nodes can't recover what text produced their vector, so

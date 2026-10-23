@@ -251,6 +251,27 @@ def build_owner_uids_expression(node: str, owns_edge_uids: str | None = None) ->
     )
 
 
+def build_content_subtree_delete(node: str) -> str:
+    """A unit ``CALL`` subquery deleting ``node``'s chunk subtree, leaf-first.
+
+    The subtree is what the chunk stores hang off an entity:
+    ``(node)-[:HAS_CONTENT]->(:Content)-[:HAS_CHUNK]->(:ContentChunk)`` and
+    ``(node)-[:HAS_REFERENCE_CHUNK]->(:ReferenceChunk)``. Chunks go first, then the
+    Content, so nothing is left in the vector indexes or the re-chunk scans once
+    ``node`` itself is deleted. ``node`` stays bound and the row count is unchanged,
+    so the caller deletes ``node`` after it; a ``null`` node deletes nothing.
+    """
+    validate_identifier(node, context="subtree node alias")
+    return f"""CALL ({node}) {{
+    OPTIONAL MATCH ({node})-[:{RelationshipName.HAS_CONTENT.value}]->(content:{NeoLabel.CONTENT.value})
+    OPTIONAL MATCH (content)-[:{RelationshipName.HAS_CHUNK.value}]->(chunk:{NeoLabel.CONTENT_CHUNK.value})
+    OPTIONAL MATCH ({node})-[:{RelationshipName.HAS_REFERENCE_CHUNK.value}]->(ref:{NeoLabel.REFERENCE_CHUNK.value})
+    DETACH DELETE chunk, ref
+    WITH DISTINCT content
+    DETACH DELETE content
+}}"""
+
+
 def build_far_node_clause(far_alias: str, anchor_owners: str) -> tuple[str, dict[str, str]]:
     """Build the WHERE fragment that ties a node read across an edge to its anchor's owner.
 

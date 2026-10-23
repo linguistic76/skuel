@@ -54,7 +54,7 @@ REPORT-ONLY categories (never touched by --apply):
   R2  Multi-owner daily-note UserEntry collisions remaining AFTER F3+F5
       (expected residual after Arc F: none).
   R4  Structural anomalies: :Entity nodes missing entity_type, nodes with ≠1
-      domain label, :Content chunk shadows carrying EXTRACTED_FROM (G13).
+      domain label, :Content nodes carrying EXTRACTED_FROM (G13).
 
 Off-vault direct graph writes are sanctioned HERE and only here (R4 ruling):
 these are user/app-owned rows, not vault-governed content. Content-vault
@@ -77,14 +77,18 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
 
 from core.utils.process_clock import pin_process_clock_to_utc
 
 pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
 
+from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.user_enums import UserRole
@@ -213,6 +217,11 @@ def _created_order(row: Mapping[str, object]) -> datetime:
 
 #: A group whose ``created_at`` ordering cannot be proved is REPORT, never fixed.
 _UNREADABLE_BLOCKER = "no readable created_at on {} — the oldest cannot be told"
+
+#: The :Content nodes an entity holds — reached through its edge, since Content has no uid.
+_CONTENT_SUBTREE_COUNT = (
+    "MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(c:Content) RETURN count(c) AS n"
+)
 
 
 def _unreadable_stamps(members: Sequence[Mapping[str, object]]) -> list[str]:
@@ -639,14 +648,14 @@ def find_role_value_drift(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # ============================================================================
 
 
-async def fetch_entity_type_rows(driver: Any) -> list[dict[str, Any]]:
+async def fetch_entity_type_rows(driver: AsyncDriver) -> list[dict[str, Any]]:
     result = await driver.execute_query(
         "MATCH (n:Entity) RETURN n.uid AS uid, labels(n) AS labels, n.entity_type AS entity_type"
     )
     return [dict(r) for r in result.records]
 
 
-async def fetch_extracted_rows(driver: Any) -> list[dict[str, Any]]:
+async def fetch_extracted_rows(driver: AsyncDriver) -> list[dict[str, Any]]:
     result = await driver.execute_query(
         """
         MATCH (e:Entity)-[:EXTRACTED_FROM]->(entry:UserEntry)
@@ -662,7 +671,7 @@ async def fetch_extracted_rows(driver: Any) -> list[dict[str, Any]]:
     return [dict(r) for r in result.records]
 
 
-async def fetch_user_entry_rows(driver: Any) -> list[dict[str, Any]]:
+async def fetch_user_entry_rows(driver: AsyncDriver) -> list[dict[str, Any]]:
     result = await driver.execute_query(
         "MATCH (e:UserEntry) RETURN e.uid AS uid, e.user_uid AS owner, "
         "e.pipeline AS pipeline, toString(e.created_at) AS created_at"
@@ -670,7 +679,7 @@ async def fetch_user_entry_rows(driver: Any) -> list[dict[str, Any]]:
     return [dict(r) for r in result.records]
 
 
-async def fetch_anomalies(driver: Any) -> dict[str, list[dict[str, Any]]]:
+async def fetch_anomalies(driver: AsyncDriver) -> dict[str, list[dict[str, Any]]]:
     """R4: structural anomalies, each fetched with its own query."""
     anomalies: dict[str, list[dict[str, Any]]] = {}
     queries = {
@@ -682,9 +691,10 @@ async def fetch_anomalies(driver: Any) -> dict[str, list[dict[str, Any]]]:
             "WITH n, [l IN labels(n) WHERE NOT l IN ['Entity','Content']] AS dl "
             "WHERE size(dl) <> 1 RETURN n.uid AS uid, labels(n) AS labels"
         ),
-        ":Content shadow carrying EXTRACTED_FROM (G13)": (
+        ":Content carrying EXTRACTED_FROM (G13)": (
             "MATCH (c:Content)-[:EXTRACTED_FROM]->(entry) "
-            "RETURN c.uid AS uid, entry.uid AS entry_uid"
+            "OPTIONAL MATCH (holder:Entity)-[:HAS_CONTENT]->(c) "
+            "RETURN holder.uid AS uid, entry.uid AS entry_uid"
         ),
     }
     for name, query in queries.items():
@@ -694,7 +704,7 @@ async def fetch_anomalies(driver: Any) -> dict[str, list[dict[str, Any]]]:
 
 
 async def fetch_test_user_rows(
-    driver: Any,
+    driver: AsyncDriver,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """F5 inputs: (test-user rows with edge signatures, their owned entities)."""
     users = await driver.execute_query(
@@ -725,7 +735,7 @@ async def fetch_test_user_rows(
 
 
 async def fetch_orphan_auth_rows(
-    driver: Any,
+    driver: AsyncDriver,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """F5 orphan-sweep inputs: (orphan sessions, orphan auth events)."""
     sessions = await driver.execute_query(
@@ -739,7 +749,7 @@ async def fetch_orphan_auth_rows(
     return [dict(r) for r in sessions.records], [dict(r) for r in events.records]
 
 
-async def fetch_legacy_ku_enrollment_rows(driver: Any) -> list[dict[str, Any]]:
+async def fetch_legacy_ku_enrollment_rows(driver: AsyncDriver) -> list[dict[str, Any]]:
     """F6 inputs: every legacy IN_PROGRESS→:Ku edge + the PathSteps covering the Ku."""
     result = await driver.execute_query(
         """
@@ -753,7 +763,7 @@ async def fetch_legacy_ku_enrollment_rows(driver: Any) -> list[dict[str, Any]]:
     return [dict(r) for r in result.records]
 
 
-async def fetch_about_entity_rows(driver: Any) -> list[dict[str, Any]]:
+async def fetch_about_entity_rows(driver: AsyncDriver) -> list[dict[str, Any]]:
     """F7 inputs: the ruled dupes + survivors with edges and ABOUT_ENTITY sources."""
     uids = sorted(set(RULED_ABOUT_ENTITY_REPOINTS) | set(RULED_ABOUT_ENTITY_REPOINTS.values()))
     result = await driver.execute_query(
@@ -771,13 +781,13 @@ async def fetch_about_entity_rows(driver: Any) -> list[dict[str, Any]]:
     return [dict(r) for r in result.records]
 
 
-async def fetch_user_role_rows(driver: Any) -> list[dict[str, Any]]:
+async def fetch_user_role_rows(driver: AsyncDriver) -> list[dict[str, Any]]:
     """F8 inputs: every User's role property."""
     result = await driver.execute_query("MATCH (u:User) RETURN u.uid AS uid, u.role AS role")
     return [dict(r) for r in result.records]
 
 
-async def apply_type_fixes(driver: Any, fixes: list[TypeMismatch]) -> int:
+async def apply_type_fixes(driver: AsyncDriver, fixes: list[TypeMismatch]) -> int:
     fixed = 0
     for f in fixes:
         result = await driver.execute_query(
@@ -790,13 +800,16 @@ async def apply_type_fixes(driver: Any, fixes: list[TypeMismatch]) -> int:
     return fixed
 
 
-async def _delete_entity_checked(driver: Any, uid: str, label: str) -> bool:
-    """Delete one entity after the :Content-shadow-uid safety check."""
-    shadow = await driver.execute_query(
-        "MATCH (c:Content {uid: $uid}) RETURN count(c) AS n", uid=uid
-    )
-    if shadow.records and int(shadow.records[0]["n"]) > 0:
-        print(f"    !! {uid}: :Content shadow shares this uid — skipped")
+async def _has_content_subtree(driver: AsyncDriver, uid: str) -> bool:
+    """Whether the entity holds a :Content subtree (a body this repair must not orphan)."""
+    found = await driver.execute_query(_CONTENT_SUBTREE_COUNT, uid=uid)
+    return bool(found.records and int(found.records[0]["n"]) > 0)
+
+
+async def _delete_entity_checked(driver: AsyncDriver, uid: str, label: str) -> bool:
+    """Delete one entity, refusing one that holds a :Content subtree."""
+    if await _has_content_subtree(driver, uid):
+        print(f"    !! {uid}: holds a :Content subtree — skipped")
         return False
     await driver.execute_query(
         f"MATCH (n:Entity {{uid: $uid}}) WHERE '{label}' IN labels(n) DETACH DELETE n",
@@ -805,7 +818,9 @@ async def _delete_entity_checked(driver: Any, uid: str, label: str) -> bool:
     return True
 
 
-async def apply_wrong_door_cleanup(driver: Any, plan: WrongDoorPlan) -> tuple[int, int, int]:
+async def apply_wrong_door_cleanup(
+    driver: AsyncDriver, plan: WrongDoorPlan
+) -> tuple[int, int, int]:
     """F3 apply: delete wrong-door entities, then entries, then tracker rows.
 
     Entities first so the entry DETACH DELETE never orphans a
@@ -820,7 +835,8 @@ async def apply_wrong_door_cleanup(driver: Any, plan: WrongDoorPlan) -> tuple[in
     entries_deleted = 0
     for entry in plan.entries_to_delete:
         result = await driver.execute_query(
-            "MATCH (e:Entity:UserEntry {uid: $uid}) DETACH DELETE e RETURN count(e) AS n",
+            f"MATCH (e:Entity:UserEntry {{uid: $uid}}) {build_content_subtree_delete('e')} "
+            "DETACH DELETE e RETURN count(e) AS n",
             uid=entry["uid"],
         )
         entries_deleted += int(result.records[0]["n"]) if result.records else 0
@@ -836,7 +852,7 @@ async def apply_wrong_door_cleanup(driver: Any, plan: WrongDoorPlan) -> tuple[in
     return entities_deleted, entries_deleted, tracker_rows
 
 
-async def apply_cross_entry_dedup(driver: Any, groups: list[DupGroup]) -> int:
+async def apply_cross_entry_dedup(driver: AsyncDriver, groups: list[DupGroup]) -> int:
     """F4 apply: delete losers of clean surviving cross-entry groups.
 
     No winner-provenance re-assert (unlike F2): each surviving member already
@@ -852,7 +868,7 @@ async def apply_cross_entry_dedup(driver: Any, groups: list[DupGroup]) -> int:
     return deleted
 
 
-async def apply_duplicate_merges(driver: Any, groups: list[DupGroup]) -> int:
+async def apply_duplicate_merges(driver: AsyncDriver, groups: list[DupGroup]) -> int:
     """Delete losers of clean same-entry groups (winner keeps the R3 identity).
 
     Winner provenance is re-asserted first (MERGE is a no-op when, as verified,
@@ -863,11 +879,8 @@ async def apply_duplicate_merges(driver: Any, groups: list[DupGroup]) -> int:
         if group.blockers:
             continue
         for loser_uid in group.loser_uids:
-            shadow = await driver.execute_query(
-                "MATCH (c:Content {uid: $uid}) RETURN count(c) AS n", uid=loser_uid
-            )
-            if shadow.records and int(shadow.records[0]["n"]) > 0:
-                print(f"    !! {loser_uid}: :Content shadow shares this uid — skipped")
+            if await _has_content_subtree(driver, loser_uid):
+                print(f"    !! {loser_uid}: holds a :Content subtree — skipped")
                 continue
             await driver.execute_query(
                 """
@@ -888,7 +901,9 @@ async def apply_duplicate_merges(driver: Any, groups: list[DupGroup]) -> int:
     return deleted
 
 
-async def apply_test_user_cleanup(driver: Any, plans: list[TestUserPlan]) -> tuple[int, int]:
+async def apply_test_user_cleanup(
+    driver: AsyncDriver, plans: list[TestUserPlan]
+) -> tuple[int, int]:
     """F5 apply: owned entities → sessions/auth events → tracker rows → user.
 
     Returns (users_deleted, owned_entities_deleted). Blocked users are skipped
@@ -907,7 +922,7 @@ async def apply_test_user_cleanup(driver: Any, plans: list[TestUserPlan]) -> tup
         if not all_owned_deleted:
             # Deleting the user around a refused entity would orphan it and
             # report success anyway (Kody #504) — leave the whole user for
-            # the next run, after the shadow anomaly is resolved.
+            # the next run, once its subtree is resolved.
             print(f"    !! {plan.uid}: owned entity delete refused — user kept")
             continue
         # HAS_SESSION is shared between auth :Session nodes and ADR-078
@@ -935,7 +950,7 @@ async def apply_test_user_cleanup(driver: Any, plans: list[TestUserPlan]) -> tup
     return users_deleted, entities_deleted
 
 
-async def apply_orphan_auth_cleanup(driver: Any, plan: OrphanAuthPlan) -> tuple[int, int]:
+async def apply_orphan_auth_cleanup(driver: AsyncDriver, plan: OrphanAuthPlan) -> tuple[int, int]:
     """F5 orphan sweep apply. Returns (sessions_deleted, auth_events_deleted)."""
     sessions = events = 0
     if plan.sessions:
@@ -953,7 +968,9 @@ async def apply_orphan_auth_cleanup(driver: Any, plan: OrphanAuthPlan) -> tuple[
     return sessions, events
 
 
-async def apply_ku_enrollment_migrations(driver: Any, plans: list[KuEnrollmentMigration]) -> int:
+async def apply_ku_enrollment_migrations(
+    driver: AsyncDriver, plans: list[KuEnrollmentMigration]
+) -> int:
     """F6 apply: move the legacy edge onto the covering PS, properties intact.
 
     ``ON CREATE`` only — an existing IN_PROGRESS on the target PS is real,
@@ -980,7 +997,9 @@ async def apply_ku_enrollment_migrations(driver: Any, plans: list[KuEnrollmentMi
     return migrated
 
 
-async def apply_uncovered_ku_edge_deletions(driver: Any, plans: list[KuEnrollmentMigration]) -> int:
+async def apply_uncovered_ku_edge_deletions(
+    driver: AsyncDriver, plans: list[KuEnrollmentMigration]
+) -> int:
     """F6 fallback (``--delete-uncovered-ku-edges``, post-dialog only): delete
     the legacy edges that have NO covering PS — there is nothing to migrate to.
     """
@@ -1001,7 +1020,9 @@ async def apply_uncovered_ku_edge_deletions(driver: Any, plans: list[KuEnrollmen
     return deleted
 
 
-async def apply_about_entity_repoints(driver: Any, plans: list[RepointPlan]) -> tuple[int, int]:
+async def apply_about_entity_repoints(
+    driver: AsyncDriver, plans: list[RepointPlan]
+) -> tuple[int, int]:
     """F7 apply: move ABOUT_ENTITY edges to the survivor, then delete the dupe.
 
     Returns (edges_repointed, dupes_deleted).
@@ -1010,13 +1031,10 @@ async def apply_about_entity_repoints(driver: Any, plans: list[RepointPlan]) -> 
     for plan in plans:
         if plan.blockers:
             continue
-        # Shadow precheck BEFORE mutating: re-pointing first and then refusing
-        # the delete would leave the pair half-migrated (Kody #504).
-        shadow = await driver.execute_query(
-            "MATCH (c:Content {uid: $uid}) RETURN count(c) AS n", uid=plan.dupe_uid
-        )
-        if shadow.records and int(shadow.records[0]["n"]) > 0:
-            print(f"    !! {plan.dupe_uid}: :Content shadow shares this uid — pair skipped")
+        # Subtree precheck BEFORE mutating: re-pointing first and then refusing
+        # the delete would leave the pair half-migrated.
+        if await _has_content_subtree(driver, plan.dupe_uid):
+            print(f"    !! {plan.dupe_uid}: holds a :Content subtree — pair skipped")
             continue
         result = await driver.execute_query(
             """
@@ -1036,7 +1054,7 @@ async def apply_about_entity_repoints(driver: Any, plans: list[RepointPlan]) -> 
     return repointed, deleted
 
 
-async def apply_role_normalizations(driver: Any, drifts: list[dict[str, Any]]) -> int:
+async def apply_role_normalizations(driver: AsyncDriver, drifts: list[dict[str, Any]]) -> int:
     """F8 apply: lowercase the fixable role values."""
     fixed = 0
     for drift in drifts:

@@ -33,7 +33,7 @@ class ChunkEmbeddingRequested(BaseEvent):
     """
 
     parent_uid: str  # The parent Entity uid (e.g., PathStep) whose chunks need embedding
-    chunk_uids: tuple[str, ...]  # ["ps:foo:chunk:0", ...]
+    chunk_uids: tuple[str, ...]  # ContentChunk.chunk_id of each chunk, in sequence
     chunk_texts: tuple[str, ...]  # Context window for each chunk
     requested_at: datetime
 
@@ -55,7 +55,7 @@ class ReferenceChunkEmbeddingRequested(BaseEvent):
     """
 
     parent_uid: str  # The Resource uid whose reference chunks need embedding
-    chunk_uids: tuple[str, ...]  # ["resource.foo:chunk:0", ...]
+    chunk_uids: tuple[str, ...]  # ContentChunk.chunk_id of each passage, in sequence
     chunk_texts: tuple[str, ...]  # Context window for each chunk
     requested_at: datetime
 

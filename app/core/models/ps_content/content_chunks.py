@@ -11,8 +11,10 @@ SKUEL Principle: Chunking is not optional - all content is chunked for retrieval
 import hashlib
 import re
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
+
+from core.utils.uid_grammar import hashed_uid
 
 # Bumped whenever ContentChunkingStrategy logic changes in a way that produces
 # different chunk boundaries or types for the same input. Stored on every chunk
@@ -89,6 +91,28 @@ def chunk_version_tag(params: ChunkingParams) -> str:
     return f"{CHUNKING_ALGORITHM_VERSION}:{params.max_chunk_size}-{params.context_size}"
 
 
+class ChunkStore(StrEnum):
+    """The store a chunk is persisted in, part of what identifies it.
+
+    ``CONTENT`` — an entity's body, ``(Entity)-[:HAS_CONTENT]->(:Content)-[:HAS_CHUNK]->
+    (:ContentChunk)``. ``REFERENCE`` — a shelved book, ``(Resource)-[:HAS_REFERENCE_CHUNK]->
+    (:ReferenceChunk)``. One parent could hold both, so the store is hashed into the uid.
+    """
+
+    CONTENT = "content"
+    REFERENCE = "reference"
+
+
+def chunk_uid(store: ChunkStore, parent_uid: str, chunk_index: int) -> str:
+    """The uid of the chunk at ``chunk_index`` of ``parent_uid``'s body in ``store``.
+
+    ``chunk_{hash}`` over the store, the parent's uid and the index — the same three
+    always name the same chunk, so a re-chunk re-creates the uids a queued
+    ``ChunkEmbeddingRequested`` names. Nothing reads the parts back out of it.
+    """
+    return hashed_uid("chunk", store.value, parent_uid, str(chunk_index))
+
+
 class ContentChunkType(Enum):
     """Types of content chunks for semantic categorization"""
 
@@ -132,6 +156,7 @@ class ContentChunk:
     metadata: dict[str, Any] = field(default_factory=dict)  # Additional metadata
     embedding: tuple[float, ...] | None = None  # Vector embedding (immutable tuple)
     chunking_version: str = CHUNKING_ALGORITHM_VERSION  # Algorithm version that produced this chunk
+    store: ChunkStore = ChunkStore.CONTENT  # The store its uid is minted for
 
     def __post_init__(self) -> None:
         """Calculate word count after initialization"""
@@ -140,8 +165,8 @@ class ContentChunk:
 
     @property
     def chunk_id(self) -> str:
-        """Unique identifier for this chunk"""
-        return f"{self.parent_uid}:chunk:{self.chunk_index}"
+        """The chunk's node uid — ``chunk_uid`` of its store, parent and index."""
+        return chunk_uid(self.store, self.parent_uid, self.chunk_index)
 
     @property
     def full_context(self) -> str:

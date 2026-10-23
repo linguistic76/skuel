@@ -119,7 +119,7 @@ async def seeded_chunks(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MATCH (:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+            MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(:Content)-[:HAS_CHUNK]->(chunk:ContentChunk)
             CALL db.create.setNodeVectorProperty(chunk, 'embedding', $embedding)
             """,
             {"uid": _PARENT_UID, "embedding": _EMBEDDING},

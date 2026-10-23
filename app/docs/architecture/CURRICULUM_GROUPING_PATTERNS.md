@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-10-18
+updated: 2026-10-23
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -99,7 +99,7 @@ law — anything a doc or code comment says beyond this table is historical:
 | `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `uid_grammar.slugify()` emits it, and folds input underscores into it (`active_listening` → `active-listening`) and accents to ASCII (`café` → `cafe`). Author hyphens. |
 | `.` dot | Segment separator of **authored** UIDs — authored and stored identically. Shape: `{prefix}.{slug}` or `{prefix}.{ns}.{slug}` (the grouping label is optional — Kus and PathSteps carry one, Resources and LearningPaths do not). Ingestion refuses a `uid:` line outside this shape for every type, `user_entry` included, and a file with none takes `{prefix}.{stem}` only when its stem is one segment. |
 | `_` underscore | Separator of **generated** UIDs: `{prefix}_{opaque}` (`task_a1b2c3d4`). Also the conventional filename type-prefix (`ku_attention.md`) — which, for that reason, gives no uid to a file without a `uid:` line. |
-| `:` colon | **In no node uid** (amended 2026-10-18 — the colon row that kept periodic-note and chunk ids is reversed). The shapes still minted with one (`ue:daily:{user}:{date}`, `{parent}:chunk:{n}`, `transcription:`, `instructions:`, `invoice:`) are named exemptions in `uid_grammar.UID_EXEMPTIONS` until the uid arc migrates them. The `edge:` tracker-row sentinel (`ingestion_tracker.py`) keeps it: it is a tracker key, not a node uid. |
+| `:` colon | **In no node uid** (amended 2026-10-18 — the colon row that kept periodic-note and chunk ids is reversed). The shapes still minted with one (`ue:daily:{user}:{date}`, `transcription:`, `instructions:`, `invoice:`) are named exemptions in `uid_grammar.UID_EXEMPTIONS` until the uid arc migrates them. The `edge:` tracker-row sentinel (`ingestion_tracker.py`) keeps it: it is a tracker key, not a node uid. |
 | *(edges)* | Family. Parent/child/lineage lives **only** in graph relationships (`ORGANIZES`, `USES_KU`, `HAS_STEP`, …) — never in UID strings. |
 
 Two clarifications the grammar hangs on:

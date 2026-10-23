@@ -23,17 +23,39 @@ def test_each_uid_lands_in_one_verdict_per_label() -> None:
             (["Entity", "Ku"], "ku.Bad"),
             (["Entity", "Task"], "task_a1b2c3d4"),
             (["Entity", "Task"], "task_van-on-monday_5873a134"),
-            (["ContentChunk"], "ku.a.b:chunk:0"),
+            (["ContentChunk"], "chunk_0123456789abcdef"),
+            (["ReferenceChunk"], "resource.x:chunk:0"),
             (["Group"], "group.x.y.z.w"),
         ]
     )
     ku, task = census.by_label["Ku"], census.by_label["Task"]
     assert (ku.fits, ku.outside, ku.shape) == (1, 1, 0)
     assert (task.fits, task.outside, task.shape) == (1, 0, 1)
+    assert census.by_label["ContentChunk"].fits == 1
     assert census.by_exemption[("Task", "named_generated")] == 1
-    assert census.by_exemption[("ContentChunk", "chunk")] == 1
     assert census.by_exemption[("Ku", "UNREGISTERED")] == 1
+    assert census.by_exemption[("ReferenceChunk", "UNREGISTERED")] == 1
     assert census.by_exemption[("Group", "UNREGISTERED")] == 1
+
+
+def test_a_uid_two_nodes_hold_is_reported_with_both_labels() -> None:
+    census = take_census(
+        [
+            (["Entity", "Ku"], "ku.a.b"),
+            (["Content"], "ku.a.b"),
+            (["Entity", "Task"], "task_a1b2c3d4"),
+        ]
+    )
+    assert census.shared == {"ku.a.b": ["Content", "Ku"]}
+    text = render(census, {})
+    assert "Uids held by more than one node:" in text
+    assert "ku.a.b" in text and "Content, Ku" in text
+
+
+def test_no_shared_uid_renders_none() -> None:
+    census = take_census([(["Entity", "Ku"], "ku.a.b"), (["ContentChunk"], "chunk_00ff")])
+    assert census.shared == {}
+    assert "Uids held by more than one node:\n  (none)" in render(census, {})
 
 
 def test_a_shape_two_exemptions_share_is_counted_under_both_names() -> None:
