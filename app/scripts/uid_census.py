@@ -6,8 +6,12 @@ character outside ``[a-z0-9._-]``, and how many are in the charset but in
 neither shape (``core/utils/uid_grammar.py``). Below the table, every uid that
 does not fit is grouped by the ``UID_EXEMPTIONS`` entry naming its shape — with
 what retires that entry — or listed as UNREGISTERED with a sample. Every uid more
-than one node holds is listed with their labels (a uid names one node). Nodes with
-no uid are counted by label. Nothing is written.
+than one node holds is listed with their labels. Nodes with no uid are counted by
+label. Nothing is written.
+
+Exits 1 when a uid is held by more than one node: a uid names one node, in every
+label at once, and no constraint can say so across labels. A uid outside the
+grammar is reported, not failed.
 
 A node is counted under its labels other than ``Entity`` (``Task``,
 ``Content``, ``ContentChunk``).
@@ -93,6 +97,11 @@ def take_census(rows: Iterable[tuple[Iterable[str], str]]) -> Census:
     return census
 
 
+def exit_code(census: Census) -> int:
+    """1 when a uid is held by more than one node, else 0."""
+    return 1 if census.shared else 0
+
+
 def render(census: Census, uidless: dict[str, int]) -> str:
     """The census as plain text (a markdown table, then the details)."""
     lines = ["| label | fits | outside | shape | total |", "|---|---:|---:|---:|---:|"]
@@ -161,9 +170,10 @@ async def run() -> int:
     by_label: Counter[str] = Counter()
     for labels, count in uidless.value.items():
         by_label[label_of(labels)] += count
+    census = take_census(rows.value)
     print("\n=== UID census (read-only) ===\n")
-    print(render(take_census(rows.value), dict(by_label)))
-    return 0
+    print(render(census, dict(by_label)))
+    return exit_code(census)
 
 
 def main() -> None:

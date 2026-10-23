@@ -203,7 +203,7 @@ class _UserEntryCrudMixin:
         CALL (n) {{
           WITH n WHERE $ungrounded AND n.user_uid = $owner AND NOT {frozen}
           OPTIONAL MATCH (n)-[r:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k:Entity)
-          WHERE NOT k:Content AND coalesce(r.inferred, false)
+          WHERE coalesce(r.inferred, false)
           WITH n, collect(r) AS inferred, collect(k.uid) AS retracted
           FOREACH (r IN inferred | DELETE r)
           FOREACH (_ IN CASE WHEN size(retracted) > 0 THEN [1] ELSE [] END |
@@ -452,9 +452,6 @@ class _UserEntryCrudMixin:
         VaultReconciler for outbound ID injection / status round-trip
         (ADR-070) and by UserEntryProcessingService as the input to both
         extraction dedup guards (Guard 2 hashes + Guard 3 semantic keys, R3).
-
-        Source is :Entity-bound: :Content chunk shadows share their entity's
-        uid (G13) and must never match here.
         """
         query = """
         MATCH (e:Entity)-[r:EXTRACTED_FROM]->(entry:UserEntry {uid: $entry_uid})
@@ -650,11 +647,11 @@ class _UserEntryCrudMixin:
         admitted by the caller (``UserEntryService.link_applied_knowledge``).
         """
         query = f"""
-        MATCH (e:{NeoLabel.USER_ENTRY.value} {{uid: $entry_uid}}) WHERE NOT e:Content
+        MATCH (e:{NeoLabel.USER_ENTRY.value} {{uid: $entry_uid}})
         SET e.`_sg_lock` = $lock_token
         REMOVE e.`_sg_lock`
         WITH e
-        MATCH (k:Entity {{uid: $knowledge_uid}}) WHERE NOT k:Content
+        MATCH (k:Entity {{uid: $knowledge_uid}})
         WITH e, k,
              NOT EXISTS {{ (e)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k) }} AS created
         MERGE (e)-[r:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k)
@@ -702,13 +699,12 @@ class _UserEntryCrudMixin:
         record is written only when one was.
         """
         query = f"""
-        MATCH (e:{NeoLabel.USER_ENTRY.value} {{uid: $entry_uid}}) WHERE NOT e:Content
+        MATCH (e:{NeoLabel.USER_ENTRY.value} {{uid: $entry_uid}})
         SET e.`_sg_lock` = $lock_token
         REMOVE e.`_sg_lock`
         WITH e
         OPTIONAL MATCH (e)-[r:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k:Entity)
-        WHERE NOT k:Content
-          AND NOT coalesce(r.inferred, false)
+        WHERE NOT coalesce(r.inferred, false)
           AND NOT k.uid IN $named_uids
         WITH e, collect(r) AS unnamed, collect(k.uid) AS retracted
         FOREACH (r IN unnamed | DELETE r)
@@ -747,16 +743,13 @@ class _UserEntryCrudMixin:
 
         Ordered oldest-first so the map builder's ``setdefault`` keeps the same
         winner the F4 fixer keeps (oldest ``created_at``).
-
-        Source is :Entity-bound and excludes :Content chunk shadows (G13).
         """
         from core.models.enums.entity_enums import EntityStatus
 
         terminal = [s.value for s in EntityStatus if s.is_terminal()]
         query = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Entity)
-        WHERE NOT e:Content
-          AND any(lb IN labels(e) WHERE lb IN $labels)
+        WHERE any(lb IN labels(e) WHERE lb IN $labels)
           AND NOT coalesce(e.status, '') IN $terminal
         RETURN e.uid AS entity_uid,
                e.title AS title,

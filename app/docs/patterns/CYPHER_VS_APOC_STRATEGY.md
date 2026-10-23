@@ -1,6 +1,6 @@
 ---
 title: 'Pure Cypher vs APOC: Strategic Decision Guide'
-updated: 2026-10-10
+updated: 2026-10-23
 status: current
 category: patterns
 tags: [apoc, cypher, patterns, strategy]
@@ -267,9 +267,8 @@ Note the edge type is `REQUIRES_KNOWLEDGE`, not the predicate name, and that
 `semantic_type` appears **inside the MERGE pattern** — a hand-written
 `MERGE (a)-[r:...]->(b)` that omits it silently merges two distinct predicates onto one
 edge. Only the edge is merged: the endpoints are `MATCH`ed as `:Entity`, so a uid that
-names nothing writes nothing and returns no row (an unlabeled `MERGE` would create a
-bare node for it, and would bind a Ku's `:Content` shadow beside the Ku — the G13
-shadow rule, neo4j-cypher-patterns SKILL.md § 0).
+names nothing writes nothing and returns no row (a `MERGE` on the endpoints would create
+a bare node for it — neo4j-cypher-patterns SKILL.md § 0).
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-10-11
+updated: 2026-10-23
 category: patterns
 related_skills: []
 related_docs:
@@ -55,7 +55,7 @@ It is the one way a status-bearing write is done.
 class CrudOperations[T: DomainModelProtocol](Protocol):
     async def create(self, entity: T) -> Result[T]: ...
     async def get(self, uid: str) -> Result[T | None]: ...
-    async def entity_exists(self, uid: str) -> Result[bool]: ...  # an :Entity on the uid, any label — never a :Content shadow
+    async def entity_exists(self, uid: str) -> Result[bool]: ...  # an :Entity on the uid, any domain label
     async def get_visible_to_user(self, uid: str, user_uid: UserUID, visibility: SearchVisibility | None) -> Result[T | None]: ...
     async def get_many(self, uids: list[str]) -> Result[list[T | None]]: ...
     async def update(self, uid: str, updates: Neo4jProperties) -> Result[T]: ...

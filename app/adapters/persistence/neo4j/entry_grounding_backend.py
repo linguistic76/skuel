@@ -69,8 +69,7 @@ class EntryGroundingBackend:
         result = await self._executor.execute_query(
             """
             MATCH (owner:User)-[:OWNS]->(e:UserEntry)
-            WHERE NOT e:Content
-              AND e.pipeline IN $pipelines
+            WHERE e.pipeline IN $pipelines
               AND coalesce(e.private, false) = false
               AND e.embedding IS NOT NULL
               AND ($user_uid IS NULL OR owner.uid = $user_uid)
@@ -131,14 +130,14 @@ class EntryGroundingBackend:
         published, published_params = build_publication_clause("k")
         result = await self._executor.execute_query(
             f"""
-            MATCH (e:UserEntry {{uid: $entry_uid}}) WHERE NOT e:Content
+            MATCH (e:UserEntry {{uid: $entry_uid}})
             SET e.`_sg_lock` = $lock_token
             REMOVE e.`_sg_lock`
             WITH e
             WHERE NOT $ku_uid IN coalesce(e.grounding_rejected_ku_uids, [])
               AND e.pipeline IN $pipelines
               AND coalesce(e.private, false) = false
-            MATCH (k:Ku {{uid: $ku_uid}}) WHERE NOT k:Content AND {published}
+            MATCH (k:Ku {{uid: $ku_uid}}) WHERE {published}
             MERGE (e)-[r:APPLIES_KNOWLEDGE]->(k)
             ON CREATE SET r.inferred = true,
                           r.confidence = $confidence,
@@ -181,7 +180,7 @@ class EntryGroundingBackend:
         """
         result = await self._executor.execute_query(
             """
-            MATCH (e:UserEntry {uid: $entry_uid}) WHERE NOT e:Content
+            MATCH (e:UserEntry {uid: $entry_uid})
             SET e.`_sg_lock` = $lock_token
             REMOVE e.`_sg_lock`
             WITH e
@@ -224,7 +223,7 @@ class EntryGroundingBackend:
             """
             MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:UserEntry {uid: $entry_uid})
                   -[r:APPLIES_KNOWLEDGE]->(k {uid: $ku_uid})
-            WHERE NOT e:Content AND NOT k:Content AND coalesce(r.inferred, false)
+            WHERE coalesce(r.inferred, false)
             WITH e, k, r.confidence AS confidence, r
             DELETE r
             SET e.grounding_rejected_ku_uids =

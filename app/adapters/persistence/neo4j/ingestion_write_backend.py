@@ -147,8 +147,7 @@ class IngestionWriteBackend:
         # every edge that records who owns, sees or belongs to something has a
         # :User or a :Group end — so binding both ends refuses that whole family
         # without naming one of its types, and a refused end matches nothing,
-        # exactly as a missing one does. The binding also keeps the write off
-        # the chunk store's :Content shadow, which shares its entity's uid (G13).
+        # exactly as a missing one does.
         query = f"""
         MATCH (a:{NeoLabel.ENTITY.value} {{uid: $from_uid}})
         MATCH (b:{NeoLabel.ENTITY.value} {{uid: $to_uid}})

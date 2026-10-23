@@ -71,8 +71,8 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
 # Labels Neo4j or the app creates that are deliberately not domain identities.
-# :Content is the chunk shadow (G13); the rest are infrastructure nodes that
-# predate NeoLabel and are not entity vocabulary.
+# :Content holds an entity's body (the chunk store); the rest are infrastructure
+# nodes that predate NeoLabel and are not entity vocabulary.
 NON_ENTITY_LABELS: frozenset[str] = frozenset(
     {
         "Content",

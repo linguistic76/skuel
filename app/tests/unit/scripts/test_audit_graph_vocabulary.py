@@ -99,7 +99,7 @@ def test_drift_and_residue_are_separable() -> None:
 def test_non_entity_labels_are_not_reported() -> None:
     """Infrastructure labels are not entity vocabulary and never were.
 
-    :Content is the chunk shadow (G13); :User/:Group/:Session predate NeoLabel.
+    :Content holds an entity's body; :User/:Group/:Session predate NeoLabel.
     Reporting them would be noise that trains the reader to ignore the output.
     """
     labels, rels, ets = _canonical()

@@ -265,7 +265,7 @@ async def _node(driver: AsyncDriver, uid: str) -> dict[str, Any]:
     rows = await _q(
         driver,
         """
-        MATCH (n {uid: $uid}) WHERE NOT n:Content
+        MATCH (n {uid: $uid})
         OPTIONAL MATCH (o:User)-[:OWNS]->(n)
         RETURN [l IN labels(n) WHERE l <> 'Entity'] AS labels, n.user_uid AS user_uid,
                n.owner_uid AS owner_uid, n.title AS title, n.name AS name,

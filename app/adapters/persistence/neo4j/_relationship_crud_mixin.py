@@ -433,13 +433,10 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             >>> print(source_labels)  # ["Task"]
             >>> print(target_labels)  # ["Entity", "Entity"]
         """
-        # NOT :Content — the chunk store's shadow node shares its entity's uid;
-        # an unguarded uid MATCH would read the shadow's labels here and wrong
-        # validation would follow (G13). Endpoints may be User/Group (non-
-        # :Entity), so exclusion — not :Entity binding — is the guard.
+        # Unlabeled: an endpoint may be a User or a Group, outside :Entity.
         query = """
-        MATCH (a {uid: $from_uid}) WHERE NOT a:Content
-        MATCH (b {uid: $to_uid}) WHERE NOT b:Content
+        MATCH (a {uid: $from_uid})
+        MATCH (b {uid: $to_uid})
         RETURN labels(a) as source_labels, labels(b) as target_labels
         """
 
@@ -468,7 +465,6 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         Returns a uid -> labels map; UIDs with no matching node are simply
         absent from the map — callers decide whether that is an error.
         """
-        # NOT :Content — same G13 shadow-uid guard as _get_node_labels.
         records = await self._run_records(NODE_LABELS_BATCH_QUERY, {"uids": uids})
 
         return Result.ok({record["uid"]: record["labels"] for record in records})
@@ -519,7 +515,6 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         the caller must be among the owners, not equal to whichever spelling was read
         first.
         """
-        # NOT :Content — same G13 shadow-uid guard as _get_node_labels_batch.
         records = await self._run_records(OWNER_UIDS_BATCH_QUERY, {"uids": uids})
 
         return Result.ok({record["uid"]: list(record["owners"]) for record in records})
@@ -650,12 +645,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         props = properties or {}
 
-        # NOT :Content — same G13 shadow-uid guard as _get_node_labels: an
-        # unguarded MERGE would create the edge to BOTH the entity and its
-        # chunk-store shadow (the doubled-INTERACTION_DURING bug class).
         query = f"""
-        MATCH (a {{uid: $from_uid}}) WHERE NOT a:Content
-        MATCH (b {{uid: $to_uid}}) WHERE NOT b:Content
+        MATCH (a {{uid: $from_uid}})
+        MATCH (b {{uid: $to_uid}})
         MERGE (a)-[r:{relationship_type}]->(b)
         SET r += $properties
         RETURN r
@@ -1031,10 +1023,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         rel_type = relationship_type.value
         from_kind = f":{from_label.value}" if from_label else ""
         to_kind = f":{to_label.value}" if to_label else ""
-        # NOT :Content — G13 shadow-uid guard (see create_relationship).
         query = f"""
         MATCH (a{from_kind} {{uid: $from_uid}})-[r:{rel_type}]->(b{to_kind} {{uid: $to_uid}})
-        WHERE NOT a:Content AND NOT b:Content
         DELETE r
         RETURN count(r) as deleted_count
         """
@@ -1142,10 +1132,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             - count_related(): Count all relationships of a type
         """
         rel_type = relationship_type.value
-        # NOT :Content — G13 shadow-uid guard (see create_relationship).
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
-        WHERE NOT a:Content AND NOT b:Content
         RETURN count(r) > 0 as exists
         """
 
@@ -1214,7 +1202,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         params: dict[str, Any] = {"uid": uid, **property_params}
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-        # The anchor is bound by index seeks, NOT :Content (G13): build_uid_anchor.
+        # build_uid_anchor binds the anchor by index seeks, one per label it can carry.
         query = f"""
         {build_uid_anchor("n", "$uid", self.label)}
         MATCH {pattern}
@@ -1498,7 +1486,6 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         query = f"""
         UNWIND $entity_uids AS entity_uid
         MATCH (e:{self.label} {{uid: entity_uid}})
-        WHERE NOT e:Content
         {owners_line}
         OPTIONAL MATCH {pattern_result.value}
         {where_clause}
@@ -1562,7 +1549,6 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         query = f"""
         UNWIND $entity_uids AS entity_uid
         MATCH (e:{self.label} {{uid: entity_uid}})
-        WHERE NOT e:Content
         OPTIONAL MATCH {pattern_result.value}
         {where_clause}
         RETURN entity_uid, count(related) AS count

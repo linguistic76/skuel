@@ -131,10 +131,8 @@ class _TraversalMixin:
         """
         # Build direction-specific query; the WHERE clause is a no-op when
         # rel_type is None (no filter) and narrows to the named type otherwise.
-        # NOT n:Content — the chunk store's shadow node shares its entity's
-        # uid, so an unguarded uid MATCH double-binds and duplicates every
-        # relationship row (G13). For directed traversals the direction is a
-        # literal; "both" derives it per-edge from startNode().
+        # For directed traversals the direction is a literal; "both" derives it
+        # per-edge from startNode().
         dir_expr = (
             "CASE WHEN startNode(r).uid = $uid THEN 'outgoing' ELSE 'incoming' END"
             if direction == "both"
@@ -142,7 +140,7 @@ class _TraversalMixin:
         )
         cypher = f"""
         MATCH (n {{uid: $uid}}){direction_clause(direction)}(other)
-        WHERE NOT n:Content AND ($rel_type IS NULL OR type(r) = $rel_type)
+        WHERE $rel_type IS NULL OR type(r) = $rel_type
         RETURN type(r) as type, other.uid as target_uid,
                {dir_expr} as direction, properties(r) as properties
         """

@@ -245,7 +245,6 @@ class _CrudMixin[T: DomainModelProtocol]:
         return await self._create_node(
             entity,
             "create_with_spawned_from",
-            # :Entity — an unlabeled uid would also bind a :Content shadow (G13).
             match_clause="MATCH (t:Entity {uid: $template_uid})",
             extra_cypher=(
                 "CREATE (n)-[r:SPAWNED_FROM]->(t)\n"
@@ -259,10 +258,9 @@ class _CrudMixin[T: DomainModelProtocol]:
     async def entity_exists(self, uid: str) -> Result[bool]:
         """Whether an ``:Entity`` node carries this uid, whatever its domain label.
 
-        The universal base label is the anchor, so a Ku's ``:Content`` shadow
-        never answers for it (G13), and a uid of another domain than this
-        backend's still counts — the far end of a cross-domain link is checked
-        through whichever backend holds the writer.
+        The universal base label is the anchor, so a uid of another domain than
+        this backend's still counts — the far end of a cross-domain link is
+        checked through whichever backend holds the writer.
         """
         record = await self._run_single(
             "MATCH (e:Entity {uid: $uid}) RETURN e.uid AS uid LIMIT 1", {"uid": uid}

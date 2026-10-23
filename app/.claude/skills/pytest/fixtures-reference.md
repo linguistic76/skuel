@@ -103,8 +103,7 @@ async def test_cross_domain_flow(services, clean_neo4j):
 #   MERGEs both endpoints by label + uid, then CREATEs the edge with the properties
 await create_relationship("task_x_000001", "Task", "ku.python.basics", "Ku", "APPLIES_KNOWLEDGE", {"confidence": 0.9})
 
-# count_relationships(uid, rel_type) -> int  (an UNLABELED uid match — fine for a test edge,
-#   but a Ku/PathStep with a :Content shadow counts twice; label the uid yourself when it matters)
+# count_relationships(uid, rel_type) -> int  (an UNLABELED uid match — a scan, fine at test size)
 assert await count_relationships("task_x_000001", "APPLIES_KNOWLEDGE") == 1
 ```
 

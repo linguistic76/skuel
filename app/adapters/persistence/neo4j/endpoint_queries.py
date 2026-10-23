@@ -10,9 +10,6 @@ backend, whose vault door admits frontmatter targets by the same rule — so the
 lives here once: a second copy of "who owns this node" is how a check that reads one
 spelling of ownership drifts from one that reads three.
 
-All of them exclude ``:Content`` — the chunk store's shadow node shares its entity's uid
-(G13).
-
 A uid is bound through ``build_uid_anchor``: one index seek per label a uid can name —
 ``:Entity``, ``:User``, ``:Group`` — instead of a label-less match, which scans every
 node in the graph once per uid. The labels read still sees a User or a Group, so a
@@ -58,8 +55,7 @@ def build_uid_anchor(alias: str, uid_expression: str, own_label: NeoLabel | None
     if scope:
         validate_identifier(scope, context="uid variable")
     branches = "\n    UNION\n".join(
-        f"    MATCH ({alias}:{label.value} {{uid: {uid_expression}}}) "
-        f"WHERE NOT {alias}:{NeoLabel.CONTENT.value} RETURN {alias}"
+        f"    MATCH ({alias}:{label.value} {{uid: {uid_expression}}}) RETURN {alias}"
         for label in labels
     )
     return f"CALL ({scope}) {{\n{branches}\n}}"
@@ -98,7 +94,7 @@ RETURN uid, owners
 _PUBLISHED_CLAUSE, PUBLISHED_UIDS_BATCH_PARAMS = build_publication_clause("n")
 PUBLISHED_UIDS_BATCH_QUERY: Final = f"""
 UNWIND $uids AS uid
-MATCH (n:Entity {{uid: uid}}) WHERE NOT n:Content AND {_PUBLISHED_CLAUSE}
+MATCH (n:Entity {{uid: uid}}) WHERE {_PUBLISHED_CLAUSE}
 RETURN DISTINCT uid
 """
 
@@ -146,7 +142,7 @@ def build_guarded_link_query(
         f"FOREACH (gone IN [{stale} WHERE NOT x IN fars | old] | DELETE gone)" if replace else ""
     )
     return f"""
-MATCH (a:{NeoLabel.ENTITY.value} {{uid: $anchor_uid}}) WHERE NOT a:{NeoLabel.CONTENT.value}
+MATCH (a:{NeoLabel.ENTITY.value} {{uid: $anchor_uid}})
 SET a.uid = a.uid
 WITH a, {build_owner_uids_expression("a")} AS anchor_owners
 WHERE all(o IN anchor_owners WHERE o IN $expected_owners)
@@ -154,7 +150,7 @@ WHERE all(o IN anchor_owners WHERE o IN $expected_owners)
 CALL (a, anchor_owners) {{
     UNWIND $far_uids AS far_uid
     MATCH (n:{NeoLabel.ENTITY.value} {{uid: far_uid}})
-    WHERE NOT n:{NeoLabel.CONTENT.value} AND n <> a
+    WHERE n <> a
       AND any(label IN labels(n) WHERE label IN $far_labels)
     SET n.uid = n.uid
     WITH n, {build_owner_uids_expression("n")} AS far_owners

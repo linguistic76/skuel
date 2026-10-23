@@ -138,7 +138,6 @@ class UserRelationshipBackend:
             query=f"""
                 MATCH (user:User {{uid: $user_uid}})
                 MATCH (entity:{NeoLabel.ENTITY} {{uid: $entity_uid}})
-                WHERE NOT entity:{NeoLabel.CONTENT}
                 WITH user, entity, {build_owner_uids_expression("entity")} AS owners
                 WHERE $user_uid IN owners
                    OR (size(owners) = 0

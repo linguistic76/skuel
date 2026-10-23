@@ -467,9 +467,8 @@ RETURN count(n) as created
 
 ### Batch Relationship Creation
 ```cypher
-// Create multiple relationships in one query.
-// Label guard is mandatory — an unlabeled MATCH by uid also binds the
-// entity's :Content shadow node (G13 rule, SKILL.md § 0).
+// Create multiple relationships in one query. MATCH the endpoints on a label
+// (an index seek, SKILL.md § 0), then MERGE only the edge.
 UNWIND $edges as edge
 MATCH (a:Entity {uid: edge.from_uid})
 MATCH (b:Entity {uid: edge.to_uid})
