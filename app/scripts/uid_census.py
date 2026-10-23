@@ -5,8 +5,9 @@ Prints one row per label: how many uids fit the grammar, how many have a
 character outside ``[a-z0-9._-]``, and how many are in the charset but in
 neither shape (``core/utils/uid_grammar.py``). Below the table, every uid that
 does not fit is grouped by the ``UID_EXEMPTIONS`` entry naming its shape — with
-what retires that entry — or listed as UNREGISTERED with a sample. Nodes with no
-uid are counted by label. Nothing is written.
+what retires that entry — or listed as UNREGISTERED with a sample. Every uid more
+than one node holds is listed with their labels (a uid names one node). Nodes with
+no uid are counted by label. Nothing is written.
 
 A node is counted under its labels other than ``Entity`` (``Task``,
 ``Content``, ``ContentChunk``).
@@ -19,7 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
@@ -52,11 +53,13 @@ class LabelTally:
 
 @dataclass
 class Census:
-    """Per-label tallies, plus each non-fitting uid's exemption (or none)."""
+    """Per-label tallies, each non-fitting uid's exemption (or none), and shared uids."""
 
     by_label: dict[str, LabelTally] = field(default_factory=dict)
     by_exemption: Counter[tuple[str, str]] = field(default_factory=Counter)
     samples: dict[tuple[str, str], str] = field(default_factory=dict)
+    # uid -> the sorted labels of every node holding it, for uids more than one holds
+    shared: dict[str, list[str]] = field(default_factory=dict)
 
 
 def label_of(labels: Iterable[str]) -> str:
@@ -68,8 +71,10 @@ def label_of(labels: Iterable[str]) -> str:
 def take_census(rows: Iterable[tuple[Iterable[str], str]]) -> Census:
     """Tally ``(labels, uid)`` rows against the grammar."""
     census = Census()
+    holders: defaultdict[str, list[str]] = defaultdict(list)
     for labels, uid in rows:
         label = label_of(labels)
+        holders[uid].append(label)
         tally = census.by_label.setdefault(label, LabelTally())
         verdict = classify(uid)
         if verdict is UidVerdict.FITS:
@@ -84,6 +89,7 @@ def take_census(rows: Iterable[tuple[Iterable[str], str]]) -> Census:
         key = (label, names or _UNREGISTERED)
         census.by_exemption[key] += 1
         census.samples.setdefault(key, uid)
+    census.shared = {uid: sorted(held) for uid, held in holders.items() if len(held) > 1}
     return census
 
 
@@ -115,6 +121,12 @@ def render(census: Census, uidless: dict[str, int]) -> str:
         )
         sample = census.samples[(label, name)]
         lines.append(f"  {label:<24} {name:<18} {count:>6}  ({where}) e.g. {sample}")
+
+    lines += ["", "Uids held by more than one node:"]
+    if not census.shared:
+        lines.append("  (none)")
+    for uid in sorted(census.shared):
+        lines.append(f"  {uid}  ({', '.join(census.shared[uid])})")
 
     lines += ["", "Nodes without a uid:"]
     if not uidless:

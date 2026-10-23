@@ -34,6 +34,7 @@ from neo4j import AsyncDriver
 from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_checkin
 from adapters.persistence.neo4j._learning_state_mixin import to_mastered_write_rows
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
+from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.enums.curriculum_enums import EnrollmentStatus
 from core.models.enums.user_enums import UserStatus
@@ -421,8 +422,9 @@ class UserBackend(Neo4jSessionRunner):
         GDPR right-to-erasure: delete the user + every OWNS-linked entity.
 
         Destroys the User node and cascades through every :OWNS edge, removing
-        the user's UserEntry / Task / Goal / Habit / ... nodes as well — plus
-        every :Session node, in the same transaction (an orphaned session
+        the user's UserEntry / Task / Goal / Habit / ... nodes as well — each
+        with its chunk subtree (a UserEntry's Content and chunks, leaf-first) —
+        plus every :Session node, in the same transaction (an orphaned session
         carrying the erased uid must not outlive the account). Use only when
         compliance requires full erasure — the default account closure path
         is ``delete_user`` (soft-delete, keeps history).
@@ -447,6 +449,10 @@ class UserBackend(Neo4jSessionRunner):
         OPTIONAL MATCH (u)-[:OWNS]->(owned)
         WITH u, collect(DISTINCT sess) AS session_nodes, collect(DISTINCT owned) AS owned_nodes
         WITH u, session_nodes, owned_nodes, size(owned_nodes) AS owned_count
+        CALL (owned_nodes) {{
+            UNWIND owned_nodes AS n
+            {build_content_subtree_delete("n")}
+        }}
         DETACH DELETE u
         FOREACH (n IN owned_nodes | DETACH DELETE n)
         FOREACH (n IN session_nodes | DETACH DELETE n)

@@ -185,3 +185,25 @@ class TestListShelvedBooks:
 
         adapter = Neo4jReferenceChunkAdapter(BrokenConnection())
         assert await adapter.list_shelved_books() == []
+
+
+class TestStoreRefusesBodyChunks:
+    """The shelf holds only ``ChunkStore.REFERENCE`` chunks, so its uids are never a body's."""
+
+    @pytest.mark.asyncio
+    async def test_a_body_chunk_is_refused_before_any_write(self):
+        from core.models.ps_content.content_chunks import ContentChunk, ContentChunkType
+
+        conn = FakeConnection(rows=[{"created": 1}])
+        adapter = Neo4jReferenceChunkAdapter(conn)
+        body_chunk = ContentChunk(
+            parent_uid="resource.hms",
+            chunk_index=0,
+            chunk_type=ContentChunkType.SECTION,
+            text="HTML is a hypermedia.",
+            context_before="",
+            context_after="",
+        )
+
+        assert not await adapter.store_reference_chunks("resource.hms", [body_chunk])
+        assert conn.calls == []

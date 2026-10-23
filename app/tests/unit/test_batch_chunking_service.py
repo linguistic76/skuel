@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
+from core.models.ps_content.content_chunks import ChunkStore, chunk_uid
 from core.services.chunks.batch_chunking_service import (
     BatchChunkingService,
     RegenerationStats,
@@ -46,8 +47,12 @@ def _make_chunking_service(success: bool = True) -> MagicMock:
     if success:
         content = MagicMock()
         content.chunks = [
-            MagicMock(chunk_id="parent_1:chunk:0", context_window="ctx-a"),
-            MagicMock(chunk_id="parent_1:chunk:1", context_window="ctx-b"),
+            MagicMock(
+                chunk_id=chunk_uid(ChunkStore.CONTENT, "parent_1", 0), context_window="ctx-a"
+            ),
+            MagicMock(
+                chunk_id=chunk_uid(ChunkStore.CONTENT, "parent_1", 1), context_window="ctx-b"
+            ),
         ]
         # process_content_for_ingestion is sync (pure chunking, SKUEL029) —
         # a plain MagicMock returns the Result directly; the caller no longer awaits it.
@@ -227,7 +232,7 @@ class TestBatchDoorHonorsPerDomainParams:
 
     @pytest.mark.anyio
     async def test_absent_label_falls_back_to_default_params(self) -> None:
-        # Legacy candidate with no entity_label (parentless :Content) → defaults.
+        # A candidate whose parent carries no domain label (entity_label None) → defaults.
         from core.models.ps_content.content_chunks import DEFAULT_CHUNKING_PARAMS
 
         rows = [{"uid": "ps:test:1", "body": "content", "format": "markdown"}]

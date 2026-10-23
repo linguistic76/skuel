@@ -1,6 +1,6 @@
 ---
 title: "ADR-013: KU UID Flat Identity Design"
-updated: 2026-10-22
+updated: 2026-10-23
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum]
@@ -440,8 +440,9 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
   non-ASCII character on the day, so no derived uid moved.
 - **Shapes still minted outside the grammar are named, not hidden.** `uid_grammar.UID_EXEMPTIONS`
   lists each one with the functions that mint it and what retires it, and a unit test fails
-  once a writer stops minting its shape. The uid arc migrates them in order: chunk ids
-  (`{parent}:chunk:{n}`, and `:Content` nodes sharing their entity's uid) → periodic notes
+  once a writer stops minting its shape. A chunk uid is `chunk_{hash(store, parent, index)}`,
+  and a `:Content` node has no uid — it is reached through its entity's `HAS_CONTENT` edge, so
+  no node shares an entity's uid. The uid arc migrates the rest in order: periodic notes
   (`ue:{kind}:{user}:{key}`) → the remaining generated shapes (`{prefix}_{slug}_{8 hex}`,
   habit completions, insights, the default group, bare-UUID SearchEvents, transcriptions,
   instruction sets); each becomes `{prefix}_{hash(parts)}` where the old id was derived, so a

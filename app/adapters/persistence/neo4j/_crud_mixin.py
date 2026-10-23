@@ -928,7 +928,9 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         Args:
             uid: Unique identifier of the entity to delete
-            cascade: If True, deletes entity and all its relationships (DETACH DELETE).
+            cascade: If True, deletes the entity, its chunk subtree (Content,
+                    ContentChunk, ReferenceChunk — ``build_content_subtree_delete``)
+                    and all its relationships (DETACH DELETE).
                     If False, fails if entity has relationships (requires manual cleanup).
 
         Returns:
@@ -965,10 +967,17 @@ class _CrudMixin[T: DomainModelProtocol]:
         where_line = f"WHERE {df_clause}" if df_clause else ""
 
         if cascade:
-            # DETACH DELETE removes entity AND all relationships
+            # The entity's chunk subtree goes first, leaf-first: a DETACH of the
+            # entity alone would leave its Content and chunks behind, unreachable
+            # and still answering vector searches.
+            from adapters.persistence.neo4j.query.cypher.crud_queries import (
+                build_content_subtree_delete,
+            )
+
             query = f"""
             MATCH (n:{self.label} {{uid: $uid}})
             {where_line}
+            {build_content_subtree_delete("n")}
             DETACH DELETE n
             RETURN count(n) as deleted
             """

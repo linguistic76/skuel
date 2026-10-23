@@ -19,12 +19,15 @@ import pytest
 from core.models.enums.entity_enums import EntityType
 from core.utils import uid_grammar
 from core.utils.uid_grammar import (
+    GENERATED_UID,
+    HASHED_UID_HEX,
     UID_EXEMPTIONS,
     UidVerdict,
     authored_uid_problem,
     classify,
     exemptions_for,
     generated_uid,
+    hashed_uid,
     slugify,
 )
 
@@ -121,6 +124,52 @@ class TestGeneratedUid:
             generated_uid("task", opaque)
 
 
+class TestHashedUid:
+    def test_is_a_generated_uid_with_a_hex_opaque_part_of_the_pinned_width(self) -> None:
+        uid = hashed_uid("chunk", "content", "ps.a.b", "3")
+        assert classify(uid) is UidVerdict.FITS
+        assert GENERATED_UID.fullmatch(uid)
+        assert re.fullmatch(rf"chunk_[0-9a-f]{{{HASHED_UID_HEX}}}", uid)
+
+    def test_the_width_is_64_bits(self) -> None:
+        """Pinned: a narrower hash collides within a corpus this size (8 hex ≈ 1% at 10k)."""
+        assert HASHED_UID_HEX == 16
+
+    def test_the_same_parts_always_mint_the_same_uid(self) -> None:
+        assert hashed_uid("chunk", "content", "ps.a.b", "3") == hashed_uid(
+            "chunk", "content", "ps.a.b", "3"
+        )
+
+    def test_it_is_sha256_over_the_parts_joined_by_nul(self) -> None:
+        import hashlib
+
+        digest = hashlib.sha256(b"content\0ps.a.b\x003").hexdigest()[:HASHED_UID_HEX]
+        assert hashed_uid("chunk", "content", "ps.a.b", "3") == f"chunk_{digest}"
+
+    @pytest.mark.parametrize(
+        ("left", "right"),
+        [
+            (("a", "bc"), ("ab", "c")),  # the separator keeps the parts apart
+            (("content", "ps.a.b", "3"), ("reference", "ps.a.b", "3")),
+            (("content", "ps.a.b", "3"), ("content", "ps.a.b", "4")),
+            (("content", "ps.a.b", "3"), ("content", "ps.a.c", "3")),
+        ],
+    )
+    def test_different_parts_mint_different_uids(
+        self, left: tuple[str, ...], right: tuple[str, ...]
+    ) -> None:
+        assert hashed_uid("chunk", *left) != hashed_uid("chunk", *right)
+
+    @pytest.mark.parametrize("parts", [(), ("",), ("a", ""), ("a\0b",)])
+    def test_refuses_parts_that_could_not_identify_a_node(self, parts: tuple[str, ...]) -> None:
+        with pytest.raises(ValueError, match="part"):
+            hashed_uid("chunk", *parts)
+
+    def test_refuses_a_bad_prefix(self) -> None:
+        with pytest.raises(ValueError, match="uid prefix"):
+            hashed_uid("Chunk", "a")
+
+
 class TestSlugify:
     def test_plain_text(self) -> None:
         assert slugify("Meditation Basics") == "meditation-basics"
@@ -154,19 +203,6 @@ class TestSlugify:
 # ---------------------------------------------------------------------------
 # The exemption register — one driver per writer, run against the live code
 # ---------------------------------------------------------------------------
-
-
-def _chunk() -> str:
-    from core.models.ps_content.content_chunks import ContentChunk, ContentChunkType
-
-    return ContentChunk(
-        parent_uid="ps.a.b",
-        chunk_index=3,
-        chunk_type=ContentChunkType.SECTION,
-        text="t",
-        context_before="",
-        context_after="",
-    ).chunk_id
 
 
 def _periodic() -> str:
@@ -264,7 +300,6 @@ def _user_from_username() -> str:
 
 # writer path → a call of that writer
 _DRIVERS: dict[str, Callable[[], str]] = {
-    "core.models.ps_content.content_chunks:ContentChunk.chunk_id": _chunk,
     "core.models.user_entry.user_entry:periodic_note_uid": _periodic,
     "core.utils.uid_generator:UIDGenerator.generate_uid": _named_generated,
     "core.services.ingestion.vault_policy:personal_file_uid": _personal_file,

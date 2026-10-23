@@ -1,18 +1,18 @@
-"""A uid-anchored write or read binds the entity, never its ``:Content`` shadow (G13).
+"""A uid-anchored write or read binds the entity, never a ``:Content`` shadow (G13).
 
-The chunk store gives every Ku / PathStep with a body a second node carrying the
-SAME uid (``MERGE (c:Content {uid: $uid})`` in ``neo4j_content_adapter.py``). A
-uid-anchored pattern with no label binds both nodes, so a write doubles its edge
-and a read doubles its rows. Every such pattern under ``adapters/persistence/``
-binds ``:Entity`` (or the domain label); ``tests/unit/test_g13_shadow_uid_census.py``
-holds that over the tree, and this file proves the doors a learner reaches on a
-real Neo4j: the lateral writer, the engagement opener, the semantic-triple
-writer and the pin writer each leave exactly one edge, the lateral reads return
-one row per entity, and a triple naming an absent endpoint creates nothing.
+A ``:Content`` node carrying its entity's uid — the shadow — is a second node on
+the SAME uid: a uid-anchored pattern with no label binds both nodes, so a write
+doubles its edge and a read doubles its rows. Every such pattern under
+``adapters/persistence/`` binds ``:Entity`` (or the domain label) or excludes
+``:Content``; ``tests/unit/test_g13_shadow_uid_census.py`` holds that over the
+tree, and this file proves the doors a learner reaches on a real Neo4j: the
+lateral writer, the engagement opener, the semantic-triple writer and the pin
+writer each leave exactly one edge, the lateral reads return one row per entity,
+and a triple naming an absent endpoint creates nothing.
 
-The shadow is written by the REAL content adapter, and the control assertion
-(two nodes on the uid) runs first — a one-edge assertion means nothing unless
-the shadow provably exists.
+The content adapter gives a :Content node no uid, so the shadow is seeded by
+hand here, and the control assertion (two nodes on the uid) runs first — a
+one-edge assertion means nothing unless the shadow provably exists.
 """
 
 from __future__ import annotations
@@ -21,10 +21,9 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from neo4j import AsyncDriver, Record
+from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
-from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
 from adapters.persistence.neo4j.query.cypher.semantic_queries import build_semantic_merge
@@ -35,7 +34,6 @@ from core.infrastructure.relationships.semantic_relationships import (
     SemanticTriple,
 )
 from core.models.enums.entity_enums import EntityType
-from core.models.ps_content.content import CurriculumContent
 from core.models.relationship_names import RelationshipName
 from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
@@ -67,20 +65,6 @@ RETURN count(r) AS edges
 _NODES_ON_UID = "MATCH (n {uid: $uid}) RETURN count(n) AS nodes"
 
 
-class _DriverConnection:
-    """Adapts the driver fixture to the connection shape the content adapter wants."""
-
-    def __init__(self, driver: AsyncDriver) -> None:
-        self.driver = driver
-
-    # boundary: cypher-params — mirrors the real execute_query signature this
-    # double substitutes for; Cypher params are genuinely heterogeneous.
-    async def execute_query(self, query: str, params: dict[str, Any] | None = None) -> list[Record]:
-        async with self.driver.session() as session:
-            result = await session.run(query, params or {})
-            return [record async for record in result]
-
-
 async def _scalar(driver: AsyncDriver, query: str, **params: Any) -> int:  # boundary: cypher-params
     async with driver.session() as session:
         record = await (await session.run(query, params)).single()
@@ -108,12 +92,15 @@ async def shadowed_graph(neo4j_driver):
             ku=EntityType.KU.value,
             path_step=EntityType.PATH_STEP.value,
         )
-    adapter = Neo4jContentAdapter(_DriverConnection(neo4j_driver))
-    for uid in (KU_WITH_BODY, PS_WITH_BODY):
-        stored = await adapter.store_content_with_chunks(
-            uid, CurriculumContent(unit_uid=uid, body="A body, so a shadow.", chunks=())
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            UNWIND $uids AS uid
+            MATCH (e:Entity {uid: uid})
+            CREATE (e)-[:HAS_CONTENT]->(:Content {uid: uid, body: 'A body, so a shadow.'})
+            """,
+            uids=[KU_WITH_BODY, PS_WITH_BODY],
         )
-        assert stored, f"content adapter failed to persist the body under {uid}"
     # Control: the shadow exists, so every one-edge assertion below is a real one.
     for uid in (KU_WITH_BODY, PS_WITH_BODY):
         assert await _scalar(neo4j_driver, _NODES_ON_UID, uid=uid) == 2

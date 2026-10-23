@@ -142,7 +142,7 @@ Ingestion publishes ChunkEmbeddingRequested and the worker drains the queue.
         async with neo4j_driver.session() as session:
             cypher_result = await session.run(
                 """
-                MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+                MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(c:Content)-[:HAS_CHUNK]->(chunk:ContentChunk)
                 WHERE chunk.embedding IS NOT NULL
                 RETURN count(chunk) AS embedded
                 """,

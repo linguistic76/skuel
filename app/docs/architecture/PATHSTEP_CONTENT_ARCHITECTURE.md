@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-23
 ---
 
 # PathStep Content Architecture
@@ -96,8 +96,8 @@ After ingestion, this YAML produces the following graph structure:
 
     -[:HAS_CONTENT]->
 
-(:Content {
-    uid: "ps.mindfulness-101.intro",
+(:Content {                             ← no uid: one per entity, reached only
+                                          through its HAS_CONTENT edge
     body: "## What Is Mindfulness?\n\nMindfulness is ...",
     format: "markdown",
     word_count: 1247,
@@ -108,7 +108,8 @@ After ingestion, this YAML produces the following graph structure:
     -[:HAS_CHUNK {sequence: 0}]->
 
 (:ContentChunk {
-    uid: "ps.mindfulness-101.intro:chunk:0",   ← deterministic: {parent_uid}:chunk:{index}
+    uid: "chunk_dcaa7988aef7bb96",      ← chunk_uid(store, parent_uid, index): chunk_{hash},
+                                          the same on every re-chunk
     chunk_type: "section",              ← ContentChunkType value (section | definition |
                                           example | exercise | code | summary | ...)
     text: "## What Is Mindfulness?\n\nMindfulness is paying attention...",
@@ -123,7 +124,7 @@ After ingestion, this YAML produces the following graph structure:
 
     -[:HAS_CHUNK {sequence: 1}]->
 
-(:ContentChunk { uid: "...:chunk:1", ... })
+(:ContentChunk { uid: "chunk_27b95126a82d3eab", ... })
 ...
 ```
 
@@ -244,7 +245,7 @@ EmbeddingBackgroundWorker embeds entity + chunks, stores vectors + v3 metadata
 
 **ContentChunks enable semantic search without loading full bodies.** A vector index on `ContentChunk.embedding` lets Askesis find relevant content by meaning, not keyword. The chunk-level granularity also means a specific paragraph can be retrieved without loading the entire 2,000-word PathStep.
 
-**Change detection is file-level, not body-level:** incremental/smart ingestion skips unchanged files via the `IngestionMetadata` content hash. Re-chunking is **delete-then-create**: `store_content_with_chunks` deletes the entire outgoing chunk set and CREATEs fresh nodes — in ONE Cypher statement (single transaction), so a mid-write failure rolls the delete back and can never leave the Content node chunkless — and stale properties from earlier chunker/schema generations can never linger on a MERGE-kept node. Embedding idempotency (ADR-074 §8) is preserved by carry-over, not node reuse — a new chunk whose `context_window` matches an old chunk's `embedding_source_text` inherits that embedding, and the worker's freshness pre-check then skips it. A re-ingest never accumulates duplicates (chunk uids stay deterministic, `{parent_uid}:chunk:{index}`) and a force re-ingest of an unchanged body never destroys good chunk vectors.
+**Change detection is file-level, not body-level:** incremental/smart ingestion skips unchanged files via the `IngestionMetadata` content hash. Re-chunking is **delete-then-create**: `store_content_with_chunks` deletes the entire outgoing chunk set and CREATEs fresh nodes — in ONE Cypher statement (single transaction), so a mid-write failure rolls the delete back and can never leave the Content node chunkless — and stale properties from earlier chunker/schema generations can never linger on a MERGE-kept node. Embedding idempotency (ADR-074 §8) is preserved by carry-over, not node reuse — a new chunk whose `context_window` matches an old chunk's `embedding_source_text` inherits that embedding, and the worker's freshness pre-check then skips it. A re-ingest never accumulates duplicates (chunk uids stay deterministic — `chunk_uid(store, parent_uid, index)`, a hash of the three, with a uniqueness constraint on each chunk label) and a force re-ingest of an unchanged body never destroys good chunk vectors.
 
 ---
 

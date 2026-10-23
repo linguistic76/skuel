@@ -89,7 +89,7 @@ async def test_regenerate_chunks_replaces_stale_chunks(neo4j_driver):
         async with neo4j_driver.session() as session:
             res = await session.run(
                 """
-                MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+                MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(c:Content)-[:HAS_CHUNK]->(chunk:ContentChunk)
                 RETURN count(chunk) AS n
                 """,
                 {"uid": parent_uid},
@@ -103,7 +103,7 @@ async def test_regenerate_chunks_replaces_stale_chunks(neo4j_driver):
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+                MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(:Content)-[:HAS_CHUNK]->(chunk:ContentChunk)
                 SET chunk.chunking_version = 'v0_stale'
                 """,
                 {"uid": parent_uid},
@@ -130,7 +130,7 @@ async def test_regenerate_chunks_replaces_stale_chunks(neo4j_driver):
         async with neo4j_driver.session() as session:
             res = await session.run(
                 """
-                MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+                MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(c:Content)-[:HAS_CHUNK]->(chunk:ContentChunk)
                 RETURN count(chunk) AS n,
                        collect(DISTINCT chunk.chunking_version) AS versions
                 """,

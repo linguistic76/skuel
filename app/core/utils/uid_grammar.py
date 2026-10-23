@@ -18,8 +18,9 @@ uid, and composites like ``hc.user_admin.habit_…`` are outside the shapes.
 ``classify`` reads any uid against the grammar. ``authored_uid_problem`` is the
 ingestion check for a uid a file supplies — its ``uid:`` line, or the one its
 file name gives — and takes no exemption. ``generated_uid`` builds a generated
-uid and refuses one outside the grammar. ``slugify`` folds text to the segment
-alphabet.
+uid and refuses one outside the grammar; ``hashed_uid`` builds one whose opaque
+part is a hash of the parts that identify the node, so the same parts always
+name the same node. ``slugify`` folds text to the segment alphabet.
 
 ``UID_EXEMPTIONS`` names each shape live code mints outside the grammar, the
 functions that mint it, and what retires the entry (``retired_by``); the census
@@ -33,6 +34,7 @@ See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md § Separator Grammar
 
 from __future__ import annotations
 
+import hashlib
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -102,6 +104,32 @@ def generated_uid(prefix: str, opaque: str) -> str:
     return f"{prefix}_{opaque}"
 
 
+#: Hex digits of sha256 a hashed uid keeps — 64 bits. Two of n hashed uids share
+#: a value with probability about n² / 2⁶⁵: 3e-10 at 100k nodes, 3e-8 at a million.
+HASHED_UID_HEX: Final = 16
+
+
+def hashed_uid(prefix: str, *parts: str) -> str:
+    """The generated uid ``{prefix}_{hash}`` of the parts that identify a node.
+
+    The hash is sha256 over the parts joined by NUL, cut to ``HASHED_UID_HEX``
+    hex digits. Deterministic: the same parts mint the same uid, so a writer that
+    re-creates a node re-creates its uid. A part is never empty and never holds
+    NUL, so no two lists of parts join to the same text.
+
+    Raises:
+        ValueError: when there are no parts, a part is empty or holds NUL, or the
+            prefix is not a lowercase word — a caller's bug, never input.
+    """
+    if not parts:
+        raise ValueError("a hashed uid needs at least one identifying part")
+    for part in parts:
+        if not part or "\0" in part:
+            raise ValueError(f"identifying part {part!r} is empty or holds NUL")
+    digest = hashlib.sha256("\0".join(parts).encode()).hexdigest()[:HASHED_UID_HEX]
+    return generated_uid(prefix, digest)
+
+
 def slugify(text: str) -> str:
     """Fold ``text`` to one uid segment: lowercase ASCII words joined by ``-``.
 
@@ -152,12 +180,6 @@ PERIODIC_NOTE_EXEMPTION: Final = UidExemption(
 _UUID: Final = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
 UID_EXEMPTIONS: Final[tuple[UidExemption, ...]] = (
-    UidExemption(
-        name="chunk",
-        pattern=re.compile(r".+:chunk:\d+"),
-        writers=("core.models.ps_content.content_chunks:ContentChunk.chunk_id",),
-        retired_by="uid arc PR 2 (chunks + Content)",
-    ),
     PERIODIC_NOTE_EXEMPTION,
     UidExemption(
         name="named_generated",
@@ -237,6 +259,7 @@ def exemptions_for(uid: str) -> tuple[UidExemption, ...]:
 __all__ = [
     "AUTHORED_UID",
     "GENERATED_UID",
+    "HASHED_UID_HEX",
     "PERIODIC_NOTE_EXEMPTION",
     "UID_CHARSET",
     "UID_EXEMPTIONS",
@@ -246,5 +269,6 @@ __all__ = [
     "classify",
     "exemptions_for",
     "generated_uid",
+    "hashed_uid",
     "slugify",
 ]

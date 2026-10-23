@@ -54,7 +54,7 @@ REPORT-ONLY categories (never touched by --apply):
   R2  Multi-owner daily-note UserEntry collisions remaining AFTER F3+F5
       (expected residual after Arc F: none).
   R4  Structural anomalies: :Entity nodes missing entity_type, nodes with ≠1
-      domain label, :Content chunk shadows carrying EXTRACTED_FROM (G13).
+      domain label, :Content nodes carrying EXTRACTED_FROM (G13).
 
 Off-vault direct graph writes are sanctioned HERE and only here (R4 ruling):
 these are user/app-owned rows, not vault-governed content. Content-vault
@@ -85,6 +85,7 @@ from core.utils.process_clock import pin_process_clock_to_utc
 
 pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
 
+from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.user_enums import UserRole
@@ -213,6 +214,11 @@ def _created_order(row: Mapping[str, object]) -> datetime:
 
 #: A group whose ``created_at`` ordering cannot be proved is REPORT, never fixed.
 _UNREADABLE_BLOCKER = "no readable created_at on {} — the oldest cannot be told"
+
+#: The :Content nodes an entity holds — reached through its edge, since Content has no uid.
+_CONTENT_SUBTREE_COUNT = (
+    "MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(c:Content) RETURN count(c) AS n"
+)
 
 
 def _unreadable_stamps(members: Sequence[Mapping[str, object]]) -> list[str]:
@@ -682,9 +688,10 @@ async def fetch_anomalies(driver: Any) -> dict[str, list[dict[str, Any]]]:
             "WITH n, [l IN labels(n) WHERE NOT l IN ['Entity','Content']] AS dl "
             "WHERE size(dl) <> 1 RETURN n.uid AS uid, labels(n) AS labels"
         ),
-        ":Content shadow carrying EXTRACTED_FROM (G13)": (
+        ":Content carrying EXTRACTED_FROM (G13)": (
             "MATCH (c:Content)-[:EXTRACTED_FROM]->(entry) "
-            "RETURN c.uid AS uid, entry.uid AS entry_uid"
+            "OPTIONAL MATCH (holder:Entity)-[:HAS_CONTENT]->(c) "
+            "RETURN holder.uid AS uid, entry.uid AS entry_uid"
         ),
     }
     for name, query in queries.items():
@@ -790,13 +797,16 @@ async def apply_type_fixes(driver: Any, fixes: list[TypeMismatch]) -> int:
     return fixed
 
 
+async def _has_content_subtree(driver: Any, uid: str) -> bool:
+    """Whether the entity holds a :Content subtree (a body this repair must not orphan)."""
+    found = await driver.execute_query(_CONTENT_SUBTREE_COUNT, uid=uid)
+    return bool(found.records and int(found.records[0]["n"]) > 0)
+
+
 async def _delete_entity_checked(driver: Any, uid: str, label: str) -> bool:
-    """Delete one entity after the :Content-shadow-uid safety check."""
-    shadow = await driver.execute_query(
-        "MATCH (c:Content {uid: $uid}) RETURN count(c) AS n", uid=uid
-    )
-    if shadow.records and int(shadow.records[0]["n"]) > 0:
-        print(f"    !! {uid}: :Content shadow shares this uid — skipped")
+    """Delete one entity, refusing one that holds a :Content subtree."""
+    if await _has_content_subtree(driver, uid):
+        print(f"    !! {uid}: holds a :Content subtree — skipped")
         return False
     await driver.execute_query(
         f"MATCH (n:Entity {{uid: $uid}}) WHERE '{label}' IN labels(n) DETACH DELETE n",
@@ -820,7 +830,8 @@ async def apply_wrong_door_cleanup(driver: Any, plan: WrongDoorPlan) -> tuple[in
     entries_deleted = 0
     for entry in plan.entries_to_delete:
         result = await driver.execute_query(
-            "MATCH (e:Entity:UserEntry {uid: $uid}) DETACH DELETE e RETURN count(e) AS n",
+            f"MATCH (e:Entity:UserEntry {{uid: $uid}}) {build_content_subtree_delete('e')} "
+            "DETACH DELETE e RETURN count(e) AS n",
             uid=entry["uid"],
         )
         entries_deleted += int(result.records[0]["n"]) if result.records else 0
@@ -863,11 +874,8 @@ async def apply_duplicate_merges(driver: Any, groups: list[DupGroup]) -> int:
         if group.blockers:
             continue
         for loser_uid in group.loser_uids:
-            shadow = await driver.execute_query(
-                "MATCH (c:Content {uid: $uid}) RETURN count(c) AS n", uid=loser_uid
-            )
-            if shadow.records and int(shadow.records[0]["n"]) > 0:
-                print(f"    !! {loser_uid}: :Content shadow shares this uid — skipped")
+            if await _has_content_subtree(driver, loser_uid):
+                print(f"    !! {loser_uid}: holds a :Content subtree — skipped")
                 continue
             await driver.execute_query(
                 """
@@ -907,7 +915,7 @@ async def apply_test_user_cleanup(driver: Any, plans: list[TestUserPlan]) -> tup
         if not all_owned_deleted:
             # Deleting the user around a refused entity would orphan it and
             # report success anyway (Kody #504) — leave the whole user for
-            # the next run, after the shadow anomaly is resolved.
+            # the next run, once its subtree is resolved.
             print(f"    !! {plan.uid}: owned entity delete refused — user kept")
             continue
         # HAS_SESSION is shared between auth :Session nodes and ADR-078
@@ -1010,13 +1018,10 @@ async def apply_about_entity_repoints(driver: Any, plans: list[RepointPlan]) -> 
     for plan in plans:
         if plan.blockers:
             continue
-        # Shadow precheck BEFORE mutating: re-pointing first and then refusing
-        # the delete would leave the pair half-migrated (Kody #504).
-        shadow = await driver.execute_query(
-            "MATCH (c:Content {uid: $uid}) RETURN count(c) AS n", uid=plan.dupe_uid
-        )
-        if shadow.records and int(shadow.records[0]["n"]) > 0:
-            print(f"    !! {plan.dupe_uid}: :Content shadow shares this uid — pair skipped")
+        # Subtree precheck BEFORE mutating: re-pointing first and then refusing
+        # the delete would leave the pair half-migrated.
+        if await _has_content_subtree(driver, plan.dupe_uid):
+            print(f"    !! {plan.dupe_uid}: holds a :Content subtree — pair skipped")
             continue
         result = await driver.execute_query(
             """

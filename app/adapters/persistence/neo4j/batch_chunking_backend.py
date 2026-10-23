@@ -35,7 +35,12 @@ class BatchChunkingBackend:
         current_version: str,
         expected_by_label: dict[str, str] | None = None,
     ) -> list[BatchChunkingCandidate]:
-        """Return :Content rows needing chunk regeneration.
+        """Return the entities whose :Content needs chunk regeneration.
+
+        A :Content node has no uid, so each row names its entity: ``uid`` is the
+        entity's uid, the one the re-chunk stores under, and ``parent_uids``
+        filters on it. Content no entity holds is not a candidate — there is
+        nothing to store its chunks under.
 
         When ``force`` is False, a candidate is one with no chunks or at least
         one chunk whose ``chunking_version`` differs from the content unit's
@@ -45,7 +50,7 @@ class BatchChunkingBackend:
         ``current_version``. Row shape is fixed by the ``RETURN`` projection and
         matches ``BatchChunkingCandidate``.
         """
-        uid_filter = "AND c.uid IN $parent_uids" if parent_uids is not None else ""
+        uid_filter = "AND parent.uid IN $parent_uids" if parent_uids is not None else ""
 
         if force:
             # No staleness predicate — every non-empty body is a candidate. The
@@ -56,7 +61,7 @@ class BatchChunkingBackend:
             # Bind each unit's expected tag (per-domain, default-fallback) before
             # the EXISTS so the subquery can compare against it.
             expected_binding = """
-            WITH c, entity_label,
+            WITH parent, c, entity_label,
                  coalesce($expected_by_label[entity_label], $current_version) AS expected_version
             """
             where_clause = """
@@ -70,14 +75,13 @@ class BatchChunkingBackend:
             """
 
         query = f"""
-        MATCH (c:Content)
+        MATCH (parent:Entity)-[:HAS_CONTENT]->(c:Content)
         WHERE c.body IS NOT NULL AND c.body <> ''
         {uid_filter}
-        OPTIONAL MATCH (parent:Entity)-[:HAS_CONTENT]->(c)
-        WITH c, [l IN labels(parent) WHERE l <> 'Entity'][0] AS entity_label
+        WITH parent, c, [l IN labels(parent) WHERE l <> 'Entity'][0] AS entity_label
         {expected_binding}
         {where_clause}
-        RETURN c.uid AS uid, c.body AS body, c.format AS format, entity_label
+        RETURN parent.uid AS uid, c.body AS body, c.format AS format, entity_label
         """
 
         params: dict[str, Any] = {

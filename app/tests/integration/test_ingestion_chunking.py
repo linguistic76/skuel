@@ -123,7 +123,7 @@ Python is easy to learn and powerful.
         async with neo4j_driver.session() as session:
             cypher_result = await session.run(
                 """
-                MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+                MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(c:Content)-[:HAS_CHUNK]->(chunk:ContentChunk)
                 RETURN count(chunk) AS n, collect(DISTINCT chunk.chunk_type) AS types
                 """,
                 {"uid": ku_uid},
@@ -196,7 +196,7 @@ One shared chunk step, two doors.
         cypher_result = await session.run(
             """
             MATCH (ps:PathStep {uid: $uid})
-            OPTIONAL MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+            OPTIONAL MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(c:Content)-[:HAS_CHUNK]->(chunk:ContentChunk)
             RETURN ps.content AS entity_content,
                    ps.word_count AS word_count,
                    count(chunk) AS chunk_count,

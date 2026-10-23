@@ -27,7 +27,7 @@ import pytest
 from neo4j.exceptions import ServiceUnavailable
 
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
-from core.models.ps_content.content_chunks import ContentChunkType
+from core.models.ps_content.content_chunks import ChunkStore, ContentChunkType, chunk_uid
 
 
 class _FakeConnection:
@@ -68,6 +68,7 @@ class _FakeChunk:
     chunk_index: int = 0
     word_count: int = 2
     chunking_version: str = "v1"
+    store: ChunkStore = ChunkStore.CONTENT
 
 
 @dataclass
@@ -79,14 +80,15 @@ class _FakeContent:
     chunks: list[_FakeChunk] = field(default_factory=list)
 
 
-def _content(n: int = 2) -> _FakeContent:
+def _content(n: int = 2, store: ChunkStore = ChunkStore.CONTENT) -> _FakeContent:
     return _FakeContent(
         chunks=[
             _FakeChunk(
-                chunk_id=f"ps:test:doc:chunk:{i}",
+                chunk_id=chunk_uid(store, "ps.test.doc", i),
                 text=f"chunk {i}",
                 context_window=f"window {i}",
                 chunk_index=i,
+                store=store,
             )
             for i in range(n)
         ]
@@ -110,7 +112,7 @@ async def test_delete_and_create_are_one_atomic_statement():
     conn = _FakeConnection(responses=_create_responses(2))
     adapter = Neo4jContentAdapter(conn)
 
-    assert await adapter.store_content_with_chunks("ps:test:doc", _content(2))
+    assert await adapter.store_content_with_chunks("ps.test.doc", _content(2))
 
     # [0] Content upsert, [1] carry-over read, [2] combined delete+create
     assert len(conn.queries) == 3
@@ -124,13 +126,59 @@ async def test_delete_and_create_are_one_atomic_statement():
 
 
 @pytest.mark.asyncio
+async def test_content_has_no_uid_and_every_read_starts_at_the_entity():
+    """A :Content node is reached only through its entity's HAS_CONTENT edge.
+
+    The upsert MERGEs the edge pattern from the entity and gives the Content no
+    uid, and the carry-over read and the replace statement both start at the
+    entity's uid — no statement addresses a Content node by a uid of its own.
+    """
+    conn = _FakeConnection(responses=_create_responses(2))
+    adapter = Neo4jContentAdapter(conn)
+
+    assert await adapter.store_content_with_chunks("ps.test.doc", _content(2))
+
+    upsert_query, _ = conn.queries[0]
+    assert "MERGE (ku)-[:HAS_CONTENT]->(c:Content)" in upsert_query
+    for query, params in conn.queries:
+        assert "Content {" not in query and "c.uid" not in query
+        assert params["uid"] == "ps.test.doc"
+    for query, _ in conn.queries[1:]:
+        assert "MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->" in query
+
+
+@pytest.mark.asyncio
+async def test_a_chunk_minted_for_the_reference_store_is_refused_before_any_write():
+    conn = _FakeConnection(responses=_create_responses(2))
+    adapter = Neo4jContentAdapter(conn)
+
+    assert not await adapter.store_content_with_chunks(
+        "ps.test.doc", _content(2, store=ChunkStore.REFERENCE)
+    )
+    assert conn.queries == []
+
+
+@pytest.mark.asyncio
+async def test_get_chunks_starts_at_the_entity():
+    conn = _FakeConnection(default_rows=[])
+    adapter = Neo4jContentAdapter(conn)
+
+    await adapter.get_chunks("ps.test.doc")
+    await adapter.get_chunks("ps.test.doc", ContentChunkType.SECTION)
+
+    for query, _ in conn.queries:
+        assert "MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(:Content)" in query
+        assert "Content {" not in query
+
+
+@pytest.mark.asyncio
 async def test_default_store_clears_inline_body():
     """Popped-body domains (Ku/PS): the :Content subtree is THE body source
     of truth, so the upsert removes any legacy inline content property."""
     conn = _FakeConnection(responses=_create_responses(2))
     adapter = Neo4jContentAdapter(conn)
 
-    assert await adapter.store_content_with_chunks("ps:test:doc", _content(2))
+    assert await adapter.store_content_with_chunks("ps.test.doc", _content(2))
 
     upsert_query, _ = conn.queries[0]
     assert "REMOVE ku.content" in upsert_query
@@ -159,7 +207,7 @@ async def test_zero_chunk_result_still_clears_stale_chunks():
     conn = _FakeConnection(responses=_create_responses(0))
     adapter = Neo4jContentAdapter(conn)
 
-    assert await adapter.store_content_with_chunks("ps:test:doc", _content(0))
+    assert await adapter.store_content_with_chunks("ps.test.doc", _content(0))
 
     replace_query, replace_params = conn.queries[2]
     assert "DETACH DELETE" in replace_query
@@ -187,13 +235,13 @@ async def test_chunks_created_fresh_with_embedding_carry_over():
     )
     adapter = Neo4jContentAdapter(conn)
 
-    assert await adapter.store_content_with_chunks("ps:test:doc", _content(2))
+    assert await adapter.store_content_with_chunks("ps.test.doc", _content(2))
 
     create_query, create_params = conn.queries[2]
     assert "CREATE (chunk:ContentChunk" in create_query
     assert "MERGE (chunk:ContentChunk" not in create_query
     rows = create_params["chunks"]
-    assert rows[0]["chunk_uid"] == "ps:test:doc:chunk:0"
+    assert rows[0]["chunk_uid"] == chunk_uid(ChunkStore.CONTENT, "ps.test.doc", 0)
     # window 0 matched the carry-over map → embedding inherited
     assert rows[0]["embedding"] == [0.1]
     assert rows[0]["embedding_source_text"] == "window 0"
@@ -212,7 +260,7 @@ async def test_create_count_mismatch_fails():
         }
     )
     adapter = Neo4jContentAdapter(conn)
-    assert not await adapter.store_content_with_chunks("ps:test:doc", _content(2))
+    assert not await adapter.store_content_with_chunks("ps.test.doc", _content(2))
 
 
 @pytest.mark.asyncio
@@ -222,7 +270,7 @@ async def test_content_upsert_writes_no_metadata_node():
     conn = _FakeConnection(responses=_create_responses(1))
     adapter = Neo4jContentAdapter(conn)
 
-    assert await adapter.store_content_with_chunks("ps:test:doc", _content(1))
+    assert await adapter.store_content_with_chunks("ps.test.doc", _content(1))
 
     upsert_query, upsert_params = conn.queries[0]
     assert "ContentMetadata" not in upsert_query
@@ -241,7 +289,7 @@ async def test_content_subtree_delete_reads_no_metadata_node():
     conn = _FakeConnection(responses={"MATCH (unit:Entity": [{"deleted": 1}]})
     adapter = Neo4jContentAdapter(conn)
 
-    assert await adapter.delete_content_subtree("ps:test:doc")
+    assert await adapter.delete_content_subtree("ps.test.doc")
 
     delete_query, _ = conn.queries[0]
     assert "ContentMetadata" not in delete_query

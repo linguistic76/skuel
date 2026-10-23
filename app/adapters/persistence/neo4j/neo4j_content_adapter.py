@@ -7,6 +7,10 @@ subtree. Write path: ingestion / batch re-chunk via ``store_content_with_chunks`
 (MERGE upsert — ADR-074); embedding worker reads freshness and stores chunk
 vectors here. Display reads use the inline ``Entity.content`` field, not this
 adapter; re-chunk body reads go through ``BatchChunkingBackend``.
+
+A :Content node has no uid: it is one-to-one with its entity and is reached only
+through the entity's ``HAS_CONTENT`` edge, so every read here starts at the
+entity's uid. A chunk's uid is ``ContentChunk.chunk_id``.
 """
 
 __version__ = "1.0"
@@ -15,7 +19,7 @@ __version__ = "1.0"
 from typing import Any
 
 from core.models.ps_content.content import CurriculumContent
-from core.models.ps_content.content_chunks import ContentChunkType
+from core.models.ps_content.content_chunks import ChunkStore, ContentChunkType
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -89,9 +93,13 @@ class Neo4jContentAdapter:
         Store content with its semantic chunks for RAG retrieval.
 
         Creates:
-        - Content node with full text
+        - the entity's Content node with full text (one per entity, no uid)
         - ContentChunk nodes for each chunk
         - HAS_CHUNK relationships
+
+        Every chunk must be a ``ChunkStore.CONTENT`` chunk; a chunk minted for the
+        reference store is refused before anything is written, so the two stores
+        never hold one uid.
 
         Chunk persistence is **delete-then-create** (Arc E, force-reingest
         contract): every re-chunk replaces the whole chunk set with fresh
@@ -120,6 +128,16 @@ class Neo4jContentAdapter:
         Returns:
             True if successful
         """
+        foreign = [
+            chunk.chunk_id for chunk in content.chunks if chunk.store is not ChunkStore.CONTENT
+        ]
+        if foreign:
+            logger.error(
+                f"Refusing to store {len(foreign)} chunk(s) minted for another store "
+                f"under {uid}'s Content"
+            )
+            return False
+
         try:
             # The :Content subtree is THE body source of truth for popped-body
             # entities — drop any legacy inline body so the inline-first read
@@ -127,22 +145,20 @@ class Neo4jContentAdapter:
             # copy (`n += props` upserts never remove properties). Skipped for
             # entities whose inline body stays load-bearing (UserEntry).
             remove_inline = "REMOVE ku.content\n" if clear_inline_body else ""
+            # The entity's write lock comes first, so two stores of one entity
+            # take turns and the MERGE finds the Content the first one made.
             query = f"""
-            // Match the knowledge unit
             MATCH (ku:Entity {{uid: $uid}})
+            SET ku.uid = ku.uid
             {remove_inline}
-            // Create or merge Content node
-            MERGE (c:Content {{uid: $uid}})
+            MERGE (ku)-[:HAS_CONTENT]->(c:Content)
             SET c.body = $body
             SET c.format = $format
             SET c.word_count = $word_count
             SET c.chunk_count = $chunk_count
             SET c.updated_at = datetime()
 
-            // Link to knowledge unit
-            MERGE (ku)-[:HAS_CONTENT]->(c)
-
-            RETURN c.uid as uid
+            RETURN ku.uid as uid
             """
 
             params = {
@@ -165,7 +181,7 @@ class Neo4jContentAdapter:
             carry_over: dict[str, dict[str, Any]] = {}
             old_rows = await self.neo4j.execute_query(
                 """
-                MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+                MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(:Content)-[:HAS_CHUNK]->(chunk:ContentChunk)
                 WHERE chunk.embedding IS NOT NULL
                 RETURN chunk.embedding_source_text AS source_text,
                        chunk.embedding AS embedding,
@@ -208,7 +224,7 @@ class Neo4jContentAdapter:
             # no create rows) so stale chunks still clear.
             chunk_result = await self.neo4j.execute_query(
                 """
-                MATCH (c:Content {uid: $uid})
+                MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(c:Content)
                 OPTIONAL MATCH (c)-[:HAS_CHUNK]->(old:ContentChunk)
                 DETACH DELETE old
                 WITH DISTINCT c
@@ -280,7 +296,7 @@ class Neo4jContentAdapter:
         try:
             if chunk_type:
                 query = """
-                MATCH (c:Content {uid: $uid})-[r:HAS_CHUNK]->(chunk:ContentChunk)
+                MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(:Content)-[r:HAS_CHUNK]->(chunk:ContentChunk)
                 WHERE chunk.chunk_type = $chunk_type
                 RETURN chunk, r.sequence as sequence
                 ORDER BY r.sequence
@@ -288,7 +304,7 @@ class Neo4jContentAdapter:
                 params = {"uid": uid, "chunk_type": chunk_type.value}
             else:
                 query = """
-                MATCH (c:Content {uid: $uid})-[r:HAS_CHUNK]->(chunk:ContentChunk)
+                MATCH (:Entity {uid: $uid})-[:HAS_CONTENT]->(:Content)-[r:HAS_CHUNK]->(chunk:ContentChunk)
                 RETURN chunk, r.sequence as sequence
                 ORDER BY r.sequence
                 """

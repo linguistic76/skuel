@@ -207,7 +207,7 @@ class VectorSearchBackend:
         if parent_uid:
             parts.append(
                 """AND EXISTS {
-                MATCH (chunk)<-[:HAS_CHUNK]-(content:Content {uid: $parent_uid})
+                MATCH (chunk)<-[:HAS_CHUNK]-(:Content)<-[:HAS_CONTENT]-(:Entity {uid: $parent_uid})
             }"""
             )
         parts.append(
