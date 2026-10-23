@@ -15,17 +15,9 @@ FIX categories (--apply):
       only when every loser's edges are exactly the expected provenance pair
       ({EXTRACTED_FROM out, OWNS in}) and all owners match; anything else
       demotes the group to REPORT.
-  F3  Wrong-door UserEntries (Arc E, R2 ruling "one journal door"):
-      (a) content-vault-owner periodic entries (the deleted 0vault/Journal/
-      door) and (b) legacy random-UID ``ue_*`` extract_activities entries
-      (pre-deterministic-door leftovers). Entries deleted; their extracted
-      entities deleted when the copy is a wrong-door duplicate (a personal
-      survivor exists, or the entity is a content-owner copy); a personal
-      entity with NO surviving copy is kept (it just loses its provenance
-      edge). Tracker rows (IngestionMetadata) for deleted entries removed.
-  F4  Cross-entry duplicates among SURVIVING entries (same label +
-      normalized title from different deterministic entries): keep the
-      oldest, delete the rest — same edge-safety demotion rule as F2.
+  F4  Cross-entry duplicates (same label + normalized title from
+      different entries): keep the oldest, delete the rest — same
+      edge-safety demotion rule as F2.
       Groups touching test users are skipped (F5 owns those).
   F5  Test users (sysreview_sim, csrfprobe2, verifyperiodic) + ALL their
       owned subtrees, sessions, auth events, and tracker rows (Arc F).
@@ -51,8 +43,6 @@ FIX categories (--apply):
       predicates match again.
 
 REPORT-ONLY categories (never touched by --apply):
-  R2  Multi-owner daily-note UserEntry collisions remaining AFTER F3+F5
-      (expected residual after Arc F: none).
   R4  Structural anomalies: :Entity nodes missing entity_type, nodes with ≠1
       domain label, :Content nodes carrying EXTRACTED_FROM (G13).
 
@@ -70,7 +60,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import sys
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
@@ -88,7 +77,6 @@ from core.utils.process_clock import pin_process_clock_to_utc
 
 pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
 
-from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.user_enums import UserRole
@@ -267,34 +255,6 @@ def group_same_entry_duplicates(rows: list[dict[str, Any]]) -> list[DupGroup]:
     return result
 
 
-@dataclass
-class WrongDoorPlan:
-    """F3: wrong-door UserEntries + the fate of every entity extracted from them.
-
-    ``entries_to_delete``: the wrong-door UserEntries (uid, owner, reason).
-    ``entities_to_delete``: extracted entities that are wrong-door copies —
-    either owned by the content-vault owner (R2: personal copies survive) or
-    legacy-door duplicates with a named surviving copy.
-    ``blocked_entities``: deletion candidates carrying unexpected edges
-    (state a blind delete would destroy) — reported, never deleted.
-    ``orphaned_survivors``: personal entities with NO surviving copy — kept,
-    but their EXTRACTED_FROM edge dies with the entry (noted for review).
-    """
-
-    entries_to_delete: list[dict[str, Any]] = field(default_factory=list)
-    entities_to_delete: list[dict[str, Any]] = field(default_factory=list)
-    blocked_entities: list[str] = field(default_factory=list)
-    orphaned_survivors: list[dict[str, Any]] = field(default_factory=list)
-
-    @property
-    def deleted_entry_uids(self) -> set[str]:
-        return {e["uid"] for e in self.entries_to_delete}
-
-    @property
-    def deleted_entity_uids(self) -> set[str]:
-        return {e["uid"] for e in self.entities_to_delete}
-
-
 def _global_key_groups(
     rows: list[dict[str, Any]],
 ) -> dict[tuple[str, str], list[dict[str, Any]]]:
@@ -309,104 +269,18 @@ def _global_key_groups(
     return groups
 
 
-def plan_wrong_door_cleanup(
-    entry_rows: list[dict[str, Any]],
-    extracted_rows: list[dict[str, Any]],
-    content_owner: str,
-) -> WrongDoorPlan:
-    """F3 categorizer (pure): decide the fate of wrong-door entries + entities.
-
-    Wrong-door entries (both extract_activities): the content-vault owner's
-    deterministic periodic entries (the deleted 0vault/Journal/ door, R2) and
-    legacy random-UID ``ue_*`` entries (pre-deterministic-door leftovers).
-    Test-user entries never match either condition (deterministic UIDs, own
-    owner) — Arc F owns those.
-    """
-    plan = WrongDoorPlan()
-    for row in entry_rows:
-        uid = row.get("uid") or ""
-        if row.get("pipeline") != "extract_activities":
-            continue
-        # All three deterministic periodic-note prefixes ingest_user_entry mints.
-        is_journal_door = row.get("owner") == content_owner and (
-            uid.startswith("ue:daily:")
-            or uid.startswith("ue:weekly:")
-            or uid.startswith("ue:monthly:")
-        )
-        is_legacy = uid.startswith("ue_")
-        if is_journal_door:
-            reason = f"journal-door entry owned by {content_owner} (R2: one door)"
-        elif is_legacy:
-            reason = "legacy random-UID extract_activities entry"
-        else:
-            continue
-        plan.entries_to_delete.append({"uid": uid, "owner": row.get("owner"), "reason": reason})
-
-    deleted_entries = plan.deleted_entry_uids
-    groups = _global_key_groups(extracted_rows)
-
-    for (label, norm_title), members in sorted(groups.items()):
-        survivors = [m for m in members if m["entry_uid"] not in deleted_entries]
-        for m in members:
-            if m["entry_uid"] not in deleted_entries:
-                continue
-            summary = (
-                f"{m['uid']} ({label} '{norm_title}', owner={m.get('owner')}, "
-                f"entry={m['entry_uid']})"
-            )
-            if m.get("owner") == content_owner:
-                reason = "content-owner copy from the journal door (R2)"
-            elif survivors:
-                reason = f"legacy-door duplicate of surviving {survivors[0]['uid']}"
-            else:
-                plan.orphaned_survivors.append(
-                    {
-                        "uid": m["uid"],
-                        "label": label,
-                        "norm_title": norm_title,
-                        "entry_uid": m["entry_uid"],
-                    }
-                )
-                continue
-            unexpected = set(m.get("edge_sigs") or []) - EXPECTED_LOSER_EDGES
-            if unexpected:
-                plan.blocked_entities.append(
-                    f"{summary} — unexpected edges {sorted(unexpected)} ({reason})"
-                )
-                continue
-            plan.entities_to_delete.append(
-                {
-                    "uid": m["uid"],
-                    "label": label,
-                    "norm_title": norm_title,
-                    "entry_uid": m["entry_uid"],
-                    "owner": m.get("owner"),
-                    "reason": reason,
-                }
-            )
-    return plan
-
-
 def plan_cross_entry_dedup(
     extracted_rows: list[dict[str, Any]],
-    deleted_entry_uids: set[str],
-    deleted_entity_uids: set[str],
     test_owner_uids: tuple[str, ...] = KNOWN_TEST_USER_UIDS,
 ) -> list[DupGroup]:
-    """F4 categorizer (pure): cross-entry duplicates among SURVIVING entities.
+    """F4 categorizer (pure): cross-entry duplicates among extracted entities.
 
-    Runs on the post-F3 picture: rows from deleted entries / deleted entities
-    are excluded. Winner = oldest ``created_at``; losers must pass the same
-    edge-safety rule as F2 or the group is demoted to REPORT. Groups touching
-    a test user are skipped entirely (Arc F owns test-user cleanup).
+    Winner = oldest ``created_at``; losers must pass the same edge-safety rule
+    as F2 or the group is demoted to REPORT. Groups touching a test user are
+    skipped entirely (Arc F owns test-user cleanup).
     """
-    surviving = [
-        r
-        for r in extracted_rows
-        if r["entry_uid"] not in deleted_entry_uids and r["uid"] not in deleted_entity_uids
-    ]
     result: list[DupGroup] = []
-    for (label, norm_title), members in sorted(_global_key_groups(surviving).items()):
+    for (label, norm_title), members in sorted(_global_key_groups(extracted_rows).items()):
         entries = {m["entry_uid"] for m in members}
         if len(members) < 2 or len(entries) < 2:
             continue
@@ -434,24 +308,6 @@ def plan_cross_entry_dedup(
                 group.blockers.append(f"{m['uid']} carries unexpected edges: {sorted(unexpected)}")
         result.append(group)
     return result
-
-
-def find_daily_owner_collisions(entry_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """R2 categorizer: deterministic daily-note UIDs sharing a date across owners.
-
-    Expects rows with keys: uid, owner. Deterministic daily UIDs look like
-    ``ue:daily:{owner}:{date}``.
-    """
-    by_date: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in entry_rows:
-        uid = row.get("uid") or ""
-        if uid.startswith("ue:daily:"):
-            by_date[uid.rsplit(":", 1)[-1]].append(row)
-    return [
-        {"date": date, "entries": [r["uid"] for r in rows_]}
-        for date, rows_ in sorted(by_date.items())
-        if len({r.get("owner") for r in rows_}) > 1
-    ]
 
 
 @dataclass
@@ -671,14 +527,6 @@ async def fetch_extracted_rows(driver: AsyncDriver) -> list[dict[str, Any]]:
     return [dict(r) for r in result.records]
 
 
-async def fetch_user_entry_rows(driver: AsyncDriver) -> list[dict[str, Any]]:
-    result = await driver.execute_query(
-        "MATCH (e:UserEntry) RETURN e.uid AS uid, e.user_uid AS owner, "
-        "e.pipeline AS pipeline, toString(e.created_at) AS created_at"
-    )
-    return [dict(r) for r in result.records]
-
-
 async def fetch_anomalies(driver: AsyncDriver) -> dict[str, list[dict[str, Any]]]:
     """R4: structural anomalies, each fetched with its own query."""
     anomalies: dict[str, list[dict[str, Any]]] = {}
@@ -816,40 +664,6 @@ async def _delete_entity_checked(driver: AsyncDriver, uid: str, label: str) -> b
         uid=uid,
     )
     return True
-
-
-async def apply_wrong_door_cleanup(
-    driver: AsyncDriver, plan: WrongDoorPlan
-) -> tuple[int, int, int]:
-    """F3 apply: delete wrong-door entities, then entries, then tracker rows.
-
-    Entities first so the entry DETACH DELETE never orphans a
-    to-be-deleted copy's provenance mid-run. Returns
-    (entities_deleted, entries_deleted, tracker_rows_deleted).
-    """
-    entities_deleted = 0
-    for entity in plan.entities_to_delete:
-        if await _delete_entity_checked(driver, entity["uid"], entity["label"]):
-            entities_deleted += 1
-
-    entries_deleted = 0
-    for entry in plan.entries_to_delete:
-        result = await driver.execute_query(
-            f"MATCH (e:Entity:UserEntry {{uid: $uid}}) {build_content_subtree_delete('e')} "
-            "DETACH DELETE e RETURN count(e) AS n",
-            uid=entry["uid"],
-        )
-        entries_deleted += int(result.records[0]["n"]) if result.records else 0
-
-    tracker_rows = 0
-    if plan.entries_to_delete:
-        result = await driver.execute_query(
-            "MATCH (m:IngestionMetadata) WHERE m.entity_uid IN $uids "
-            "DETACH DELETE m RETURN count(m) AS n",
-            uids=sorted(plan.deleted_entry_uids),
-        )
-        tracker_rows = int(result.records[0]["n"]) if result.records else 0
-    return entities_deleted, entries_deleted, tracker_rows
 
 
 async def apply_cross_entry_dedup(driver: AsyncDriver, groups: list[DupGroup]) -> int:
@@ -1078,10 +892,8 @@ def print_dry_run(
     mismatches: list[TypeMismatch],
     fixable: list[DupGroup],
     blocked: list[DupGroup],
-    wrong_door: WrongDoorPlan,
     dedup_fixable: list[DupGroup],
     dedup_blocked: list[DupGroup],
-    residual_collisions: list[dict[str, Any]],
     test_user_plans: list[TestUserPlan],
     orphan_auth: OrphanAuthPlan,
     ku_migrations: list[KuEnrollmentMigration],
@@ -1114,33 +926,6 @@ def print_dry_run(
             print(f"    ({g.entry_uid}, {g.label}, '{g.norm_title}') — {'; '.join(g.blockers)}")
             for s in g.node_summaries:
                 print(f"        {s}")
-
-    print(
-        f"\n[FIX F3] wrong-door UserEntries (R2 one-door ruling): "
-        f"{len(wrong_door.entries_to_delete)} entries, "
-        f"{len(wrong_door.entities_to_delete)} extracted entities to delete"
-    )
-    for entry in wrong_door.entries_to_delete:
-        print(f"    delete entry {entry['uid']} (owner={entry['owner']}) — {entry['reason']}")
-    for entity in wrong_door.entities_to_delete:
-        print(
-            f"    delete {entity['uid']} ({entity['label']} '{entity['norm_title']}', "
-            f"owner={entity['owner']}, entry={entity['entry_uid']}) — {entity['reason']}"
-        )
-    if wrong_door.orphaned_survivors:
-        print(
-            f"    kept (no surviving copy; loses provenance edge): "
-            f"{len(wrong_door.orphaned_survivors)}"
-        )
-        for orphan in wrong_door.orphaned_survivors:
-            print(
-                f"        keep {orphan['uid']} ({orphan['label']} '{orphan['norm_title']}', "
-                f"entry={orphan['entry_uid']})"
-            )
-    if wrong_door.blocked_entities:
-        print(f"    NOT auto-fixable (unexpected edges): {len(wrong_door.blocked_entities)}")
-        for line in wrong_door.blocked_entities:
-            print(f"        {line}")
 
     dedup_losers = sum(len(g.loser_uids) for g in dedup_fixable)
     print(
@@ -1223,13 +1008,6 @@ def print_dry_run(
         else:
             print(f"    REPORT {drift['uid']}: {drift['role']!r} — no valid lowercase form")
 
-    print(
-        f"\n[REPORT R2] multi-owner daily-note collisions remaining after F3+F5: "
-        f"{len(residual_collisions)}"
-    )
-    for c in residual_collisions:
-        print(f"    {c['date']}: {', '.join(c['entries'])}")
-
     print("\n[REPORT R4] structural anomalies:")
     for name, rows in anomalies.items():
         print(f"    {name}: {len(rows)}")
@@ -1254,26 +1032,18 @@ async def main() -> int:
 
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
-    content_owner = os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin")
-
     conn = Neo4jConnection()
     driver = await conn.connect()
     try:
         entity_rows = await fetch_entity_type_rows(driver)
         extracted_rows = await fetch_extracted_rows(driver)
-        entry_rows = await fetch_user_entry_rows(driver)
 
         mismatches = find_type_mismatches(entity_rows)
         same_entry = group_same_entry_duplicates(extracted_rows)
         fixable = [g for g in same_entry if not g.blockers]
         blocked = [g for g in same_entry if g.blockers]
 
-        wrong_door = plan_wrong_door_cleanup(entry_rows, extracted_rows, content_owner)
-        dedup_groups = plan_cross_entry_dedup(
-            extracted_rows,
-            wrong_door.deleted_entry_uids,
-            wrong_door.deleted_entity_uids,
-        )
+        dedup_groups = plan_cross_entry_dedup(extracted_rows)
         dedup_fixable = [g for g in dedup_groups if not g.blockers]
         dedup_blocked = [g for g in dedup_groups if g.blockers]
 
@@ -1284,25 +1054,14 @@ async def main() -> int:
         repoints = plan_about_entity_repoints(await fetch_about_entity_rows(driver))
         role_drifts = find_role_value_drift(await fetch_user_role_rows(driver))
 
-        # Residual collisions = what F3 + F5 do NOT resolve (expected: none).
-        f5_deleted_uids = {e["uid"] for p in test_user_plans if not p.blockers for e in p.owned}
-        surviving_entries = [
-            r
-            for r in entry_rows
-            if (r.get("uid") or "") not in wrong_door.deleted_entry_uids
-            and (r.get("uid") or "") not in f5_deleted_uids
-        ]
-        residual_collisions = find_daily_owner_collisions(surviving_entries)
         anomalies = await fetch_anomalies(driver)
 
         print_dry_run(
             mismatches,
             fixable,
             blocked,
-            wrong_door,
             dedup_fixable,
             dedup_blocked,
-            residual_collisions,
             test_user_plans,
             orphan_auth,
             ku_migrations,
@@ -1323,12 +1082,6 @@ async def main() -> int:
         deleted = await apply_duplicate_merges(driver, fixable)
         expected = sum(len(g.loser_uids) for g in fixable)
         print(f"F2: deleted {deleted}/{expected} duplicate nodes")
-        f3_entities, f3_entries, f3_tracker = await apply_wrong_door_cleanup(driver, wrong_door)
-        print(
-            f"F3: deleted {f3_entities}/{len(wrong_door.entities_to_delete)} entities, "
-            f"{f3_entries}/{len(wrong_door.entries_to_delete)} entries, "
-            f"{f3_tracker} tracker rows"
-        )
         f4_deleted = await apply_cross_entry_dedup(driver, dedup_fixable)
         f4_expected = sum(len(g.loser_uids) for g in dedup_fixable)
         print(f"F4: deleted {f4_deleted}/{f4_expected} cross-entry duplicate nodes")
@@ -1362,13 +1115,9 @@ async def main() -> int:
         # Post-apply verification: FIX categories must now be empty.
         post_entities = await fetch_entity_type_rows(driver)
         post_extracted = await fetch_extracted_rows(driver)
-        post_entries = await fetch_user_entry_rows(driver)
         residual_types = find_type_mismatches(post_entities)
         residual_dups = [g for g in group_same_entry_duplicates(post_extracted) if not g.blockers]
-        residual_wrong_door = plan_wrong_door_cleanup(post_entries, post_extracted, content_owner)
-        residual_dedup = [
-            g for g in plan_cross_entry_dedup(post_extracted, set(), set()) if not g.blockers
-        ]
+        residual_dedup = [g for g in plan_cross_entry_dedup(post_extracted) if not g.blockers]
         post_users, post_owned = await fetch_test_user_rows(driver)
         residual_test_users = plan_test_user_cleanup(post_users, post_owned)
         residual_orphans = plan_orphan_auth_cleanup(*await fetch_orphan_auth_rows(driver))
@@ -1390,8 +1139,6 @@ async def main() -> int:
         print(
             f"\nPost-apply: {len(residual_types)} type mismatches, "
             f"{len(residual_dups)} fixable same-entry groups, "
-            f"{len(residual_wrong_door.entries_to_delete)} wrong-door entries, "
-            f"{len(residual_wrong_door.entities_to_delete)} wrong-door entities, "
             f"{len(residual_dedup)} fixable cross-entry groups, "
             f"{len(residual_test_users)} test users, "
             f"{len(residual_orphans.sessions) + len(residual_orphans.auth_events)} orphan "
@@ -1403,8 +1150,6 @@ async def main() -> int:
         clean = (
             not residual_types
             and not residual_dups
-            and not residual_wrong_door.entries_to_delete
-            and not residual_wrong_door.entities_to_delete
             and not residual_dedup
             and not residual_test_users
             and not residual_orphans.sessions

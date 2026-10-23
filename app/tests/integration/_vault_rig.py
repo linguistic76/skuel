@@ -63,7 +63,7 @@ OWNER = UserUID("user_vault_done_hash")
 NOTE = "periodic_notes/2026-08-23.md"
 TITLE = "Water the plants"
 
-# A daily periodic note: the deterministic ``ue:daily:…`` uid makes every
+# A daily periodic note: the deterministic ``periodic_note_uid`` makes every
 # re-sync upsert the same UserEntry, which is what puts the guards on the path.
 FRONTMATTER = (
     "---\n"

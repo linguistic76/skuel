@@ -47,7 +47,7 @@ from .config import (
 )
 from .detector import detect_entity_type, detect_format
 from .parser import parse_markdown, parse_yaml
-from .preparer import is_sanctioned_machine_uid, prepare_entity_data
+from .preparer import prepare_entity_data
 from .types import DirectoryValidationResult, RelationshipValidationResult, ValidationResult
 
 logger = get_logger("skuel.services.ingestion.validator")
@@ -887,19 +887,14 @@ def validate_edge_data(data: dict[str, Any]) -> Result[None]:
     """
     errors: list[str] = []
 
-    # Required fields. Colon-spelled endpoints are rejected here: a colon
-    # endpoint would reach the edge writer and report a confusing "not found"
-    # instead of naming the authoring mistake. A periodic-note uid (``ue:…``)
-    # is exempt — its colon form IS the stored uid (``is_sanctioned_machine_uid``).
+    # Required fields. Colon-spelled endpoints are rejected here: no node uid
+    # holds a colon, so a colon endpoint would reach the edge writer and report
+    # a confusing "not found" instead of naming the authoring mistake.
     for endpoint_field in ("from", "to"):
         endpoint = data.get(endpoint_field)
         if not endpoint:
             errors.append(f"Missing required field: '{endpoint_field}'")
-        elif (
-            isinstance(endpoint, str)
-            and ":" in endpoint
-            and not is_sanctioned_machine_uid(endpoint)
-        ):
+        elif isinstance(endpoint, str) and ":" in endpoint:
             errors.append(
                 f"'{endpoint_field}: {endpoint}' uses the retired colon spelling "
                 f"— author the stored dot form"

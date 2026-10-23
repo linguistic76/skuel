@@ -76,10 +76,10 @@ resolved to the same stored UID).
 `normalize_uid()` — the boundary shim that rewrote `:` → `.` on entity `uid:`, rel-config UID
 fields, and Edge-YAML `from`/`to` — is gone: a colon-spelled entity uid now fails prefix
 validation **loudly** instead of being silently rewritten. Authored input is stored verbatim.
-This retires the colon as an *entity-UID spelling only*; deliberately-colon **internal machine
-identifiers** are untouched and now own the character outright (see the grammar table's colon
-row below): periodic UserEntry UIDs (`ue:daily:{user_uid}:{date}`), the `edge:` tracker-row
-sentinel, and `transcription:`/`invoice:` mints.
+The 2026-10-18 amendment then ruled the colon out of every node uid, machine-minted ones
+included: the shapes still minted with one are named exemptions until the uid arc migrates
+them (see the grammar table's colon row below), and the `edge:` tracker-row sentinel, which is
+no node uid, keeps it.
 
 Consequences:
 - File UID and graph UID compare **directly** — no mental translation, no normalization step
@@ -99,7 +99,7 @@ law — anything a doc or code comment says beyond this table is historical:
 | `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `uid_grammar.slugify()` emits it, and folds input underscores into it (`active_listening` → `active-listening`) and accents to ASCII (`café` → `cafe`). Author hyphens. |
 | `.` dot | Segment separator of **authored** UIDs — authored and stored identically. Shape: `{prefix}.{slug}` or `{prefix}.{ns}.{slug}` (the grouping label is optional — Kus and PathSteps carry one, Resources and LearningPaths do not). Ingestion refuses a `uid:` line outside this shape for every type, `user_entry` included, and a file with none takes `{prefix}.{stem}` only when its stem is one segment. |
 | `_` underscore | Separator of **generated** UIDs: `{prefix}_{opaque}` (`task_a1b2c3d4`). Also the conventional filename type-prefix (`ku_attention.md`) — which, for that reason, gives no uid to a file without a `uid:` line. |
-| `:` colon | **In no node uid** (amended 2026-10-18 — the colon row that kept periodic-note and chunk ids is reversed). The shapes still minted with one (`ue:daily:{user}:{date}`, `transcription:`, `instructions:`, `invoice:`) are named exemptions in `uid_grammar.UID_EXEMPTIONS` until the uid arc migrates them. The `edge:` tracker-row sentinel (`ingestion_tracker.py`) keeps it: it is a tracker key, not a node uid. |
+| `:` colon | **In no node uid** (amended 2026-10-18 — the colon row that kept periodic-note and chunk ids is reversed). The shapes still minted with one (`transcription:`, `instructions:`, `invoice:`) are named exemptions in `uid_grammar.UID_EXEMPTIONS` until the uid arc migrates them. The `edge:` tracker-row sentinel (`ingestion_tracker.py`) keeps it: it is a tracker key, not a node uid. |
 | *(edges)* | Family. Parent/child/lineage lives **only** in graph relationships (`ORGANIZES`, `USES_KU`, `HAS_STEP`, …) — never in UID strings. |
 
 Two clarifications the grammar hangs on:

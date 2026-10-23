@@ -95,9 +95,11 @@ PENDING_MTIME = 0.0
 
 # A minted uid-less UserEntry uid: UIDGenerator.generate_random_uid("ue") =
 # "ue_" + uuid4().hex[:8]. Similarity move SOURCES are restricted to this
-# shape — an authored or periodic uid (ue:daily:…, ue.worldview) is stable
-# across paths and must never be similarity-bridged: this is a provenance
-# check (minted vs authored spelling), not a type sniff (ADR-013).
+# shape — an authored uid (ue.worldview) or a periodic one (periodic_note_uid:
+# "ue_" + uid_grammar.HASHED_UID_HEX hex digits, 16) is stable across paths and
+# must never be similarity-bridged. The hex length is what tells a periodic uid
+# from a minted one. This is a provenance check (minted vs derived or authored
+# spelling), not a type sniff (ADR-013).
 _MINTED_UE_UID = re.compile(r"ue_[0-9a-f]{8}\Z")
 
 # metadata.entry_kind values that derive a periodic uid in

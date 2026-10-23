@@ -26,10 +26,12 @@ from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBac
 from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.models.user_entry.user_entry import periodic_note_uid
 from core.utils.result_simplified import Errors, Result
 from tests.integration._activity_link_rig import (
     edges_between,
@@ -61,8 +63,8 @@ OTHER = f"user_{OTHER_MARK}"
 GROUP = f"group_{LEARNER_MARK}_class"
 DAY = "2026-10-14"
 KNOWLEDGE_DAY = "2026-10-15"
-ACTIVITY_NOTE = f"ue:daily:{LEARNER}:{DAY}"
-PERIODIC_KNOWLEDGE_NOTE = f"ue:daily:{LEARNER}:{KNOWLEDGE_DAY}"
+ACTIVITY_NOTE = periodic_note_uid("daily", LEARNER, DAY)
+PERIODIC_KNOWLEDGE_NOTE = periodic_note_uid("daily", LEARNER, KNOWLEDGE_DAY)
 KNOWLEDGE_NOTE = f"ue.{LEARNER_MARK}.knowledge"
 PLAIN_ENTRY = f"ue.{LEARNER_MARK}.plain"
 KU_NAMED = f"ku.{LEARNER_MARK}.named"
@@ -139,8 +141,15 @@ async def _seed(driver: AsyncDriver) -> None:
 
 async def _cleanup(driver: AsyncDriver) -> None:
     async with driver.session() as session:
+        # A periodic note's uid carries no mark, so its tracker row goes with it.
         await session.run(
-            "MATCH (u:User)-[:OWNS]->(n) WHERE u.uid IN $users DETACH DELETE n",
+            "MATCH (u:User)-[:OWNS]->(n) WHERE u.uid IN $users "
+            "MATCH (m:IngestionMetadata {entity_uid: n.uid}) DETACH DELETE m",
+            users=[LEARNER, OTHER],
+        )
+        await session.run(
+            "MATCH (u:User)-[:OWNS]->(n) WHERE u.uid IN $users "
+            f"{build_content_subtree_delete('n')} DETACH DELETE n",
             users=[LEARNER, OTHER],
         )
         await session.run(

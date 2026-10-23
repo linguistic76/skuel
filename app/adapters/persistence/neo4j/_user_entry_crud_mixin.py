@@ -86,13 +86,14 @@ class _UserEntryCrudMixin:
 
         Mirrors the bulk-ingestion MERGE-on-uid pattern
         (``bulk_upsert_backend.py``): re-syncing a vault note with a
-        deterministic uid (e.g. ``ue:daily:2026-06-16``) updates the existing
+        deterministic uid (a periodic note's ``periodic_note_uid``) updates the existing
         node in place rather than minting a duplicate.
 
         **Ownership is enforced atomically inside the MERGE.** The ``ON MATCH``
         write is gated on ``n.user_uid = $owner``, so a caller cannot overwrite
         a UserEntry that already belongs to someone else (deterministic uids are
-        predictable, e.g. ``ue:daily:2026-06-16``). A mismatch returns not-found
+        predictable: a periodic note's is a hash of owner, kind and period, with no
+        secret in it). A mismatch returns not-found
         — 404-not-403, so we never leak that the uid is taken. Doing this in one
         statement (rather than a separate read + write) closes the TOCTOU race a
         preflight check leaves open: the ``Entity.uid`` uniqueness constraint

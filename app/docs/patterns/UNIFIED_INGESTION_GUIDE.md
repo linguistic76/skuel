@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-10-18
+updated: 2026-10-23
 category: patterns
 related_skills: []
 related_docs:
@@ -22,7 +22,7 @@ The vault is a mixed authoring space — a file **opts in** to ingestion; anythi
 
 1. **`type:` — non-empty, an accepted entity type.** One of: `ku`, `ps`, `lp`, `exercise`, `resource`, `user_entry`, `task`, `goal`, `habit`, `event`, `choice`, `principle`, `group`, `lifepath`, `interaction` (aliases like `lesson`/`pathstep`/`learningpath` also resolve — `TYPE_MAPPING` in `core/services/ingestion/detector.py`). No `type:` (or an empty one) → non-entity note, skipped. **A frontmatter fence that does not parse is NOT a non-entity note** — authoring `---` is the opt-in gesture, so a fence whose YAML is broken is a broken opt-in and is reported (`parsing` stage) rather than set aside; a file with no fence at all stays a plain note. Two exceptions/rejections: `moc: true` ingests without a type (as a PathStep — see § MOC files; a personal vault refuses it, § What a personal vault may hold), and the retired strings `je_input`/`je_output`/`exercise_submission` (ADR-054) and `expense`/`finance` (ADR-052) are rejected with a pointer, never aliased.
 2. **The type's required fields** — see § Entity Configuration for the full table. Most types need only `title`, which auto-falls back to the filename (`name:` is accepted as an alias). Notable extras: `exercise` → `instructions` + `teacher` (§ An exercise names its teacher), `principle` → `statement`, `group` → `name`, `interaction` → `interaction_type` + `target_uid`; `user_entry` files additionally need an explicit `pipeline:` (door-level rule, § UserEntry YAMLs).
-3. **`uid:` is optional — and a personal-vault file never has one.** In the content vault, omit it to take `{prefix}.{filename}` (only when the filename stem is one uid segment — § UID Format Validation); if declared, it must be non-empty and fit the uid grammar with the type's prefix (`ku.` for a Ku, `ue.` for a UserEntry, etc.). An empty `uid:` line is never silently replaced with a generated one — the file is ignored with that reason. A personal-vault file with a `uid:` line is ignored with a reason telling its author to remove it; a personal Activity or life-path file takes its own `{prefix}_{slug}_{8 hex}` (derived from its owner and path) and keeps it through its tracker row (§ What a personal vault may hold). **A `user_entry` without a `uid:` differs:** it resolves to a derived periodic uid (`ue:daily:{user}:{date}`), the tracker's prior path-keyed uid, or a minted random `ue_` uid — never `{prefix}.{filename}` (§ Optional field: `uid`, § Path-keyed identity).
+3. **`uid:` is optional — and a personal-vault file never has one.** In the content vault, omit it to take `{prefix}.{filename}` (only when the filename stem is one uid segment — § UID Format Validation); if declared, it must be non-empty and fit the uid grammar with the type's prefix (`ku.` for a Ku, `ue.` for a UserEntry, etc.). An empty `uid:` line is never silently replaced with a generated one — the file is ignored with that reason. A personal-vault file with a `uid:` line is ignored with a reason telling its author to remove it; a personal Activity or life-path file takes its own `{prefix}_{slug}_{8 hex}` (derived from its owner and path) and keeps it through its tracker row (§ What a personal vault may hold). **A `user_entry` without a `uid:` differs:** it resolves to a derived periodic uid (`periodic_note_uid` — § Optional field: `uid`), the tracker's prior path-keyed uid, or a minted random `ue_` uid — never `{prefix}.{filename}` (§ Optional field: `uid`, § Path-keyed identity).
 
 4. **Registered enum fields must use the field's vocabulary.** Every field in `ENUM_FIELD_TYPES` (`core/models/enum_field_registry.py`, ~30 fields: `status`, `event_type`, `learning_level`, `sel_category`, ...) is membership-checked by `validate_entity_data` after preparation. The preparer first resolves everything the read boundary sanctions (`canonicalize_enum_values`, mirroring `parse_enum_field` — #513/#536): casing (`BEGINNER` → `beginner`), each enum's own `from_string` aliases (`status: pending` → `draft`, stored canonical — aliases are input-only), and the authored absence marker `none` on enums without such a member (`sel_category: none` → property dropped; deliberately-unassigned is valid). A value outside all of that (`event_type: practice`, `learning_level: grandmaster`) rejects the file with the full member list in the reason. **Vault-independent** (unlike dangling MOC links, whose posture varies by vault): an unsanctioned value is a content fault in the file itself and never becomes valid later — persisted, it would hide from every exact-match filter until a data migration (the 2026-08 `event_type` cleanup). The read side deliberately stays `str`-tolerant so pre-existing strays still load; this door is where the vocabulary is enforced. **`user_entry` files are exempt** (the same shape as their `uid:` exemption in criterion 3): their ADR-054 branch owns their frontmatter with its own alias-aware parsers (unknown pipelines/statuses still fail loudly there), so the gate never runs for them on any door.
 
@@ -285,13 +285,18 @@ edited in place, and the upsert's own statement enforces it.
 **Periodic notes** (`entry_kind: daily | weekly | monthly | quarterly | yearly`) get a
 deterministic UID automatically — no explicit `uid:` needed:
 
-| `entry_kind` | frontmatter field (the period key you author) | auto-derived UID |
+| `entry_kind` | frontmatter field (the period key you author) | `metadata.period_key` stamped |
 |--------------|-----------------|-----------------|
-| `daily` | `date: 2026-06-28` | `ue:daily:user_mike:2026-06-28` |
-| `weekly` | `week_of: 2026-W26` | `ue:weekly:user_mike:2026-W26` |
-| `monthly` | `month_of: 2026-06` | `ue:monthly:user_mike:2026-06` |
-| `quarterly` | `quarter_of: 2026-Q3` | `ue:quarterly:user_mike:2026-Q3` |
-| `yearly` | `year_of: 2026` | `ue:yearly:user_mike:2026` |
+| `daily` | `date: 2026-06-28` | `2026-06-28` |
+| `weekly` | `week_of: 2026-W26` | `2026-W26` |
+| `monthly` | `month_of: 2026-06` | `2026-06` |
+| `quarterly` | `quarter_of: 2026-Q3` | `2026-Q3` |
+| `yearly` | `year_of: 2026` | `2026` |
+
+The uid is `periodic_note_uid(kind, owner, period_key)` — `ue_` and 16 hex digits
+hashed from the three (`uid_grammar.hashed_uid`), so it is opaque: the kind and the
+period ride in the note's metadata (`entry_kind`, `period_key`), where every reader
+takes them.
 
 Author the period key in exactly the form shown — each is parsed by exactly one
 kind, and the four written forms overlap (`2026-Q3` and `2026-W32` share a
@@ -300,22 +305,21 @@ nothing can resolve its period — the note's navigator centres on the current p
 normalized where it is unambiguous: `date`/`month_of` coerce to dates and are
 truncated back (`month_of` to `YYYY-MM`), and `year_of` is accepted as an int,
 a string, or a date. Omit the field entirely and the note falls through to
-path-keyed identity rather than guessing at "the current quarter".
+path-keyed identity rather than guessing at "the current quarter", and carries no
+`period_key`.
 
 This is the same UID the calendar routes use, so vault-synced daily notes
-resolve to the correct SKUEL journal page automatically. You may still
-supply an explicit `uid:` to override.
+resolve to the correct SKUEL journal page automatically. A content-vault
+note may still author a `uid:`, which wins; its `period_key` is stamped all
+the same.
 
 An **explicit authored** `uid:` (a content-vault file — a personal note
 authors none) persists verbatim (authored = stored): `uid: ue.worldview`
 persists as `ue.worldview`. It is read against the uid grammar like any
 other type's — the `ue.` prefix, `[a-z0-9._-]`, `ue.{slug}` or
 `ue.{ns}.{slug}` — so `moc.worldview` or a colon-spelled `moc:worldview`
-is **refused** (ignored-with-reason). The *derived* periodic UIDs in the
-table above are built by the door, never authored, and still carry
-colons until the uid arc migrates them
-(`uid_grammar.PERIODIC_NOTE_EXEMPTION`); a periodic note needs no `uid:`
-line at all.
+is **refused** (ignored-with-reason). The *derived* periodic uid is built
+by the door, never authored; a periodic note needs no `uid:` line at all.
 
 ### Path-keyed identity for uid-less vault entries
 
@@ -1119,9 +1123,8 @@ instead of being silently mutated. The same strictness covers **relationship tar
 a colon target in any registered relationship field (`uses_kus:`, `resource_uids:`,
 `organizes:`, `connections:`, Edge-YAML `from`/`to`) is rejected at the preparer/validator
 with the dot-form remedy, because a colon target would otherwise pass validation and then
-match nothing at the edge MERGE (the link vanishing silently). One carve-out: periodic-note
-uids (`ue:daily:…`, `uid_grammar.PERIODIC_NOTE_EXEMPTION` until the uid arc migrates them) are
-accepted as targets, since their colon form IS the stored uid. Spaces are **not**
+match nothing at the edge MERGE (the link vanishing silently). No node uid holds a colon,
+so the rule has no carve-out. Spaces are **not**
 rewritten (a UID with spaces is simply wrong — author hyphens) and case is untouched
 (author lowercase). A `uid:` key that is present but blank is a validation error, not a
 fallback to filename.

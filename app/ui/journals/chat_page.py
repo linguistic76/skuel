@@ -131,9 +131,9 @@ def _period_navigator(entry: UserEntry) -> Any:
     so there is exactly one prev/next mechanism to learn.
     """
     kind = entry.metadata.get("entry_kind", "daily")
-    # period_key is stamped by the calendar routes but not by vault ingestion;
-    # the UID always encodes it as the last colon-delimited segment.
-    period_key = entry.metadata.get("period_key") or entry.uid.rsplit(":", 1)[-1]
+    # Both doors stamp period_key (the calendar routes and vault ingestion); a
+    # note without one centres on the current period (``_note_anchor``).
+    period_key = str(entry.metadata.get("period_key") or "")
     ref_date, highlight_dates = _note_anchor(kind, period_key)
     # The rail's own row for a weekly note is the week rail's row too, so the
     # week number is marked alongside its seven days.

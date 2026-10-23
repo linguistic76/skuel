@@ -1257,8 +1257,7 @@ class ActivityDSLParser:
             link_str = link_str.strip()
             if ":" not in link_str:
                 continue
-            # Split on the first colon only — a uid may carry colons
-            # (periodic ``ue:daily:…`` identifiers).
+            # The type is the text before the first colon; the id is the rest.
             raw_type, raw_id = link_str.split(":", 1)
             link_type = raw_type.strip().lower()
             link_id = raw_id.strip()

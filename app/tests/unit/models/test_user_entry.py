@@ -1,5 +1,6 @@
 """Tests for UserEntry domain model (ADR-054)."""
 
+import hashlib
 from dataclasses import FrozenInstanceError, fields
 from datetime import datetime
 
@@ -9,8 +10,9 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import SubmissionModality
-from core.models.user_entry.user_entry import UserEntry
+from core.models.user_entry.user_entry import UserEntry, periodic_note_uid
 from core.models.user_entry.user_entry_dto import UserEntryDTO
+from core.utils.uid_grammar import UidVerdict, classify, exemptions_for
 
 
 class TestUserEntryConstruction:
@@ -129,6 +131,30 @@ class TestUserEntryHelpers:
             processed_content="processed version",
         )
         assert entry.get_summary() == "raw content"
+
+
+class TestPeriodicNoteUid:
+    """A periodic note's uid is a generated uid hashed from owner, kind and period."""
+
+    def test_it_is_the_hashed_uid_of_kind_owner_and_period(self):
+        digest = hashlib.sha256(b"daily\0user_1\0" + b"2026-10-23").hexdigest()[:16]
+        assert periodic_note_uid("daily", "user_1", "2026-10-23") == f"ue_{digest}"
+
+    def test_it_fits_the_grammar(self):
+        uid = periodic_note_uid("weekly", "user_1", "2026-W43")
+        assert classify(uid) is UidVerdict.FITS
+        assert exemptions_for(uid) == ()
+
+    @pytest.mark.parametrize(
+        "other",
+        [
+            ("daily", "user_2", "2026-10-23"),
+            ("weekly", "user_1", "2026-10-23"),
+            ("daily", "user_1", "2026-10-24"),
+        ],
+    )
+    def test_each_part_names_a_different_note(self, other):
+        assert periodic_note_uid("daily", "user_1", "2026-10-23") != periodic_note_uid(*other)
 
 
 class TestUserEntryDTORoundtrip:

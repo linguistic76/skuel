@@ -20,7 +20,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import Pipeline
 from core.models.sentinels import UNSET
 from core.models.task.task import Task
-from core.models.user_entry.user_entry import UserEntry
+from core.models.user_entry.user_entry import UserEntry, periodic_note_uid
 from core.services.dsl.activity_extractor import (
     ActivityExtractorService,
     ExtractedByVaultId,
@@ -38,7 +38,7 @@ D1 = date(2026, 9, 10)
 
 def _entry(content: str, *, vault_note: bool = True) -> UserEntry:
     return UserEntry(
-        uid="ue:daily:user_mike:2026-09-15",
+        uid=periodic_note_uid("daily", OWNER, "2026-09-15"),
         title="2026-09-15",
         user_uid=OWNER,
         entity_type=EntityType.USER_ENTRY,

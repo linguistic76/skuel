@@ -15,7 +15,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 from audit_graph_hygiene import (  # type: ignore[import-not-found]
     domain_label,
     expected_types_by_label,
-    find_daily_owner_collisions,
     find_role_value_drift,
     find_type_mismatches,
     group_same_entry_duplicates,
@@ -23,7 +22,6 @@ from audit_graph_hygiene import (  # type: ignore[import-not-found]
     plan_cross_entry_dedup,
     plan_ku_enrollment_migrations,
     plan_test_user_cleanup,
-    plan_wrong_door_cleanup,
 )
 
 
@@ -67,7 +65,7 @@ class TestTypeMismatches:
 
 def _row(
     uid: str,
-    entry: str = "ue:daily:u:2026-06-16",
+    entry: str = "ue_u0616",
     label: str = "Habit",
     title: str = "Meditate",
     created: str = "2026-07-02T12:00:00",
@@ -123,8 +121,8 @@ class TestSameEntryDuplicates:
 
     def test_different_entries_do_not_group(self):
         rows = [
-            _row("h1", entry="ue:daily:a:2026-06-16"),
-            _row("h2", entry="ue:daily:a:2026-06-17"),
+            _row("h1", entry="ue_a0616"),
+            _row("h2", entry="ue_a0617"),
         ]
         assert group_same_entry_duplicates(rows) == []
 
@@ -147,95 +145,21 @@ class TestSameEntryDuplicates:
         assert any("owner mismatch" in b for b in groups[0].blockers)
 
 
-def _entry(uid: str, owner: str = "user_a", pipeline: str = "extract_activities") -> dict:
-    return {"uid": uid, "owner": owner, "pipeline": pipeline, "created_at": "2026-06-16"}
-
-
-class TestWrongDoorPlan:
-    def test_journal_door_entries_and_content_owner_entities_deleted(self):
-        entries = [
-            _entry("ue:daily:user_admin:2026-06-16", owner="user_admin"),
-            _entry("ue:daily:user_a:2026-06-16", owner="user_a"),
-        ]
-        rows = [
-            _row("h_admin", entry="ue:daily:user_admin:2026-06-16", owner="user_admin"),
-            _row("h_personal", entry="ue:daily:user_a:2026-06-16", owner="user_a"),
-        ]
-        plan = plan_wrong_door_cleanup(entries, rows, content_owner="user_admin")
-        assert [e["uid"] for e in plan.entries_to_delete] == ["ue:daily:user_admin:2026-06-16"]
-        assert [e["uid"] for e in plan.entities_to_delete] == ["h_admin"]
-        assert plan.orphaned_survivors == []
-
-    def test_all_periodic_prefixes_count_as_journal_door(self):
-        """ingest_user_entry mints ue:daily:/ue:weekly:/ue:monthly: — all three
-        are the journal door for the R2 ruling (Kody #503: monthly was missed)."""
-        entries = [
-            _entry("ue:daily:user_admin:2026-06-16", owner="user_admin"),
-            _entry("ue:weekly:user_admin:2026-W25", owner="user_admin"),
-            _entry("ue:monthly:user_admin:2026-06", owner="user_admin"),
-        ]
-        plan = plan_wrong_door_cleanup(entries, [], content_owner="user_admin")
-        assert sorted(e["uid"] for e in plan.entries_to_delete) == [
-            "ue:daily:user_admin:2026-06-16",
-            "ue:monthly:user_admin:2026-06",
-            "ue:weekly:user_admin:2026-W25",
-        ]
-
-    def test_legacy_entry_duplicate_deleted_only_with_surviving_copy(self):
-        entries = [
-            _entry("ue_legacy", owner="user_a"),
-            _entry("ue:daily:user_a:2026-06-16", owner="user_a"),
-        ]
-        rows = [
-            _row("h_old", entry="ue_legacy", owner="user_a"),
-            _row("h_new", entry="ue:daily:user_a:2026-06-16", owner="user_a"),
-            _row("t_unique", entry="ue_legacy", owner="user_a", label="Task", title="only here"),
-        ]
-        plan = plan_wrong_door_cleanup(entries, rows, content_owner="user_admin")
-        assert [e["uid"] for e in plan.entries_to_delete] == ["ue_legacy"]
-        assert [e["uid"] for e in plan.entities_to_delete] == ["h_old"]
-        # unique legacy entity survives, provenance edge dies with the entry
-        assert [o["uid"] for o in plan.orphaned_survivors] == ["t_unique"]
-
-    def test_unexpected_edges_block_deletion(self):
-        entries = [_entry("ue:daily:user_admin:2026-06-16", owner="user_admin")]
-        rows = [
-            _row(
-                "h_admin",
-                entry="ue:daily:user_admin:2026-06-16",
-                owner="user_admin",
-                edges=["EXTRACTED_FROM:out", "OWNS:in", "HAS_COMPLETION:out"],
-            ),
-        ]
-        plan = plan_wrong_door_cleanup(entries, rows, content_owner="user_admin")
-        assert plan.entities_to_delete == []
-        assert any("HAS_COMPLETION" in b for b in plan.blocked_entities)
-
-    def test_non_extract_activities_and_test_user_entries_untouched(self):
-        entries = [
-            _entry("ue_journal_upload", owner="user_a", pipeline="llm_summary"),
-            _entry("ue:daily:user_verifyperiodic:2026-06-01", owner="user_verifyperiodic"),
-        ]
-        plan = plan_wrong_door_cleanup(entries, [], content_owner="user_admin")
-        assert plan.entries_to_delete == []
-
-
 class TestCrossEntryDedup:
-    def test_oldest_survivor_wins_after_wrong_door_exclusions(self):
+    def test_the_oldest_wins_across_entries(self):
         rows = [
             _row(
                 "h1",
-                entry="ue:daily:user_a:2026-06-30",
+                entry="ue_usera0630",
                 created="2026-07-01T11:00:00",
             ),
             _row(
                 "h2",
-                entry="ue:daily:user_a:2026-07-15",
+                entry="ue_usera0715",
                 created="2026-07-01T12:00:00",
             ),
-            _row("h_gone", entry="ue_legacy", created="2026-06-01T00:00:00"),
         ]
-        groups = plan_cross_entry_dedup(rows, {"ue_legacy"}, {"h_gone"})
+        groups = plan_cross_entry_dedup(rows)
         assert len(groups) == 1
         g = groups[0]
         assert g.winner_uid == "h1"
@@ -244,65 +168,51 @@ class TestCrossEntryDedup:
 
     def test_the_cross_entry_winner_is_read_by_instant_not_by_digits(self):
         rows = [
-            _row("h_later", entry="ue:daily:user_a:2026-06-30", created="2026-07-01T11:00:00.5"),
-            _row("h_older", entry="ue:daily:user_a:2026-07-15", created="2026-07-01T11:00:00Z"),
+            _row("h_later", entry="ue_usera0630", created="2026-07-01T11:00:00.5"),
+            _row("h_older", entry="ue_usera0715", created="2026-07-01T11:00:00Z"),
         ]
-        g = plan_cross_entry_dedup(rows, set(), set())[0]
+        g = plan_cross_entry_dedup(rows)[0]
         assert g.winner_uid == "h_older"
         assert g.loser_uids == ["h_later"]
 
     def test_an_unreadable_stamp_blocks_the_cross_entry_group(self):
         rows = [
-            _row("h1", entry="ue:daily:user_a:2026-06-30", created="2026-07-01T11:00:00Z"),
-            _row("h2", entry="ue:daily:user_a:2026-07-15", created=""),
+            _row("h1", entry="ue_usera0630", created="2026-07-01T11:00:00Z"),
+            _row("h2", entry="ue_usera0715", created=""),
         ]
-        g = plan_cross_entry_dedup(rows, set(), set())[0]
+        g = plan_cross_entry_dedup(rows)[0]
         assert "no readable created_at on h2 — the oldest cannot be told" in g.blockers
 
     def test_single_entry_groups_are_not_cross_entry(self):
         rows = [_row("h1"), _row("h2")]
-        assert plan_cross_entry_dedup(rows, set(), set()) == []
+        assert plan_cross_entry_dedup(rows) == []
 
     def test_test_user_groups_are_blocked(self):
         rows = [
-            _row("h1", entry="ue:daily:user_a:2026-06-30", owner="user_a"),
+            _row("h1", entry="ue_usera0630", owner="user_a"),
             _row(
                 "h2",
-                entry="ue:daily:user_verifyperiodic:2026-06-01",
+                entry="ue_userverifyperiodic0601",
                 owner="user_verifyperiodic",
                 created="2026-07-02T00:00:00",
             ),
         ]
-        groups = plan_cross_entry_dedup(rows, set(), set())
+        groups = plan_cross_entry_dedup(rows)
         assert len(groups) == 1
         assert any("test user" in b for b in groups[0].blockers)
 
     def test_unexpected_loser_edges_block_the_group(self):
         rows = [
-            _row("h1", entry="ue:daily:user_a:2026-06-30", created="2026-07-01T11:00:00"),
+            _row("h1", entry="ue_usera0630", created="2026-07-01T11:00:00"),
             _row(
                 "h2",
-                entry="ue:daily:user_a:2026-07-15",
+                entry="ue_usera0715",
                 created="2026-07-01T12:00:00",
                 edges=["EXTRACTED_FROM:out", "OWNS:in", "SUPPORTS_GOAL:out"],
             ),
         ]
-        groups = plan_cross_entry_dedup(rows, set(), set())
+        groups = plan_cross_entry_dedup(rows)
         assert any("SUPPORTS_GOAL" in b for b in groups[0].blockers)
-
-
-class TestDailyOwnerCollisions:
-    def test_same_date_two_owners_collides(self):
-        rows = [
-            {"uid": "ue:daily:user_a:2026-06-16", "owner": "user_a"},
-            {"uid": "ue:daily:user_b:2026-06-16", "owner": "user_b"},
-            {"uid": "ue:daily:user_a:2026-06-17", "owner": "user_a"},
-            {"uid": "ue_random", "owner": "user_a"},
-        ]
-        collisions = find_daily_owner_collisions(rows)
-        assert len(collisions) == 1
-        assert collisions[0]["date"] == "2026-06-16"
-        assert len(collisions[0]["entries"]) == 2
 
 
 class TestTestUserCleanup:
@@ -319,7 +229,7 @@ class TestTestUserCleanup:
         owned = [
             {
                 "owner": "user_verifyperiodic",
-                "uid": "ue:daily:user_verifyperiodic:2026-06-01",
+                "uid": "ue_userverifyperiodic0601",
                 "labels": ["Entity", "UserEntry"],
                 "edge_sigs": ["OWNS:in"],
             }

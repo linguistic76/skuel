@@ -48,6 +48,15 @@ if TYPE_CHECKING:
     )
     from core.services.user_entry.user_entry_service import UserEntryService
 
+# The frontmatter field that names each periodic kind's period.
+_PERIOD_FIELDS: dict[str, str] = {
+    "daily": "date",
+    "weekly": "week_of",
+    "monthly": "month_of",
+    "quarterly": "quarter_of",
+    "yearly": "year_of",
+}
+
 logger = get_logger("skuel.services.ingestion.user_entry")
 
 # Vault ingest is text-only — audio pipelines need actual audio bytes.
@@ -220,6 +229,33 @@ def _verify_declared_ownership(data: dict[str, Any], user_uid: UserUID) -> Resul
     return Result.ok(None)
 
 
+def _period_key(entry_kind: object, data: dict[str, Any]) -> str | None:
+    """The period key a periodic note's frontmatter names, or ``None``.
+
+    One field per kind — ``date`` (daily), ``week_of`` (weekly), ``month_of``
+    (monthly), ``quarter_of`` (quarterly), ``year_of`` (yearly) — normalised to
+    the key form ``ensure_periodic_note`` stamps. PyYAML reads ``date:`` and a
+    bare ``month_of:`` date as ``datetime.date``; ``year_of: 2026`` parses as an
+    int, ``"2026"`` as a str, and a bare-year date as a date — all three name
+    one year. ``None`` when ``entry_kind`` is not a periodic kind or its field
+    is absent or blank.
+    """
+    field = _PERIOD_FIELDS.get(entry_kind) if isinstance(entry_kind, str) else None
+    raw = None if field is None else data.get(field)
+    if raw is None:
+        return None
+    if isinstance(raw, (date, datetime)):
+        if entry_kind == "monthly":
+            key = raw.isoformat()[:7]
+        elif entry_kind == "yearly":
+            key = f"{raw.year:04d}"
+        else:
+            key = raw.isoformat()
+    else:
+        key = str(raw).strip() if entry_kind == "yearly" else str(raw)
+    return key if key.strip() else None
+
+
 def build_user_entry_request(
     data: dict[str, Any],
     file_path: Path,
@@ -316,55 +352,22 @@ def build_user_entry_request(
     if data.get("moc") is True:
         ingestion_metadata["moc"] = True
 
-    # Derive a deterministic UID for periodic notes so vault-synced files land
-    # on the same UID that the calendar routes use (``periodic_note_uid``). This
-    # makes the SKUEL journal page show Obsidian content rather than a blank
-    # placeholder. Falls back to the explicit `uid:` field — already read
-    # against the uid grammar by the ingestion door (``validate_uid_format``) —
-    # or None (random mint) for non-periodic entries. The `date:` field is
-    # parsed by PyYAML as datetime.date, so .isoformat() normalises it to the
-    # string the routes expect.
+    # A periodic note (``metadata.entry_kind`` in PERIODIC_NOTE_KINDS) carries
+    # its period in a frontmatter field; ``period_key`` is stamped from it, the
+    # same key the calendar routes stamp, so the note page reads the period
+    # from metadata whichever door wrote the note. Without an authored ``uid:``
+    # — already read against the uid grammar by the ingestion door
+    # (``validate_uid_format``) — the note takes the derived uid
+    # (``periodic_note_uid``) the calendar routes use, so the SKUEL journal page
+    # shows the Obsidian content rather than a blank placeholder.
     raw_uid = data.get("uid")
     uid_override: str | None = str(raw_uid) if raw_uid else None
-    if not uid_override:
-        entry_kind = metadata.get("entry_kind") if isinstance(metadata, dict) else None
-        if entry_kind == "daily":
-            raw_date = data.get("date")
-            if raw_date is not None:
-                date_str = (
-                    raw_date.isoformat()
-                    if isinstance(raw_date, (date, datetime))
-                    else str(raw_date)
-                )
-                uid_override = periodic_note_uid("daily", user_uid, date_str)
-        elif entry_kind == "weekly":
-            week_of = data.get("week_of")
-            if week_of is not None:
-                uid_override = periodic_note_uid("weekly", user_uid, str(week_of))
-        elif entry_kind == "monthly":
-            month_of = data.get("month_of")
-            if month_of is not None:
-                month_str = (
-                    month_of.isoformat()[:7]
-                    if isinstance(month_of, (date, datetime))
-                    else str(month_of)
-                )
-                uid_override = periodic_note_uid("monthly", user_uid, month_str)
-        elif entry_kind == "quarterly":
-            quarter_of = data.get("quarter_of")
-            if quarter_of is not None:
-                uid_override = periodic_note_uid("quarterly", user_uid, str(quarter_of))
-        elif entry_kind == "yearly":
-            year_of = data.get("year_of")
-            if year_of is not None:
-                # ``year_of: 2026`` parses as an int, ``"2026"`` as a str, and a
-                # bare-year date coerces to a date — all three name one year.
-                year_str = (
-                    f"{year_of.year:04d}"
-                    if isinstance(year_of, (date, datetime))
-                    else str(year_of).strip()
-                )
-                uid_override = periodic_note_uid("yearly", user_uid, year_str)
+    entry_kind = metadata.get("entry_kind")
+    period_key = _period_key(entry_kind, data)
+    if period_key is not None:
+        ingestion_metadata["period_key"] = period_key
+        if not uid_override:
+            uid_override = periodic_note_uid(str(entry_kind), user_uid, period_key)
 
     # Path-keyed identity for uid-less vault notes (contract:
     # docs/roadmap/done/uidless-vault-entry-identity-upsert.md). When the file

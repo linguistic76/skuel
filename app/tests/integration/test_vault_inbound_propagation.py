@@ -46,6 +46,7 @@ import pytest
 from core.models.enums.activity_enums import Priority
 from core.models.enums.entity_enums import EntityStatus
 from core.models.task.task_request import TaskUpdateRequest
+from core.models.user_entry.user_entry import periodic_note_uid
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -82,8 +83,8 @@ async def _seeded_note(rig: Rig, body: str = "- [ ] Vacuum\n") -> tuple[str, str
 
 
 def _entry_uid(rel_path: str) -> str:
-    """The deterministic uid of a daily note (``ue:daily:{owner}:{date}``)."""
-    return {NOTE: "2026-08-23", NOTE_B: "2026-08-24"}[rel_path]
+    """The deterministic uid of the daily note at ``rel_path`` (``periodic_note_uid``)."""
+    return periodic_note_uid("daily", OWNER, {NOTE: "2026-08-23", NOTE_B: "2026-08-24"}[rel_path])
 
 
 @pytest.mark.asyncio
@@ -114,7 +115,7 @@ class TestMovesKeepTheirTask:
         )
         [(edge_uid, edge_id, entry, moved_base)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry != entry_a and entry.endswith(_entry_uid(NOTE_B)), entry
+        assert entry != entry_a and entry == _entry_uid(NOTE_B), entry
         assert moved_base == base, "the base must travel with the identity"
         assert await rig.stamps() == []
 
@@ -143,7 +144,7 @@ class TestMovesKeepTheirTask:
         assert not moved.warnings, moved.warnings
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)]
         [(_, edge_id, entry, base)] = await rig.edges()
-        assert edge_id == vault_id and entry.endswith(_entry_uid(NOTE_B))
+        assert edge_id == vault_id and entry == _entry_uid(NOTE_B)
         assert base == edited, f"the base did not advance past the move-time edit: {base!r}"
         got = await rig.tasks.get_task(task_uid)
         assert got.is_ok and got.value is not None
@@ -179,7 +180,7 @@ class TestMovesKeepTheirTask:
         )
         [(edge_uid, edge_id, entry, base)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE_B))
+        assert entry == _entry_uid(NOTE_B)
         assert base == line, "the revived edge carries the stamp's base"
         assert await rig.stamps() == []
 
@@ -202,7 +203,7 @@ class TestMovesKeepTheirTask:
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)]
         [(edge_uid, edge_id, entry, _)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE))
+        assert entry == _entry_uid(NOTE)
         assert await rig.stamps() == []
 
 
@@ -247,7 +248,7 @@ class TestDoneLinesMoveToo:
         )
         [(edge_uid, edge_id, entry, _)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE_B))
+        assert entry == _entry_uid(NOTE_B)
         assert await rig.stamps() == []
         quiet = await rig.sync()
         assert (quiet.ids_injected, quiet.tasks_marked_done) == (0, 0), quiet
@@ -268,7 +269,7 @@ class TestDoneLinesMoveToo:
         )
         [(edge_uid, edge_id, entry, _)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE_B))
+        assert entry == _entry_uid(NOTE_B)
         assert await rig.stamps() == []
 
 
@@ -306,7 +307,7 @@ class TestDslCheckboxLinesMoveToo:
         )
         [(edge_uid, edge_id, entry, _)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE_B))
+        assert entry == _entry_uid(NOTE_B)
         assert await rig.stamps() == []
         got = await rig.tasks.get_task(task_uid)
         assert got.is_ok and got.value is not None and got.value.title == "Call mom", (
@@ -436,7 +437,7 @@ class TestTheSweep:
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)]
         edges = await rig.edges()
         assert [uid for uid, _, _, _ in edges] == [task_uid, task_uid], edges
-        second_id = next(v for _, v, entry, _ in edges if entry.endswith(_entry_uid(NOTE_B)))
+        second_id = next(v for _, v, entry, _ in edges if entry == _entry_uid(NOTE_B))
         assert second_id and second_id != vault_id
         assert second_id in rig.note_at(NOTE_B).read_text(encoding="utf-8")
 
@@ -471,7 +472,7 @@ class TestTheSweep:
         await rig.sync()  # the injection re-ingests
         edges = await rig.edges()
         assert [uid for uid, _, _, _ in edges] == [task_uid, task_uid], edges
-        second_id = next(v for _, v, entry, _ in edges if entry.endswith(_entry_uid(NOTE_B)))
+        second_id = next(v for _, v, entry, _ in edges if entry == _entry_uid(NOTE_B))
         assert second_id and second_id != vault_id
         b_text = note_b.read_text(encoding="utf-8")
         assert second_id in b_text
@@ -487,7 +488,7 @@ class TestTheSweep:
         )
         [(edge_uid, edge_id, entry, _)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, second_id), "B's own edge was overwritten"
-        assert entry.endswith(_entry_uid(NOTE_B))
+        assert entry == _entry_uid(NOTE_B)
 
         swept = await rig.sync()
         assert not swept.warnings, swept.warnings
@@ -542,7 +543,7 @@ class TestTheSweep:
         )
         [(edge_uid, edge_id, entry, _)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE_B))
+        assert entry == _entry_uid(NOTE_B)
         assert await rig.stamps() == []
 
 
@@ -593,7 +594,7 @@ class TestDeletionCancels:
         )
         [(edge_uid, edge_id, entry, base)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE_B))
+        assert entry == _entry_uid(NOTE_B)
         assert base == line
         assert await rig.stamps() == []
 
@@ -640,7 +641,7 @@ class TestDeletionCancels:
         )
         [(edge_uid, edge_id, entry, base)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE_B))
+        assert entry == _entry_uid(NOTE_B)
         assert base == line
         assert await rig.stamps() == []
 
@@ -672,7 +673,7 @@ class TestDeletionCancels:
         assert new_status == EntityStatus.DRAFT.value
         [(edge_uid, edge_id, entry, _)] = await rig.edges()
         assert (edge_uid, edge_id) == (new_uid, vault_id), "the 🆔 names the new task now"
-        assert entry.endswith(_entry_uid(NOTE))
+        assert entry == _entry_uid(NOTE)
 
     async def test_un_cancelling_in_skuel_then_typing_the_line_back_reunites_them(
         self, rig: Rig
@@ -696,7 +697,7 @@ class TestDeletionCancels:
         )
         [(edge_uid, edge_id, entry, base)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE))
+        assert entry == _entry_uid(NOTE)
         assert base == line
 
     async def test_a_note_restored_after_its_tasks_were_cancelled_is_not_a_resurrection(
@@ -935,7 +936,7 @@ class TestReconciliation:
         assert task.completion_date == date(2026, 9, 11)
         [(edge_uid, edge_id, entry, base)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE_B))
+        assert entry == _entry_uid(NOTE_B)
         assert base == checked
         assert await rig.stamps() == []
 
@@ -961,7 +962,7 @@ class TestReconciliation:
         )
         [(edge_uid, edge_id, entry, _)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert entry.endswith(_entry_uid(NOTE_B))
+        assert entry == _entry_uid(NOTE_B)
         assert moved.tasks_marked_undone == 1, moved
         restored = _line_with(note_b, vault_id)
         assert restored.startswith("- [ ] Vacuum") and "✅" not in restored

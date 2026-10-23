@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Usage Guide
-updated: 2026-10-16
+updated: 2026-10-23
 status: current
 category: dsl
 tags: [dsl, examples, patterns, guide, usage, periodic-notes]
@@ -59,7 +59,7 @@ Most Activity Lines follow this pattern:
 periodic note** (a Daily/Weekly/Monthly/Quarterly/Yearly vault note with `entry_kind:` +
 `pipeline: extract_activities` frontmatter — see the ingestion guide's
 [UserEntry section](../patterns/UNIFIED_INGESTION_GUIDE.md#userentry-yamls-type-user_entry--adr-054)
-for the frontmatter and the derived `ue:{kind}:{user}:{period}` UIDs).
+for the frontmatter and the derived `periodic_note_uid(kind, owner, period)` UIDs).
 Settled by ruling E3 of the calendar × periodic-notes arc
 (`docs/roadmap/done/calendar-periodic-notes-arc.md`) — do not re-litigate.
 

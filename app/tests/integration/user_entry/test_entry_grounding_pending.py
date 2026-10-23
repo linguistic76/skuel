@@ -44,11 +44,11 @@ if TYPE_CHECKING:
 
 KU = "ku.g3.decisions"
 KNOWLEDGE = "ue_g3_knowledge"
-DAILY = "ue:daily:2026-10-01"
-WEEKLY = "ue:weekly:2026-W40"
-PRIVATE_DAILY = "ue:daily:2026-10-02"
+DAILY = "ue_g3_daily"
+WEEKLY = "ue_g3_weekly"
+PRIVATE_DAILY = "ue_g3_private_daily"
 PRIVATE_KNOWLEDGE_WITH_VECTOR = "ue_g3_private_knowledge"
-PRIVATE_DAILY_WITH_VECTOR = "ue:daily:2026-10-03"
+PRIVATE_DAILY_WITH_VECTOR = "ue_g3_private_daily_vector"
 PLAIN_WITH_VECTOR = "ue_g3_plain"
 SUMMARY_WITH_VECTOR = "ue_g3_summary"
 

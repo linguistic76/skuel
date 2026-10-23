@@ -146,16 +146,14 @@ def test_wall_row_has_a_stop_sharing_chip_per_audience_member() -> None:
 
 
 def test_wall_row_never_targets_by_uid_selector() -> None:
-    """A periodic uid carries ``:`` — an id selector would read it as a pseudo-class."""
+    """An authored uid carries ``.`` — an id selector would read it as a class."""
     item = _wall_item(
-        entity=EntityDTO.from_dict(
-            {**_ENTRY_PROPS, "uid": "ue:daily:user_me:2026-09-26", "user_uid": "user_me"}
-        )
+        entity=EntityDTO.from_dict({**_ENTRY_PROPS, "uid": "ue.worldview", "user_uid": "user_me"})
     )
     html = to_xml(WallRow(item))
-    assert 'data-wall-row="ue:daily:user_me:2026-09-26"' in html
+    assert 'data-wall-row="ue.worldview"' in html
     assert 'hx-target="#' not in html
-    assert "/api/user-entries/ue%3Adaily%3Auser_me%3A2026-09-26/unshare?audience=" in html
+    assert "/api/user-entries/ue.worldview/unshare?audience=" in html
 
 
 def test_wall_chip_percent_encodes_a_username_with_url_syntax() -> None:
