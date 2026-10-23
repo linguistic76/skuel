@@ -404,6 +404,28 @@ async def test_the_census_stops_on_what_the_rename_cannot_account_for(
 
 
 @pytest.mark.usefixtures("old_graph")
+async def test_an_instruction_set_lands_on_the_uid_its_name_derives(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """``instructions:{slug}`` was derived from the set's name — so is its new uid."""
+    from core.services.content_enrichment_service import instruction_set_uid
+
+    await _run(
+        neo4j_driver,
+        "CREATE (:Entity:Exercise {uid: 'instructions:default-report-formatting', "
+        "entity_type: 'exercise', name: 'Default Report Formatting'})",
+    )
+
+    plan = await migration.census(neo4j_driver)
+
+    assert plan.stops == [], plan.stops
+    renamed = {r.old: r.new for r in plan.renames}
+    assert renamed["instructions:default-report-formatting"] == instruction_set_uid(
+        "Default Report Formatting"
+    )
+
+
+@pytest.mark.usefixtures("old_graph")
 async def test_a_user_uid_in_no_shape_is_reported_and_left(neo4j_driver: AsyncDriver) -> None:
     """User uids are unruled: the run renames none and reports one that fits no shape."""
     await _run(neo4j_driver, "CREATE (:User {uid: 'zzzgumig-admin'})")

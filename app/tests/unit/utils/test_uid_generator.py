@@ -211,3 +211,23 @@ def test_two_owners_derive_two_personal_file_uids():
     assert personal_file_uid(EntityType.TASK, path, "user_a", None) != personal_file_uid(
         EntityType.TASK, path, "user_b", None
     )
+
+
+async def test_the_default_instruction_set_is_read_at_the_uid_its_writer_derives():
+    """The reader and the writer of the default set name it the same way."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from core.services.content_enrichment_service import (
+        DEFAULT_INSTRUCTION_SET_NAME,
+        ContentEnrichmentService,
+        instruction_set_uid,
+    )
+    from core.utils.result_simplified import Result
+
+    backend = MagicMock()
+    backend.load_exercise_instructions = AsyncMock(return_value=Result.ok([]))
+    await ContentEnrichmentService(backend=backend)._load_instructions(None)
+
+    backend.load_exercise_instructions.assert_awaited_once_with(
+        instruction_set_uid(DEFAULT_INSTRUCTION_SET_NAME)
+    )

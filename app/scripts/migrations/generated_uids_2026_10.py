@@ -10,6 +10,8 @@ value in the graph that names one:
     a random-born uid  (task_a1b2c3d4, auth_<32 hex>, uuid)  →  hashed_uid(prefix, old uid)
     the default group  (group_default_{teacher})              →  default_group_uid(teacher),
                                                                   is_default = true
+    an instruction set (instructions:{slug})                  →  hashed_uid("instructions", slug),
+                                                                  what instruction_set_uid derives
     a property naming a renamed uid (a string, a list element,
     or a string inside a JSON map)                            →  the new uid
     a ContentChunk of a renamed entity                        →  chunk_uid(content, new uid,
@@ -17,7 +19,8 @@ value in the graph that names one:
 
 A random-born uid's new uid is a hash of its old one, so every run of the census
 plans the same names. The default group's is the uid ``default_group_uid``
-derives, so the enrollment MERGE finds it. A uid a ``UID_EXEMPTIONS`` entry names
+derives, so the enrollment MERGE finds it; an instruction set's is the one
+``instruction_set_uid`` derives from its name, so the enrichment lookup finds it. A uid a ``UID_EXEMPTIONS`` entry names
 (``user_{username}``, ``invoice:{uuid}``) is left as it is, and so is every
 :User's — user uids are unruled; one in no shape is reported. Each node keeps its
 labels, properties, embedding and edges.
@@ -101,6 +104,9 @@ type Row = dict[str, Any]  # boundary: raw neo4j-driver record
 type Value = str | list[str]
 
 OLD_DEFAULT_GROUP_PREFIX = "group_default_"
+# ``instructions:{slug}`` — the slug is the set's folded name, which
+# ``instruction_set_uid`` now hashes; the new uid is that hash, so the reader finds it.
+OLD_INSTRUCTION_SET_PREFIX = "instructions:"
 
 _ENTITY = NeoLabel.ENTITY.value
 _USER = NeoLabel.USER.value
@@ -285,6 +291,15 @@ def plan_renames(rows: list[Row], plan: Plan) -> None:
             if new is None:
                 continue
             plan.renames.append(Rename(str(row["id"]), label, uid, new, default_group=True))
+        elif uid.startswith(OLD_INSTRUCTION_SET_PREFIX):
+            slug = uid.removeprefix(OLD_INSTRUCTION_SET_PREFIX)
+            if not slug:
+                plan.stops.append(f"{label} {uid}: an instruction set with no name")
+                continue
+            prefixes[label].add("instructions")
+            plan.renames.append(
+                Rename(str(row["id"]), label, uid, hashed_uid("instructions", slug))
+            )
         else:
             prefix = _prefix_of(uid, label)
             if prefix is None:

@@ -39,6 +39,10 @@ if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
 
 
+#: The instruction set enrichment reads when the caller names none.
+DEFAULT_INSTRUCTION_SET_NAME = "Default Report Formatting"
+
+
 def instruction_set_uid(name: str) -> str:
     """The uid an instruction set named ``name`` takes when none is given.
 
@@ -316,7 +320,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             Result containing instruction text
         """
         if not instructions_uid:
-            instructions_uid = "instructions:default-report-formatting"
+            instructions_uid = instruction_set_uid(DEFAULT_INSTRUCTION_SET_NAME)
 
         # Load from Neo4j (instructions stored as Exercise Entity nodes)
         result = await self.backend.load_exercise_instructions(instructions_uid)  # type: ignore[attr-defined]
