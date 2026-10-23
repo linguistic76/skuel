@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.user_entry.user_entry import periodic_note_uid
 from core.services.ingestion.ingestion_tracker import PENDING_MTIME, IngestionTracker
 from core.services.ingestion.move_detection import (
     SIMILARITY_MOVE_THRESHOLD,
@@ -857,7 +858,7 @@ class TestDetectAndApplyMoves:
     async def test_periodic_new_file_never_a_destination(
         self, tmp_path, entry_kind: str, period_field: str
     ) -> None:
-        # A periodic note derives its uid (ue:{kind}:{user}:{period_key}) — it
+        # A periodic note derives its uid (``periodic_note_uid``) — it
         # never honors a prior uid, so rewriting a row toward it would orphan
         # the gone node. The gate reads PERIODIC_NOTE_KINDS, so every kind in
         # that vocabulary must be excluded, not just the original three.
@@ -921,13 +922,14 @@ class TestDetectAndApplyMoves:
         # Codex #618 P1, other direction: a gone AUTHORED/periodic identity
         # (here a derived periodic uid) is stable across paths — bridging it
         # onto a uid-less note would fuse the new note into the deleted
-        # note's identity. Only minted `ue_<8hex>` uids are move sources; the
-        # content fetch must not even be attempted.
+        # note's identity. Only minted `ue_<8hex>` uids are move sources — a
+        # periodic uid is `ue_<16hex>`, kept out by its length; the content
+        # fetch must not even be attempted.
         result, backend = await self._similarity_case(
             tmp_path,
             "similar-note.md",
             f"---\ntype: user_entry\n---\n{_LONG_BODY} Small addition.",
-            row_uid="ue:daily:user_mike:2026-07-12",
+            row_uid=periodic_note_uid("daily", "user_mike", "2026-07-12"),
         )
         assert result.is_ok
         assert result.value.applied == ()

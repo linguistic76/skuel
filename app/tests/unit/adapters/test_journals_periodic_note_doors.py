@@ -20,6 +20,7 @@ from fasthtml.common import fast_app
 from starlette.testclient import TestClient
 
 from adapters.inbound.journals_routes import create_journals_routes
+from core.models.user_entry.user_entry import periodic_note_uid
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -44,7 +45,7 @@ def _client() -> tuple[TestClient, MagicMock]:
     user_entry = MagicMock()
 
     async def _ensure(user_uid: str, kind: str, period_key: str, title: str) -> Result[str]:
-        return Result.ok(f"ue:{kind}:{user_uid}:{period_key}")
+        return Result.ok(periodic_note_uid(kind, user_uid, period_key))
 
     user_entry.ensure_periodic_note = AsyncMock(side_effect=_ensure)
 
@@ -67,13 +68,13 @@ def _door(path: str) -> tuple[tuple[str, str, str, str], str]:
 def test_quarterly_door_mints_the_quarter_key() -> None:
     args, location = _door("/journals/quarterly/2026/3")
     assert args == (_USER_UID, "quarterly", "2026-Q3", "Quarterly Note: Q3 2026")
-    assert location == f"/journals/ue:quarterly:{_USER_UID}:2026-Q3"
+    assert location == f"/journals/{periodic_note_uid('quarterly', _USER_UID, '2026-Q3')}"
 
 
 def test_yearly_door_mints_the_year_key() -> None:
     args, location = _door("/journals/yearly/2026")
     assert args == (_USER_UID, "yearly", "2026", "Yearly Note: 2026")
-    assert location == f"/journals/ue:yearly:{_USER_UID}:2026"
+    assert location == f"/journals/{periodic_note_uid('yearly', _USER_UID, '2026')}"
 
 
 def test_ride_along_daily_weekly_monthly_doors_keep_their_keys() -> None:
@@ -107,7 +108,7 @@ def test_the_dateless_daily_door_opens_today() -> None:
     args, location = _door("/journals/daily")
 
     assert args[1:3] == ("daily", today)
-    assert location == f"/journals/ue:daily:{_USER_UID}:{today}"
+    assert location == f"/journals/{periodic_note_uid('daily', _USER_UID, today)}"
 
 
 def test_kind_doors_are_not_swallowed_by_the_catch_all() -> None:

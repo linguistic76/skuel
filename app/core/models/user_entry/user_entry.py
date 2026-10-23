@@ -66,6 +66,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.user_owned_entity import UserOwnedEntity
+from core.utils.uid_grammar import hashed_uid
 
 # The title an exchange shows for a turn-in whose exercise is gone and whose
 # snapshot carries no title (a pre-snapshot turn-in the backfill could not
@@ -90,11 +91,13 @@ PERIODIC_NOTE_KINDS: frozenset[str] = frozenset(
 def periodic_note_uid(entry_kind: str, user_uid: str, period_key: str) -> str:
     """The deterministic uid of ``user_uid``'s periodic note for one period.
 
-    ``ue:{kind}:{user_uid}:{period_key}`` — ``user_uid`` makes it unique across
-    users who share a calendar period; the calendar routes and the vault door
-    both land on it. One of ``uid_grammar.UID_EXEMPTIONS`` (``periodic_note``).
+    ``ue_{hash}`` over the kind, the owner and the period key
+    (``uid_grammar.hashed_uid``) — the owner makes it unique across users who
+    share a calendar period; the calendar routes and the vault door both land
+    on it. The uid is opaque: a reader takes the kind and the period from the
+    note's ``metadata`` (``entry_kind``, ``period_key``), which both doors stamp.
     """
-    return f"ue:{entry_kind}:{user_uid}:{period_key}"
+    return hashed_uid("ue", entry_kind, user_uid, period_key)
 
 
 @dataclass(frozen=True, kw_only=True)

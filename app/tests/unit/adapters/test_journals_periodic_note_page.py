@@ -22,8 +22,10 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.journals_routes import create_journals_routes
 from core.models.enums.entity_enums import EntityStatus
-from core.models.user_entry.user_entry import UserEntry
+from core.models.user_entry.user_entry import UserEntry, periodic_note_uid
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from ui.activities.nav import ACTIVITY_SIDEBAR_TITLE
 
 _USER_UID = "user_test"
@@ -47,7 +49,7 @@ def _entry(kind: str, period_key: str, *, stamp_period_key: bool = True) -> User
     if stamp_period_key:
         metadata["period_key"] = period_key
     return UserEntry(
-        uid=f"ue:{kind}:{_USER_UID}:{period_key}",
+        uid=periodic_note_uid(kind, _USER_UID, period_key),
         user_uid=_USER_UID,
         title=f"{kind.title()} Note",
         content="",
@@ -130,7 +132,7 @@ def test_editor_then_navigator_and_no_planning_panel_on_any_kind() -> None:
         "yearly": "2026",
     }.items():
         client, calendar = _client(_entry(kind, period_key))
-        body = _get_note_page(client, f"ue:{kind}:{_USER_UID}:{period_key}")
+        body = _get_note_page(client, periodic_note_uid(kind, _USER_UID, period_key))
 
         assert body.index('id="journal-workspace"') < body.index('id="period-navigator"'), kind
         assert 'id="planning-panel"' not in body, kind
@@ -138,17 +140,18 @@ def test_editor_then_navigator_and_no_planning_panel_on_any_kind() -> None:
         assert calendar.mock_calls == [], f"{kind} note read the calendar: {calendar.mock_calls}"
 
 
-def test_a_vault_ingested_note_anchors_its_navigator_on_the_uid_period() -> None:
-    """No ``period_key`` metadata stamp (vault ingestion) — the UID's last colon
-    segment carries the same key form (the join contract), so the navigator
-    still centres on the note's own period, not on today."""
-    entry = _entry("quarterly", "2026-Q3", stamp_period_key=False)
+def test_a_note_without_a_period_key_centres_on_the_current_period() -> None:
+    """The uid is opaque, so the period comes from ``metadata.period_key`` alone
+    (both doors stamp it); a note without one centres on today's period rather
+    than on a guess."""
+    entry = _entry("monthly", "2020-02", stamp_period_key=False)
     client, _calendar = _client(entry)
 
     body = _get_note_page(client, entry.uid)
 
-    assert "July 2026" in body  # the mini month opens on the quarter's first month
-    assert 'aria-label="Quarterly note — Q3 2026" aria-current="page"' in body
+    today = today_in(current_zone())
+    assert today.strftime("%B %Y") in body
+    assert "February 2020" not in body
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +178,7 @@ def test_every_periodic_kind_reaches_every_other_period_from_its_own_page() -> N
     }
     for kind, period_key in pages.items():
         client, _cal = _client(_entry(kind, period_key))
-        body = _get_note_page(client, f"ue:{kind}:{_USER_UID}:{period_key}")
+        body = _get_note_page(client, periodic_note_uid(kind, _USER_UID, period_key))
         for row_kind in pages:
             assert f'href="/journals/{row_kind}/' in body, (
                 f"{kind} note is missing its {row_kind} rail row"
@@ -188,12 +191,12 @@ def test_the_rail_anchors_every_row_on_the_note_own_period() -> None:
     quarterly row is Q1: the rail follows the note, and says which period it
     landed on."""
     client, _cal = _client(_entry("monthly", "2026-08"))
-    august = _get_note_page(client, f"ue:monthly:{_USER_UID}:2026-08")
+    august = _get_note_page(client, periodic_note_uid("monthly", _USER_UID, "2026-08"))
     assert 'href="/journals/quarterly/2026/3"' in august
     assert 'href="/journals/yearly/2026"' in august
 
     client, _cal = _client(_entry("yearly", "2026"))
-    year = _get_note_page(client, f"ue:yearly:{_USER_UID}:2026")
+    year = _get_note_page(client, periodic_note_uid("yearly", _USER_UID, "2026"))
     assert 'href="/journals/quarterly/2026/1"' in year
     assert 'href="/journals/monthly/2026/1"' in year
 

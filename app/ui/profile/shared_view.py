@@ -59,10 +59,9 @@ _DIRECT_LABEL = "Shared with me directly"
 
 
 #: The wall row's marker. Stop-sharing chips target ``closest [data-wall-row]``
-#: — never an id selector: a periodic uid (``ue:daily:…``) or an authored one
-#: (``ku.ns.slug``) carries ``:`` / ``.``, which a CSS selector reads as a
-#: pseudo-class / class, so ``#wall-<uid>`` would find nothing and the request
-#: would never be sent.
+#: — never an id selector: an authored uid (``ku.ns.slug``) carries ``.``,
+#: which a CSS selector reads as a class, so ``#wall-<uid>`` would find nothing
+#: and the request would never be sent.
 WALL_ROW_ATTR = "data-wall-row"
 
 

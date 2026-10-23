@@ -1,5 +1,6 @@
 """Tests for user_entry_ingestion (vault ingest → UserEntryService bridge)."""
 
+import re
 from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -10,9 +11,14 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.audience import AudienceSpec
 from core.models.user_entry.submitted_copy import SubmittedCopy, submission_fingerprint
-from core.models.user_entry.user_entry import UserEntry
+from core.models.user_entry.user_entry import (
+    PERIODIC_NOTE_KINDS,
+    UserEntry,
+    periodic_note_uid,
+)
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.ingestion.user_entry_ingestion import (
+    _PERIOD_FIELDS,
     build_user_entry_request,
     ingest_user_entry,
 )
@@ -880,56 +886,68 @@ class TestVaultNotesAreDrafts:
 
 
 class TestPeriodicUidDerivation:
-    """Vault frontmatter → the derived ``ue:{kind}:{user}:{period_key}`` uid.
+    """Vault frontmatter → the derived ``periodic_note_uid`` and its ``period_key``.
 
     One frontmatter field per kind is the authoring contract
     (``docs/patterns/UNIFIED_INGESTION_GUIDE.md``); the derived uid must match
     the one ``UserEntryService.ensure_periodic_note`` mints for the same period,
-    or the vault note and the in-app note become two nodes.
+    or the vault note and the in-app note become two nodes. The period key is
+    stamped in ``metadata`` too, the way the in-app door stamps it, because the
+    uid is opaque and the note page reads the period from there.
     """
 
     @staticmethod
-    async def _uid(data: dict[str, object], kind: str) -> str | None:
+    def _request(data: dict[str, object], kind: str) -> UserEntryCreateRequest:
         result = build_user_entry_request(
             data={"pipeline": "extract_activities", "metadata": {"entry_kind": kind}, **data},
             file_path=Path(f"/vault/periodic_notes/{kind}.md"),
             user_uid="user_1",
         )
         assert result.is_ok
-        return result.value.uid
+        return result.value
 
-    @pytest.mark.asyncio
-    async def test_quarterly_derives_from_quarter_of(self):
-        assert await self._uid({"quarter_of": "2026-Q3"}, "quarterly") == (
-            "ue:quarterly:user_1:2026-Q3"
-        )
+    def _assert_period(self, data: dict[str, object], kind: str, period_key: str) -> None:
+        request = self._request(data, kind)
+        assert request.uid == periodic_note_uid(kind, "user_1", period_key)
+        assert request.metadata["period_key"] == period_key
+        assert request.metadata["entry_kind"] == kind
 
-    @pytest.mark.asyncio
-    async def test_yearly_derives_from_year_of_however_yaml_typed_it(self):
+    def test_every_periodic_kind_names_its_period_field(self):
+        """A kind added to PERIODIC_NOTE_KINDS without a field here would mint
+        its vault notes fresh instead of landing on the in-app note."""
+        assert set(_PERIOD_FIELDS) == PERIODIC_NOTE_KINDS
+
+    def test_quarterly_derives_from_quarter_of(self):
+        self._assert_period({"quarter_of": "2026-Q3"}, "quarterly", "2026-Q3")
+
+    def test_yearly_derives_from_year_of_however_yaml_typed_it(self):
         """``year_of: 2026`` parses as an int; ``"2026"`` as a str. One year."""
-        assert await self._uid({"year_of": 2026}, "yearly") == "ue:yearly:user_1:2026"
-        assert await self._uid({"year_of": "2026"}, "yearly") == "ue:yearly:user_1:2026"
+        self._assert_period({"year_of": 2026}, "yearly", "2026")
+        self._assert_period({"year_of": "2026"}, "yearly", "2026")
 
-    @pytest.mark.asyncio
-    async def test_yearly_normalizes_a_date_typed_year(self):
+    def test_yearly_normalizes_a_date_typed_year(self):
         """A bare ``year_of: 2026-01-01`` coerces to a date — take its year."""
-        assert await self._uid({"year_of": date(2026, 1, 1)}, "yearly") == "ue:yearly:user_1:2026"
+        self._assert_period({"year_of": date(2026, 1, 1)}, "yearly", "2026")
 
-    @pytest.mark.asyncio
-    async def test_ride_along_daily_weekly_monthly_still_derive(self):
-        """The three kinds this change extends keep their existing contracts."""
-        assert await self._uid({"date": date(2026, 8, 4)}, "daily") == "ue:daily:user_1:2026-08-04"
-        assert await self._uid({"week_of": "2026-W32"}, "weekly") == "ue:weekly:user_1:2026-W32"
+    def test_daily_weekly_monthly_derive(self):
+        self._assert_period({"date": date(2026, 8, 4)}, "daily", "2026-08-04")
+        self._assert_period({"week_of": "2026-W32"}, "weekly", "2026-W32")
         # ``month_of: 2026-08`` coerces to a date; truncated back to YYYY-MM.
-        assert await self._uid({"month_of": date(2026, 8, 1)}, "monthly") == (
-            "ue:monthly:user_1:2026-08"
-        )
+        self._assert_period({"month_of": date(2026, 8, 1)}, "monthly", "2026-08")
 
-    @pytest.mark.asyncio
-    async def test_missing_period_field_mints_fresh_rather_than_guessing(self):
-        """No ``quarter_of``/``year_of`` → no derived identity, never a guess
-        at "the current quarter" (which would fuse two periods' notes): the
-        note is a plain living draft on a minted uid."""
-        for kind in ("quarterly", "yearly"):
-            uid = await self._uid({}, kind)
-            assert uid is not None and uid.startswith("ue_"), kind
+    @pytest.mark.parametrize("data", [{}, {"quarter_of": ""}, {"quarter_of": "  "}])
+    def test_a_missing_or_blank_period_mints_fresh_rather_than_guessing(self, data):
+        """No period → no derived identity, never a guess at "the current
+        quarter" (which would fuse two periods' notes): the note is a plain
+        living draft on a minted uid, and carries no period key."""
+        request = self._request(data, "quarterly")
+        assert request.uid is not None
+        assert re.fullmatch(r"ue_[0-9a-f]{8}", request.uid)
+        assert "period_key" not in request.metadata
+
+    def test_an_authored_uid_keeps_its_uid_and_gains_the_period(self):
+        """A content-vault note with a ``uid:`` line keeps that uid; its period
+        is still stamped, so its page centres on the right period."""
+        request = self._request({"uid": "ue.my-week", "week_of": "2026-W43"}, "weekly")
+        assert request.uid == "ue.my-week"
+        assert request.metadata["period_key"] == "2026-W43"

@@ -18,6 +18,7 @@ import pytest
 
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
+from core.models.user_entry.user_entry import periodic_note_uid
 from core.services.ingestion.config import generate_ingestion_relationship_config
 from core.services.ingestion.detector import is_edge_type
 from core.services.ingestion.preparer import prepare_edge_data, prepare_entity_data
@@ -87,15 +88,25 @@ class TestEdgeValidation:
         assert result.is_error
         assert "retired colon spelling" in str(result.expect_error())
 
-    def test_sanctioned_machine_uid_endpoint_accepted(self):
-        """Periodic UserEntry uids carry colons (``uid_grammar.PERIODIC_NOTE_EXEMPTION``)
-        — they are real graph identities, so an edge may target one (Codex P2 #1055)."""
+    def test_a_periodic_note_endpoint_is_accepted(self):
+        """An edge may target a periodic note by its uid (Codex P2 #1055)."""
+        data = {
+            "from": "ku.mind.attention",
+            "to": periodic_note_uid("daily", "user_mike", "2026-06-28"),
+            "relationship": "RELATED_TO",
+        }
+        assert validate_edge_data(data).is_ok
+
+    def test_the_colon_spelled_periodic_endpoint_is_refused(self):
+        """No node uid holds a colon, a periodic note's included."""
         data = {
             "from": "ku.mind.attention",
             "to": "ue:daily:user_mike:2026-06-28",
             "relationship": "RELATED_TO",
         }
-        assert validate_edge_data(data).is_ok
+        result = validate_edge_data(data)
+        assert result.is_error
+        assert "retired colon spelling" in str(result.expect_error())
 
     def test_missing_to(self):
         data = {"from": "ku.a", "relationship": "CAUSES"}
@@ -580,19 +591,26 @@ class TestLsPreparerNormalization:
                 EntityType.PATH_STEP, data, None, Path("s.yaml"), INGESTION_TEST_OWNER
             )
 
-    def test_sanctioned_machine_uid_target_accepted(self):
-        """A ``ue:…`` periodic-entry target survives the guard — its colon
-        form IS the stored uid (Codex P2 #1055)."""
+    def test_a_periodic_note_target_is_accepted(self):
+        """A periodic note is a valid ``organizes`` target (Codex P2 #1055)."""
+        note = periodic_note_uid("daily", "user_mike", "2026-06-28")
+        data = {"type": "ps", "uid": "ps.test.step", "title": "S", "organizes": [note]}
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, None, Path("s.yaml"), INGESTION_TEST_OWNER
+        )
+        assert result["organizes"] == [note]
+
+    def test_the_colon_spelled_periodic_target_is_refused(self):
         data = {
             "type": "ps",
             "uid": "ps.test.step",
             "title": "S",
             "organizes": ["ue:daily:user_mike:2026-06-28"],
         }
-        result = prepare_entity_data(
-            EntityType.PATH_STEP, data, None, Path("s.yaml"), INGESTION_TEST_OWNER
-        )
-        assert result["organizes"] == ["ue:daily:user_mike:2026-06-28"]
+        with pytest.raises(ValueError, match="retired colon spelling"):
+            prepare_entity_data(
+                EntityType.PATH_STEP, data, None, Path("s.yaml"), INGESTION_TEST_OWNER
+            )
 
 
 # ============================================================================

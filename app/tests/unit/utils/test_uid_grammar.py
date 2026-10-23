@@ -205,12 +205,6 @@ class TestSlugify:
 # ---------------------------------------------------------------------------
 
 
-def _periodic() -> str:
-    from core.models.user_entry.user_entry import periodic_note_uid
-
-    return periodic_note_uid("daily", "user_admin", "2026-10-18")
-
-
 def _named_generated() -> str:
     from core.utils.uid_generator import UIDGenerator
 
@@ -300,7 +294,6 @@ def _user_from_username() -> str:
 
 # writer path → a call of that writer
 _DRIVERS: dict[str, Callable[[], str]] = {
-    "core.models.user_entry.user_entry:periodic_note_uid": _periodic,
     "core.utils.uid_generator:UIDGenerator.generate_uid": _named_generated,
     "core.services.ingestion.vault_policy:personal_file_uid": _personal_file,
     "core.services.habits.habits_completion_service:habit_completion_uid": _habit_completion,

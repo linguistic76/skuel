@@ -29,23 +29,13 @@ from core.models.templates.offset_helpers import (
 from core.models.type_hints import TypeConverter, UserUID
 from core.utils.logging import get_logger
 from core.utils.timestamp_helpers import local_day_bounds
-from core.utils.uid_grammar import PERIODIC_NOTE_EXEMPTION, authored_uid_problem, slugify
+from core.utils.uid_grammar import authored_uid_problem, slugify
 from core.utils.zone_context import current_zone
 
 from .config import ENTITY_CONFIGS
 from .moc_links import extract_moc_link_suffixes
 
 logger = get_logger("skuel.ingestion.preparer")
-
-
-def is_sanctioned_machine_uid(uid: str) -> bool:
-    """True for a periodic UserEntry uid (``ue:daily:{user}:{date}`` and the other kinds).
-
-    The periodic-note shape carries colons (``uid_grammar.PERIODIC_NOTE_EXEMPTION``),
-    so a reference to one names a real node and is legitimate input, not a retired
-    authoring alias.
-    """
-    return PERIODIC_NOTE_EXEMPTION.matches(uid)
 
 
 def _reject_colon_relationship_targets(
@@ -59,8 +49,6 @@ def _reject_colon_relationship_targets(
     ``connections.requires``, ``organizes``, …) must author the stored dot
     form — a colon target survives field validation but the edge MERGE
     matches nothing, so the link would vanish silently instead of failing.
-    A periodic-note uid (``ue:…``) is exempt: its colon form IS the stored uid
-    (see ``is_sanctioned_machine_uid``).
     """
     if not relationship_config:
         return
@@ -75,7 +63,7 @@ def _reject_colon_relationship_targets(
         else:
             continue
         for target in targets:
-            if isinstance(target, str) and ":" in target and not is_sanctioned_machine_uid(target):
+            if isinstance(target, str) and ":" in target:
                 raise ValueError(
                     f"Relationship target '{target}' in '{field_name}' uses the "
                     f"retired colon spelling — author the stored dot form "

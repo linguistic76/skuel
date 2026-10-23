@@ -67,11 +67,18 @@ def test_a_shape_two_exemptions_share_is_counted_under_both_names() -> None:
 
 
 def test_render_names_the_migrating_pr_and_flags_the_unregistered() -> None:
+    """A colon-form periodic uid left in the graph is unregistered — no writer mints it."""
     text = render(
-        take_census([(["UserEntry"], "ue:daily:user_a:2026-10-18"), (["Ku"], "ku.Bad")]),
+        take_census(
+            [
+                (["Transcription"], "transcription:01234567-89ab-cdef-0123-456789abcdef"),
+                (["UserEntry"], "ue:daily:user_a:2026-10-18"),
+            ]
+        ),
         {"IngestionMetadata": 3},
     )
+    assert "| Transcription | 0 | 1 | 0 | 1 |" in text
+    assert "transcription" in text and "PR 4" in text
     assert "| UserEntry | 0 | 1 | 0 | 1 |" in text
-    assert "periodic_note" in text and "PR 3" in text
     assert "UNREGISTERED" in text and "no exemption names this shape" in text
     assert "IngestionMetadata" in text

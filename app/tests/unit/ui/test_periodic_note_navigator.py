@@ -19,7 +19,7 @@ from datetime import date, datetime
 from fasthtml.common import Div, to_xml
 
 from core.models.enums.entity_enums import EntityStatus
-from core.models.user_entry.user_entry import UserEntry
+from core.models.user_entry.user_entry import UserEntry, periodic_note_uid
 from ui.journals.chat_page import PeriodicNotePage
 from ui.journals.period_links import PERIOD_KINDS
 
@@ -27,7 +27,7 @@ from ui.journals.period_links import PERIOD_KINDS
 def _page(kind: str, period_key: str) -> str:
     created = datetime(2026, 9, 5, 8, 0)
     entry = UserEntry(
-        uid=f"ue:{kind}:user_test:{period_key}",
+        uid=periodic_note_uid(kind, "user_test", period_key),
         user_uid="user_test",
         title=f"{kind.title()} Note",
         content="",

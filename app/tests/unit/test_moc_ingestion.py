@@ -8,8 +8,8 @@ Pins the MOC ingestion arc's PR-1 seams:
 3. UID acceptance — an authored UserEntry uid is read against the uid
    grammar like any other type's (``ue.worldview`` passes, ``moc.worldview``
    does not); authored uids pass through verbatim, colon-spelled entity uids
-   reject loudly, and derived periodic uids keep their colon-form calendar
-   contract (``uid_grammar.PERIODIC_NOTE_EXEMPTION``).
+   reject loudly, and a periodic note takes the uid the calendar routes mint
+   (``periodic_note_uid``).
 4. The service edge pass — resolution winner selection, self-link skip,
    ordered targets, and the two vault postures (personal silent /
    content Arc E warnings).
@@ -26,6 +26,7 @@ import pytest
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
+from core.models.user_entry.user_entry import periodic_note_uid
 from core.services.ingestion.batch import parse_file_sync
 from core.services.ingestion.moc_links import (
     extract_moc_link_suffixes,
@@ -256,9 +257,8 @@ class TestUserEntryDoorUidHandling:
         assert result.is_ok
         assert "moc" not in result.value.metadata
 
-    async def test_derived_periodic_uid_keeps_colon_form(self, tmp_path: Path):
-        """The calendar routes mint ``ue:daily:{user}:{date}`` — derived
-        periodic uids must NOT be normalized (existing graph contract)."""
+    async def test_a_periodic_note_takes_the_calendar_routes_uid(self, tmp_path: Path):
+        """The vault note and the calendar's note for one day are one node."""
         result = await self._build(
             {
                 "pipeline": "extract_activities",
@@ -269,7 +269,7 @@ class TestUserEntryDoorUidHandling:
             tmp_path / "2026-07-04.md",
         )
         assert result.is_ok
-        assert result.value.uid == "ue:daily:user_test:2026-07-04"
+        assert result.value.uid == periodic_note_uid("daily", "user_test", "2026-07-04")
 
 
 # ============================================================================

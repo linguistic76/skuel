@@ -558,10 +558,12 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
     ) -> Result[str]:
         """Find-or-create a periodic note; returns its deterministic uid.
 
-        UID scheme (the persistence contract): ``ue:{kind}:{user_uid}:{period_key}``
-        — ``user_uid`` in the UID makes it globally unique, so two users sharing
-        the same calendar period get independent notes without backend UID
-        collisions. ``period_key`` is the ISO date (daily), ``{year}-W{week:02d}``
+        UID scheme (the persistence contract): ``periodic_note_uid(kind, user_uid,
+        period_key)`` — ``user_uid`` among the hashed parts makes it globally
+        unique, so two users sharing the same calendar period get independent
+        notes without backend UID collisions. The kind and period ride in
+        ``metadata`` (``entry_kind``, ``period_key``), where every reader takes
+        them. ``period_key`` is the ISO date (daily), ``{year}-W{week:02d}``
         (weekly), ``{year}-{month:02d}`` (monthly), ``{year}-Q{quarter}``
         (quarterly), or ``{year}`` (yearly) — one key form per kind, each
         parseable by exactly one of ``core/utils/period_keys.py``'s parsers.

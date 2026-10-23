@@ -23,10 +23,12 @@ from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBac
 from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.models.user_entry.user_entry import periodic_note_uid
 from tests.integration._activity_link_rig import (
     edges_between,
     signed_in_client,
@@ -54,7 +56,7 @@ OTHER_MARK = f"{MARK}o"
 LEARNER = f"user_{LEARNER_MARK}"
 OTHER = f"user_{OTHER_MARK}"
 DAY = "2026-10-14"
-NOTE = f"ue:daily:{LEARNER}:{DAY}"
+NOTE = periodic_note_uid("daily", LEARNER, DAY)
 KU_NAMED = f"ku.{LEARNER_MARK}.named"
 PS_NAMED = f"ps.{LEARNER_MARK}.named"
 KU_DRAFTED = f"ku.{LEARNER_MARK}.drafted"
@@ -84,8 +86,15 @@ async def _seed(driver: AsyncDriver) -> None:
 
 async def _cleanup(driver: AsyncDriver) -> None:
     async with driver.session() as session:
+        # A periodic note's uid carries no mark, so its tracker row goes with it.
         await session.run(
-            "MATCH (u:User)-[:OWNS]->(n) WHERE u.uid IN $users DETACH DELETE n",
+            "MATCH (u:User)-[:OWNS]->(n) WHERE u.uid IN $users "
+            "MATCH (m:IngestionMetadata {entity_uid: n.uid}) DETACH DELETE m",
+            users=[LEARNER, OTHER],
+        )
+        await session.run(
+            "MATCH (u:User)-[:OWNS]->(n) WHERE u.uid IN $users "
+            f"{build_content_subtree_delete('n')} DETACH DELETE n",
             users=[LEARNER, OTHER],
         )
         await session.run(

@@ -47,7 +47,7 @@ class UserEntryCreateRequest(CreateRequestBase):
     uid: str | None = Field(
         default=None,
         description=(
-            "Caller-supplied deterministic UID (e.g. vault note 'ue:daily:2026-06-16'). "
+            "Caller-supplied deterministic UID (e.g. a periodic note's 'periodic_note_uid'). "
             "When set, the service upserts (MERGE-on-uid) so re-syncing an edited note "
             "updates in place; when None a random 'ue_<...>' UID is minted and the entry "
             "is created fresh."

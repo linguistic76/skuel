@@ -168,19 +168,9 @@ class UidExemption:
         return self.pattern.fullmatch(uid) is not None
 
 
-# A frontmatter or Edge-file reference may name a periodic note by this uid
-# (``preparer.is_sanctioned_machine_uid``), so it is named on its own.
-PERIODIC_NOTE_EXEMPTION: Final = UidExemption(
-    name="periodic_note",
-    pattern=re.compile(r"ue:(?:daily|weekly|monthly|quarterly|yearly):[^:]+:[^:]+"),
-    writers=("core.models.user_entry.user_entry:periodic_note_uid",),
-    retired_by="uid arc PR 3 (periodic notes)",
-)
-
 _UUID: Final = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
 UID_EXEMPTIONS: Final[tuple[UidExemption, ...]] = (
-    PERIODIC_NOTE_EXEMPTION,
     UidExemption(
         name="named_generated",
         pattern=re.compile(rf"{_PREFIX}_{_SEGMENT}_[0-9a-f]{{8}}"),
@@ -260,7 +250,6 @@ __all__ = [
     "AUTHORED_UID",
     "GENERATED_UID",
     "HASHED_UID_HEX",
-    "PERIODIC_NOTE_EXEMPTION",
     "UID_CHARSET",
     "UID_EXEMPTIONS",
     "UidExemption",

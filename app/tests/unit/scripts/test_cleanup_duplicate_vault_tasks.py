@@ -346,9 +346,9 @@ def test_entry_for_file_uses_other_owned_ids_and_refuses_ambiguity():
         _line("a", vault_id="sk_aaaaaa", file="mixed.md", no=1),
         _line("b", vault_id="sk_bbbbbb", file="mixed.md", no=2),
     ]
-    owned = {"sk_1hmd4h": {"ue:daily:u:2026-06-29"}, "sk_aaaaaa": {"ue:x"}, "sk_bbbbbb": {"ue:y"}}
+    owned = {"sk_1hmd4h": {"ue_d0629"}, "sk_aaaaaa": {"ue_x"}, "sk_bbbbbb": {"ue_y"}}
     resolved = entry_for_file(lines, owned)
-    assert resolved["periodic_notes/Daily/2026-06-29.md"] == "ue:daily:u:2026-06-29"
+    assert resolved["periodic_notes/Daily/2026-06-29.md"] == "ue_d0629"
     assert resolved["mixed.md"] is None  # two entries → ambiguous
     assert "periodic_notes/Daily/2026-06-17.md" not in resolved  # no owned id at all
 
@@ -361,7 +361,7 @@ def test_an_owned_anchor_id_copied_into_two_files_anchors_neither():
         _line("anchor", vault_id="sk_copied", file="periodic_notes/Daily/2026-06-30.md"),
         _line("Physio", vault_id="sk_phantom", file="periodic_notes/Daily/2026-06-30.md", no=20),
     ]
-    owned = {"sk_copied": {"ue:daily:u:2026-06-29"}}
+    owned = {"sk_copied": {"ue_d0629"}}
 
     assert entry_for_file(lines, owned) == {}
     c = classify([owner], lines, set(owned))
@@ -387,14 +387,14 @@ def test_plan_repairs_builds_the_door_shaped_link_and_refuses_the_rest():
         ),
         _line("move furniture", vault_id="sk_3uhmts", file="periodic_notes/Daily/2026-06-17.md"),
     ]
-    owned = {"sk_1hmd4h": {"ue:daily:u:2026-06-29"}}
+    owned = {"sk_1hmd4h": {"ue_d0629"}}
     c = classify([owner, mover], lines, set(owned))
     repairs, problems = plan_repairs(
         c, ["sk_bcd7if", "sk_3uhmts", "sk_1hmd4h"], entry_for_file(lines, owned)
     )
 
     assert [r.task.uid for r in repairs] == ["task_091092e1"]
-    assert repairs[0].entry_uid == "ue:daily:u:2026-06-29"
+    assert repairs[0].entry_uid == "ue_d0629"
     # The door-shaped link: digest of the normalised line, the 🆔, and the line
     # verbatim as the edge's ``source_line`` base.
     assert repairs[0].link == (
@@ -416,7 +416,7 @@ def test_plan_repairs_refuses_an_id_copied_onto_two_lines():
         _line("Vacuum", vault_id="sk_copied", no=30),
         _line("Vacuum", vault_id="sk_copied", file="periodic_notes/Weekly/2026-W29.md", no=31),
     ]
-    owned = {"sk_anchor": {"ue:daily:u:2026-06-29"}}
+    owned = {"sk_anchor": {"ue_d0629"}}
     c = classify([owner], lines, set(owned))
     assert [p.line.vault_id for p in c.phantom_ids] == ["sk_copied", "sk_copied"]
 
@@ -434,7 +434,7 @@ def test_an_anchor_id_reaching_two_entries_makes_the_file_ambiguous():
         _line("anchor", vault_id="sk_anchor"),
         _line("Physio", vault_id="sk_phantom", no=20),
     ]
-    owned = {"sk_anchor": {"ue:daily:u:2026-06-29", "ue:daily:u:2026-06-30"}}
+    owned = {"sk_anchor": {"ue_d0629", "ue_d0630"}}
 
     assert entry_for_file(lines, owned) == {"periodic_notes/Daily/2026-06-29.md": None}
     c = classify([owner], lines, set(owned))
@@ -451,7 +451,7 @@ def test_a_task_that_is_the_candidate_for_two_phantom_lines_is_never_repaired():
         _line("Physio", vault_id="sk_first", no=20),
         _line("Physio", vault_id="sk_second", no=21),
     ]
-    owned = {"sk_anchor": {"ue:daily:u:2026-06-29"}}
+    owned = {"sk_anchor": {"ue_d0629"}}
     c = classify([owner], lines, set(owned))
     assert [p.line.vault_id for p in c.phantom_ids] == ["sk_first", "sk_second"]
 

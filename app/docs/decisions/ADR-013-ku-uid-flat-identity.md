@@ -442,8 +442,9 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
   lists each one with the functions that mint it and what retires it, and a unit test fails
   once a writer stops minting its shape. A chunk uid is `chunk_{hash(store, parent, index)}`,
   and a `:Content` node has no uid — it is reached through its entity's `HAS_CONTENT` edge, so
-  no node shares an entity's uid. The uid arc migrates the rest in order: periodic notes
-  (`ue:{kind}:{user}:{key}`) → the remaining generated shapes (`{prefix}_{slug}_{8 hex}`,
+  no node shares an entity's uid. A periodic note's uid is `ue_{hash(kind, owner, period)}`
+  (`periodic_note_uid`), with its kind and period in its metadata. The uid arc migrates the
+  rest: the remaining generated shapes (`{prefix}_{slug}_{8 hex}`,
   habit completions, insights, the default group, bare-UUID SearchEvents, transcriptions,
   instruction sets); each becomes `{prefix}_{hash(parts)}` where the old id was derived, so a
   re-ingest still lands on the same node. Invoices leave with the local invoice module
