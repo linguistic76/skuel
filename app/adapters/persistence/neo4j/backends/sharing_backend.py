@@ -12,7 +12,6 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.user_enums import UserRole
-from core.models.group.group import DEFAULT_GROUP_UID_PREFIX
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.query_types import VIA_DIRECT
@@ -33,16 +32,16 @@ def build_co_membership_fragment(owner_alias: str, recipient_alias: str) -> str:
     ``MEMBER_OF`` or ``OWNS`` — except through a default group, where only a
     pair that includes the group's owner counts: its roster is the whole
     enrolled platform, its owner is the student's teacher. The default group
-    is recognised by its uid prefix, bound as ``$default_group_prefix``
-    (``DEFAULT_GROUP_UID_PREFIX``); the owner by the ``OWNS`` edge. Every
-    caller binds that parameter; ``SharingBackend`` composes this fragment in
-    the co-member reads and in the guarded person-share MERGE.
+    is recognised by its ``is_default`` property (``default_group_uid``'s
+    group, written by ``get_or_create_default_group``); the owner by the ``OWNS``
+    edge. ``SharingBackend`` composes this fragment in the co-member reads and
+    in the guarded person-share MERGE.
     """
     reach = f"[:{RelationshipName.MEMBER_OF.value}|{RelationshipName.OWNS.value}]"
     owns = f"[:{RelationshipName.OWNS.value}]"
     return (
         f"EXISTS {{ MATCH ({owner_alias})-{reach}->(cg:Group)<-{reach}-({recipient_alias}) "
-        f"WHERE cg.is_active = true AND (NOT cg.uid STARTS WITH $default_group_prefix "
+        f"WHERE cg.is_active = true AND (NOT coalesce(cg.is_default, false) "
         f"OR ({owner_alias})-{owns}->(cg) OR ({recipient_alias})-{owns}->(cg)) }}"
     )
 
@@ -154,7 +153,6 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
                 "role": role,
                 "share_version": share_version,
                 "require_co_membership": require_co_membership,
-                "default_group_prefix": DEFAULT_GROUP_UID_PREFIX,
             },
         )
         if result.is_error:
@@ -190,7 +188,6 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {
                 "owner_uid": owner_uid,
                 "recipient_key": username if username is not None else recipient_uid,
-                "default_group_prefix": DEFAULT_GROUP_UID_PREFIX,
             },
         )
         if result.is_error:
@@ -484,7 +481,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
                    coalesce(recipient.display_name, recipient.title) AS display_name
             ORDER BY toLower(display_name)
             """,
-            {"owner_uid": owner_uid, "default_group_prefix": DEFAULT_GROUP_UID_PREFIX},
+            {"owner_uid": owner_uid},
         )
         if result.is_error:
             return Result.fail(result)

@@ -17,11 +17,11 @@ See: /docs/roadmap/DISCOVERY_ANALYTICS_ROADMAP.md
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from uuid import uuid4
 
 from core.ports.query_types import SearchEventProps
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.events.search_events import SearchExecuted
@@ -29,8 +29,8 @@ if TYPE_CHECKING:
 
 
 def search_event_uid() -> str:
-    """A fresh :SearchEvent uid — a bare UUID, one of ``uid_grammar.UID_EXEMPTIONS``."""
-    return str(uuid4())
+    """A fresh :SearchEvent uid: ``search_{16 hex}``."""
+    return UIDGenerator.generate_random_uid("search")
 
 
 class SearchEventRecorder:

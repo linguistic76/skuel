@@ -258,7 +258,7 @@ engagement_uid, engagement_anchor)`):
 ```python
 for spec in SPAWN_REGISTRY:
     for tmpl in getattr(bundle, spec.collection_attr):
-        template_to_instance[tmpl.uid] = UIDGenerator.generate_uid(spec.uid_prefix, tmpl.title)
+        template_to_instance[tmpl.uid] = UIDGenerator.generate_random_uid(spec.uid_prefix)
 ```
 
 All instance UIDs exist in the map before Phase 2 begins. This allows Layer 4

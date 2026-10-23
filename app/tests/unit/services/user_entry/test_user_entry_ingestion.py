@@ -942,7 +942,7 @@ class TestPeriodicUidDerivation:
         living draft on a minted uid, and carries no period key."""
         request = self._request(data, "quarterly")
         assert request.uid is not None
-        assert re.fullmatch(r"ue_[0-9a-f]{8}", request.uid)
+        assert re.fullmatch(r"ue_[0-9a-f]{16}", request.uid)
         assert "period_key" not in request.metadata
 
     def test_an_authored_uid_keeps_its_uid_and_gains_the_period(self):

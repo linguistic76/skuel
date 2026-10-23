@@ -33,6 +33,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
+from core.utils.uid_grammar import hashed_uid
 
 if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
@@ -41,9 +42,9 @@ if TYPE_CHECKING:
 def instruction_set_uid(name: str) -> str:
     """The uid an instruction set named ``name`` takes when none is given.
 
-    One of ``uid_grammar.UID_EXEMPTIONS`` (``instruction_set``).
+    Derived from the name, case and spaces folded, so one name names one set.
     """
-    return f"instructions:{name.lower().replace(' ', '-')}"
+    return hashed_uid("instructions", name.lower().replace(" ", "-"))
 
 
 class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):

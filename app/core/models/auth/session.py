@@ -36,6 +36,7 @@ from datetime import UTC, datetime, timedelta
 
 from core.models.type_hints import UserUID
 from core.utils.timestamp_helpers import as_utc, now_utc
+from core.utils.uid_generator import UIDGenerator
 
 # Session configuration
 SESSION_TOKEN_BYTES = 32  # 256-bit tokens
@@ -49,7 +50,7 @@ def generate_session_token() -> str:
 
 def generate_session_uid() -> str:
     """Generate a unique session UID."""
-    return f"session_{secrets.token_hex(16)}"
+    return UIDGenerator.generate_random_uid("session")
 
 
 def hash_session_token(token: str) -> str:

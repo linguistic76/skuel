@@ -33,14 +33,17 @@ def test_newtype_definitions():
 
 def test_type_guards():
     """Test type guard functions"""
-    # Valid UIDs
+    # Valid UIDs: the grammar's shapes, and an exempt one (a username's)
+    assert is_valid_uid("task_3f9a0c41d2e87b65")
+    assert is_valid_uid("ku.mindfulness.attention")
     assert is_valid_uid("user_123")
-    assert is_valid_uid("task_abc123")
 
     # Invalid UIDs
+    assert not is_valid_uid("task_abc123")  # not the one generated shape
     assert not is_valid_uid("invalid-uid")
     assert not is_valid_uid("123_user")
     assert not is_valid_uid("")
+    assert not is_valid_uid(None)
 
     # Valid percentages
     assert is_valid_percentage(0.0)
@@ -66,8 +69,8 @@ def test_type_guards():
 def test_type_converter():
     """Test type conversion helpers"""
     # Valid conversions
-    entity_uid = TypeConverter.to_entity_uid("entity_123")
-    assert entity_uid == "entity_123"
+    entity_uid = TypeConverter.to_entity_uid("entity_3f9a0c41d2e87b65")
+    assert entity_uid == "entity_3f9a0c41d2e87b65"
 
     user_uid = TypeConverter.to_user_uid("user_456")
     assert user_uid == "user_456"

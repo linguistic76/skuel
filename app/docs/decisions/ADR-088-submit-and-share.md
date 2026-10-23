@@ -1,6 +1,6 @@
 ---
 title: "ADR-088: Submit and Share"
-updated: 2026-10-15
+updated: 2026-10-23
 status: implemented
 category: decisions
 tags: [adr, decisions, sharing, submissions, user-entry, groups, visibility, access-control, gradebook]
@@ -62,7 +62,7 @@ written today as the same edge, and access is recorded in two places that disagr
 - **One edge, two meanings.** `SHARED_WITH_GROUP` is read by the teacher's review queue (under
   the teacher's `OWNS` of the group) *and* by classmates on `/groups` (under their `MEMBER_OF`).
   A turn-in sent "to my teacher" is therefore listed to every member of the group. Curriculum
-  turn-ins fall back to `group_default_{admin}`, which everyone who marks a PathStep in progress
+  turn-ins fall back to the admin's default group, which everyone who marks a PathStep in progress
   joins, so those turn-ins are visible across the enrolled population.
 - **Access recorded twice.** Share links (`SHARES_WITH`, `SHARED_WITH_GROUP`) are one record;
   the `visibility` property is the other. For anyone but the owner, the EntryReport access check
@@ -204,15 +204,16 @@ touch a `SUBMITTED_TO_GROUP` feedback request.
 - You may share with a person only when you share a group with them. In the vault the person is
   named `user:<username>`.
 - Co-membership through the default group does not count: everyone who marks a PathStep in
-  progress joins `group_default_{admin}`, so "people in my groups" would otherwise list the
+  progress joins the admin's default group, so "people in my groups" would otherwise list the
   enrolled platform. The default group's **owner** stays a candidate, and the default group itself
   stays offered as a *group* target.
 - An unknown username and a non-co-member get the same not-found error, so the door does not
   disclose who exists.
 - The default group records its owner only through its `:OWNS` edge. Identify the owner by that
-  edge, never by the uid suffix (ADR-013). Until a declared marker exists, the default group
-  itself is recognised by the one existing `STARTS WITH 'group_default_'` site (SKUEL034 leaves
-  `startswith` out of scope by ruling); a new consumer reuses that site, never a second spelling.
+  edge, never by its uid (ADR-013). The default group itself is recognised by its `is_default`
+  property, written by the enrollment MERGE (`get_or_create_default_group`, keyed by
+  `default_group_uid`) and read by `build_co_membership_fragment`; a new consumer reads that
+  property, never the uid.
 - Forms' `share_with_admin` stays exempt from co-membership (its own question is open in the
   form-submission recipient-read case file).
 

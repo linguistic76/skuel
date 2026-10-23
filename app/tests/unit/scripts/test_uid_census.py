@@ -21,18 +21,20 @@ def test_each_uid_lands_in_one_verdict_per_label() -> None:
         [
             (["Entity", "Ku"], "ku.a.b"),
             (["Entity", "Ku"], "ku.Bad"),
+            (["Entity", "Task"], "task_3f9a0c41d2e87b65"),
             (["Entity", "Task"], "task_a1b2c3d4"),
-            (["Entity", "Task"], "task_van-on-monday_5873a134"),
             (["ContentChunk"], "chunk_0123456789abcdef"),
             (["ReferenceChunk"], "resource.x:chunk:0"),
             (["Group"], "group.x.y.z.w"),
+            (["User"], "user_admin"),
         ]
     )
     ku, task = census.by_label["Ku"], census.by_label["Task"]
     assert (ku.fits, ku.outside, ku.shape) == (1, 1, 0)
     assert (task.fits, task.outside, task.shape) == (1, 0, 1)
     assert census.by_label["ContentChunk"].fits == 1
-    assert census.by_exemption[("Task", "named_generated")] == 1
+    assert census.by_exemption[("Task", "UNREGISTERED")] == 1
+    assert census.by_exemption[("User", "user_from_username")] == 1
     assert census.by_exemption[("Ku", "UNREGISTERED")] == 1
     assert census.by_exemption[("ReferenceChunk", "UNREGISTERED")] == 1
     assert census.by_exemption[("Group", "UNREGISTERED")] == 1
@@ -43,7 +45,7 @@ def test_a_uid_two_nodes_hold_is_reported_with_both_labels() -> None:
         [
             (["Entity", "Ku"], "ku.a.b"),
             (["Content"], "ku.a.b"),
-            (["Entity", "Task"], "task_a1b2c3d4"),
+            (["Entity", "Task"], "task_3f9a0c41d2e87b65"),
         ]
     )
     assert census.shared == {"ku.a.b": ["Content", "Ku"]}
@@ -53,7 +55,9 @@ def test_a_uid_two_nodes_hold_is_reported_with_both_labels() -> None:
 
 
 def test_no_shared_uid_renders_none() -> None:
-    census = take_census([(["Entity", "Ku"], "ku.a.b"), (["ContentChunk"], "chunk_00ff")])
+    census = take_census(
+        [(["Entity", "Ku"], "ku.a.b"), (["ContentChunk"], "chunk_0123456789abcdef")]
+    )
     assert census.shared == {}
     assert "Uids held by more than one node:\n  (none)" in render(census, {})
 
@@ -64,27 +68,19 @@ def test_a_shared_uid_fails_the_census_and_a_misfit_does_not() -> None:
     assert exit_code(take_census([(["Entity", "Ku"], "ku.Bad")])) == 0
 
 
-def test_a_shape_two_exemptions_share_is_counted_under_both_names() -> None:
-    census = take_census([(["User"], "user_foo_12345678")])
-    assert census.by_exemption == {("User", "named_generated+user_from_username"): 1}
-    text = render(census, {})
-    assert "remaining generated shapes" in text and "username rule" in text
-    assert "no exemption names this shape" not in text
-
-
-def test_render_names_the_migrating_pr_and_flags_the_unregistered() -> None:
+def test_render_names_what_retires_an_exemption_and_flags_the_unregistered() -> None:
     """A colon-form periodic uid left in the graph is unregistered — no writer mints it."""
     text = render(
         take_census(
             [
-                (["Transcription"], "transcription:01234567-89ab-cdef-0123-456789abcdef"),
+                (["Invoice"], "invoice:01234567-89ab-cdef-0123-456789abcdef"),
                 (["UserEntry"], "ue:daily:user_a:2026-10-18"),
             ]
         ),
         {"IngestionMetadata": 3},
     )
-    assert "| Transcription | 0 | 1 | 0 | 1 |" in text
-    assert "transcription" in text and "PR 4" in text
+    assert "| Invoice | 0 | 1 | 0 | 1 |" in text
+    assert "invoice" in text and "ChargeKeep" in text
     assert "| UserEntry | 0 | 1 | 0 | 1 |" in text
     assert "UNREGISTERED" in text and "no exemption names this shape" in text
     assert "IngestionMetadata" in text

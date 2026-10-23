@@ -572,7 +572,7 @@ class EventsCoreService(
             return Result.fail(validation)
 
         event = Event(
-            uid=UIDGenerator.generate_uid("event", request.title),
+            uid=UIDGenerator.generate_random_uid("event"),
             user_uid=user_uid,
             title=request.title,
             description=request.description,

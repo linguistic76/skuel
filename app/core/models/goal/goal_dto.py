@@ -120,10 +120,7 @@ class GoalDTO(UserOwnedDTO):
 
         uid = kwargs.pop("uid", None)
         if not uid:
-            if title:
-                uid = UIDGenerator.generate_uid("goal", title)
-            else:
-                uid = UIDGenerator.generate_random_uid("goal")
+            uid = UIDGenerator.generate_random_uid("goal")
 
         kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PRIVATE)

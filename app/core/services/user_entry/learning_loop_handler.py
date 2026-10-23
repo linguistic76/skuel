@@ -117,9 +117,7 @@ class LearningLoopEventHandlerService:
                     else InsightImpact.MEDIUM
                 )
                 insight = PersistedInsight(
-                    uid=PersistedInsight.generate_uid(
-                        InsightType.LEARNING_PROGRESS, EntityUID(event.entity_uid)
-                    ),
+                    uid=PersistedInsight.generate_uid(),
                     user_uid=event.user_uid,
                     insight_type=InsightType.LEARNING_PROGRESS,
                     domain="user_entry",
@@ -210,9 +208,7 @@ class LearningLoopEventHandlerService:
                 is_anomaly, anomaly_type = _is_feedback_anomaly(turnaround_hours, new_ema)
                 if is_anomaly:
                     insight = PersistedInsight(
-                        uid=PersistedInsight.generate_uid(
-                            InsightType.COMPLETION_PATTERN, EntityUID(event.report_uid)
-                        ),
+                        uid=PersistedInsight.generate_uid(),
                         user_uid=UserUID(event.teacher_uid),
                         insight_type=InsightType.COMPLETION_PATTERN,
                         domain="user_entry",
@@ -327,7 +323,7 @@ class LearningLoopEventHandlerService:
                     )
 
                 insight = PersistedInsight(
-                    uid=PersistedInsight.generate_uid(insight_type, EntityUID(event.entity_uid)),
+                    uid=PersistedInsight.generate_uid(),
                     user_uid=UserUID(event.student_uid),
                     insight_type=insight_type,
                     domain="user_entry",

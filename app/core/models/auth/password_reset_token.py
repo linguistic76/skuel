@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from core.models.type_hints import UserUID
+from core.utils.uid_generator import UIDGenerator
 
 # Token configuration
 RESET_TOKEN_BYTES = 32  # 256-bit tokens
@@ -42,7 +43,7 @@ def generate_reset_token() -> str:
 
 def generate_reset_token_uid() -> str:
     """Generate a unique reset token UID."""
-    return f"reset_{secrets.token_hex(16)}"
+    return UIDGenerator.generate_random_uid("reset")
 
 
 @dataclass(frozen=True)

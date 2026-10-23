@@ -370,7 +370,7 @@ class PrinciplesService(
             with contextlib.suppress(ValueError):
                 trigger = TriggerType(trigger_type)
 
-        reflection_uid = str(UIDGenerator.generate_uid("refl"))
+        reflection_uid = str(UIDGenerator.generate_random_uid("refl"))
 
         # Owner-scoped like the route in front of it: this method takes ``user_uid``
         # and is documented for direct use, so a foreign uid must read as not-found

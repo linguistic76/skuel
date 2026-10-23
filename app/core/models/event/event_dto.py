@@ -133,10 +133,7 @@ class EventDTO(UserOwnedDTO):
 
         uid = kwargs.pop("uid", None)
         if not uid:
-            if title:
-                uid = UIDGenerator.generate_uid("event", title)
-            else:
-                uid = UIDGenerator.generate_random_uid("event")
+            uid = UIDGenerator.generate_random_uid("event")
 
         kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PRIVATE)

@@ -26,7 +26,6 @@ Everything else is inherited from BackendOperations or handled via events.
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import replace
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -47,6 +46,7 @@ from core.models.type_hints import UserUID
 from core.services.entity_timestamp_mixin import EntityTimestampMixin
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     import builtins
@@ -58,8 +58,8 @@ logger = get_logger(__name__)
 
 
 def transcription_uid() -> str:
-    """A fresh Transcription uid — one of ``uid_grammar.UID_EXEMPTIONS`` (``transcription``)."""
-    return f"transcription:{uuid.uuid4()}"
+    """A fresh Transcription uid: ``transcription_{16 hex}``."""
+    return UIDGenerator.generate_random_uid("transcription")
 
 
 class TranscriptionService(EntityTimestampMixin):

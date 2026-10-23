@@ -485,9 +485,7 @@ class PrincipleEventHandlerService:
             if self.insight_store:
                 impact = InsightImpact.CRITICAL if severity == "high" else InsightImpact.HIGH
                 insight = PersistedInsight(
-                    uid=PersistedInsight.generate_uid(
-                        InsightType.PRINCIPLE_CONFLICT, EntityUID(event.principle_uid)
-                    ),
+                    uid=PersistedInsight.generate_uid(),
                     user_uid=event.user_uid,
                     insight_type=InsightType.PRINCIPLE_CONFLICT,
                     domain="principles",

@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-10-15'
+updated: '2026-10-23'
 category: patterns
 related_skills:
 - pytest
@@ -706,7 +706,7 @@ if result.is_error:
 - **Service:** `core/services/sharing/unified_sharing_service.py`
 - **Protocol:** `core/ports/sharing_protocols.py`
 - **Sharing at creation and after:** `adapters/inbound/user_entry_api.py` — entries are shared via the `audience` declared on create (`core/models/user_entry/audience.py`, the one vocabulary) and by `POST /api/user-entries/{uid}/share` / `/unshare` (`core/services/user_entry/entry_sharing_service.py`)
-- **R8 co-membership:** `SharingBackend.build_co_membership_fragment` — the one predicate, composed by the co-member reads and the guarded person-share MERGE; the default group is named by `DEFAULT_GROUP_UID_PREFIX` (`core/models/group/group.py`)
+- **R8 co-membership:** `SharingBackend.build_co_membership_fragment` — the one predicate, composed by the co-member reads and the guarded person-share MERGE; the default group is recognised by its `is_default` property (its uid is `default_group_uid`, `core/models/group/group.py`)
 - **Group sharing routes:** `adapters/inbound/groups_hub_routes.py` (`/api/groups/{group_uid}/shared/preview`, `/groups/{group_uid}`)
 - **Audience fragment:** `adapters/persistence/neo4j/query/cypher/crud_queries.py` — `build_audience_fragment`, composed by `build_search_visibility_clause` for `OWNER_OR_AUDIENCE`
 - **UI Routes:** `adapters/inbound/user_entry_ui.py` (`/gradebook/{uid}` viewer-aware with the Share button, `/gradebook/{uid}/share-panel`, `/gradebook/{uid}/download`); the recipient card in `ui/gradebook/recipient_card.py`, the Share panel in `ui/gradebook/share_panel.py`, the derived badges in `ui/gradebook/review_badges.py` and the GradeBook nudge in `ui/gradebook/summary.py`

@@ -119,10 +119,7 @@ class TaskDTO(UserOwnedDTO):
 
         uid = kwargs.pop("uid", None)
         if not uid:
-            if title:
-                uid = UIDGenerator.generate_uid("task", title)
-            else:
-                uid = UIDGenerator.generate_random_uid("task")
+            uid = UIDGenerator.generate_random_uid("task")
 
         kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PRIVATE)

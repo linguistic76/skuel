@@ -4029,16 +4029,19 @@ class CleanupStats(TypedDict):
 
 
 class EntityContentRow(TypedDict):
-    """One live entity's last-ingested body, keyed by uid.
+    """One live UserEntry's last-ingested body and period, keyed by uid.
 
     Return row of ``IngestionBackendOperations.get_entity_contents`` — the
-    move pre-pass's similarity comparison source. Both fields are guaranteed:
-    the query only returns rows for live :Entity nodes with non-empty
-    ``content``.
+    move pre-pass's similarity comparison source. ``uid`` and ``content`` are
+    guaranteed: the query only returns rows for live :UserEntry nodes with
+    non-empty ``content`` and readable metadata. ``period_key`` is the node's
+    ``metadata.period_key`` — set exactly when its uid derives from its period
+    (``periodic_note_uid``) — or ``None``.
     """
 
     uid: str
     content: str
+    period_key: str | None
 
 
 # ============================================================================

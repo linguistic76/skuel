@@ -238,9 +238,7 @@ class GoalEventHandlerService:
                     InsightImpact.HIGH if classification == "near_miss" else InsightImpact.MEDIUM
                 )
                 insight = PersistedInsight(
-                    uid=PersistedInsight.generate_uid(
-                        InsightType.COMPLETION_PATTERN, EntityUID(event.goal_uid)
-                    ),
+                    uid=PersistedInsight.generate_uid(),
                     user_uid=event.user_uid,
                     insight_type=InsightType.COMPLETION_PATTERN,
                     domain="goals",
@@ -311,9 +309,7 @@ class GoalEventHandlerService:
                 # Persist stall insight
                 if self.insight_store:
                     insight = PersistedInsight(
-                        uid=PersistedInsight.generate_uid(
-                            InsightType.IMBALANCE_DETECTED, EntityUID(event.goal_uid)
-                        ),
+                        uid=PersistedInsight.generate_uid(),
                         user_uid=event.user_uid,
                         insight_type=InsightType.IMBALANCE_DETECTED,
                         domain="goals",
@@ -356,9 +352,7 @@ class GoalEventHandlerService:
                 # Persist milestone proximity insight
                 if self.insight_store:
                     insight = PersistedInsight(
-                        uid=PersistedInsight.generate_uid(
-                            InsightType.COMPLETION_PATTERN, EntityUID(event.goal_uid)
-                        ),
+                        uid=PersistedInsight.generate_uid(),
                         user_uid=event.user_uid,
                         insight_type=InsightType.COMPLETION_PATTERN,
                         domain="goals",

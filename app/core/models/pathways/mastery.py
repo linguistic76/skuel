@@ -17,6 +17,7 @@ from typing import Any
 from core.models.enums import Domain
 from core.models.type_hints import UserUID
 from core.utils.timestamp_helpers import as_utc, now_utc
+from core.utils.uid_grammar import hashed_uid
 
 
 class MasteryLevel(StrEnum):
@@ -313,6 +314,11 @@ class LearningRecommendation:
 # Factory functions for creating intelligence entities
 
 
+def mastery_uid(user_uid: str, knowledge_uid: str) -> str:
+    """The uid of ``user_uid``'s mastery of ``knowledge_uid`` — one per learner and Ku."""
+    return hashed_uid("mastery", user_uid, knowledge_uid)
+
+
 def create_mastery(
     user_uid: UserUID,
     knowledge_uid: str,
@@ -320,10 +326,8 @@ def create_mastery(
     evidence: list[str] | None = None,
 ) -> Mastery:
     """Create initial mastery tracking for a PathStep or atomic Ku."""
-    mastery_uid = f"mastery_{user_uid}_{knowledge_uid}"
-
     return Mastery(
-        uid=mastery_uid,
+        uid=mastery_uid(user_uid, knowledge_uid),
         user_uid=user_uid,
         knowledge_uid=knowledge_uid,
         mastery_level=initial_level,

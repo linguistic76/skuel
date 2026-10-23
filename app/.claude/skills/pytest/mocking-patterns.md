@@ -255,7 +255,7 @@ from core.models.task.task import Task
 @pytest.fixture
 def sample_task():
     return Task(
-        uid="task_test_000001",     # API-minted shape: task_{slug}_{random}; colons are never a uid spelling
+        uid="task_3f9a0c41d2e87b65",  # the generated shape, task_{16 hex}; colons are never a uid spelling
         title="Test Task",
         priority=Priority.HIGH,
     )

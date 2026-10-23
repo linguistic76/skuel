@@ -66,7 +66,7 @@ class ReviewQueueService:
             Result[ReviewRequestResult] — the created review request with uid
         """
         try:
-            request_uid = UIDGenerator.generate_uid("rr")
+            request_uid = UIDGenerator.generate_random_uid("rr")
             now = datetime.now().isoformat()
 
             result = await self.backend.create_review_request(

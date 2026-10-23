@@ -64,7 +64,7 @@ class NotificationService:
         Returns:
             Result containing the notification UID
         """
-        uid = UIDGenerator.generate_uid("notif")
+        uid = UIDGenerator.generate_random_uid("notif")
         now = datetime.now().isoformat()
 
         result = await self.backend.create_notification(

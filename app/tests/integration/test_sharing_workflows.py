@@ -19,6 +19,7 @@ from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from core.models.entity import Entity
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.neo_labels import NeoLabel
+from core.models.group.group import default_group_uid
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
 
 
@@ -426,12 +427,13 @@ async def test_share_candidate_people_are_the_r8_co_members(sharing_service, neo
     MERGE (roster:User {uid: 'test_user_cand_roster'}) SET roster.title = 'roster'
     MERGE (admin:User {uid: 'test_user_cand_admin'}) SET admin.title = 'admin'
     CREATE (g:Group {uid: 'test_group_cand', name: 'Real class', is_active: true})
-    CREATE (dg:Group {uid: 'group_default_test_user_cand_admin', name: 'Default', is_active: true})
+    CREATE (dg:Group {uid: $default_group, name: 'Default', is_active: true, is_default: true})
     CREATE (owner)-[:MEMBER_OF {role: 'student'}]->(g), (mate)-[:MEMBER_OF {role: 'student'}]->(g)
     CREATE (owner)-[:MEMBER_OF {role: 'student'}]->(dg), (roster)-[:MEMBER_OF {role: 'student'}]->(dg)
     CREATE (admin)-[:OWNS]->(dg)
     """
-    await neo4j_driver.execute_query(seed, owner=owner)
+    default_group = default_group_uid("test_user_cand_admin")
+    await neo4j_driver.execute_query(seed, owner=owner, default_group=default_group)
     try:
         result = await sharing_service.get_share_candidate_people(owner)
         assert not result.is_error, result.error
@@ -441,9 +443,10 @@ async def test_share_candidate_people_are_the_r8_co_members(sharing_service, neo
         await neo4j_driver.execute_query(
             """
             MATCH (n) WHERE n.uid STARTS WITH 'test_user_cand' OR n.uid STARTS WITH 'test_group_cand'
-               OR n.uid = 'group_default_test_user_cand_admin'
+               OR n.uid = $default_group
             DETACH DELETE n
-            """
+            """,
+            default_group=default_group,
         )
 
 

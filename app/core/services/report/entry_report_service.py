@@ -327,7 +327,7 @@ class EntryReportService:
                 )
             )
 
-        report_entity_uid = UIDGenerator.generate_uid("er")
+        report_entity_uid = UIDGenerator.generate_random_uid("er")
         now = datetime.now().isoformat()
 
         try:
@@ -569,7 +569,7 @@ class EntryReportService:
                 )
             )
 
-        report_entity_uid = UIDGenerator.generate_uid("er")
+        report_entity_uid = UIDGenerator.generate_random_uid("er")
         now = datetime.now().isoformat()
 
         try:

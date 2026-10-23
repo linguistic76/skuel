@@ -39,7 +39,7 @@ import adapters.inbound.teaching_api as teaching_api
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.user_enums import UserRole
-from core.models.group.group import DEFAULT_GROUP_UID_PREFIX
+from core.models.group.group import default_group_uid
 from core.services.report.entry_report_service import AdmittedReport
 from core.utils.result_simplified import Result
 from tests.integration._activity_link_rig import (
@@ -84,7 +84,7 @@ ROLES = {
 }
 PS_PUBLISHED = f"ps.{TEACHER_MARK}.published"
 CURRICULUM_EX = f"ex.{OUTSIDER_MARK}.curriculum"
-DEFAULT_GROUP = f"{DEFAULT_GROUP_UID_PREFIX}{OUTSIDER_MARK}"
+DEFAULT_GROUP = default_group_uid(OUTSIDER)
 MISSING_ENTRY = f"ue_{MARK}_missing"
 MISSING_STUDENT = f"user_{MARK}missing"
 MISSING_REPORT = f"er_{MARK}_missing"
@@ -123,7 +123,7 @@ async def _seed_curriculum_route(driver: AsyncDriver) -> None:
             WITH ex
             MATCH (owner:User {uid: $owner}), (learner:User {uid: $learner})
             MERGE (g:Group {uid: $group})
-            SET g.name = $group, g.is_active = true, g.owner_uid = $owner
+            SET g.name = $group, g.is_active = true, g.is_default = true, g.owner_uid = $owner
             MERGE (owner)-[:OWNS]->(g)
             MERGE (learner)-[:MEMBER_OF]->(g)
             """,

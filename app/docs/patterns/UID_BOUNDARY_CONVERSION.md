@@ -1,12 +1,12 @@
 ---
 title: UID Boundary Conversion Pattern
-updated: '2026-03-30'
+updated: '2026-10-23'
 category: patterns
 related_skills: []
 related_docs: []
 ---
 # UID Boundary Conversion Pattern
-*Last updated: 2025-12-05*
+*Last updated: 2026-10-23*
 
 ## Core Principle: "Type-safe at the edges"
 
@@ -46,20 +46,24 @@ async def get_task(request, uid: str):
 
 ### 1. `is_valid_uid()` - Type Guard
 
-Validates both SKUEL UID formats:
+A uid can name a node when it fits the uid grammar or has a shape `UID_EXEMPTIONS` names —
+`uid_grammar.is_known_uid` (`core/utils/uid_grammar.py`), which `is_valid_uid` wraps:
 
 ```python
-# Dot notation (curriculum domains)
+# Authored (content vault)
 is_valid_uid("ku.yoga.meditation")  # True
-is_valid_uid("path.beginner.python")  # True
+is_valid_uid("resource.tao-te-ching")  # True
 
-# Underscore notation (activity domains)
-is_valid_uid("task_abc123")  # True
-is_valid_uid("event_implement-auth_a1b2")  # True
+# Generated: {prefix}_{16 hex}
+is_valid_uid("task_3f9a0c41d2e87b65")  # True
+
+# Exempt: a username's uid
+is_valid_uid("user_admin")  # True
 
 # Invalid
+is_valid_uid("task_abc123")  # False - not the generated shape
+is_valid_uid("ku:yoga")  # False - ':' is in no uid
 is_valid_uid("invalid")  # False - no separator
-is_valid_uid("123.numeric")  # False - numeric prefix
 ```
 
 ### 2. `TypeConverter.to_entity_uid_safe()` - Boundary Conversion
@@ -68,9 +72,9 @@ Returns `Result[EntityUID]` instead of raising exceptions:
 
 ```python
 # Valid UID
-result = TypeConverter.to_entity_uid_safe("ku.yoga")
+result = TypeConverter.to_entity_uid_safe("ku.yoga.meditation")
 assert result.is_ok
-assert result.value == "ku.yoga"  # EntityUID type
+assert result.value == "ku.yoga.meditation"  # EntityUID type
 
 # Invalid UID
 result = TypeConverter.to_entity_uid_safe("invalid")
@@ -92,17 +96,17 @@ async def get_task(self, task_uid: EntityUID) -> Result[Task]:
 
 ## UID Formats
 
-### Dot Notation (Curriculum Domains)
-- Pattern: `prefix.parts...`
-- Examples: `ku.yoga.meditation`, `path.beginner.python`, `moc.tech.overview`
-- Used by: KU, PS, LP, MOC
+The uid grammar (`core/utils/uid_grammar.py`, ADR-013 § Amendment 2026-10-18):
 
-### Underscore Notation (Activity Domains)
-- Pattern: `prefix_slug_random` or `prefix_random`
-- Examples: `task_abc123`, `event_meeting_12ab34cd`
-- Used by: Task, Event, Habit, Goal, Choice, Principle, Finance
+- **Authored** — `{prefix}.{slug}` or `{prefix}.{ns}.{slug}`, written in the content vault
+  (`ku.yoga.meditation`, `ps.python.intro`, `resource.tao-te-ching`).
+- **Generated** — `{prefix}_{16 hex}`, minted by code: random (`UIDGenerator.generate_random_uid`)
+  or a hash of the parts that identify the node (`uid_grammar.hashed_uid`) — `task_3f9a0c41d2e87b65`.
 
 ## When to Use
+
+No route calls `to_entity_uid_safe()` today; a route that takes a uid from the request and
+wants a 400 for one that can name no node uses it as below.
 
 | Layer | Use |
 |-------|-----|

@@ -107,10 +107,7 @@ class ChoiceDTO(UserOwnedDTO):
 
         uid = kwargs.pop("uid", None)
         if not uid:
-            if title:
-                uid = UIDGenerator.generate_uid("choice", title)
-            else:
-                uid = UIDGenerator.generate_random_uid("choice")
+            uid = UIDGenerator.generate_random_uid("choice")
 
         kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PRIVATE)

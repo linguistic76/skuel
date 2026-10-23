@@ -7,20 +7,22 @@ A uid is lowercase ASCII from ``[a-z0-9._-]`` and takes one of two shapes:
 - **Authored** — ``{prefix}.{slug}`` or ``{prefix}.{ns}.{slug}``, written in the
   content vault (``ku.mindfulness.attention``, ``resource.tao-te-ching``). The
   middle segment is a human grouping hint the system never reads.
-- **Generated** — ``{prefix}_{opaque}``, minted by code (``task_a1b2c3d4``).
+- **Generated** — ``{prefix}_{16 hex}``, minted by code (``task_3f9a0c41d2e87b65``).
 
 A prefix is a lowercase word (``ku``, ``ps``, ``task``, ``ue``); a segment is
-lowercase words joined by ``-``; an opaque part is lowercase letters and digits.
-No segment holds a ``_`` or a ``:``, so no generated uid fits inside another
-uid, and composites like ``hc.user_admin.habit_…`` are outside the shapes.
-``:`` is in no node uid.
+lowercase words joined by ``-``; a generated uid's opaque part is
+``OPAQUE_HEX`` lowercase hex digits, whether random or a hash. No segment holds a
+``_`` or a ``:``, so no generated uid fits inside another uid, and composites
+like ``hc.user_admin.habit_…`` are outside the shapes. ``:`` is in no node uid.
 
 ``classify`` reads any uid against the grammar. ``authored_uid_problem`` is the
 ingestion check for a uid a file supplies — its ``uid:`` line, or the one its
 file name gives — and takes no exemption. ``generated_uid`` builds a generated
 uid and refuses one outside the grammar; ``hashed_uid`` builds one whose opaque
 part is a hash of the parts that identify the node, so the same parts always
-name the same node. ``slugify`` folds text to the segment alphabet.
+name the same node; ``UIDGenerator.generate_random_uid`` builds a random one.
+``is_known_uid`` is the read-side check: a uid that fits, or has a shape an
+exemption names. ``slugify`` folds text to the segment alphabet.
 
 ``UID_EXEMPTIONS`` names each shape live code mints outside the grammar, the
 functions that mint it, and what retires the entry (``retired_by``); the census
@@ -46,10 +48,15 @@ UID_CHARSET: Final = re.compile(r"[a-z0-9._-]+")
 _PREFIX: Final = r"[a-z][a-z0-9]*"
 _SEGMENT: Final = r"[a-z0-9]+(?:-[a-z0-9]+)*"
 
+#: Hex digits of a generated uid's opaque part — 64 bits, random or hashed. Two of
+#: n such uids share a value with probability about n² / 2⁶⁵: 3e-10 at 100k nodes,
+#: 3e-8 at a million.
+OPAQUE_HEX: Final = 16
+
 AUTHORED_UID: Final = re.compile(rf"(?P<prefix>{_PREFIX})(?:\.{_SEGMENT}){{1,2}}")
-GENERATED_UID: Final = re.compile(rf"(?P<prefix>{_PREFIX})_[a-z0-9]+")
+GENERATED_UID: Final = re.compile(rf"(?P<prefix>{_PREFIX})_[0-9a-f]{{{OPAQUE_HEX}}}")
 UID_PREFIX: Final = re.compile(_PREFIX)
-OPAQUE_PART: Final = re.compile(r"[a-z0-9]+")
+OPAQUE_PART: Final = re.compile(rf"[0-9a-f]{{{OPAQUE_HEX}}}")
 
 
 class UidVerdict(StrEnum):
@@ -95,24 +102,19 @@ def generated_uid(prefix: str, opaque: str) -> str:
 
     Raises:
         ValueError: when ``prefix`` is not a lowercase word or ``opaque`` is not
-            lowercase letters and digits — a caller's bug, never input.
+            ``OPAQUE_HEX`` lowercase hex digits — a caller's bug, never input.
     """
     if not UID_PREFIX.fullmatch(prefix):
         raise ValueError(f"uid prefix '{prefix}' is not a lowercase word ([a-z][a-z0-9]*)")
     if not OPAQUE_PART.fullmatch(opaque):
-        raise ValueError(f"opaque uid part '{opaque}' is not lowercase letters and digits")
+        raise ValueError(f"opaque uid part '{opaque}' is not {OPAQUE_HEX} lowercase hex digits")
     return f"{prefix}_{opaque}"
-
-
-#: Hex digits of sha256 a hashed uid keeps — 64 bits. Two of n hashed uids share
-#: a value with probability about n² / 2⁶⁵: 3e-10 at 100k nodes, 3e-8 at a million.
-HASHED_UID_HEX: Final = 16
 
 
 def hashed_uid(prefix: str, *parts: str) -> str:
     """The generated uid ``{prefix}_{hash}`` of the parts that identify a node.
 
-    The hash is sha256 over the parts joined by NUL, cut to ``HASHED_UID_HEX``
+    The hash is sha256 over the parts joined by NUL, cut to ``OPAQUE_HEX``
     hex digits. Deterministic: the same parts mint the same uid, so a writer that
     re-creates a node re-creates its uid. A part is never empty and never holds
     NUL, so no two lists of parts join to the same text.
@@ -126,7 +128,7 @@ def hashed_uid(prefix: str, *parts: str) -> str:
     for part in parts:
         if not part or "\0" in part:
             raise ValueError(f"identifying part {part!r} is empty or holds NUL")
-    digest = hashlib.sha256("\0".join(parts).encode()).hexdigest()[:HASHED_UID_HEX]
+    digest = hashlib.sha256("\0".join(parts).encode()).hexdigest()[:OPAQUE_HEX]
     return generated_uid(prefix, digest)
 
 
@@ -172,51 +174,6 @@ _UUID: Final = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
 UID_EXEMPTIONS: Final[tuple[UidExemption, ...]] = (
     UidExemption(
-        name="named_generated",
-        pattern=re.compile(rf"{_PREFIX}_{_SEGMENT}_[0-9a-f]{{8}}"),
-        writers=(
-            "core.utils.uid_generator:UIDGenerator.generate_uid",
-            "core.services.ingestion.vault_policy:personal_file_uid",
-        ),
-        retired_by="uid arc PR 4 (remaining generated shapes)",
-    ),
-    UidExemption(
-        name="habit_completion",
-        pattern=re.compile(r"hc\..+\.\d+"),
-        writers=("core.services.habits.habits_completion_service:habit_completion_uid",),
-        retired_by="uid arc PR 4 (remaining generated shapes)",
-    ),
-    UidExemption(
-        name="insight",
-        pattern=re.compile(r"insight\.[a-z0-9_]+\.[^.:]*\.\d{14}"),
-        writers=("core.models.insight.persisted_insight:PersistedInsight.generate_uid",),
-        retired_by="uid arc PR 4 (remaining generated shapes)",
-    ),
-    UidExemption(
-        name="default_group",
-        pattern=re.compile(r"group_default_.+"),
-        writers=("core.models.group.group:default_group_uid",),
-        retired_by="uid arc PR 4 (remaining generated shapes)",
-    ),
-    UidExemption(
-        name="search_event",
-        pattern=re.compile(_UUID),
-        writers=("core.services.search_event_recorder:search_event_uid",),
-        retired_by="uid arc PR 4 (remaining generated shapes)",
-    ),
-    UidExemption(
-        name="transcription",
-        pattern=re.compile(rf"transcription:{_UUID}"),
-        writers=("core.services.transcription.transcription_service:transcription_uid",),
-        retired_by="uid arc PR 4 (remaining generated shapes)",
-    ),
-    UidExemption(
-        name="instruction_set",
-        pattern=re.compile(r"instructions:.+"),
-        writers=("core.services.content_enrichment_service:instruction_set_uid",),
-        retired_by="uid arc PR 4 (remaining generated shapes)",
-    ),
-    UidExemption(
         name="invoice",
         pattern=re.compile(rf"invoice:{_UUID}"),
         writers=(
@@ -227,9 +184,9 @@ UID_EXEMPTIONS: Final[tuple[UidExemption, ...]] = (
     ),
     UidExemption(
         name="user_from_username",
-        # ``user_{username}`` fits whenever the username is lowercase letters and
-        # digits; registration admits any username, so this names the rest.
-        pattern=re.compile(r"user_(?=.*[^a-z0-9]).+"),
+        # ``user_{username}``: a readable username, never the generated shape —
+        # the lookahead leaves a ``user_`` + 16-hex uid, which fits, outside it.
+        pattern=re.compile(rf"user_(?![0-9a-f]{{{OPAQUE_HEX}}}\Z).+"),
         writers=("core.models.user.user:create_user",),
         retired_by="a username rule at registration, or a generated user uid (unruled)",
     ),
@@ -239,17 +196,21 @@ UID_EXEMPTIONS: Final[tuple[UidExemption, ...]] = (
 def exemptions_for(uid: str) -> tuple[UidExemption, ...]:
     """Every exemption whose shape ``uid`` has — empty when none does.
 
-    Two writers can mint one string (``user_foo_12345678`` is a username's uid and
-    a named generated one), and a shape alone cannot say which wrote it, so every
-    match is returned rather than the first.
+    Two exemptions can name one string, and a shape alone cannot say which writer
+    minted it, so every match is returned rather than the first.
     """
     return tuple(exemption for exemption in UID_EXEMPTIONS if exemption.matches(uid))
+
+
+def is_known_uid(uid: str) -> bool:
+    """Whether ``uid`` can name a node: it fits the grammar, or an exemption names its shape."""
+    return classify(uid) is UidVerdict.FITS or bool(exemptions_for(uid))
 
 
 __all__ = [
     "AUTHORED_UID",
     "GENERATED_UID",
-    "HASHED_UID_HEX",
+    "OPAQUE_HEX",
     "UID_CHARSET",
     "UID_EXEMPTIONS",
     "UidExemption",
@@ -259,5 +220,6 @@ __all__ = [
     "exemptions_for",
     "generated_uid",
     "hashed_uid",
+    "is_known_uid",
     "slugify",
 ]

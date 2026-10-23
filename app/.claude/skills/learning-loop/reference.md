@@ -191,7 +191,7 @@ processed and then evaluated. ADR-054 collapsed the former `Submission` / `Exerc
 **EntityType:** `EntityType.USER_ENTRY` (always — forced in `__post_init__`)
 **Model:** `core/models/user_entry/user_entry.py` — `UserEntry(UserOwnedEntity)` frozen dataclass
 **Neo4j labels:** `:Entity:UserEntry`
-**UID prefix:** `ue_` (e.g. `ue_a1b2c3d4`)
+**UID prefix:** `ue_` (e.g. `ue_3f9a0c41d2e87b65`)
 
 > **Note:** journals are not UserEntries. The journal doors run on `JournalService`
 > (`core/services/journal/`, the journals skill); `/journals/upload` writes to `je_out/` and

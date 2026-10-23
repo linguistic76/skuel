@@ -50,6 +50,31 @@ def _validate_similarity(similarity: str) -> None:
         )
 
 
+# Every label the app writes a uid on, outside :Entity and :User (which have
+# their own constraints) — each gets a uid uniqueness constraint. ``./dev
+# uid-census`` reads the same invariant across labels, which no constraint can.
+UID_UNIQUE_LABELS: tuple[NeoLabel, ...] = (
+    NeoLabel.CONTENT_CHUNK,
+    NeoLabel.REFERENCE_CHUNK,
+    NeoLabel.GROUP,
+    NeoLabel.INSIGHT,
+    NeoLabel.HABIT_COMPLETION,
+    NeoLabel.PRINCIPLE_REFLECTION,
+    NeoLabel.NOTIFICATION,
+    NeoLabel.REVIEW_REQUEST,
+    NeoLabel.SESSION,
+    NeoLabel.AUTH_EVENT,
+    NeoLabel.PASSWORD_RESET_TOKEN,
+    NeoLabel.DEVICE,
+    NeoLabel.SEARCH_EVENT,
+    NeoLabel.CONVERSATION_MESSAGE,
+    NeoLabel.TRANSCRIPTION,
+    NeoLabel.USER_PROGRESS,
+    NeoLabel.ASKESIS,
+    NeoLabel.INVOICE,
+)
+
+
 # Full-text index definitions: label → indexed fields.
 #
 # Fields mirror each domain's DomainConfig.search_fields (the single source of
@@ -924,13 +949,21 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         else:
             results["failed"].append("Entity_uid_unique")
 
-        # A chunk uid is a hash of its store, parent and index (``chunk_uid``), so
-        # two chunks on one uid would be a hash collision — refused here rather
-        # than stored. The backing index also makes each store-by-uid a seek.
-        for chunk_label in (NeoLabel.CONTENT_CHUNK, NeoLabel.REFERENCE_CHUNK):
-            chunk_unique = await self._create_unique_constraint(chunk_label, "uid")
-            name = f"{chunk_label}_uid_unique"
-            results["created" if chunk_unique.is_ok else "failed"].append(name)
+        # A uid names one node. Every uid-bearing label outside :Entity and :User
+        # holds that by its own constraint, so a collision — two chunks on one
+        # ``chunk_uid`` hash, a second default group from a MERGE race — is
+        # refused rather than stored. The backing index also makes each uid
+        # lookup a seek. :Group's plain range index is dropped first: Neo4j
+        # refuses a uniqueness constraint while one covers the same key.
+        try:
+            async with self.driver.session() as session:
+                await session.run("DROP INDEX group_uid_idx IF EXISTS")
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.warning(f"Could not drop legacy group_uid_idx (will retry next boot): {e}")
+        for uid_label in UID_UNIQUE_LABELS:
+            label_unique = await self._create_unique_constraint(uid_label, "uid")
+            name = f"{uid_label}_uid_unique"
+            results["created" if label_unique.is_ok else "failed"].append(name)
 
         async def _idx(name: str, label: NeoLabel, field: str) -> None:
             """Create a single named index and track result."""
@@ -970,9 +1003,6 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             ("form_template_uid_idx", NeoLabel.FORM_TEMPLATE),
             ("form_submission_uid_idx", NeoLabel.FORM_SUBMISSION),
             ("revised_exercise_uid_idx", NeoLabel.REVISED_EXERCISE),
-            # Not an EntityType: a Group is a uid-bearing node outside :Entity that the
-            # endpoint reads bind by uid (build_uid_anchor), so its uid is a seek too.
-            ("group_uid_idx", NeoLabel.GROUP),
         ]
         for name, label in uid_labels:
             await _idx(name, label, "uid")

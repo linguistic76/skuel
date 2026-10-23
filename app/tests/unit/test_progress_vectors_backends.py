@@ -7,6 +7,7 @@ Integration tests to verify UniversalNeo4jBackend works with:
 - EmbeddingVector model (semantic search)
 """
 
+import re
 from datetime import datetime, timedelta
 
 import pytest
@@ -334,19 +335,21 @@ def test_source_hash_consistency():
 
 
 def test_progress_uid_generation():
-    """Test progress UID generation format."""
-    uid = generate_progress_uid("user_123", "task_456", timestamp=datetime(2025, 10, 14, 12, 0, 0))
+    """A progress uid is hashed from its user, entity and moment — the one generated shape."""
+    at = datetime(2025, 10, 14, 12, 0, 0)
+    uid = generate_progress_uid("user_123", "task_456", timestamp=at)
 
-    assert uid.startswith("progress.user_123.task_456.")
-    assert len(uid.split(".")) == 4  # Four parts: progress, user, entity, timestamp
+    assert re.fullmatch(r"progress_[0-9a-f]{16}", uid)
+    assert generate_progress_uid("user_123", "task_456", timestamp=at) == uid
+    assert generate_progress_uid("user_123", "task_457", timestamp=at) != uid
 
 
 def test_embedding_uid_generation():
-    """Test embedding UID generation format."""
-    uid = generate_embedding_uid(
-        "ku_python", "text-embedding-ada-002", timestamp=datetime(2025, 10, 14, 12, 0, 0)
-    )
+    """An embedding uid is hashed from its entity, model and moment — the one generated shape."""
+    at = datetime(2025, 10, 14, 12, 0, 0)
+    uid = generate_embedding_uid("ku_python", "text-embedding-ada-002", timestamp=at)
 
-    assert uid.startswith("embedding.ku_python.ada002.")
-    assert "text-embedding-" not in uid  # Model name normalized
-    assert len(uid.split(".")) == 4  # Four parts: embedding, entity, model, timestamp
+    assert re.fullmatch(r"embedding_[0-9a-f]{16}", uid)
+    # The model name is normalized before hashing: its spellings name one record.
+    assert generate_embedding_uid("ku_python", "ada-002", timestamp=at) == uid
+    assert generate_embedding_uid("ku_python", "3-small", timestamp=at) != uid

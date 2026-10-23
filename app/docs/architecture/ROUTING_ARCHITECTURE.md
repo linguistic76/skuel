@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-10-12
+updated: 2026-10-23
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -217,7 +217,7 @@ async def create_task_route(request):
 
     # 3. Convert to DTO (Tier 2)
     task_dto = TaskDTO(
-        uid=generate_uid(),
+        uid=UIDGenerator.generate_random_uid("task"),
         title=task_request.title,
         due_date=task_request.due_date,
         priority=task_request.priority

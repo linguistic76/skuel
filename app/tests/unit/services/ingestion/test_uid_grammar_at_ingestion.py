@@ -9,6 +9,7 @@ Decision 11): the vault policy refuses it, telling the author to remove it.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -30,7 +31,7 @@ from core.services.ingestion.vault_policy import (
 from core.services.user_entry.audience_resolver import ShareOutcome
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.result_simplified import Result
-from core.utils.uid_grammar import UidVerdict, classify, exemptions_for
+from core.utils.uid_grammar import UidVerdict, classify, hashed_uid
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
@@ -191,17 +192,14 @@ class TestPersonalFilesAuthorNoUid:
 
 
 class TestPersonalFileUid:
-    def test_a_non_ascii_stem_derives_an_ascii_slug(self) -> None:
-        uid = personal_file_uid(EntityType.TASK, Path("/vault/Café plan.md"), "user_a", None)
-        assert uid.startswith("task_cafe-plan_"), uid
-        assert classify(uid) is not UidVerdict.OUTSIDE
+    @pytest.mark.parametrize("stem", ["Café plan", "日本語", "plan-it", "Plan It!"])
+    def test_any_stem_derives_the_one_generated_shape(self, stem: str) -> None:
+        uid = personal_file_uid(EntityType.TASK, Path(f"/vault/{stem}.md"), "user_a", None)
+        assert re.fullmatch(r"task_[0-9a-f]{16}", uid), uid
+        assert classify(uid) is UidVerdict.FITS
 
-    def test_a_stem_with_no_ascii_slug_derives_the_plain_shape(self) -> None:
-        uid = personal_file_uid(EntityType.TASK, Path("/vault/日本語.md"), "user_a", None)
-        assert classify(uid) is UidVerdict.FITS, uid
-
-    def test_an_ascii_stem_derives_what_it_always_did(self) -> None:
-        """An ASCII stem derives the uid it derived before the ASCII fold."""
-        uid = personal_file_uid(EntityType.TASK, Path("/vault/plan-it.md"), "user_a", None)
-        assert uid.startswith("task_plan-it_")
-        assert [exemption.name for exemption in exemptions_for(uid)] == ["named_generated"]
+    def test_the_uid_is_the_hash_of_owner_and_canonical_path(self) -> None:
+        path = Path("/vault/plan-it.md")
+        assert personal_file_uid(EntityType.TASK, path, "user_a", None) == hashed_uid(
+            "task", "user_a", str(path.resolve())
+        )

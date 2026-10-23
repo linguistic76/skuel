@@ -55,7 +55,6 @@ Benefits:
     - FastHTML conventions throughout
 """
 
-import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol, TypedDict, TypeVar, cast
 
@@ -73,6 +72,7 @@ from core.models.type_hints import UserUID
 from core.models.update_contracts import RawChanges, SupportsToChanges, SupportsToIntent
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
 
@@ -436,10 +436,7 @@ class CRUDRouteFactory[T]:
                     logger.info(f"Created {domain}: {created_uid} for user {user_uid}")
                 return result
 
-            # Generate UID — underscore form per the separator grammar
-            # (generated = `{prefix}_{random}`; the colon shape this factory
-            # historically minted was a spelling is_valid_uid itself rejects).
-            uid = f"{uid_prefix}_{uuid.uuid4().hex[:12]}"
+            uid = UIDGenerator.generate_random_uid(uid_prefix)
 
             # Convert schema to entity using injected converter or registry
             if entity_converter:

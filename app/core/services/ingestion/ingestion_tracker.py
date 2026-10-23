@@ -24,7 +24,6 @@ Usage:
 """
 
 import hashlib
-import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -57,6 +56,7 @@ from core.services.ingestion.types import (
 from core.utils.logging import get_logger
 from core.utils.path_display import display_path
 from core.utils.result_simplified import Errors, Result
+from core.utils.uid_grammar import GENERATED_UID
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -92,15 +92,6 @@ def parse_edge_identity(identity: str) -> tuple[str, str, str] | None:
 # its next sync (``IngestionTracker.record_pending``, a move rewrite). No real
 # file carries the epoch as its mtime.
 PENDING_MTIME = 0.0
-
-# A minted uid-less UserEntry uid: UIDGenerator.generate_random_uid("ue") =
-# "ue_" + uuid4().hex[:8]. Similarity move SOURCES are restricted to this
-# shape — an authored uid (ue.worldview) or a periodic one (periodic_note_uid:
-# "ue_" + uid_grammar.HASHED_UID_HEX hex digits, 16) is stable across paths and
-# must never be similarity-bridged. The hex length is what tells a periodic uid
-# from a minted one. This is a provenance check (minted vs derived or authored
-# spelling), not a type sniff (ADR-013).
-_MINTED_UE_UID = re.compile(r"ue_[0-9a-f]{8}\Z")
 
 # metadata.entry_kind values that derive a periodic uid in
 # build_user_entry_request — such files never honor a prior (rewritten) uid.
@@ -1063,15 +1054,19 @@ class IngestionTracker:
         yields no content row, so its row can never be a move source.
 
         Candidacy is gated to the uid-less UserEntry world on BOTH sides
-        (Codex #618): sources must carry a MINTED ``ue_`` uid (an authored or
-        periodic uid is stable across paths — the uid-based moved/stale
+        (Codex #618): a source must be a UserEntry whose uid was minted — a
+        generated uid (an authored one is in the authored shape) on a note
+        with no ``metadata.period_key`` (a periodic note's uid derives from
+        its period, so it is stable across paths). The uid-based moved/stale
         split owns those, and bridging one here would fuse identities or
-        orphan the gone node), and destinations must be markdown files that
-        will honor the rewritten uid (``_similarity_candidate_content``'s
-        gates — uid-less notes are markdown; YAML entity files author their
-        uids and have no body to compare).
+        orphan the gone node. Destinations must be markdown files that will
+        honor the rewritten uid (``_similarity_candidate_content``'s gates —
+        uid-less notes are markdown; YAML entity files author their uids and
+        have no body to compare).
         """
-        candidate_rows = [row for row in residual_rows if _MINTED_UE_UID.fullmatch(row.entity_uid)]
+        candidate_rows = [
+            row for row in residual_rows if GENERATED_UID.fullmatch(row.entity_uid) is not None
+        ]
         if not candidate_rows or not residual_files:
             return Result.ok([])
         markdown_files = [
@@ -1090,7 +1085,7 @@ class IngestionTracker:
         content_by_uid = {
             record["uid"]: record["content"]
             for record in contents_result.value or []
-            if record["content"].strip()
+            if record["content"].strip() and record["period_key"] is None
         }
         rows_with_content = [
             (row, content_by_uid[row.entity_uid])

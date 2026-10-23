@@ -30,15 +30,17 @@ from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_str
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import day_of, parse_stamp, today_in
+from core.utils.uid_grammar import hashed_uid
 from core.utils.zone_context import current_zone
 
 
 def habit_completion_uid(user_uid: str, habit_uid: str, at: datetime) -> str:
     """The uid of one completion of ``habit_uid`` by ``user_uid`` at ``at`` (whole seconds).
 
-    One of ``uid_grammar.UID_EXEMPTIONS`` (``habit_completion``).
+    Derived, so a second record of the same completion in the same second names
+    the node the first one wrote.
     """
-    return f"hc.{user_uid}.{habit_uid}.{int(at.timestamp())}"
+    return hashed_uid("hc", user_uid, habit_uid, str(int(at.timestamp())))
 
 
 class HabitsCompletionService:

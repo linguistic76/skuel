@@ -15,17 +15,17 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from core.utils.uid_grammar import hashed_uid
+
+
 # The default group: one per teacher (the enrollment handler MERGEs the oldest
-# admin's), joined by every student who marks a PathStep in progress. A Group
-# carries no flag for it — the uid prefix is the one mechanism that recognises
-# it, and these two names are the one spelling of that prefix (ADR-088 §7).
-# Its OWNER is read from the ``:OWNS`` edge, never from the uid (ADR-013).
-DEFAULT_GROUP_UID_PREFIX = "group_default_"
-
-
+# admin's), joined by every student who marks a PathStep in progress. Its uid is
+# derived from its teacher, so the MERGE finds it again; it is recognised by its
+# ``is_default`` property, never by its uid (ADR-088 §7). Its OWNER is read from
+# the ``:OWNS`` edge (ADR-013).
 def default_group_uid(teacher_uid: str) -> str:
     """The uid of ``teacher_uid``'s default group."""
-    return f"{DEFAULT_GROUP_UID_PREFIX}{teacher_uid}"
+    return hashed_uid("group", "default", teacher_uid)
 
 
 # ============================================================================

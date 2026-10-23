@@ -12,15 +12,15 @@ This extends the transient AskesisInsight pattern with:
 
 Usage:
     insight = PersistedInsight(
-        uid="insight.habit-difficulty.20260114",
-        user_uid="user.mike",
+        uid=PersistedInsight.generate_uid(),
+        user_uid="user_mike",
         insight_type=InsightType.DIFFICULTY_PATTERN,
         domain="habits",
         title="Habit Difficulty Detected",
         description="You've missed 'Daily Meditation' 5 times in the last 14 days.",
         confidence=0.85,
         impact=InsightImpact.MEDIUM,
-        entity_uid="habit.meditation",
+        entity_uid="habit_3f9a0c41d2e87b65",
         recommended_actions=[
             {"action": "Reduce frequency", "rationale": "Build momentum with achievable goals"}
         ],
@@ -35,6 +35,7 @@ from typing import Any, TypeVar
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.neo4j_temporal import convert_neo4j_datetime
 from core.utils.timestamp_helpers import as_utc, now_utc
+from core.utils.uid_generator import UIDGenerator
 
 _StrEnumT = TypeVar("_StrEnumT", bound=StrEnum)
 
@@ -182,7 +183,7 @@ class PersistedInsight:
         - (Insight)-[:RELATES_TO]->(Entity) (for related_entities)
 
     Attributes:
-        uid: Unique identifier (format: insight.{type}.{timestamp})
+        uid: Unique identifier (``insight_{16 hex}``, ``generate_uid``)
         user_uid: Owner of this insight
         insight_type: Category of insight
         domain: Source domain — an ``InsightDomain`` value (e.g., "habits", "choices")
@@ -243,22 +244,9 @@ class PersistedInsight:
             raise ValueError(f"Confidence must be 0.0-1.0, got {self.confidence}")
 
     @classmethod
-    def generate_uid(cls, insight_type: InsightType, entity_uid: EntityUID) -> str:
-        """
-        Generate a unique insight UID.
-
-        Format: insight.{type}.{entity_slug}.{timestamp}
-
-        Args:
-            insight_type: Type of insight
-            entity_uid: Primary entity this insight is about
-
-        Returns:
-            Unique insight UID
-        """
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        entity_slug = entity_uid.replace(".", "-").replace(":", "-")[:20]
-        return f"insight.{insight_type.value}.{entity_slug}.{timestamp}"
+    def generate_uid(cls) -> str:
+        """A fresh insight uid: ``insight_{16 hex}``."""
+        return UIDGenerator.generate_random_uid("insight")
 
     @classmethod
     def with_default_expiry(

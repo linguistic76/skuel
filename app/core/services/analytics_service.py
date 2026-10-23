@@ -394,7 +394,7 @@ class AnalyticsService:
 
         # Build DTO
         dto = AnalyticsSummaryDTO(
-            uid=UIDGenerator.generate_uid("report"),
+            uid=UIDGenerator.generate_random_uid("report"),
             user_uid=user_uid,
             analytics_domain=analytics_domain,
             period_start=period_start,
