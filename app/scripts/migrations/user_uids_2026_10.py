@@ -83,7 +83,7 @@ import os
 import re
 import sys
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -538,17 +538,58 @@ def _declared_owners(path: Path, text: str) -> dict[str, str]:
     }
 
 
+def plan_file(
+    path: Path, text: str, resolve: Callable[[str], str | None]
+) -> tuple[dict[int, str], str | None]:
+    """The line edits that move one file's declared owners, or why it cannot be moved.
+
+    Each top-level owner key is read as ingestion reads it (``_declared_owners``);
+    ``resolve`` maps the uid it names (``_named_uid``) to its new uid, or ``None``
+    when it needs no move. Every top-level line of a key that needs one has its
+    value replaced, and the edited text is read again: the edit holds only if
+    each moved key now names its new uid and every other key what it named
+    before. A shape the line editor cannot reach (a folded scalar) or one YAML
+    reads differently from its spelling (``ownership: 01234`` is the number 668)
+    fails that read-back and is returned as the problem — never edited.
+    """
+    declared = _declared_owners(path, text)
+    needed: dict[str, str] = {}
+    for key, value in declared.items():
+        new = resolve(_named_uid(key, value))
+        if new is not None:
+            needed[key] = new
+    if not needed:
+        return {}, None
+    end, offset, lines = _owner_region_end(path, text), 0, text.split("\n")
+    edited: dict[int, str] = {}
+    for number, line in enumerate(lines, start=1):
+        match = _owner_value(line) if offset < end else None
+        offset += len(line) + 1
+        if match is not None and match["key"] in needed:
+            start, stop = match.span("value")
+            edited[number] = line[:start] + needed[match["key"]] + line[stop:]
+    after = _declared_owners(
+        path, "\n".join(edited.get(number, line) for number, line in enumerate(lines, start=1))
+    )
+    wrong = [
+        key for key in VAULT_OWNER_KEYS if after.get(key) != needed.get(key, declared.get(key))
+    ]
+    if wrong:
+        moves = ", ".join(f"{key}: {needed[key]}" for key in wrong if key in needed)
+        return {}, f"its {'/'.join(wrong)} line cannot be edited in place — set {moves}"
+    return edited, None
+
+
 def plan_vaults(
     roots: Iterable[Path], user_vaults_root: Path | None, live_users: set[str], plan: Plan
 ) -> None:
     """Plan each vault file edit that moves a renamed user's old uid to its new one.
 
     Every file under ``roots`` and under ``user_vaults_root`` (each member's
-    personal vault) is read. A top-level owner line is edited when the uid it
-    names (``_named_uid``) is one the plan renames, or — on a re-run after the
-    graph moved — one whose hash is a live user's uid. The run stops on a
-    declared owner that needs moving and that no line edit reached (read as
-    ingestion reads it, ``_declared_owners``), and on any other mention of a
+    personal vault) is read, and each file's owner lines are moved by
+    ``plan_file`` when the uid one names is one the plan renames, or — on a
+    re-run after the graph moved — one whose hash is a live user's uid. The run
+    stops on a file ``plan_file`` cannot move, and on any other mention of a
     renamed uid — a user's, a periodic note's or a default group's.
     """
     texts: dict[Path, str] = {}
@@ -574,26 +615,11 @@ def plan_vaults(
 
     edits: dict[Path, dict[int, str]] = {}
     for path, text in sorted(texts.items()):
-        end, offset, edited_keys = _owner_region_end(path, text), 0, set()
-        for number, line in enumerate(text.split("\n"), start=1):
-            match = _owner_value(line) if offset < end else None
-            offset += len(line) + 1
-            if match is None:
-                continue
-            new = new_uid(_named_uid(match["key"], match["value"]))
-            if new is not None:
-                start, stop = match.span("value")
-                edits.setdefault(path, {})[number] = line[:start] + new + line[stop:]
-                edited_keys.add(match["key"])
-        # What ingestion will read is the authority: a declared owner the line
-        # editor did not reach (a folded scalar, an odd quoting) stops the run.
-        for key, value in _declared_owners(path, text).items():
-            new = new_uid(_named_uid(key, value))
-            if new is not None and key not in edited_keys:
-                plan.stops.append(
-                    f"vault file {path}: its {key}: names {_named_uid(key, value)} in a form "
-                    f"the run cannot edit — set it to {new}"
-                )
+        edited, problem = plan_file(path, text, new_uid)
+        if problem:
+            plan.stops.append(f"vault file {path}: {problem}")
+        elif edited:
+            edits[path] = edited
     if user_vaults_root is not None:
         for old in sorted(moves):
             if (user_vaults_root / old).exists():

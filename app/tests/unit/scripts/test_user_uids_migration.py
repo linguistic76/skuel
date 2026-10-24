@@ -164,6 +164,46 @@ class TestDeclaredOwners:
         assert migration._declared_owners(Path(name), text) == {}
 
 
+class TestPlanFile:
+    MOVES = {"user_668": "user_6680000000000000", "user_01234": "user_0123400000000000", OLD: NEW}
+
+    def resolve(self, named: str) -> str | None:
+        return self.MOVES.get(named)
+
+    def test_an_owner_line_is_moved_and_keeps_its_comment(self) -> None:
+        text = f"---\nteacher: {OLD}  # the reviewer\n---\nbody\n"
+        edited, problem = migration.plan_file(Path("e.md"), text, self.resolve)
+        assert problem is None
+        assert edited == {2: f"teacher: {NEW}  # the reviewer"}
+
+    def test_the_parsed_value_decides_not_the_spelling(self) -> None:
+        """YAML reads ``01234`` as the octal number 668 — the account it names is 668."""
+        edited, problem = migration.plan_file(
+            Path("n.md"), "---\nownership: 01234\n---\n", self.resolve
+        )
+        assert problem is None
+        assert edited == {2: "ownership: user_6680000000000000"}
+
+    def test_a_shape_the_line_editor_cannot_reach_is_a_problem_not_an_edit(self) -> None:
+        edited, problem = migration.plan_file(
+            Path("n.md"), "---\nownership: >-\n  admin\n---\n", {"user_admin": NEW}.get
+        )
+        assert edited == {}
+        assert problem is not None and f"ownership: {NEW}" in problem
+
+    def test_a_yaml_file_is_moved_at_its_top_level(self) -> None:
+        text = f"user_uid: {OLD}\r\nnested:\r\n  user_uid: {OLD}\r\n"
+        edited, problem = migration.plan_file(Path("e.yaml"), text, self.resolve)
+        assert problem is None
+        assert edited == {1: f"user_uid: {NEW}\r"}
+
+    def test_a_file_that_names_no_moved_owner_is_left(self) -> None:
+        assert migration.plan_file(Path("n.md"), "---\nteacher: x\n---\n", self.resolve) == (
+            {},
+            None,
+        )
+
+
 class TestOwnerSettings:
     def test_a_setting_naming_a_renamed_user_is_printed(self) -> None:
         environ = {"SKUEL_DEFAULT_USER_UID": "user_linguistic76", "SKUEL_CONTENT_VAULT_OWNER": OLD}

@@ -343,7 +343,7 @@ class TestTheStops:
 
         plan = await _census(graph, vaults, tmp_path)
 
-        assert any("folded.md: its ownership:" in stop for stop in plan.stops), plan.stops
+        assert any("folded.md: its ownership line" in stop for stop in plan.stops), plan.stops
 
     async def test_a_vault_naming_a_renamed_group_stops_the_run(
         self, graph: Any, vaults: tuple[Path, Path], tmp_path: Path
