@@ -22,14 +22,17 @@ from core.infrastructure.monitoring.http_instrumentation import (
 from core.infrastructure.monitoring.metrics_cache import MetricsCache
 from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
 from core.infrastructure.monitoring.query_metrics_cache import QueryMetricsCache
+from core.infrastructure.monitoring.uid_grammar_check import UID_BREACH_SAMPLE, check_uid_grammar
 
 __all__ = [
     # Prometheus-first metrics
     "PrometheusMetrics",
     "MetricsCache",
     "QueryMetricsCache",
-    # In-app AuraDB cap evaluator (production has no Prometheus)
+    # In-app evaluators (production has no Prometheus): AuraDB caps, uid grammar
     "check_aura_cap_headroom",
+    "check_uid_grammar",
+    "UID_BREACH_SAMPLE",
     # HTTP instrumentation
     "create_instrumented_wrapper",
     "instrument_handler",

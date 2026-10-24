@@ -1,6 +1,6 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
-updated: 2026-10-23
+updated: 2026-10-24
 status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28; PR 6 split, 6a and 6b merged 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
@@ -884,7 +884,9 @@ embedding check has run; the ledger PR records PR 4 as merged and deployed.
   (`Manifest`, `ManifestRow`, `NodeKey` / `RelKey`, `Pair`).
   `get_connection()` is async too. The migration script opens with `utc_instants_guard=False`.
   `clean_neo4j`, `test_yaml_roundtrip`'s clear and `scripts/clear_neo4j.py` keep the record.
-  PR 9 keeps the guard and removes the pin (R8).
+  PR 9 keeps the guard and removes the pin (R8). (Since the uid grammar arc's close the guard is
+  `require_migration_records` over `DATA_MIGRATIONS` — this record and `uid_grammar_2026_10` —
+  and the migration script opens with `Neo4jConnection(requires=())`.)
 - **The flip.** `STORED_INSTANT_CLOCK` is `UTC`. The helpers keep their `None` branches, which
   PR 9 deletes with the constant; `tests/unit/utils/test_timestamp_helpers.py` pins them with
   `stored_clock_host`.

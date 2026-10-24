@@ -41,7 +41,9 @@ from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
 from adapters.persistence.neo4j.graph_driver import (
+    UTC_INSTANTS,
     UTC_INSTANTS_MIGRATION,
+    DataMigration,
     GraphNotMigratedError,
     open_async_driver,
 )
@@ -527,8 +529,8 @@ async def test_census_confirm_verify_then_revert_move_only_the_laptop_clock_digi
             await tx.rollback()
     assert refusal is not None and "'applied'" in refusal
 
-    # The app's guard opens the migrated graph.
-    opened = Neo4jConnection(uri=uri, username="neo4j", password="unused")
+    # The guard's UTC check opens the migrated graph (the uid grammar's record is another's).
+    opened = Neo4jConnection(uri=uri, username="neo4j", password="unused", requires=(UTC_INSTANTS,))
     await opened.connect()
     await opened.close()
 
@@ -707,10 +709,8 @@ async def test_the_command_line_runs_the_whole_sitting(
     uri = scratch_neo4j_container.get_connection_url()
     import adapters.persistence.neo4j.neo4j_connection as connection
 
-    def to_the_scratch_graph(*, utc_instants_guard: bool = True) -> Neo4jConnection:
-        return Neo4jConnection(
-            uri=uri, username="neo4j", password="unused", utc_instants_guard=utc_instants_guard
-        )
+    def to_the_scratch_graph(*, requires: tuple[DataMigration, ...]) -> Neo4jConnection:
+        return Neo4jConnection(uri=uri, username="neo4j", password="unused", requires=requires)
 
     monkeypatch.setattr(connection, "Neo4jConnection", to_the_scratch_graph)
 

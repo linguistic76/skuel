@@ -226,6 +226,19 @@ class RelationshipMetrics:
             "ORGANIZES/MOC edges among knowledge nodes",
         )
 
+        # The uid census's breaches (uid grammar arc), read server-side by the
+        # same poller. The production evaluator is check_uid_grammar's ERROR log
+        # (core/infrastructure/monitoring/uid_grammar_check.py).
+        self.uids_outside_grammar = Gauge(
+            "skuel_uids_outside_grammar_count",
+            "Node uids outside the uid grammar (a shape an exemption names included)",
+        )
+
+        self.uids_shared = Gauge(
+            "skuel_uids_shared_count",
+            "Uids held by more than one node",
+        )
+
         # Poller self-observability — all gauges above freeze at their last
         # values when the poller can't reach Neo4j; this timestamp makes that
         # staleness alertable (GraphHealthPollerStale).

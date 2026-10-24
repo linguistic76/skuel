@@ -274,7 +274,7 @@ All DDL is idempotent (`IF NOT EXISTS`) — safe on every startup.
 ### 0. Anchor a uid on a label
 
 A uid names one node, across every label — `./dev uid-census` exits 1 on a uid two
-nodes hold (no constraint can say it across labels). A `:Content` node has no uid: it is
+nodes hold (no constraint can say it across labels), as on one outside the grammar. A `:Content` node has no uid: it is
 reached through its entity's `HAS_CONTENT` edge (`neo4j_content_adapter.py`). So a uid
 match binds at most one node, and the label decides only how it is found: a label is
 an index seek, no label is an `AllNodesScan` per uid.
@@ -432,10 +432,12 @@ The same `connect()` holds the two other checks on the seam (ADR-089): the drive
 `tests/unit/test_graph_driver_construction_sites.py` — which refuses a process whose clock is not
 pinned to UTC (`pin_process_clock_to_utc()` from `core/utils/process_clock.py`, called by every
 entry point **before its first first-party import**: `main.py`, `tests/conftest.py`, each
-graph-opening script; `./dev` exports `TZ=UTC`); and after the probe answers, `require_utc_instants`
-refuses a graph that holds data unless the UTC instants migration's `:MigrationRecord` is `applied`
-(an empty graph is stamped; a clear-the-graph fixture keeps that node). The migration script is the
-one opener that skips the second (`Neo4jConnection(utc_instants_guard=False)`).
+graph-opening script; `./dev` exports `TZ=UTC`); and after the probe answers,
+`require_migration_records` refuses a graph that holds data unless each `:MigrationRecord` in
+`DATA_MIGRATIONS` — the UTC instants migration's, the uid grammar's — is `applied` (an empty graph is
+stamped with every one; a clear-the-graph fixture keeps those nodes). A script that writes a record
+opens requiring only the ones before it: the UTC migration `Neo4jConnection(requires=())`; the uid
+migrations, the uid census and the uid grammar's stamp `requires=(UTC_INSTANTS,)`.
 
 `probe_connectivity()` runs `RETURN 1` — a stronger check than the driver's routing-only
 `verify_connectivity()`, because it confirms the database is actually **resumed and answering**,

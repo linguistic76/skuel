@@ -40,8 +40,8 @@ Every driver is built by `open_async_driver` (`adapters/persistence/neo4j/graph_
 |---------|-------|----------|
 | `neo4j_container` | session | The shared container, `NEO4J_PLUGINS='["apoc"]'` with `procedures_unrestricted=apoc.*` — **deliberately wider than compose** (the APOC canary needs `apoc.version()`); the lockdown suite starts its own compose-shaped container |
 | `neo4j_uri` | session | `neo4j_container.get_connection_url()` |
-| `neo4j_driver` | session, `loop_scope="session"` | `open_async_driver(uri, auth=("neo4j", "testpassword"))`, probed with `RETURN 1`, then `require_utc_instants(driver)` — stamps the empty container with the UTC migration's `:MigrationRecord`; every fixture that clears the graph keeps that node |
-| `scratch_neo4j_container` | **module** | A graph of its own for a module that empties or reads the WHOLE graph (the data-version guard, the UTC census) |
+| `neo4j_driver` | session, `loop_scope="session"` | `open_async_driver(uri, auth=("neo4j", "testpassword"))`, probed with `RETURN 1`, then `require_migration_records(driver, DATA_MIGRATIONS)` — stamps the empty container with every migration's `:MigrationRecord` (UTC instants, uid grammar); every fixture that clears the graph keeps those nodes |
+| `scratch_neo4j_container` | **module** | A graph of its own for a module that empties or reads the WHOLE graph (the data-version guard, the UTC census, the uid census and its stamp) |
 | `connection_settings` | function | For a test that opens a `Neo4jConnection` onto a testcontainer: puts the container password in the environment and rebuilds the cached settings, since the connection's settings validate a password CI's environment does not carry |
 | `skuel_app_container` / `skuel_app` | session | The whole app bootstrapped (`scripts/dev/bootstrap.bootstrap_skuel`) **against its own container**: `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` are overridden before settings are built (`reload_config()`), and the fixture **refuses to yield** an app whose driver reports a kernel other than the pinned image (`tests/integration/test_skuel_app_fixture.py` keeps that refusal as a permanent test). Private, not shared, because the boot syncs uniqueness constraints on `:User` that the shared graph's accumulated users violate. Boots at any tier — CI runs the integration job at `INTELLIGENCE_TIER=core`; the Askesis modules skip on their own gate |
 
@@ -50,7 +50,7 @@ Every driver is built by `open_async_driver` (`adapters/persistence/neo4j/graph_
 async def neo4j_driver(neo4j_uri):
     driver = open_async_driver(neo4j_uri, auth=("neo4j", "testpassword"))
     ...
-    await require_utc_instants(driver)
+    await require_migration_records(driver, DATA_MIGRATIONS)
     yield driver
     await driver.close()
 ```

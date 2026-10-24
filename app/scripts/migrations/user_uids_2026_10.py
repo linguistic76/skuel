@@ -101,6 +101,7 @@ from core.models.user.user import fold_username, username_problem
 from core.models.user_entry.user_entry import periodic_note_uid
 from core.utils.frontmatter import split_frontmatter
 from core.utils.uid_grammar import hashed_uid, is_generated_uid
+from scripts.uid_census import closing_census
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
@@ -839,13 +840,15 @@ async def main() -> int:
     parser.add_argument("--manifest", type=Path, help="Write every planned write to this JSON file")
     args = parser.parse_args()
 
+    from adapters.persistence.neo4j.graph_driver import UTC_INSTANTS
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
     from core.config.unified_config import VaultConfig
 
     vault = VaultConfig()
     roots = [vault.vault_path, vault.ingestion_path]
     user_vaults_root = vault.user_vaults_path
-    driver = await Neo4jConnection().connect()
+    # The uid grammar's record is stamped only after the uid migrations.
+    driver = await Neo4jConnection(requires=(UTC_INSTANTS,)).connect()
     try:
         print("=== BEFORE ===")
         print("Vaults: " + ", ".join(str(root) for root in roots))
@@ -877,6 +880,7 @@ async def main() -> int:
                 print(f"  {failure}")
             return 1
         print("Read-back holds: every user uid generated, every value on its new uid.")
+        print(await closing_census(driver))
         settings = owner_settings(plan.user_moves(), os.environ)
         if settings:
             print("\nSet in .env before booting (boot refuses an owner that is not a user uid):")

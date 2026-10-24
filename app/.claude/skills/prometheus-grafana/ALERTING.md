@@ -93,7 +93,7 @@ only prunable telemetry — neither reports total graph counts against the 200k/
 
 ## Alert Categories
 
-SKUEL has **14 alerting rules** across 5 categories (plus one commented-out SLO rule,
+SKUEL has **16 alerting rules** across 5 categories (plus one commented-out SLO rule,
 `ErrorBudgetDepleted`, staged in `alerts.yml`):
 
 ### 1. HTTP / API Health (2 alerts)
@@ -166,14 +166,16 @@ histogram_quantile(0.95,
 
 ---
 
-### 4. Graph Health (4 alerts)
+### 4. Graph Health (6 alerts)
 
 | Alert | Severity | Threshold | Duration | Trigger Condition |
 |-------|----------|-----------|----------|-------------------|
 | **HighOrphanedEntityCount** | warning | >100 | 10m | Entities with no relationships exceed 100 |
 | **AuraNodeCapApproaching** | critical | >160,000 | 10m | Graph exceeds 80% of AuraDB Free 200k node cap |
 | **AuraRelationshipCapApproaching** | critical | >320,000 | 10m | Graph exceeds 80% of AuraDB Free 400k relationship cap |
-| **GraphHealthPollerStale** | warning | >900s | 5m | Graph-health poller hasn't succeeded in 15 min (3 missed cycles) — the 16 relationship/knowledge gauges are frozen |
+| **UidOutsideGrammar** | warning | >0 | 10m | A node uid is outside the uid grammar (a shape an exemption names included) |
+| **UidHeldByTwoNodes** | warning | >0 | 10m | A uid is held by more than one node |
+| **GraphHealthPollerStale** | warning | >900s | 5m | Graph-health poller hasn't succeeded in 15 min (3 missed cycles) — the 18 relationship/knowledge/uid gauges are frozen |
 
 **Example PromQL**:
 ```promql
@@ -191,10 +193,18 @@ counts are evaluated in-app every poll cycle (`check_aura_cap_headroom`: WARNING
 ERROR above 95%; thresholds in `AuraDBCaps`, drift-pinned to these exprs). See § Where
 Alerts Actually Evaluate.
 
+**Uid grammar context**: the same poller reads the uid census's breaches
+(`UidCensusBackend.read_breaches`), the grammar applied on the server
+(`uid_grammar.UID_PATTERN`) so only breaches cross the wire. Production's evaluator is
+`check_uid_grammar` (`core/infrastructure/monitoring/uid_grammar_check.py`): an ERROR log
+every cycle while either gauge is above zero, with a few of the uids.
+
 **Runbook**:
 - **HighOrphanedEntityCount**: Review entity creation logic, check relationship service
 - **AuraNodeCapApproaching / AuraRelationshipCapApproaching**: Run `./dev telemetry-retention`,
   review growth with `./dev knowledge-health`, consider the invite gate / paid tier
+- **UidOutsideGrammar / UidHeldByTwoNodes**: Run `./dev uid-census` to name each uid, its
+  labels and the writer that minted it; fix the writer, then move the uids
 - **GraphHealthPollerStale**: Check app logs for graph-health errors
   (`docker logs skuel-app | grep -i 'graph health'`), verify Neo4j via `/health/ready`
 

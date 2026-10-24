@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-10-24
 ---
 
 # Prometheus + Grafana Observability for SKUEL
@@ -458,6 +458,21 @@ Fed by a 4th query on the same 5-min poller — no new worker.
 
 Pairs with `/admin/knowledge-health` and `./dev knowledge-health [--json]` (the on-demand
 full report). **See:** `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md`.
+
+#### Uid Grammar (the uid census's breaches)
+
+The uid census (`./dev uid-census`), read by a 5th query on the same poller with the grammar
+as a server-side filter (`uid_grammar.UID_PATTERN`, `UidCensusBackend.read_breaches`) — a
+graph that fits sends back two zeros. Alerts: `UidOutsideGrammar`, `UidHeldByTwoNodes` (dev);
+production's evaluator is `check_uid_grammar`'s ERROR log
+(`core/infrastructure/monitoring/uid_grammar_check.py`).
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `skuel_uids_outside_grammar_count` | Gauge | - | Node uids outside the uid grammar (a shape an exemption names included) |
+| `skuel_uids_shared_count` | Gauge | - | Uids held by more than one node |
+
+**See:** `/docs/decisions/ADR-013-ku-uid-flat-identity.md` § Amendment (2026-10-18).
 
 #### Poller Freshness
 

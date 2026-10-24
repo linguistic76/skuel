@@ -155,12 +155,16 @@ def _load_config() -> UnifiedConfig:
 async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, Any]:
     """Step 2: Build core infrastructure (database, event bus, metrics)"""
     from adapters.infrastructure.event_bus import InMemoryEventBus
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.infrastructure.monitoring import (
+        UID_BREACH_SAMPLE,
         MetricsCache,
         PrometheusMetrics,
         QueryMetricsCache,
         check_aura_cap_headroom,
+        check_uid_grammar,
     )
 
     # Import MetricsEventHandler here to avoid circular dependency
@@ -212,7 +216,10 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
         - Orphaned entities
         - Knowledge-subgraph structural health (ADR-080 Horizon-1): Ku count,
           orphan Kus, avg Ku degree, composition/prerequisite/ORGANIZES coverage
+        - The uid census's breaches: uids outside the uid grammar, uids two
+          nodes hold (logged ERROR while either holds — production's alert)
         """
+        uid_census = UidCensusBackend(Neo4jQueryExecutor(neo4j_adapter.driver))
         # Staleness baseline: without it the gauge exports 0 and the alert fires
         # at boot; refreshed only after an error-free pass (inside the try)
         # so a failed poll leaves it stale and GraphHealthPollerStale can fire.
@@ -399,6 +406,15 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                     prometheus_metrics.relationships.knowledge_organizes_edges.set(
                         krec["organizes_edges"]
                     )
+
+                # Query 5: the uid census's breaches — filtered by the grammar on
+                # the server, so a graph that fits sends back two zeros.
+                breaches = await uid_census.read_breaches(UID_BREACH_SAMPLE)
+                if breaches.is_error:
+                    raise RuntimeError(f"uid census unreadable: {breaches.expect_error()}")
+                prometheus_metrics.relationships.uids_outside_grammar.set(breaches.value.outside)
+                prometheus_metrics.relationships.uids_shared.set(breaches.value.shared)
+                check_uid_grammar(breaches.value)
 
                 prometheus_metrics.relationships.poll_last_success.set_to_current_time()
                 logger.debug("✅ Graph health metrics updated")

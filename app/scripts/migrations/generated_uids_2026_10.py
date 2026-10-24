@@ -94,6 +94,7 @@ from core.models.group.group import default_group_uid
 from core.models.ps_content.content_chunks import ChunkStore, chunk_uid
 from core.models.relationship_names import RelationshipName
 from core.utils.uid_grammar import UID_PREFIX, UidVerdict, classify, exemptions_for, hashed_uid
+from scripts.uid_census import closing_census
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
@@ -639,9 +640,11 @@ async def main() -> int:
     parser.add_argument("--manifest", type=Path, help="Write every planned write to this JSON file")
     args = parser.parse_args()
 
+    from adapters.persistence.neo4j.graph_driver import UTC_INSTANTS
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
-    driver = await Neo4jConnection().connect()
+    # The uid grammar's record is stamped only after the uid migrations.
+    driver = await Neo4jConnection(requires=(UTC_INSTANTS,)).connect()
     try:
         print("=== BEFORE ===")
         plan = await census(driver)
@@ -671,6 +674,7 @@ async def main() -> int:
                 print(f"  {failure}")
             return 1
         print("Read-back holds: every uid in the grammar, every value on its new uid.")
+        print(await closing_census(driver))
         return 0
     finally:
         await driver.close()
