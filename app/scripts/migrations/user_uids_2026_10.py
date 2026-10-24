@@ -379,7 +379,10 @@ def rewrite_of(
     """
 
     def tokens(text: str) -> str:
-        return names.sub(lambda match: new_uid_of[match.group(0)], text)
+        def renamed(match: re.Match[str]) -> str:
+            return new_uid_of[match.group(0)]
+
+        return names.sub(renamed, text)
 
     if isinstance(value, list):
         if not all(isinstance(item, str) for item in value) or not any(

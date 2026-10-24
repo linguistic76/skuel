@@ -508,6 +508,8 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         - Unique constraint on User(email) for email uniqueness
         - Unique constraint on User(uid) — identity invariant + the seek index
           every edge-anchored ownership read needs (ADR-086)
+        - Unique constraint on User(title) — a username names one account; the
+          uid is generated and carries no username to collide on
         - Unique constraint on Device(pubkey) — WS handshake auth lookup (ADR-075)
         - Index on User(pairing_code_hash) — enrollment redemption lookup (ADR-075)
 
@@ -558,6 +560,17 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             results["created"].append("User_uid_unique")
         else:
             results["failed"].append("User_uid_unique")
+
+        # Username uniqueness: a username (stored as title, folded) is a login
+        # handle and an audience target, so it names one account. Sign-up's
+        # lookup-then-create cannot hold that alone — two concurrent sign-ups
+        # both see the name free — so the constraint does, and create_user
+        # answers its refusal as the username being taken.
+        user_title_result = await self._create_unique_constraint(NeoLabel.USER, "title")
+        if user_title_result.is_ok:
+            results["created"].append("User_title_unique")
+        else:
+            results["failed"].append("User_title_unique")
 
         # Device pubkey uniqueness (ADR-075 B2, Kody #529): the WS handshake
         # authenticates by pubkey lookup — duplicate rows would make auth

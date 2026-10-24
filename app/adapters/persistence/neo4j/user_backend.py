@@ -30,6 +30,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from neo4j import AsyncDriver
+from neo4j.exceptions import ConstraintError
 
 from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_checkin
 from adapters.persistence.neo4j._learning_state_mixin import to_mastered_write_rows
@@ -159,6 +160,10 @@ class UserBackend(Neo4jSessionRunner):
         """
         Create a new user identity.
 
+        A username or email another account holds is refused by its uniqueness
+        constraint, and answered as a validation error naming that field — the
+        same answer sign-up gives when its own lookup finds the name taken.
+
         Args:
             user: User domain model (frozen dataclass)
 
@@ -175,7 +180,10 @@ class UserBackend(Neo4jSessionRunner):
         RETURN u
         """
 
-        record = await self._run_single(query, {"properties": user_dict})
+        try:
+            record = await self._run_single(query, {"properties": user_dict})
+        except ConstraintError as e:
+            return await self._taken(user, e)
 
         if not record:
             return Result.fail(
@@ -199,6 +207,17 @@ class UserBackend(Neo4jSessionRunner):
             Result[User | None]: User if found, None otherwise
         """
         return await self._get_user_by("uid", user_uid)
+
+    async def _taken(self, user: User, refusal: ConstraintError) -> Result[User]:
+        """The field another account holds, as sign-up names it — or the refusal itself."""
+        for field, prop, value, message in (
+            ("username", "title", user.title, "This username is unavailable"),
+            ("email", "email", user.email, "An account with this email already exists"),
+        ):
+            holder = await self._get_user_by(prop, value) if value else None
+            if holder is not None and holder.is_ok and holder.value is not None:
+                return Result.fail(Errors.validation(message=message, field=field))
+        return Result.fail(Errors.database(operation="create_user", message=str(refusal)))
 
     @safe_backend_operation("get_user_by_username")
     async def get_user_by_username(self, username: str) -> Result[User | None]:

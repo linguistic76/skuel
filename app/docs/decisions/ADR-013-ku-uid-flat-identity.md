@@ -452,7 +452,8 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
 - **A user uid is generated too** (ruled 2026-10-23): `user_{16 hex}`, random at sign-up; the
   username is the account's `title` and login handle only — folded to lowercase, 3–30 of
   `[a-z0-9_-]`, refused otherwise (`fold_username`, `username_problem`) — and never reaches a
-  uid. The `user_{username}` uids were renamed in place to `hashed_uid("user", old uid)` by
+  uid. A username names one account: `User.title` carries a uniqueness constraint, since no uid
+  collision refuses a second sign-up on a taken name. The `user_{username}` uids were renamed in place to `hashed_uid("user", old uid)` by
   `scripts/migrations/user_uids_2026_10.py`, with the uids derived from them (periodic notes,
   default groups), every value naming one, and the vault frontmatter lines (`teacher:`,
   `user_uid:`, `ownership:`) that name one; every stored username was folded to the rule. A configured owner (`SKUEL_DEFAULT_USER_UID`,
