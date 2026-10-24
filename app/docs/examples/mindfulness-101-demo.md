@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-18
+updated: 2026-10-24
 ---
 
 # SKUEL Quick Start - Mindfulness 101 Demo
@@ -63,9 +63,10 @@ typed file in the vault — the bundle above among them, plus every other Ku, Pa
 LearningPath and Exercise the vault holds. Files without a `type:` frontmatter field are set
 aside (they are notes, not entities); unchanged files are skipped on later runs.
 
-**What you'll see** — a `=== VaultSyncStats ===` block, one line per counter (`entries_ingested`,
-`edges_written`, `entries_failed`, the ignored-file reasons), followed by the embedding drain
-when the app runs at the FULL intelligence tier. The bundle's entities and their edges
+**What you'll see** — the embedding drain (FULL intelligence tier; at CORE, a note that this
+sync's content is not yet vector-searchable), then a `=== VaultSyncStats ===` block with one
+line per counter (`entries_ingested`, `edges_created`, `files_failed`, …) and the ignored-file
+reasons. The bundle's entities and their edges
 (`(LearningPath)-[:HAS_STEP]->(PathStep)`, `(PathStep)-[:USES_KU]->(Ku)`) are written in this
 step.
 
