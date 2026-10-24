@@ -1310,11 +1310,8 @@ async def ingest_directory(
                 if ue_uid:
                     retry_uids[str(ue_path)] = ue_uid
             else:
-                # Count the per-file write as one node created/updated
-                if result_data.get("nodes_created", 0):
-                    total_nodes_created += result_data["nodes_created"]
-                else:
-                    total_nodes_updated += result_data.get("nodes_updated", 0) or 1
+                total_nodes_created += result_data.get("nodes_created", 0)
+                total_nodes_updated += result_data.get("nodes_updated", 0)
                 # Record the REAL entry uid the service minted (e.g. a
                 # periodic note's ``periodic_note_uid``), not the parse-phase
                 # title-derived guess — the tracker row feeds deletion
@@ -1378,10 +1375,8 @@ async def ingest_directory(
             )
             if result_data is None:
                 continue
-            if result_data.get("nodes_created", 0):
-                total_nodes_created += result_data["nodes_created"]
-            else:
-                total_nodes_updated += result_data.get("nodes_updated", 0) or 1
+            total_nodes_created += result_data.get("nodes_created", 0)
+            total_nodes_updated += result_data.get("nodes_updated", 0)
             if result_data.get("uid"):
                 file_entity_map[str(group_path)] = (NonKuDomain.GROUP, str(result_data["uid"]))
 

@@ -75,6 +75,9 @@ class IngestionResult:
 
     total_processed: int
     nodes_created: int
+    #: Nodes that already existed and took this write. Together with
+    #: ``nodes_created`` it is every node written — what a sync reports as
+    #: ingested; a node the upsert refused is in neither.
     nodes_updated: int
     relationships_created: int
     errors: list[str]
