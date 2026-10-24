@@ -26,6 +26,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers.seed_uids import seed_user_uid
+
 MIGRATION_PATH = (
     Path(__file__).resolve().parents[3]
     / "scripts"
@@ -37,9 +39,7 @@ MIGRATION_PATH = (
 def _load_statements() -> list[str]:
     """Split the migration file into individual Cypher statements."""
     raw = MIGRATION_PATH.read_text()
-    no_comments = "\n".join(
-        line for line in raw.splitlines() if not line.lstrip().startswith("//")
-    )
+    no_comments = "\n".join(line for line in raw.splitlines() if not line.lstrip().startswith("//"))
     chunks = [c.strip() for c in no_comments.split(";")]
     return [c for c in chunks if c and not re.fullmatch(r"\s*", c)]
 
@@ -57,7 +57,7 @@ async def _seed(neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (owner:User {uid: 'user_owns_mig'})
+            CREATE (owner:User {uid: $user_owns_mig})
             // Diverging: owned by user_owns_mig but property says user_system
             CREATE (t:Entity:Task {
                 uid: 'owns.mig.diverging',
@@ -78,7 +78,7 @@ async def _seed(neo4j_driver) -> None:
             CREATE (g:Entity:Goal {
                 uid: 'owns.mig.consistent',
                 entity_type: 'goal',
-                user_uid: 'user_owns_mig',
+                user_uid: $user_owns_mig,
                 status: 'active',
                 created_at: datetime()
             })
@@ -93,7 +93,8 @@ async def _seed(neo4j_driver) -> None:
             CREATE (owner)-[:OWNS]->(t)
             CREATE (owner)-[:OWNS]->(n)
             CREATE (owner)-[:OWNS]->(g)
-            """
+            """,
+            user_owns_mig=seed_user_uid("owns_mig"),
         )
 
 
@@ -127,13 +128,13 @@ async def test_backfill_aligns_property_to_owns_owner(
     await _run_migration(neo4j_driver)
 
     # 1. Diverging node rewritten to its :OWNS owner
-    assert await _prop(neo4j_driver, "owns.mig.diverging") == "user_owns_mig"
+    assert await _prop(neo4j_driver, "owns.mig.diverging") == seed_user_uid("owns_mig")
 
     # 2. Null-property owned node backfilled (explicit IS NULL arm)
-    assert await _prop(neo4j_driver, "owns.mig.nullprop") == "user_owns_mig"
+    assert await _prop(neo4j_driver, "owns.mig.nullprop") == seed_user_uid("owns_mig")
 
     # 3. Consistent node unchanged
-    assert await _prop(neo4j_driver, "owns.mig.consistent") == "user_owns_mig"
+    assert await _prop(neo4j_driver, "owns.mig.consistent") == seed_user_uid("owns_mig")
 
     # 4. Ownerless catalog node NOT touched
     assert await _prop(neo4j_driver, "owns.mig.catalog") == "user_system"
@@ -150,6 +151,6 @@ async def test_backfill_aligns_property_to_owns_owner(
 
     # 6. Idempotence — re-running rewrites nothing
     await _run_migration(neo4j_driver)
-    assert await _prop(neo4j_driver, "owns.mig.diverging") == "user_owns_mig"
-    assert await _prop(neo4j_driver, "owns.mig.nullprop") == "user_owns_mig"
+    assert await _prop(neo4j_driver, "owns.mig.diverging") == seed_user_uid("owns_mig")
+    assert await _prop(neo4j_driver, "owns.mig.nullprop") == seed_user_uid("owns_mig")
     assert await _prop(neo4j_driver, "owns.mig.catalog") == "user_system"

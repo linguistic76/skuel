@@ -33,6 +33,7 @@ from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.type_hints import UserUID
 from core.models.user import UserPreferences
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     seed_published_learning_path,
@@ -55,8 +56,8 @@ pytestmark = [
 ]
 
 MARK = "doorval"
-USER = f"user_{MARK}_caller"
-ADMIN = f"user_{MARK}_admin"
+USER = seed_user_uid(f"{MARK}_caller")
+ADMIN = seed_user_uid(f"{MARK}_admin")
 ADMIN_MARK = f"{MARK}admin"
 LP = f"lp.{MARK}.path"
 PS = f"ps.{MARK}.step"
@@ -96,7 +97,7 @@ async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-a
             "goal": await create(client, "goals", f"{MARK} goal"),
             "other_goal": await create(client, "goals", f"{MARK} other goal"),
             "habit": await create(client, "habits", f"{MARK} habit"),
-            "other_habit": await create(client, "habits", f"{MARK} other habit"),
+            "other.habit": await create(client, "habits", f"{MARK} other habit"),
             "lp": LP,
             "ps": PS,
         }
@@ -311,7 +312,7 @@ _SCORED_WRITES: list[tuple[str, str, str, dict[str, str], str]] = [
         {"synergy_description": "s"},
         "synergy_score",
     ),
-    ("habit", "other_habit", "habits/{habit}/lateral/stacks", {}, "strength"),
+    ("habit", "other.habit", "habits/{habit}/lateral/stacks", {}, "strength"),
 ]
 
 

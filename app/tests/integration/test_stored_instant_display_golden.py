@@ -55,6 +55,7 @@ from core.services.report.report_relationship_service import ReportRelationshipS
 from core.services.report.teacher_review_service import TeacherReviewService
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
 from core.services.user_entry.user_entry_service import UserEntryService
+from tests.helpers.seed_uids import seed_user_uid
 from ui.gradebook.recipient_card import RecipientEntryCard
 from ui.gradebook.summary import (
     render_activity_reports_group,
@@ -75,10 +76,10 @@ pytestmark = [
 GOLDEN_DIR = Path(__file__).parent / "golden" / "stored_instant_display"
 UPDATE = os.environ.get("SKUEL_UPDATE_GOLDEN") == "1"
 
-TEACHER = "user_golden_teacher"
-STUDENT = "user_golden_student"
-GROUP = "group.golden_class"
-EXERCISE = "exercise.golden_essay"
+TEACHER = seed_user_uid("golden_teacher")
+STUDENT = seed_user_uid("golden_student")
+GROUP = "group.golden-class"
+EXERCISE = "exercise.golden-essay"
 STEP = "ps.golden.essay-step"
 
 

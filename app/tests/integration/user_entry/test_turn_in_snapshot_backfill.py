@@ -29,6 +29,7 @@ from pathlib import Path
 import pytest
 
 from core.models.user_entry.user_entry import EXERCISE_REMOVED_TITLE
+from tests.helpers.seed_uids import seed_user_uid
 
 _SCRIPT = (
     Path(__file__).resolve().parents[3]
@@ -49,20 +50,20 @@ def _load_migration():
 
 migration = _load_migration()
 
-STUDENT = "user_bf_student"
-EX_LIVE = "ex_bf_live"
-EX_ROOT_OF_RE = "ex_bf_root_of_re"
+STUDENT = seed_user_uid("bf_student")
+EX_LIVE = "ex.bf-live"
+EX_ROOT_OF_RE = "ex.bf-root-of-re"
 EX_GONE_ORIG = "ex_bf_gone_original"  # named by a revision's property, no node
-RE_ORPHAN = "re_bf_orphan"  # revision whose original is gone
-RE_LIVE = "re_bf_live"  # revision with a live REVISES_EXERCISE original
-RE_BY_PROP = "re_bf_by_prop"  # live revision a property names; original gone
-E_DIRECT = "ue_bf_direct"
-E_DIRECT_RE = "ue_bf_direct_re"
-E_REVISED_ONLY = "ue_bf_revised_only"
-E_PROP_RE = "ue_bf_prop_re"
-E_PROP_GONE = "ue_bf_prop_gone"
-E_INTENT_ONLY = "ue_bf_intent_only"
-E_STAMPED = "ue_bf_stamped"
+RE_ORPHAN = "re.bf-orphan"  # revision whose original is gone
+RE_LIVE = "re.bf-live"  # revision with a live REVISES_EXERCISE original
+RE_BY_PROP = "re.bf-by-prop"  # live revision a property names; original gone
+E_DIRECT = "ue.bf-direct"
+E_DIRECT_RE = "ue.bf-direct-re"
+E_REVISED_ONLY = "ue.bf-revised-only"
+E_PROP_RE = "ue.bf-prop-re"
+E_PROP_GONE = "ue.bf-prop-gone"
+E_INTENT_ONLY = "ue.bf-intent-only"
+E_STAMPED = "ue.bf-stamped"
 
 
 @pytest.fixture
@@ -107,8 +108,8 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (dr)-[:FULFILLS_EXERCISE {revision: 1}]->(reo)
             MERGE (ro)-[:FULFILLS_REVISED_EXERCISE {revision: 1}]->(rel)
             // The turn-in trace: an Interaction records a frozen copy, never a living note
-            CREATE (i1:Entity:Interaction {uid: 'int_bf_1', entity_type: 'interaction'})
-            CREATE (i2:Entity:Interaction {uid: 'int_bf_2', entity_type: 'interaction'})
+            CREATE (i1:Entity:Interaction {uid: 'int.bf-1', entity_type: 'interaction'})
+            CREATE (i2:Entity:Interaction {uid: 'int.bf-2', entity_type: 'interaction'})
             MERGE (i1)-[:RECORDS]->(pr)
             MERGE (i2)-[:RECORDS]->(pg)
             """,

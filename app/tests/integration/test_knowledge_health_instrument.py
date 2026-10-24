@@ -19,7 +19,7 @@ from adapters.persistence.neo4j.backends.curriculum_backends import KnowledgeHea
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.analytics.knowledge_health_service import KnowledgeHealthService
 
-P = "khtest_"  # uid prefix for this module's fixture graph
+P = "khtest."  # uid prefix for this module's fixture graph
 
 
 async def _build_graph(neo4j_driver) -> None:
@@ -204,7 +204,7 @@ async def test_learner_telemetry_excluded_from_degree(neo4j_driver, clean_neo4j)
     structurally isolated → orphan, and does not raise avg degree.
     """
     async with neo4j_driver.session() as s:
-        for uid in (P + "t_iso", P + "t_a", P + "t_b"):
+        for uid in (P + "t-iso", P + "t-a", P + "t-b"):
             await s.run(
                 "CREATE (n:Entity:Ku {uid:$u, entity_type:'ku', title:$u, "
                 "status:'active', created_at:datetime()})",
@@ -213,26 +213,26 @@ async def test_learner_telemetry_excluded_from_degree(neo4j_driver, clean_neo4j)
         await s.run(
             "CREATE (u:Entity:Task {uid:$u, entity_type:'task', title:$u, "
             "status:'active', created_at:datetime()})",
-            u=P + "t_user",
+            u=P + "t-user",
         )
         # Telemetry-only edge on t_iso (type-filtered out regardless of endpoints).
         await s.run(
             "MATCH (u{uid:$u}),(k{uid:$k}) CREATE (u)-[:MASTERED]->(k)",
-            u=P + "t_user",
-            k=P + "t_iso",
+            u=P + "t-user",
+            k=P + "t-iso",
         )
         # Structural lateral so t_a / t_b are genuinely connected.
         await s.run(
             "MATCH (a{uid:$a}),(b{uid:$b}) CREATE (a)-[:RELATED_TO]->(b)",
-            a=P + "t_a",
-            b=P + "t_b",
+            a=P + "t-a",
+            b=P + "t-b",
         )
     backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
 
     raw = (await backend.measure_knowledge_subgraph()).value
     assert raw["total_kus"] == 3
     assert raw["orphan_ku_count"] == 1
-    assert [o["uid"] for o in raw["orphan_kus"]] == [P + "t_iso"]
+    assert [o["uid"] for o in raw["orphan_kus"]] == [P + "t-iso"]
     # Degrees after excluding MASTERED: [0, 1, 1] → avg 2/3.
     assert raw["avg_ku_degree"] == pytest.approx(2 / 3, abs=1e-3)
 
@@ -282,12 +282,12 @@ async def test_label_less_pathstep_counted_by_entity_type(neo4j_driver, clean_ne
         await s.run(
             "CREATE (n:Entity {uid:$u, entity_type:'path_step', title:$u, "
             "status:'active', created_at:datetime()})",
-            u=P + "ll_nolabel",
+            u=P + "ll-nolabel",
         )
         await s.run(
             "CREATE (n:Entity:PathStep {uid:$u, entity_type:'path_step', title:$u, "
             "status:'active', created_at:datetime()})",
-            u=P + "ll_labelled",
+            u=P + "ll-labelled",
         )
     backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
 
@@ -333,14 +333,14 @@ async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo
         await s.run(
             "CREATE (:Entity:Ku {uid:$k1, entity_type:'ku', title:$k1, embedding:[0.1,0.2]}),"
             " (:Entity:Ku {uid:$k2, entity_type:'ku', title:$k2})",
-            k1=P + "ec_k1",
-            k2=P + "ec_k2",
+            k1=P + "ec-k1",
+            k2=P + "ec-k2",
         )
         # Chunks: ContentChunk missing, ReferenceChunk embedded.
         await s.run(
             "CREATE (:ContentChunk {uid:$cc}), (:ReferenceChunk {uid:$rc, embedding:[0.1]})",
-            cc=P + "ec_cc1",
-            rc=P + "ec_rc1",
+            cc=P + "ec-cc1",
+            rc=P + "ec-rc1",
         )
         # UserEntry scope: only the non-private knowledge and activity entries count.
         await s.run(
@@ -352,12 +352,12 @@ async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo
             " (:Entity:UserEntry {uid:$u5, entity_type:'user_entry',"
             "  pipeline:'extract_activities', private:true}),"
             " (:Entity:UserEntry {uid:$u6, entity_type:'user_entry', pipeline:'none'})",
-            u1=P + "ec_ue1",
-            u2=P + "ec_ue2",
-            u3=P + "ec_ue3",
-            u4=P + "ec_ue4",
-            u5=P + "ec_ue5",
-            u6=P + "ec_ue6",
+            u1=P + "ec-ue1",
+            u2=P + "ec-ue2",
+            u3=P + "ec-ue3",
+            u4=P + "ec-ue4",
+            u5=P + "ec-ue5",
+            u6=P + "ec-ue6",
         )
     backend = EmbeddingCoverageBackend(Neo4jQueryExecutor(neo4j_driver))
 

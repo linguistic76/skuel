@@ -36,10 +36,12 @@ from core.models.principle.principle import Principle
 from core.models.task.task import Task
 from core.models.user_owned_entity import UserOwnedEntity
 from core.utils.timestamp_helpers import today_in
+from core.utils.uid_grammar import slugify
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
-_OWNER = "user_stats_vocabulary"
-_STRANGER = "user_stats_vocabulary_stranger"
+_OWNER = seed_user_uid("stats_vocabulary")
+_STRANGER = seed_user_uid("stats_vocabulary_stranger")
 
 
 def _today() -> date:
@@ -49,7 +51,7 @@ def _today() -> date:
 def _tasks() -> list[Task]:
     return [
         Task(
-            uid=f"task.{status.value}.{when}",
+            uid=f"task.{slugify(status.value)}.{when}",
             title="t",
             user_uid=_OWNER,
             status=status,
@@ -62,7 +64,7 @@ def _tasks() -> list[Task]:
 
 def _goals() -> list[Goal]:
     return [
-        Goal(uid=f"goal.{status.value}", title="g", user_uid=_OWNER, status=status)
+        Goal(uid=f"goal.{slugify(status.value)}", title="g", user_uid=_OWNER, status=status)
         for status in EntityType.GOAL.valid_statuses()
     ]
 
@@ -70,7 +72,7 @@ def _goals() -> list[Goal]:
 def _habits() -> list[Habit]:
     return [
         Habit(
-            uid=f"habit.{status.value}.{streak}",
+            uid=f"habit.{slugify(status.value)}.{streak}",
             title="h",
             user_uid=_OWNER,
             status=status,
@@ -84,7 +86,7 @@ def _habits() -> list[Habit]:
 def _events() -> list[Event]:
     return [
         Event(
-            uid=f"event.{status.value}.{when}",
+            uid=f"event.{slugify(status.value)}.{when}",
             title="e",
             user_uid=_OWNER,
             status=status,
@@ -97,7 +99,7 @@ def _events() -> list[Event]:
 
 def _choices() -> list[Choice]:
     return [
-        Choice(uid=f"choice.{status.value}", title="c", user_uid=_OWNER, status=status)
+        Choice(uid=f"choice.{slugify(status.value)}", title="c", user_uid=_OWNER, status=status)
         for status in EntityType.CHOICE.valid_statuses()
     ]
 
@@ -105,7 +107,7 @@ def _choices() -> list[Choice]:
 def _principles() -> list[Principle]:
     return [
         Principle(
-            uid=f"principle.{status.value}.{strength.value}.{active}",
+            uid=f"principle.{slugify(status.value)}.{strength.value}-{'on' if active else 'off'}",
             title="p",
             user_uid=_OWNER,
             status=status,
@@ -240,7 +242,7 @@ async def test_each_count_is_the_models_predicate(neo4j_driver, clean_neo4j, dom
         assert created.is_ok, created.expect_error()
     stranger = next(iter(seeds()))
     created = await backend.create(
-        replace(stranger, uid=f"{stranger.uid}.stranger", user_uid=_STRANGER)
+        replace(stranger, uid=f"{stranger.uid}-stranger", user_uid=_STRANGER)
     )
     assert created.is_ok, created.expect_error()
 

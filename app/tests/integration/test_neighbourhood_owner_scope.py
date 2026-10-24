@@ -37,6 +37,7 @@ from core.models.task.task import Task
 from core.models.type_hints import Neo4jValue
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver, AsyncSession
@@ -44,18 +45,18 @@ if TYPE_CHECKING:
     from core.models.task.task_dto import TaskDTO
     from core.ports.base_protocols import BackendOperations
 
-P = "nbo_"  # uid prefix for this module's fixture graph
+P = "nbo."  # uid prefix for this module's fixture graph
 
-ME = "user_test_123"  # User nodes the session's ``ensure_test_users`` keeps
-THEM = "user_test_456"
+ME = seed_user_uid("test_123")  # User nodes the session's ``ensure_test_users`` keeps
+THEM = seed_user_uid("test_456")
 
 CENTER = P + "center"  # mine — the entity whose neighbourhood is read
 KU = P + "ku"  # shared: center, MINE_VIA_KU and THEIRS_VIA_KU all link it
-MINE_VIA_KU = P + "mine_via_ku"  # mine, two hops out through the shared Ku
-THEIRS_VIA_KU = P + "theirs_via_ku"  # theirs, two hops out through the shared Ku
-THEIRS_DIRECT = P + "theirs_direct"  # theirs, linked straight to the center
-MINE_BEHIND_THEIRS = P + "mine_behind_theirs"  # mine, reachable only through THEIRS_DIRECT
-KU_BEHIND_THEIRS = P + "ku_behind_theirs"  # shared, reachable only through THEIRS_DIRECT
+MINE_VIA_KU = P + "mine-via-ku"  # mine, two hops out through the shared Ku
+THEIRS_VIA_KU = P + "theirs-via-ku"  # theirs, two hops out through the shared Ku
+THEIRS_DIRECT = P + "theirs-direct"  # theirs, linked straight to the center
+MINE_BEHIND_THEIRS = P + "mine-behind-theirs"  # mine, reachable only through THEIRS_DIRECT
+KU_BEHIND_THEIRS = P + "ku-behind-theirs"  # shared, reachable only through THEIRS_DIRECT
 
 THEIR_WORDS = "private words of the other user"
 
@@ -300,7 +301,7 @@ async def test_the_every_edge_lens_stops_at_a_user_node(neo4j_driver, graph_inte
     """The owner is a neighbour of what they own; what else they own or viewed is not.
     A task's neighbourhood is its own links, not its owner's graph."""
     await _seed(neo4j_driver, "Task", "task", "APPLIES_KNOWLEDGE")
-    viewed = P + "viewed_ku"
+    viewed = P + "viewed-ku"
     async with neo4j_driver.session() as s:
         await _create_ku(s, viewed)
         await s.run(

@@ -50,6 +50,7 @@ from core.models.relationship_registry import GOALS_CONFIG
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.mixins.link_edge_guard import HABIT_FAR_END
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 async def _link_habit_to_goal(neo4j_driver: AsyncDriver, goal_uid: str, habit_uid: str) -> None:
@@ -100,13 +101,13 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user_test_habit_goal_flow"
+        return seed_user_uid("test_habit_goal_flow")
 
     @pytest_asyncio.fixture
     async def habit_based_goal(self, goals_backend, test_user_uid):
         """Create a habit-based goal in Neo4j - 30-day meditation streak."""
         goal = Goal(
-            uid="goal.meditation_master",
+            uid="goal.meditation-master",
             user_uid=test_user_uid,
             title="30-Day Meditation Streak",
             description="Build a consistent meditation habit",
@@ -126,7 +127,7 @@ class TestHabitGoalEventFlow:
     async def mixed_goal(self, goals_backend, test_user_uid):
         """Create a mixed-measurement goal in Neo4j."""
         goal = Goal(
-            uid="goal.healthy_lifestyle",
+            uid="goal.healthy-lifestyle",
             user_uid=test_user_uid,
             title="Build Healthy Lifestyle",
             description="Combine habits, tasks, and knowledge for wellness",
@@ -146,7 +147,7 @@ class TestHabitGoalEventFlow:
     async def task_based_goal(self, goals_backend, test_user_uid):
         """Create a task-based goal to verify habit completions don't affect it."""
         goal = Goal(
-            uid="goal.learn_python",
+            uid="goal.learn-python",
             user_uid=test_user_uid,
             title="Learn Python",
             description="Complete Python course tasks",
@@ -166,7 +167,7 @@ class TestHabitGoalEventFlow:
     async def linked_habit(self, habits_backend, neo4j_driver, habit_based_goal, test_user_uid):
         """Create a habit linked to the habit-based goal."""
         habit = Habit(
-            uid="habit.daily_meditation",
+            uid="habit.daily-meditation",
             user_uid=test_user_uid,
             entity_type=EntityType.HABIT,
             title="Daily Meditation",
@@ -315,7 +316,7 @@ class TestHabitGoalEventFlow:
 
         # Create habit without linking to goal
         unlinked_habit = Habit(
-            uid="habit.unlinked_exercise",
+            uid="habit.unlinked-exercise",
             user_uid=test_user_uid,
             entity_type=EntityType.HABIT,
             title="Daily Exercise",
@@ -362,7 +363,7 @@ class TestHabitGoalEventFlow:
 
         # Create habit and link to task-based goal
         habit = Habit(
-            uid="habit.code_daily",
+            uid="habit.code-daily",
             user_uid=test_user_uid,
             entity_type=EntityType.HABIT,
             title="Code Daily",
@@ -411,7 +412,7 @@ class TestHabitGoalEventFlow:
         assert result.is_ok, "Setup failed: Could not update goal"
 
         habit = Habit(
-            uid="habit.healthy_eating",
+            uid="habit.healthy-eating",
             user_uid=test_user_uid,
             entity_type=EntityType.HABIT,
             title="Healthy Eating",
@@ -465,7 +466,7 @@ class TestHabitGoalEventFlow:
         assert created.is_ok, created
 
         habit = Habit(
-            uid="habit.shared_practice",
+            uid="habit.shared-practice",
             user_uid=test_user_uid,
             entity_type=EntityType.HABIT,
             title="Shared Practice",

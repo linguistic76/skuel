@@ -42,6 +42,8 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.utils.uid_grammar import slugify
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     RETIRED_PRACTICED,
     create,
@@ -73,7 +75,7 @@ pytestmark = [
 ]
 
 MARK = "zzzremview"
-CALLER = f"user_{MARK}"
+CALLER = seed_user_uid(f"{MARK}")
 
 AFFECTS_GOAL = RelationshipName.AFFECTS_GOAL.value
 CELEBRATES_GOAL = RelationshipName.CELEBRATES_GOAL.value
@@ -150,7 +152,7 @@ async def _event(env: Env, name: str) -> str:
 
 async def _life_path(env: Env, name: str) -> str:
     """The caller's own LifePath node — the far end of a ``SERVES_LIFE_PATH`` edge."""
-    uid = f"lifepath.{MARK}.{name.replace(' ', '-')}"
+    uid = f"lifepath.{MARK}.{slugify(name)}"
     async with env.driver.session() as session:
         await session.run(
             """

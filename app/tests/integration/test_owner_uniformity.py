@@ -22,7 +22,6 @@ import pytest_asyncio
 from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from core.models.type_hints import UserUID
 from core.ports.vault_bridge_protocol import VaultBridgePort
 from core.services.ingestion.config import build_sync_allowlist
 from core.services.vault.vault_descriptor import (
@@ -31,12 +30,19 @@ from core.services.vault.vault_descriptor import (
     VaultRegistry,
 )
 from core.services.vault.vault_reconciler import VaultReconciler
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio
 
-_CONTENT_OWNER = UserUID("user_content_admin")
-_ALICE = UserUID("user_alice_owner")
-_ALL_USERS = (_CONTENT_OWNER, _ALICE, "user_alpha", "user_beta", "user_gamma")
+_CONTENT_OWNER = seed_user_uid("content_admin")
+_ALICE = seed_user_uid("alice_owner")
+_ALL_USERS = (
+    _CONTENT_OWNER,
+    _ALICE,
+    seed_user_uid("alpha"),
+    seed_user_uid("beta"),
+    seed_user_uid("gamma"),
+)
 
 
 def _bridge() -> VaultBridgePort:
@@ -71,7 +77,7 @@ async def owner_env(neo4j_driver, tmp_path: Path):
     executor = Neo4jQueryExecutor(neo4j_driver)
     service = make_unified_ingestion_service(
         driver=neo4j_driver,
-        default_user_uid=UserUID("user_default"),
+        default_user_uid=seed_user_uid("default"),
         ingestion_backend=IngestionBackend(executor=executor),
     )
 
@@ -159,17 +165,17 @@ async def test_content_task_owner_uniform_across_surfaces(owner_env) -> None:
     # Surface 1 — ingest_directory service method acting as user_alpha (the
     # chokepoint the dashboard/reconciler share).
     _task_file(content_root / "alpha-task.md", "Alpha Task")
-    r1 = await service.ingest_directory(content_root, user_uid="user_alpha")
+    r1 = await service.ingest_directory(content_root, user_uid=seed_user_uid("alpha"))
     assert r1.is_ok, r1
 
     # Surface 2 — same method acting as user_beta (new file; alpha skipped).
     _task_file(content_root / "beta-task.md", "Beta Task")
-    r2 = await service.ingest_directory(content_root, user_uid="user_beta")
+    r2 = await service.ingest_directory(content_root, user_uid=seed_user_uid("beta"))
     assert r2.is_ok, r2
 
     # Surface 3 — descriptor-driven reconciler as user_gamma.
     _task_file(content_root / "gamma-task.md", "Gamma Task")
-    r3 = await reconciler.sync(VaultKind.CONTENT, "user_gamma")
+    r3 = await reconciler.sync(VaultKind.CONTENT, seed_user_uid("gamma"))
     assert r3.is_ok, r3
 
     owner_env["created_uids"].extend(["task.alpha-task", "task.beta-task", "task.gamma-task"])
@@ -186,7 +192,7 @@ async def test_content_curriculum_has_no_owner(owner_env) -> None:
     driver = owner_env["driver"]
 
     _ku_file(content_root / "atom.md", "Shared Atom")
-    result = await service.ingest_directory(content_root, user_uid="user_alpha")
+    result = await service.ingest_directory(content_root, user_uid=seed_user_uid("alpha"))
     assert result.is_ok, result
 
     owner_env["created_uids"].append("ku.atom")
@@ -218,7 +224,7 @@ async def test_personal_task_owned_by_vault_bound_owner(owner_env) -> None:
     # Caller-independence: acting as user_beta on alice's vault still
     # attributes alice — the descriptor's bound owner, not the hint.
     _task_file(personal_root / "knowledge" / "second-task.md", "Second Task")
-    result = await service.ingest_directory(personal_root, user_uid="user_beta")
+    result = await service.ingest_directory(personal_root, user_uid=seed_user_uid("beta"))
     assert result.is_ok, result
 
     uid, owner = await _titled(driver, "Second Task")
@@ -259,7 +265,7 @@ async def test_multi_vault_span_scan_rejected(owner_env) -> None:
     service = owner_env["service"]
     parent = owner_env["content_root"].parent  # nests both content + personal
 
-    result = await service.ingest_directory(parent, user_uid="user_alpha")
+    result = await service.ingest_directory(parent, user_uid=seed_user_uid("alpha"))
 
     assert result.is_error
     assert "different owner" in result.expect_error().message.lower()
@@ -277,7 +283,7 @@ async def test_content_staging_file_rejected_by_descriptor_wall(owner_env) -> No
 
     staged = content_root / "je_out" / "generated.md"
     _task_file(staged, "Staged Output")
-    result = await service.ingest_file(staged, user_uid="user_alpha")
+    result = await service.ingest_file(staged, user_uid=seed_user_uid("alpha"))
 
     assert result.is_error
     assert "vault sync boundary" in result.expect_error().message.lower()

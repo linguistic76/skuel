@@ -36,7 +36,9 @@ from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_search_service import GoalsSearchService
 from core.utils.timestamp_helpers import today_in
+from core.utils.uid_grammar import slugify
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 # ============================================================================
 # FIXTURES
@@ -72,7 +74,7 @@ class TestGoalsCoreOperations:
 
     @pytest_asyncio.fixture
     def user_uid(self):
-        return "user_test_goals_core"
+        return seed_user_uid("test_goals_core")
 
     # =========================================================================
     # HELPERS
@@ -95,25 +97,25 @@ class TestGoalsCoreOperations:
 
     async def test_create_goal(self, goals_core, user_uid):
         """Creating a valid goal returns the persisted Goal."""
-        goal = self._goal("goal_create_001", user_uid, title="Learn Neo4j")
+        goal = self._goal("goal.create-001", user_uid, title="Learn Neo4j")
 
         result = await goals_core.create(goal)
 
         assert result.is_ok
         created = result.value
-        assert created.uid == "goal_create_001"
+        assert created.uid == "goal.create-001"
         assert created.title == "Learn Neo4j"
         assert created.entity_type == EntityType.GOAL
 
     async def test_get_goal_by_uid(self, goals_core, user_uid):
         """A created goal can be retrieved by UID."""
-        goal = self._goal("goal_get_001", user_uid, title="Read daily")
+        goal = self._goal("goal.get-001", user_uid, title="Read daily")
         await goals_core.create(goal)
 
-        result = await goals_core.get("goal_get_001")
+        result = await goals_core.get("goal.get-001")
 
         assert result.is_ok
-        assert result.value.uid == "goal_get_001"
+        assert result.value.uid == "goal.get-001"
         assert result.value.title == "Read daily"
 
     async def test_get_nonexistent_goal_returns_error(self, goals_core):
@@ -125,16 +127,16 @@ class TestGoalsCoreOperations:
 
     async def test_update_goal_field(self, goals_core, user_uid):
         """Updating a goal field persists the change."""
-        goal = self._goal("goal_upd_001", user_uid, title="Original title")
+        goal = self._goal("goal.upd-001", user_uid, title="Original title")
         await goals_core.create(goal)
 
         result = await goals_core.update_goal(
-            "goal_upd_001", GoalUpdateIntent(title="Updated title")
+            "goal.upd-001", GoalUpdateIntent(title="Updated title")
         )
 
         assert result.is_ok
         # Confirm the change persisted
-        fetch = await goals_core.get("goal_upd_001")
+        fetch = await goals_core.get("goal.upd-001")
         assert fetch.is_ok
         assert fetch.value.title == "Updated title"
 
@@ -164,7 +166,7 @@ class TestGoalsCoreOperations:
     async def test_get_user_goals_returns_all_user_goals(self, goals_core, user_uid):
         """get_user_goals returns all goals belonging to the user."""
         for i in range(3):
-            goal = self._goal(f"goal_list_{i}", user_uid, title=f"Goal {i}")
+            goal = self._goal(f"goal.list-{i}", user_uid, title=f"Goal {i}")
             await goals_core.create(goal)
 
         result = await goals_core.get_user_goals(user_uid)
@@ -175,11 +177,13 @@ class TestGoalsCoreOperations:
 
     async def test_get_user_goals_isolated_per_user(self, goals_core):
         """Goals from user A must not appear in user B's list."""
-        await goals_core.create(self._goal("goal_user_a", "user_alpha", title="Alpha goal"))
-        await goals_core.create(self._goal("goal_user_b", "user_beta", title="Beta goal"))
+        await goals_core.create(
+            self._goal("goal_user_a", seed_user_uid("alpha"), title="Alpha goal")
+        )
+        await goals_core.create(self._goal("goal_user_b", seed_user_uid("beta"), title="Beta goal"))
 
-        result_a = await goals_core.get_user_goals("user_alpha")
-        result_b = await goals_core.get_user_goals("user_beta")
+        result_a = await goals_core.get_user_goals(seed_user_uid("alpha"))
+        result_b = await goals_core.get_user_goals(seed_user_uid("beta"))
 
         assert result_a.is_ok
         assert result_b.is_ok
@@ -193,7 +197,7 @@ class TestGoalsCoreOperations:
 
     async def test_goal_default_status_is_draft(self, goals_core, user_uid):
         """Goals are created DRAFT by default (Entity.__post_init__ default)."""
-        goal = self._goal("goal_status_default", user_uid)
+        goal = self._goal("goal.status-default", user_uid)
         result = await goals_core.create(goal)
 
         assert result.is_ok
@@ -201,15 +205,15 @@ class TestGoalsCoreOperations:
 
     async def test_pause_goal_changes_status(self, goals_core, user_uid):
         """Updating status to PAUSED persists correctly."""
-        goal = self._goal("goal_status_pause", user_uid)
+        goal = self._goal("goal.status-pause", user_uid)
         await goals_core.create(goal)
 
         upd = await goals_core.update_goal(
-            "goal_status_pause", GoalUpdateIntent(status=EntityStatus.PAUSED.value)
+            "goal.status-pause", GoalUpdateIntent(status=EntityStatus.PAUSED.value)
         )
         assert upd.is_ok
 
-        fetch = await goals_core.get("goal_status_pause")
+        fetch = await goals_core.get("goal.status-pause")
         assert fetch.is_ok
         assert fetch.value.status == EntityStatus.PAUSED
 
@@ -224,11 +228,11 @@ class TestGoalsCoreOperations:
         (``migrate_activity_completion_aliases.py`` retires the old rows).
         """
 
-        goal = self._goal("goal_complete_stamp", user_uid)
+        goal = self._goal("goal.complete-stamp", user_uid)
         created = await goals_core.create(goal)
         assert created.is_ok, created.expect_error()
 
-        done = await goals_core.complete_goal("goal_complete_stamp")
+        done = await goals_core.complete_goal("goal.complete-stamp")
         assert done.is_ok, done.expect_error()
 
         async with neo4j_driver.session() as s:
@@ -237,7 +241,7 @@ class TestGoalsCoreOperations:
                     "MATCH (g:Entity {uid: $uid}) "
                     "RETURN g.status AS status, g.achieved_date AS achieved_date, "
                     "g.completion_date AS completion_date",
-                    uid="goal_complete_stamp",
+                    uid="goal.complete-stamp",
                 )
             ).single()
         assert record["status"] == EntityStatus.COMPLETED.value
@@ -245,7 +249,7 @@ class TestGoalsCoreOperations:
         assert isinstance(record["achieved_date"], str)
         assert record["completion_date"] is None
 
-        fetch = await goals_core.get("goal_complete_stamp")
+        fetch = await goals_core.get("goal.complete-stamp")
         assert fetch.is_ok
         assert fetch.value.achieved_date == today_in(current_zone())
 
@@ -257,7 +261,7 @@ class TestGoalsCoreOperations:
         """GoalType enum is persisted and retrieved correctly."""
         for goal_type in [GoalType.OUTCOME, GoalType.PROCESS, GoalType.LEARNING]:
             goal = self._goal(
-                f"goal_type_{goal_type.value}",
+                f"goal.type-{slugify(goal_type.value)}",
                 user_uid,
                 title=f"Goal {goal_type.value}",
                 goal_type=goal_type,
@@ -270,7 +274,7 @@ class TestGoalsCoreOperations:
         """GoalTimeframe enum is persisted and retrieved correctly."""
         for tf in [GoalTimeframe.YEARLY, GoalTimeframe.QUARTERLY, GoalTimeframe.MONTHLY]:
             goal = self._goal(
-                f"goal_tf_{tf.value}",
+                f"goal.tf-{slugify(tf.value)}",
                 user_uid,
                 title=f"Goal {tf.value}",
                 timeframe=tf,
@@ -320,7 +324,7 @@ class TestGoalsCoreOperations:
     async def test_create_many_goals_same_user(self, goals_core, user_uid):
         """Creating 5+ goals for the same user all succeed."""
         for i in range(5):
-            goal = self._goal(f"goal_many_{i}", user_uid, title=f"Goal {i}")
+            goal = self._goal(f"goal.many-{i}", user_uid, title=f"Goal {i}")
             result = await goals_core.create(goal)
             assert result.is_ok
 
@@ -333,7 +337,7 @@ class TestGoalsCoreOperations:
         from datetime import date
 
         goal = self._goal(
-            "goal_full_001",
+            "goal.full-001",
             user_uid,
             title="Complete Python course",
             description="Finish the advanced Python programming course by Q2",

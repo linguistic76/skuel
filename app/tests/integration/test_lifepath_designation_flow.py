@@ -24,12 +24,13 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.principle_enums import AlignmentLevel
 from core.services.lifepath.lifepath_core_service import LifePathCoreService
 from core.utils.result_simplified import ErrorCategory
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-_USER_UID = "user_test_lifepath_designation"
-_LP_A = "lp.test.designation.alpha"
-_LP_B = "lp.test.designation.beta"
+_USER_UID = seed_user_uid("test_lifepath_designation")
+_LP_A = "lp.test.designation-alpha"
+_LP_B = "lp.test.designation-beta"
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -93,7 +94,7 @@ async def _ultimate_path_targets(neo4j_driver) -> list[str]:
 
 class TestVisionPersistence:
     async def test_unknown_user_has_no_designation(self, core_service, designation_graph):
-        result = await core_service.get_designation("user_does_not_exist_anywhere")
+        result = await core_service.get_designation(seed_user_uid("does_not_exist_anywhere"))
 
         assert result.is_ok
         assert result.value is None
@@ -130,7 +131,9 @@ class TestVisionPersistence:
         assert isinstance(designation.vision_captured_at, datetime)
 
     async def test_save_vision_for_unknown_user_is_not_found(self, core_service, designation_graph):
-        result = await core_service.save_vision("user_ghost", "some long enough vision", [])
+        result = await core_service.save_vision(
+            seed_user_uid("ghost"), "some long enough vision", []
+        )
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.NOT_FOUND

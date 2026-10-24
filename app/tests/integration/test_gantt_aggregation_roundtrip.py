@@ -31,6 +31,7 @@ from core.services.analytics.visualization_aggregation_service import (
     VisualizationAggregationService,
 )
 from core.services.visualization_service import VisualizationService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -58,7 +59,7 @@ class TestGanttAggregationRoundTrip:
         self, services, neo4j_driver, clean_neo4j
     ):
         """get_tasks_gantt_data surfaces the (Task)-[:DEPENDS_ON]->(prereq) edge as a Gantt dependency."""
-        user = await self._user(neo4j_driver, "user_gantt_deps")
+        user = await self._user(neo4j_driver, seed_user_uid("gantt_deps"))
         soon = date.today() + timedelta(days=3)
 
         prereq = (
@@ -107,7 +108,7 @@ class TestGanttAggregationRoundTrip:
         self, services, neo4j_driver, clean_neo4j
     ):
         """get_goal_gantt_data returns the goal plus its CONTRIBUTES_TO_GOAL tasks (was a 500)."""
-        user = await self._user(neo4j_driver, "user_gantt_goal")
+        user = await self._user(neo4j_driver, seed_user_uid("gantt_goal"))
         soon = date.today() + timedelta(days=5)
 
         goal = (
@@ -127,7 +128,7 @@ class TestGanttAggregationRoundTrip:
         # A DIFFERENT user's task joined to the same goal must NOT leak into the response —
         # get_tasks_for_goal returns the viewer's tasks only. The create door refuses that
         # edge, so it is written straight into the graph: the read is the guard under test.
-        other = await self._user(neo4j_driver, "user_gantt_intruder")
+        other = await self._user(neo4j_driver, seed_user_uid("gantt_intruder"))
         foreign = (
             await services.tasks.create_task(
                 TaskCreateRequest(title="Foreign task", due_date=soon), other

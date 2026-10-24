@@ -19,10 +19,11 @@ from core.models.ku.ku import Ku
 from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
 from core.services.ps.ps_application_discovery_service import PsApplicationDiscoveryService
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
-USER = "user_ku_application_discovery"
+USER = seed_user_uid("ku_application_discovery")
 KU = "ku.test.application-discovery"
 HABIT = "habit.test.reinforces-the-ku"
 

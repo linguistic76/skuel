@@ -32,6 +32,7 @@ from core.models.type_hints import UserUID
 from core.services.user import UserContext
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client
 
 if TYPE_CHECKING:
@@ -48,7 +49,7 @@ pytestmark = [
 ]
 
 MARK = "evcreate"
-USER = f"user_{MARK}_caller"
+USER = seed_user_uid(f"{MARK}_caller")
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")

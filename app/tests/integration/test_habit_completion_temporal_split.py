@@ -22,7 +22,9 @@ from datetime import datetime, time, timedelta
 import pytest
 import pytest_asyncio
 
-USER = "user_temporal_split"
+from tests.helpers.seed_uids import seed_user_uid
+
+USER = seed_user_uid("temporal_split")
 HABIT = "habit.temporal_split"
 
 NOW = datetime.now()
@@ -73,8 +75,8 @@ class TestHabitCompletionTemporalSplit:
     @pytest_asyncio.fixture
     async def seeded(self, neo4j_driver, completions_backend):
         """Two completions on the same instant, differing only in storage type."""
-        await _seed_completion(neo4j_driver, "hc.split_string", temporal_stamp=False)
-        await _seed_completion(neo4j_driver, "hc.split_temporal", temporal_stamp=True)
+        await _seed_completion(neo4j_driver, "hc.split-string", temporal_stamp=False)
+        await _seed_completion(neo4j_driver, "hc.split-temporal", temporal_stamp=True)
         return completions_backend
 
     async def test_a_date_bounded_find_by_returns_both_storage_shapes(self, seeded, neo4j_driver):
@@ -92,8 +94,8 @@ class TestHabitCompletionTemporalSplit:
             )
             types = {row["uid"]: row["type"] for row in await shapes.data()}
         assert types == {
-            "hc.split_string": "STRING NOT NULL",
-            "hc.split_temporal": "ZONED DATETIME NOT NULL",
+            "hc.split-string": "STRING NOT NULL",
+            "hc.split-temporal": "ZONED DATETIME NOT NULL",
         }
 
         result = await seeded.find_by(
@@ -101,7 +103,7 @@ class TestHabitCompletionTemporalSplit:
         )
 
         assert result.is_ok
-        assert {c.uid for c in result.value} == {"hc.split_string", "hc.split_temporal"}
+        assert {c.uid for c in result.value} == {"hc.split-string", "hc.split-temporal"}
 
     async def test_the_unbounded_paged_fetch_returns_both(self, seeded):
         """The shape the adherence path uses: no temporal predicate, a total order.
@@ -120,7 +122,7 @@ class TestHabitCompletionTemporalSplit:
         )
 
         assert result.is_ok
-        assert {c.uid for c in result.value} == {"hc.split_string", "hc.split_temporal"}
+        assert {c.uid for c in result.value} == {"hc.split-string", "hc.split-temporal"}
 
     async def test_both_rows_arrive_as_python_datetimes_for_the_window_filter(self, seeded):
         """Why filtering in Python is type-tolerant *by construction*.

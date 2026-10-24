@@ -36,6 +36,7 @@ from adapters.persistence.neo4j.user_backend import UserBackend
 from core.auth.graph_auth import GraphAuthService
 from core.utils.result_simplified import ErrorCategory
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
@@ -203,6 +204,6 @@ async def test_a_named_users_zone_outside_a_request(
     default = await user_service.get_user_zone(_UID[fresh])
     assert default.is_ok and default.value == ZoneInfo("America/Vancouver")
 
-    missing = await user_service.get_user_zone(f"user_no_such_{_RUN_ID}")
+    missing = await user_service.get_user_zone(seed_user_uid(f"no_such_{_RUN_ID}"))
     assert missing.is_error
     assert missing.expect_error().category == ErrorCategory.NOT_FOUND

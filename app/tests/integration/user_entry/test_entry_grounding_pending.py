@@ -35,6 +35,7 @@ from core.services.embeddings_service import EmbeddingsService
 from core.services.entry_grounding_service import EntryGroundingService
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration.user_entry.test_extract_activities_pipeline import _seed_ku
 
 if TYPE_CHECKING:
@@ -43,14 +44,14 @@ if TYPE_CHECKING:
     from core.services.user_entry.user_entry_service import UserEntryService
 
 KU = "ku.g3.decisions"
-KNOWLEDGE = "ue_g3_knowledge"
-DAILY = "ue_g3_daily"
-WEEKLY = "ue_g3_weekly"
-PRIVATE_DAILY = "ue_g3_private_daily"
-PRIVATE_KNOWLEDGE_WITH_VECTOR = "ue_g3_private_knowledge"
-PRIVATE_DAILY_WITH_VECTOR = "ue_g3_private_daily_vector"
-PLAIN_WITH_VECTOR = "ue_g3_plain"
-SUMMARY_WITH_VECTOR = "ue_g3_summary"
+KNOWLEDGE = "ue.g3-knowledge"
+DAILY = "ue.g3-daily"
+WEEKLY = "ue.g3-weekly"
+PRIVATE_DAILY = "ue.g3-private-daily"
+PRIVATE_KNOWLEDGE_WITH_VECTOR = "ue.g3-private-knowledge"
+PRIVATE_DAILY_WITH_VECTOR = "ue.g3-private-daily-vector"
+PLAIN_WITH_VECTOR = "ue.g3-plain"
+SUMMARY_WITH_VECTOR = "ue.g3-summary"
 
 GROUNDED = {KNOWLEDGE, DAILY, WEEKLY}
 
@@ -112,7 +113,7 @@ async def _set_private(neo4j_driver: AsyncDriver, uid: str) -> None:
 async def seeded(
     clean_neo4j: object, user_entry_service: UserEntryService, neo4j_driver: AsyncDriver, seed_user
 ) -> str:
-    owner = await seed_user("user_g3_owner")
+    owner = await seed_user(seed_user_uid("g3_owner"))
     await _seed_ku(neo4j_driver, KU)
     for uid, pipeline in (
         (KNOWLEDGE, Pipeline.KNOWLEDGE),

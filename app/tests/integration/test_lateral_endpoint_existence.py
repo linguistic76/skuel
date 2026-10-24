@@ -26,13 +26,14 @@ from core.services.lateral_relationships.lateral_relationship_service import (
 )
 from core.utils.result_simplified import ErrorCategory
 from tests.helpers.lateral_verifiers import CALLER, AdmitsAllBut
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 PRESENT_UID = "ku.existence.present"
 ABSENT_UID = "ku.existence.absent"
 OTHER_ABSENT_UID = "ku.existence.absent-2"
-PRIVATE_UID = "task_existence_private"
+PRIVATE_UID = "task.existence-private"
 VERIFIER = AdmitsAllBut(PRIVATE_UID)
 
 
@@ -50,9 +51,10 @@ async def one_ku(neo4j_driver):
         await session.run(
             "CREATE (:Entity:Ku {uid: $uid, title: 'Present', entity_type: 'ku'})"
             " CREATE (:Entity:Task {uid: $private, title: 'Private', entity_type: 'task',"
-            " user_uid: 'user_existence_owner', status: 'active'})",
+            " user_uid: $user_existence_owner, status: 'active'})",
             uid=PRESENT_UID,
             private=PRIVATE_UID,
+            user_existence_owner=seed_user_uid("existence_owner"),
         )
     yield
     async with neo4j_driver.session() as session:

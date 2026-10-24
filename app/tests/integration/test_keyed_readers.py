@@ -31,21 +31,22 @@ from core.models.goal.goal import Goal
 from core.models.relationship_registry import GOALS_CONFIG, UnifiedRelationshipDefinition
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from tests.helpers.activity_links import undeclared_edge
+from tests.helpers.seed_uids import seed_user_uid
 
 EDGE = undeclared_edge()
 
-P = "keyed_"
-OWNER = "user_" + P + "owner"
-STRANGER = "user_" + P + "stranger"
+P = "keyed."
+OWNER = seed_user_uid("keyed_owner")
+STRANGER = seed_user_uid("keyed_stranger")
 
 GOAL = P + "goal"  # linked from a habit of each tier, a task and a stranger's habit
-GOAL_HABIT_ONLY = P + "goal_habit_only"  # linked from one optional-tier habit
+GOAL_HABIT_ONLY = P + "goal-habit-only"  # linked from one optional-tier habit
 
-HABIT_ESSENTIAL = P + "habit_essential"
-HABIT_UNTIERED = P + "habit_untiered"
-TASK_OPTIONAL = P + "task_optional"
-HABIT_OPTIONAL = P + "habit_optional"
-STRANGERS_HABIT = P + "strangers_habit"
+HABIT_ESSENTIAL = P + "habit-essential"
+HABIT_UNTIERED = P + "habit-untiered"
+TASK_OPTIONAL = P + "task-optional"
+HABIT_OPTIONAL = P + "habit-optional"
+STRANGERS_HABIT = P + "strangers-habit"
 
 
 def _view(
@@ -210,7 +211,7 @@ async def test_a_linked_draft_ku_is_withheld_and_a_published_one_returned(
 
     Both readers that name far ends withhold the draft; the existence check counts it.
     """
-    published, draft = P + "ku_published", P + "ku_draft"
+    published, draft = P + "ku-published", P + "ku-draft"
     async with neo4j_driver.session() as session:
         await session.run(
             "CREATE (g:Entity:Goal {uid: $goal, entity_type: 'goal', title: $goal, "

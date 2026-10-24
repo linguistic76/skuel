@@ -23,9 +23,9 @@ from adapters.persistence.neo4j.user_context_queries import UserContextQueryExec
 from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.path_step import PathStep
-from core.models.type_hints import UserUID
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = UserUID("user_mastered_readers")
+USER = seed_user_uid("mastered_readers")
 KU = "ku.readers.only-ku"
 STEP = "ps.readers.the-step"
 

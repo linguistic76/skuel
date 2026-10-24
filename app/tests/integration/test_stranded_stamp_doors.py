@@ -30,8 +30,9 @@ from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums.entity_enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
+from tests.helpers.seed_uids import seed_user_uid
 
-OWNER = "user_test_integration"  # seeded by the ensure_test_users fixture
+OWNER = seed_user_uid("test_integration")  # seeded by the ensure_test_users fixture
 
 
 # boundary: raw Neo4j node properties — a heterogeneous property map read straight off

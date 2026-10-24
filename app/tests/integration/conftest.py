@@ -26,6 +26,8 @@ from adapters.persistence.neo4j.graph_driver import (
 )
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.seed_uids import seed_user_uid
+from tests.integration import _uid_census
 from tests.integration._container_lifecycle import bounded_neo4j_container
 from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION, running_kernel_version
 
@@ -37,6 +39,19 @@ from tests.integration._vault_rig import rig  # noqa: F401
 
 # NOTE: No custom event_loop fixture needed - pytest-asyncio provides one automatically
 # with better cleanup handling for async fixtures
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_setup(item: pytest.Item) -> Generator[None, object, object]:
+    """The uid census reads what the test starts on (``_uid_census.py``)."""
+    _uid_census.read_before_setup()
+    return (yield)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item: pytest.Item) -> Generator[None, object, object]:
+    """The uid census fails a test on a uid it wrote outside the grammar (``_uid_census.py``)."""
+    return (yield from _uid_census.census_call(item))
 
 
 @pytest.fixture(scope="session")
@@ -227,20 +242,20 @@ async def ensure_test_users(neo4j_driver):
 
     # All test user UIDs used across integration tests
     test_user_uids = [
-        "user_test",
-        "user_test_event_ku_flow",
-        "user_test_goal_recommendations",
-        "user_test_habit_goal_flow",
-        "user_test_integration",
-        "user_test_ku_lp_flow",
-        "user_test_task_goal_flow",
-        "user_mike",  # Used in askesis tests
-        "user_test_123",  # Used in some tests
-        "user_test_456",  # Used in some tests
+        seed_user_uid("test"),
+        seed_user_uid("test_event_ku_flow"),
+        seed_user_uid("test_goal_recommendations"),
+        seed_user_uid("test_habit_goal_flow"),
+        seed_user_uid("test_integration"),
+        seed_user_uid("test_ku_lp_flow"),
+        seed_user_uid("test_task_goal_flow"),
+        seed_user_uid("mike"),  # Used in askesis tests
+        seed_user_uid("test_123"),  # Used in some tests
+        seed_user_uid("test_456"),  # Used in some tests
         # Semantic search integration test users
-        "user_test_learning",
-        "user_discovery",
-        "user_test_perf",
+        seed_user_uid("test_learning"),
+        seed_user_uid("discovery"),
+        seed_user_uid("test_perf"),
         # Per-domain core-operations suites. These became REQUIRED when the CRUD
         # door started writing the (User)-[:OWNS]->(entity) edge in the same
         # statement as the node: an entity owned by a user that does not exist
@@ -248,65 +263,65 @@ async def ensure_test_users(neo4j_driver):
         # mechanisms, so `create` now refuses it instead of leaving an orphan.
         # A new test that creates owned entities must add its uid here — the
         # failure names the missing owner.
-        "test_user",
-        "user_test_tasks_core",
-        "user_test_goals_core",
-        "user_test_habits_core",
-        "user_test_events_core",
-        "user_test_choices_core",
-        "user_test_principles_core",
-        "user_test_async_embeddings",
-        "user_intent_pipeline",
-        "user_cascade",
-        "user_other",
+        seed_user_uid("test_user"),
+        seed_user_uid("test_tasks_core"),
+        seed_user_uid("test_goals_core"),
+        seed_user_uid("test_habits_core"),
+        seed_user_uid("test_events_core"),
+        seed_user_uid("test_choices_core"),
+        seed_user_uid("test_principles_core"),
+        seed_user_uid("test_async_embeddings"),
+        seed_user_uid("intent_pipeline"),
+        seed_user_uid("cascade"),
+        seed_user_uid("other"),
         # paths_completed counts (:User)-[:ENROLLED_IN {status: completed}]->
         # edges the real enroll door and progress recount write.
-        "user_paths_completed",
-        "user_paths_other",
+        seed_user_uid("paths_completed"),
+        seed_user_uid("paths_other"),
         # completion_velocity's trailing window counts (:User)-[:OWNS]->(:Task)
         # rows by completion_date, so each window shape needs a real owner.
-        "user_velocity_window",
-        "user_velocity_stale",
-        "user_velocity_vault",
+        seed_user_uid("velocity_window"),
+        seed_user_uid("velocity_stale"),
+        seed_user_uid("velocity_vault"),
         # consistency_score's trailing window counts
         # (:User)-[:OWNS]->(:HabitCompletion) rows by completed_at, so each
         # window shape needs a real owner.
-        "user_consistency_window",
-        "user_consistency_stale",
-        "user_consistency_bulk",
+        seed_user_uid("consistency_window"),
+        seed_user_uid("consistency_stale"),
+        seed_user_uid("consistency_bulk"),
         # The HabitCompletion native/string completed_at split — seeded rows hang
         # off a real owner via :OWNS, like every other completion.
-        "user_temporal_split",
+        seed_user_uid("temporal_split"),
         # The windowed completion reads seed both completed_at shapes off this owner.
-        "user_completion_range",
+        seed_user_uid("completion_range"),
         # The vault ✅ write-back round trip: the real sync ingests a temp
         # vault as this owner and the extracted Tasks hang off it via :OWNS.
-        "user_vault_done_hash",
+        seed_user_uid("vault_done_hash"),
         # The status-guarded write primitive (ADR-087): its branch matrix and its
         # concurrency proof create real owned Tasks and race writers against them.
-        "user_status_guard",
+        seed_user_uid("status_guard"),
         # The three-click sequence (complete → Undo → complete) driven through the
         # real Task services — its tasks are owned like any other.
-        "user_three_click",
+        seed_user_uid("three_click"),
         # The Goal complete → reopen → complete cycle (ADR-087 PR-3): the stamp clear
         # and the progress reset ride one write-time condition, proven on real goals.
-        "user_goal_cycle",
+        seed_user_uid("goal_cycle"),
         # The goal progress dashboard's habit and knowledge figures (F8-4): the
         # supporting habit's completions hang off this owner via :OWNS and its
         # mastery is the owner's :MASTERED edge.
-        "user_goal_dashboard",
+        seed_user_uid("goal_dashboard"),
         # The Askesis aggregation tool's backend count (tool-selection first
         # slice): OWNS-scoped achieved-goal counts, plus a second owner to prove
         # cross-tenant isolation in the query itself.
-        "user_agg_count",
-        "user_agg_other",
+        seed_user_uid("agg_count"),
+        seed_user_uid("agg_other"),
         # Instant and calendar-day reads over rows seeded through their real writers:
         # an insight's native stamps served by its route, the embodiment window over
         # recorded habit completions, and an event's calendar-day reads.
-        "user_insight_native",
-        "user_embodiment_window",
-        "user_event_calendar_days",
-        "user_ku_application_discovery",
+        seed_user_uid("insight_native"),
+        seed_user_uid("embodiment_window"),
+        seed_user_uid("event_calendar_days"),
+        seed_user_uid("ku_application_discovery"),
         # The owner the run ingests as. A file that names no owner is stamped with
         # it, so the bulk door's unknown-owner refusal (ADR-086) makes it REQUIRED.
         INGESTION_TEST_OWNER,
@@ -500,7 +515,7 @@ async def test_user(neo4j_driver):
 
     # Create a test user with minimal required fields
     test_user_obj = User(
-        uid="user_test_rich_context",
+        uid=seed_user_uid("test_rich_context"),
         title="Test User",
         description="User for rich context pattern tests",
         email="test@example.com",
@@ -556,7 +571,7 @@ async def create_test_users(neo4j_driver):
     from datetime import datetime
 
     async with neo4j_driver.session() as session:
-        for user_uid in ("user_test_123", "user_test_456"):
+        for user_uid in (seed_user_uid("test_123"), seed_user_uid("test_456")):
             await session.run(
                 """
                 MERGE (u:User {uid: $user_uid})
@@ -581,7 +596,7 @@ async def create_moc_test_user(neo4j_driver):
             ON CREATE SET u.created_at = datetime($created_at)
             RETURN u
             """,
-            user_uid="user_test_integration",
+            user_uid=seed_user_uid("test_integration"),
             created_at=datetime.now().isoformat(),
         )
         await result.consume()  # Ensure transaction commits
@@ -592,9 +607,10 @@ async def create_moc_test_user(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MATCH (u:User {uid: 'user_test_integration'})
+            MATCH (u:User {uid: $user_test_integration})
             DETACH DELETE u
-            """
+            """,
+            user_test_integration=seed_user_uid("test_integration"),
         )
 
 
@@ -938,18 +954,18 @@ async def populated_test_data(skuel_app):
     services = skuel_app.state.services
     driver = services.neo4j_driver
 
-    test_user_uid = "user_test_rag"
+    test_user_uid = seed_user_uid("test_rag")
 
     # Test knowledge units for RAG tests
     test_kus = [
         {
-            "uid": "ku.async_programming",
+            "uid": "ku.async-programming",
             "title": "Async Programming",
             "summary": "Concurrent code patterns in Python",
             "domain": "programming",
         },
         {
-            "uid": "ku.python_basics",
+            "uid": "ku.python-basics",
             "title": "Python Basics",
             "summary": "Python fundamentals and syntax",
             "domain": "programming",
@@ -994,8 +1010,8 @@ async def populated_test_data(skuel_app):
         # Create prerequisite relationship: async_programming REQUIRES python_basics
         await session.run(
             """
-            MATCH (a:Entity {uid: 'ku.async_programming'})
-            MATCH (b:Entity {uid: 'ku.python_basics'})
+            MATCH (a:Entity {uid: 'ku.async-programming'})
+            MATCH (b:Entity {uid: 'ku.python-basics'})
             MERGE (a)-[:REQUIRES]->(b)
             """
         )
@@ -1056,11 +1072,11 @@ async def enrolled_user_with_lp(skuel_app):
     services = skuel_app.state.services
     driver = services.neo4j_driver
 
-    user_uid = "user_test_guided"
-    lp_uid = "lp:test:guided-pipeline"
-    ps_uid = "ps:test:guided-step"
-    ku_uid = "ku_test_guided_concept"  # kind derives from the :Ku label/entity_type, never the uid spelling
-    prereq_ku_uid = "ku_test_guided_prerequisite"
+    user_uid = seed_user_uid("test_guided")
+    lp_uid = "lp.test.guided-pipeline"
+    ps_uid = "ps.test.guided-step"
+    ku_uid = "ku.test-guided-concept"  # kind derives from the :Ku label/entity_type, never the uid spelling
+    prereq_ku_uid = "ku.test-guided-prerequisite"
     created_at = datetime.now().isoformat()
 
     async with driver.session() as session:
@@ -1255,7 +1271,7 @@ def event_bus():
 @pytest.fixture
 def user_uid():
     """Standard test user UID."""
-    return "user_test_async_embeddings"
+    return seed_user_uid("test_async_embeddings")
 
 
 @pytest_asyncio.fixture

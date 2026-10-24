@@ -33,11 +33,12 @@ from core.models.task.task import Task
 from core.models.update_contracts import StatusWriteGuard
 from core.services.completion_stamp import is_completion_transition, status_transition_guard
 from core.utils.timestamp_helpers import today_in
+from tests.helpers.seed_uids import seed_user_uid
 
 # The zone of the user whose entity the guard stamps.
 ZONE = ZoneInfo("America/Vancouver")
 
-USER = "user_status_guard"
+USER = seed_user_uid("status_guard")
 _COMPLETED = frozenset({EntityStatus.COMPLETED.value})
 _TERMINAL = frozenset(s.value for s in EntityStatus if s.is_terminal())
 _RACE_ITERATIONS = 20
@@ -58,7 +59,7 @@ class TestStatusGuardedUpdate:
 
         async def _seed(status: EntityStatus = EntityStatus.ACTIVE, **fields) -> str:
             counter["n"] += 1
-            uid = f"task.guard_{counter['n']}"
+            uid = f"task.guard-{counter['n']}"
             result = await backend.create(
                 Task(uid=uid, user_uid=USER, title="guarded", status=status, **fields)
             )
@@ -389,7 +390,7 @@ class TestRecomputeWithStatusGuard:
     _READ = "MATCH (n:Entity {uid: $uid}) RETURN n.title AS title, $extra AS extra"
 
     async def test_the_planner_sees_the_entity_and_the_read(self, backend):
-        uid = await self._seed(backend, "task.recompute_sees")
+        uid = await self._seed(backend, "task.recompute-sees")
         seen: list = []
 
         def plan(entity, row):
@@ -404,7 +405,7 @@ class TestRecomputeWithStatusGuard:
         assert result.value.outcome.prior_status == EntityStatus.ACTIVE.value
 
     async def test_a_declined_plan_rolls_back_and_leaves_no_sentinel(self, backend, neo4j_driver):
-        uid = await self._seed(backend, "task.recompute_declined")
+        uid = await self._seed(backend, "task.recompute-declined")
         before = await self._props(neo4j_driver, uid)
 
         result = await backend._recompute_with_status_guard(
@@ -418,7 +419,7 @@ class TestRecomputeWithStatusGuard:
         assert await self._props(neo4j_driver, uid) == before
 
     async def test_a_written_plan_leaves_no_sentinel(self, backend, neo4j_driver):
-        uid = await self._seed(backend, "task.recompute_written")
+        uid = await self._seed(backend, "task.recompute-written")
 
         result = await backend._recompute_with_status_guard(
             uid,
@@ -431,7 +432,7 @@ class TestRecomputeWithStatusGuard:
         assert "_sg_lock" not in await self._props(neo4j_driver, uid)
 
     async def test_the_plan_guard_is_evaluated_against_the_locked_prior(self, backend):
-        uid = await self._seed(backend, "task.recompute_guard", EntityStatus.COMPLETED)
+        uid = await self._seed(backend, "task.recompute-guard", EntityStatus.COMPLETED)
         guard = StatusWriteGuard(patch_if_prior_in=(_COMPLETED, {"status": "active"}))
 
         result = await backend._recompute_with_status_guard(

@@ -32,7 +32,9 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.timestamp_helpers import day_of
+from core.utils.uid_grammar import slugify
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -59,7 +61,7 @@ class TestTasksCoreOperations:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user_test_tasks_core"
+        return seed_user_uid("test_tasks_core")
 
     # ==========================================================================
     # CRUD OPERATIONS TESTS (5 tests)
@@ -70,7 +72,7 @@ class TestTasksCoreOperations:
         # Arrange
         today = date.today()
         task = Task(
-            uid="task.write_report",
+            uid="task.write-report",
             user_uid=test_user_uid,
             title="Write Quarterly Report",
             description="Compile Q3 performance metrics and analysis",
@@ -86,7 +88,7 @@ class TestTasksCoreOperations:
         # Assert
         assert result.is_ok
         created = result.value
-        assert created.uid == "task.write_report"
+        assert created.uid == "task.write-report"
         assert created.title == "Write Quarterly Report"
         assert created.priority == Priority.HIGH
         assert created.status == EntityStatus.ACTIVE
@@ -96,7 +98,7 @@ class TestTasksCoreOperations:
         """Test retrieving a task by UID."""
         # Arrange - Create a task first
         task = Task(
-            uid="task.get_test",
+            uid="task.get-test",
             user_uid=test_user_uid,
             title="Test Task for Retrieval",
             description="This task tests retrieval functionality",
@@ -106,12 +108,12 @@ class TestTasksCoreOperations:
         assert create_result.is_ok
 
         # Act - Retrieve the task
-        result = await tasks_service.get("task.get_test")
+        result = await tasks_service.get("task.get-test")
 
         # Assert
         assert result.is_ok
         retrieved = result.value
-        assert retrieved.uid == "task.get_test"
+        assert retrieved.uid == "task.get-test"
         assert retrieved.title == "Test Task for Retrieval"
 
     async def test_get_nonexistent_task(self, tasks_service):
@@ -128,7 +130,7 @@ class TestTasksCoreOperations:
         # Arrange - Create multiple tasks
         tasks = [
             Task(
-                uid=f"task.list_test_{i}",
+                uid=f"task.list-test-{i}",
                 user_uid=test_user_uid,
                 title=f"Test Task {i}",
                 description=f"Description for task {i}",
@@ -154,7 +156,7 @@ class TestTasksCoreOperations:
         # Arrange & Act - Create 5 tasks
         for i in range(5):
             task = Task(
-                uid=f"task.multi_{i}",
+                uid=f"task.multi-{i}",
                 user_uid=test_user_uid,
                 title=f"Multi Task {i}",
                 description=f"Multiple task {i}",
@@ -215,7 +217,7 @@ class TestTasksCoreOperations:
         # Arrange - Create tasks with different priorities
         today = date.today()
         high_task = Task(
-            uid="task.high_priority",
+            uid="task.high-priority",
             user_uid=test_user_uid,
             title="High Priority Task",
             description="Critical task",
@@ -224,7 +226,7 @@ class TestTasksCoreOperations:
             status=EntityStatus.ACTIVE,
         )
         low_task = Task(
-            uid="task.low_priority",
+            uid="task.low-priority",
             user_uid=test_user_uid,
             title="Low Priority Task",
             description="Nice to have",
@@ -257,7 +259,7 @@ class TestTasksCoreOperations:
         # Arrange - Create tasks with different due dates
         today = date.today()
         near_task = Task(
-            uid="task.due_soon",
+            uid="task.due-soon",
             user_uid=test_user_uid,
             title="Due Soon Task",
             description="Due this week",
@@ -265,7 +267,7 @@ class TestTasksCoreOperations:
             status=EntityStatus.ACTIVE,
         )
         far_task = Task(
-            uid="task.due_later",
+            uid="task.due-later",
             user_uid=test_user_uid,
             title="Due Later Task",
             description="Due next month",
@@ -300,14 +302,13 @@ class TestTasksCoreOperations:
         statuses = [
             EntityStatus.DRAFT,
             EntityStatus.ACTIVE,
-            EntityStatus.ACTIVE,
             EntityStatus.COMPLETED,
             EntityStatus.CANCELLED,
         ]
 
         for status in statuses:
             task = Task(
-                uid=f"task.status_{status.value}",
+                uid=f"task.status-{slugify(status.value)}",
                 user_uid=test_user_uid,
                 title=f"Task with {status.value} status",
                 description=f"Testing {status.value} status",
@@ -329,7 +330,7 @@ class TestTasksCoreOperations:
 
         for priority, due_date in priorities:
             task = Task(
-                uid=f"task.priority_{priority.value}",
+                uid=f"task.priority-{slugify(priority.value)}",
                 user_uid=test_user_uid,
                 title=f"{priority.value.title()} Priority Task",
                 description=f"Testing {priority.value} priority",
@@ -358,7 +359,7 @@ class TestTasksCoreOperations:
         """
         # Arrange - high priority, no due date: ordinary DSL output
         task = Task(
-            uid="task.high_priority_undated",
+            uid="task.high-priority-undated",
             user_uid=test_user_uid,
             title="Undated High Priority Task",
             description="High priority without due date",
@@ -378,7 +379,7 @@ class TestTasksCoreOperations:
         """Test creating a task with duration estimates and tracking."""
         # Arrange
         task = Task(
-            uid="task.with_time_tracking",
+            uid="task.with-time-tracking",
             user_uid=test_user_uid,
             title="Task with Time Tracking",
             description="Track estimated vs actual time",
@@ -405,7 +406,7 @@ class TestTasksCoreOperations:
         # Arrange
         today = date.today()
         task = Task(
-            uid="task.full_details",
+            uid="task.full-details",
             user_uid=test_user_uid,
             title="Fully Detailed Task",
             description="Complete task with all optional fields",
@@ -475,7 +476,7 @@ class TestTasksCoreOperations:
 
         for i, (due, scheduled) in enumerate(date_configs):
             task = Task(
-                uid=f"task.date_range_{i}",
+                uid=f"task.date-range-{i}",
                 user_uid=test_user_uid,
                 title=f"Task with date range {i}",
                 description=f"Due {due}, scheduled {scheduled}",

@@ -24,9 +24,10 @@ from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
 from core.models.enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_agg_count"
-OTHER = "user_agg_other"
+USER = seed_user_uid("agg_count")
+OTHER = seed_user_uid("agg_other")
 
 
 @pytest.mark.asyncio
@@ -53,9 +54,9 @@ class TestCountGoalsAchieved:
         assert created.is_ok, created.error
 
     async def test_counts_are_owner_scoped_by_the_owns_edge(self, backend: GoalsBackend) -> None:
-        await self._seed_achieved(backend, "goal_agg_mine_1", "2026-05-10")
-        await self._seed_achieved(backend, "goal_agg_mine_2", "2026-06-30")
-        await self._seed_achieved(backend, "goal_agg_theirs", "2026-05-10", user_uid=OTHER)
+        await self._seed_achieved(backend, "goal.agg-mine-1", "2026-05-10")
+        await self._seed_achieved(backend, "goal.agg-mine-2", "2026-06-30")
+        await self._seed_achieved(backend, "goal.agg-theirs", "2026-05-10", user_uid=OTHER)
 
         result = await backend.count_goals_achieved(
             user_uid=USER, since=date(2026, 4, 1), until=date(2026, 6, 30)
@@ -73,7 +74,7 @@ class TestCountGoalsAchieved:
         """A goal achieved ON the until date is counted (date-shaped ISO strings
         compare lexicographically AND chronologically here — § 3's trap is for
         datetime-backed siblings, pinned absent on this one)."""
-        await self._seed_achieved(backend, "goal_agg_on_bound", "2026-06-30")
+        await self._seed_achieved(backend, "goal.agg-on-bound", "2026-06-30")
 
         result = await backend.count_goals_achieved(
             user_uid=USER, since=date(2026, 6, 30), until=date(2026, 6, 30)
@@ -83,8 +84,8 @@ class TestCountGoalsAchieved:
         assert result.value["total"] == 1
 
     async def test_open_bounds_mean_unbounded(self, backend: GoalsBackend) -> None:
-        await self._seed_achieved(backend, "goal_agg_old", "2020-01-01")
-        await self._seed_achieved(backend, "goal_agg_new", "2026-08-01")
+        await self._seed_achieved(backend, "goal.agg-old", "2020-01-01")
+        await self._seed_achieved(backend, "goal.agg-new", "2026-08-01")
 
         unbounded = await backend.count_goals_achieved(user_uid=USER)
         since_only = await backend.count_goals_achieved(user_uid=USER, since=date(2026, 1, 1))
@@ -97,7 +98,7 @@ class TestCountGoalsAchieved:
 
     async def test_unachieved_goals_do_not_count(self, backend: GoalsBackend) -> None:
         created = await backend.create(
-            Goal(uid="goal_agg_open", user_uid=USER, title="open", status=EntityStatus.ACTIVE)
+            Goal(uid="goal.agg-open", user_uid=USER, title="open", status=EntityStatus.ACTIVE)
         )
         assert created.is_ok
 

@@ -78,24 +78,27 @@ from core.services.analytics.analytics_life_path_service import AnalyticsLifePat
 from core.services.lifepath.lifepath_core_service import LifePathCoreService
 from core.services.ps.ps_intelligence_service import PsIntelligenceService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_life_path_scope"
-OTHER_USER = "user_life_path_scope_other"
+USER = seed_user_uid("life_path_scope")
+OTHER_USER = seed_user_uid("life_path_scope_other")
 
-LIFE_PATH = "lp_designated_life_path"
-OTHER_PATH = "lp_not_designated"
+LIFE_PATH = "lp.designated-life-path"
+OTHER_PATH = "lp.not-designated"
 
-PS_EMBODIED = "ps_lp_embodied"
-PS_APPLIED = "ps_lp_applied"
-PS_CORPUS_HOT = "ps_lp_corpus_hot"
-PS_NO_KU = "ps_lp_teaches_nothing"
-PS_OFF_PATH = "ps_lp_off_path"
+PS_EMBODIED = "ps.lp-embodied"
+PS_APPLIED = "ps.lp-applied"
+PS_CORPUS_HOT = "ps.lp-corpus-hot"
+PS_NO_KU = "ps.lp-teaches-nothing"
+PS_OFF_PATH = "ps.lp-off-path"
 
 ON_PATH = {PS_EMBODIED, PS_APPLIED, PS_CORPUS_HOT, PS_NO_KU}
 
-KU_DEEP = "ku_lp_all_six_channels"
-KU_LIGHT = "ku_lp_partially_applied"
-KU_NEVER = "ku_lp_never_applied"
+KU_DEEP = "ku.lp-all-six-channels"
+# The uid prefix of an entity type whose name is not one word.
+_UID_PREFIX = {"user_entry": "ue"}
+KU_LIGHT = "ku.lp-partially-applied"
+KU_NEVER = "ku.lp-never-applied"
 
 # 0.30 habits + 0.25 tasks + 0.25 events + 0.20 entries + 0.14 choices
 # + 0.14 principles = 1.28 raw, capped to 1.00.
@@ -189,8 +192,8 @@ class TestLifePathAlignmentLearnerScope:
         stale = (now - timedelta(days=200)).isoformat()
 
         async with neo4j_driver.session() as session:
-            for uid in (USER, OTHER_USER):
-                await session.run("MERGE (u:User {uid: $u})", u=uid)
+            for user in (USER, OTHER_USER):
+                await session.run("MERGE (u:User {uid: $u})", u=user)
 
             # Two learning paths. Designation promotes exactly one of them, so
             # OTHER_PATH is the control on "the path read is keyed on the
@@ -300,7 +303,7 @@ class TestLifePathAlignmentLearnerScope:
                     u=USER,
                     ku=ku_uid,
                     count=count,
-                    prefix=f"{entity_type}_{ku_uid}_",
+                    prefix=f"{_UID_PREFIX.get(entity_type, entity_type)}.{ku_uid.removeprefix('ku.')}-",
                     entity_type=entity_type,
                     status=status,
                     stale=stale,
@@ -311,7 +314,7 @@ class TestLifePathAlignmentLearnerScope:
             await session.run(
                 """
                 MATCH (u:User {uid: $u}), (k:Entity {uid: $ku})
-                CREATE (a:Entity {uid: 'other_learner_habit', entity_type: 'habit',
+                CREATE (a:Entity {uid: 'other.learner-habit', entity_type: 'habit',
                                   title: 'Their habit', status: 'active'})
                 MERGE (u)-[:OWNS]->(a)
                 MERGE (a)-[:REINFORCES_KNOWLEDGE]->(k)
@@ -580,25 +583,25 @@ class TestLifePathAlignmentLearnerScope:
         never emits channel prompts at all — which is what the old three-branch
         version did for entries, choices and principles.
         """
-        bare_user = "user_life_path_no_activity"
+        bare_user = seed_user_uid("life_path_no_activity")
         async with neo4j_driver.session() as session:
             await session.run("MERGE (u:User {uid: $u})", u=bare_user)
             await session.run(
                 """
-                CREATE (p:Entity:LearningPath {uid: 'lp_bare', entity_type: 'learning_path',
+                CREATE (p:Entity:LearningPath {uid: 'lp.bare', entity_type: 'learning_path',
                                                title: 'Bare path', status: 'active'})
                 """
             )
             await session.run(
                 """
-                MATCH (p:Entity {uid: 'lp_bare'}), (s:Entity {uid: $ps})
+                MATCH (p:Entity {uid: 'lp.bare'}), (s:Entity {uid: $ps})
                 MERGE (p)-[r:HAS_STEP]->(s) SET r.sequence = 0
                 """,
                 ps=PS_EMBODIED,
             )
         assert (
             await LifePathBackend(Neo4jQueryExecutor(neo4j_driver)).designate_life_path(
-                bare_user, "lp_bare", datetime.now(UTC).isoformat()
+                bare_user, "lp.bare", datetime.now(UTC).isoformat()
             )
         ).is_ok
 
@@ -671,19 +674,19 @@ class TestLifePathAlignmentLearnerScope:
         distinguishable from "no such path" — an inner MATCH would report a
         stepless path as missing.
         """
-        empty_user = "user_life_path_empty"
+        empty_user = seed_user_uid("life_path_empty")
         async with neo4j_driver.session() as session:
             await session.run("MERGE (u:User {uid: $u})", u=empty_user)
             await session.run(
                 """
-                CREATE (p:Entity:LearningPath {uid: 'lp_stepless',
+                CREATE (p:Entity:LearningPath {uid: 'lp.stepless',
                                                entity_type: 'learning_path',
                                                title: 'Stepless', status: 'active'})
                 """
             )
         assert (
             await LifePathBackend(Neo4jQueryExecutor(neo4j_driver)).designate_life_path(
-                empty_user, "lp_stepless", datetime.now(UTC).isoformat()
+                empty_user, "lp.stepless", datetime.now(UTC).isoformat()
             )
         ).is_ok
 

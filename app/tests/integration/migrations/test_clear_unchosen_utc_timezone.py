@@ -29,6 +29,7 @@ import pytest
 from adapters.persistence.neo4j.user_backend import UserBackend
 from core.models.type_hints import UserUID
 from core.models.user import create_user
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
@@ -37,10 +38,10 @@ SCRIPT = (
     / "scripts/migrations/clear_unchosen_utc_timezone_2026_09.py"
 )
 _RUN = uuid.uuid4().hex[:6]
-SIX = frozenset(f"user_tzclear{i}_{_RUN}" for i in range(6))
-CHOOSER = f"user_tzclear_bkk_{_RUN}"
-FRESH = f"user_tzclear_fresh_{_RUN}"
-STRAY = f"user_tzclear_stray_{_RUN}"
+SIX = frozenset(seed_user_uid(f"tzclear{i}_{_RUN}") for i in range(6))
+CHOOSER = seed_user_uid(f"tzclear_bkk_{_RUN}")
+FRESH = seed_user_uid(f"tzclear_fresh_{_RUN}")
+STRAY = seed_user_uid(f"tzclear_stray_{_RUN}")
 
 
 def _load() -> ModuleType:

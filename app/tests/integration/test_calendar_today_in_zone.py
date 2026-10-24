@@ -227,7 +227,7 @@ class TestADefaultUserInTheVancouverEvening:
                 neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
             ),
         )
-        done, lapsed = f"habit.done_{_RUN_ID}", f"habit.lapsed_{_RUN_ID}"
+        done, lapsed = f"habit.done-{_RUN_ID}", f"habit.lapsed-{_RUN_ID}"
         for habit_uid in (done, lapsed):
             created = await habits.create(
                 Habit(uid=habit_uid, user_uid=uid, entity_type=EntityType.HABIT, title=habit_uid)

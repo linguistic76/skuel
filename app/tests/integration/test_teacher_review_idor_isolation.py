@@ -36,19 +36,20 @@ from adapters.inbound.boundary import result_to_response
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.services.report.teacher_review_service import TeacherReviewService
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.fixture
 async def two_classroom_fixture(neo4j_driver):
     """Seed two unrelated teacher classrooms, each with one shared submission."""
-    teacher_a = "test_idor_teacher_a"
-    teacher_b = "test_idor_teacher_b"
-    student_1 = "test_idor_student_1"
-    student_2 = "test_idor_student_2"
-    group_x = "test_idor_group_x"
-    group_y = "test_idor_group_y"
-    submission_1 = "ue_idor_s1"
-    submission_2 = "ue_idor_s2"
+    teacher_a = seed_user_uid("test_idor_teacher_a")
+    teacher_b = seed_user_uid("test_idor_teacher_b")
+    student_1 = seed_user_uid("test_idor_student_1")
+    student_2 = seed_user_uid("test_idor_student_2")
+    group_x = "test.idor-group-x"
+    group_y = "test.idor-group-y"
+    submission_1 = "ue.idor-s1"
+    submission_2 = "ue.idor-s2"
     now = datetime.now().isoformat()
 
     await neo4j_driver.execute_query(

@@ -28,6 +28,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit import Habit as Habit
 from core.services.habits.habit_event_handler_service import HabitEventHandlerService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -67,7 +68,7 @@ class TestHabitAchievementsFlow:
     @pytest.fixture
     def test_user_uid(self) -> str:
         """Standard test user UID."""
-        return "user_test_habit_achievements"
+        return seed_user_uid("test_habit_achievements")
 
     @pytest_asyncio.fixture
     async def test_user(self, neo4j_driver, test_user_uid):
@@ -92,7 +93,7 @@ class TestHabitAchievementsFlow:
     async def daily_habit(self, habit_backend, neo4j_driver, test_user_uid, test_user):
         """Create a daily habit for testing."""
         habit = Habit(
-            uid="habit.daily_coding",
+            uid="habit.daily-coding",
             user_uid=test_user_uid,
             entity_type=EntityType.HABIT,
             title="Daily Coding Practice",
@@ -412,7 +413,7 @@ class TestHabitAchievementsFlow:
         """Test retrieving all badges earned by a user."""
         # Create second habit
         habit2 = Habit(
-            uid="habit.daily_reading",
+            uid="habit.daily-reading",
             user_uid=test_user_uid,
             entity_type=EntityType.HABIT,
             title="Daily Reading",

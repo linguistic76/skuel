@@ -48,12 +48,13 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.learning_path import LearningPath
 from core.services.lifepath.lifepath_alignment_service import LifePathAlignmentService
 from core.services.user.unified_user_context import UserContext
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_lp_designation_edge"
-OTHER_USER = "user_lp_designation_edge_other"
+USER = seed_user_uid("lp_designation_edge")
+OTHER_USER = seed_user_uid("lp_designation_edge_other")
 
-LP = "lp.test.designation.primary"
-LP_SECOND = "lp.test.designation.second"
+LP = "lp.test.designation-primary"
+LP_SECOND = "lp.test.designation-second"
 
 TITLE = "Become a mindful engineer"
 TITLE_SECOND = "Learn to sail"

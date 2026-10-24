@@ -446,6 +446,7 @@ import pytest
 from unittest.mock import AsyncMock
 from core.services.tasks import TasksCoreService
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 @pytest.fixture
 def mock_backend():
@@ -458,7 +459,7 @@ async def test_create_task(mock_backend):
     """Test task creation."""
     core = TasksCoreService(backend=mock_backend)
 
-    result = await core.create_task(request, user_uid="user.test")
+    result = await core.create_task(request, user_uid=seed_user_uid("test"))
 
     assert result.is_ok
     assert result.value.uid == "task.test"
@@ -469,33 +470,40 @@ async def test_create_task(mock_backend):
 
 ### Pattern 2: Integration Testing with Real Backend
 
-```python
-from core.adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.task.task import Task
+The service runs on its domain backend (`TasksBackend`), built as `services_bootstrap/_backends.py`
+builds it — the generic `UniversalNeo4jBackend[Task]` has none of the Task-specific reads the
+service calls. The owner is a seeded user (`ensure_test_users`), and the uids fit the uid grammar
+(the integration census fails a test that writes one outside it).
 
-@pytest.fixture
+```python
+import pytest_asyncio
+
+from adapters.persistence.neo4j.backends.activity_backends import TasksBackend
+from core.models.enums.neo_labels import NeoLabel
+from core.models.task.task import Task
+from core.models.task.task_request import TaskCreateRequest
+from core.models.task.task_update_intent import TaskUpdateIntent
+from core.services.tasks import TasksCoreService
+from tests.helpers.seed_uids import seed_user_uid
+
+@pytest_asyncio.fixture
 async def tasks_core_service(neo4j_driver):
     """Real TasksCoreService with real backend."""
-    backend = UniversalNeo4jBackend[Task](
-        driver=neo4j_driver,
-        label=NeoLabel.TASK,
-        entity_class=Task,
-        base_label=NeoLabel.ENTITY,
-    )
+    backend = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
     return TasksCoreService(backend=backend)
 
-async def test_task_lifecycle(tasks_core_service):
+
+async def test_task_lifecycle(tasks_core_service, clean_neo4j, ensure_test_users):
     """Test full task lifecycle."""
-    # Create
-    create_result = await tasks_core_service.create_task(request, user_uid)
+    create_result = await tasks_core_service.create_task(
+        TaskCreateRequest(title="Write the report"), seed_user_uid("test")
+    )
     task = create_result.value
 
-    # Update
     update_result = await tasks_core_service.update_task(
-        task.uid, TaskUpdateIntent(priority="high")
+        task.uid, TaskUpdateIntent(priority="medium")
     )
 
-    # Delete
     delete_result = await tasks_core_service.delete_task(task.uid)
 
     assert all(r.is_ok for r in [create_result, update_result, delete_result])

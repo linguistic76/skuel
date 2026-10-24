@@ -23,6 +23,7 @@ from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import HubQuestion
 from core.models.type_hints import UserUID
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client
 
 if TYPE_CHECKING:
@@ -37,7 +38,7 @@ pytestmark = [
 ]
 
 MARK = "zzzlinkcache"
-CALLER = f"user_{MARK}"
+CALLER = seed_user_uid(f"{MARK}")
 
 
 async def _supported_goals(services: Any, principle: str) -> list[str]:  # boundary: Services

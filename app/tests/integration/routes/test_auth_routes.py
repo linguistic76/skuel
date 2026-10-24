@@ -20,6 +20,7 @@ from starlette.datastructures import FormData
 
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.seed_uids import seed_user_uid
 
 _PASSWORD = "password123"
 
@@ -70,7 +71,7 @@ def _post(path: str, fields: dict[str, str], session: dict | None = None):
     )
 
 
-def _signed_in(user_uid: str = "user_alice") -> Result:
+def _signed_in(user_uid: str = seed_user_uid("alice")) -> Result:
     """What ``sign_in`` returns on success."""
     user = MagicMock()
     user.can_manage_users.return_value = False
@@ -81,7 +82,7 @@ def _signed_in(user_uid: str = "user_alice") -> Result:
 def _graph_auth() -> MagicMock:
     graph_auth = MagicMock()
     graph_auth.sign_up = AsyncMock(
-        return_value=Result.ok({"user_uid": "user_new", "email": "new@example.com"})
+        return_value=Result.ok({"user_uid": seed_user_uid("new"), "email": "new@example.com"})
     )
     # Auto-login fails → register_submit redirects to /login?registered=true,
     # a clean success signal without exercising session mechanics.
@@ -155,13 +156,13 @@ class TestLoginSubmit:
 
     async def test_email_login_replaces_the_session_and_lands_on_today(self) -> None:
         graph_auth = _graph_auth()
-        graph_auth.sign_in.return_value = _signed_in("user_alice")
+        graph_auth.sign_in.return_value = _signed_in(seed_user_uid("alice"))
         user_service = MagicMock()
         user_service.get_user_by_username = AsyncMock()
         request = _post(
             "/login/submit",
             {"username": "alice@example.com", "password": _PASSWORD},
-            session={"user_uid": "user_previous", "stale": "x"},
+            session={"user_uid": seed_user_uid("previous"), "stale": "x"},
         )
 
         response = await _handlers(graph_auth, user_service)["/login/submit"](request=request)
@@ -171,13 +172,13 @@ class TestLoginSubmit:
         assert graph_auth.sign_in.await_args.kwargs["email"] == "alice@example.com"
         assert graph_auth.sign_in.await_args.kwargs["password"] == _PASSWORD
         user_service.get_user_by_username.assert_not_awaited()
-        assert request.session["user_uid"] == "user_alice"
+        assert request.session["user_uid"] == seed_user_uid("alice")
         assert request.session["session_token"] == "tok-new"
         assert "stale" not in request.session
 
     async def test_username_login_signs_in_with_the_resolved_email(self) -> None:
         graph_auth = _graph_auth()
-        graph_auth.sign_in.return_value = _signed_in("user_alice")
+        graph_auth.sign_in.return_value = _signed_in(seed_user_uid("alice"))
         user_service = MagicMock()
         user_service.get_user_by_username = AsyncMock(
             return_value=Result.ok(SimpleNamespace(email="alice@example.com"))
@@ -210,13 +211,13 @@ class TestLoginSubmit:
         request = _post(
             "/login/submit",
             {"username": "alice@example.com", "password": "wrong"},
-            session={"user_uid": "user_previous"},
+            session={"user_uid": seed_user_uid("previous")},
         )
 
         response = await _handlers(graph_auth)["/login/submit"](request=request)
 
         assert "Invalid email or password" in to_xml(response)
-        assert request.session == {"user_uid": "user_previous"}
+        assert request.session == {"user_uid": seed_user_uid("previous")}
 
     async def test_blank_password_is_refused_before_sign_in(self) -> None:
         graph_auth = _graph_auth()
@@ -237,7 +238,7 @@ class TestSessionManagement:
         from adapters.inbound.auth.session import is_authenticated
 
         class MockRequest:
-            session = {"user_uid": "user_test"}
+            session = {"user_uid": seed_user_uid("test")}
 
         assert is_authenticated(MockRequest()) is True
 
@@ -255,9 +256,9 @@ class TestSessionManagement:
         from adapters.inbound.auth.session import get_current_user
 
         class MockRequest:
-            session = {"user_uid": "user_test"}
+            session = {"user_uid": seed_user_uid("test")}
 
-        assert get_current_user(MockRequest()) == "user_test"
+        assert get_current_user(MockRequest()) == seed_user_uid("test")
 
     def test_get_current_user_returns_none(self):
         """Test get_current_user returns None when no session."""
@@ -275,8 +276,8 @@ class TestSessionManagement:
         class MockRequest:
             session = {}
 
-        set_current_user(MockRequest(), "user_test")
-        assert MockRequest.session.get("user_uid") == "user_test"
+        set_current_user(MockRequest(), seed_user_uid("test"))
+        assert MockRequest.session.get("user_uid") == seed_user_uid("test")
 
     def test_set_current_user_with_token(self):
         """Test set_current_user sets session with token."""
@@ -285,8 +286,8 @@ class TestSessionManagement:
         class MockRequest:
             session = {}
 
-        set_current_user(MockRequest(), "user_test", session_token="token-abc")
-        assert MockRequest.session.get("user_uid") == "user_test"
+        set_current_user(MockRequest(), seed_user_uid("test"), session_token="token-abc")
+        assert MockRequest.session.get("user_uid") == seed_user_uid("test")
         assert MockRequest.session.get("session_token") == "token-abc"
 
     def test_clear_current_user_clears_session(self):
@@ -294,7 +295,7 @@ class TestSessionManagement:
         from adapters.inbound.auth.session import clear_current_user
 
         class MockRequest:
-            session = {"user_uid": "user_test", "session_token": "token", "other": "data"}
+            session = {"user_uid": seed_user_uid("test"), "session_token": "token", "other": "data"}
 
         clear_current_user(MockRequest())
         assert MockRequest.session == {}
@@ -308,7 +309,7 @@ class TestRedirectBehavior:
     @staticmethod
     def _authenticated_request(is_admin: bool):
         return SimpleNamespace(
-            session={"user_uid": "user_x", "session_token": "tok", "is_admin": is_admin}
+            session={"user_uid": seed_user_uid("x"), "session_token": "tok", "is_admin": is_admin}
         )
 
     @pytest.mark.parametrize("path", ["/login", "/register", "/reset-password"])

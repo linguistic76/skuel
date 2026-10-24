@@ -35,12 +35,13 @@ from core.models.enums import EntityStatus
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.event.event import Event
 from core.models.principle.principle import Principle
+from tests.helpers.seed_uids import seed_user_uid
 
 # The picker route always speaks to the authenticated owner; use a user that
 # ``ensure_test_users`` (via the clean_neo4j fixture) creates and preserves so
 # the auto-created OWNS edge has a User node to attach to.
-OWNER = "user_test"
-OTHER = "user_test_123"
+OWNER = seed_user_uid("test")
+OTHER = seed_user_uid("test_123")
 
 
 def _make_request(user_uid: str) -> Any:
@@ -100,7 +101,7 @@ class TestPickerSearchEventChoicePrinciple:
         self, handler: Any, services: Any, clean_neo4j: Any
     ) -> None:
         owned = Event(
-            uid="event.picker_seed",
+            uid="event.picker-seed",
             user_uid=OWNER,
             title="Quarterly Planning Summit",
             description="Owned by the requesting user",
@@ -108,7 +109,7 @@ class TestPickerSearchEventChoicePrinciple:
             status=EntityStatus.SCHEDULED,
         )
         foreign = Event(
-            uid="event.picker_foreign",
+            uid="event.picker-foreign",
             user_uid=OTHER,
             title="Quarterly Someone Else Summit",
             description="Owned by a different user",
@@ -120,27 +121,27 @@ class TestPickerSearchEventChoicePrinciple:
 
         # Empty q → list_recent_for_user (OWNS-edge traversal).
         recent = to_xml(await handler(_make_request(OWNER), type="event", q=""))
-        assert 'data-uid="event.picker_seed"' in recent
+        assert 'data-uid="event.picker-seed"' in recent
         assert "Quarterly Planning Summit" in recent
-        assert "event.picker_foreign" not in recent  # owner scoping
+        assert "event.picker-foreign" not in recent  # owner scoping
 
         # Non-empty q → search_for_user (user_uid-property scope).
         found = to_xml(await handler(_make_request(OWNER), type="event", q="Planning Summit"))
-        assert 'data-uid="event.picker_seed"' in found
-        assert "event.picker_foreign" not in found
+        assert 'data-uid="event.picker-seed"' in found
+        assert "event.picker-foreign" not in found
 
     async def test_choice_picker_lists_and_searches(
         self, handler: Any, services: Any, clean_neo4j: Any
     ) -> None:
         owned = Choice(
-            uid="choice.picker_seed",
+            uid="choice.picker-seed",
             user_uid=OWNER,
             title="Pick a Framework",
             description="Owned by the requesting user",
             status=EntityStatus.DRAFT,
         )
         foreign = Choice(
-            uid="choice.picker_foreign",
+            uid="choice.picker-foreign",
             user_uid=OTHER,
             title="Pick a Framework Elsewhere",
             description="Owned by a different user",
@@ -150,19 +151,19 @@ class TestPickerSearchEventChoicePrinciple:
         assert (await services.choices.backend.create(foreign)).is_ok
 
         recent = to_xml(await handler(_make_request(OWNER), type="choice", q=""))
-        assert 'data-uid="choice.picker_seed"' in recent
+        assert 'data-uid="choice.picker-seed"' in recent
         assert "Pick a Framework" in recent
-        assert "choice.picker_foreign" not in recent
+        assert "choice.picker-foreign" not in recent
 
         found = to_xml(await handler(_make_request(OWNER), type="choice", q="Pick a Framework"))
-        assert 'data-uid="choice.picker_seed"' in found
-        assert "choice.picker_foreign" not in found
+        assert 'data-uid="choice.picker-seed"' in found
+        assert "choice.picker-foreign" not in found
 
     async def test_principle_picker_lists_and_searches(
         self, handler: Any, services: Any, clean_neo4j: Any
     ) -> None:
         owned = Principle(
-            uid="principle.picker_seed",
+            uid="principle.picker-seed",
             user_uid=OWNER,
             title="Bias Toward Action",
             statement="Prefer shipping over deliberating",
@@ -170,7 +171,7 @@ class TestPickerSearchEventChoicePrinciple:
             principle_category=PrincipleCategory.PERSONAL,
         )
         foreign = Principle(
-            uid="principle.picker_foreign",
+            uid="principle.picker-foreign",
             user_uid=OTHER,
             title="Bias Toward Action Elsewhere",
             statement="Owned by a different user",
@@ -181,18 +182,18 @@ class TestPickerSearchEventChoicePrinciple:
         assert (await services.principles.backend.create(foreign)).is_ok
 
         recent = to_xml(await handler(_make_request(OWNER), type="principle", q=""))
-        assert 'data-uid="principle.picker_seed"' in recent
+        assert 'data-uid="principle.picker-seed"' in recent
         assert "Bias Toward Action" in recent  # title is the displayed label
-        assert "principle.picker_foreign" not in recent
+        assert "principle.picker-foreign" not in recent
 
         # PrinciplesSearchService now searches title (fixed a phantom `name`
         # field), so typing the visible principle label finds it.
         by_title = to_xml(await handler(_make_request(OWNER), type="principle", q="Bias Toward"))
-        assert 'data-uid="principle.picker_seed"' in by_title
-        assert "principle.picker_foreign" not in by_title
+        assert 'data-uid="principle.picker-seed"' in by_title
+        assert "principle.picker-foreign" not in by_title
 
         # ...and statement text (a distinctive, non-title field) matches too.
         by_statement = to_xml(await handler(_make_request(OWNER), type="principle", q="shipping"))
-        assert 'data-uid="principle.picker_seed"' in by_statement
+        assert 'data-uid="principle.picker-seed"' in by_statement
         assert "Bias Toward Action" in by_statement
-        assert "principle.picker_foreign" not in by_statement
+        assert "principle.picker-foreign" not in by_statement

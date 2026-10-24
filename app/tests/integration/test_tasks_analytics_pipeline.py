@@ -49,14 +49,15 @@ from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenc
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
-TK = "tkctx_"  # uid prefix for this module's fixture graph
+TK = "tkctx."  # uid prefix for this module's fixture graph
 TK_TASK = TK + "task"
-TK_TASK_BARE = TK + "task_bare"  # negative control: no cross-domain edges
-TK_KU_REQ = TK + "ku_req"  # task -[REQUIRES_KNOWLEDGE]-> ku (required_knowledge)
-TK_KU_APP = TK + "ku_app"  # task -[APPLIES_KNOWLEDGE]-> ku (applied_knowledge)
-TK_GOAL_CONTRIB = TK + "goal_contrib"  # task -[CONTRIBUTES_TO_GOAL]-> goal (contributing_goals)
-TK_GOAL_SECOND = TK + "goal_second"  # a second CONTRIBUTES_TO_GOAL from the same task
+TK_TASK_BARE = TK + "task-bare"  # negative control: no cross-domain edges
+TK_KU_REQ = TK + "ku-req"  # task -[REQUIRES_KNOWLEDGE]-> ku (required_knowledge)
+TK_KU_APP = TK + "ku-app"  # task -[APPLIES_KNOWLEDGE]-> ku (applied_knowledge)
+TK_GOAL_CONTRIB = TK + "goal-contrib"  # task -[CONTRIBUTES_TO_GOAL]-> goal (contributing_goals)
+TK_GOAL_SECOND = TK + "goal-second"  # a second CONTRIBUTES_TO_GOAL from the same task
 
 
 @pytest.fixture
@@ -99,7 +100,12 @@ class _TaskIntelHarness(_CoreIntelligenceMixin, BaseAnalyticsService):
 
 
 def _harness(rel_backend, task_uid: str) -> _TaskIntelHarness:
-    task = Task(uid=task_uid, title="Write the report", user_uid="tkctx_user", priority="high")
+    task = Task(
+        uid=task_uid,
+        title="Write the report",
+        user_uid=seed_user_uid("tkctx_user"),
+        priority="high",
+    )
     rels: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=rel_backend, config=TASKS_CONFIG, graph_intel=None
     )
@@ -257,9 +263,9 @@ async def test_task_insights_dedupes_multipath_goal_at_depth2(
     ``contributing_goals`` bucket. _union_path_buckets de-dupes by uid keeping the STRONGEST
     path, so the goal set is the one goal, once.
     """
-    dup_task = TK + "dup_task"
-    dup_mid = TK + "dup_mid_task"  # task -DEPENDS_ON-> mid -CONTRIBUTES_TO_GOAL-> goal
-    dup_goal = TK + "dup_goal"  # also task -CONTRIBUTES_TO_GOAL-> goal (reached twice)
+    dup_task = TK + "dup-task"
+    dup_mid = TK + "dup-mid-task"  # task -DEPENDS_ON-> mid -CONTRIBUTES_TO_GOAL-> goal
+    dup_goal = TK + "dup-goal"  # also task -CONTRIBUTES_TO_GOAL-> goal (reached twice)
     async with neo4j_driver.session() as s:
         for uid in (dup_task, dup_mid):
             await s.run(

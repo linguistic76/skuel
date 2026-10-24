@@ -54,6 +54,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.services.choices.choice_relationships import ChoiceRelationships
 from core.services.principles.principle_relationships import PrincipleRelationships
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     edges_between,
@@ -78,7 +79,7 @@ pytestmark = [
 ]
 
 MARK = "zzzpclink"
-CALLER = f"user_{MARK}"
+CALLER = seed_user_uid(f"{MARK}")
 
 INFORMS_CHOICE = RelationshipName.INFORMS_CHOICE.value
 EMBODIES_PRINCIPLE = RelationshipName.EMBODIES_PRINCIPLE.value
@@ -409,7 +410,7 @@ async def test_the_adherence_query_reads_no_other_users_principle(env: Env) -> N
     """
     choice = await create(env.client, "choices", f"{MARK} walled choice")
     own = await create(env.client, "principles", f"{MARK} own principle")
-    foreign = f"principle_{MARK}_foreign"
+    foreign = f"principle.{MARK}-foreign"
     await env.driver.execute_query(
         """
         MERGE (other:User {uid: $other})
@@ -417,7 +418,7 @@ async def test_the_adherence_query_reads_no_other_users_principle(env: Env) -> N
             uid: $foreign, user_uid: $other, entity_type: 'principle', title: $title
         })
         """,
-        {"other": f"user_{MARK}_other", "foreign": foreign, "title": f"{MARK} foreign"},
+        {"other": seed_user_uid(f"{MARK}_other"), "foreign": foreign, "title": f"{MARK} foreign"},
     )
     await write_edge(env.driver, own, INFORMS_CHOICE, choice)
     await write_edge(env.driver, foreign, INFORMS_CHOICE, choice)
@@ -435,8 +436,8 @@ async def test_the_adherence_query_withholds_a_draft_shared_principle(env: Env) 
     """The far-node wall's shared arm: a principle nobody owns is read only if it is not
     a draft. The published one on the same choice is the control."""
     choice = await create(env.client, "choices", f"{MARK} shared-informed choice")
-    published = f"principle_{MARK}_shared_published"
-    draft = f"principle_{MARK}_shared_draft"
+    published = f"principle.{MARK}-shared-published"
+    draft = f"principle.{MARK}-shared-draft"
     await env.driver.execute_query(
         """
         UNWIND [[$published, $published_state], [$draft, $draft_state]] AS shared

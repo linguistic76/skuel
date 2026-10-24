@@ -32,12 +32,13 @@ from core.models.enums import EntityStatus
 from core.models.enums.metadata_enums import SearchVisibility
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio
 
-OWNER = "user_owns_invariant_owner"
-STRANGER = "user_owns_invariant_stranger"
-GHOST = "user_owns_invariant_ghost_never_created"
+OWNER = seed_user_uid("owns_invariant_owner")
+STRANGER = seed_user_uid("owns_invariant_stranger")
+GHOST = seed_user_uid("owns_invariant_ghost_never_created")
 
 # Distinctive enough that no fixture task in the shared container matches it.
 MARKER = "zzqqowninv"
@@ -128,7 +129,7 @@ async def test_create_writes_property_and_owns_edge_together(
 ) -> None:
     """The happy path leaves the invariant intact: property owner == :OWNS owner."""
     await _seed_users(neo4j_driver)
-    uid = f"task_{MARKER}_both_halves"
+    uid = f"task.{MARKER}-both-halves"
 
     result = await tasks_service.create(_task(uid, OWNER, f"{MARKER} both halves"))
     assert result.is_ok, result.expect_error()
@@ -169,13 +170,13 @@ async def test_create_with_spawned_from_holds_the_same_invariant(
     async with neo4j_driver.session() as session:
         await session.run(
             "MERGE (t:Entity {uid: $uid}) ON CREATE SET t.entity_type = 'task_template'",
-            uid=f"tt_{MARKER}_template",
+            uid=f"tt.{MARKER}-template",
         )
 
-    ok_uid = f"task_{MARKER}_spawned_ok"
+    ok_uid = f"task.{MARKER}-spawned-ok"
     ok = await tasks_backend.create_with_spawned_from(
         _task(ok_uid, OWNER, f"{MARKER} spawned ok"),
-        f"tt_{MARKER}_template",
+        f"tt.{MARKER}-template",
         f"engagement_{MARKER}",
     )
     assert ok.is_ok, ok.expect_error()
@@ -185,7 +186,7 @@ async def test_create_with_spawned_from_holds_the_same_invariant(
     ghost_uid = f"task_{MARKER}_spawned_ghost"
     ghost = await tasks_backend.create_with_spawned_from(
         _task(ghost_uid, GHOST, f"{MARKER} spawned ghost"),
-        f"tt_{MARKER}_template",
+        f"tt.{MARKER}-template",
         f"engagement_{MARKER}",
     )
     assert ghost.is_error
@@ -236,7 +237,7 @@ async def test_crud_door_leaves_no_user_uid_bearing_entity_without_owns(
     await _seed_users(neo4j_driver)
     for i, user in enumerate((OWNER, STRANGER, OWNER)):
         created = await tasks_service.create(
-            _task(f"task_{MARKER}_corpus_{i}", user, f"{MARKER} corpus {i}")
+            _task(f"task.{MARKER}-corpus-{i}", user, f"{MARKER} corpus {i}")
         )
         assert created.is_ok, created.expect_error()
 
@@ -245,7 +246,7 @@ async def test_crud_door_leaves_no_user_uid_bearing_entity_without_owns(
             await session.run(
                 f"""
                 MATCH (e:Entity)
-                WHERE e.user_uid IS NOT NULL AND e.user_uid <> 'user_system'
+                WHERE e.user_uid IS NOT NULL
                 MATCH (owner:User {{uid: e.user_uid}})
                 WHERE NOT (owner)-[:{RelationshipName.OWNS.value}]->(e)
                 RETURN count(e) AS missing
@@ -266,8 +267,8 @@ async def test_both_surfaces_return_the_same_owner_scoped_set(
 ) -> None:
     """The faceted and text surfaces both return the owner's row and only the owner's row."""
     await _seed_users(neo4j_driver)
-    owner_uid = f"task_{MARKER}_agree_owner"
-    stranger_uid = f"task_{MARKER}_agree_stranger"
+    owner_uid = f"task.{MARKER}-agree-owner"
+    stranger_uid = f"task.{MARKER}-agree-stranger"
 
     for uid, user in ((owner_uid, OWNER), (stranger_uid, STRANGER)):
         created = await tasks_service.create(_task(uid, user, f"{MARKER} agree {user}"))
@@ -294,8 +295,8 @@ async def test_faceted_surface_hides_another_users_rows_from_the_stranger(
     have returned both.
     """
     await _seed_users(neo4j_driver)
-    owner_uid = f"task_{MARKER}_neg_owner"
-    stranger_uid = f"task_{MARKER}_neg_stranger"
+    owner_uid = f"task.{MARKER}-neg-owner"
+    stranger_uid = f"task.{MARKER}-neg-stranger"
 
     for uid, user in ((owner_uid, OWNER), (stranger_uid, STRANGER)):
         created = await tasks_service.create(_task(uid, user, f"{MARKER} neg {user}"))
@@ -325,7 +326,7 @@ async def test_out_of_band_edge_deletion_no_longer_hides_the_owners_own_rows(
     traverses it. A property-only node stays broken — just not broken *here*.
     """
     await _seed_users(neo4j_driver)
-    uid = f"task_{MARKER}_divergent"
+    uid = f"task.{MARKER}-divergent"
 
     created = await tasks_service.create(_task(uid, OWNER, f"{MARKER} divergent"))
     assert created.is_ok, created.expect_error()

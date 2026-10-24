@@ -25,6 +25,7 @@ from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.services.choices.choice_relationships import ChoiceRelationships
 from core.services.principles.principle_relationships import PrincipleRelationships
+from tests.helpers.seed_uids import seed_user_uid
 
 # Every owned entity here belongs to ``test_user``, who must exist before a create.
 pytestmark = pytest.mark.usefixtures("ensure_test_users")
@@ -81,11 +82,13 @@ class TestChoiceRelationships:
             title="Test Choice for Relationships",
             description="Testing relationship fetching",
             decision_date=date.today(),
-            user_uid="test_user",
+            user_uid=seed_user_uid("test_user"),
         )
 
         # Call core service directly with explicit user_uid (facade has a bug)
-        choice_result = await services.choices.core.create_choice(choice_request, "test_user")
+        choice_result = await services.choices.core.create_choice(
+            choice_request, seed_user_uid("test_user")
+        )
         assert choice_result.is_ok, f"Failed to create choice: {choice_result.error}"
         choice = choice_result.value
 
@@ -158,7 +161,7 @@ class TestPrincipleRelationships:
             why_important="For testing relationships",
         )
         principle_result = await services.principles.core.create_principle(
-            request, user_uid="test_user"
+            request, user_uid=seed_user_uid("test_user")
         )
         assert principle_result.is_ok, (
             f"Failed to create principle: {principle_result.expect_error()}"
@@ -194,10 +197,12 @@ class TestParallelFetching:
                 title=f"Test Choice {i}",
                 description=f"Testing parallel fetch {i}",
                 decision_date=date.today(),
-                user_uid="test_user",
+                user_uid=seed_user_uid("test_user"),
             )
             # Call core service directly with explicit user_uid (facade has a bug)
-            result = await services.choices.core.create_choice(choice_request, "test_user")
+            result = await services.choices.core.create_choice(
+                choice_request, seed_user_uid("test_user")
+            )
             assert result.is_ok
             choices.append(result.value)
 
@@ -223,9 +228,11 @@ class TestParallelFetching:
             title="Test Choice",
             description="Test choice for relationship fetching",
             decision_date=date.today(),
-            user_uid="test_user",
+            user_uid=seed_user_uid("test_user"),
         )
-        choice_result = await services.choices.core.create_choice(choice_request, "test_user")
+        choice_result = await services.choices.core.create_choice(
+            choice_request, seed_user_uid("test_user")
+        )
 
         principle_request = PrincipleCreateRequest(
             title="Test Principle",
@@ -235,7 +242,7 @@ class TestParallelFetching:
             why_important="Testing",
         )
         principle_result = await services.principles.core.create_principle(
-            principle_request, user_uid="test_user"
+            principle_request, user_uid=seed_user_uid("test_user")
         )
 
         assert choice_result.is_ok

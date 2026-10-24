@@ -30,8 +30,9 @@ from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_three_click"
+USER = seed_user_uid("three_click")
 
 _COMPLETE = TaskUpdateIntent(status=EntityStatus.COMPLETED.value)
 _REOPEN = TaskUpdateIntent(status=EntityStatus.ACTIVE.value)
@@ -82,7 +83,7 @@ class TestThreeClickSequence:
         self, rig, neo4j_driver
     ):
         core, backend, bus = rig
-        uid = await self._seed(backend, "task.three_click_1")
+        uid = await self._seed(backend, "task.three-click-1")
 
         # Click 1 — complete, through the door Today posts to.
         assert (await core.update_task(uid, _COMPLETE)).is_ok
@@ -116,7 +117,7 @@ class TestThreeClickSequence:
         transition, so no subscriber ever needs a repeat gate.
         """
         core, backend, bus = rig
-        uid = await self._seed(backend, "task.three_click_2")
+        uid = await self._seed(backend, "task.three-click-2")
 
         assert (await core.update_task(uid, _COMPLETE)).is_ok
 
@@ -153,7 +154,7 @@ class TestThreeClickSequence:
 
         core, backend, bus = rig
         for iteration in range(5):
-            uid = await self._seed(backend, f"task.three_click_race_{iteration}")
+            uid = await self._seed(backend, f"task.three-click-race-{iteration}")
 
             await asyncio.gather(core.update_task(uid, _COMPLETE), core.update_task(uid, _REOPEN))
 

@@ -28,25 +28,25 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.relationship_registry import EVENTS_CONFIG, TASKS_CONFIG
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
-P = "intsrc_"  # uid prefix for this module's fixture graph
+P = "intsrc."  # uid prefix for this module's fixture graph
 
 # --- Tasks fixture graph ---
 TASK = P + "task"
-TASK_DEP = P + "task_dep"  # via DEPENDS_ON (registry edge, NOT in the PREREQUISITE clause)
+TASK_DEP = P + "task-dep"  # via DEPENDS_ON (registry edge, NOT in the PREREQUISITE clause)
 GOAL = P + "goal"  # via CONTRIBUTES_TO_GOAL (registry edge)
 KU = P + "ku"  # via APPLIES_KNOWLEDGE (registry edge)
 NOISE = P + "noise"  # via NOISE_LINK (NOT in any config → must be filtered out)
 
 # --- Events fixture graph ---
 EVENT = P + "event"
-EVT_GOAL = P + "evt_goal"  # via CONTRIBUTES_TO_GOAL (registry edge, NOT in PRACTICE clause)
-EVT_HABIT = P + "evt_habit"  # via REINFORCES_HABIT (registry edge, NOT in PRACTICE clause)
+EVT_GOAL = P + "evt-goal"  # via CONTRIBUTES_TO_GOAL (registry edge, NOT in PRACTICE clause)
+EVT_HABIT = P + "evt-habit"  # via REINFORCES_HABIT (registry edge, NOT in PRACTICE clause)
 
 # --- depth-2 fixture graph (registry-sourced ALL-edges guarantee) ---
-D2_TASK = P + "d2_task"
-D2_DEP = P + "d2_dep"  # task -[:DEPENDS_ON]-> dep   (all-registry 1-hop)
-D2_GOAL = P + "d2_goal"  # dep  -[:CONTRIBUTES_TO_GOAL]-> goal (all-registry 2-hop, must surface)
-D2_NOISE = P + "d2_noise"  # dep  -[:NOISE_LINK]-> noise  (non-registry tail, must NOT surface)
+D2_TASK = P + "d2-task"
+D2_DEP = P + "d2-dep"  # task -[:DEPENDS_ON]-> dep   (all-registry 1-hop)
+D2_GOAL = P + "d2-goal"  # dep  -[:CONTRIBUTES_TO_GOAL]-> goal (all-registry 2-hop, must surface)
+D2_NOISE = P + "d2-noise"  # dep  -[:NOISE_LINK]-> noise  (non-registry tail, must NOT surface)
 
 
 def _uids(graph_context) -> set[str]:
@@ -258,7 +258,7 @@ async def test_registry_sourced_no_edges_yields_empty_context(
     alive (related = null) so the aggregation emits one record with empty nodes rather
     than zero records (which `query_with_intent` would turn into a not-found error).
     """
-    bare = P + "isolated_task"
+    bare = P + "isolated-task"
     async with neo4j_driver.session() as s:
         await s.run(
             "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "

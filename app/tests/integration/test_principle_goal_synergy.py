@@ -29,6 +29,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client, write_edge
 
 if TYPE_CHECKING:
@@ -47,9 +48,9 @@ pytestmark = [
 ]
 
 MARK = "zzzpgsyn"
-USER = f"user_{MARK}"
-OTHER = f"user_{MARK}_other"  # owns the foreign goal; never signs in
-FOREIGN_GOAL = f"goal_{MARK}_foreign"
+USER = seed_user_uid(f"{MARK}")
+OTHER = seed_user_uid(f"{MARK}_other")  # owns the foreign goal; never signs in
+FOREIGN_GOAL = f"goal.{MARK}-foreign"
 
 
 class Env:

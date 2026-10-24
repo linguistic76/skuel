@@ -23,6 +23,7 @@ from datetime import datetime
 import pytest
 
 from core.events import GoalEmbeddingRequested, TaskEmbeddingRequested
+from tests.helpers.seed_uids import seed_user_uid
 
 
 class TestEmbeddingWorkerLifecycle:
@@ -67,8 +68,8 @@ class TestEmbeddingWorkerEventProcessing:
         THEN: Embedding generated and stored in Neo4j within 60 seconds
         """
         # Create test task in Neo4j first
-        task_uid = "task.test_embedding_e2e"
-        user_uid = "user_test_e2e"
+        task_uid = "task.test-embedding-e2e"
+        user_uid = seed_user_uid("test_e2e")
 
         async with neo4j_driver.session() as session:
             await session.run(
@@ -149,9 +150,9 @@ class TestEmbeddingWorkerEventProcessing:
         THEN: All embeddings generated and stored correctly
         """
         # Create test entities in Neo4j
-        task_uid = "task.multi_domain_test"
-        goal_uid = "goal.multi_domain_test"
-        user_uid = "user_test_multi"
+        task_uid = "task.multi-domain-test"
+        goal_uid = "goal.multi-domain-test"
+        user_uid = seed_user_uid("test_multi")
 
         async with neo4j_driver.session() as session:
             # Create task
@@ -270,7 +271,7 @@ class TestEmbeddingWorkerBatchProcessing:
         WHEN: 10 embedding requests published
         THEN: All processed in single batch cycle
         """
-        user_uid = "user_test_batch"
+        user_uid = seed_user_uid("test_batch")
         task_uids = [f"task.batch_test_{i}" for i in range(10)]
 
         # Create 10 tasks in Neo4j
@@ -355,9 +356,9 @@ class TestEmbeddingWorkerErrorRecovery:
         WHEN: Batch contains valid and invalid requests
         THEN: Valid requests processed, invalid logged and skipped
         """
-        user_uid = "user_test_error"
-        valid_uid = "task.valid_entity"
-        invalid_uid = "task.nonexistent_entity"  # Doesn't exist in Neo4j
+        user_uid = seed_user_uid("test_error")
+        valid_uid = "task.valid-entity"
+        invalid_uid = "task.nonexistent-entity"  # Doesn't exist in Neo4j
 
         # Create only valid task in Neo4j
         async with neo4j_driver.session() as session:

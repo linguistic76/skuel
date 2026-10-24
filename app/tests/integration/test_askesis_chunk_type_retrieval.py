@@ -36,7 +36,7 @@ from core.models.query_types import QueryIntent
 from core.ports.query_types import SemanticSearchChunkResult
 from core.services.askesis.context_retriever import _intent_to_chunk_types
 
-_PARENT_UID = "ps.test.chunk_type_retrieval"
+_PARENT_UID = "ps.test.chunk-type-retrieval"
 
 # One chunk per type the PRACTICE intent asks for, plus one it must exclude —
 # so the filter has something to both find and reject.

@@ -70,14 +70,15 @@ from core.services.user_stats_types import _compute_domain_stats_from_context
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import instant_of, today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
-KEPT = UserUID("user_adherence_kept")
-BULK = UserUID("user_adherence_bulk")
-DROPPED = UserUID("user_adherence_dropped")
-INTRUDER = UserUID("user_adherence_intruder")
-NO_HABITS = UserUID("user_adherence_none")
-YOUNG = UserUID("user_adherence_young")
-CADENCES = UserUID("user_adherence_cadences")
+KEPT = seed_user_uid("adherence_kept")
+BULK = seed_user_uid("adherence_bulk")
+DROPPED = seed_user_uid("adherence_dropped")
+INTRUDER = seed_user_uid("adherence_intruder")
+NO_HABITS = seed_user_uid("adherence_none")
+YOUNG = seed_user_uid("adherence_young")
+CADENCES = seed_user_uid("adherence_cadences")
 USERS = (KEPT, BULK, DROPPED, INTRUDER, NO_HABITS, YOUNG, CADENCES)
 
 KEPT_HABIT = "habit.adherence.kept"
@@ -85,7 +86,7 @@ BULK_HABIT = "habit.adherence.bulk"
 DROPPED_HABIT = "habit.adherence.dropped"
 INTRUDER_HABIT = "habit.adherence.intruder"
 YOUNG_HABIT = "habit.adherence.young"
-YOUNG_WEEKLY_HABIT = "habit.adherence.young_weekly"
+YOUNG_WEEKLY_HABIT = "habit.adherence.young-weekly"
 BACKFILLED_HABIT = "habit.adherence.backfilled"
 WEEKENDS_HABIT = "habit.adherence.weekends"
 MONTHLY_HABIT = "habit.adherence.monthly"

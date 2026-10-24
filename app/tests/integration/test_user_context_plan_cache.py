@@ -32,9 +32,9 @@ from adapters.persistence.neo4j.user_context_queries import (
     build_consolidated_query_params,
     build_mega_query_params,
 )
-from core.models.type_hints import UserUID
+from tests.helpers.seed_uids import seed_user_uid
 
-_USER_UID = UserUID("user_test")
+_USER_UID = seed_user_uid("test")
 
 # Well under a re-plan (hundreds of ms on the pinned image, measured 460-660 ms
 # for the statement one block over the edge) and well over a cached execution

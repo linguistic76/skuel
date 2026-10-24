@@ -59,6 +59,7 @@ from core.models.type_hints import UserUID
 from core.models.user.user import User
 from core.services.user.unified_user_context import UserContext
 from core.services.user.user_context_builder import UserContextBuilder
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     goal_tally,
@@ -90,8 +91,8 @@ pytestmark = [
 ]
 
 MARK = "zzzgoalctg"
-CALLER = f"user_{MARK}"
-OTHER = f"user_{MARK}_other"
+CALLER = seed_user_uid(f"{MARK}")
+OTHER = seed_user_uid(f"{MARK}_other")
 
 CONTRIBUTES_TO_GOAL = RelationshipName.CONTRIBUTES_TO_GOAL.value
 
@@ -443,7 +444,7 @@ async def test_the_tally_counts_only_the_goal_owners_contributions_whoever_is_na
         await session.run("MERGE (u:User {uid: $uid}) SET u.title = $uid", uid=OTHER)
     theirs = await env.services.tasks.create(
         Task(
-            uid=f"task_{MARK}_theirs",
+            uid=f"task.{MARK}-theirs",
             user_uid=OTHER,
             title=f"{MARK} F theirs",
             status=EntityStatus.COMPLETED,
@@ -544,7 +545,7 @@ async def test_the_engagement_assessment_counts_an_event_that_supports_a_goal(
     """Two events today, one contributing to a goal: the evidence names one."""
     from core.models.goal.goal import Goal as GoalModel
 
-    user = f"user_{MARK}_checkin"
+    user = seed_user_uid(f"{MARK}_checkin")
     async with env.driver.session() as session:
         await session.run("MERGE (u:User {uid: $uid}) SET u.title = $uid", uid=user)
     try:

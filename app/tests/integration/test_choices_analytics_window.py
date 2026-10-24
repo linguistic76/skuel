@@ -39,17 +39,18 @@ from core.models.enums.neo_labels import NeoLabel
 from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS
 from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_choice_window"
-USER_UNKNOWN_DOMAIN = "user_choice_unknown_domain"
+USER = seed_user_uid("choice_window")
+USER_UNKNOWN_DOMAIN = seed_user_uid("choice_unknown_domain")
 
-IN_WINDOW_STRING = "choice_win_str"  # created_at as ISO string, 10 days ago
-IN_WINDOW_DATETIME = "choice_win_dt"  # created_at as zoned datetime, 5 days ago
-OUT_OF_WINDOW = "choice_out_str"  # created_at as ISO string, 200 days ago
+IN_WINDOW_STRING = "choice.win-str"  # created_at as ISO string, 10 days ago
+IN_WINDOW_DATETIME = "choice.win-dt"  # created_at as zoned datetime, 5 days ago
+OUT_OF_WINDOW = "choice.out-str"  # created_at as ISO string, 200 days ago
 
 UNKNOWN_DOMAIN = "career"  # not a `Domain` member
-UNKNOWN_DOMAIN_CHOICE = "choice_unknown_domain"
-KNOWN_DOMAIN_CHOICE = "choice_known_domain"
+UNKNOWN_DOMAIN_CHOICE = "choice.unknown-domain"
+KNOWN_DOMAIN_CHOICE = "choice.known-domain"
 
 
 @pytest.mark.asyncio

@@ -62,24 +62,25 @@ from core.services.forms.form_submission_service import FormSubmissionService
 from core.services.forms.form_template_service import FormTemplateService
 from core.services.groups.group_service import GroupService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 # --- groups ---------------------------------------------------------------
-OWNER = "user_group_owner"
-MEMBER = "user_group_member"
-INTRUDER = "user_group_intruder"
-GROUP_UID = "group_physics_101"
+OWNER = seed_user_uid("group_owner")
+MEMBER = seed_user_uid("group_member")
+INTRUDER = seed_user_uid("group_intruder")
+GROUP_UID = "group.physics-101"
 
 # --- forms ----------------------------------------------------------------
-TEACHER_A = "user_teacher_a"
-TEACHER_B = "user_teacher_b"
-ADMIN = "user_admin"
-STUDENT_1 = "user_student_1"
-STUDENT_2 = "user_student_2"
-SUBMISSION_UID = "fs_student1_survey"
-SUBMISSION_2_UID = "fs_student2_survey"
-TEMPLATE_UID = "ft_survey"
+TEACHER_A = seed_user_uid("teacher_a")
+TEACHER_B = seed_user_uid("teacher_b")
+ADMIN = seed_user_uid("admin")
+STUDENT_1 = seed_user_uid("student_1")
+STUDENT_2 = seed_user_uid("student_2")
+SUBMISSION_UID = "fs.student1-survey"
+SUBMISSION_2_UID = "fs.student2-survey"
+TEMPLATE_UID = "ft.survey"
 # The payloads that must never reach a teacher outside their author's classroom.
 SECRET_ANSWER = "my-private-reflection-text"
 SECRET_ANSWER_2 = "student-2-private-reflection"
@@ -289,7 +290,7 @@ def forms_handlers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         uid=SUBMISSION_UID,
         user_uid=STUDENT_1,
         title="Student 1 reflection",
-        form_template_uid="ft_survey",
+        form_template_uid="ft.survey",
         form_data={"reflection": SECRET_ANSWER},
     )
 
@@ -417,14 +418,14 @@ class TestFormSubmissionDetailRequiresAuthority:
         missing_status, missing = _page(
             await _submission_route(forms_handlers)(
                 request=_make_request(TEACHER_B, path="/teaching/forms/submission"),
-                uid="fs_does_not_exist",
+                uid="fs.does-not-exist",
                 current_user=_fake_user(TEACHER_B, UserRole.TEACHER),
             )
         )
 
         assert foreign_status == missing_status == 404
         # The UID is echoed in the banner, so compare with it neutralised.
-        assert foreign.replace(SUBMISSION_UID, "UID") == missing.replace("fs_does_not_exist", "UID")
+        assert foreign.replace(SUBMISSION_UID, "UID") == missing.replace("fs.does-not-exist", "UID")
 
     async def test_backend_failure_is_not_reported_as_not_found(
         self, forms_handlers: dict[str, Any]
@@ -563,7 +564,7 @@ class _FormsBackendStandIn:
             },
         ]
         # Teacher A owns an active group Student 1 is in; Teacher B, Student 2.
-        self.classrooms = {TEACHER_A: {STUDENT_1}, TEACHER_B: {STUDENT_2}}
+        self.classrooms: dict[str, set[str]] = {TEACHER_A: {STUDENT_1}, TEACHER_B: {STUDENT_2}}
         self.calls: list[Any] = []
 
     def _visible(self, teacher_uid: str | None) -> list[dict[str, Any]]:
@@ -707,7 +708,7 @@ class TestFormSubmissionListIsScoped:
         ordinary empty state, not another classroom's work.
         """
         rendered = await _detail_page(
-            forms_list_handlers, "user_teacher_unaffiliated", UserRole.TEACHER
+            forms_list_handlers, seed_user_uid("teacher_unaffiliated"), UserRole.TEACHER
         )
 
         assert SECRET_ANSWER not in rendered

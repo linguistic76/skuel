@@ -32,6 +32,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.seed_uids import seed_user_uid
 
 
 def _today() -> date:
@@ -40,7 +41,7 @@ def _today() -> date:
 
 
 def _make_request(
-    user_uid: str | None = "user_mike",
+    user_uid: str | None = seed_user_uid("mike"),
     form: dict[str, str] | None = None,
     query: dict[str, str] | None = None,
     method: str = "POST",
@@ -72,7 +73,7 @@ def _make_request(
 
 
 def _make_task(
-    uid: str = "task_001",
+    uid: str = "task.001",
     due: date | None = None,
     scheduled: date | None = None,
     status: EntityStatus = EntityStatus.ACTIVE,
@@ -86,7 +87,7 @@ def _make_task(
     """
     t = MagicMock()
     t.uid = uid
-    t.user_uid = "user_mike"
+    t.user_uid = seed_user_uid("mike")
     t.title = "Ship Today surface"
     t.description = "Translate handoff into production."
     t.due_date = due
@@ -190,7 +191,9 @@ class TestTodayPage:
         assert response["title"] == "Today"
         # Every Tasks+ page lights the Tasks+ door by its section key.
         assert response["active_page"] == "activity"
-        mock_services.today_orchestrator.build_context.assert_awaited_once_with("user_mike")
+        mock_services.today_orchestrator.build_context.assert_awaited_once_with(
+            seed_user_uid("mike")
+        )
 
     async def test_context_error_returns_500(
         self, handlers: dict[str, Any], mock_services: Any
@@ -217,7 +220,7 @@ class TestTodayDatedPage:
         # Every Tasks+ page lights the Tasks+ door by its section key.
         assert response["active_page"] == "activity"
         mock_services.today_orchestrator.build_context.assert_awaited_once_with(
-            "user_mike", date(2026, 7, 21)
+            seed_user_uid("mike"), date(2026, 7, 21)
         )
 
     async def test_bad_date_degrades_to_today(
@@ -228,7 +231,7 @@ class TestTodayDatedPage:
         assert response["__base_page__"] is True
         # Unparseable → current day rather than 404.
         mock_services.today_orchestrator.build_context.assert_awaited_once_with(
-            "user_mike", _today()
+            seed_user_uid("mike"), _today()
         )
 
     async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
@@ -267,7 +270,7 @@ class TestTodayHabitsFragment:
         assert 'hx-trigger="calendar-refresh from:body"' in html
         assert 'hx-get="/today/2027-04-23/habits"' in html
         mock_services.calendar.habit_items_for_day.assert_awaited_once_with(
-            "user_mike", date(2027, 4, 23)
+            seed_user_uid("mike"), date(2027, 4, 23)
         )
 
     async def test_bad_date_returns_400(self, handlers: dict[str, Any]) -> None:
@@ -322,7 +325,7 @@ class TestTaskQuickAdd:
         assert req.scheduled_date == view
         assert req.due_date is None  # a work chip, never a deadline
         assert req.status == EntityStatus.SCHEDULED
-        assert call.args[1] == "user_mike"
+        assert call.args[1] == seed_user_uid("mike")
 
     async def test_today_is_allowed(self, handlers: dict[str, Any], mock_services: Any) -> None:
         request = _make_request(form={"title": "x", "view_date": _today().isoformat()})
@@ -402,7 +405,7 @@ class TestTaskDefer:
         view = _today()
         mock_services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task(scheduled=view)))
         request = _make_request(form=_defer_form(span="1d", source="day", view_date=view))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 204
         assert response.headers["HX-Redirect"] == f"/today/{view.isoformat()}"
 
@@ -415,10 +418,10 @@ class TestTaskDefer:
             return_value=Result.ok(_make_task(due=today - timedelta(days=7)))
         )
         request = _make_request(form=_defer_form(span="1d", source="triage"))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
-        assert call.args[0] == "task_001"
+        assert call.args[0] == "task.001"
         assert call.args[1] == TaskUpdateIntent(due_date=today + timedelta(days=1))
 
     async def test_triage_defer_1w_anchors_to_view_date(
@@ -429,7 +432,7 @@ class TestTaskDefer:
             return_value=Result.ok(_make_task(due=today - timedelta(days=2)))
         )
         request = _make_request(form=_defer_form(span="1w", source="triage"))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
         assert call.args[1] == TaskUpdateIntent(due_date=today + timedelta(days=7))
@@ -442,7 +445,7 @@ class TestTaskDefer:
         view = date(2026, 8, 10)
         mock_services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task(scheduled=view)))
         request = _make_request(form=_defer_form(span="1d", source="day", view_date=view))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
         assert call.args[1] == TaskUpdateIntent(scheduled_date=view + timedelta(days=1))
@@ -453,7 +456,7 @@ class TestTaskDefer:
         view = date(2026, 8, 10)
         mock_services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task(due=view)))
         request = _make_request(form=_defer_form(span="1w", source="day", view_date=view))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
         assert call.args[1] == TaskUpdateIntent(due_date=view + timedelta(days=7))
@@ -466,7 +469,7 @@ class TestTaskDefer:
             return_value=Result.ok(_make_task(due=view, scheduled=view))
         )
         request = _make_request(form=_defer_form(span="1d", source="day", view_date=view))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
         assert call.args[1] == TaskUpdateIntent(
@@ -484,7 +487,7 @@ class TestTaskDefer:
             return_value=Result.ok(_make_task(due=today - timedelta(days=3), scheduled=today))
         )
         request = _make_request(form=_defer_form(span="1d", source="triage"))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
         assert call.args[1] == TaskUpdateIntent(due_date=today + timedelta(days=1))
@@ -493,7 +496,7 @@ class TestTaskDefer:
 
     async def test_invalid_span_returns_400(self, handlers: dict[str, Any]) -> None:
         request = _make_request(form=_defer_form(span="forever"))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 400
 
     @pytest.mark.parametrize("source", [None, "", "drawer", "RIBBON"])
@@ -501,7 +504,7 @@ class TestTaskDefer:
         self, handlers: dict[str, Any], mock_services: Any, source: str | None
     ) -> None:
         request = _make_request(form=_defer_form(source=source))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
@@ -510,7 +513,7 @@ class TestTaskDefer:
         self, handlers: dict[str, Any], mock_services: Any, view_date: str
     ) -> None:
         request = _make_request(form=_defer_form(view_date=view_date))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
@@ -518,10 +521,10 @@ class TestTaskDefer:
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         mock_services.tasks.core.verify_ownership = AsyncMock(
-            return_value=Result.fail(Errors.not_found(resource="Task", identifier="task_999"))
+            return_value=Result.fail(Errors.not_found(resource="Task", identifier="task.999"))
         )
         request = _make_request(form=_defer_form())
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_999")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.999")
         assert response.status_code == 404
         mock_services.tasks.update_task.assert_not_called()
 
@@ -539,7 +542,7 @@ class TestTaskDefer:
         request = _make_request(
             form=_defer_form(source="triage", view_date=today - timedelta(days=1))
         )
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
@@ -553,7 +556,7 @@ class TestTaskDefer:
             return_value=Result.ok(_make_task(due=today + timedelta(days=3)))
         )
         request = _make_request(form=_defer_form(source="triage"))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
@@ -574,7 +577,7 @@ class TestTaskDefer:
             )
         )
         request = _make_request(form=_defer_form(source=source))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
@@ -588,7 +591,7 @@ class TestTaskDefer:
             return_value=Result.ok(_make_task(due=view + timedelta(days=5)))
         )
         request = _make_request(form=_defer_form(source="day", view_date=view))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
@@ -603,7 +606,7 @@ class TestTaskDefer:
             return_value=Result.ok(_make_task(scheduled=boundary))
         )
         request = _make_request(form=_defer_form(span="1d", source="day", view_date=boundary))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
@@ -617,7 +620,7 @@ class TestTaskDefer:
             return_value=Result.ok(_make_task(due=view + timedelta(days=2), scheduled=view))
         )
         request = _make_request(form=_defer_form(span="1w", source="day", view_date=view))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 400
         assert "deadline" in response.body.decode()
         mock_services.tasks.update_task.assert_not_called()
@@ -632,7 +635,7 @@ class TestTaskDefer:
             return_value=Result.ok(_make_task(due=view + timedelta(days=1), scheduled=view))
         )
         request = _make_request(form=_defer_form(span="1d", source="day", view_date=view))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
         assert call.args[1] == TaskUpdateIntent(scheduled_date=view + timedelta(days=1))
@@ -652,7 +655,7 @@ class TestTaskDefer:
         )
         # 1w defer → new due = today + 7, on/after both parametrized ends.
         request = _make_request(form=_defer_form(span="1w", source="triage"))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 400
         assert "recurrence end" in response.body.decode()
         mock_services.tasks.update_task.assert_not_called()
@@ -670,7 +673,7 @@ class TestTaskDefer:
             return_value=Result.fail(Errors.database(operation="update_task", message="boom"))
         )
         request = _make_request(form=_defer_form(source="triage"))
-        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task.001")
         assert response.status_code == 500
 
 

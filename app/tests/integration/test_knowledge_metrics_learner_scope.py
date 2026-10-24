@@ -84,25 +84,26 @@ from core.models.pathways.path_step import PathStep
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
 from core.services.ps.ps_intelligence_service import PsIntelligenceService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_knowledge_scope"
-OTHER_USER = "user_knowledge_scope_other"
+USER = seed_user_uid("knowledge_scope")
+OTHER_USER = seed_user_uid("knowledge_scope_other")
 
-ENGAGED_IN_PROGRESS = "ps_engaged_in_progress"
-ENGAGED_MASTERED = "ps_engaged_mastered"
-ENGAGED_BOTH = "ps_engaged_both"
-ENGAGED_OUT_OF_WINDOW = "ps_engaged_stale"
-VIEWED_ONLY = "ps_viewed_only"
-UNTOUCHED = "ps_untouched"
-OTHER_USERS_STEP = "ps_other_users"
+ENGAGED_IN_PROGRESS = "ps.engaged-in-progress"
+ENGAGED_MASTERED = "ps.engaged-mastered"
+ENGAGED_BOTH = "ps.engaged-both"
+ENGAGED_OUT_OF_WINDOW = "ps.engaged-stale"
+VIEWED_ONLY = "ps.viewed-only"
+UNTOUCHED = "ps.untouched"
+OTHER_USERS_STEP = "ps.other-users"
 
 # The three steps that must come back for USER in a 30-day window.
 EXPECTED_IN_WINDOW = {ENGAGED_IN_PROGRESS, ENGAGED_MASTERED, ENGAGED_BOTH}
 
 # One Ku per in-window step, so a step's personal substance is its Ku's.
-KU_DEEP = "ku_learner_applied_deeply"  # 3 habits + 2 tasks -> 0.30 + 0.10
-KU_LIGHT = "ku_learner_applied_once"  # 1 habit           -> 0.10
-KU_UNTOUCHED = "ku_learner_never_applied"  # nothing            -> 0.00
+KU_DEEP = "ku.learner-applied-deeply"  # 3 habits + 2 tasks -> 0.30 + 0.10
+KU_LIGHT = "ku.learner-applied-once"  # 1 habit           -> 0.10
+KU_UNTOUCHED = "ku.learner-never-applied"  # nothing            -> 0.00
 
 EXPECTED_PERSONAL = {
     ENGAGED_IN_PROGRESS: 0.40,
@@ -244,12 +245,12 @@ class TestKnowledgeMetricsLearnerScope:
             # only if it falls inside the window at all — so if substance is ever
             # re-sourced from a UserContext, every figure below collapses to 0.0.
             for uid, entity_type, status, ku_uid, edge in (
-                ("habit_1", "habit", "archived", KU_DEEP, "REINFORCES_KNOWLEDGE"),
-                ("habit_2", "habit", "archived", KU_DEEP, "REINFORCES_KNOWLEDGE"),
-                ("habit_3", "habit", "archived", KU_DEEP, "REINFORCES_KNOWLEDGE"),
-                ("habit_4", "habit", "archived", KU_LIGHT, "REINFORCES_KNOWLEDGE"),
-                ("task_1", "task", "completed", KU_DEEP, "APPLIES_KNOWLEDGE"),
-                ("task_2", "task", "completed", KU_DEEP, "APPLIES_KNOWLEDGE"),
+                ("habit.1", "habit", "archived", KU_DEEP, "REINFORCES_KNOWLEDGE"),
+                ("habit.2", "habit", "archived", KU_DEEP, "REINFORCES_KNOWLEDGE"),
+                ("habit.3", "habit", "archived", KU_DEEP, "REINFORCES_KNOWLEDGE"),
+                ("habit.4", "habit", "archived", KU_LIGHT, "REINFORCES_KNOWLEDGE"),
+                ("task.1", "task", "completed", KU_DEEP, "APPLIES_KNOWLEDGE"),
+                ("task.2", "task", "completed", KU_DEEP, "APPLIES_KNOWLEDGE"),
             ):
                 await session.run(
                     f"""
@@ -273,7 +274,7 @@ class TestKnowledgeMetricsLearnerScope:
             await session.run(
                 """
                 MATCH (u:User {uid: $u}), (k:Entity {uid: $ku_uid})
-                CREATE (a:Entity {uid: 'other_habit', entity_type: 'habit',
+                CREATE (a:Entity {uid: 'other.habit', entity_type: 'habit',
                                   title: 'Their habit', status: 'active'})
                 MERGE (u)-[:OWNS]->(a)
                 MERGE (a)-[:REINFORCES_KNOWLEDGE]->(k)
@@ -465,14 +466,14 @@ class TestKnowledgeMetricsLearnerScope:
         step teaches it) and never in the numerator (no channel could see it) —
         an under-return that reads as "you never applied this".
         """
-        cn_user = "user_contains_knowledge"
+        cn_user = seed_user_uid("contains_knowledge")
         async with neo4j_driver.session() as session:
             await session.run("MERGE (u:User {uid: $u})", u=cn_user)
             await session.run(
                 """
-                CREATE (p:Entity:PathStep {uid: 'ps_contains', entity_type: 'path_step',
+                CREATE (p:Entity:PathStep {uid: 'ps.contains', entity_type: 'path_step',
                                            title: 'Contains-only step', status: 'active'})
-                CREATE (k:Entity:Ku {uid: 'ku_contains_only', entity_type: 'ku',
+                CREATE (k:Entity:Ku {uid: 'ku.contains-only', entity_type: 'ku',
                                      title: 'Reachable only by CONTAINS_KNOWLEDGE',
                                      status: 'active'})
                 MERGE (p)-[:CONTAINS_KNOWLEDGE]->(k)
@@ -480,19 +481,19 @@ class TestKnowledgeMetricsLearnerScope:
             )
             # TWO shapes, because the triple has to hold on both sides of the
             # join and each side has its own arm of the query:
-            #   cn_habit  -> the Ku DIRECTLY  (exercises the resolver: the step
+            #   cn.habit  -> the Ku DIRECTLY  (exercises the resolver: the step
             #                reaches its Ku only over CONTAINS_KNOWLEDGE)
-            #   cn_task   -> the STEP         (exercises the channel bridge: the
+            #   cn.task   -> the STEP         (exercises the channel bridge: the
             #                activity's target must expand to the step's Kus over
             #                the same triple — the exact shape the MEGA-QUERY
             #                rollup got wrong)
             await session.run(
                 """
-                MATCH (u:User {uid: $u}), (k:Entity {uid: 'ku_contains_only'}),
-                      (p:Entity {uid: 'ps_contains'})
-                CREATE (h:Entity {uid: 'cn_habit', entity_type: 'habit',
+                MATCH (u:User {uid: $u}), (k:Entity {uid: 'ku.contains-only'}),
+                      (p:Entity {uid: 'ps.contains'})
+                CREATE (h:Entity {uid: 'cn.habit', entity_type: 'habit',
                                   title: 'Habit', status: 'active'})
-                CREATE (t:Entity {uid: 'cn_task', entity_type: 'task',
+                CREATE (t:Entity {uid: 'cn.task', entity_type: 'task',
                                   title: 'Task', status: 'completed'})
                 MERGE (u)-[:OWNS]->(h)
                 MERGE (u)-[:OWNS]->(t)
@@ -502,7 +503,7 @@ class TestKnowledgeMetricsLearnerScope:
                 u=cn_user,
             )
         assert (
-            await backend.mark_in_progress(cn_user, "ps_contains", datetime.now(UTC).isoformat())
+            await backend.mark_in_progress(cn_user, "ps.contains", datetime.now(UTC).isoformat())
         ).is_ok
 
         start, end = self._window()
@@ -524,12 +525,12 @@ class TestKnowledgeMetricsLearnerScope:
         missing key the caller has to guess a default for. Dropping it instead
         would shrink the denominator and quietly raise the average.
         """
-        lone_user = "user_step_without_kus"
+        lone_user = seed_user_uid("step_without_kus")
         async with neo4j_driver.session() as session:
             await session.run("MERGE (u:User {uid: $u})", u=lone_user)
             await session.run(
                 """
-                CREATE (n:Entity:PathStep {uid: 'ps_teaches_nothing',
+                CREATE (n:Entity:PathStep {uid: 'ps.teaches-nothing',
                                            entity_type: 'path_step',
                                            title: 'Teaches nothing', status: 'active',
                                            times_built_into_habits: 3})
@@ -537,7 +538,7 @@ class TestKnowledgeMetricsLearnerScope:
             )
         assert (
             await backend.mark_in_progress(
-                lone_user, "ps_teaches_nothing", datetime.now(UTC).isoformat()
+                lone_user, "ps.teaches-nothing", datetime.now(UTC).isoformat()
             )
         ).is_ok
 
@@ -669,7 +670,7 @@ class TestKnowledgeMetricsLearnerScope:
             await session.run(
                 """
                 UNWIND range(1, 120) AS i
-                CREATE (n:Entity:PathStep {uid: 'ps_bulk_' + toString(i),
+                CREATE (n:Entity:PathStep {uid: 'ps.bulk-' + toString(i),
                                            entity_type: 'path_step',
                                            title: 'Bulk ' + toString(i), status: 'active'})
                 WITH n
@@ -703,10 +704,10 @@ class TestKnowledgeMetricsLearnerScope:
         thought of. The step's MASTERED edge goes through ``mark_mastered``, the
         same writer ``PsMasteryService`` uses when a step's last Ku is mastered.
         """
-        writer_user = "user_writer_paths"
+        writer_user = seed_user_uid("writer_paths")
         async with neo4j_driver.session() as session:
             await session.run("MERGE (u:User {uid: $u})", u=writer_user)
-            for uid in ("ps_w_learning_state", "ps_w_mastered", "ps_w_read"):
+            for uid in ("ps.w-learning-state", "ps.w-mastered", "ps.w-read"):
                 await session.run(
                     """
                     CREATE (n:Entity:PathStep {uid: $uid, entity_type: 'path_step',
@@ -717,22 +718,22 @@ class TestKnowledgeMetricsLearnerScope:
 
         now_iso = datetime.now(UTC).isoformat()
         # started_at / last_activity_at
-        assert (await backend.mark_in_progress(writer_user, "ps_w_learning_state", now_iso)).is_ok
+        assert (await backend.mark_in_progress(writer_user, "ps.w-learning-state", now_iso)).is_ok
         # mastered_at — the derived step edge
         assert (
-            await backend.mark_mastered(writer_user, "ps_w_mastered", now_iso, 1.0, "derived")
+            await backend.mark_mastered(writer_user, "ps.w-mastered", now_iso, 1.0, "derived")
         ).is_ok
         # marked_at
-        assert (await backend.mark_as_read(writer_user, "ps_w_read")).is_ok
+        assert (await backend.mark_as_read(writer_user, "ps.w-read")).is_ok
 
         start, end = self._window()
         result = await backend.find_engaged_path_steps_by_date_range(writer_user, start, end)
         assert result.is_ok
 
         assert {s.uid for s in result.value} == {
-            "ps_w_learning_state",
-            "ps_w_mastered",
-            "ps_w_read",
+            "ps.w-learning-state",
+            "ps.w-mastered",
+            "ps.w-read",
         }, "a writer path was dropped — its timestamp field is not being recognised"
 
     async def test_counts_include_ku_mastery_from_the_report_pipeline(self, backend, neo4j_driver):
@@ -750,14 +751,14 @@ class TestKnowledgeMetricsLearnerScope:
         would count the same applications twice — so this asserts the two scopes
         differ rather than assuming they agree.
         """
-        ku_user = "user_ku_mastery"
+        ku_user = seed_user_uid("ku_mastery")
         async with neo4j_driver.session() as session:
             await session.run("MERGE (u:User {uid: $u})", u=ku_user)
             await session.run(
                 """
-                CREATE (k:Entity:Ku {uid: 'ku_mastered_via_report', entity_type: 'ku',
+                CREATE (k:Entity:Ku {uid: 'ku.mastered-via-report', entity_type: 'ku',
                                      title: 'Mastered KU', status: 'active'})
-                CREATE (p:Entity:PathStep {uid: 'ps_engaged_alongside',
+                CREATE (p:Entity:PathStep {uid: 'ps.engaged-alongside',
                                            entity_type: 'path_step',
                                            title: 'Engaged step', status: 'active'})
                 """
@@ -767,10 +768,10 @@ class TestKnowledgeMetricsLearnerScope:
         # The report pipeline's own call path, verbatim: no label pin, Ku target.
         assert (
             await backend.mark_mastered(
-                ku_user, "ku_mastered_via_report", now_iso, 0.8, "activity_report"
+                ku_user, "ku.mastered-via-report", now_iso, 0.8, "activity_report"
             )
         ).is_ok
-        assert (await backend.mark_in_progress(ku_user, "ps_engaged_alongside", now_iso)).is_ok
+        assert (await backend.mark_in_progress(ku_user, "ps.engaged-alongside", now_iso)).is_ok
 
         counts = (await backend.count_engaged_knowledge(ku_user)).value
         assert counts["total"] == 2, "the :Ku node was dropped by a label pin"
@@ -779,7 +780,7 @@ class TestKnowledgeMetricsLearnerScope:
         # The substance window is deliberately narrower — steps only.
         start, end = self._window()
         windowed = (await backend.find_engaged_path_steps_by_date_range(ku_user, start, end)).value
-        assert {s.uid for s in windowed} == {"ps_engaged_alongside"}, (
+        assert {s.uid for s in windowed} == {"ps.engaged-alongside"}, (
             "the substance window must stay PathStep-only — a step's substance "
             "already averages its Kus', so admitting both double-counts"
         )
@@ -789,10 +790,12 @@ class TestKnowledgeMetricsLearnerScope:
         start, end = self._window()
         service = _metrics_service(backend)
 
-        result = await service.calculate_knowledge_metrics("user_with_no_knowledge", start, end)
+        result = await service.calculate_knowledge_metrics(
+            seed_user_uid("with_no_knowledge"), start, end
+        )
         assert result.is_ok
         assert result.value["total_knowledge_units"] == 0
 
-        counts_result = await backend.count_engaged_knowledge("user_with_no_knowledge")
+        counts_result = await backend.count_engaged_knowledge(seed_user_uid("with_no_knowledge"))
         assert counts_result.is_ok
         assert counts_result.value == {"total": 0, "mastered": 0}

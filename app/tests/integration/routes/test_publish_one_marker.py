@@ -20,6 +20,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import signed_in_client, sync_vault, touch_forward
 
 if TYPE_CHECKING:
@@ -40,8 +41,8 @@ MARK = "zzzpubmarker"
 # One mark per signed-in client: each client's exit wipes every uid carrying its mark.
 LEARNER_MARK = f"{MARK}l"
 TEACHER_MARK = f"{MARK}t"
-LEARNER = f"user_{LEARNER_MARK}"
-TEACHER = f"user_{TEACHER_MARK}"
+LEARNER = seed_user_uid(f"{LEARNER_MARK}")
+TEACHER = seed_user_uid(f"{TEACHER_MARK}")
 STEP = f"ps.{LEARNER_MARK}.switch"
 STEP_TITLE = f"{MARK} switch step"
 CATALOGUE = "/path-steps/content"

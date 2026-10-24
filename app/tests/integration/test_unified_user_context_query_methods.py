@@ -20,6 +20,7 @@ import pytest
 
 from core.models.zpd.zpd_assessment import ZPDAssessment
 from core.services.user.unified_user_context import RichUserContext, UserContext
+from tests.helpers.seed_uids import seed_user_uid
 
 
 class TestTaskQueryMethods:
@@ -28,16 +29,16 @@ class TestTaskQueryMethods:
     def test_get_tasks_for_goal(self):
         """Should return tasks contributing to a specific goal"""
         context = RichUserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             tasks_by_goal={
                 "goal:launch_app": ["task:1", "task:2", "task:3"],
-                "goal:learn_python": ["task:4"],
+                "goal.learn-python": ["task:4"],
             },
         )
 
         launch_tasks = context.get_tasks_for_goal("goal:launch_app")
-        python_tasks = context.get_tasks_for_goal("goal:learn_python")
+        python_tasks = context.get_tasks_for_goal("goal.learn-python")
         nonexistent_tasks = context.get_tasks_for_goal("goal:nonexistent")
 
         assert len(launch_tasks) == 3
@@ -49,7 +50,7 @@ class TestTaskQueryMethods:
     def test_get_blocked_tasks(self):
         """Should return tasks blocked by prerequisites"""
         context = RichUserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             blocked_task_uids={"task:blocked_1", "task:blocked_2"},
         )
@@ -67,7 +68,7 @@ class TestEventQueryMethods:
     def test_get_events_for_habit(self):
         """Should return events that reinforce a specific habit"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             events_by_habit={
                 "habit:meditation": ["event:1", "event:2", "event:3"],
@@ -92,7 +93,7 @@ class TestGoalQueryMethods:
         """Should return goals with deadlines within specified days"""
         today = date.today()
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             goal_deadlines={
                 "goal:soon": today + timedelta(days=10),  # Within 30 days
@@ -120,7 +121,7 @@ class TestGoalQueryMethods:
     def test_get_stalled_goals(self):
         """Should return goals with minimal progress"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             active_goal_uids=["goal:1", "goal:2", "goal:3", "goal:4"],
             goal_progress={
@@ -147,7 +148,7 @@ class TestHabitQueryMethods:
     def test_get_habits_needing_reinforcement(self):
         """Should return at-risk habits"""
         context = RichUserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             at_risk_habits=["habit:meditation", "habit:exercise"],
         )
@@ -161,7 +162,7 @@ class TestHabitQueryMethods:
     def test_get_habits_for_goal(self):
         """Should return habits supporting a specific goal"""
         context = RichUserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             habits_by_goal={
                 "goal:fitness": ["habit:run", "habit:yoga", "habit:diet"],
@@ -185,7 +186,7 @@ class TestLifePathQueryMethods:
     def test_get_life_path_gaps(self):
         """The life path's knowledge outside the mastered set, by uid"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             life_path_uid="lp.wellness",
             life_path_knowledge_uids={"ku.yoga", "ku.meditation", "ku.mindfulness"},
@@ -199,7 +200,7 @@ class TestLifePathQueryMethods:
     def test_get_life_path_gaps_puts_the_zpd_blocking_gaps_first(self):
         """The assessment's blocking gaps inside the life path lead, in its order"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             life_path_uid="lp.wellness",
             life_path_knowledge_uids={"ku.a", "ku.b", "ku.c"},
@@ -219,7 +220,7 @@ class TestLifePathQueryMethods:
     def test_get_life_path_gaps_no_life_path(self):
         """No life path holds no knowledge, so no gap"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             life_path_uid=None,
             knowledge_mastery={"ku.something": 0.2},
@@ -234,7 +235,7 @@ class TestWorkloadQueryMethods:
     def test_calculate_current_workload(self):
         """Should calculate workload based on active items"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             active_task_uids=["task:1", "task:2", "task:3"],  # 3 tasks
             today_event_uids=["event:1", "event:2"],  # 2 events
@@ -250,7 +251,7 @@ class TestWorkloadQueryMethods:
     def test_calculate_current_workload_overloaded(self):
         """Should cap workload at 1.0 when overloaded"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             active_task_uids=["task:1", "task:2", "task:3", "task:4", "task:5"],
             today_event_uids=["event:1", "event:2", "event:3"],

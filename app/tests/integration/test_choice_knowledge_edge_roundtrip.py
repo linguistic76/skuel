@@ -32,6 +32,7 @@ from core.models.enums import Domain, Priority
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.services.choices.choices_core_service import ChoicesCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -56,7 +57,7 @@ class TestChoiceKnowledgeEdgeRoundTrip:
 
     @pytest_asyncio.fixture
     async def test_user_uid(self, neo4j_driver, clean_neo4j):
-        uid = "user_test_choice_knowledge"
+        uid = seed_user_uid("test_choice_knowledge")
         async with neo4j_driver.session() as session:
             await session.run(
                 "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()",
@@ -81,15 +82,15 @@ class TestChoiceKnowledgeEdgeRoundTrip:
         self, choices_service, neo4j_driver, test_user_uid
     ):
         """create_choice writes real ``(Choice)-[:INFORMED_BY_KNOWLEDGE]->(Ku)`` edges."""
-        await self._create_ku(neo4j_driver, "ku_decision_theory_abc", "Decision Theory")
-        await self._create_ku(neo4j_driver, "ku_opportunity_cost_def", "Opportunity Cost")
+        await self._create_ku(neo4j_driver, "ku.decision-theory-abc", "Decision Theory")
+        await self._create_ku(neo4j_driver, "ku.opportunity-cost-def", "Opportunity Cost")
 
         request = ChoiceCreateRequest(
             title="Pick a database",
             description="Choose the primary datastore for the new service",
             domain=Domain.TECH,
             priority=Priority.HIGH,
-            informed_by_knowledge_uids=["ku_decision_theory_abc", "ku_opportunity_cost_def"],
+            informed_by_knowledge_uids=["ku.decision-theory-abc", "ku.opportunity-cost-def"],
         )
 
         # ACT: the path that previously called the non-existent relationship method.
@@ -105,7 +106,7 @@ class TestChoiceKnowledgeEdgeRoundTrip:
         )
         assert edges.is_ok
         target_uids = sorted(r["target_uid"] for r in edges.value)
-        assert target_uids == ["ku_decision_theory_abc", "ku_opportunity_cost_def"]
+        assert target_uids == ["ku.decision-theory-abc", "ku.opportunity-cost-def"]
         assert {r["type"] for r in edges.value} == {"INFORMED_BY_KNOWLEDGE"}
 
     async def test_create_choice_admits_only_existing_kus(
@@ -122,7 +123,7 @@ class TestChoiceKnowledgeEdgeRoundTrip:
             KnowledgeInformedChoice,
         )
 
-        await self._create_ku(neo4j_driver, "ku_decision_theory_abc", "Decision Theory")
+        await self._create_ku(neo4j_driver, "ku.decision-theory-abc", "Decision Theory")
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -130,7 +131,7 @@ class TestChoiceKnowledgeEdgeRoundTrip:
                 ON CREATE SET t.entity_type = 'task', t.title = 'Compare vendors',
                               t.user_uid = $user_uid
                 """,
-                uid="task_compare_vendors_xyz",
+                uid="task.compare-vendors-xyz",
                 user_uid=test_user_uid,
             )
 
@@ -140,9 +141,9 @@ class TestChoiceKnowledgeEdgeRoundTrip:
             domain=Domain.TECH,
             priority=Priority.HIGH,
             informed_by_knowledge_uids=[
-                "ku_decision_theory_abc",
+                "ku.decision-theory-abc",
                 "ku_does_not_exist_000",
-                "task_compare_vendors_xyz",
+                "task.compare-vendors-xyz",
             ],
         )
 
@@ -156,7 +157,7 @@ class TestChoiceKnowledgeEdgeRoundTrip:
             direction="outgoing",
         )
         assert edges.is_ok
-        assert [r["target_uid"] for r in edges.value] == ["ku_decision_theory_abc"]
+        assert [r["target_uid"] for r in edges.value] == ["ku.decision-theory-abc"]
 
         substance = [
             e
@@ -165,7 +166,7 @@ class TestChoiceKnowledgeEdgeRoundTrip:
         ]
         assert len(substance) == 1
         assert isinstance(substance[0], KnowledgeInformedChoice)
-        assert substance[0].knowledge_uid == "ku_decision_theory_abc"
+        assert substance[0].knowledge_uid == "ku.decision-theory-abc"
 
     async def test_create_choice_without_knowledge_creates_no_edges(
         self, choices_service, test_user_uid

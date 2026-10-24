@@ -31,20 +31,21 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ps_content.content import CurriculumContent
 from core.models.ps_content.content_chunks import ContentChunk, ContentChunkType
+from tests.helpers.seed_uids import seed_user_uid
 
 # A scalar property every seeded parent carries, used as a facet so the
 # assertions see THIS fixture only even if another test's chunks coexist.
 _FIXTURE_KEY = "fixture"
 _FIXTURE_VALUE = "chunk_visibility"
 
-_ALICE = "user_alice"
-_BOB = "user_bob"
+_ALICE = seed_user_uid("alice")
+_BOB = seed_user_uid("bob")
 
-_PUBLISHED_PS = "ps.test.visibility.published"
-_DRAFT_PS = "ps.test.visibility.draft"
-_ALICE_NOTE = "ue.test.visibility.alice"
-_ALICE_PRIVATE_NOTE = "ue.test.visibility.alice-private"
-_BOB_NOTE = "ue.test.visibility.bob"
+_PUBLISHED_PS = "ps.test.visibility-published"
+_DRAFT_PS = "ps.test.visibility-draft"
+_ALICE_NOTE = "ue.test.visibility-alice"
+_ALICE_PRIVATE_NOTE = "ue.test.visibility-alice-private"
+_BOB_NOTE = "ue.test.visibility-bob"
 
 # uid → node properties. Writer shapes: ingestion writes no publication_state
 # for finished content (NULL-tolerant gate), a draft PathStep carries the

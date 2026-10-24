@@ -28,11 +28,12 @@ from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
 from tests.helpers.lateral_routes_client import lateral_client
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-MEMBER = "user_lta_member"
-STRANGER = "user_lta_stranger"
+MEMBER = seed_user_uid("lta_member")
+STRANGER = seed_user_uid("lta_stranger")
 MEMBER_NAME = "lta_member_name"
 STRANGER_NAME = "lta_stranger_name"
 
@@ -44,12 +45,12 @@ KU_DRAFT = "ku.lta.draft"
 KU_ALT = "ku.lta.alt"
 KU_CHAIN_ROOT = "ku.lta.chain-root"  # blocks KU only through the stranger's task
 
-MEMBER_TASK = "task_lta_member"
-MEMBER_TASK_2 = "task_lta_member_two"
-MEMBER_GOAL = "goal_lta_member"
-STRANGER_TASK = "task_lta_stranger"
-STRANGER_GOAL = "goal_lta_stranger"
-STRANGER_ENTRY = "ue_lta_stranger"
+MEMBER_TASK = "task.lta-member"
+MEMBER_TASK_2 = "task.lta-member-two"
+MEMBER_GOAL = "goal.lta-member"
+STRANGER_TASK = "task.lta-stranger"
+STRANGER_GOAL = "goal.lta-stranger"
+STRANGER_ENTRY = "ue.lta-stranger"
 
 _ENTITY_UIDS = [
     STEP,

@@ -38,18 +38,18 @@ from core.services.infrastructure.graph_intelligence_service import GraphIntelli
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
 
-P = "conv2b_"  # uid prefix for this module's fixture graph
+P = "conv2b."  # uid prefix for this module's fixture graph
 
 # --- Goals fixture graph ---
 GOAL = P + "goal"
-GOAL_CHOICE = P + "goal_choice"  # via INSPIRED_BY_CHOICE (registry edge, NOT in GOAL_ACHIEVEMENT)
-GOAL_PRINCIPLE = P + "goal_principle"  # principle -[SUPPORTS_GOAL]-> goal (registry edge)
-GOAL_NOISE = P + "goal_noise"  # via NOISE_LINK (outside the registry → filtered)
+GOAL_CHOICE = P + "goal-choice"  # via INSPIRED_BY_CHOICE (registry edge, NOT in GOAL_ACHIEVEMENT)
+GOAL_PRINCIPLE = P + "goal-principle"  # principle -[SUPPORTS_GOAL]-> goal (registry edge)
+GOAL_NOISE = P + "goal-noise"  # via NOISE_LINK (outside the registry → filtered)
 
 # --- Habits fixture graph ---
 HABIT = P + "habit"
-HABIT_GOAL = P + "habit_goal"  # via SUPPORTS_GOAL (registry edge, NOT in PRACTICE clause)
-HABIT_NOISE = P + "habit_noise"  # via NOISE_LINK (outside the registry → filtered)
+HABIT_GOAL = P + "habit-goal"  # via SUPPORTS_GOAL (registry edge, NOT in PRACTICE clause)
+HABIT_NOISE = P + "habit-noise"  # via NOISE_LINK (outside the registry → filtered)
 
 
 def _uids(graph_context) -> set[str]:

@@ -24,6 +24,7 @@ from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.rate_limit import reset_buckets_for_testing
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import _app, signed_in_client
 
 if TYPE_CHECKING:
@@ -38,12 +39,12 @@ pytestmark = [
 ]
 
 MARK = "zzzsysacct"
-ADMIN = f"user_{MARK}a"
+ADMIN = seed_user_uid(f"{MARK}a")
 REAL_USERNAME = f"{MARK}real"  # its uid is generated — cleanup finds it by username
 REAL_EMAIL = f"{REAL_USERNAME}@example.com"
 SYSTEM_UID = "user_system"
 SYSTEM_EMAIL = "system@skuel.local"
-NOBODY_UID = f"user_{MARK}nobody"
+NOBODY_UID = seed_user_uid(f"{MARK}nobody")
 NEW_PASSWORD = "Sysacct-pass-123!"
 RESET = "/api/admin/users/reset-password"
 

@@ -42,6 +42,7 @@ from core.models.enums.user_enums import UserRole
 from core.models.group.group import default_group_uid
 from core.services.report.entry_report_service import AdmittedReport
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     edges_between,
@@ -70,11 +71,13 @@ LEARNER_MARK = f"{MARK}l"
 OUTSIDER_MARK = f"{MARK}o"
 DEMOTED_MARK = f"{MARK}d"
 STRANGER_MARK = f"{MARK}x"
-TEACHER = f"user_{TEACHER_MARK}"  # the teacher the exercises' vault files name
-LEARNER = f"user_{LEARNER_MARK}"  # no tie to TEACHER
-OUTSIDER = f"user_{OUTSIDER_MARK}"  # a teacher with the learner in two classes of their own
-DEMOTED = f"user_{DEMOTED_MARK}"  # named by an exercise, no longer a teacher
-STRANGER = f"user_{STRANGER_MARK}"  # a teacher with no tie to the learner at all
+TEACHER = seed_user_uid(f"{TEACHER_MARK}")  # the teacher the exercises' vault files name
+LEARNER = seed_user_uid(f"{LEARNER_MARK}")  # no tie to TEACHER
+OUTSIDER = seed_user_uid(
+    f"{OUTSIDER_MARK}"
+)  # a teacher with the learner in two classes of their own
+DEMOTED = seed_user_uid(f"{DEMOTED_MARK}")  # named by an exercise, no longer a teacher
+STRANGER = seed_user_uid(f"{STRANGER_MARK}")  # a teacher with no tie to the learner at all
 ROLES = {
     TEACHER: "teacher",
     LEARNER: "member",
@@ -86,7 +89,7 @@ PS_PUBLISHED = f"ps.{TEACHER_MARK}.published"
 CURRICULUM_EX = f"ex.{OUTSIDER_MARK}.curriculum"
 DEFAULT_GROUP = default_group_uid(OUTSIDER)
 MISSING_ENTRY = f"ue_{MARK}_missing"
-MISSING_STUDENT = f"user_{MARK}missing"
+MISSING_STUDENT = seed_user_uid(f"{MARK}missing")
 MISSING_REPORT = f"er_{MARK}_missing"
 NO_TEACHER = "reached no teacher"
 

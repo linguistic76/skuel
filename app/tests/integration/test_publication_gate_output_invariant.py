@@ -90,6 +90,8 @@ from publication_gate_registry import (  # type: ignore[import-not-found]
     gated_surfaces,
 )
 
+from tests.helpers.seed_uids import seed_user_uid
+
 # No module-level asyncio mark: two of these tests are sync (they assert on the
 # registry, not the graph), and a blanket mark makes pytest warn on each.
 
@@ -103,7 +105,7 @@ from publication_gate_registry import (  # type: ignore[import-not-found]
 # property on the published half would make a broken NULL-tolerant predicate
 # pass here while hiding the real corpus in production.
 # --------------------------------------------------------------------------
-USER = "user_gate_probe"
+USER = seed_user_uid("gate_probe")
 GOAL = "goal.gate-probe"
 
 LP_PUBLISHED = "lp.gate-published"  # no publication_state — the NULL-tolerant case

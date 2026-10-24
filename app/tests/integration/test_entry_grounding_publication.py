@@ -15,7 +15,7 @@ import pytest_asyncio
 from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-ENTRY = "ue_grounding_publication"
+ENTRY = "ue.grounding-publication"
 KU_PUBLISHED = "ku.grounding.published"
 KU_LEGACY = "ku.grounding.no-state"  # authored before publication_state existed
 KU_DRAFT = "ku.grounding.draft"

@@ -16,11 +16,11 @@ from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
-from core.models.type_hints import UserUID
 from core.models.user.user import User
 from core.services.user.user_context_builder import UserContextBuilder
+from tests.helpers.seed_uids import seed_user_uid
 
-_USER_UID = UserUID("user_test")
+_USER_UID = seed_user_uid("test")
 
 
 @pytest.fixture
@@ -157,7 +157,7 @@ async def test_submission_stats_statement_is_empty_for_an_unknown_user(
 ) -> None:
     executor = UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver))
 
-    result = await executor.fetch_submission_stats(UserUID("user_nobody"), datetime.now())
+    result = await executor.fetch_submission_stats(seed_user_uid("nobody"), datetime.now())
 
     assert result.is_ok and result.value == {}
 

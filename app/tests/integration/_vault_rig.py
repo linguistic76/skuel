@@ -43,7 +43,6 @@ from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task_request import TaskUpdateRequest
-from core.models.type_hints import UserUID
 from core.models.user.user import User, UserPreferences
 from core.services.dsl.activity_extractor import ActivityExtractorService
 from core.services.ingestion.config import build_sync_allowlist
@@ -53,13 +52,14 @@ from core.services.user_entry.user_entry_service import UserEntryService
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.services.vault.vault_reconciler import VaultReconciler, VaultSyncStats
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
     from core.services.tasks.tasks_core_service import TasksCoreService
 
-OWNER = UserUID("user_vault_done_hash")
+OWNER = seed_user_uid("vault_done_hash")
 NOTE = "periodic_notes/2026-08-23.md"
 TITLE = "Water the plants"
 

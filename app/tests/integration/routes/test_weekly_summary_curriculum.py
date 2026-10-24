@@ -29,6 +29,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     seed_published_learning_path,
     seed_published_path_step,
@@ -51,8 +52,8 @@ pytestmark = [
 ]
 
 MARK = "zzzwkcur"
-LEARNER = f"user_{MARK}"
-OTHER_LEARNER = f"user_{MARK}_other"
+LEARNER = seed_user_uid(f"{MARK}")
+OTHER_LEARNER = seed_user_uid(f"{MARK}_other")
 
 PATH_A = f"lp.{MARK}.a"
 PATH_B = f"lp.{MARK}.b"
@@ -72,7 +73,7 @@ PATH_STEPS = {
 }
 
 EMPTY_MARK = "zzzwkcurempty"
-EMPTY_LEARNER = f"user_{EMPTY_MARK}"
+EMPTY_LEARNER = seed_user_uid(f"{EMPTY_MARK}")
 
 
 async def _seed_curriculum(driver: AsyncDriver) -> None:

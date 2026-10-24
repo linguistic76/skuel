@@ -15,6 +15,7 @@ import pytest
 
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -30,15 +31,15 @@ async def test_review_queue_isolates_by_group_ownership(
 ) -> None:
     # Classroom A — full seeded classroom helper
     ctx_a = await seed_classroom(
-        teacher_uid="user_teacher_a",
-        student_uid="user_student_a",
+        teacher_uid=seed_user_uid("teacher_a"),
+        student_uid=seed_user_uid("student_a"),
         group_uid="group.a",
         exercise_uid="exercise.a",
     )
 
     # Classroom B — disjoint teacher + group + exercise, shared student identity
-    teacher_b = await seed_user("user_teacher_b", name="Teacher B")
-    student_b = await seed_user("user_student_b", name="Student B")
+    teacher_b = await seed_user(seed_user_uid("teacher_b"), name="Teacher B")
+    student_b = await seed_user(seed_user_uid("student_b"), name="Student B")
     group_b = await seed_group("group.b", teacher_b)
     await seed_membership(student_b, group_b)
     exercise_b = await seed_exercise("exercise.b", teacher_uid=teacher_b, learner_uids=(student_b,))
@@ -114,8 +115,8 @@ async def test_a_request_to_two_classes_of_one_teacher_lists_once(
     """A student in two of a teacher's classes sends one turn-in to both:
     one ``SUBMITTED_TO_GROUP`` per class, and the teacher's queue and detail
     read still see one feedback request."""
-    teacher = await seed_user("user_teacher_two_classes", name="Teacher")
-    student = await seed_user("user_student_two_classes", name="Student")
+    teacher = await seed_user(seed_user_uid("teacher_two_classes"), name="Teacher")
+    student = await seed_user(seed_user_uid("student_two_classes"), name="Student")
     class_1 = await seed_group("group.two-classes-1", teacher)
     class_2 = await seed_group("group.two-classes-2", teacher)
     await seed_membership(student, class_1)

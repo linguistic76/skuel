@@ -28,18 +28,19 @@ from core.models.entity import Entity
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import EntityUID, UserUID
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 PREFIX = "sssplit"
-TEACHER = f"{PREFIX}_teacher"
-STUDENT_1 = f"{PREFIX}_student_1"
-STUDENT_2 = f"{PREFIX}_student_2"
-OUTSIDER = f"{PREFIX}_outsider"
-GROUP = f"{PREFIX}_group"
-INACTIVE_GROUP = f"{PREFIX}_group_inactive"
-ENTRY_SUBMITTED = f"{PREFIX}_ue_submitted"
-ENTRY_SHARED = f"{PREFIX}_ue_shared"
+TEACHER = seed_user_uid(f"{PREFIX}_teacher")
+STUDENT_1 = seed_user_uid(f"{PREFIX}_student_1")
+STUDENT_2 = seed_user_uid(f"{PREFIX}_student_2")
+OUTSIDER = seed_user_uid(f"{PREFIX}_outsider")
+GROUP = f"group.{PREFIX}"
+INACTIVE_GROUP = f"group.{PREFIX}-inactive"
+ENTRY_SUBMITTED = f"ue.{PREFIX}-submitted"
+ENTRY_SHARED = f"ue.{PREFIX}-shared"
 
 _SEED = """
 CREATE (t:User {uid: $teacher, is_active: true}),
@@ -64,7 +65,8 @@ CREATE (sh:Entity:UserEntry {
 CREATE (s1)-[:OWNS]->(sub), (s1)-[:OWNS]->(sh)
 """
 
-_CLEANUP = f"MATCH (n) WHERE n.uid STARTS WITH '{PREFIX}' DETACH DELETE n"
+_CLEANUP = "MATCH (n) WHERE n.uid CONTAINS $mark OR n.uid IN $users DETACH DELETE n"
+_CLEANUP_PARAMS = {"mark": PREFIX, "users": [TEACHER, STUDENT_1, STUDENT_2, OUTSIDER]}
 
 _PARAMS = {
     "teacher": TEACHER,
@@ -87,14 +89,14 @@ async def split_graph(neo4j_driver: Any) -> Any:
         entity_class=Entity,
         base_label=NeoLabel.ENTITY,
     )
-    await sharing_backend.execute_query(_CLEANUP)
+    await sharing_backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
     await sharing_backend.execute_query(_SEED, _PARAMS)
     yield (
         UnifiedSharingService(backend=sharing_backend),
         sharing_backend,
         UserEntryBackend(driver=neo4j_driver),
     )
-    await sharing_backend.execute_query(_CLEANUP)
+    await sharing_backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
 
 
 async def _edges(backend: Any, entry_uid: str) -> list[tuple[str, str]]:
@@ -162,14 +164,14 @@ class TestTheWriter:
             })
             CREATE (o)-[:OWNS]->(e)
             """,
-            {"o": OUTSIDER, "uid": f"{PREFIX}_ue_outsider"},
+            {"o": OUTSIDER, "uid": f"ue.{PREFIX}-outsider"},
         )
         result = await sharing.submit_to_group(
-            entity_uid=EntityUID(f"{PREFIX}_ue_outsider"), owner_uid=OUTSIDER, group_uid=GROUP
+            entity_uid=EntityUID(f"ue.{PREFIX}-outsider"), owner_uid=OUTSIDER, group_uid=GROUP
         )
         assert result.is_error
         assert result.expect_error().category.value == "forbidden"
-        assert await _edges(backend, f"{PREFIX}_ue_outsider") == []
+        assert await _edges(backend, f"ue.{PREFIX}-outsider") == []
 
     async def test_a_deactivated_group_is_refused(self, split_graph: Any) -> None:
         """Strict ``is_active = true``: a deactivated group grants nothing, so

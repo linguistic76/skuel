@@ -36,6 +36,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     seed_published_learning_path,
@@ -61,8 +62,8 @@ pytestmark = [
 ]
 
 MARK = "zzzlpknow"
-USER = f"user_{MARK}"
-OTHER = f"user_{MARK}_other"  # designates OTHER_LIFE; never signs in
+USER = seed_user_uid(f"{MARK}")
+OTHER = seed_user_uid(f"{MARK}_other")  # designates OTHER_LIFE; never signs in
 
 LIFE = f"lp.{MARK}.life"
 OTHER_LIFE = f"lp.{MARK}.other-life"

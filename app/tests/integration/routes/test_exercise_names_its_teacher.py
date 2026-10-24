@@ -23,6 +23,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import signed_in_client, sync_vault, touch_forward
 
 if TYPE_CHECKING:
@@ -44,9 +45,9 @@ MARK = "zzzexteacher"
 NAMED_MARK = f"{MARK}n"
 OTHER_MARK = f"{MARK}o"
 LEARNER_MARK = f"{MARK}l"
-NAMED = f"user_{NAMED_MARK}"  # the teacher the exercise files name
-OTHER = f"user_{OTHER_MARK}"  # a second teacher, named by no file until the handover
-LEARNER = f"user_{LEARNER_MARK}"
+NAMED = seed_user_uid(f"{NAMED_MARK}")  # the teacher the exercise files name
+OTHER = seed_user_uid(f"{OTHER_MARK}")  # a second teacher, named by no file until the handover
+LEARNER = seed_user_uid(f"{LEARNER_MARK}")
 STEP = f"ps.{MARK}.step"
 PRACTICE = f"ex.{MARK}.practice"
 HANDOVER = f"ex.{MARK}.handover"

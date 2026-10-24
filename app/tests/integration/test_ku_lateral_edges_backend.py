@@ -23,7 +23,7 @@ _FIXTURE_UIDS = [
     "ku.test.breath",
     "ku.test.other-a",
     "ku.test.other-b",
-    "task_test_lateral",
+    "task.test-lateral",
 ]
 
 
@@ -48,7 +48,7 @@ async def lateral_edge_graph(neo4j_driver):
                                        entity_type: 'ku'})
             CREATE (other_b:Entity:Ku {uid: 'ku.test.other-b', title: 'Other B',
                                        entity_type: 'ku'})
-            CREATE (task:Entity:Task {uid: 'task_test_lateral', title: 'A Task',
+            CREATE (task:Entity:Task {uid: 'task.test-lateral', title: 'A Task',
                                       entity_type: 'task'})
             CREATE (anchor)-[:RELATED_TO {evidence: 'The breath is the most common anchor.',
                                           confidence: 0.9, source: 'teacher'}]->(breath)
@@ -127,7 +127,7 @@ class TestGetKuLateralEdges:
 
         assert result.is_ok
         target_uids = {r["target_uid"] for r in result.value}
-        assert "task_test_lateral" not in target_uids
+        assert "task.test-lateral" not in target_uids
 
     async def test_empty_ku_set_returns_no_rows(self, ps_backend, lateral_edge_graph) -> None:
         result = await ps_backend.get_ku_lateral_edges([])

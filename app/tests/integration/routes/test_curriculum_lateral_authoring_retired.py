@@ -28,6 +28,7 @@ from core.services.prereq_suggestion_service import (
     PrereqSuggestion,
     ready_edge_files,
 )
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     edges_between,
@@ -52,7 +53,7 @@ pytestmark = [
 ]
 
 MARK = "zzzlateralretired"
-ADMIN = f"user_{MARK}"
+ADMIN = seed_user_uid(f"{MARK}")
 PARENT = f"ps.{MARK}.parent"
 KU_A = f"ku.{MARK}.a"
 KU_B = f"ku.{MARK}.b"  # what a create would join: no vault edge reaches it
@@ -108,12 +109,13 @@ async def _graph(driver: AsyncDriver) -> list[list[Any]]:  # boundary: raw graph
             await session.run(
                 """
                 MATCH (a)-[r]->(b)
-                WHERE a.uid CONTAINS $mark OR b.uid CONTAINS $mark
+                WHERE a.uid CONTAINS $mark OR b.uid CONTAINS $mark OR $admin IN [a.uid, b.uid]
                 WITH a.uid AS from_uid, type(r) AS type, b.uid AS to_uid, properties(r) AS props
                 ORDER BY from_uid, type, to_uid
                 RETURN collect([from_uid, type, to_uid, props]) AS rows
                 """,
                 mark=MARK,
+                admin=ADMIN,
             )
         ).single()
     assert record is not None

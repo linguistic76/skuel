@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-10-16'
+updated: '2026-10-24'
 category: patterns
 related_skills:
 - activity-domains
@@ -545,17 +545,23 @@ derived from it (`scope == ContentScope.USER_OWNED`), never passed.
 ## Testing Ownership
 
 ```python
-async def test_ownership_prevents_cross_user_access():
+from core.models.goal.goal import Goal
+from core.utils.result_simplified import ErrorCategory
+from tests.helpers.seed_uids import seed_user_uid
+
+
+async def test_ownership_prevents_cross_user_access(goals_service, clean_neo4j, ensure_test_users):
     """User A cannot access User B's goal."""
-    # Create goal for User A
-    created = await service.create(Goal(user_uid=UserUID("user.alice"), title="Alice's Goal"))
+    alice, bob = seed_user_uid("test"), seed_user_uid("test_integration")
+    created = await goals_service.create(Goal(uid="goal.alices", user_uid=alice, title="Alice's Goal"))
+    assert created.is_ok
 
-    # User B tries to access it
-    result = await service.get_for_user(created.value.uid, UserUID("user.bob"))
+    # User B tries to read it
+    result = await goals_service.get_for_user(created.value.uid, bob)
 
-    # Should return NotFound (not AccessDenied)
+    # NotFound, not Forbidden: an ownership miss answers like a missing uid
     assert result.is_error
-    assert "not found" in result.expect_error().message.lower()
+    assert result.expect_error().category == ErrorCategory.NOT_FOUND
 ```
 
 The pinned version of this contract is `tests/unit/test_base_service.py`

@@ -1,6 +1,6 @@
 ---
 title: Shared Signal Pattern
-updated: 2026-10-10
+updated: 2026-10-24
 status: proposed
 category: patterns
 tags: [patterns, activity-domains, intelligence, protocols, cross-cutting, design]
@@ -206,9 +206,9 @@ async def test_tasks_facade_delegates_knowledge_suggestions_to_injected_service(
     fake_knowledge = FakeKnowledgeIntelligence()
     tasks_service = TasksService(..., knowledge_intelligence=fake_knowledge)
 
-    await tasks_service.get_knowledge_suggestions(user_uid="user_1")
+    await tasks_service.get_knowledge_suggestions(user_uid=seed_user_uid("signal"))
 
-    assert fake_knowledge.calls == [("get_knowledge_suggestions", "user_1", None)]
+    assert fake_knowledge.calls == [("get_knowledge_suggestions", seed_user_uid("signal"), None)]
 ```
 
 ## Implementation Checklist (When Proceeding)

@@ -38,6 +38,7 @@ from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.user_enums import UserRole
 from core.services.report.entry_report_service import AdmittedReport
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     edges_between,
@@ -65,10 +66,10 @@ STUDENT_MARK = f"{MARK}s"
 TEACHER_MARK = f"{MARK}t"
 OUTSIDER_MARK = f"{MARK}o"
 ADMIN_MARK = f"{MARK}a"
-STUDENT = f"user_{STUDENT_MARK}"
-TEACHER = f"user_{TEACHER_MARK}"  # owns the group the entry was submitted to
-OUTSIDER = f"user_{OUTSIDER_MARK}"  # a teacher with the student in a group of their own
-ADMIN = f"user_{ADMIN_MARK}"  # no tie to the student or the entry
+STUDENT = seed_user_uid(f"{STUDENT_MARK}")
+TEACHER = seed_user_uid(f"{TEACHER_MARK}")  # owns the group the entry was submitted to
+OUTSIDER = seed_user_uid(f"{OUTSIDER_MARK}")  # a teacher with the student in a group of their own
+ADMIN = seed_user_uid(f"{ADMIN_MARK}")  # no tie to the student or the entry
 ROLES = {STUDENT: "member", TEACHER: "teacher", OUTSIDER: "teacher", ADMIN: "admin"}
 STEP = f"ps.{MARK}.step"
 MISSING_ENTRY = f"ue_{MARK}_missing"

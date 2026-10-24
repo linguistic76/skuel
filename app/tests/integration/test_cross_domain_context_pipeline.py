@@ -41,6 +41,7 @@ from core.services.choices._core_intelligence_mixin import (
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from neo4j import AsyncSession
@@ -69,7 +70,7 @@ def rel_backend(neo4j_driver):
 
 # uid prefix for the depth-2 / direction-aware regression graph (the canonical
 # INSPIRES_HABIT <-> EMBODIES_PRINCIPLE reciprocal pair — the natural 2-cycle).
-R = "xdctx_recip_"
+R = "xdctx.recip-"
 R_PRINCIPLE = R + "principle"
 R_HABIT = R + "habit"
 R_GOAL = R + "goal"
@@ -210,11 +211,11 @@ async def test_goal_buckets_split_its_supporters_by_kind(neo4j_driver, rel_backe
 
 
 # uid prefix for the label-specificity routing graph.
-S = "xdctx_label_"
+S = "xdctx.label-"
 S_HABIT = S + "habit"
 S_TASK = S + "task"
 S_EVENT = S + "event"
-S_OTHER_HABIT = S + "other_habit"
+S_OTHER_HABIT = S + "other.habit"
 
 
 @pytest.mark.asyncio
@@ -266,11 +267,11 @@ async def test_incoming_buckets_route_by_specific_label(neo4j_driver, rel_backen
 
 
 # uid prefix for the transitive-depth graph.
-T = "xdctx_transitive_"
+T = "xdctx.transitive-"
 T_HABIT = T + "habit"
-T_MID = T + "mid_habit"
-T_NEAR_GOAL = T + "near_goal"
-T_FAR_GOAL = T + "far_goal"
+T_MID = T + "mid-habit"
+T_NEAR_GOAL = T + "near-goal"
+T_FAR_GOAL = T + "far-goal"
 
 
 @pytest.mark.asyncio
@@ -341,13 +342,13 @@ async def test_depth_surfaces_transitive_node_correctly_attributed(
 # against a seeded graph.
 # ---------------------------------------------------------------------------
 
-FB = "xdctx_fb_"  # uid prefix for the live-mixin graph
+FB = "xdctx.fb-"  # uid prefix for the live-mixin graph
 FB_CHOICE = FB + "choice"
-FB_CHOICE_BARE = FB + "choice_bare"
-FB_PRIN_A = FB + "principle_a"  # (principle) -[INFORMS_CHOICE]-> choice (informing_principles)
-FB_PRIN_B = FB + "principle_b"  # a second principle informing the same choice
+FB_CHOICE_BARE = FB + "choice-bare"
+FB_PRIN_A = FB + "principle-a"  # (principle) -[INFORMS_CHOICE]-> choice (informing_principles)
+FB_PRIN_B = FB + "principle-b"  # a second principle informing the same choice
 FB_HABIT = FB + "habit"  # (habit) -[INFORMS_CHOICE]-> choice — not a principle
-FB_PATH_STEP = FB + "path_step"  # (path step) -[INFORMS_CHOICE]-> choice — not a principle
+FB_PATH_STEP = FB + "path-step"  # (path step) -[INFORMS_CHOICE]-> choice — not a principle
 FB_GOAL = FB + "goal"
 FB_KU = FB + "ku"
 
@@ -410,7 +411,7 @@ async def _seed_choice_graph(neo4j_driver) -> None:
 
 
 def _harness(neo4j_driver, rel_backend, choice_uid: str) -> _ChoiceIntelHarness:
-    choice = Choice(uid=choice_uid, title="Decide", user_uid="xdctx_user")
+    choice = Choice(uid=choice_uid, title="Decide", user_uid=seed_user_uid("xdctx_user"))
     rels: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=rel_backend, config=CHOICES_CONFIG, graph_intel=None
     )
@@ -478,9 +479,9 @@ async def test_choice_intelligence_empty_when_no_edges(neo4j_driver, rel_backend
 
 
 # Multi-path graph: the choice reaches FB_DUP_GOAL by TWO distinct AFFECTS_GOAL paths.
-FB_DUP_CHOICE = FB + "dup_choice"
-FB_DUP_MID = FB + "dup_mid"  # a second choice: mid -[INSPIRED_BY_CHOICE]-> choice (1-hop)
-FB_DUP_GOAL = FB + "dup_goal"  # choice -[AFFECTS_GOAL]-> goal and mid -[AFFECTS_GOAL]-> goal
+FB_DUP_CHOICE = FB + "dup-choice"
+FB_DUP_MID = FB + "dup-mid"  # a second choice: mid -[INSPIRED_BY_CHOICE]-> choice (1-hop)
+FB_DUP_GOAL = FB + "dup-goal"  # choice -[AFFECTS_GOAL]-> goal and mid -[AFFECTS_GOAL]-> goal
 
 
 @pytest.mark.asyncio

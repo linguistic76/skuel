@@ -31,7 +31,7 @@ from core.models.graph_context import GraphContext, GraphNode
 from core.models.relationship_registry import TASKS_CONFIG
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
-P = "dab_"  # uid prefix for this module's fixture graph
+P = "dab."  # uid prefix for this module's fixture graph
 
 TASK = P + "task"  # center
 DEP = P + "dep"  # task -[:DEPENDS_ON]-> dep            (registry, 1 hop)
@@ -168,7 +168,7 @@ async def test_edge_less_node_yields_empty_not_notfound(neo4j_driver, graph_inte
     # A genuinely absent node is still NOT_FOUND.
     missing = await graph_intel.query_with_intent(
         domain=None,
-        node_uid=P + "does_not_exist",
+        node_uid=P + "does-not-exist",
         intent=TASKS_CONFIG.default_context_intent,
         depth=2,
         relationship_types=TASKS_CONFIG.cross_domain_relationship_types,

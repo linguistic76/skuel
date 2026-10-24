@@ -59,6 +59,7 @@ from core.services.mixins.link_edge_guard import (
 )
 from core.utils.result_simplified import ErrorCategory
 from tests.helpers.lateral_routes_client import without_timestamp
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [
     pytest.mark.asyncio(loop_scope="session"),
@@ -68,21 +69,21 @@ pytestmark = [
     ),
 ]
 
-CALLER = "user_nb2b_caller"
-OTHER = "user_nb2b_other"  # owns the foreign entities; never signs in
+CALLER = seed_user_uid("nb2b_caller")
+OTHER = seed_user_uid("nb2b_other")  # owns the foreign entities; never signs in
 USERS = (CALLER, OTHER)
 
 # Text only the other user's entities carry — it must reach no response.
 FOREIGN_MARK = "nb2b-foreign-private"
 
 _KINDS = ("Goal", "Habit", "Principle", "Event", "Task", "Choice")
-OWN = {kind: f"{kind.lower()}_nb2b_own" for kind in _KINDS}
-FOREIGN = {kind: f"{kind.lower()}_nb2b_foreign" for kind in _KINDS}
-OWN_SECOND_PRINCIPLE = "principle_nb2b_own_second"
-SHARED_KU = "ku_nb2b_shared"  # no publication_state: the whole pre-existing corpus
-PUBLISHED_KU = "ku_nb2b_published"  # publication_state: published
-DRAFT_KU = "ku_nb2b_draft"  # publication_state: draft
-SHARED_STEP = "ps_nb2b_shared"
+OWN = {kind: f"{kind.lower()}.nb2b-own" for kind in _KINDS}
+FOREIGN = {kind: f"{kind.lower()}.nb2b-foreign" for kind in _KINDS}
+OWN_SECOND_PRINCIPLE = "principle.nb2b-own-second"
+SHARED_KU = "ku.nb2b-shared"  # no publication_state: the whole pre-existing corpus
+PUBLISHED_KU = "ku.nb2b-published"  # publication_state: published
+DRAFT_KU = "ku.nb2b-draft"  # publication_state: draft
+SHARED_STEP = "ps.nb2b-shared"
 
 _SEEDED = (
     *OWN.values(),
@@ -156,7 +157,7 @@ class Door:
 
     @property
     def missing(self) -> str:
-        return f"{self.far_kind.lower()}_nb2b_missing"
+        return f"{self.far_kind.lower()}.nb2b-missing"
 
 
 def _principle_link(link_type: str, relationship: str, far_kind: str, **kw: bool) -> Door:
@@ -648,7 +649,7 @@ class TestWritersNoRouteReaches:
     async def test_goal_to_habit(self, skuel_app, edges: EdgeReader) -> None:
         goals = skuel_app.state.services.goals
 
-        for far_uid in (FOREIGN["Habit"], OWN["Task"], "habit_nb2b_missing"):
+        for far_uid in (FOREIGN["Habit"], OWN["Task"], "habit.nb2b-missing"):
             refused = await goals.link_goal_to_habit(OWN["Goal"], far_uid)
             assert refused.is_error, far_uid
             assert refused.expect_error().code == "NOT_FOUND_HABIT"
@@ -713,7 +714,7 @@ class TestWritersNoRouteReaches:
         assert refused.is_error
         assert await edges() == set()
 
-    @pytest.mark.parametrize("habit_uid", [FOREIGN["Habit"], OWN["Task"], "habit_nb2b_missing"])
+    @pytest.mark.parametrize("habit_uid", [FOREIGN["Habit"], OWN["Task"], "habit.nb2b-missing"])
     async def test_recurring_events_are_not_created_for_a_habit_that_is_not_the_users(
         self, skuel_app, driver: AsyncDriver, edges: EdgeReader, habit_uid: str
     ) -> None:
@@ -787,12 +788,12 @@ class TestTheOwnerIsReadFromTheSource:
         relationships = skuel_app.state.services.goals.relationships
 
         refused = await relationships.admit_far_ends(
-            EntityUID("goal_nb2b_missing"), [SHARED_KU], KNOWLEDGE_FAR_END
+            EntityUID("goal.nb2b-missing"), [SHARED_KU], KNOWLEDGE_FAR_END
         )
 
         assert refused.is_error
         assert refused.expect_error().category == ErrorCategory.NOT_FOUND
-        assert refused.expect_error().details["identifier"] == "goal_nb2b_missing"
+        assert refused.expect_error().details["identifier"] == "goal.nb2b-missing"
 
 
 class TestCreateDoor:

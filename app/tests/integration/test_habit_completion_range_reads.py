@@ -35,10 +35,11 @@ from core.models.habit.habit import Habit
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_completion_range"
-HABIT = "habit.completion_range"
-NATIVE_UID = "hc.range_native"
+USER = seed_user_uid("completion_range")
+HABIT = "habit.completion-range"
+NATIVE_UID = "hc.range-native"
 
 TODAY = today_in(current_zone())
 # The native row is the LATER of the two in-window rows, so a type-banded order
@@ -167,7 +168,7 @@ class TestHabitCompletionRangeReads:
         writers, on a habit of their own.
         """
         service, _, _ = seeded
-        habit_uid = "habit.completion_range_offsets"
+        habit_uid = "habit.completion-range-offsets"
         created = await service.habits_backend.create(
             Habit(uid=habit_uid, user_uid=USER, entity_type=EntityType.HABIT, title="Offsets")
         )

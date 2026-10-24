@@ -48,6 +48,7 @@ from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.entity_enums import EntityType
 from core.services.ingestion.authored_edges import authored_edge_fingerprint
 from core.services.ingestion.config import ENTITY_CONFIGS
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     signed_in_client,
@@ -86,8 +87,8 @@ def _load() -> ModuleType:
 migration = _load()
 
 MARK = "zzztctgmig"
-USER = f"user_{MARK}"
-OTHER = f"user_{MARK}_other"
+USER = seed_user_uid(f"{MARK}")
+OTHER = seed_user_uid(f"{MARK}_other")
 STATES = ("old", "both", "kept")
 TASK = {state: f"task.{MARK}.{state}" for state in STATES}
 GOAL = {state: f"goal.{MARK}.{state}" for state in STATES}
@@ -717,7 +718,9 @@ async def app_client(
 ) -> AsyncIterator[httpx.AsyncClient]:
     if IntelligenceTier.from_env().ai_enabled and not get_credential("OPENAI_API_KEY"):
         pytest.skip("FULL tier cannot bootstrap without OPENAI_API_KEY")
-    async with signed_in_client(skuel_app, f"user_{RECONCILE_MARK}", RECONCILE_MARK) as client:
+    async with signed_in_client(
+        skuel_app, seed_user_uid(f"{RECONCILE_MARK}"), RECONCILE_MARK
+    ) as client:
         yield client
 
 

@@ -30,6 +30,7 @@ from core.models.insight.persisted_insight import ActiveInsightFilter
 from core.models.type_hints import Neo4jProperties
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -44,19 +45,22 @@ class TestTimestampFieldCoercionResidual:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MERGE (u:User {uid: 'user_insight'})
+                MERGE (u:User {uid: $user_insight})
                 CREATE (u)-[:HAS_INSIGHT]->(:Insight {
-                    insight_id: 'ins_active', user_uid: 'user_insight',
+                    insight_id: 'ins_active', user_uid: $user_insight,
                     dismissed: false, actioned: false,
                     impact: 'high', confidence: 0.9,
                     created_at: $now, expires_at: $future})
                 """,
                 now=datetime.now(UTC).isoformat(),
                 future=future,
+                user_insight=seed_user_uid("insight"),
             )
         backend = InsightBackend(Neo4jQueryExecutor(neo4j_driver))
 
-        result = await backend.get_active_insights("user_insight", ActiveInsightFilter(), 10, 0)
+        result = await backend.get_active_insights(
+            seed_user_uid("insight"), ActiveInsightFilter(), 10, 0
+        )
         assert result.is_ok, f"get_active_insights failed: {result}"
         ids = {cast("Neo4jProperties", row["i"])["insight_id"] for row in result.value}
         assert "ins_active" in ids  # excluded under string-vs-datetime
@@ -78,19 +82,22 @@ class TestTimestampFieldCoercionResidual:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MERGE (u:User {uid: 'user_habits'})
-                CREATE (u)-[:OWNS]->(:Habit {uid: 'h_at_risk', status: 'active',
+                MERGE (u:User {uid: $user_habits})
+                CREATE (u)-[:OWNS]->(:Habit {uid: 'h.at-risk', status: 'active',
                     current_streak: 1, last_completed: $lapsed, created_at: $done_today})
-                CREATE (u)-[:OWNS]->(:Habit {uid: 'h_safe', status: 'active',
+                CREATE (u)-[:OWNS]->(:Habit {uid: 'h.safe', status: 'active',
                     current_streak: 10, last_completed: $done_today, created_at: $done_today})
                 """,
                 lapsed=lapsed,
                 done_today=done_today,
+                user_habits=seed_user_uid("habits"),
             )
         backend = HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
 
-        result = await backend.get_active_habits_prioritized("user_habits", terminal_statuses=[])
+        result = await backend.get_active_habits_prioritized(
+            seed_user_uid("habits"), terminal_statuses=[]
+        )
         assert result.is_ok, f"get_active_habits_prioritized failed: {result}"
         order = [row["uid"] for row in result.value]
         # at-risk habit first despite its lower streak (CASE 0 wins over streak DESC).
-        assert order.index("h_at_risk") < order.index("h_safe")
+        assert order.index("h.at-risk") < order.index("h.safe")

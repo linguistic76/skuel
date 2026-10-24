@@ -33,6 +33,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import periodic_note_uid
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     edges_between,
     signed_in_client,
@@ -58,9 +59,9 @@ MARK = "zzzgbchips"
 # One mark per signed-in client: each client's exit wipes every uid carrying its mark.
 LEARNER_MARK = f"{MARK}l"
 OTHER_MARK = f"{MARK}o"
-LEARNER = f"user_{LEARNER_MARK}"
-OTHER = f"user_{OTHER_MARK}"
-GROUP = f"group_{LEARNER_MARK}_class"
+LEARNER = seed_user_uid(f"{LEARNER_MARK}")
+OTHER = seed_user_uid(f"{OTHER_MARK}")
+GROUP = f"group.{LEARNER_MARK}-class"
 DAY = "2026-10-14"
 KNOWLEDGE_DAY = "2026-10-15"
 ACTIVITY_NOTE = periodic_note_uid("daily", LEARNER, DAY)

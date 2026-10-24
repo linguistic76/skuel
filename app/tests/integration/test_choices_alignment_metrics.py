@@ -27,15 +27,15 @@ missing dependency must never be reported as an answer at all).
 
 The seeding carries four controls, one per way a fix can be wrong:
 
-- ``align_c_bare`` — in the window, no edges. Keeps the percentages fractional, so a fix
+- ``align.c-bare`` — in the window, no edges. Keeps the percentages fractional, so a fix
   that counted every choice reads 1.0 instead of 3/5.
-- ``align_c_old`` — outside the window, fully linked. Fails the counts if the alignment
+- ``align.c-old`` — outside the window, fully linked. Fails the counts if the alignment
   read escapes the ``days`` window that #859 established.
-- ``align_c_informed`` — informed *only* by a habit and a PathStep. ``INFORMS_CHOICE``
+- ``align.c-informed`` — informed *only* by a habit and a PathStep. ``INFORMS_CHOICE``
   has three kinds of source, so a read that does not name ``Principle`` counts it as
   principle-aligned (5/6, not 3/6). The habit and the PathStep each inform four choices
   — more than any principle — so the same read would also make one of them the most
-  common "principle". ``align_c_mixed`` carries a principle beside them: its informers
+  common "principle". ``align.c-mixed`` carries a principle beside them: its informers
   are that principle alone.
 
 See: tests/integration/test_choices_analytics_window.py (the window half, same fixture shape)
@@ -53,23 +53,24 @@ from core.models.enums.neo_labels import NeoLabel
 from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS
 from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_choice_alignment"
+USER = seed_user_uid("choice_alignment")
 
-PRINCIPLE_ONLY = "align_c_principle"  # p1 -[:INFORMS_CHOICE]-> it
-GOAL_ONLY = "align_c_goal"  # -[:AFFECTS_GOAL]-> g1
-BOTH = "align_c_both"  # informed by p1, p2; -> g1
-BARE = "align_c_bare"  # no edges — keeps the percentages fractional
-MIXED = "align_c_mixed"  # informed by p1, a habit and a PathStep
-NON_PRINCIPLE = "align_c_informed"  # informed by a habit and a PathStep only
-OUT_OF_WINDOW = "align_c_old"  # 200 days old, fully linked — window control
+PRINCIPLE_ONLY = "align.c-principle"  # p1 -[:INFORMS_CHOICE]-> it
+GOAL_ONLY = "align.c-goal"  # -[:AFFECTS_GOAL]-> g1
+BOTH = "align.c-both"  # informed by p1, p2; -> g1
+BARE = "align.c-bare"  # no edges — keeps the percentages fractional
+MIXED = "align.c-mixed"  # informed by p1, a habit and a PathStep
+NON_PRINCIPLE = "align.c-informed"  # informed by a habit and a PathStep only
+OUT_OF_WINDOW = "align.c-old"  # 200 days old, fully linked — window control
 
-P1 = "align_p1"
-P2 = "align_p2"
-P3 = "align_p3"  # only ever linked to the out-of-window choice
-G1 = "align_g1"
-HABIT = "align_h1"  # informs four in-window choices — more than any principle
-PATH_STEP = "align_s1"  # likewise
+P1 = "align.p1"
+P2 = "align.p2"
+P3 = "align.p3"  # only ever linked to the out-of-window choice
+G1 = "align.g1"
+HABIT = "align.h1"  # informs four in-window choices — more than any principle
+PATH_STEP = "align.s1"  # likewise
 
 
 @pytest.mark.asyncio
@@ -270,12 +271,12 @@ class TestChoicesAlignmentMetrics:
 
     async def test_unlinked_user_still_reports_zero(self, intelligence, neo4j_driver):
         """A choice with no edges reports 0.0 — the fix must not manufacture alignment."""
-        other = "user_choice_alignment_empty"
+        other = seed_user_uid("choice_alignment_empty")
         async with neo4j_driver.session() as session:
             await session.run("MERGE (u:User {uid: $u})", u=other)
             await session.run(
                 """
-                CREATE (n:Entity:Choice {uid: 'align_c_lonely', user_uid: $u,
+                CREATE (n:Entity:Choice {uid: 'align.c-lonely', user_uid: $u,
                                          entity_type: 'choice', title: 'lonely',
                                          status: 'active', domain: 'personal',
                                          created_at: $c})

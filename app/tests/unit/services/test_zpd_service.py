@@ -19,6 +19,7 @@ import pytest
 from core.models.zpd.zpd_assessment import ZPDAssessment
 from core.services.zpd.zpd_service import ZPDService
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 # ============================================================================
 # Fixtures
@@ -292,13 +293,13 @@ class TestZPDSnapshotHandler:
 
         # Simulate UserEntryApproved event
         event = AsyncMock()
-        event.student_uid = "user_1"
+        event.student_uid = seed_user_uid("1")
         await handler.handle_submission_approved(event)
 
-        zpd_service.assess_zone.assert_called_once_with("user_1")
+        zpd_service.assess_zone.assert_called_once_with(seed_user_uid("1"))
         snapshot_backend.save_snapshot.assert_called_once()
         call_args = snapshot_backend.save_snapshot.call_args
-        assert call_args[0][0] == "user_1"
+        assert call_args[0][0] == seed_user_uid("1")
         assert call_args[0][2] == "user_entry.approved"
 
     @pytest.mark.asyncio

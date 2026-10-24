@@ -207,7 +207,7 @@ class TestProvenanceQueries:
     def test_build_trust_filtered_prerequisite_chain(self):
         """Test trust-filtered prerequisite chain query."""
         query, params = ProvenanceQueries.build_trust_filtered_prerequisite_chain(
-            node_uid="ku.advanced_python",
+            node_uid="ku.advanced-python",
             allowed_sources=["expert_verified", "curriculum"],
             depth=5,
             min_confidence=0.8,
@@ -227,7 +227,7 @@ class TestProvenanceQueries:
         assert "WHERE NOT (start)-[:REQUIRES_KNOWLEDGE]->()" in query
 
         # Verify parameters
-        assert params["node_uid"] == "ku.advanced_python"
+        assert params["node_uid"] == "ku.advanced-python"
         assert params["allowed_sources"] == ["expert_verified", "curriculum"]
         assert params["min_confidence"] == 0.8
 
@@ -273,7 +273,7 @@ class TestProvenanceQueries:
     def test_build_well_supported_prerequisites_query(self):
         """Test well-supported prerequisites query (3+ evidence)."""
         query, params = ProvenanceQueries.build_well_supported_prerequisites_query(
-            node_uid="ku.django_models",
+            node_uid="ku.django-models",
             min_evidence_count=3,
             depth=5,
         )
@@ -294,13 +294,13 @@ class TestProvenanceQueries:
         assert "evidence_count: size(r.evidence)" in query
 
         # Verify parameters
-        assert params["node_uid"] == "ku.django_models"
+        assert params["node_uid"] == "ku.django-models"
         assert params["min_evidence_count"] == 3
 
     def test_build_citation_export_query(self):
         """Test citation export query (bibliography generation)."""
         query, params = ProvenanceQueries.build_citation_export_query(
-            node_uid="ku.python_oop",
+            node_uid="ku.python-oop",
             depth=3,
         )
 
@@ -316,7 +316,7 @@ class TestProvenanceQueries:
         assert "'Source: ' + rel.source" in query
 
         # Verify parameters
-        assert params["node_uid"] == "ku.python_oop"
+        assert params["node_uid"] == "ku.python-oop"
 
 
 class TestRelationshipCitation:
@@ -325,9 +325,9 @@ class TestRelationshipCitation:
     def test_citation_initialization(self):
         """Test citation dataclass initialization."""
         citation = RelationshipCitation(
-            from_uid="ku.django_models",
+            from_uid="ku.django-models",
             from_title="Django Models",
-            to_uid="ku.python_oop",
+            to_uid="ku.python-oop",
             to_title="Python OOP",
             source="expert_verified",
             evidence=["Django Docs Ch. 3", "92% correlation"],
@@ -335,8 +335,8 @@ class TestRelationshipCitation:
             notes="Critical prerequisite",
         )
 
-        assert citation.from_uid == "ku.django_models"
-        assert citation.to_uid == "ku.python_oop"
+        assert citation.from_uid == "ku.django-models"
+        assert citation.to_uid == "ku.python-oop"
         assert len(citation.evidence) == 2
         assert citation.confidence == 0.92
 
@@ -396,7 +396,7 @@ class TestCitationBundle:
             RelationshipCitation(
                 from_uid="ku.django",
                 from_title="Django",
-                to_uid="ku.python_oop",
+                to_uid="ku.python-oop",
                 to_title="Python OOP",
                 source="expert_verified",
                 evidence=["Django Docs"],

@@ -50,12 +50,13 @@ from core.services.groups.group_service import GroupService
 from core.services.search_event_recorder import SearchEventRecorder
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
 from core.services.user_entry.user_entry_service import UserEntryService
+from tests.helpers.seed_uids import seed_user_uid
 
-TEACHER = "user_6b_teacher"
-STUDENT = "user_6b_student"
-GROUP = "group_6b_class"
-EXERCISE_A = "ex_6b_first"
-EXERCISE_B = "ex_6b_second"
+TEACHER = seed_user_uid("6b_teacher")
+STUDENT = seed_user_uid("6b_student")
+GROUP = "group.6b-class"
+EXERCISE_A = "ex.6b-first"
+EXERCISE_B = "ex.6b-second"
 STEP = "ps.6b.step"
 
 NATIVE = "ZONED DATETIME NOT NULL"
@@ -152,14 +153,14 @@ async def test_groups_list_newest_first(clean_neo4j, neo4j_driver, newer_is_nati
     default_uid = str(default.value[0]["group_uid"])
     with _at(string_at):
         created = await GroupService(backend=groups).create(
-            Group(uid="group_6b_string", name="String-stamped", owner_uid=TEACHER)
+            Group(uid="group.6b-string", name="String-stamped", owner_uid=TEACHER)
         )
     assert created.is_ok, created.expect_error()
-    assert await _stamp_types(neo4j_driver, "created_at", [default_uid, "group_6b_string"]) == {
+    assert await _stamp_types(neo4j_driver, "created_at", [default_uid, "group.6b-string"]) == {
         default_uid: NATIVE,
-        "group_6b_string": STRING,
+        "group.6b-string": STRING,
     }
-    newest_first = [default_uid, "group_6b_string"]
+    newest_first = [default_uid, "group.6b-string"]
     if not newer_is_native:
         newest_first.reverse()
 
@@ -180,8 +181,8 @@ async def test_groups_list_newest_first(clean_neo4j, neo4j_driver, newer_is_nati
 @pytest.mark.parametrize("newer_is_native", [True, False])
 async def test_recent_tasks_list_by_last_update(clean_neo4j, neo4j_driver, newer_is_native) -> None:
     tasks = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
-    user = UserUID("user_test")
-    for uid in ("task_6b_edited", "task_6b_resynced"):
+    user = seed_user_uid("test")
+    for uid in ("task.6b-edited", "task.6b-resynced"):
         created = await tasks.create(
             Task(uid=uid, title=uid, entity_type=EntityType.TASK, user_uid=user)
         )
@@ -192,31 +193,31 @@ async def test_recent_tasks_list_by_last_update(clean_neo4j, neo4j_driver, newer
     edit_at = datetime.now(UTC) + timedelta(days=-1 if newer_is_native else 1)
     if newer_is_native:
         with _at(edit_at):
-            assert (await tasks.update("task_6b_edited", {"title": "edited"})).is_ok
+            assert (await tasks.update("task.6b-edited", {"title": "edited"})).is_ok
     # A vault re-sync carries the task's owner — the upsert writes nothing to a
     # node someone else owns, and a row naming no owner is not the owner's.
     resynced = await BulkUpsertBackend(neo4j_driver).upsert_nodes(
         "Task",
         "Entity",
-        [{"uid": "task_6b_resynced", "title": "resynced", "user_uid": str(user)}],
+        [{"uid": "task.6b-resynced", "title": "resynced", "user_uid": str(user)}],
         {},
     )
     assert resynced.is_ok, resynced.expect_error()
     if not newer_is_native:
         with _at(edit_at):
-            assert (await tasks.update("task_6b_edited", {"title": "edited"})).is_ok
+            assert (await tasks.update("task.6b-edited", {"title": "edited"})).is_ok
 
     assert await _stamp_types(
-        neo4j_driver, "updated_at", ["task_6b_edited", "task_6b_resynced"]
-    ) == {"task_6b_edited": STRING, "task_6b_resynced": NATIVE}
-    newest_first = ["task_6b_resynced", "task_6b_edited"]
+        neo4j_driver, "updated_at", ["task.6b-edited", "task.6b-resynced"]
+    ) == {"task.6b-edited": STRING, "task.6b-resynced": NATIVE}
+    newest_first = ["task.6b-resynced", "task.6b-edited"]
     if not newer_is_native:
         newest_first.reverse()
 
     recent = await tasks.get_user_entities(user, sort_by="updated_at", sort_order="desc")
 
     assert recent.is_ok, recent.expect_error()
-    listed = [uid for uid in _uids(recent.value[0]) if uid.startswith("task_6b_")]
+    listed = [uid for uid in _uids(recent.value[0]) if uid.startswith("task.6b-")]
     assert listed == newest_first
 
 
@@ -284,12 +285,12 @@ async def test_curriculum_searches_list_by_last_update(
 
 async def test_pending_choices_order_by_the_deadline_instant(clean_neo4j, neo4j_driver) -> None:
     choices = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
-    user = UserUID("user_test")
+    user = seed_user_uid("test")
     # 10:00 at -07:00 is 17:00Z, after the offset-less 12:00 (UTC) — though its
     # digits sort first.
     deadlines = {
-        "choice_6b_offset": datetime.fromisoformat("2026-10-01T10:00:00-07:00"),
-        "choice_6b_utc": datetime.fromisoformat("2026-10-01T12:00:00"),
+        "choice.6b-offset": datetime.fromisoformat("2026-10-01T10:00:00-07:00"),
+        "choice.6b-utc": datetime.fromisoformat("2026-10-01T12:00:00"),
     }
     for uid, deadline in deadlines.items():
         created = await choices.create(
@@ -310,7 +311,7 @@ async def test_pending_choices_order_by_the_deadline_instant(clean_neo4j, neo4j_
 
     assert pending.is_ok, pending.expect_error()
     listed = _uids(pending.value)
-    assert listed == ["choice_6b_utc", "choice_6b_offset"]
+    assert listed == ["choice.6b-utc", "choice.6b-offset"]
 
 
 # ============================================================================
@@ -365,7 +366,7 @@ async def test_search_gaps_break_ties_by_the_last_search_instant(neo4j_driver) -
         await recorder.handle_search_executed(
             SearchExecuted(
                 query_text=query,
-                user_uid=UserUID("user_test"),
+                user_uid=seed_user_uid("test"),
                 entry_point="faceted",
                 result_count=0,
                 zero_results=True,

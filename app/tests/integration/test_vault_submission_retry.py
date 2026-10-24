@@ -21,10 +21,11 @@ import pytest
 
 from core.services.ingestion.ingestion_tracker import PENDING_MTIME
 from core.services.vault.vault_descriptor import VaultKind
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._vault_rig import OWNER, Rig
 
-TEACHER = "user_vault_retry_teacher"
-GROUP = "group_vault_retry"
+TEACHER = seed_user_uid("vault_retry_teacher")
+GROUP = "group.vault-retry"
 NOTE = "knowledge/retry-probe.md"
 RENAMED = "knowledge/retry-probe-renamed.md"
 

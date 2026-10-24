@@ -36,7 +36,7 @@ def _load_migration():
 migration = _load_migration()
 
 GOOD_STAMP = "2026-01-02T03:04:05.678901"
-_UIDS = ["ku_bf_a", "ku_bf_b", "ku_bf_c", "ku_bf_d"]
+_UIDS = ["ku.bf-a", "ku.bf-b", "ku.bf-c", "ku.bf-d"]
 
 
 @pytest.fixture

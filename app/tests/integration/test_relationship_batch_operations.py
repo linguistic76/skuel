@@ -35,9 +35,9 @@ class TestRelationshipBatchOperations:
     async def test_get_relationships_batch_nonexistent(self, tasks_backend):
         """Test batch metadata query for non-existent relationships."""
         relationships = [
-            ("task:nonexistent1", "ku:python", "APPLIES_KNOWLEDGE"),
-            ("task:nonexistent2", "ku:algorithms", "REQUIRES_KNOWLEDGE"),
-            ("task:nonexistent3", "ku:databases", "APPLIES_KNOWLEDGE"),
+            ("task:nonexistent1", "ku.python", "APPLIES_KNOWLEDGE"),
+            ("task:nonexistent2", "ku.algorithms", "REQUIRES_KNOWLEDGE"),
+            ("task:nonexistent3", "ku.databases", "APPLIES_KNOWLEDGE"),
         ]
         result = await tasks_backend.get_relationships_batch(relationships)
 
@@ -75,7 +75,7 @@ class TestRelationshipBatchOperations:
         requests = [
             ("task:123", "APPLIES_KNOWLEDGE", "outgoing"),
             ("task:456", "REQUIRES_KNOWLEDGE", "incoming"),
-            ("ku:python", "ENABLES", "both"),
+            ("ku.python", "ENABLES", "both"),
         ]
         result = await tasks_backend.count_relationships_batch(requests)
 
@@ -85,7 +85,7 @@ class TestRelationshipBatchOperations:
         # Verify all keys are present
         assert ("task:123", "APPLIES_KNOWLEDGE", "outgoing") in result.value
         assert ("task:456", "REQUIRES_KNOWLEDGE", "incoming") in result.value
-        assert ("ku:python", "ENABLES", "both") in result.value
+        assert ("ku.python", "ENABLES", "both") in result.value
 
     async def test_count_relationships_batch_default_direction(self, tasks_backend):
         """Test batch counting with None direction (defaults to outgoing)."""

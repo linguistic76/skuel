@@ -54,10 +54,11 @@ import pytest_asyncio
 from core.constants import HabitConsistencyWindow
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
-WINDOW = "user_consistency_window"
-STALE = "user_consistency_stale"
-BULK = "user_consistency_bulk"
+WINDOW = seed_user_uid("consistency_window")
+STALE = seed_user_uid("consistency_stale")
+BULK = seed_user_uid("consistency_bulk")
 
 TODAY = today_in(current_zone())
 FIRST_DAY_IN = HabitConsistencyWindow.start_date(TODAY)
@@ -141,35 +142,35 @@ class TestHabitConsistencyWindow:
     async def seeded(self, neo4j_driver, backend):
         """One user per shape the figures have to discriminate."""
         # WINDOW: four rows that count and four that must not. Total 8.
-        await _seed_completion(neo4j_driver, WINDOW, "hc.win_today", completed_at=_at(TODAY))
+        await _seed_completion(neo4j_driver, WINDOW, "hc.win-today", completed_at=_at(TODAY))
         await _seed_completion(
-            neo4j_driver, WINDOW, "hc.win_yesterday", completed_at=_at(TODAY - timedelta(days=1))
+            neo4j_driver, WINDOW, "hc.win-yesterday", completed_at=_at(TODAY - timedelta(days=1))
         )
         # The boundary itself, late in the day: the first day inside the window.
         await _seed_completion(
-            neo4j_driver, WINDOW, "hc.win_boundary", completed_at=_at(FIRST_DAY_IN, hour=23)
+            neo4j_driver, WINDOW, "hc.win-boundary", completed_at=_at(FIRST_DAY_IN, hour=23)
         )
         # A timestamp written as a native temporal rather than an ISO string.
         await _seed_completion(
             neo4j_driver,
             WINDOW,
-            "hc.win_temporal",
+            "hc.win-temporal",
             completed_at=_at(TODAY, hour=10),
             temporal_stamp=True,
         )
         # One day past the boundary — exactly DAYS old, and late in that day, so
         # a truncation that rounded up rather than down would wrongly admit it.
         await _seed_completion(
-            neo4j_driver, WINDOW, "hc.out_boundary", completed_at=_at(LAST_DAY_OUT, hour=23)
+            neo4j_driver, WINDOW, "hc.out-boundary", completed_at=_at(LAST_DAY_OUT, hour=23)
         )
         await _seed_completion(
-            neo4j_driver, WINDOW, "hc.out_ancient", completed_at=_at(TODAY - timedelta(days=200))
+            neo4j_driver, WINDOW, "hc.out-ancient", completed_at=_at(TODAY - timedelta(days=200))
         )
         # A record with no timestamp at all — excluded, not assumed recent.
-        await _seed_completion(neo4j_driver, WINDOW, "hc.out_unstamped", completed_at=None)
+        await _seed_completion(neo4j_driver, WINDOW, "hc.out-unstamped", completed_at=None)
         # Stamped in the future — outside a *trailing* window until its day comes.
         await _seed_completion(
-            neo4j_driver, WINDOW, "hc.out_future", completed_at=_at(TODAY + timedelta(days=1))
+            neo4j_driver, WINDOW, "hc.out-future", completed_at=_at(TODAY + timedelta(days=1))
         )
 
         # STALE: a real year of history, nothing inside the window.
@@ -177,14 +178,14 @@ class TestHabitConsistencyWindow:
             await _seed_completion(
                 neo4j_driver,
                 STALE,
-                f"hc.stale_{offset}",
+                f"hc.stale-{offset}",
                 completed_at=_at(TODAY - timedelta(days=offset)),
             )
 
         # BULK: completions in the window.
         for n in range(6):
             await _seed_completion(
-                neo4j_driver, BULK, f"hc.bulk_{n}", completed_at=_at(TODAY - timedelta(days=n))
+                neo4j_driver, BULK, f"hc.bulk-{n}", completed_at=_at(TODAY - timedelta(days=n))
             )
 
         return backend
@@ -221,10 +222,10 @@ class TestHabitConsistencyWindow:
         counting.
         """
         await _seed_completion(
-            neo4j_driver, WINDOW, "hc.edge_in", completed_at=_at(FIRST_DAY_IN, hour=23)
+            neo4j_driver, WINDOW, "hc.edge-in", completed_at=_at(FIRST_DAY_IN, hour=23)
         )
         await _seed_completion(
-            neo4j_driver, WINDOW, "hc.edge_out", completed_at=_at(LAST_DAY_OUT, hour=23)
+            neo4j_driver, WINDOW, "hc.edge-out", completed_at=_at(LAST_DAY_OUT, hour=23)
         )
 
         row = await self._read(backend, WINDOW)
@@ -245,11 +246,11 @@ class TestHabitConsistencyWindow:
         because nothing about the number looks wrong. Today's row is seeded
         beside it so this discriminates the bound rather than merely counting.
         """
-        await _seed_completion(neo4j_driver, WINDOW, "hc.bound_today", completed_at=_at(TODAY))
+        await _seed_completion(neo4j_driver, WINDOW, "hc.bound-today", completed_at=_at(TODAY))
         await _seed_completion(
             neo4j_driver,
             WINDOW,
-            "hc.bound_tomorrow",
+            "hc.bound-tomorrow",
             completed_at=_at(TODAY + timedelta(days=1)),
         )
 
@@ -269,7 +270,7 @@ class TestHabitConsistencyWindow:
         await _seed_completion(
             neo4j_driver,
             WINDOW,
-            "hc.temporal_only",
+            "hc.temporal-only",
             completed_at=_at(TODAY),
             temporal_stamp=True,
         )
@@ -305,7 +306,7 @@ class TestHabitConsistencyWindow:
         now = datetime.now()
         created = await completions_backend.create(
             HabitCompletion(
-                uid="hc.real_writer",
+                uid="hc.real-writer",
                 habit_uid="habit.exercise",
                 user_uid=WINDOW,
                 completed_at=now,
@@ -381,7 +382,7 @@ class TestHabitConsistencyWindow:
         completions_backend = UniversalNeo4jBackend[HabitCompletion](
             neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
         )
-        habit_uid = "habit.bulk_logged"
+        habit_uid = "habit.bulk-logged"
         created = await habits_backend.create(
             Habit(uid=habit_uid, user_uid=BULK, entity_type=EntityType.HABIT, title="Bulk")
         )
@@ -445,7 +446,7 @@ class TestHabitConsistencyWindow:
         exactly one row rather than an empty result the service would have to
         treat as a separate case.
         """
-        result = await service.get_habit_consistency("user_consistency_nobody")
+        result = await service.get_habit_consistency(seed_user_uid("consistency_nobody"))
 
         assert result.is_ok
         assert result.value["consistency_score"] == 0.0

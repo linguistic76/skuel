@@ -22,6 +22,7 @@ from core.events.goal_events import GoalAchieved
 from core.events.habit_events import HabitStreakMilestone
 from core.events.learning_events import LearningPathCompleted
 from core.services.analytics_service import AnalyticsService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -69,7 +70,7 @@ class TestAnalyticsGenerationFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Test user UID for analytics generation."""
-        return "user_analytics_test"
+        return seed_user_uid("analytics_test")
 
     # ========================================================================
     # GOAL ACHIEVEMENT REPORT TESTS
@@ -81,7 +82,7 @@ class TestAnalyticsGenerationFlow:
         """Test that GoalAchieved event triggers achievement analytics logging."""
         # Publish GoalAchieved event
         event = GoalAchieved(
-            goal_uid="goal.launch_product",
+            goal_uid="goal.launch-product",
             user_uid=test_user_uid,
             occurred_at=datetime.now(),
         )
@@ -117,7 +118,7 @@ class TestAnalyticsGenerationFlow:
         """Test that LearningPathCompleted event triggers learning progress analytics."""
         # Publish LearningPathCompleted event
         event = LearningPathCompleted(
-            path_uid="lp.intro_python",
+            path_uid="lp.intro-python",
             user_uid=test_user_uid,
             occurred_at=datetime.now(),
             actual_duration_hours=40,
@@ -138,7 +139,7 @@ class TestAnalyticsGenerationFlow:
     ):
         """Test learning path completion with high mastery score."""
         event = LearningPathCompleted(
-            path_uid="lp.advanced_python",
+            path_uid="lp.advanced-python",
             user_uid=test_user_uid,
             occurred_at=datetime.now(),
             actual_duration_hours=60,
@@ -158,7 +159,7 @@ class TestAnalyticsGenerationFlow:
     ):
         """Test learning path completed ahead of schedule."""
         event = LearningPathCompleted(
-            path_uid="lp.data_structures",
+            path_uid="lp.data-structures",
             user_uid=test_user_uid,
             occurred_at=datetime.now(),
             actual_duration_hours=30,
@@ -181,7 +182,7 @@ class TestAnalyticsGenerationFlow:
         """Test that 7-day streak milestone triggers consistency analytics."""
         # Publish HabitStreakMilestone event (7 days)
         event = HabitStreakMilestone(
-            habit_uid="habit.daily_meditation",
+            habit_uid="habit.daily-meditation",
             user_uid=test_user_uid,
             occurred_at=datetime.now(),
             streak_length=7,
@@ -335,7 +336,7 @@ class TestAnalyticsGenerationFlow:
         # Try to handle event
         event = GoalAchieved(
             goal_uid="goal.test",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
         )
 

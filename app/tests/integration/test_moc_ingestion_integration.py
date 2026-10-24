@@ -29,6 +29,7 @@ from core.services.ingestion.config import SyncAllowlist
 from core.services.ingestion.types import IncrementalStats
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.seed_uids import seed_user_uid
 
 _UID_PREFIX = "ku.test.mocpass"
 
@@ -223,7 +224,7 @@ class TestMocEdgePass:
             content=VaultDescriptor(
                 kind=VaultKind.CONTENT,
                 root=content_root,
-                owner_uid="user_test_integration",  # type: ignore[arg-type]
+                owner_uid=seed_user_uid("test_integration"),  # type: ignore[arg-type]
                 allowlist=SyncAllowlist(
                     governed_root=content_root, allowed_dirs=frozenset({content_root})
                 ),

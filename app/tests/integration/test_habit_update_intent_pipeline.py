@@ -32,6 +32,7 @@ from core.models.habit.habit_request import HabitUpdateRequest
 from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.models.sentinels import UNSET
 from core.services.habits.habits_core_service import HabitsCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -70,8 +71,8 @@ class TestHabitUpdateIntentPipeline:
     async def seeded_habit(self, core_service):
         # current_streak=10 so the streak-preservation rule (>= 7) is exercisable.
         habit = Habit(
-            uid="habit.intent_pipeline",
-            user_uid="user_intent_pipeline",
+            uid="habit.intent-pipeline",
+            user_uid=seed_user_uid("intent_pipeline"),
             title="Original title",
             description="Original description",
             recurrence_pattern=RecurrencePattern.DAILY,

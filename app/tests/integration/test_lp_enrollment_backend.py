@@ -15,11 +15,12 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.user_backend import UserBackend
 from core.utils.result_simplified import ErrorCategory
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-_USER_UID = "user_test_lp_enroll"
-_LP_UID = "lp:test:enrollment-backend"
+_USER_UID = seed_user_uid("test_lp_enroll")
+_LP_UID = "lp.test.enrollment-backend"
 
 
 @pytest_asyncio.fixture(loop_scope="session")

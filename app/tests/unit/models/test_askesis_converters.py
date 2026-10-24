@@ -25,6 +25,7 @@ from core.models.askesis.askesis_request import (
 )
 from core.models.enums import GuidanceMode
 from core.models.enums.askesis_enums import QueryComplexity
+from tests.helpers.seed_uids import seed_user_uid
 
 
 class TestCreateRequestChain:
@@ -38,8 +39,8 @@ class TestCreateRequestChain:
             preferred_complexity_level=QueryComplexity.COMPLEX,
         )
 
-        create_dto = askesis_create_request_to_dto(request, "user_alice")
-        assert create_dto.user_uid == "user_alice"
+        create_dto = askesis_create_request_to_dto(request, seed_user_uid("alice"))
+        assert create_dto.user_uid == seed_user_uid("alice")
         assert create_dto.name == "My Askesis"
         assert create_dto.version == "2.0"
         # Pydantic coerces explicit enum inputs to their str value when
@@ -50,7 +51,7 @@ class TestCreateRequestChain:
         dto = create_askesis_dto_from_create_dto(create_dto)
         assert isinstance(dto, AskesisDTO)
         assert dto.uid.startswith("askesis_")
-        assert dto.user_uid == "user_alice"
+        assert dto.user_uid == seed_user_uid("alice")
         assert dto.preferred_guidance_mode == "socratic"
         assert dto.created_at is not None
 
@@ -58,7 +59,7 @@ class TestCreateRequestChain:
         """Default values stay as enum instances (Pydantic V2 quirk)."""
         request = AskesisCreateRequest()
 
-        create_dto = askesis_create_request_to_dto(request, "user_bob")
+        create_dto = askesis_create_request_to_dto(request, seed_user_uid("bob"))
 
         # _enum_value extracts .value from the enum default
         assert create_dto.preferred_guidance_mode == "direct"
@@ -67,12 +68,12 @@ class TestCreateRequestChain:
     def test_uid_format_matches_uidgenerator(self) -> None:
         """UID uses SKUEL's UIDGenerator prefix — no per-user timestamp hack."""
         request = AskesisCreateRequest()
-        create_dto = askesis_create_request_to_dto(request, "user_charlie")
+        create_dto = askesis_create_request_to_dto(request, seed_user_uid("charlie"))
         dto = create_askesis_dto_from_create_dto(create_dto)
         # UIDGenerator.generate_random_uid("askesis") → "askesis_<random>"
-        # NOT "askesis_user_charlie_<timestamp>"
+        # NOT "askesis_{the user uid}_<timestamp>"
         assert dto.uid.startswith("askesis_")
-        assert "user_charlie" not in dto.uid
+        assert seed_user_uid("charlie") not in dto.uid
 
 
 class TestUpdateRequestChain:
@@ -81,7 +82,7 @@ class TestUpdateRequestChain:
     def _existing_dto(self) -> AskesisDTO:
         return AskesisDTO(
             uid="askesis_existing",
-            user_uid="user_alice",
+            user_uid=seed_user_uid("alice"),
             name="Original",
             version="1.0",
             preferred_guidance_mode=GuidanceMode.DIRECT.value,

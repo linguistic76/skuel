@@ -22,9 +22,10 @@ from core.models.goal.goal_request import GoalCreateRequest
 from core.models.relationship_names import RelationshipName
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_test_goal_edge_update"
-OTHER = "user_test_goal_edge_update_other"
+USER = seed_user_uid("test_goal_edge_update")
+OTHER = seed_user_uid("test_goal_edge_update_other")
 
 #: The node properties that would name a task's goal link — none may be written.
 _GOAL_LINK_PROPERTIES = frozenset(

@@ -33,22 +33,23 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import default_group_uid
 from core.models.type_hints import EntityUID, UserUID
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 PREFIX = "r8comem"
-ADMIN = f"{PREFIX}_admin"
-TEACHER = f"{PREFIX}_teacher"
-ALICE = f"{PREFIX}_alice"
-BOB = f"{PREFIX}_bob"
-CAROL = f"{PREFIX}_carol"
-DAVE = f"{PREFIX}_dave"
-ERIN = f"{PREFIX}_erin"
+ADMIN = seed_user_uid(f"{PREFIX}_admin")
+TEACHER = seed_user_uid(f"{PREFIX}_teacher")
+ALICE = seed_user_uid(f"{PREFIX}_alice")
+BOB = seed_user_uid(f"{PREFIX}_bob")
+CAROL = seed_user_uid(f"{PREFIX}_carol")
+DAVE = seed_user_uid(f"{PREFIX}_dave")
+ERIN = seed_user_uid(f"{PREFIX}_erin")
 DEFAULT_GROUP = default_group_uid(ADMIN)
-CLASS = f"{PREFIX}_class"
-OLD_CLASS = f"{PREFIX}_old_class"
-ENTRY = f"{PREFIX}_ue_alice"
-PRIVATE_ENTRY = f"{PREFIX}_ue_alice_private"
+CLASS = f"group.{PREFIX}-class"
+OLD_CLASS = f"group.{PREFIX}-old-class"
+ENTRY = f"ue.{PREFIX}-alice"
+PRIVATE_ENTRY = f"ue.{PREFIX}-alice-private"
 
 _SEED = """
 CREATE (admin:User {uid: $admin, title: $admin_name, is_active: true}),
@@ -78,9 +79,11 @@ CREATE (p:Entity:UserEntry {
 CREATE (alice)-[:OWNS]->(p)
 """
 
-_CLEANUP = (
-    f"MATCH (n) WHERE n.uid STARTS WITH '{PREFIX}' OR n.uid = '{DEFAULT_GROUP}' DETACH DELETE n"
-)
+_SEEDED = [
+    *(ADMIN, TEACHER, ALICE, BOB, CAROL, DAVE, ERIN),
+    *(DEFAULT_GROUP, CLASS, OLD_CLASS, ENTRY, PRIVATE_ENTRY),
+]
+_CLEANUP = "MATCH (n) WHERE n.uid IN $uids DETACH DELETE n"
 
 _PARAMS = {
     "admin": ADMIN,
@@ -113,11 +116,11 @@ async def graph(neo4j_driver: Any) -> Any:
         entity_class=Entity,
         base_label=NeoLabel.ENTITY,
     )
-    await backend.execute_query(_CLEANUP)
+    await backend.execute_query(_CLEANUP, {"uids": _SEEDED})
     seeded = await backend.execute_query(_SEED + " RETURN count(e) AS n", _PARAMS)
     assert seeded.is_ok and seeded.value and seeded.value[0]["n"] == 1, seeded
     yield UnifiedSharingService(backend=backend), backend
-    await backend.execute_query(_CLEANUP)
+    await backend.execute_query(_CLEANUP, {"uids": _SEEDED})
 
 
 async def _shares_with_count(backend: Any) -> int:
@@ -174,7 +177,9 @@ class TestTheReads:
         assert (await sharing.resolve_co_member(ALICE, "r8_erin_name")).value is None
         assert (await sharing.resolve_co_member(ALICE, "nobody_at_all")).value is None
         assert (await sharing.shares_group_with(ALICE, ERIN)).value is False
-        assert (await sharing.shares_group_with(ALICE, "user_does_not_exist")).value is False
+        assert (
+            await sharing.shares_group_with(ALICE, seed_user_uid("does_not_exist"))
+        ).value is False
 
     async def test_ones_own_username_resolves_to_oneself(self, graph: Any) -> None:
         """The resolver refuses the owner; the read must hand it the uid to compare."""
@@ -207,7 +212,7 @@ class TestTheGuardedWrite:
         assert result.is_ok, result.error
         assert await _shares_with_count(backend) == 1
 
-    @pytest.mark.parametrize("recipient", [BOB, DAVE, ERIN, "user_does_not_exist"])
+    @pytest.mark.parametrize("recipient", [BOB, DAVE, ERIN, seed_user_uid("does_not_exist")])
     async def test_the_statement_refuses_what_the_read_refuses(
         self, graph: Any, recipient: str
     ) -> None:

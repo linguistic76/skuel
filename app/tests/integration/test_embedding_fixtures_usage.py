@@ -121,14 +121,14 @@ async def test_vector_search_to_node_with_mock(mock_vector_search_service):
     """Test node-to-node similarity search using mock service."""
 
     result = await mock_vector_search_service.find_similar_to_node(
-        label="Goal", uid="goal.test_001", limit=5, min_score=0.7, exclude_self=True
+        label="Goal", uid="goal.test-001", limit=5, min_score=0.7, exclude_self=True
     )
 
     assert result.is_ok
     similar = result.value
 
     # Source node should be excluded
-    assert all(item["node"]["uid"] != "goal.test_001" for item in similar)
+    assert all(item["node"]["uid"] != "goal.test-001" for item in similar)
 
 
 @pytest.mark.asyncio

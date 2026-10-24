@@ -42,12 +42,12 @@ from core.services.infrastructure.graph_intelligence_service import GraphIntelli
 from core.services.ku.ku_intelligence_service import KuIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
-P = "convku_"  # uid prefix for this module's fixture graph
+P = "convku."  # uid prefix for this module's fixture graph
 KU = P + "ku"
-KU_USES = P + "ku_uses"  # via USES_KU (registry edge)
-KU_TRAINS = P + "ku_trains"  # via TRAINS_KU (registry edge)
-KU_ORG = P + "ku_org"  # via ORGANIZES (NOT in KU_CONFIG → filtered by mechanism B)
-KU_NOISE = P + "ku_noise"  # via NOISE_LINK (outside the registry → filtered)
+KU_USES = P + "ku-uses"  # via USES_KU (registry edge)
+KU_TRAINS = P + "ku-trains"  # via TRAINS_KU (registry edge)
+KU_ORG = P + "ku-org"  # via ORGANIZES (NOT in KU_CONFIG → filtered by mechanism B)
+KU_NOISE = P + "ku-noise"  # via NOISE_LINK (outside the registry → filtered)
 
 
 def _uids(graph_context) -> set[str]:

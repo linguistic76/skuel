@@ -38,11 +38,12 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.constants import QueryLimit
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.services.insight.insight_store import InsightStore
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
-USER = "user_insight_truthful"
-OTHER = "user_insight_truthful_other"
+USER = seed_user_uid("insight_truthful")
+OTHER = seed_user_uid("insight_truthful_other")
 PAGE = 10
 
 Handler = Callable[..., Awaitable[Any]]

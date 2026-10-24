@@ -29,7 +29,7 @@ import pytest_asyncio
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.events.habit_events import HabitCompleted, HabitMissed
-from core.models.type_hints import UserUID
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client
 
 if TYPE_CHECKING:
@@ -46,9 +46,9 @@ pytestmark = [
 ]
 
 MARK = "zzzhablearn"
-USER = UserUID(f"user_{MARK}")
+USER = seed_user_uid(f"{MARK}")
 QUIET_MARK = "zzzhabquiet"
-QUIET_USER = UserUID(f"user_{QUIET_MARK}")
+QUIET_USER = seed_user_uid(f"{QUIET_MARK}")
 
 
 async def _props(skuel_app: Any, uid: str) -> dict[str, Any]:  # boundary: fasthtml-app

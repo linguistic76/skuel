@@ -52,6 +52,7 @@ from core.services.mixins.link_edge_guard import (
     KNOWLEDGE_FAR_END,
 )
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -69,7 +70,7 @@ class TestRelationshipLinkRoundTrip:
             uid=uid,
             title=uid,
             description="link round-trip fixture",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.MEDIUM,
             status=EntityStatus.DRAFT,
         )
@@ -83,30 +84,30 @@ class TestRelationshipLinkRoundTrip:
         Pre-fix this dispatched to a non-existent `link_task_to_knowledge` backend method
         and failed at runtime.
         """
-        await self._make_task(services, "task:link_ku_src")
-        await self._make_ku(ku_backend, "ku:link_target")
+        await self._make_task(services, "task.link-ku-src")
+        await self._make_ku(ku_backend, "ku.link-target")
 
-        result = await services.tasks.link_task_to_knowledge("task:link_ku_src", "ku:link_target")
+        result = await services.tasks.link_task_to_knowledge("task.link-ku-src", "ku.link-target")
         assert result.is_ok, f"link_task_to_knowledge failed: {result}"
 
         edges = await services.tasks.backend.get_relationships(
-            "task:link_ku_src", rel_type=RelationshipName.APPLIES_KNOWLEDGE, direction="outgoing"
+            "task.link-ku-src", rel_type=RelationshipName.APPLIES_KNOWLEDGE, direction="outgoing"
         )
         assert edges.is_ok
         assert [r["type"] for r in edges.value] == ["APPLIES_KNOWLEDGE"]
-        assert edges.value[0]["target_uid"] == "ku:link_target"
+        assert edges.value[0]["target_uid"] == "ku.link-target"
 
     async def test_create_relationship_single_persists_properties(
         self, services, ku_backend, clean_neo4j
     ):
         """The single create_relationship writes the registry-typed edge and persists properties."""
-        await self._make_task(services, "task:link_props_src")
-        await self._make_ku(ku_backend, "ku:link_props_target")
+        await self._make_task(services, "task.link-props-src")
+        await self._make_ku(ku_backend, "ku.link-props-target")
 
         result = await services.tasks.relationships.create_relationship(
             "knowledge",
-            "task:link_props_src",
-            "ku:link_props_target",
+            "task.link-props-src",
+            "ku.link-props-target",
             properties={"confidence": 0.9},
             far_end=KNOWLEDGE_FAR_END,
         )
@@ -114,8 +115,8 @@ class TestRelationshipLinkRoundTrip:
         assert result.value is True
 
         meta = await services.tasks.backend.get_relationship_metadata(
-            from_uid="task:link_props_src",
-            to_uid="ku:link_props_target",
+            from_uid="task.link-props-src",
+            to_uid="ku.link-props-target",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         assert meta.is_ok
@@ -132,8 +133,8 @@ class TestRelationshipLinkRoundTrip:
         through the batch path is behaviour-preserving.
         """
         habit = Habit(
-            uid="habit:link_ku_src",
-            user_uid="user_test",
+            uid="habit.link-ku-src",
+            user_uid=seed_user_uid("test"),
             entity_type=EntityType.HABIT,
             title="Habit",
             description="link round-trip fixture",
@@ -142,24 +143,24 @@ class TestRelationshipLinkRoundTrip:
             recurrence_pattern=RecurrencePattern.DAILY,
         )
         assert (await habits_backend.create(habit)).is_ok
-        await self._make_ku(ku_backend, "ku:habit_target")
+        await self._make_ku(ku_backend, "ku.habit-target")
 
         result = await UnifiedRelationshipService(
             backend=habits_backend, config=HABITS_CONFIG
         ).create_relationship(
-            "knowledge", "habit:link_ku_src", "ku:habit_target", far_end=KNOWLEDGE_FAR_END
+            "knowledge", "habit.link-ku-src", "ku.habit-target", far_end=KNOWLEDGE_FAR_END
         )
         assert result.is_ok
         assert result.value is True
 
         edges = await habits_backend.get_relationships(
-            "habit:link_ku_src",
+            "habit.link-ku-src",
             rel_type=RelationshipName.REINFORCES_KNOWLEDGE,
             direction="outgoing",
         )
         assert edges.is_ok
         assert [r["type"] for r in edges.value] == ["REINFORCES_KNOWLEDGE"]
-        assert edges.value[0]["target_uid"] == "ku:habit_target"
+        assert edges.value[0]["target_uid"] == "ku.habit-target"
 
     async def test_incoming_spec_edge_is_oriented_related_to_owner(
         self, services, habits_backend, clean_neo4j
@@ -173,8 +174,8 @@ class TestRelationshipLinkRoundTrip:
         """
         today = date.today()
         goal = Goal(
-            uid="goal:incoming_owner",
-            user_uid="user_test",
+            uid="goal.incoming-owner",
+            user_uid=seed_user_uid("test"),
             title="Goal",
             description="incoming-orientation fixture",
             goal_type=GoalType.LEARNING,
@@ -190,8 +191,8 @@ class TestRelationshipLinkRoundTrip:
         )
         assert (await services.goals.backend.create(goal)).is_ok
         habit = Habit(
-            uid="habit:incoming_related",
-            user_uid="user_test",
+            uid="habit.incoming-related",
+            user_uid=seed_user_uid("test"),
             entity_type=EntityType.HABIT,
             title="Habit",
             description="incoming-orientation fixture",
@@ -203,8 +204,8 @@ class TestRelationshipLinkRoundTrip:
 
         result = await services.goals.relationships.create_relationship(
             "supporting_habits",
-            "goal:incoming_owner",
-            "habit:incoming_related",
+            "goal.incoming-owner",
+            "habit.incoming-related",
             far_end=HABIT_FAR_END,
         )
         assert result.is_ok
@@ -212,26 +213,26 @@ class TestRelationshipLinkRoundTrip:
 
         # The goal has an INCOMING SUPPORTS_GOAL edge from the habit...
         incoming = await services.goals.backend.get_relationships(
-            "goal:incoming_owner", rel_type=RelationshipName.SUPPORTS_GOAL, direction="incoming"
+            "goal.incoming-owner", rel_type=RelationshipName.SUPPORTS_GOAL, direction="incoming"
         )
         assert incoming.is_ok
         assert [r["type"] for r in incoming.value] == ["SUPPORTS_GOAL"]
-        assert incoming.value[0]["target_uid"] == "habit:incoming_related"
+        assert incoming.value[0]["target_uid"] == "habit.incoming-related"
 
         # ...and NOT a backwards outgoing edge from the goal.
         outgoing = await services.goals.backend.get_relationships(
-            "goal:incoming_owner", rel_type=RelationshipName.SUPPORTS_GOAL, direction="outgoing"
+            "goal.incoming-owner", rel_type=RelationshipName.SUPPORTS_GOAL, direction="outgoing"
         )
         assert outgoing.is_ok
         assert outgoing.value == []
 
         # Deletion must orient identically (owner/related order) — unlink actually removes it.
         deleted = await services.goals.relationships.delete_relationship(
-            "supporting_habits", "goal:incoming_owner", "habit:incoming_related"
+            "supporting_habits", "goal.incoming-owner", "habit.incoming-related"
         )
         assert deleted.is_ok
         after = await services.goals.backend.get_relationships(
-            "goal:incoming_owner", rel_type=RelationshipName.SUPPORTS_GOAL, direction="incoming"
+            "goal.incoming-owner", rel_type=RelationshipName.SUPPORTS_GOAL, direction="incoming"
         )
         assert after.is_ok
         assert after.value == []
@@ -247,10 +248,10 @@ class TestRelationshipLinkRoundTrip:
         A mocked unit test passed regardless because the AsyncMock accepted ``"habits"``.
         """
         choice = Choice(
-            uid="choice:link_habit_src",
+            uid="choice.link-habit-src",
             title="Choice",
             description="choice→habit link round-trip fixture",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             choice_type=ChoiceType.MULTIPLE,
             status=EntityStatus.DRAFT,
             priority=Priority.MEDIUM,
@@ -258,8 +259,8 @@ class TestRelationshipLinkRoundTrip:
         )
         assert (await services.choices.backend.create(choice)).is_ok
         habit = Habit(
-            uid="habit:link_choice_target",
-            user_uid="user_test",
+            uid="habit.link-choice-target",
+            user_uid=seed_user_uid("test"),
             entity_type=EntityType.HABIT,
             title="Habit",
             description="choice→habit link round-trip fixture",
@@ -270,18 +271,18 @@ class TestRelationshipLinkRoundTrip:
         assert (await habits_backend.create(habit)).is_ok
 
         result = await services.choices.link_choice_to_habit(
-            "choice:link_habit_src", "habit:link_choice_target", reinforcement_strength=0.7
+            "choice.link-habit-src", "habit.link-choice-target", reinforcement_strength=0.7
         )
         assert result.is_ok, f"link_choice_to_habit failed: {result}"
 
         edges = await services.choices.backend.get_relationships(
-            "choice:link_habit_src",
+            "choice.link-habit-src",
             rel_type=RelationshipName.IMPACTS_HABIT,
             direction="outgoing",
         )
         assert edges.is_ok
         assert [r["type"] for r in edges.value] == ["IMPACTS_HABIT"]
-        assert edges.value[0]["target_uid"] == "habit:link_choice_target"
+        assert edges.value[0]["target_uid"] == "habit.link-choice-target"
 
     async def _read_attends_edge(self, neo4j_driver, user_uid: str, event_uid: str):
         """Raw read of the (User)-[:ATTENDS]->(Event) edge props (None when absent)."""
@@ -307,8 +308,8 @@ class TestRelationshipLinkRoundTrip:
         remove their own.
         """
         event = Event(
-            uid="event:attendee_rt",
-            user_uid="user_test",
+            uid="event.attendee-rt",
+            user_uid=seed_user_uid("test"),
             title="Event",
             description="attendee round-trip fixture",
             event_date=date.today(),
@@ -321,79 +322,83 @@ class TestRelationshipLinkRoundTrip:
         # Organizer (event owner) invites the target → status "invited", actor stamped.
         added = await services.events.add_attendee(
             AddAttendeeRequest(
-                event_uid="event:attendee_rt",
-                user_uid="user_test_456",
+                event_uid="event.attendee-rt",
+                user_uid=seed_user_uid("test_456"),
                 send_notification=False,
             ),
-            actor_uid="user_test",
+            actor_uid=seed_user_uid("test"),
         )
         assert added.is_ok, f"add_attendee failed: {added}"
 
-        props = await self._read_attends_edge(neo4j_driver, "user_test_456", "event:attendee_rt")
+        props = await self._read_attends_edge(
+            neo4j_driver, seed_user_uid("test_456"), "event.attendee-rt"
+        )
         assert props is not None, "organizer invite must write an ATTENDS edge"
         assert props["status"] == AttendanceStatus.INVITED.value
-        assert props["added_by"] == "user_test"  # the ACTOR, not the target
+        assert props["added_by"] == seed_user_uid("test")  # the ACTOR, not the target
         assert props["role"] == "attendee"
         assert props["joined_at"] is not None
 
-        attendees = await services.events.get_event_attendees("event:attendee_rt")
+        attendees = await services.events.get_event_attendees("event.attendee-rt")
         assert attendees.is_ok, f"get_event_attendees failed: {attendees}"
-        assert "user_test_456" in attendees.value
+        assert seed_user_uid("test_456") in attendees.value
 
         # A stranger (neither owner nor target) is refused.
         stranger_add = await services.events.add_attendee(
             AddAttendeeRequest(
-                event_uid="event:attendee_rt",
-                user_uid="user_test_456",
+                event_uid="event.attendee-rt",
+                user_uid=seed_user_uid("test_456"),
                 send_notification=False,
             ),
-            actor_uid="user_test_123",
+            actor_uid=seed_user_uid("test_123"),
         )
         assert stranger_add.is_error, "a non-owner, non-target actor must be refused"
 
         # Target self-adds → accepts their own pending invite (only the target transitions).
         accepted = await services.events.add_attendee(
             AddAttendeeRequest(
-                event_uid="event:attendee_rt",
-                user_uid="user_test_456",
+                event_uid="event.attendee-rt",
+                user_uid=seed_user_uid("test_456"),
                 send_notification=False,
             ),
-            actor_uid="user_test_456",
+            actor_uid=seed_user_uid("test_456"),
         )
         assert accepted.is_ok, f"self-add (accept) failed: {accepted}"
-        props = await self._read_attends_edge(neo4j_driver, "user_test_456", "event:attendee_rt")
+        props = await self._read_attends_edge(
+            neo4j_driver, seed_user_uid("test_456"), "event.attendee-rt"
+        )
         assert props is not None
         assert props["status"] == AttendanceStatus.ACCEPTED.value
-        assert props["added_by"] == "user_test"  # ON CREATE only — never rewritten
+        assert props["added_by"] == seed_user_uid("test")  # ON CREATE only — never rewritten
 
         # Organizer may NOT revoke an accepted attendance (only a pending invite).
         organizer_remove = await services.events.remove_attendee(
             RemoveAttendeeRequest(
-                event_uid="event:attendee_rt",
-                user_uid="user_test_456",
+                event_uid="event.attendee-rt",
+                user_uid=seed_user_uid("test_456"),
                 send_notification=False,
             ),
-            actor_uid="user_test",
+            actor_uid=seed_user_uid("test"),
         )
         assert organizer_remove.is_ok
         assert organizer_remove.value is False, "accepted attendance is the attendee's to keep"
-        still = await services.events.get_event_attendees("event:attendee_rt")
-        assert still.is_ok and "user_test_456" in still.value
+        still = await services.events.get_event_attendees("event.attendee-rt")
+        assert still.is_ok and seed_user_uid("test_456") in still.value
 
         # The target may always remove their own attendance.
         removed = await services.events.remove_attendee(
             RemoveAttendeeRequest(
-                event_uid="event:attendee_rt",
-                user_uid="user_test_456",
+                event_uid="event.attendee-rt",
+                user_uid=seed_user_uid("test_456"),
                 send_notification=False,
             ),
-            actor_uid="user_test_456",
+            actor_uid=seed_user_uid("test_456"),
         )
         assert removed.is_ok
         assert removed.value is True
-        after = await services.events.get_event_attendees("event:attendee_rt")
+        after = await services.events.get_event_attendees("event.attendee-rt")
         assert after.is_ok
-        assert "user_test_456" not in after.value
+        assert seed_user_uid("test_456") not in after.value
 
     async def test_principle_alignment_keys_resolve_and_read_back(
         self, services, habits_backend, clean_neo4j
@@ -408,8 +413,8 @@ class TestRelationshipLinkRoundTrip:
         alignment silently scored nothing. These are the exact calls the fixed method makes.
         """
         principle = Principle(
-            uid="principle:align_rt",
-            user_uid="user_test",
+            uid="principle.align-rt",
+            user_uid=seed_user_uid("test"),
             title="Principle",
             statement="alignment round-trip fixture",
             description="alignment round-trip fixture",
@@ -419,8 +424,8 @@ class TestRelationshipLinkRoundTrip:
 
         today = date.today()
         goal = Goal(
-            uid="goal:align_rt",
-            user_uid="user_test",
+            uid="goal.align-rt",
+            user_uid=seed_user_uid("test"),
             title="Goal",
             description="alignment round-trip fixture",
             goal_type=GoalType.LEARNING,
@@ -436,8 +441,8 @@ class TestRelationshipLinkRoundTrip:
         )
         assert (await services.goals.backend.create(goal)).is_ok
         habit = Habit(
-            uid="habit:align_rt",
-            user_uid="user_test",
+            uid="habit.align-rt",
+            user_uid=seed_user_uid("test"),
             entity_type=EntityType.HABIT,
             title="Habit",
             description="alignment round-trip fixture",
@@ -450,20 +455,20 @@ class TestRelationshipLinkRoundTrip:
         rels = services.principles.relationships
         assert (
             await rels.create_relationship(
-                "supported_goals", "principle:align_rt", "goal:align_rt", far_end=GOAL_FAR_END
+                "supported_goals", "principle.align-rt", "goal.align-rt", far_end=GOAL_FAR_END
             )
         ).is_ok
         assert (
             await rels.create_relationship(
-                "inspired_habits", "principle:align_rt", "habit:align_rt", far_end=HABIT_FAR_END
+                "inspired_habits", "principle.align-rt", "habit.align-rt", far_end=HABIT_FAR_END
             )
         ).is_ok
 
         # The exact 2-arg service reads the fixed method performs:
-        goals_read = await rels.get_related_uids("supported_goals", "principle:align_rt")
+        goals_read = await rels.get_related_uids("supported_goals", "principle.align-rt")
         assert goals_read.is_ok, f"supported_goals read failed: {goals_read}"
-        assert goals_read.value == ["goal:align_rt"]
+        assert goals_read.value == ["goal.align-rt"]
 
-        habits_read = await rels.get_related_uids("inspired_habits", "principle:align_rt")
+        habits_read = await rels.get_related_uids("inspired_habits", "principle.align-rt")
         assert habits_read.is_ok, f"inspired_habits read failed: {habits_read}"
-        assert habits_read.value == ["habit:align_rt"]
+        assert habits_read.value == ["habit.align-rt"]

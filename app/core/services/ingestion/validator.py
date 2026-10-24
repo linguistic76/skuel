@@ -37,7 +37,7 @@ from core.services.ps_engagement._spawn_orchestrator import copied_text_caps
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.uid_grammar import authored_uid_problem, slugify
+from core.utils.uid_grammar import authored_uid_problem, is_generated_uid, slugify
 
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
@@ -601,18 +601,19 @@ async def validate_file(  # skuel-lint: disable=SKUEL029 -- public validation AP
             warnings.append("No title or name - will use filename as fallback")
 
         # Fail-fast: a user-owned entity may omit user_uid (it takes the default owner),
-        # but an explicit user_uid must be a user uid (`user_…`). Colon/dot/bare forms
-        # are rejected here rather than silently persisted as unreachable owners.
+        # but an explicit user_uid must be a user uid (`user_{16 hex}`). A username or a
+        # colon/dot form is rejected here rather than silently persisted as an
+        # unreachable owner.
         explicit_user_uid = entity_data.get("user_uid")
         if (
             config.requires_user_uid
             and explicit_user_uid is not None
-            and not str(explicit_user_uid).startswith("user_")
+            and not is_generated_uid(str(explicit_user_uid), "user")
         ):
             errors.append(
-                f"Non-canonical user_uid '{explicit_user_uid}': a user uid starts with "
-                "'user_' (an account's uid, e.g. user_3f9a0c41d2e87b65 — never a username). "
-                "Omit user_uid to take the default owner."
+                f"Non-canonical user_uid '{explicit_user_uid}': a user uid is 'user_' and "
+                "16 hex digits (an account's uid, e.g. user_3f9a0c41d2e87b65 — never a "
+                "username). Omit user_uid to take the default owner."
             )
 
         return Result.ok(

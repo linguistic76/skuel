@@ -48,10 +48,11 @@ from core.models.conversation import CONVERSATION_KIND_DISCUSSION, ROLE_ASSISTAN
 from core.services.conversation import ConversationService
 from core.utils.result_simplified import ErrorCategory, Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.seed_uids import seed_user_uid
 
 # Two distinct owners — the whole point of guard 1 is cross-owner isolation.
-_OWNER = "user_test_conv_owner"
-_OTHER = "user_test_conv_other"
+_OWNER = seed_user_uid("test_conv_owner")
+_OTHER = seed_user_uid("test_conv_other")
 
 
 def _journal_request(user_uid: str, form: dict[str, str], *, hx: bool = False) -> Any:
@@ -230,7 +231,7 @@ class TestConversationStoreGuards:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                CREATE (:Entity:Ku {uid: 'ku_conv_guard_probe', entity_type: 'ku',
+                CREATE (:Entity:Ku {uid: 'ku.conv-guard-probe', entity_type: 'ku',
                                     title: 'Guard probe concept', created_at: datetime()})
                 """
             )

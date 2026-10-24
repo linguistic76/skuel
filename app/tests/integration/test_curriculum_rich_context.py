@@ -25,6 +25,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.pathways.path_step_dto import PathStepDTO
 from core.utils.uid_generator import UIDGenerator
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.integration
@@ -315,11 +316,11 @@ class TestCurriculumRichContext:
                 CREATE (mh:Entity:Habit {uid: $mine_habit, title: 'My Practice',
                                          entity_type: 'habit', user_uid: $user_uid})
                 CREATE (fh:Entity:Habit {uid: $foreign_habit, title: 'Author Habit',
-                                         entity_type: 'habit', user_uid: 'user_someone_else'})
+                                         entity_type: 'habit', user_uid: $someone_else})
                 CREATE (mt:Entity:Task {uid: $mine_task, title: 'My Drill',
                                         entity_type: 'task', user_uid: $user_uid})
                 CREATE (ft:Entity:Task {uid: $foreign_task, title: 'Author Task',
-                                        entity_type: 'task', user_uid: 'user_someone_else'})
+                                        entity_type: 'task', user_uid: $someone_else})
                 CREATE (ps)-[:BUILDS_HABIT]->(mh)
                 CREATE (ps)-[:BUILDS_HABIT]->(fh)
                 CREATE (ps)-[:ASSIGNS_TASK]->(mt)
@@ -336,6 +337,7 @@ class TestCurriculumRichContext:
                     "mine_task": mine_task,
                     "foreign_task": foreign_task,
                     "user_uid": test_user.uid,
+                    "someone_else": seed_user_uid("someone_else"),
                 },
             )
 

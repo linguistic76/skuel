@@ -33,12 +33,13 @@ from core.models.relationship_names import RelationshipName
 from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from tests.helpers.forced_zone import forced_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
-USER = "user_embodiment_window"
-HABIT = "habit.embodiment_window"
-PRINCIPLE = "principle.embodiment_window"
+USER = seed_user_uid("embodiment_window")
+HABIT = "habit.embodiment-window"
+PRINCIPLE = "principle.embodiment-window"
 
 
 @pytest_asyncio.fixture

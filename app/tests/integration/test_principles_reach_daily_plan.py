@@ -37,6 +37,7 @@ from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client, write_edge
 
 if TYPE_CHECKING:
@@ -56,9 +57,9 @@ pytestmark = [
 ]
 
 MARK = "zzzprdp"
-USER = f"user_{MARK}"
-OTHER = f"user_{MARK}_other"  # owns the foreign principle; never signs in
-FOREIGN_PRINCIPLE = f"principle_{MARK}_foreign"
+USER = seed_user_uid(f"{MARK}")
+OTHER = seed_user_uid(f"{MARK}_other")  # owns the foreign principle; never signs in
+FOREIGN_PRINCIPLE = f"principle.{MARK}-foreign"
 MANY = 11  # one past the principles row's display slice
 
 

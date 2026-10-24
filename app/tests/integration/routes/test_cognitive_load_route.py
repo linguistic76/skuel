@@ -24,6 +24,7 @@ from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client
 
 if TYPE_CHECKING:
@@ -39,7 +40,7 @@ pytestmark = [
     ),
 ]
 
-USER = "user_cogload_caller"
+USER = seed_user_uid("cogload_caller")
 MARK = "cogload"
 
 

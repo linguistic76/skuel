@@ -34,6 +34,7 @@ from core.services.knowledge.user_substance import USER_SUBSTANCE_CHANNELS
 from core.services.lifepath.lifepath_alignment_service import LifePathAlignmentService
 from core.services.lifepath.lifepath_service import LifePathService
 from core.services.user.unified_user_context import UserContext
+from tests.helpers.seed_uids import seed_user_uid
 
 _W = {channel.name: channel.weight for channel in USER_SUBSTANCE_CHANNELS}
 _HABIT_SHARE = _W["habits"] / (_W["tasks"] + _W["habits"])
@@ -41,14 +42,14 @@ _HABIT_SHARE = _W["habits"] / (_W["tasks"] + _W["habits"])
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 # Rich-scenario user (pre-designated, with activity)
-_USER_RICH = "user_test_lifepath_align_rich"
+_USER_RICH = seed_user_uid("test_lifepath_align_rich")
 # Facade-flow user (designates during the test, no activity)
-_USER_FACADE = "user_test_lifepath_align_facade"
+_USER_FACADE = seed_user_uid("test_lifepath_align_facade")
 # Blank user (no vision, no designation)
-_USER_BLANK = "user_test_lifepath_align_blank"
+_USER_BLANK = seed_user_uid("test_lifepath_align_blank")
 
-_LP_RICH = "lp.test.align.rich"
-_LP_FACADE = "lp.test.align.facade"
+_LP_RICH = "lp.test.align-rich"
+_LP_FACADE = "lp.test.align-facade"
 
 _UIDS = [
     _USER_RICH,
@@ -56,20 +57,20 @@ _UIDS = [
     _USER_BLANK,
     _LP_RICH,
     _LP_FACADE,
-    "ps.test.align.rich",
-    "ps.test.align.facade",
-    "ku_test_align_mastered",
-    "ku_test_align_gap",
-    "ku_test_align_facade",
-    "task_test_align_recent",
-    "task_test_align_previous",
-    "task_test_align_offpath",
-    "habit_test_align_aligned",
-    "habit_test_align_offpath",
-    "goal_test_align_serving",
-    "goal_test_align_other",
-    "principle_test_align_serving",
-    "principle_test_align_other",
+    "ps.test.align-rich",
+    "ps.test.align-facade",
+    "ku.test-align-mastered",
+    "ku.test-align-gap",
+    "ku.test-align-facade",
+    "task.test-align-recent",
+    "task.test-align-previous",
+    "task.test-align-offpath",
+    "habit.test-align-aligned",
+    "habit.test-align-offpath",
+    "goal.test-align-serving",
+    "goal.test-align-other",
+    "principle.test-align-serving",
+    "principle.test-align-other",
 ]
 
 
@@ -92,12 +93,12 @@ async def alignment_graph(neo4j_driver):
             MERGE (lp:Entity:LearningPath {uid: $lp})
             SET lp.title = 'Rich Alignment LP', lp.entity_type = 'life_path',
                 lp.status = 'active'
-            MERGE (ps:Entity:PathStep {uid: 'ps.test.align.rich'})
+            MERGE (ps:Entity:PathStep {uid: 'ps.test.align-rich'})
             SET ps.title = 'Rich Step', ps.entity_type = 'path_step', ps.status = 'active'
             MERGE (lp)-[:HAS_STEP {sequence: 1}]->(ps)
-            MERGE (ku1:Entity:Ku {uid: 'ku_test_align_mastered'})
+            MERGE (ku1:Entity:Ku {uid: 'ku.test-align-mastered'})
             SET ku1.title = 'Mastered KU', ku1.entity_type = 'ku'
-            MERGE (ku2:Entity:Ku {uid: 'ku_test_align_gap'})
+            MERGE (ku2:Entity:Ku {uid: 'ku.test-align-gap'})
             SET ku2.title = 'Gap KU', ku2.entity_type = 'ku'
             MERGE (ps)-[:USES_KU]->(ku1)
             MERGE (ps)-[:USES_KU]->(ku2)
@@ -115,7 +116,7 @@ async def alignment_graph(neo4j_driver):
         )
         await session.run(
             """
-            MATCH (u:User {uid: $user}), (ku:Entity {uid: 'ku_test_align_mastered'})
+            MATCH (u:User {uid: $user}), (ku:Entity {uid: 'ku.test-align-mastered'})
             MERGE (u)-[:MASTERED {mastery_score: 0.9}]->(ku)
             """,
             user=_USER_RICH,
@@ -123,9 +124,9 @@ async def alignment_graph(neo4j_driver):
 
         # Tasks: two aligned (one recent, one previous week), one off-path
         for uid, created_at, applies in (
-            ("task_test_align_recent", three_days_ago, True),
-            ("task_test_align_previous", ten_days_ago, True),
-            ("task_test_align_offpath", three_days_ago, False),
+            ("task.test-align-recent", three_days_ago, True),
+            ("task.test-align-previous", ten_days_ago, True),
+            ("task.test-align-offpath", three_days_ago, False),
         ):
             await session.run(
                 """
@@ -142,7 +143,7 @@ async def alignment_graph(neo4j_driver):
             if applies:
                 await session.run(
                     """
-                    MATCH (t:Entity {uid: $uid}), (ku:Entity {uid: 'ku_test_align_mastered'})
+                    MATCH (t:Entity {uid: $uid}), (ku:Entity {uid: 'ku.test-align-mastered'})
                     MERGE (t)-[:APPLIES_KNOWLEDGE]->(ku)
                     """,
                     uid=uid,
@@ -150,8 +151,8 @@ async def alignment_graph(neo4j_driver):
 
         # Habits: one aligned, one off-path
         for uid, applies in (
-            ("habit_test_align_aligned", True),
-            ("habit_test_align_offpath", False),
+            ("habit.test-align-aligned", True),
+            ("habit.test-align-offpath", False),
         ):
             await session.run(
                 """
@@ -169,7 +170,7 @@ async def alignment_graph(neo4j_driver):
                     # REINFORCES_KNOWLEDGE, the edge HabitsCoreService writes.
                     # Seeding APPLIES_KNOWLEDGE here passes against the defect.
                     """
-                    MATCH (h:Entity {uid: $uid}), (ku:Entity {uid: 'ku_test_align_mastered'})
+                    MATCH (h:Entity {uid: $uid}), (ku:Entity {uid: 'ku.test-align-mastered'})
                     MERGE (h)-[:REINFORCES_KNOWLEDGE]->(ku)
                     """,
                     uid=uid,
@@ -177,8 +178,8 @@ async def alignment_graph(neo4j_driver):
 
         # Goals: one serving the life path, one not
         for uid, serves in (
-            ("goal_test_align_serving", True),
-            ("goal_test_align_other", False),
+            ("goal.test-align-serving", True),
+            ("goal.test-align-other", False),
         ):
             await session.run(
                 """
@@ -203,8 +204,8 @@ async def alignment_graph(neo4j_driver):
 
         # Principles: one serving, one not
         for uid, serves in (
-            ("principle_test_align_serving", True),
-            ("principle_test_align_other", False),
+            ("principle.test-align-serving", True),
+            ("principle.test-align-other", False),
         ):
             await session.run(
                 """
@@ -233,10 +234,10 @@ async def alignment_graph(neo4j_driver):
             MERGE (lp:Entity:LearningPath {uid: $lp})
             SET lp.title = 'Facade Flow LP', lp.entity_type = 'learning_path',
                 lp.status = 'active'
-            MERGE (ps:Entity:PathStep {uid: 'ps.test.align.facade'})
+            MERGE (ps:Entity:PathStep {uid: 'ps.test.align-facade'})
             SET ps.title = 'Facade Step', ps.entity_type = 'path_step', ps.status = 'active'
             MERGE (lp)-[:HAS_STEP {sequence: 1}]->(ps)
-            MERGE (ku:Entity:Ku {uid: 'ku_test_align_facade'})
+            MERGE (ku:Entity:Ku {uid: 'ku.test-align-facade'})
             SET ku.title = 'Facade KU', ku.entity_type = 'ku'
             MERGE (ps)-[:USES_KU]->(ku)
             """,

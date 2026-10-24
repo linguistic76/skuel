@@ -35,15 +35,16 @@ from core.models.relationship_names import RelationshipName
 from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 ANCHOR_UID = "ku.aud.anchor"
-MINE_UID = "goal_aud_mine"
-FOREIGN_UID = "goal_aud_foreign"
-CURRICULUM_UID = "ku_aud_shared"
-DRAFT_UID = "ku_aud_draft"
-FOREIGN_EXERCISE_UID = "ex_aud_foreign"
+MINE_UID = "goal.aud-mine"
+FOREIGN_UID = "goal.aud-foreign"
+CURRICULUM_UID = "ku.aud-shared"
+DRAFT_UID = "ku.aud-draft"
+FOREIGN_EXERCISE_UID = "ex.aud-foreign"
 _FIXTURE_UIDS = [
     ANCHOR_UID,
     MINE_UID,
@@ -53,8 +54,8 @@ _FIXTURE_UIDS = [
     FOREIGN_EXERCISE_UID,
 ]
 
-OWNER = "user_test_123"
-OTHER = "user_test_456"
+OWNER = seed_user_uid("test_123")
+OTHER = seed_user_uid("test_456")
 
 
 @pytest.fixture

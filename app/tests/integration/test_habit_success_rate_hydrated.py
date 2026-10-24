@@ -46,7 +46,6 @@ from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
-from core.models.type_hints import UserUID
 from core.models.user.user import User
 from core.services.goals_service import GoalsService
 from core.services.habits_service import HabitsService
@@ -54,20 +53,21 @@ from core.services.user import UserContext
 from core.services.user.user_context_builder import UserContextBuilder
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
-_USER = UserUID("user_ha2_success_rate")
-_PREFIX = "ha2_"
-KEPT = f"{_PREFIX}habit_kept"
-BULK = f"{_PREFIX}habit_bulk"
-YOUNG = f"{_PREFIX}habit_young"
-QUARTERLY = f"{_PREFIX}habit_quarterly"
-DROPPED = f"{_PREFIX}habit_dropped"
+_USER = seed_user_uid("ha2_success_rate")
+_PREFIX = "ha2."
+KEPT = f"{_PREFIX}habit-kept"
+BULK = f"{_PREFIX}habit-bulk"
+YOUNG = f"{_PREFIX}habit-young"
+QUARTERLY = f"{_PREFIX}habit-quarterly"
+DROPPED = f"{_PREFIX}habit-dropped"
 GOAL = f"{_PREFIX}goal"
 KU = f"{_PREFIX}ku"
-FINISHED = f"{_PREFIX}habit_finished"
-OFF_CADENCE = f"{_PREFIX}habit_weekends"
-RESTARTED = f"{_PREFIX}habit_restarted"
-NOT_STARTED = f"{_PREFIX}habit_not_started"
+FINISHED = f"{_PREFIX}habit-finished"
+OFF_CADENCE = f"{_PREFIX}habit-weekends"
+RESTARTED = f"{_PREFIX}habit-restarted"
+NOT_STARTED = f"{_PREFIX}habit-not-started"
 ALL_HABITS = (KEPT, BULK, YOUNG, QUARTERLY, DROPPED, FINISHED, OFF_CADENCE, RESTARTED, NOT_STARTED)
 
 TODAY = today_in(current_zone())

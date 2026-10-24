@@ -49,15 +49,16 @@ from core.services.user.intelligence import (
 )
 from core.services.user.unified_user_context import RichUserContext
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
-USER_A = "user_hls_reader"
-USER_B = "user_hls_other"
-FOREIGN_TASK = "task_hls_foreign"
+USER_A = seed_user_uid("hls_reader")
+USER_B = seed_user_uid("hls_other")
+FOREIGN_TASK = "task.hls-foreign"
 FOREIGN_TITLE = "hls B's private plan"
 PUBLISHED_KU = "ku.hls.published"
 PUBLISHED_TITLE = "hls published concept"

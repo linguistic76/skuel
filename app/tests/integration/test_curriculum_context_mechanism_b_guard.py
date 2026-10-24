@@ -47,7 +47,7 @@ from core.services.ps.ps_intelligence_service import PsIntelligenceService
 from core.services.ps_service import PsService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
-P = "ctxguard_"
+P = "ctxguard."
 PS = P + "ps"  # center PathStep
 TASK = P + "task"  # (PS)-[:ASSIGNS_TASK]->(Task)   registry edge → must surface
 NOISE = P + "noise"  # (PS)-[:NOISE_LINK]->(noise)     non-registry → must NOT surface

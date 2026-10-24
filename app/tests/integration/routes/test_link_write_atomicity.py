@@ -33,6 +33,7 @@ from core.config.intelligence_tier import IntelligenceTier
 from core.models.relationship_names import RelationshipName
 from core.services.mixins.link_edge_guard import AdmittedFarEnds, LinkFarEnd
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     Edge,
     create,
@@ -58,8 +59,8 @@ pytestmark = [
 ]
 
 MARK = "zzzlinkatom"
-CALLER = f"user_{MARK}"
-OTHER = f"user_{MARK}_other"  # takes a far end over in the window; never signs in
+CALLER = seed_user_uid(f"{MARK}")
+OTHER = seed_user_uid(f"{MARK}_other")  # takes a far end over in the window; never signs in
 
 REQUIRES_KNOWLEDGE = RelationshipName.REQUIRES_KNOWLEDGE.value
 REINFORCES_HABIT = RelationshipName.REINFORCES_HABIT.value
@@ -95,7 +96,7 @@ async def _run(driver: AsyncDriver, query: str, **params: Any) -> None:  # bound
 
 async def _seed_ku(env: Env, name: str) -> str:
     """A shared Ku, published: no owner, ``publication_state: published``."""
-    uid = f"ku_{MARK}_{name}"
+    uid = f"ku.{MARK}-{name}"
     await _run(
         env.driver,
         """

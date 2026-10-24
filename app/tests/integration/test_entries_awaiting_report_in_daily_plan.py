@@ -29,6 +29,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import signed_in_client
 
 if TYPE_CHECKING:
@@ -45,15 +46,15 @@ pytestmark = [
 ]
 
 MARK = "zzzawrp"
-USER = f"user_{MARK}"
-OTHER = f"user_{MARK}_other"  # never signs in
-UE_NEW = f"ue_{MARK}_new"
-UE_OLD = f"ue_{MARK}_old"
-UE_REPORTED = f"ue_{MARK}_reported"
-UE_JOURNAL = f"ue_{MARK}_journal"
-UE_PLAIN = f"ue_{MARK}_plain"
-UE_FOREIGN = f"ue_{MARK}_foreign"
-REPORT = f"er_{MARK}_report"
+USER = seed_user_uid(f"{MARK}")
+OTHER = seed_user_uid(f"{MARK}_other")  # never signs in
+UE_NEW = f"ue.{MARK}-new"
+UE_OLD = f"ue.{MARK}-old"
+UE_REPORTED = f"ue.{MARK}-reported"
+UE_JOURNAL = f"ue.{MARK}-journal"
+UE_PLAIN = f"ue.{MARK}-plain"
+UE_FOREIGN = f"ue.{MARK}-foreign"
+REPORT = f"er.{MARK}-report"
 
 SEED = """
 MATCH (u:User {uid: $user})

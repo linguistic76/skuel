@@ -22,6 +22,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     signed_in_client,
@@ -45,11 +46,11 @@ pytestmark = [
 ]
 
 MARK = "zzztplretired"
-ADMIN = f"user_{MARK}"
+ADMIN = seed_user_uid(f"{MARK}")
 # The other user's client wipes every uid carrying its own mark, so neither mark may
 # contain the other.
 OTHER_MARK = "zzzothertpl"
-OTHER = f"user_{OTHER_MARK}"
+OTHER = seed_user_uid(f"{OTHER_MARK}")
 PS = f"ps.{MARK}.host"
 FOREIGN_GOAL_TITLE = f"{OTHER_MARK}-goal"
 

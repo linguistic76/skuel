@@ -29,6 +29,7 @@ from core.services.ingestion.batch import ingest_directory
 from core.services.ingestion.ingestion_history import IngestionHistoryService
 from core.services.ingestion.types import IncrementalStats, IngestionStats
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.seed_uids import seed_user_uid
 
 _E2E_CHUNK_UID = chunk_uid(ChunkStore.CONTENT, "ku.e2e-test-02", 0)
 
@@ -154,7 +155,7 @@ async def test_ingestion_history_create_and_get(
     # Create entry
     result = await ingestion_history_service.create_entry(
         operation_type="directory",
-        user_uid="user_admin",
+        user_uid=seed_user_uid("admin"),
         source_path="/vault/docs/ku",
     )
     assert result.is_ok
@@ -168,7 +169,7 @@ async def test_ingestion_history_create_and_get(
     assert entry is not None
     assert entry.operation_type == "directory"
     assert entry.status == "in_progress"
-    assert entry.user_uid == "user_admin"
+    assert entry.user_uid == seed_user_uid("admin")
     assert entry.source_path == "/vault/docs/ku"
 
 
@@ -180,7 +181,7 @@ async def test_ingestion_history_update_with_stats(
     # Create
     result = await ingestion_history_service.create_entry(
         operation_type="vault",
-        user_uid="user_admin",
+        user_uid=seed_user_uid("admin"),
         source_path="/vault",
     )
     assert result.is_ok
@@ -219,7 +220,7 @@ async def test_ingestion_history_with_errors(ingestion_history_service, cleanup_
     # Create
     result = await ingestion_history_service.create_entry(
         operation_type="directory",
-        user_uid="user_admin",
+        user_uid=seed_user_uid("admin"),
         source_path="/vault/mixed",
     )
     assert result.is_ok
@@ -270,7 +271,7 @@ async def test_ingestion_history_paginated_list(
     for i in range(3):
         result = await ingestion_history_service.create_entry(
             operation_type="directory",
-            user_uid="user_admin",
+            user_uid=seed_user_uid("admin"),
             source_path=f"/vault/batch-{i}",
         )
         assert result.is_ok

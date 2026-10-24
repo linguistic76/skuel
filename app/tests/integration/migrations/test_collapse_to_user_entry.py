@@ -24,6 +24,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers.seed_uids import seed_user_uid
+
 MIGRATION_PATH = (
     Path(__file__).resolve().parents[3]
     / "scripts"
@@ -42,9 +44,7 @@ def _load_statements() -> list[str]:
     """
     raw = MIGRATION_PATH.read_text()
     # Strip // line comments
-    no_comments = "\n".join(
-        line for line in raw.splitlines() if not line.lstrip().startswith("//")
-    )
+    no_comments = "\n".join(line for line in raw.splitlines() if not line.lstrip().startswith("//"))
     # Split on semicolons; recombine any accidental splits inside braces
     chunks = [c.strip() for c in no_comments.split(";")]
     return [c for c in chunks if c and not re.fullmatch(r"\s*", c)]
@@ -68,7 +68,7 @@ async def _seed_legacy(neo4j_driver) -> None:
             CREATE (s1:Entity:ExerciseSubmission {
                 uid: 'legacy.es.1',
                 entity_type: 'exercise_submission',
-                user_uid: 'user_mig_student',
+                user_uid: $user_mig_student,
                 status: 'submitted',
                 revision_number: 3,
                 created_at: datetime()
@@ -76,14 +76,14 @@ async def _seed_legacy(neo4j_driver) -> None:
             CREATE (s2:Entity:ExerciseSubmission {
                 uid: 'legacy.es.2',
                 entity_type: 'exercise_submission',
-                user_uid: 'user_mig_student',
+                user_uid: $user_mig_student,
                 status: 'submitted',
                 created_at: datetime()
             })
             CREATE (j1:Entity:JeInput {
                 uid: 'legacy.ji.audio',
                 entity_type: 'je_input',
-                user_uid: 'user_mig_student',
+                user_uid: $user_mig_student,
                 status: 'active',
                 file_type: 'audio/mpeg',
                 created_at: datetime()
@@ -91,7 +91,7 @@ async def _seed_legacy(neo4j_driver) -> None:
             CREATE (j2:Entity:JeInput {
                 uid: 'legacy.ji.text',
                 entity_type: 'je_input',
-                user_uid: 'user_mig_student',
+                user_uid: $user_mig_student,
                 status: 'active',
                 file_type: 'text/plain',
                 created_at: datetime()
@@ -99,13 +99,14 @@ async def _seed_legacy(neo4j_driver) -> None:
             CREATE (o1:Entity:JeOutput {
                 uid: 'legacy.jo.1',
                 entity_type: 'je_output',
-                user_uid: 'user_mig_student',
+                user_uid: $user_mig_student,
                 status: 'active',
                 created_at: datetime()
             })
             CREATE (s1)-[:FULFILLS_EXERCISE]->(ex)
             CREATE (s2)-[:FULFILLS_EXERCISE]->(ex)
-            """
+            """,
+            user_mig_student=seed_user_uid("mig_student"),
         )
 
 
@@ -136,16 +137,19 @@ async def test_migration_collapses_legacy_nodes_to_user_entry(
     assert await _count(neo4j_driver, "MATCH (n:JeOutput) RETURN count(n)") == 0
 
     # 2. All seeded nodes now :UserEntry with entity_type = 'user_entry'
-    assert await _count(
-        neo4j_driver,
-        """
+    assert (
+        await _count(
+            neo4j_driver,
+            """
         MATCH (n:UserEntry)
         WHERE n.uid IN ['legacy.es.1','legacy.es.2','legacy.ji.audio',
                         'legacy.ji.text','legacy.jo.1']
           AND n.entity_type = 'user_entry'
         RETURN count(n)
         """,
-    ) == 5
+        )
+        == 5
+    )
 
     # 3. Pipeline assignment per legacy label
     async with neo4j_driver.session() as session:
@@ -160,10 +164,13 @@ async def test_migration_collapses_legacy_nodes_to_user_entry(
     assert pipelines["legacy.jo.1"] == "none"
 
     # 4. revision_number removed from nodes; FULFILLS_EXERCISE.revision set
-    assert await _count(
-        neo4j_driver,
-        "MATCH (n:UserEntry) WHERE n.revision_number IS NOT NULL RETURN count(n)",
-    ) == 0
+    assert (
+        await _count(
+            neo4j_driver,
+            "MATCH (n:UserEntry) WHERE n.revision_number IS NOT NULL RETURN count(n)",
+        )
+        == 0
+    )
 
     async with neo4j_driver.session() as session:
         result = await session.run(
@@ -192,7 +199,10 @@ async def test_migration_collapses_legacy_nodes_to_user_entry(
     await _run_migration(neo4j_driver)
     user_entry_count_after = await _count(neo4j_driver, "MATCH (n:UserEntry) RETURN count(n)")
     assert user_entry_count_before == user_entry_count_after
-    assert await _count(
-        neo4j_driver,
-        "MATCH (n) WHERE n:ExerciseSubmission OR n:JeInput OR n:JeOutput RETURN count(n)",
-    ) == 0
+    assert (
+        await _count(
+            neo4j_driver,
+            "MATCH (n) WHERE n:ExerciseSubmission OR n:JeInput OR n:JeOutput RETURN count(n)",
+        )
+        == 0
+    )

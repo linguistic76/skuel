@@ -51,12 +51,13 @@ from core.utils.timestamp_helpers import as_stored_clock
 from core.utils.zone_context import zone_scope
 from tests.helpers.forced_zone import forced_zone
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
 VANCOUVER = ZoneInfo("America/Vancouver")
 BANGKOK = ZoneInfo("Asia/Bangkok")
-OWNER_UID = "user_test_integration"  # seeded by the ensure_test_users fixture
+OWNER_UID = seed_user_uid("test_integration")  # seeded by the ensure_test_users fixture
 
 _RUN_ID = uuid.uuid4().hex[:8]
 
@@ -207,7 +208,7 @@ class TestAnInstantsDayInTheGraph:
                 neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
             ),
         )
-        habit_uid = f"habit.evening_{_RUN_ID}"
+        habit_uid = f"habit.evening-{_RUN_ID}"
         created = await habits.create(Habit(uid=habit_uid, title="Evening walk", user_uid=uid))
         assert created.is_ok, created
 

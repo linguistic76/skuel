@@ -23,8 +23,12 @@ class TestToUserUid:
         with pytest.raises(ValueError):
             TypeConverter.to_user_uid("user" + ":system")
 
-    def test_accepts_canonical(self):
-        assert TypeConverter.to_user_uid("user_mike") == "user_mike"
+    def test_rejects_a_username(self):
+        with pytest.raises(ValueError):
+            TypeConverter.to_user_uid("user_mike")
+
+    def test_accepts_a_generated_user_uid(self):
+        assert TypeConverter.to_user_uid("user_3f9a0c41d2e87b65") == "user_3f9a0c41d2e87b65"
 
 
 class TestIngestionBoundaryFailFast:

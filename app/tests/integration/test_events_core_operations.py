@@ -29,6 +29,8 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import EntityStatus, Priority, Visibility
 from core.models.event.event import Event
 from core.services.events.events_core_service import EventsCoreService
+from core.utils.uid_grammar import slugify
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -55,7 +57,7 @@ class TestEventsCoreOperations:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user_test_events_core"
+        return seed_user_uid("test_events_core")
 
     # ==========================================================================
     # CRUD OPERATIONS TESTS (5 tests)
@@ -66,7 +68,7 @@ class TestEventsCoreOperations:
         # Arrange
         today = date.today()
         event = Event(
-            uid="event.team_meeting",
+            uid="event.team-meeting",
             user_uid=test_user_uid,
             title="Weekly Team Meeting",
             description="Discuss project progress and blockers",
@@ -85,7 +87,7 @@ class TestEventsCoreOperations:
         # Assert
         assert result.is_ok
         created = result.value
-        assert created.uid == "event.team_meeting"
+        assert created.uid == "event.team-meeting"
         assert created.title == "Weekly Team Meeting"
         assert created.event_type == "work"
         assert created.status == EntityStatus.SCHEDULED
@@ -95,7 +97,7 @@ class TestEventsCoreOperations:
         """Test retrieving an event by UID."""
         # Arrange - Create an event first
         event = Event(
-            uid="event.get_test",
+            uid="event.get-test",
             user_uid=test_user_uid,
             title="Test Event for Retrieval",
             description="This event tests retrieval functionality",
@@ -106,12 +108,12 @@ class TestEventsCoreOperations:
         assert create_result.is_ok
 
         # Act - Retrieve the event
-        result = await events_service.get("event.get_test")
+        result = await events_service.get("event.get-test")
 
         # Assert
         assert result.is_ok
         retrieved = result.value
-        assert retrieved.uid == "event.get_test"
+        assert retrieved.uid == "event.get-test"
         assert retrieved.title == "Test Event for Retrieval"
 
     async def test_get_nonexistent_event(self, events_service):
@@ -129,7 +131,7 @@ class TestEventsCoreOperations:
         today = date.today()
         events = [
             Event(
-                uid=f"event.list_test_{i}",
+                uid=f"event.list-test-{i}",
                 user_uid=test_user_uid,
                 title=f"Test Event {i}",
                 description=f"Description for event {i}",
@@ -157,7 +159,7 @@ class TestEventsCoreOperations:
         today = date.today()
         for i in range(5):
             event = Event(
-                uid=f"event.multi_{i}",
+                uid=f"event.multi-{i}",
                 user_uid=test_user_uid,
                 title=f"Multi Event {i}",
                 description=f"Multiple event {i}",
@@ -222,7 +224,7 @@ class TestEventsCoreOperations:
         # Arrange - Create events with different types
         today = date.today()
         work_event = Event(
-            uid="event.work_type",
+            uid="event.work-type",
             user_uid=test_user_uid,
             title="Work Event",
             description="Work-related meeting",
@@ -231,7 +233,7 @@ class TestEventsCoreOperations:
             status=EntityStatus.SCHEDULED,
         )
         personal_event = Event(
-            uid="event.personal_type",
+            uid="event.personal-type",
             user_uid=test_user_uid,
             title="Personal Event",
             description="Personal appointment",
@@ -265,7 +267,7 @@ class TestEventsCoreOperations:
         # Arrange - Create events on different dates
         today = date.today()
         this_week_event = Event(
-            uid="event.this_week",
+            uid="event.this-week",
             user_uid=test_user_uid,
             title="This Week Event",
             description="Event this week",
@@ -273,7 +275,7 @@ class TestEventsCoreOperations:
             status=EntityStatus.SCHEDULED,
         )
         next_month_event = Event(
-            uid="event.next_month",
+            uid="event.next-month",
             user_uid=test_user_uid,
             title="Next Month Event",
             description="Event next month",
@@ -315,7 +317,7 @@ class TestEventsCoreOperations:
 
         for status in statuses:
             event = Event(
-                uid=f"event.status_{status.value}",
+                uid=f"event.status-{slugify(status.value)}",
                 user_uid=test_user_uid,
                 title=f"Event with {status.value} status",
                 description=f"Testing {status.value} status",
@@ -338,7 +340,7 @@ class TestEventsCoreOperations:
 
         for priority in priorities:
             event = Event(
-                uid=f"event.priority_{priority.value}",
+                uid=f"event.priority-{slugify(priority.value)}",
                 user_uid=test_user_uid,
                 title=f"{priority.value.title()} Priority Event",
                 description=f"Testing {priority.value} priority",
@@ -357,7 +359,7 @@ class TestEventsCoreOperations:
 
         for visibility in visibility_levels:
             event = Event(
-                uid=f"event.visibility_{visibility.value}",
+                uid=f"event.visibility-{slugify(visibility.value)}",
                 user_uid=test_user_uid,
                 title=f"{visibility.value.title()} Event",
                 description=f"Testing {visibility.value} visibility",
@@ -372,7 +374,7 @@ class TestEventsCoreOperations:
         """Test event duration field is stored correctly."""
         # Arrange — duration_minutes is an explicit field, not auto-calculated
         event = Event(
-            uid="event.with_duration",
+            uid="event.with-duration",
             user_uid=test_user_uid,
             title="Event with Duration",
             description="Test duration storage",
@@ -402,7 +404,7 @@ class TestEventsCoreOperations:
         # Arrange
         today = date.today()
         event = Event(
-            uid="event.full_details",
+            uid="event.full-details",
             user_uid=test_user_uid,
             title="Fully Detailed Event",
             description="Complete event with all optional fields",
@@ -466,7 +468,7 @@ class TestEventsCoreOperations:
         """Test creating an online event with meeting URL."""
         # Arrange
         event = Event(
-            uid="event.online_meeting",
+            uid="event.online-meeting",
             user_uid=test_user_uid,
             title="Online Workshop",
             description="Virtual learning session",

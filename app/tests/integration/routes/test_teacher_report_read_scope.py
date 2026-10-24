@@ -57,26 +57,27 @@ from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 from core.services.report.entry_report_service import EntryReportService
 from core.services.report.teacher_review_service import TeacherReviewService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 
-STUDENT = "user_trs_student"
-IN_TEACHER = "user_trs_in_teacher"  # owns the group the submission is shared with
-OUT_TEACHER = "user_trs_out_teacher"  # a TEACHER, but of a different classroom
-GROUP_UID = "group_trs_in"
-OTHER_GROUP_UID = "group_trs_out"
+STUDENT = seed_user_uid("trs_student")
+IN_TEACHER = seed_user_uid("trs_in_teacher")  # owns the group the submission is shared with
+OUT_TEACHER = seed_user_uid("trs_out_teacher")  # a TEACHER, but of a different classroom
+GROUP_UID = "group.trs-in"
+OTHER_GROUP_UID = "group.trs-out"
 
-SUB_UID = "ue_trs_submission"
-REPORT_UID = "er_trs_report"
+SUB_UID = "ue.trs-submission"
+REPORT_UID = "er.trs-report"
 SECRET_FEEDBACK = "TRS_SECRET_FEEDBACK_BODY_9f1c"
 STUDENT_WORK = "TRS_STUDENT_WORK_BODY_4b2e"
 SNAPSHOT_TITLE = "Snapshot Exercise"
-NEWER_UID = "ue_trs_newer_copy"
+NEWER_UID = "ue.trs-newer-copy"
 STUDENT_NAME = "Tess Student"
 
 CONTENT_PATH = "/teaching/review/{uid}/content"
 PANEL_PATH = "/api/teaching/review/{uid}/panel"
 DOWNLOAD_PATH = "/api/reports/{report_uid}/download"
 
-ROLES = {
+ROLES: dict[str, UserRole] = {
     STUDENT: UserRole.MEMBER,
     IN_TEACHER: UserRole.TEACHER,
     OUT_TEACHER: UserRole.TEACHER,
@@ -212,7 +213,7 @@ async def seeded(clean_neo4j, neo4j_driver, report_file) -> str:
             CREATE (sub:Entity:UserEntry {
                 uid: $sub, entity_type: 'user_entry', title: 'Student submission',
                 content: $work, processed_content: '', status: 'submitted',
-                pipeline: 'teacher_review', turn_in_exercise_uid: 'ex_trs_snapshot',
+                pipeline: 'teacher_review', turn_in_exercise_uid: 'ex.trs-snapshot',
                 turn_in_exercise_title: $snapshot_title, turn_in_revision: 3,
                 created_at: datetime(), updated_at: datetime()
             })
@@ -270,7 +271,7 @@ class TestReportDownloadScope:
     async def test_missing_report_is_404_too(self, api_handlers, seeded) -> None:
         """The refusal is indistinguishable from a genuinely missing report."""
         handler = api_handlers[DOWNLOAD_PATH]
-        response = await handler(_make_request(IN_TEACHER), report_uid="er_does_not_exist")
+        response = await handler(_make_request(IN_TEACHER), report_uid="er.does-not-exist")
         assert getattr(response, "status_code", None) == 404
 
 
@@ -333,7 +334,7 @@ async def seeded_newer_copy(seeded, neo4j_driver) -> None:
             CREATE (newer:Entity:UserEntry {
                 uid: $newer, entity_type: 'user_entry', title: 'Newer copy',
                 content: 'the newer words', status: 'submitted',
-                pipeline: 'teacher_review', turn_in_exercise_uid: 'ex_trs_snapshot',
+                pipeline: 'teacher_review', turn_in_exercise_uid: 'ex.trs-snapshot',
                 turn_in_exercise_title: $snapshot_title, turn_in_revision: 4,
                 created_at: datetime() + duration('PT5S'), updated_at: datetime()
             })
@@ -436,7 +437,7 @@ class TestTheWritesRefuseHistory:
         assert refused.is_ok and refused.value == []
 
         landed = await backend.create_report_node(
-            _report_params(NEWER_UID, "er_trs_guard_new", reviewing_teacher_uid=IN_TEACHER)
+            _report_params(NEWER_UID, "er.trs-guard-new", reviewing_teacher_uid=IN_TEACHER)
         )
         assert landed.is_ok and len(landed.value) == 1
 
@@ -446,7 +447,7 @@ class TestTheWritesRefuseHistory:
         result = await backend.create_report_node(
             _report_params(
                 SUB_UID,
-                "er_trs_guard_ai",
+                "er.trs-guard-ai",
                 author_uid=None,
                 processor_type="llm",
                 submission_status=None,
@@ -468,7 +469,7 @@ class TestTheWritesRefuseHistory:
                 """
                 MATCH (teacher:User {uid: $teacher})
                 CREATE (ex:Entity:Exercise {
-                    uid: 'ex_trs_snapshot', entity_type: 'exercise', title: $title,
+                    uid: 'ex.trs-snapshot', entity_type: 'exercise', title: $title,
                     status: 'active', created_at: datetime(), updated_at: datetime()
                 })
                 MERGE (ex)-[:REVIEWED_BY]->(teacher)
@@ -486,23 +487,23 @@ class TestTheWritesRefuseHistory:
 
         async def revise(submission_uid: str, suffix: str) -> list[Any]:  # boundary: rows
             re_entity = RevisedExercise(
-                uid=f"re_trs_guard_{suffix}",
+                uid=f"re.trs-guard-{suffix}",
                 entity_type=EntityType.REVISED_EXERCISE,
                 title="",
                 user_uid=IN_TEACHER,
-                original_exercise_uid="ex_trs_snapshot",
-                report_uid=f"er_trs_guard_rev_{suffix}",
+                original_exercise_uid="ex.trs-snapshot",
+                report_uid=f"er.trs-guard-rev-{suffix}",
                 instructions="revise",
             )
             result = await backend.create_report_and_revised_exercise(
                 _report_params(
                     submission_uid,
-                    f"er_trs_guard_rev_{suffix}",
+                    f"er.trs-guard-rev-{suffix}",
                     submission_status="revision_requested",
                     assessment_outcome="needs_revision",
                     reviewing_teacher_uid=IN_TEACHER,
-                    re_uid=f"re_trs_guard_{suffix}",
-                    original_exercise_uid="ex_trs_snapshot",
+                    re_uid=f"re.trs-guard-{suffix}",
+                    original_exercise_uid="ex.trs-snapshot",
                 ),
                 re_entity,
             )

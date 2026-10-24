@@ -22,9 +22,10 @@ from adapters.persistence.neo4j.ingestion_service_factory import make_unified_in
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.ingestion.types import IncrementalStats
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.seed_uids import seed_user_uid
 
 _MARK = "zzzgoalparity"
-_USER = f"user_{_MARK}"
+_USER = seed_user_uid(f"{_MARK}")
 _GOAL = f"goal.{_MARK}.ship"
 _OTHER_GOAL = f"goal.{_MARK}.grow"
 _TASK = f"task.{_MARK}.one"

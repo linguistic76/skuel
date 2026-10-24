@@ -353,102 +353,53 @@ ORDER BY coalesce(i.dismissed_at, i.actioned_at) DESC
 
 ## Testing
 
-### Unit Tests
+The doors are tested against a real graph: `tests/integration/test_insight_native_stamps.py`
+(dismiss → history, the stamps' native types, the active route) and
+`tests/integration/test_insights_page_truthful_reads.py` (the history and stats pages' counts
+and filters). Their shape — the real store over a testcontainer, an owner seeded with
+`seed_user_uid` (`tests/helpers/seed_uids.py`) and an insight uid in the uid grammar:
 
 ```python
-async def test_dismiss_insight_with_notes():
-    """Test dismissing insight with notes."""
-    # Arrange
-    insight = await create_test_insight(user_uid="user_test")
-    notes = "Not relevant to current goals"
+import pytest
+import pytest_asyncio
 
-    # Act
-    result = await insight_store.dismiss_insight(
-        uid=insight.uid,
-        user_uid="user_test",
-        notes=notes
+from adapters.persistence.neo4j.insight_backend import InsightBackend
+from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
+from core.services.insight.insight_store import InsightStore
+from tests.helpers.seed_uids import seed_user_uid
+
+pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+USER = seed_user_uid("insight_history")
+
+
+@pytest_asyncio.fixture
+async def store(neo4j_driver, clean_neo4j) -> InsightStore:
+    await neo4j_driver.execute_query("MERGE (:User {uid: $uid})", uid=USER)
+    return InsightStore(InsightBackend(Neo4jQueryExecutor(neo4j_driver)))
+
+
+async def test_a_dismissal_keeps_its_notes_in_the_history(store) -> None:
+    insight = PersistedInsight(
+        uid="insight.history.dismissed",
+        user_uid=USER,
+        insight_type=InsightType.DIFFICULTY_PATTERN,
+        domain="habits",
+        title="Habit difficulty detected",
+        description="Missed five of the last fourteen days.",
+        confidence=0.85,
+        impact=InsightImpact.HIGH,
+        entity_uid="habit.history-practice",
     )
+    assert (await store.create_insight(insight)).is_ok
 
-    # Assert
-    assert not result.is_error
+    assert (await store.dismiss_insight(insight.uid, USER, notes="Not now")).is_ok
 
-    # Verify in database
-    retrieved = await insight_store.get_insight_by_uid(insight.uid)
-    assert retrieved.value.dismissed == True
-    assert retrieved.value.dismissed_notes == notes
-    assert retrieved.value.dismissed_at is not None
-
-
-async def test_dismiss_insight_without_notes():
-    """Test dismissing insight without notes (backward compatible)."""
-    # Arrange
-    insight = await create_test_insight(user_uid="user_test")
-
-    # Act
-    result = await insight_store.dismiss_insight(
-        uid=insight.uid,
-        user_uid="user_test"
-        # No notes parameter
-    )
-
-    # Assert
-    assert not result.is_error
-
-    retrieved = await insight_store.get_insight_by_uid(insight.uid)
-    assert retrieved.value.dismissed == True
-    assert retrieved.value.dismissed_notes == ""  # Default empty string
-
-
-async def test_get_insight_history():
-    """Test retrieving insight history."""
-    # Arrange
-    await create_test_insight(user_uid="user_test", dismissed=True)
-    await create_test_insight(user_uid="user_test", actioned=True)
-    await create_test_insight(user_uid="user_test")  # Active
-
-    # Act
-    result = await insight_store.get_insight_history(
-        user_uid="user_test",
-        history_type="all"
-    )
-
-    # Assert
-    assert not result.is_error
-    assert len(result.value) == 2  # Only dismissed and actioned
-```
-
-### Integration Tests
-
-```python
-async def test_history_page_renders():
-    """Test history page renders correctly."""
-    # Arrange
-    async with test_client() as client:
-        # Create test data
-        await create_dismissed_insight(notes="Test notes")
-
-        # Act
-        response = await client.get("/insights/history")
-
-        # Assert
-        assert response.status_code == 200
-        assert "Test notes" in response.text
-        assert "Dismissed on" in response.text
-
-
-async def test_history_filter():
-    """Test history filtering."""
-    async with test_client() as client:
-        # Arrange
-        await create_dismissed_insight()
-        await create_actioned_insight()
-
-        # Act - Filter by dismissed only
-        response = await client.get("/insights/history?type=dismissed")
-
-        # Assert
-        assert response.status_code == 200
-        # Verify only dismissed insights shown
+    history = await store.get_insight_history(USER, history_type="dismissed")
+    assert history.is_ok, history
+    [dismissed] = history.value
+    assert dismissed.dismissed and dismissed.dismissed_notes == "Not now"
 ```
 
 ## Variations

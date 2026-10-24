@@ -34,12 +34,12 @@ async def test_has_milestone_events_true_integration(
 ):
     """Test has_relationship('milestones') returns True with real milestone events."""
     # Arrange - Create learning path with milestone events
-    lp_uid = "lp:data_science"
+    lp_uid = "lp.data-science"
 
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="event:complete_python_course",
+        to_uid="event.complete-python-course",
         to_label="Entity:Event",
         rel_type="HAS_MILESTONE_EVENT",
     )
@@ -47,7 +47,7 @@ async def test_has_milestone_events_true_integration(
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="event:first_ml_project",
+        to_uid="event.first-ml-project",
         to_label="Entity:Event",
         rel_type="HAS_MILESTONE_EVENT",
     )
@@ -66,13 +66,13 @@ async def test_has_milestone_events_false_integration(
 ):
     """Test has_relationship('milestones') returns False with no milestone events."""
     # Arrange - Create learning path with no milestone events
-    lp_uid = "lp:no_milestones"
+    lp_uid = "lp.no-milestones"
 
     # Create LP with other relationships (not HAS_MILESTONE_EVENT)
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="goal:master_ml",
+        to_uid="goal.master-ml",
         to_label="Entity:Goal",
         rel_type="ALIGNED_WITH_GOAL",
     )
@@ -107,12 +107,12 @@ async def test_supports_goals_true_integration(
 ):
     """Test has_relationship('goals') returns True with real goal alignment relationships."""
     # Arrange
-    lp_uid = "lp:career_advancement"
+    lp_uid = "lp.career-advancement"
 
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="goal:become_senior_dev",
+        to_uid="goal.become-senior-dev",
         to_label="Entity:Goal",
         rel_type="ALIGNED_WITH_GOAL",
     )
@@ -120,7 +120,7 @@ async def test_supports_goals_true_integration(
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="goal:master_architecture",
+        to_uid="goal.master-architecture",
         to_label="Entity:Goal",
         rel_type="ALIGNED_WITH_GOAL",
     )
@@ -139,13 +139,13 @@ async def test_supports_goals_false_integration(
 ):
     """Test has_relationship('goals') returns False with no goal alignment relationships."""
     # Arrange
-    lp_uid = "lp:exploratory_learning"
+    lp_uid = "lp.exploratory-learning"
 
     # Create LP with other relationships (not ALIGNED_WITH_GOAL)
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="principle:curiosity",
+        to_uid="principle.curiosity",
         to_label="Entity:Principle",
         rel_type="EMBODIES_PRINCIPLE",
     )
@@ -164,14 +164,14 @@ async def test_supports_goals_multiple_goals_integration(
 ):
     """Test has_relationship('goals') with multiple goals (verify count)."""
     # Arrange
-    lp_uid = "lp:comprehensive_plan"
+    lp_uid = "lp.comprehensive-plan"
 
     # Create 4 goal alignment relationships
     for i in range(4):
         await create_relationship(
             from_uid=lp_uid,
             from_label="Entity:LearningPath",
-            to_uid=f"goal:objective_{i}",
+            to_uid=f"goal.objective-{i}",
             to_label="Entity:Goal",
             rel_type="ALIGNED_WITH_GOAL",
         )
@@ -199,12 +199,12 @@ async def test_embodies_principles_true_integration(
 ):
     """Test has_relationship('principles') returns True with real principle relationships."""
     # Arrange
-    lp_uid = "lp:ethical_ai"
+    lp_uid = "lp.ethical-ai"
 
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="principle:fairness",
+        to_uid="principle.fairness",
         to_label="Entity:Principle",
         rel_type="EMBODIES_PRINCIPLE",
     )
@@ -212,7 +212,7 @@ async def test_embodies_principles_true_integration(
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="principle:transparency",
+        to_uid="principle.transparency",
         to_label="Entity:Principle",
         rel_type="EMBODIES_PRINCIPLE",
     )
@@ -220,7 +220,7 @@ async def test_embodies_principles_true_integration(
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="principle:accountability",
+        to_uid="principle.accountability",
         to_label="Entity:Principle",
         rel_type="EMBODIES_PRINCIPLE",
     )
@@ -239,13 +239,13 @@ async def test_embodies_principles_false_integration(
 ):
     """Test has_relationship('principles') returns False with no principle relationships."""
     # Arrange
-    lp_uid = "lp:technical_skills_only"
+    lp_uid = "lp.technical-skills-only"
 
     # Create LP with other relationships (not EMBODIES_PRINCIPLE)
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="goal:learn_coding",
+        to_uid="goal.learn-coding",
         to_label="Entity:Goal",
         rel_type="ALIGNED_WITH_GOAL",
     )
@@ -267,13 +267,13 @@ async def test_embodies_principles_false_integration(
 async def test_get_step_uids_integration(clean_neo4j, lp_relationship_service, create_relationship):
     """Test get_related_uids('steps') returns all path step UIDs."""
     # Arrange
-    lp_uid = "lp:python_fundamentals"
+    lp_uid = "lp.python-fundamentals"
 
     # Create learning path with multiple steps (using HAS_STEP per LP_CONFIG)
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="ps:step_1_basics",
+        to_uid="ps.step-1-basics",
         to_label="Entity:PathStep",
         rel_type="HAS_STEP",
     )
@@ -281,7 +281,7 @@ async def test_get_step_uids_integration(clean_neo4j, lp_relationship_service, c
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="ps:step_2_functions",
+        to_uid="ps.step-2-functions",
         to_label="Entity:PathStep",
         rel_type="HAS_STEP",
     )
@@ -289,7 +289,7 @@ async def test_get_step_uids_integration(clean_neo4j, lp_relationship_service, c
     await create_relationship(
         from_uid=lp_uid,
         from_label="Entity:LearningPath",
-        to_uid="ps:step_3_classes",
+        to_uid="ps.step-3-classes",
         to_label="Entity:PathStep",
         rel_type="HAS_STEP",
     )
@@ -300,16 +300,16 @@ async def test_get_step_uids_integration(clean_neo4j, lp_relationship_service, c
     # Assert
     assert result.is_ok
     assert len(result.value) == 3
-    assert "ps:step_1_basics" in result.value
-    assert "ps:step_2_functions" in result.value
-    assert "ps:step_3_classes" in result.value
+    assert "ps.step-1-basics" in result.value
+    assert "ps.step-2-functions" in result.value
+    assert "ps.step-3-classes" in result.value
 
 
 @pytest.mark.asyncio
 async def test_get_step_uids_empty_integration(clean_neo4j, lp_relationship_service):
     """Test get_related_uids('steps') returns empty list when LP has no steps."""
     # Arrange
-    lp_uid = "lp:empty_path"
+    lp_uid = "lp.empty-path"
 
     # Act
     result = await lp_relationship_service.get_related_uids("steps", lp_uid)

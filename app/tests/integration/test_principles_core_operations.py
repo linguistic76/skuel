@@ -32,6 +32,8 @@ from core.models.enums.principle_enums import (
 )
 from core.models.principle.principle import Principle
 from core.services.principles.principles_core_service import PrinciplesCoreService
+from core.utils.uid_grammar import slugify
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -56,7 +58,7 @@ class TestPrinciplesCoreOperations:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user_test_principles_core"
+        return seed_user_uid("test_principles_core")
 
     # ==========================================================================
     # CRUD OPERATIONS TESTS (5 tests)
@@ -66,7 +68,7 @@ class TestPrinciplesCoreOperations:
         """Test creating a new principle."""
         # Arrange
         principle = Principle(
-            uid="principle.continuous_learning",
+            uid="principle.continuous-learning",
             user_uid=test_user_uid,
             title="Continuous Learning",
             statement="I commit to learning something new every day",
@@ -82,7 +84,7 @@ class TestPrinciplesCoreOperations:
         # Assert
         assert result.is_ok
         created = result.value
-        assert created.uid == "principle.continuous_learning"
+        assert created.uid == "principle.continuous-learning"
         assert created.title == "Continuous Learning"
         assert created.principle_category == PrincipleCategory.INTELLECTUAL
         assert created.strength == PrincipleStrength.CORE
@@ -92,7 +94,7 @@ class TestPrinciplesCoreOperations:
         """Test retrieving a principle by UID."""
         # Arrange - Create a principle first
         principle = Principle(
-            uid="principle.get_test",
+            uid="principle.get-test",
             user_uid=test_user_uid,
             title="Test Principle",
             statement="This is a test principle statement for retrieval",
@@ -102,12 +104,12 @@ class TestPrinciplesCoreOperations:
         assert create_result.is_ok
 
         # Act - Retrieve the principle
-        result = await principles_service.get("principle.get_test")
+        result = await principles_service.get("principle.get-test")
 
         # Assert
         assert result.is_ok
         retrieved = result.value
-        assert retrieved.uid == "principle.get_test"
+        assert retrieved.uid == "principle.get-test"
         assert retrieved.title == "Test Principle"
 
     async def test_get_nonexistent_principle(self, principles_service):
@@ -124,7 +126,7 @@ class TestPrinciplesCoreOperations:
         # Arrange - Create multiple principles
         principles = [
             Principle(
-                uid=f"principle.list_test_{i}",
+                uid=f"principle.list-test-{i}",
                 user_uid=test_user_uid,
                 title=f"Principle {i}",
                 statement=f"This is test principle number {i} for comprehensive testing",
@@ -150,7 +152,7 @@ class TestPrinciplesCoreOperations:
         # Arrange & Act - Create 5 principles
         for i in range(5):
             principle = Principle(
-                uid=f"principle.multi_{i}",
+                uid=f"principle.multi-{i}",
                 user_uid=test_user_uid,
                 title=f"Multiple Principle {i}",
                 statement=f"This is principle number {i} for testing multiple entries",
@@ -267,7 +269,7 @@ class TestPrinciplesCoreOperations:
             tradition="Stoicism",
         )
         personal = Principle(
-            uid="principle.personal_exp",
+            uid="principle.personal-exp",
             user_uid=test_user_uid,
             title="Learned from Experience",
             statement="I have learned through personal experience the value of persistence",
@@ -314,7 +316,7 @@ class TestPrinciplesCoreOperations:
         Length bounds belong to the request model, not this layer.
         """
         principle = Principle(
-            uid="principle.short_statement",
+            uid="principle.short-statement",
             user_uid=test_user_uid,
             title="Be kind",
             statement="Be kind",  # 7 characters — what the DSL emits for a short line
@@ -329,7 +331,7 @@ class TestPrinciplesCoreOperations:
     async def test_short_description_is_allowed(self, principles_service, test_user_uid):
         """Same ruling as above for the ``description >= 20 characters`` rule."""
         principle = Principle(
-            uid="principle.short_desc",
+            uid="principle.short-desc",
             user_uid=test_user_uid,
             title="Valid Title",
             statement="This is a valid statement with more than ten characters",
@@ -359,7 +361,7 @@ class TestPrinciplesCoreOperations:
 
         for strength in strengths:
             principle = Principle(
-                uid=f"principle.strength_{strength.value}",
+                uid=f"principle.strength-{slugify(strength.value)}",
                 user_uid=test_user_uid,
                 title=f"{strength.value.capitalize()} Principle",
                 statement=f"This is a principle with {strength.value} strength level for testing",
@@ -385,7 +387,7 @@ class TestPrinciplesCoreOperations:
 
         for category in categories:
             principle = Principle(
-                uid=f"principle.cat_{category.value}",
+                uid=f"principle.cat-{slugify(category.value)}",
                 user_uid=test_user_uid,
                 title=f"{category.value.capitalize()} Principle",
                 statement=f"This is a principle in the {category.value} category for comprehensive testing",
@@ -399,7 +401,7 @@ class TestPrinciplesCoreOperations:
         """Test creating a principle with optional philosophical context."""
         # Arrange
         principle = Principle(
-            uid="principle.stoic_with_context",
+            uid="principle.stoic-with-context",
             user_uid=test_user_uid,
             title="Amor Fati",
             statement="I love my fate and embrace everything that happens to me",
@@ -430,7 +432,7 @@ class TestPrinciplesCoreOperations:
         """Test creating a principle without a description (optional field)."""
         # Arrange
         principle = Principle(
-            uid="principle.no_description",
+            uid="principle.no-description",
             user_uid=test_user_uid,
             title="No Description",
             statement="This principle has no description field specified",
@@ -459,7 +461,7 @@ class TestPrinciplesCoreOperations:
 
         for alignment in alignments:
             principle = Principle(
-                uid=f"principle.alignment_{alignment.value}",
+                uid=f"principle.alignment-{slugify(alignment.value)}",
                 user_uid=test_user_uid,
                 title=f"{alignment.value.replace('_', ' ').title()} Principle",
                 statement=f"This principle has {alignment.value} alignment for testing purposes",

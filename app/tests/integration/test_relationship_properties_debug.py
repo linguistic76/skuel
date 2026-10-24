@@ -29,13 +29,13 @@ class TestRelationshipPropertiesDebug:
         """Verify that relationship properties are actually persisted."""
         # Create two KUs
         ku1 = Curriculum(
-            uid="ps:test1",
+            uid="ps.test1",
             title="Test 1",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
         ku2 = Curriculum(
-            uid="ps:test2",
+            uid="ps.test2",
             title="Test 2",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
@@ -51,8 +51,8 @@ class TestRelationshipPropertiesDebug:
         result = await ku_backend.create_relationships_batch(
             [
                 (
-                    "ps:test1",
-                    "ps:test2",
+                    "ps.test1",
+                    "ps.test2",
                     "REQUIRES_KNOWLEDGE",
                     {"strength": 0.9, "prerequisite_type": "foundational"},
                 )
@@ -69,7 +69,7 @@ class TestRelationshipPropertiesDebug:
         """
 
         result = await ku_backend.execute_query(
-            query, {"from_uid": "ps:test1", "to_uid": "ps:test2"}
+            query, {"from_uid": "ps.test1", "to_uid": "ps.test2"}
         )
 
         assert result.is_ok

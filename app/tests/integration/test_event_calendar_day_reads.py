@@ -29,10 +29,11 @@ from core.services.events.events_core_service import EventsCoreService
 from core.services.ps.ps_application_discovery_service import PsApplicationDiscoveryService
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
-USER = "user_event_calendar_days"
+USER = seed_user_uid("event_calendar_days")
 PATH_STEP = "ps.utc-arc.event-days"
 
 
@@ -104,7 +105,7 @@ class TestUpcomingEventsApplyingKnowledge:
         dated = {
             "event.utc.yesterday": _today() - timedelta(days=1),
             "event.utc.today": _today(),
-            "event.utc.next_week": _today() + timedelta(days=7),
+            "event.utc.next-week": _today() + timedelta(days=7),
         }
         await _create(events_backend, *(_event(uid, day) for uid, day in dated.items()))
         linked = await events_backend.create_relationships_batch(
@@ -117,7 +118,7 @@ class TestUpcomingEventsApplyingKnowledge:
         every = await discovery.find_events_applying_knowledge(PATH_STEP, USER, upcoming_only=False)
 
         assert upcoming.is_ok, upcoming
-        assert set(upcoming.value) == {"event.utc.today", "event.utc.next_week"}
+        assert set(upcoming.value) == {"event.utc.today", "event.utc.next-week"}
         assert every.is_ok, every
         assert set(every.value) == set(dated)
 

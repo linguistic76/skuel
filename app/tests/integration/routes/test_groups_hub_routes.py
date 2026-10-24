@@ -23,9 +23,10 @@ from starlette.exceptions import HTTPException
 from core.models.enums.entity_enums import EntityType
 from core.models.group.group import create_group
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 
 
-def _make_request(user_uid: str | None = "user_stud_01") -> Any:
+def _make_request(user_uid: str | None = seed_user_uid("stud_01")) -> Any:
     """Build a minimal request-like object for session-backed auth."""
     session = {"user_uid": user_uid} if user_uid is not None else {}
     return SimpleNamespace(
@@ -36,7 +37,7 @@ def _make_request(user_uid: str | None = "user_stud_01") -> Any:
 
 
 def _make_group(uid: str, name: str) -> Any:
-    return create_group(uid=uid, name=name, owner_uid="user_teacher_01")
+    return create_group(uid=uid, name=name, owner_uid=seed_user_uid("teacher_01"))
 
 
 @pytest.fixture
@@ -120,7 +121,7 @@ class TestGroupsHub:
     async def test_populated_defaults_to_first_group(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        g1 = _make_group("group_a", "Physics 101")
+        g1 = _make_group("group.a", "Physics 101")
         g2 = _make_group("group_b", "Chemistry 101")
         mock_services.groups.get_user_groups = AsyncMock(return_value=Result.ok([g1, g2]))
 
@@ -133,7 +134,7 @@ class TestGroupsHub:
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         """?group=does_not_exist must not crash — the hub picks the first tab."""
-        g1 = _make_group("group_a", "Physics 101")
+        g1 = _make_group("group.a", "Physics 101")
         mock_services.groups.get_user_groups = AsyncMock(return_value=Result.ok([g1]))
 
         request = _make_request()
@@ -165,7 +166,7 @@ class TestGroupsSharedPreview:
         request = _make_request(user_uid=None)
         with pytest.raises(HTTPException) as exc:
             await handlers["/api/groups/{group_uid}/shared/preview"](
-                request=request, group_uid="group_a"
+                request=request, group_uid="group.a"
             )
         assert exc.value.status_code == 401
 
@@ -180,7 +181,7 @@ class TestGroupsSharedPreview:
 
         request = _make_request()
         response = await handlers["/api/groups/{group_uid}/shared/preview"](
-            request=request, group_uid="group_not_a_member"
+            request=request, group_uid="group.not-a-member"
         )
 
         assert response is not None
@@ -193,26 +194,29 @@ class TestGroupsSharedPreview:
         records = [
             {
                 "entity": EntityDTO.from_dict(
-                    {"uid": "ue_1", "entity_type": "user_entry", "title": "Reflection 1"}
+                    {"uid": "ue.1", "entity_type": "user_entry", "title": "Reflection 1"}
                 ),
                 "shared_at": "2026-04-10T12:00:00",
                 "shared_by": "Alex Rivera",
-                "sharer_uid": "user_alex",
+                "sharer_uid": seed_user_uid("alex"),
                 "via_direct": False,
-                "via_groups": [{"uid": "group_a", "name": "Physics 101"}],
+                "via_groups": [{"uid": "group.a", "name": "Physics 101"}],
             }
         ]
         mock_services.sharing.get_shared_with_me = AsyncMock(return_value=Result.ok(records))
 
         request = _make_request()
         response = await handlers["/api/groups/{group_uid}/shared/preview"](
-            request=request, group_uid="group_a"
+            request=request, group_uid="group.a"
         )
 
         assert response is not None
         # The one reader, narrowed to this group (ADR-088 §5).
         mock_services.sharing.get_shared_with_me.assert_awaited_once_with(
-            user_uid="user_stud_01", limit=12, entity_type=EntityType.USER_ENTRY, via="group_a"
+            user_uid=seed_user_uid("stud_01"),
+            limit=12,
+            entity_type=EntityType.USER_ENTRY,
+            via="group.a",
         )
 
     async def test_service_error_yields_empty_fragment(
@@ -224,7 +228,7 @@ class TestGroupsSharedPreview:
 
         request = _make_request()
         response = await handlers["/api/groups/{group_uid}/shared/preview"](
-            request=request, group_uid="group_a"
+            request=request, group_uid="group.a"
         )
 
         assert response is not None
@@ -260,6 +264,6 @@ class TestGroupsSharedPreview:
         create_groups_hub_routes(MagicMock(), rt_collector, degraded_services)
 
         response = await registered["/api/groups/{group_uid}/shared/preview"](
-            request=_make_request(), group_uid="group_a"
+            request=_make_request(), group_uid="group.a"
         )
         assert response is not None

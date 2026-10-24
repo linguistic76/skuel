@@ -28,6 +28,7 @@ from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBac
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryUpdateRequest
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration.user_entry.test_entry_knowledge_credit_once import (
     _edges,
     _entry,
@@ -81,7 +82,7 @@ class TestUnnamedKnowledgeRetracted:
     async def test_a_reference_deleted_from_the_text_unlinks_and_is_recorded(
         self, neo4j_driver, user_entry_service, seed_user
     ):
-        user_uid = await seed_user(f"user_unname_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"unname_{uuid4().hex[:6]}"))
         dropped = await _seed_ku(neo4j_driver, f"ku.it.dropped-{uuid4().hex[:6]}")
         kept = await _seed_ku(neo4j_driver, f"ku.it.kept-{uuid4().hex[:6]}")
         entry = await _entry(
@@ -110,7 +111,7 @@ class TestUnnamedKnowledgeRetracted:
     async def test_an_inferred_link_the_text_never_named_stays(
         self, neo4j_driver, user_entry_service, seed_user, grounding
     ):
-        user_uid = await seed_user(f"user_unname_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"unname_{uuid4().hex[:6]}"))
         inferred = await _seed_ku(neo4j_driver, f"ku.it.inferred-{uuid4().hex[:6]}")
         entry = await _entry(user_entry_service, user_uid, "- [ ] Read @context(task)\n")
         assert (await grounding.write_applies_knowledge(entry.uid, inferred, 0.74)).value is True
@@ -125,7 +126,7 @@ class TestUnnamedKnowledgeRetracted:
     async def test_a_reference_still_in_the_text_keeps_its_link_when_it_cannot_be_relinked(
         self, neo4j_driver, user_entry_service, seed_user
     ):
-        user_uid = await seed_user(f"user_unname_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"unname_{uuid4().hex[:6]}"))
         named = await _seed_ku(neo4j_driver, f"ku.it.drafted-{uuid4().hex[:6]}")
         entry = await _entry(
             user_entry_service, user_uid, f"- [ ] Read on it @context(task) @ku({named})\n"
@@ -145,7 +146,7 @@ class TestUnnamedKnowledgeRetracted:
     async def test_naming_it_again_relinks_without_a_second_credit(
         self, neo4j_driver, user_entry_service, seed_user
     ):
-        user_uid = await seed_user(f"user_unname_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"unname_{uuid4().hex[:6]}"))
         named = await _seed_ku(neo4j_driver, f"ku.it.renamed-{uuid4().hex[:6]}")
         fresh = await _seed_ku(neo4j_driver, f"ku.it.fresh-{uuid4().hex[:6]}")
         line = f"- [ ] Read on it @context(task) @ku({named})\n"
@@ -170,7 +171,7 @@ class TestUnnamedKnowledgeRetracted:
     async def test_the_grounding_pass_never_remakes_a_removed_pair(
         self, neo4j_driver, user_entry_service, seed_user, grounding
     ):
-        user_uid = await seed_user(f"user_unname_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"unname_{uuid4().hex[:6]}"))
         removed = await _seed_ku(neo4j_driver, f"ku.it.removed-{uuid4().hex[:6]}")
         other = await _seed_ku(neo4j_driver, f"ku.it.other-{uuid4().hex[:6]}")
         entry = await _entry(user_entry_service, user_uid, "- [ ] Read @context(task)\n")
@@ -190,7 +191,7 @@ class TestUnnamedKnowledgeRetracted:
     async def test_a_line_that_no_longer_parses_still_names_its_knowledge(
         self, neo4j_driver, user_entry_service, seed_user
     ):
-        user_uid = await seed_user(f"user_unname_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"unname_{uuid4().hex[:6]}"))
         named = await _seed_ku(neo4j_driver, f"ku.it.broken-{uuid4().hex[:6]}")
         dropped = await _seed_ku(neo4j_driver, f"ku.it.dropped-{uuid4().hex[:6]}")
         entry = await _entry(

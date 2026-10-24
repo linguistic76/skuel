@@ -34,6 +34,7 @@ import pytest_asyncio
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.helpers.lateral_routes_client import without_timestamp
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client, write_edge
 
 if TYPE_CHECKING:
@@ -50,14 +51,14 @@ pytestmark = [
     ),
 ]
 
-CALLER = "user_ctxdoor_caller"
-OTHER = "user_ctxdoor_other"  # owns the foreign goal and habit
+CALLER = seed_user_uid("ctxdoor_caller")
+OTHER = seed_user_uid("ctxdoor_other")  # owns the foreign goal and habit
 CALLER_MARK = "ctxdoor-caller"
 OTHER_MARK = "ctxdoor-other"
 
 # Shared knowledge: the subject a goal requires, and a prerequisite of that subject.
-KU_SUBJECT = "ku_ctxdoor-caller_subject"
-KU_PREREQ = "ku_ctxdoor-caller_prereq"
+KU_SUBJECT = "ku.ctxdoor-caller-subject"
+KU_PREREQ = "ku.ctxdoor-caller-prereq"
 
 MISSING_GOAL = "goal_ctxdoor-caller_missing"
 MISSING_HABIT = "habit_ctxdoor-caller_missing"

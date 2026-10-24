@@ -33,6 +33,7 @@ from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleUpdateRequest
 from core.models.sentinels import UNSET
 from core.services.principles.principles_core_service import PrinciplesCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -57,8 +58,8 @@ class TestPrincipleUpdateIntentPipeline:
     async def seeded_principle(self, core_service):
         # statement >= 10 chars and description >= 20 chars satisfy _validate_create.
         principle = Principle(
-            uid="principle.intent_pipeline",
-            user_uid="user_intent_pipeline",
+            uid="principle.intent-pipeline",
+            user_uid=seed_user_uid("intent_pipeline"),
             title="Original title",
             statement="Be honest in all dealings",
             description="Original description that is plenty long enough",

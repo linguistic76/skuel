@@ -31,6 +31,8 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.habit.habit import Habit as Habit
 from core.services.habits.habits_core_service import HabitsCoreService
+from core.utils.uid_grammar import slugify
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -57,7 +59,7 @@ class TestHabitsCoreOperations:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user_test_habits_core"
+        return seed_user_uid("test_habits_core")
 
     # ==========================================================================
     # CRUD OPERATIONS TESTS (5 tests)
@@ -67,7 +69,7 @@ class TestHabitsCoreOperations:
         """Test creating a new habit."""
         # Arrange
         habit = Habit(
-            uid="habit.daily_meditation",
+            uid="habit.daily-meditation",
             user_uid=test_user_uid,
             title="Daily Meditation",
             entity_type=EntityType.HABIT,
@@ -88,7 +90,7 @@ class TestHabitsCoreOperations:
         # Assert
         assert result.is_ok
         created = result.value
-        assert created.uid == "habit.daily_meditation"
+        assert created.uid == "habit.daily-meditation"
         assert created.title == "Daily Meditation"
         assert created.polarity == HabitPolarity.BUILD
         assert created.habit_category == HabitCategory.MINDFULNESS
@@ -99,7 +101,7 @@ class TestHabitsCoreOperations:
         """Test retrieving a habit by UID."""
         # Arrange - Create a habit first
         habit = Habit(
-            uid="habit.get_test",
+            uid="habit.get-test",
             user_uid=test_user_uid,
             title="Test Habit for Retrieval",
             description="This habit tests retrieval functionality",
@@ -111,12 +113,12 @@ class TestHabitsCoreOperations:
         assert create_result.is_ok
 
         # Act - Retrieve the habit
-        result = await habits_service.get_habit("habit.get_test")
+        result = await habits_service.get_habit("habit.get-test")
 
         # Assert
         assert result.is_ok
         retrieved = result.value
-        assert retrieved.uid == "habit.get_test"
+        assert retrieved.uid == "habit.get-test"
         assert retrieved.title == "Test Habit for Retrieval"
 
     async def test_get_nonexistent_habit(self, habits_service):
@@ -133,7 +135,7 @@ class TestHabitsCoreOperations:
         # Arrange - Create multiple habits
         habits = [
             Habit(
-                uid=f"habit.list_test_{i}",
+                uid=f"habit.list-test-{i}",
                 user_uid=test_user_uid,
                 title=f"Test Habit {i}",
                 description=f"Description for habit {i}",
@@ -161,7 +163,7 @@ class TestHabitsCoreOperations:
         # Arrange & Act - Create 5 habits
         for i in range(5):
             habit = Habit(
-                uid=f"habit.multi_{i}",
+                uid=f"habit.multi-{i}",
                 user_uid=test_user_uid,
                 title=f"Multi Habit {i}",
                 description=f"Multiple habit {i}",
@@ -229,7 +231,7 @@ class TestHabitsCoreOperations:
         """Test filtering habits by category."""
         # Arrange - Create habits with different categories
         health_habit = Habit(
-            uid="habit.health_category",
+            uid="habit.health-category",
             user_uid=test_user_uid,
             title="Health Category Habit",
             description="Health-related habit",
@@ -238,7 +240,7 @@ class TestHabitsCoreOperations:
             recurrence_pattern=RecurrencePattern.DAILY,
         )
         learning_habit = Habit(
-            uid="habit.learning_category",
+            uid="habit.learning-category",
             user_uid=test_user_uid,
             title="Learning Category Habit",
             description="Learning-related habit",
@@ -328,7 +330,7 @@ class TestHabitsCoreOperations:
 
         for status in statuses:
             habit = Habit(
-                uid=f"habit.status_{status.value}",
+                uid=f"habit.status-{slugify(status.value)}",
                 user_uid=test_user_uid,
                 title=f"Habit with {status.value} status",
                 description=f"Testing {status.value} status",
@@ -352,7 +354,7 @@ class TestHabitsCoreOperations:
 
         for polarity in polarities:
             habit = Habit(
-                uid=f"habit.polarity_{polarity.value}",
+                uid=f"habit.polarity-{slugify(polarity.value)}",
                 user_uid=test_user_uid,
                 title=f"{polarity.value.title()} Habit",
                 description=f"Testing {polarity.value} polarity",
@@ -368,7 +370,7 @@ class TestHabitsCoreOperations:
         """Test that daily habits cannot have target > 7 days per week."""
         # Arrange - Create habit with invalid frequency
         invalid_habit = Habit(
-            uid="habit.invalid_frequency",
+            uid="habit.invalid-frequency",
             user_uid=test_user_uid,
             title="Invalid Frequency Habit",
             description="Daily habit with target > 7 days",
@@ -389,7 +391,7 @@ class TestHabitsCoreOperations:
         """Test creating a habit with cue-routine-reward pattern."""
         # Arrange
         habit = Habit(
-            uid="habit.with_cue_routine_reward",
+            uid="habit.with-cue-routine-reward",
             user_uid=test_user_uid,
             title="Habit with Behavioral Science",
             description="Full habit loop pattern",
@@ -424,7 +426,7 @@ class TestHabitsCoreOperations:
         """Test creating a habit with optional fields populated."""
         # Arrange
         habit = Habit(
-            uid="habit.full_details",
+            uid="habit.full-details",
             user_uid=test_user_uid,
             title="Fully Detailed Habit",
             description="Complete habit with all optional fields",
@@ -493,7 +495,7 @@ class TestHabitsCoreOperations:
 
         for i, (pattern, target_days) in enumerate(patterns):
             habit = Habit(
-                uid=f"habit.recurrence_{i}",
+                uid=f"habit.recurrence-{i}",
                 user_uid=test_user_uid,
                 title=f"Habit with {pattern.value} recurrence",
                 description=f"Pattern: {pattern.value}",

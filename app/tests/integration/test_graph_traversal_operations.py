@@ -44,37 +44,37 @@ class TestTraverseOperations:
         # Create nodes
         nodes = {
             "A": Curriculum(
-                uid="ps:traverse-a",
+                uid="ps.traverse-a",
                 title="Node A",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             "B": Curriculum(
-                uid="ps:traverse-b",
+                uid="ps.traverse-b",
                 title="Node B",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             "C": Curriculum(
-                uid="ps:traverse-c",
+                uid="ps.traverse-c",
                 title="Node C",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             "D": Curriculum(
-                uid="ps:traverse-d",
+                uid="ps.traverse-d",
                 title="Node D",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             "E": Curriculum(
-                uid="ps:traverse-e",
+                uid="ps.traverse-e",
                 title="Node E",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             "F": Curriculum(
-                uid="ps:traverse-f",
+                uid="ps.traverse-f",
                 title="Node F",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
@@ -90,12 +90,12 @@ class TestTraverseOperations:
         # Valid KU relationship types: REQUIRES_KNOWLEDGE, ENABLES_KNOWLEDGE, RELATED_TO
         # January 2026: Use unified relationship names from RelationshipName enum
         relationships = [
-            ("ps:traverse-a", "ps:traverse-b", "REQUIRES_KNOWLEDGE", None),  # A -> B
-            ("ps:traverse-b", "ps:traverse-c", "REQUIRES_KNOWLEDGE", None),  # B -> C
-            ("ps:traverse-c", "ps:traverse-d", "REQUIRES_KNOWLEDGE", None),  # C -> D
-            ("ps:traverse-a", "ps:traverse-e", "ENABLES_KNOWLEDGE", None),  # A -> E
-            ("ps:traverse-b", "ps:traverse-e", "REQUIRES_KNOWLEDGE", None),  # B -> E
-            ("ps:traverse-e", "ps:traverse-f", "REQUIRES_KNOWLEDGE", None),  # E -> F
+            ("ps.traverse-a", "ps.traverse-b", "REQUIRES_KNOWLEDGE", None),  # A -> B
+            ("ps.traverse-b", "ps.traverse-c", "REQUIRES_KNOWLEDGE", None),  # B -> C
+            ("ps.traverse-c", "ps.traverse-d", "REQUIRES_KNOWLEDGE", None),  # C -> D
+            ("ps.traverse-a", "ps.traverse-e", "ENABLES_KNOWLEDGE", None),  # A -> E
+            ("ps.traverse-b", "ps.traverse-e", "REQUIRES_KNOWLEDGE", None),  # B -> E
+            ("ps.traverse-e", "ps.traverse-f", "REQUIRES_KNOWLEDGE", None),  # E -> F
         ]
         result = await ku_backend.create_relationships_batch(relationships)
         assert result.is_ok, f"Failed to create relationships: {result.error}"
@@ -105,7 +105,7 @@ class TestTraverseOperations:
     async def test_traverse_basic(self, ku_backend, traversal_graph):
         """Test basic traversal returns connected nodes."""
         result = await ku_backend.traverse(
-            start_uid="ps:traverse-a",
+            start_uid="ps.traverse-a",
             rel_pattern="REQUIRES_KNOWLEDGE",
             max_depth=3,
         )
@@ -116,12 +116,12 @@ class TestTraverseOperations:
 
         # Should find B, C, D via PREREQUISITE chain (but not E which is via ENABLES)
         uids = {n["uid"] for n in nodes}
-        assert "ps:traverse-b" in uids  # Direct PREREQUISITE from A
+        assert "ps.traverse-b" in uids  # Direct PREREQUISITE from A
 
     async def test_traverse_max_depth_1(self, ku_backend, traversal_graph):
         """Test depth=1 returns only direct neighbors."""
         result = await ku_backend.traverse(
-            start_uid="ps:traverse-a",
+            start_uid="ps.traverse-a",
             rel_pattern="REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE",
             max_depth=1,
         )
@@ -131,17 +131,17 @@ class TestTraverseOperations:
 
         # With depth 1, should only get B and E (direct neighbors of A)
         uids = {n["uid"] for n in nodes}
-        assert "ps:traverse-b" in uids  # Direct via PREREQUISITE
-        assert "ps:traverse-e" in uids  # Direct via ENABLES
+        assert "ps.traverse-b" in uids  # Direct via PREREQUISITE
+        assert "ps.traverse-e" in uids  # Direct via ENABLES
         # C, D, F should NOT be present (depth > 1)
-        assert "ps:traverse-c" not in uids
-        assert "ps:traverse-d" not in uids
-        assert "ps:traverse-f" not in uids
+        assert "ps.traverse-c" not in uids
+        assert "ps.traverse-d" not in uids
+        assert "ps.traverse-f" not in uids
 
     async def test_traverse_max_depth_3(self, ku_backend, traversal_graph):
         """Test depth=3 returns nodes up to 3 hops away."""
         result = await ku_backend.traverse(
-            start_uid="ps:traverse-a",
+            start_uid="ps.traverse-a",
             rel_pattern="REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE",
             max_depth=3,
         )
@@ -151,15 +151,15 @@ class TestTraverseOperations:
 
         # With depth 3, should reach all nodes except D (which is 4 hops: A->B->C->D)
         uids = {n["uid"] for n in nodes}
-        assert "ps:traverse-b" in uids  # depth 1
-        assert "ps:traverse-e" in uids  # depth 1
-        assert "ps:traverse-c" in uids  # depth 2
-        assert "ps:traverse-f" in uids  # depth 2
+        assert "ps.traverse-b" in uids  # depth 1
+        assert "ps.traverse-e" in uids  # depth 1
+        assert "ps.traverse-c" in uids  # depth 2
+        assert "ps.traverse-f" in uids  # depth 2
 
     async def test_traverse_multiple_rel_types(self, ku_backend, traversal_graph):
         """Test traversal with multiple relationship types (OR pattern)."""
         result = await ku_backend.traverse(
-            start_uid="ps:traverse-a",
+            start_uid="ps.traverse-a",
             rel_pattern="REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE",
             max_depth=2,
         )
@@ -169,13 +169,13 @@ class TestTraverseOperations:
 
         # Should traverse both PREREQUISITE and ENABLES relationships
         uids = {n["uid"] for n in nodes}
-        assert "ps:traverse-b" in uids  # via PREREQUISITE
-        assert "ps:traverse-e" in uids  # via ENABLES
+        assert "ps.traverse-b" in uids  # via PREREQUISITE
+        assert "ps.traverse-e" in uids  # via ENABLES
 
     async def test_traverse_depth_ordering(self, ku_backend, traversal_graph):
         """Test that results are ordered by depth."""
         result = await ku_backend.traverse(
-            start_uid="ps:traverse-a",
+            start_uid="ps.traverse-a",
             rel_pattern="REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE",
             max_depth=3,
         )
@@ -190,7 +190,7 @@ class TestTraverseOperations:
     async def test_traverse_include_properties_true(self, ku_backend, traversal_graph):
         """Test that include_properties=True returns node properties."""
         result = await ku_backend.traverse(
-            start_uid="ps:traverse-a",
+            start_uid="ps.traverse-a",
             rel_pattern="REQUIRES_KNOWLEDGE",
             max_depth=1,
             include_properties=True,
@@ -209,7 +209,7 @@ class TestTraverseOperations:
     async def test_traverse_include_properties_false(self, ku_backend, traversal_graph):
         """Test that include_properties=False returns minimal data."""
         result = await ku_backend.traverse(
-            start_uid="ps:traverse-a",
+            start_uid="ps.traverse-a",
             rel_pattern="REQUIRES_KNOWLEDGE",
             max_depth=1,
             include_properties=False,
@@ -230,7 +230,7 @@ class TestTraverseOperations:
         """Test that nodes reached via multiple paths appear only once."""
         # Node E is reachable via A->E and A->B->E
         result = await ku_backend.traverse(
-            start_uid="ps:traverse-a",
+            start_uid="ps.traverse-a",
             rel_pattern="REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE",
             max_depth=2,
         )
@@ -239,13 +239,13 @@ class TestTraverseOperations:
         nodes = result.value
 
         # E should appear only once (DISTINCT in query)
-        e_nodes = [n for n in nodes if n["uid"] == "ps:traverse-e"]
+        e_nodes = [n for n in nodes if n["uid"] == "ps.traverse-e"]
         assert len(e_nodes) == 1, "Node E should appear exactly once"
 
     async def test_traverse_empty_result(self, ku_backend, traversal_graph):
         """Test traversal with no matches returns empty list."""
         result = await ku_backend.traverse(
-            start_uid="ps:traverse-a",
+            start_uid="ps.traverse-a",
             rel_pattern="NONEXISTENT_REL",
             max_depth=3,
         )
@@ -256,7 +256,7 @@ class TestTraverseOperations:
     async def test_traverse_invalid_start_uid(self, ku_backend, traversal_graph):
         """Test traversal from non-existent node returns empty list."""
         result = await ku_backend.traverse(
-            start_uid="ps:nonexistent",
+            start_uid="ps.nonexistent",
             rel_pattern="REQUIRES_KNOWLEDGE",
             max_depth=3,
         )
@@ -269,19 +269,19 @@ class TestTraverseOperations:
         # Create a cycle: X -> Y -> Z -> X
         nodes = [
             Curriculum(
-                uid="ps:cycle-x",
+                uid="ps.cycle-x",
                 title="Cycle X",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             Curriculum(
-                uid="ps:cycle-y",
+                uid="ps.cycle-y",
                 title="Cycle Y",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             Curriculum(
-                uid="ps:cycle-z",
+                uid="ps.cycle-z",
                 title="Cycle Z",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
@@ -292,15 +292,15 @@ class TestTraverseOperations:
 
         # Create cycle
         relationships = [
-            ("ps:cycle-x", "ps:cycle-y", "REQUIRES_KNOWLEDGE", None),
-            ("ps:cycle-y", "ps:cycle-z", "REQUIRES_KNOWLEDGE", None),
-            ("ps:cycle-z", "ps:cycle-x", "REQUIRES_KNOWLEDGE", None),  # Back to X
+            ("ps.cycle-x", "ps.cycle-y", "REQUIRES_KNOWLEDGE", None),
+            ("ps.cycle-y", "ps.cycle-z", "REQUIRES_KNOWLEDGE", None),
+            ("ps.cycle-z", "ps.cycle-x", "REQUIRES_KNOWLEDGE", None),  # Back to X
         ]
         await ku_backend.create_relationships_batch(relationships)
 
         # Traverse should handle cycle gracefully
         result = await ku_backend.traverse(
-            start_uid="ps:cycle-x",
+            start_uid="ps.cycle-x",
             rel_pattern="REQUIRES_KNOWLEDGE",
             max_depth=5,
         )
@@ -308,14 +308,14 @@ class TestTraverseOperations:
         assert result.is_ok
         # Should have found Y and Z (X is start, won't be in results)
         uids = {n["uid"] for n in result.value}
-        assert "ps:cycle-y" in uids
-        assert "ps:cycle-z" in uids
+        assert "ps.cycle-y" in uids
+        assert "ps.cycle-z" in uids
 
     async def test_traverse_self_loop(self, ku_backend, clean_neo4j):
         """Test traversal handles self-referential relationships."""
         # Create node with self-loop
         node = Curriculum(
-            uid="ps:selfloop",
+            uid="ps.selfloop",
             title="Self Loop",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
@@ -323,12 +323,12 @@ class TestTraverseOperations:
         await ku_backend.create(node)
 
         # Create self-loop relationship
-        relationships = [("ps:selfloop", "ps:selfloop", "RELATED_TO", None)]
+        relationships = [("ps.selfloop", "ps.selfloop", "RELATED_TO", None)]
         await ku_backend.create_relationships_batch(relationships)
 
         # Traverse should handle self-loop
         result = await ku_backend.traverse(
-            start_uid="ps:selfloop",
+            start_uid="ps.selfloop",
             rel_pattern="RELATED_TO",
             max_depth=3,
         )
@@ -364,25 +364,25 @@ class TestGetDomainContextRaw:
         """
         nodes = [
             Curriculum(
-                uid="ps:context-center",
+                uid="ps.context-center",
                 title="Center Node",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             Curriculum(
-                uid="ps:context-related1",
+                uid="ps.context-related1",
                 title="Related 1",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             Curriculum(
-                uid="ps:context-related2",
+                uid="ps.context-related2",
                 title="Related 2",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             Curriculum(
-                uid="ps:context-deep1",
+                uid="ps.context-deep1",
                 title="Deep 1",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
@@ -396,20 +396,20 @@ class TestGetDomainContextRaw:
         # Create relationships with confidence properties
         relationships = [
             (
-                "ps:context-center",
-                "ps:context-related1",
+                "ps.context-center",
+                "ps.context-related1",
                 "REQUIRES_KNOWLEDGE",
                 {"confidence": 0.9},
             ),
             (
-                "ps:context-related1",
-                "ps:context-deep1",
+                "ps.context-related1",
+                "ps.context-deep1",
                 "REQUIRES_KNOWLEDGE",
                 {"confidence": 0.8},
             ),
             (
-                "ps:context-center",
-                "ps:context-related2",
+                "ps.context-center",
+                "ps.context-related2",
                 "ENABLES_KNOWLEDGE",
                 {"confidence": 0.7},
             ),
@@ -422,7 +422,7 @@ class TestGetDomainContextRaw:
     async def test_context_raw_basic(self, ku_backend, context_graph):
         """Test basic context retrieval returns GraphContextNode list."""
         result = await ku_backend.get_domain_context_raw(
-            entity_uid="ps:context-center",
+            entity_uid="ps.context-center",
             entity_label="Entity",
             relationship_types=["REQUIRES_KNOWLEDGE", "ENABLES_KNOWLEDGE"],
             depth=2,
@@ -436,7 +436,7 @@ class TestGetDomainContextRaw:
         """Test that only specified relationship types are included."""
         # Only PREREQUISITE, not ENABLES
         result = await ku_backend.get_domain_context_raw(
-            entity_uid="ps:context-center",
+            entity_uid="ps.context-center",
             entity_label="Entity",
             relationship_types=["REQUIRES_KNOWLEDGE"],
             depth=2,
@@ -448,12 +448,12 @@ class TestGetDomainContextRaw:
         # Should find related1 and deep1 via PREREQUISITE, but not related2 (ENABLES)
         uids = {n.get("uid") for n in context}
         if context:  # Context may be empty if query structure differs
-            assert "ps:context-related2" not in uids
+            assert "ps.context-related2" not in uids
 
     async def test_context_raw_depth_limit(self, ku_backend, context_graph):
         """Test that depth parameter is respected."""
         result = await ku_backend.get_domain_context_raw(
-            entity_uid="ps:context-center",
+            entity_uid="ps.context-center",
             entity_label="Entity",
             relationship_types=["REQUIRES_KNOWLEDGE"],
             depth=1,
@@ -473,7 +473,7 @@ class TestGetDomainContextRaw:
         """Test context for isolated node returns empty list."""
         # Create isolated node
         isolated = Curriculum(
-            uid="ps:isolated",
+            uid="ps.isolated",
             title="Isolated",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
@@ -481,7 +481,7 @@ class TestGetDomainContextRaw:
         await ku_backend.create(isolated)
 
         result = await ku_backend.get_domain_context_raw(
-            entity_uid="ps:isolated",
+            entity_uid="ps.isolated",
             entity_label="Entity",
             relationship_types=["REQUIRES_KNOWLEDGE"],
             depth=2,
@@ -493,7 +493,7 @@ class TestGetDomainContextRaw:
     async def test_context_raw_nonexistent_entity(self, ku_backend, context_graph):
         """Test context for non-existent entity returns empty list."""
         result = await ku_backend.get_domain_context_raw(
-            entity_uid="ps:nonexistent",
+            entity_uid="ps.nonexistent",
             entity_label="Entity",
             relationship_types=["REQUIRES_KNOWLEDGE"],
             depth=2,

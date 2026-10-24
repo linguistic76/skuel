@@ -31,6 +31,8 @@ from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementTyp
 from core.models.goal.goal import Goal
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.utils.result_simplified import ErrorCategory
+from core.utils.uid_grammar import slugify
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -61,7 +63,7 @@ class TestGoalsCoreOperations:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user_test_goals_core"
+        return seed_user_uid("test_goals_core")
 
     # ==========================================================================
     # CRUD OPERATIONS TESTS (5 tests)
@@ -72,7 +74,7 @@ class TestGoalsCoreOperations:
         # Arrange
         today = date.today()
         goal = Goal(
-            uid="goal.learn_python",
+            uid="goal.learn-python",
             user_uid=test_user_uid,
             title="Learn Python Programming",
             description="Master Python for data science and automation",
@@ -94,7 +96,7 @@ class TestGoalsCoreOperations:
         # Assert
         assert result.is_ok
         created = result.value
-        assert created.uid == "goal.learn_python"
+        assert created.uid == "goal.learn-python"
         assert created.title == "Learn Python Programming"
         assert created.goal_type == GoalType.LEARNING
         assert created.status == EntityStatus.ACTIVE
@@ -104,7 +106,7 @@ class TestGoalsCoreOperations:
         """Test retrieving a goal by UID."""
         # Arrange - Create a goal first
         goal = Goal(
-            uid="goal.get_test",
+            uid="goal.get-test",
             user_uid=test_user_uid,
             title="Test Goal for Retrieval",
             description="This goal tests retrieval functionality",
@@ -116,12 +118,12 @@ class TestGoalsCoreOperations:
         assert create_result.is_ok
 
         # Act - Retrieve the goal
-        result = await goals_service.get("goal.get_test")
+        result = await goals_service.get("goal.get-test")
 
         # Assert
         assert result.is_ok
         retrieved = result.value
-        assert retrieved.uid == "goal.get_test"
+        assert retrieved.uid == "goal.get-test"
         assert retrieved.title == "Test Goal for Retrieval"
 
     async def test_get_nonexistent_goal(self, goals_service):
@@ -138,7 +140,7 @@ class TestGoalsCoreOperations:
         # Arrange - Create multiple goals
         goals = [
             Goal(
-                uid=f"goal.list_test_{i}",
+                uid=f"goal.list-test-{i}",
                 user_uid=test_user_uid,
                 title=f"Test Goal {i}",
                 description=f"Description for goal {i}",
@@ -166,7 +168,7 @@ class TestGoalsCoreOperations:
         # Arrange & Act - Create 5 goals
         for i in range(5):
             goal = Goal(
-                uid=f"goal.multi_{i}",
+                uid=f"goal.multi-{i}",
                 user_uid=test_user_uid,
                 title=f"Multi Goal {i}",
                 description=f"Multiple goal {i}",
@@ -232,7 +234,7 @@ class TestGoalsCoreOperations:
         """Test filtering goals by priority."""
         # Arrange - Create goals with different priorities
         high_goal = Goal(
-            uid="goal.high_priority",
+            uid="goal.high-priority",
             user_uid=test_user_uid,
             title="High Priority Goal",
             description="Critical goal",
@@ -241,7 +243,7 @@ class TestGoalsCoreOperations:
             priority=Priority.HIGH,
         )
         low_goal = Goal(
-            uid="goal.low_priority",
+            uid="goal.low-priority",
             user_uid=test_user_uid,
             title="Low Priority Goal",
             description="Nice to have",
@@ -329,7 +331,7 @@ class TestGoalsCoreOperations:
 
         for status in statuses:
             goal = Goal(
-                uid=f"goal.status_{status.value}",
+                uid=f"goal.status-{slugify(status.value)}",
                 user_uid=test_user_uid,
                 title=f"Goal with {status.value} status",
                 description=f"Testing {status.value} status",
@@ -354,7 +356,7 @@ class TestGoalsCoreOperations:
 
         for goal_type in goal_types:
             goal = Goal(
-                uid=f"goal.type_{goal_type.value}",
+                uid=f"goal.type-{slugify(goal_type.value)}",
                 user_uid=test_user_uid,
                 title=f"{goal_type.value.title()} Goal",
                 description=f"Testing {goal_type.value} type",
@@ -370,7 +372,7 @@ class TestGoalsCoreOperations:
         # Arrange - Create goal with invalid dates (target before start)
         today = date.today()
         invalid_goal = Goal(
-            uid="goal.invalid_dates",
+            uid="goal.invalid-dates",
             user_uid=test_user_uid,
             title="Invalid Date Goal",
             description="Target date is before start date",
@@ -400,7 +402,7 @@ class TestGoalsCoreOperations:
         """
         today = date.today()
         same_day_goal = Goal(
-            uid="goal.same_day",
+            uid="goal.same-day",
             user_uid=test_user_uid,
             title="Same Day Goal",
             description="Starts and finishes today",
@@ -421,7 +423,7 @@ class TestGoalsCoreOperations:
         """Test creating a goal with progress tracking fields."""
         # Arrange
         goal = Goal(
-            uid="goal.with_progress",
+            uid="goal.with-progress",
             user_uid=test_user_uid,
             title="Goal with Progress Tracking",
             description="Track progress numerically",
@@ -460,7 +462,7 @@ class TestGoalsCoreOperations:
         # Arrange
         today = date.today()
         goal = Goal(
-            uid="goal.full_details",
+            uid="goal.full-details",
             user_uid=test_user_uid,
             title="Fully Detailed Goal",
             description="Complete goal with all optional fields",
@@ -527,7 +529,7 @@ class TestGoalsCoreOperations:
 
         for i, (start, target) in enumerate(date_ranges):
             goal = Goal(
-                uid=f"goal.date_range_{i}",
+                uid=f"goal.date-range-{i}",
                 user_uid=test_user_uid,
                 title=f"Goal with date range {i}",
                 description=f"Start {start}, target {target}",

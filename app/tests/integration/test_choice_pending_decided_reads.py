@@ -24,9 +24,11 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import UserUID
 from core.models.user.user import User
 from core.services.user.user_context_builder import UserContextBuilder
+from core.utils.uid_grammar import slugify
+from tests.helpers.seed_uids import seed_user_uid
 
-_OWNER = "user_choice_vocabulary"
-_STRANGER = "user_choice_vocabulary_stranger"
+_OWNER = seed_user_uid("choice_vocabulary")
+_STRANGER = seed_user_uid("choice_vocabulary_stranger")
 _DECIDED_AT = datetime(2026, 9, 1, 12, 0)
 _DEADLINE = datetime(2026, 9, 20, 9, 0)
 _BY = "2026-12-31"
@@ -40,7 +42,7 @@ async def choices(neo4j_driver, clean_neo4j) -> ChoicesBackend:
     backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
     seeds = [
         Choice(
-            uid=f"choice_{status.value}_{'decided' if decided_at else 'open'}",
+            uid=f"choice.{slugify(status.value)}-{'decided' if decided_at else 'open'}",
             title="which way",
             user_uid=_OWNER,
             status=status,
@@ -52,7 +54,7 @@ async def choices(neo4j_driver, clean_neo4j) -> ChoicesBackend:
     ]
     seeds.append(
         Choice(
-            uid="choice_strangers_open",
+            uid="choice.strangers-open",
             title="not yours",
             user_uid=_STRANGER,
             status=EntityStatus.ACTIVE,
@@ -79,9 +81,9 @@ async def test_the_seed_holds_every_answer(choices: ChoicesBackend) -> None:
 
     pending = {c.uid for c in models if c.is_pending()}
     decided = {c.uid for c in models if c.is_decided()}
-    assert pending == {"choice_draft_open", "choice_active_open"}
-    assert "choice_active_decided" in decided and "choice_completed_open" in decided
-    assert "choice_archived_open" not in pending | decided
+    assert pending == {"choice.draft-open", "choice.active-open"}
+    assert "choice.active-decided" in decided and "choice.completed-open" in decided
+    assert "choice.archived-open" not in pending | decided
 
 
 @pytest.mark.asyncio
@@ -124,16 +126,16 @@ async def test_a_choice_stored_without_a_status_reads_as_pending_on_both_sides(
     choices: ChoicesBackend, neo4j_driver
 ) -> None:
     async with neo4j_driver.session() as session:
-        await session.run("MATCH (c:Entity {uid: 'choice_active_open'}) REMOVE c.status")
+        await session.run("MATCH (c:Entity {uid: 'choice.active-open'}) REMOVE c.status")
     models = await _models(choices)
-    unstatused = next(c for c in models if c.uid == "choice_active_open")
+    unstatused = next(c for c in models if c.uid == "choice.active-open")
     assert unstatused.is_pending()
 
     listed = await choices.get_pending_choices(_OWNER)
     stats = await choices.get_stats_for_user(_OWNER)
 
     assert listed.is_ok and stats.is_ok
-    assert "choice_active_open" in {row["uid"] for row in listed.value}
+    assert "choice.active-open" in {row["uid"] for row in listed.value}
     assert stats.value["pending"] == sum(1 for c in models if c.is_pending()) == 2
 
 
@@ -156,4 +158,4 @@ async def test_the_user_context_lists_the_models_pending_set(
 
     assert built.is_ok, built.error
     assert set(built.value.pending_choice_uids) == {c.uid for c in models if c.is_pending()}
-    assert "choice_active_decided" not in built.value.pending_choice_uids
+    assert "choice.active-decided" not in built.value.pending_choice_uids

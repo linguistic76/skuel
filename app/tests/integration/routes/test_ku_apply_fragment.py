@@ -31,6 +31,7 @@ from core.models.event.calendar_models import CalendarView
 from core.models.type_hints import UserUID
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -45,19 +46,19 @@ pytestmark = [
     ),
 ]
 
-USER = "user_kuapply_reader"
+USER = seed_user_uid("kuapply_reader")
 KU = "ku.kuapply.anchor"
-GOAL = "goal_kuapply_requires"
-HABIT_APPLIES = "habit_kuapply_applies"
-HABIT_SUPPORTS = "habit_kuapply_supports"
-EVENT = "event_kuapply_reinforces"
-EVENT_CANCELLED = "event_kuapply_cancelled"
-EVENT_OVER = "event_kuapply_over"
-TASK = "task_kuapply_applies"
-CHOICE_PENDING = "choice_kuapply_pending"
-CHOICE_MADE = "choice_kuapply_made"
-PRINCIPLE = "principle_kuapply_held"
-LOW_EVENT = "event_kuapply_low"
+GOAL = "goal.kuapply-requires"
+HABIT_APPLIES = "habit.kuapply-applies"
+HABIT_SUPPORTS = "habit.kuapply-supports"
+EVENT = "event.kuapply-reinforces"
+EVENT_CANCELLED = "event.kuapply-cancelled"
+EVENT_OVER = "event.kuapply-over"
+TASK = "task.kuapply-applies"
+CHOICE_PENDING = "choice.kuapply-pending"
+CHOICE_MADE = "choice.kuapply-made"
+PRINCIPLE = "principle.kuapply-held"
+LOW_EVENT = "event.kuapply-low"
 UPCOMING = date(2099, 1, 5)
 UIDS = (
     USER,

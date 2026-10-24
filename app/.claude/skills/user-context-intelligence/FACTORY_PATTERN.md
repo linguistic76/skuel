@@ -242,6 +242,7 @@ from core.services.user.intelligence import (
 )
 from core.services.user.unified_user_context import RichUserContext
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 _PLANNING_METHODS = (
     "get_at_risk_habits_for_user",
@@ -253,6 +254,7 @@ _PLANNING_METHODS = (
     "get_advancing_goals_for_user",
     "get_pending_decisions_for_user",
     "get_aligned_principles_for_user",
+    "get_pending_submissions",  # the report service: entries awaiting a report
 )
 
 
@@ -273,10 +275,11 @@ def factory() -> UserContextIntelligenceFactory:
         events=service,
         choices=service,
         principles=service,
+        ku=service,
         ps=service,
         lp=MagicMock(),
         exercises=service,
-        report=MagicMock(),
+        report=service,
         calendar=MagicMock(),
     )
 
@@ -285,7 +288,7 @@ def factory() -> UserContextIntelligenceFactory:
 async def test_daily_plan_from_an_empty_context(
     factory: UserContextIntelligenceFactory,
 ) -> None:
-    intelligence = factory.create(RichUserContext(user_uid="user_test"))
+    intelligence = factory.create(RichUserContext(user_uid=seed_user_uid("test")))
 
     assert isinstance(intelligence, UserContextIntelligence)
 
@@ -306,6 +309,7 @@ def test_factory_names_a_missing_service() -> None:
             events=service,
             choices=service,
             principles=service,
+            ku=service,
             ps=service,
             lp=None,
             exercises=service,

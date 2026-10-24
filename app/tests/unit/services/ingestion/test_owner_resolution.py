@@ -14,7 +14,6 @@ from typing import cast
 
 import pytest
 
-from core.models.type_hints import UserUID
 from core.ports.vault_bridge_protocol import VaultBridgePort
 from core.services.ingestion.config import SyncAllowlist
 from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
@@ -23,11 +22,12 @@ from core.services.vault.vault_descriptor import (
     VaultKind,
     VaultRegistry,
 )
+from tests.helpers.seed_uids import seed_user_uid
 
-_DEFAULT = UserUID("user_default")
-_CONTENT_OWNER = UserUID("user_admin")
-_PRIMARY_OWNER = UserUID("user_primary")
-_ACTING = UserUID("user_beta")
+_DEFAULT = seed_user_uid("default")
+_CONTENT_OWNER = seed_user_uid("admin")
+_PRIMARY_OWNER = seed_user_uid("primary")
+_ACTING = seed_user_uid("beta")
 
 
 def _bridge() -> VaultBridgePort:
@@ -157,17 +157,17 @@ def test_prepare_authoritative_owner_overrides_file_user_uid(tmp_path: Path) -> 
     from core.models.enums.entity_enums import EntityType
     from core.services.ingestion.preparer import prepare_entity_data
 
-    spoofed = {"title": "T", "user_uid": "user_victim"}
+    spoofed = {"title": "T", "user_uid": seed_user_uid("victim")}
 
     governed = prepare_entity_data(
         EntityType.TASK,
         dict(spoofed),
         None,
         tmp_path / "task-a.md",
-        UserUID("user_owner"),
+        seed_user_uid("owner"),
         owner_is_authoritative=True,
     )
-    assert governed["user_uid"] == "user_owner"  # descriptor wins
+    assert governed["user_uid"] == seed_user_uid("owner")  # descriptor wins
 
     # Backward-compat: ungoverned prepare (default) still preserves explicit uid.
     ungoverned = prepare_entity_data(
@@ -175,9 +175,9 @@ def test_prepare_authoritative_owner_overrides_file_user_uid(tmp_path: Path) -> 
         dict(spoofed),
         None,
         tmp_path / "task-b.md",
-        UserUID("user_owner"),
+        seed_user_uid("owner"),
     )
-    assert ungoverned["user_uid"] == "user_victim"
+    assert ungoverned["user_uid"] == seed_user_uid("victim")
 
 
 if __name__ == "__main__":

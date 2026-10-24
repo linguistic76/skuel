@@ -49,15 +49,17 @@ from core.services.goals_service import GoalsService
 from core.services.habits_service import HabitsService
 from core.services.tasks_service import TasksService
 from core.services.user.unified_user_context import UserContext
+from core.utils.uid_grammar import slugify
 from services_bootstrap._container import Services
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.skipif(
     IntelligenceTier.from_env().ai_enabled and not get_credential("OPENAI_API_KEY"),
     reason="FULL tier cannot bootstrap without OPENAI_API_KEY — run with INTELLIGENCE_TIER=core",
 )
 
-_USER_UID = "user_goal_progress_cascade"
-_PREFIX = "gpc_"
+_USER_UID = seed_user_uid("goal_progress_cascade")
+_PREFIX = "gpc."
 #: Vault-authored uids carry their type prefix (``task.``), so they get their own sweep.
 _VAULT_TASK_PREFIX = "task.gpc-"
 
@@ -118,7 +120,7 @@ async def services(skuel_app) -> AsyncIterator[_Composed]:
 async def _create_goal(services: _Composed, slug: str, measurement: MeasurementType) -> Goal:
     result = await services.goals.create(
         Goal(
-            uid=f"{_PREFIX}goal_{slug}",
+            uid=f"{_PREFIX}goal-{slugify(slug)}",
             user_uid=_USER_UID,
             title=f"Goal {slug}",
             domain=Domain.TECH,
@@ -151,7 +153,7 @@ async def _contributing_goals(services: _Composed, contributor_uid: str) -> set[
 async def _create_task(services: _Composed, slug: str, *goal_uids: str) -> str:
     created = await services.tasks.create(
         Task(
-            uid=f"{_PREFIX}task_{slug}",
+            uid=f"{_PREFIX}task-{slugify(slug)}",
             user_uid=_USER_UID,
             title=f"Task {slug}",
             priority=Priority.MEDIUM,
@@ -298,7 +300,7 @@ async def test_the_derived_rate_never_reaches_the_node(
     completion door writes it, so no stale number is left on the node to be read."""
     created = await services.habits.create(
         Habit(
-            uid=f"{_PREFIX}habit_quarterly",
+            uid=f"{_PREFIX}habit-quarterly",
             user_uid=_USER_UID,
             entity_type=EntityType.HABIT,
             title="Quarterly review",
@@ -328,7 +330,7 @@ async def test_achievement_context_reads_the_written_links(services: _Composed) 
 
     habit = await services.habits.create(
         Habit(
-            uid=f"{_PREFIX}ctx_habit",
+            uid=f"{_PREFIX}ctx-habit",
             user_uid=_USER_UID,
             entity_type=EntityType.HABIT,
             title="Context habit",

@@ -52,12 +52,13 @@ from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, Vau
 from core.services.vault.vault_reconciler import VaultReconciler
 from core.utils.result_simplified import Result
 from core.utils.zone_context import default_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
-ALICE = UserUID("user_nb2c_alice")
-BOB = UserUID("user_nb2c_bob")
-ADMIN = UserUID("user_nb2c_content_admin")
+ALICE = seed_user_uid("nb2c_alice")
+BOB = seed_user_uid("nb2c_bob")
+ADMIN = seed_user_uid("nb2c_content_admin")
 
 DOORS = ("directory", "file", "reconciler")
 
@@ -148,7 +149,7 @@ async def env(neo4j_driver, clean_neo4j, tmp_path: Path) -> VaultEnv:
     )
     service = make_unified_ingestion_service(
         driver=neo4j_driver,
-        default_user_uid=UserUID("user_default"),
+        default_user_uid=seed_user_uid("default"),
         ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
     )
     service.vault_registry = registry

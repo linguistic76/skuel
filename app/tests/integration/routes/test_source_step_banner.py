@@ -30,6 +30,7 @@ from adapters.inbound.fasthtml_types import Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import PublicationState
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [
     pytest.mark.asyncio(loop_scope="session"),
@@ -39,7 +40,7 @@ pytestmark = [
     ),
 ]
 
-CALLER = "user_nb2fr_caller"
+CALLER = seed_user_uid("nb2fr_caller")
 BANNER = "From learning step"
 
 # step uid -> (publication_state, whether CALLER engaged it)
@@ -57,7 +58,7 @@ def _title(step_uid: str) -> str:
 
 
 def _task(step_uid: str) -> str:
-    return f"task_nb2fr_{step_uid.rsplit('.', 1)[-1]}"
+    return f"task.nb2fr-{step_uid.rsplit('.', 1)[-1]}"
 
 
 _TASKS = [_task(uid) for uid in (*STEPS, MISSING_STEP)]
@@ -146,7 +147,10 @@ _RENDER_ID = re.compile(r"-[0-9a-f]{8}\b")
 async def _detail(client: httpx.AsyncClient, step_uid: str) -> str:
     response = await client.get(f"/tasks/detail/content?uid={_task(step_uid)}")
     assert response.status_code == 200, response.text
-    return _RENDER_ID.sub("-<id>", response.text.replace(_task(step_uid), "<task>"))
+    # the page names the task by its uid, and by its uid with dots as dashes (an element id)
+    task = _task(step_uid)
+    body = response.text.replace(task, "<task>").replace(task.replace(".", "-"), "<task>")
+    return _RENDER_ID.sub("-<id>", body)
 
 
 @pytest.mark.parametrize("step_uid", ["ps.nb2fr.no-state", "ps.nb2fr.published"])

@@ -32,6 +32,7 @@ from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from tests.helpers.activity_links import Link, links_read_at_both_ends
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     RETIRED_PRINCIPLE_CHOICE,
     Edge,
@@ -59,7 +60,7 @@ pytestmark = [
 ]
 
 MARK = "zzzpcdoors"
-CALLER = f"user_{MARK}"
+CALLER = seed_user_uid(f"{MARK}")
 
 INFORMS_CHOICE = RelationshipName.INFORMS_CHOICE.value
 

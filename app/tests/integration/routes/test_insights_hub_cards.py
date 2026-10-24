@@ -28,6 +28,7 @@ from adapters.inbound.fasthtml_types import Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import HubQuestion
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -42,8 +43,8 @@ pytestmark = [
     ),
 ]
 
-USER = "user_hubc_learner"
-TASK = "task_hubc_overdue"
+USER = seed_user_uid("hubc_learner")
+TASK = "task.hubc-overdue"
 KU_PREREQ = "ku.hubc.prereq"
 KU_BLOCKED = "ku.hubc.blocked"
 KU_READY = "ku.hubc.ready"

@@ -89,14 +89,22 @@ from core.services.user.unified_user_context import RichUserContext
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.principles_service import PrinciplesService
 
-USER = "user_whole_set"
-STRANGER = "user_whole_set_stranger"
+USER = seed_user_uid("whole_set")
+STRANGER = seed_user_uid("whole_set_stranger")
+# The middle segment of each owner's seeded uids: ``{entity_type}.{tag}-{i}``.
+TAGS: dict[str, str] = {USER: "whole-set", STRANGER: "whole-set-stranger"}
+
+
+def _seeded_uid(entity_type: str, owner: str, i: int) -> str:
+    return f"{entity_type}.{TAGS[owner]}-{i}"
+
 
 SEEDED = 130  # past the 100-row page
 SEEDED_COMPLETED_TASKS = 39  # 30% of SEEDED
@@ -193,7 +201,7 @@ async def seeded(neo4j_driver, clean_neo4j):
                     MATCH (u:User {{uid: $owner}})
                     UNWIND range(1, $count) AS i
                     CREATE (n:Entity:{spec.label} {{
-                        uid: $entity_type + '_' + $owner + '_' + toString(i),
+                        uid: $entity_type + '.' + $tag + '-' + toString(i),
                         user_uid: $owner,
                         entity_type: $entity_type,
                         title: $entity_type + ' ' + toString(i),
@@ -207,6 +215,7 @@ async def seeded(neo4j_driver, clean_neo4j):
                     CREATE (u)-[:OWNS]->(n)
                     """,
                     owner=owner,
+                    tag=TAGS[owner],
                     count=count,
                     entity_type=spec.entity_type,
                     completed=SEEDED_COMPLETED_TASKS,
@@ -533,10 +542,10 @@ class TestWrittenCapsReadEveryRow:
     async def test_principle_average_alignment(self, neo4j_driver, seeded):
         """30 principles read ALIGNED, 100 DRIFTING: no 100 of them average like all 130."""
         backend = _backend(neo4j_driver, "principles")
-        aligned_uids = [f"principle_{USER}_{i}" for i in range(1, 31)]
+        aligned_uids = [_seeded_uid("principle", USER, i) for i in range(1, 31)]
         for uid, level in (
             (aligned_uids[0], AlignmentLevel.ALIGNED),
-            (f"principle_{USER}_31", AlignmentLevel.DRIFTING),
+            (_seeded_uid("principle", USER, 31), AlignmentLevel.DRIFTING),
         ):
             record = AlignmentAssessment(
                 assessed_date=today_in(current_zone()), alignment_level=level, evidence="seen"
@@ -554,7 +563,7 @@ class TestWrittenCapsReadEveryRow:
                 END
                 """,
                 aligned=aligned_uids[0],
-                drifting=f"principle_{USER}_31",
+                drifting=_seeded_uid("principle", USER, 31),
                 aligned_uids=aligned_uids,
                 user=USER,
             )
@@ -576,7 +585,7 @@ class TestWrittenCapsReadEveryRow:
             ("habits", NeoLabel.HABIT),
             ("principles", NeoLabel.PRINCIPLE),
         ):
-            source = f"{ACTIVITY_DOMAINS[domain].entity_type}_{USER}_1"
+            source = _seeded_uid(ACTIVITY_DOMAINS[domain].entity_type, USER, 1)
             appended = await _backend(neo4j_driver, domain).atomic_append_dual_track_checkin(
                 source,
                 {"gap_direction": "user_higher", "perception_gap": 0.25},
@@ -644,7 +653,7 @@ class TestEventWindowsAreWhole:
             await session.run(
                 """
                 MATCH (e:Event {user_uid: $user})
-                MATCH (h:Habit {uid: replace(e.uid, 'event_', 'habit_')})
+                MATCH (h:Habit {uid: replace(e.uid, 'event.', 'habit.')})
                 CREATE (e)-[:REINFORCES_HABIT]->(h)
                 """,
                 user=USER,
@@ -717,7 +726,7 @@ async def _seed_due_habits(neo4j_driver: AsyncDriver) -> None:
                 WITH u
                 UNWIND range(1, $count) AS i
                 CREATE (h:Entity:Habit {
-                    uid: 'habit_' + $owner + '_' + toString(i),
+                    uid: 'habit.' + $tag + '-due-' + toString(i),
                     user_uid: $owner,
                     entity_type: 'habit',
                     title: 'habit ' + toString(i),
@@ -729,6 +738,7 @@ async def _seed_due_habits(neo4j_driver: AsyncDriver) -> None:
                 CREATE (u)-[:OWNS]->(h)
                 """,
                 owner=owner,
+                tag=TAGS[owner],
                 count=count,
                 now=now,
             )
@@ -805,7 +815,7 @@ class TestLargeCapsReadEveryRow:
         backend = UniversalNeo4jBackend[InvoicePure](neo4j_driver, NeoLabel.INVOICE, InvoicePure)
         created = await backend.create(
             InvoicePure(
-                uid="invoice_whole_set",
+                uid="invoice.whole-set",
                 user_uid=USER,
                 invoice_type=InvoiceType.OUTGOING,
                 counterparty="Counterparty",
@@ -816,10 +826,10 @@ class TestLargeCapsReadEveryRow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (src:Invoice {uid: 'invoice_whole_set'})
+                MATCH (src:Invoice {uid: 'invoice.whole-set'})
                 UNWIND range(2, $count) AS i
                 CREATE (n:Invoice)
-                SET n = properties(src), n.uid = src.uid + '_' + toString(i)
+                SET n = properties(src), n.uid = src.uid + '-' + toString(i)
                 """,
                 count=INVOICES,
             )

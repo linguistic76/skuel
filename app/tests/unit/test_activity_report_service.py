@@ -18,6 +18,7 @@ from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 from tests.helpers.laptop_clock import laptop_wall
+from tests.helpers.seed_uids import seed_user_uid
 
 # A report's period bounds are its midnights in the user's zone (Vancouver, the
 # laptop's), held on the stored (UTC) clock — built here with laptop_wall.
@@ -364,8 +365,8 @@ class TestReportTitle:
         from core.models.report.activity_report import ActivityReport
 
         return ActivityReport.create(
-            user_uid="user_alice",
-            subject_uid="user_alice",
+            user_uid=seed_user_uid("alice"),
+            subject_uid=seed_user_uid("alice"),
             content="Test content",
             processor_type=ReportSource.AUTOMATIC,
             time_period="2026-09",
@@ -424,8 +425,8 @@ class TestPersist:
 
         mock_backend.create.return_value = Result.ok(MagicMock())
         report = ActivityReport.create(
-            user_uid="user_alice",
-            subject_uid="user_alice",
+            user_uid=seed_user_uid("alice"),
+            subject_uid=seed_user_uid("alice"),
             content="Test content",
             processor_type=ReportSource.AUTOMATIC,
             period_start=datetime.now(),
@@ -452,8 +453,8 @@ def _period_report(token: str, cutoff: datetime | None):
     return ActivityReport(
         uid=f"ar_{token}",
         title=f"Report {token}",
-        user_uid="user_alice",
-        subject_uid="user_alice",
+        user_uid=seed_user_uid("alice"),
+        subject_uid=seed_user_uid("alice"),
         processor_type=ReportSource.AUTOMATIC,
         time_period=token,
         period_start=laptop_wall(2026, 1, 1),
@@ -469,17 +470,23 @@ class TestFindByPeriod:
     async def test_reads_the_newest_owned_report_for_the_token(self, service, mock_backend):
         mock_backend.find_by_period = AsyncMock(return_value=Result.ok([]))
 
-        result = await service.latest_for_period("user_alice", "user_alice", "2026-01")
+        result = await service.latest_for_period(
+            seed_user_uid("alice"), seed_user_uid("alice"), "2026-01"
+        )
 
         assert result.is_ok and result.value is None
-        mock_backend.find_by_period.assert_awaited_once_with("user_alice", "user_alice", "2026-01")
+        mock_backend.find_by_period.assert_awaited_once_with(
+            seed_user_uid("alice"), seed_user_uid("alice"), "2026-01"
+        )
 
     @pytest.mark.asyncio
     async def test_a_closed_periods_final_report_is_reused(self, service, mock_backend):
         final = _period_report("2026-01", laptop_wall(2026, 1, 31, 23, 59, 59, 999999))
         mock_backend.find_by_period = AsyncMock(return_value=Result.ok([final.to_dto().to_dict()]))
 
-        result = await service.find_by_period("user_alice", "user_alice", "2026-01")
+        result = await service.find_by_period(
+            seed_user_uid("alice"), seed_user_uid("alice"), "2026-01"
+        )
 
         assert result.is_ok and result.value is not None
         assert result.value.uid == "ar_2026-01"
@@ -491,7 +498,9 @@ class TestFindByPeriod:
             return_value=Result.ok([partial.to_dto().to_dict()])
         )
 
-        result = await service.find_by_period("user_alice", "user_alice", "2026-01")
+        result = await service.find_by_period(
+            seed_user_uid("alice"), seed_user_uid("alice"), "2026-01"
+        )
 
         assert result.is_ok and result.value is None
 
@@ -504,7 +513,9 @@ class TestFindByPeriod:
             return_value=Result.ok([unknown.to_dto().to_dict()])
         )
 
-        result = await service.find_by_period("user_alice", "user_alice", "2026-01")
+        result = await service.find_by_period(
+            seed_user_uid("alice"), seed_user_uid("alice"), "2026-01"
+        )
 
         assert result.is_ok and result.value is None
 
@@ -516,7 +527,7 @@ class TestFindByPeriod:
             return_value=Result.ok([partial.to_dto().to_dict()])
         )
 
-        result = await service.find_by_period("user_alice", "user_alice", token)
+        result = await service.find_by_period(seed_user_uid("alice"), seed_user_uid("alice"), token)
 
         assert result.is_ok and result.value is not None
 
@@ -525,7 +536,7 @@ class TestFindByPeriod:
         weekly = _period_report("7d", None)
         mock_backend.find_by_period = AsyncMock(return_value=Result.ok([weekly.to_dto().to_dict()]))
 
-        result = await service.find_by_period("user_alice", "user_alice", "7d")
+        result = await service.find_by_period(seed_user_uid("alice"), seed_user_uid("alice"), "7d")
 
         assert result.is_ok and result.value is not None
 
@@ -533,7 +544,9 @@ class TestFindByPeriod:
     async def test_unknown_token_is_a_validation_failure(self, service, mock_backend):
         mock_backend.find_by_period = AsyncMock(return_value=Result.ok([]))
 
-        result = await service.find_by_period("user_alice", "user_alice", "someday")
+        result = await service.find_by_period(
+            seed_user_uid("alice"), seed_user_uid("alice"), "someday"
+        )
 
         assert result.is_error
         mock_backend.find_by_period.assert_not_awaited()
@@ -560,7 +573,9 @@ class TestFuturePeriods:
         mock_backend.create.return_value = Result.ok(MagicMock())
         token = monthly_period_key(today_in(current_zone()))
 
-        result = await service.submit_report("user_admin", "user_alice", "text", time_period=token)
+        result = await service.submit_report(
+            "user_admin", seed_user_uid("alice"), "text", time_period=token
+        )
 
         assert result.is_ok, result.error
         report = mock_backend.create.call_args[0][0]
@@ -572,7 +587,9 @@ class TestFuturePeriods:
     @pytest.mark.asyncio
     async def test_submit_report_for_a_future_period_is_refused(self, service, mock_backend):
         token = f"{datetime.now().year + 1}-01"
-        result = await service.submit_report("admin_1", "user_alice", "text", time_period=token)
+        result = await service.submit_report(
+            "admin_1", seed_user_uid("alice"), "text", time_period=token
+        )
         assert result.is_error
         mock_backend.create.assert_not_called()
 
@@ -589,7 +606,7 @@ class TestRowConversion:
         assert isinstance(node["data_cutoff"], str)
         mock_backend.get_for_user = AsyncMock(return_value=Result.ok([{"n": node}]))
 
-        result = await service.get_for_user("ar_2026-01", "user_alice")
+        result = await service.get_for_user("ar_2026-01", seed_user_uid("alice"))
 
         assert result.is_ok
         assert result.value.uid == "ar_2026-01"
@@ -604,7 +621,7 @@ class TestRowConversion:
         ]
         mock_backend.get_history = AsyncMock(return_value=Result.ok(rows))
 
-        result = await service.get_history("user_alice")
+        result = await service.get_history(seed_user_uid("alice"))
 
         assert result.is_ok
         assert [r.time_period for r in result.value] == ["2026-01", "7d"]
@@ -621,12 +638,12 @@ class TestSubmitReportOwnership:
     ):
         mock_backend.create.return_value = Result.ok(MagicMock())
 
-        result = await service.submit_report("user_admin", "user_alice", "Good week.")
+        result = await service.submit_report("user_admin", seed_user_uid("alice"), "Good week.")
 
         assert result.is_ok, result.error
         report = mock_backend.create.call_args[0][0]
-        assert report.user_uid == "user_alice"
-        assert report.subject_uid == "user_alice"
+        assert report.user_uid == seed_user_uid("alice")
+        assert report.subject_uid == seed_user_uid("alice")
         assert report.created_by == "user_admin"
         assert "reviewed_by" not in report.metadata
         assert report.processor_type is ReportSource.HUMAN
@@ -640,7 +657,7 @@ class TestSubmitReportOwnership:
         mock_backend.create.return_value = Result.ok(MagicMock())
 
         result = await service.submit_report(
-            "user_admin", "user_alice", "Good week.", time_period="7d"
+            "user_admin", seed_user_uid("alice"), "Good week.", time_period="7d"
         )
 
         assert result.is_ok, result.error
@@ -652,7 +669,7 @@ class TestSubmitReportOwnership:
         assert len(published) == 1
         event = published[0]
         assert event.report_uid == result.value.uid
-        assert event.subject_uid == "user_alice"
+        assert event.subject_uid == seed_user_uid("alice")
         assert event.author_uid == "user_admin"
         assert event.time_period == "7d"
 
@@ -663,7 +680,7 @@ class TestSubmitReportOwnership:
 
         mock_backend.create.return_value = Result.fail(Errors.database("create", "down"))
 
-        result = await service.submit_report("user_admin", "user_alice", "Good week.")
+        result = await service.submit_report("user_admin", seed_user_uid("alice"), "Good week.")
 
         assert result.is_error
         assert not any(
@@ -675,10 +692,10 @@ class TestSubmitReportOwnership:
     async def test_the_comparison_history_asks_for_generated_reports_only(
         self, service, mock_backend
     ):
-        await service.get_history("user_alice", limit=5, generated_only=True)
-        mock_backend.get_history.assert_awaited_once_with("user_alice", 5, True)
+        await service.get_history(seed_user_uid("alice"), limit=5, generated_only=True)
+        mock_backend.get_history.assert_awaited_once_with(seed_user_uid("alice"), 5, True)
 
     @pytest.mark.asyncio
     async def test_the_gradebook_history_keeps_admin_reports(self, service, mock_backend):
-        await service.get_history("user_alice")
-        mock_backend.get_history.assert_awaited_once_with("user_alice", 20, False)
+        await service.get_history(seed_user_uid("alice"))
+        mock_backend.get_history.assert_awaited_once_with(seed_user_uid("alice"), 20, False)

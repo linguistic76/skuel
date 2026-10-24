@@ -28,6 +28,7 @@ from core.config.intelligence_tier import IntelligenceTier
 from core.constants import KnowledgeEnhancementScore
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     seed_published_path_step,
@@ -87,7 +88,7 @@ def _far_due_date() -> str:
 # ---------------------------------------------------------------------------
 
 PRI_MARK = "zzzakpri"
-PRI_USER = f"user_{PRI_MARK}"
+PRI_USER = seed_user_uid(f"{PRI_MARK}")
 KU_APPLIED = f"ku.{PRI_MARK}.applied"
 KU_REQUIRED = f"ku.{PRI_MARK}.required"
 KU_LATER_DRAFT = f"ku.{PRI_MARK}.later-draft"  # published when linked, a draft since
@@ -178,7 +179,7 @@ async def test_mastery_progression_tracks_every_published_ku_the_tasks_link(
 # ---------------------------------------------------------------------------
 
 CON_MARK = "zzzakcon"
-CON_USER = f"user_{CON_MARK}"
+CON_USER = seed_user_uid(f"{CON_MARK}")
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
@@ -226,7 +227,7 @@ async def test_two_principles_supporting_one_goal_are_a_conflict(conflicts: Env)
 # ---------------------------------------------------------------------------
 
 NB_MARK = "zzzaknbh"
-NB_USER = f"user_{NB_MARK}"
+NB_USER = seed_user_uid(f"{NB_MARK}")
 KU_LINKED = f"ku.{NB_MARK}.linked"
 STEP_VIEWED = f"ps.{NB_MARK}.viewed"
 
