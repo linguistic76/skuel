@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-24
 ---
 
 # ChoicesIntelligenceService - Decision Support & Impact Analysis
@@ -517,7 +517,7 @@ async def assess_decision_quality_dual_track(
 **Returns:**
 ```python
 DualTrackResult[DecisionQualityLevel](
-    entity_uid="user.mike",
+    entity_uid="user_5f2c8e1a9b3d7046",
     entity_type="decision_quality_assessment",
 
     # USER-DECLARED (Vision)
@@ -572,7 +572,7 @@ class DecisionQualityLevel(str, Enum):
 **Example:**
 ```python
 result = await choices_service.intelligence.assess_decision_quality_dual_track(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     user_decision_quality_level=DecisionQualityLevel.EXCELLENT,
     user_evidence="I carefully consider all options before deciding",
     user_reflection="My decisions usually lead to good outcomes",

@@ -401,6 +401,19 @@ DELETED: dict[str, str] = {
     "generate_knowledge_uid": "deleted — a Ku uid is authored in the vault as ku.{ns}.{slug} (ADR-013, amended 2026-10-16)",
     "components.choices": "components/ deleted — use ui.choices.views",
     "components.principles": "components/ deleted — use ui.principles.views",
+    # A request reached without a session is refused, never served as a default user.
+    "get_current_user_or_default": "deleted — require_authenticated_user (a user is required) or get_current_user (UserUID | None)",
+    "optional_auth": "deleted — read get_current_user(request), which is None with no session",
+    "DEFAULT_DEV_USER": "deleted — no request is served as a default user",
+    # A user uid is generated; nothing mints one from a name (uid arc residuals, 2026-10-24).
+    "normalize_user_uid": "deleted — a user uid is generated (user_{16 hex}), never derived from a name",
+    # Entity kind is read from the node's labels, never its uid (ADR-013 never-sniff).
+    "_extract_label_from_uid": "deleted — relationship validation reads the source label from the node (_pick_domain_label)",
+    # Transcript formatting instructions are a prompt-registry template, not graph nodes.
+    "instruction_set_uid": "deleted — the formatting instructions are the transcript_formatting prompt template",
+    "create_instruction_set": "deleted — override the transcript_formatting template at data/instructions/transcript_formatting.md",
+    "list_instruction_sets": "deleted — the formatting instructions are the transcript_formatting prompt template",
+    "load_exercise_instructions": "deleted — the formatting instructions are the transcript_formatting prompt template",
 }
 
 
@@ -539,6 +552,8 @@ _trouble = "verbatim ui.daisy_components ImportError strings users search for --
 _links_arc = "the Activity Links arc's record of the principle ↔ goal, principle ↔ choice, task ↔ goal and event ↔ principle collapses -- ADR-090, the arc document, ADR-090's INDEX row, the older ADRs that keep the names (ADR-001's 2025 single-query record, ADR-015's 2025-12 rich-query record and its amendment notes, ADR-057's Context paragraph, ADR-026's 2026-02 ingestion record), the closed case files in roadmap/done/ and the closed Cypher-vocabulary sweep name the edge types the arc retired"
 _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
 _m_kuuid = "migration record -- the January 2026 UID migration's inventory and test names the Ku minter the 2026-10-16 ADR-013 amendment retired"
+_m_devuser = "migration record -- the January 2026 UID migration's before/after of the dev-user default the 2026-10-24 uid arc residuals deleted"
+_m_normuser = "migration record -- the May 2026 canonicalization names the one-time normalizer its script ran, both deleted 2026-10-24"
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/TROUBLESHOOTING.md": {
@@ -775,6 +790,10 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/migrations/UID_STANDARDIZATION_MIGRATION_2026-01-30.md": {
         (39, "generate_knowledge_uid"): Allow(_m_kuuid),
+        (141, "DEFAULT_DEV_USER"): Allow(_m_devuser, hits=2),
+        (144, "DEFAULT_DEV_USER"): Allow(_m_devuser, hits=2),
+        (151, "DEFAULT_DEV_USER"): Allow(_m_devuser),
+        (154, "DEFAULT_DEV_USER"): Allow(_m_devuser),
         (124, "generate_knowledge_uid"): Allow(_m_kuuid),
         (594, "generate_knowledge_uid"): Allow(_m_kuuid),
         (596, "generate_knowledge_uid"): Allow(_m_kuuid),
@@ -783,6 +802,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (262, "generate_knowledge_uid"): Allow(_m_kuuid),
     },
     "docs/migrations/USER_UID_CANONICALIZATION_2026-05.md": {
+        (30, "normalize_user_uid"): Allow(_m_normuser),
         (42, "Entity.user_uid"): Allow(_m_useruid),
     },
     "docs/migrations/assignments-refactoring-2026-01-25.md": {

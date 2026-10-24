@@ -543,22 +543,6 @@ class UserEntryContentOperations(Protocol):
         """Single-query active-goal context bundle for the enrichment pipeline."""
         ...
 
-    async def load_exercise_instructions(self, uid: str) -> Result[list[Neo4jProperties]]:
-        """Load formatting instructions from an ``Exercise`` node."""
-        ...
-
-    async def create_exercise_instruction_set(
-        self, uid: str, name: str, instructions: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create a new ``Exercise`` instruction-set node."""
-        ...
-
-    async def list_exercise_instruction_sets(
-        self,
-    ) -> Result[list[Neo4jProperties]]:
-        """List all available exercise instruction sets."""
-        ...
-
     async def get_vault_notes_for_context(
         self,
         user_uid: UserUID,

@@ -149,7 +149,7 @@ class AskesisInsight:
         confidence: Confidence score (0.0 to 1.0)
         impact: Impact level ("low", "medium", "high", "critical")
         domains_affected: List of domains this insight touches
-        entities_involved: Dict mapping entity types to UIDs (e.g., {"task": ["task_1"]})
+        entities_involved: Dict mapping entity types to UIDs (e.g., {"task": ["task_3f9a0c41d2e87b65"]})
         recommended_actions: List of actionable steps to respond to insight
         supporting_data: Additional data backing the insight
         expires_at: Optional expiration time for time-sensitive insights

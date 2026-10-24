@@ -15,10 +15,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from adapters.inbound.auth import (
-    DEFAULT_DEV_USER,
     clear_current_user,
     get_current_user,
-    get_current_user_or_default,
     get_session_data,
     get_session_middleware_config,
     is_authenticated,
@@ -69,25 +67,6 @@ class TestGetCurrentUser:
         """Test that request without session attribute returns None."""
         user_uid = get_current_user(mock_request_no_session)
         assert user_uid is None
-
-
-class TestGetCurrentUserOrDefault:
-    """Tests for get_current_user_or_default() function."""
-
-    def test_returns_user_from_session(self, authenticated_request):
-        """Test returns user from session when authenticated."""
-        user_uid = get_current_user_or_default(authenticated_request)
-        assert user_uid == "user_test"
-
-    def test_returns_default_when_no_session(self, mock_request_with_session):
-        """Test returns default user when no session."""
-        user_uid = get_current_user_or_default(mock_request_with_session)
-        assert user_uid == DEFAULT_DEV_USER
-
-    def test_returns_custom_default(self, mock_request_with_session):
-        """Test returns custom default when specified."""
-        user_uid = get_current_user_or_default(mock_request_with_session, default="user_custom")
-        assert user_uid == "user_custom"
 
 
 class TestSetCurrentUser:
@@ -271,24 +250,3 @@ class TestAuthenticationFlow:
         # Now logged in as different user
         assert get_current_user(authenticated_request) == "user_different"
         assert is_authenticated(authenticated_request) is True
-
-
-class TestDevelopmentHelpers:
-    """Tests for development-friendly helpers."""
-
-    def test_default_user_fallback(self, mock_request_with_session):
-        """Test development mode fallback to default user."""
-        # No session
-        user_uid = get_current_user_or_default(mock_request_with_session)
-
-        # Should return default dev user
-        assert user_uid == DEFAULT_DEV_USER
-
-    def test_development_mode_always_has_user(self, mock_request_with_session):
-        """Test development mode never returns None for user."""
-        # Multiple calls should always return a user
-        for _ in range(5):
-            user_uid = get_current_user_or_default(mock_request_with_session)
-            assert user_uid is not None
-            assert isinstance(user_uid, str)
-            assert len(user_uid) > 0

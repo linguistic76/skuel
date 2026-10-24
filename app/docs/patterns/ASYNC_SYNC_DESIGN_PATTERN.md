@@ -1,6 +1,6 @@
 ---
 title: Async/Sync Design Pattern
-updated: 2026-10-23
+updated: 2026-10-24
 category: patterns
 related_skills:
 - python
@@ -67,13 +67,13 @@ async def find_by(self, limit: int = 100, **filters) -> Result[list[T]]:
 **Sync helpers in backends are correct** when they perform pure computation:
 
 ```python
-def _extract_label_from_uid(self, uid: str) -> str | None:
-    """NO I/O - Pure string pattern matching"""
-    patterns = {"task:": "Task", "event:": "Event", "habit:": "Habit"}
-    for prefix, label in patterns.items():
-        if uid.startswith(prefix):
+@staticmethod
+def _pick_domain_label(labels: list[str]) -> str | None:
+    """NO I/O - picks the domain label from labels already fetched"""
+    for label in labels:
+        if label != NeoLabel.ENTITY.value:
             return label
-    return None
+    return labels[0] if labels else None
 
 def _build_generic_context_query(self, uid: str, intent: QueryIntent) -> str:
     """NO I/O - Pure Cypher query string building"""

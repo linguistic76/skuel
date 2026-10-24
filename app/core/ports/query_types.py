@@ -79,8 +79,8 @@ class CypherParams(TypedDict, total=False):
     Using this TypedDict provides IDE autocomplete and catches typos at dev time.
 
     Core Identity Parameters:
-        uid: Entity UID (e.g., "task_123abc", "goal_456def")
-        user_uid: User UID (e.g., "user_mike")
+        uid: Entity UID (e.g., "task_3f9a0c41d2e87b65", "goal_5d7e1a9c3b2f8064")
+        user_uid: User UID (e.g., "user_5f2c8e1a9b3d7046")
 
     Pagination:
         limit: Maximum results to return
@@ -93,7 +93,7 @@ class CypherParams(TypedDict, total=False):
         end_date: ISO date string for range end
 
     Usage:
-        params: CypherParams = {"uid": "task_123abc", "user_uid": "user_mike"}
+        params: CypherParams = {"uid": "task_3f9a0c41d2e87b65", "user_uid": "user_5f2c8e1a9b3d7046"}
         await backend.execute_query(cypher, params)
     """
 

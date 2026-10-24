@@ -246,7 +246,7 @@ class FormGenerator:
             help_texts: Per-field help: {"field": "Helpful text"}
             labels: Override per-field label text (priority over Pydantic description).
             placeholders: Override per-field placeholder text.
-            hidden_fields: Hidden inputs: {"uid": "task_123"}
+            hidden_fields: Hidden inputs: {"uid": "task_3f9a0c41d2e87b65"}
             form_attrs: Extra form/wrapper attributes (hx_post, cls, x-data override, etc.)
             values: Pre-fill values: {"field": value}
             as_fragment: True = Div with fields only (no form tag, no submit).

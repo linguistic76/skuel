@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-26
+updated: 2026-10-24
 related_skills: [learning-loop]
 ---
 
@@ -288,7 +288,7 @@ SHARES_WITH {permissions: ["read", "comment"]}
 
 Store shared user UIDs as array property:
 ```
-report.shared_with = ["user_1", "user_2"]
+report.shared_with = ["user_5f2c8e1a9b3d7046", "user_2b8e4d0a6c1f9573"]
 ```
 
 **Rejected because:**

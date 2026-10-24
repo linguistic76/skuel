@@ -63,7 +63,7 @@ This is more efficient when you only need the identifier (no DB fetch).
 
     @rt("/api/tasks/list")
     async def list_tasks(request):
-        # user_uid is just the string identifier (e.g., "user.mike")
+        # user_uid is just the string identifier (e.g., "user_3f9a0c41d2e87b65")
         user_uid = require_authenticated_user(request)
         tasks = await service.list_tasks(user_uid=user_uid)
     ```
@@ -71,7 +71,7 @@ This is more efficient when you only need the identifier (no DB fetch).
 When to Use Which:
 - Role-protected routes: Use @require_admin/@require_teacher → `current_user`
 - Standard API routes: Use require_authenticated_user() → `user_uid`
-- UI routes (optional auth): Use get_current_user_or_default() → `user_uid`
+- Pages that also serve a visitor: Use get_current_user() → `user_uid` or None
 
 See also: /docs/patterns/AUTH_PATTERNS.md for complete documentation.
 

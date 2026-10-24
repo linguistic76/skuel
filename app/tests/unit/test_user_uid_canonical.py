@@ -1,9 +1,8 @@
-"""Regression guard for the canonical user-id format (`user_<name>`).
+"""Regression guard for the user-uid checks at the ingestion boundary.
 
 Ownership is an exact string compare, so a colon/bare owner matches no real session or
-:User node. These tests lock the canonical convention: fail-fast at the ingestion
-boundary, and a one-time normalizer for legacy data. The configured owners are refused at boot unless canonical
-(``VaultConfig.validate_owners``).
+:User node. These tests lock the fail-fast at the ingestion boundary; the configured
+owners are refused at boot unless they are user uids (``VaultConfig.validate_owners``).
 
 NOTE: this file deliberately contains non-canonical literals (`user:foo`, `user.mike`,
 …) as test inputs. Do not "normalize" them — they are the cases under test.
@@ -26,23 +25,6 @@ class TestToUserUid:
 
     def test_accepts_canonical(self):
         assert TypeConverter.to_user_uid("user_mike") == "user_mike"
-
-
-class TestNormalizeUserUid:
-    @pytest.mark.parametrize(
-        ("legacy", "expected"),
-        [
-            ("user" + ":system", "user_system"),
-            ("user" + ".mike", "user_mike"),
-            ("user" + "-456", "user_456"),
-            ("system", "user_system"),
-            ("user_system", "user_system"),  # already canonical, unchanged
-            ("user" + ":test_learner", "user_test_learner"),  # internal underscore preserved
-            ("user" + "-foo-bar", "user_foo-bar"),  # only the leading separator is rewritten
-        ],
-    )
-    def test_normalizes_legacy_forms(self, legacy, expected):
-        assert TypeConverter.normalize_user_uid(legacy) == expected
 
 
 class TestIngestionBoundaryFailFast:

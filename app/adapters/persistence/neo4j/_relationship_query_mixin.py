@@ -141,7 +141,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         Example:
             # Get all prerequisites for a knowledge unit
             result = await backend.get_related_entities(
-                uid="ku:python-basics",
+                uid="ku.python-basics",
                 relationship_type=RelationshipName.REQUIRES_PREREQUISITE,
                 direction="incoming"
             )
@@ -237,7 +237,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         Graph Traversal Examples:
             # Get UIDs of knowledge units this enables (outgoing ENABLES edges)
             result = await backend.get_related_uids(
-                uid="ku:python-basics",
+                uid="ku.python-basics",
                 relationship_type="ENABLES",
                 direction="outgoing"
             )
@@ -245,7 +245,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
             # Get UIDs of prerequisites (incoming PREREQUISITE edges)
             result = await backend.get_related_uids(
-                uid="ku:advanced-oop",
+                uid="ku.advanced-oop",
                 relationship_type="PREREQUISITE",
                 direction="incoming"
             )
@@ -253,7 +253,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
             # Get all related topics (bidirectional RELATED_TO edges)
             result = await backend.get_related_uids(
-                uid="ku:lists",
+                uid="ku.lists",
                 relationship_type="RELATED_TO",
                 direction="both"
             )
@@ -261,7 +261,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
             # Get a goal's essential habits (incoming SUPPORTS_GOAL, filtered by tier)
             result = await backend.get_related_uids(
-                uid="goal:fitness",
+                uid="goal_5d7e1a9c3b2f8064",
                 relationship_type="SUPPORTS_GOAL",
                 direction="incoming",
                 properties={"essentiality": "essential"}
@@ -346,14 +346,15 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         Example:
             # Get metadata for a prerequisite relationship
             result = await backend.get_relationship_metadata(
-                from_uid="ku:programming-101",
-                to_uid="ku:python-basics",
+                from_uid="ku.programming-101",
+                to_uid="ku.python-basics",
                 relationship_type=RelationshipName.REQUIRES_KNOWLEDGE
             )
         """
         rel_type = relationship_type.value
         query = f"""
-        MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        {build_uid_anchor("a", "$from_uid", self.label)}
+        MATCH (a)-[r:{rel_type}]->(b {{uid: $to_uid}})
         RETURN properties(r) as props
         """
 
@@ -393,8 +394,8 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         Example:
             # Update confidence and last_verified
             await backend.update_relationship_properties(
-                from_uid="ku:python",
-                to_uid="ku:advanced-python",
+                from_uid="ku.python",
+                to_uid="ku.advanced-python",
                 relationship_type=RelationshipName.ENABLES_KNOWLEDGE,
                 properties={"confidence": 0.95, "last_verified": datetime.now().isoformat()}
             )
@@ -404,7 +405,8 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         rel_type = relationship_type.value
         query = f"""
-        MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        {build_uid_anchor("a", "$from_uid", self.label)}
+        MATCH (a)-[r:{rel_type}]->(b {{uid: $to_uid}})
         SET r += $properties
         RETURN r
         """
@@ -444,8 +446,8 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         Example:
             relationships = [
-                ("task:123", "ku:python", "APPLIES_KNOWLEDGE"),
-                ("task:123", "ku:algorithms", "REQUIRES_KNOWLEDGE"),
+                ("task_3f9a0c41d2e87b65", "ku.python", "APPLIES_KNOWLEDGE"),
+                ("task_3f9a0c41d2e87b65", "ku.algorithms", "REQUIRES_KNOWLEDGE"),
             ]
             result = await backend.get_relationships_batch(relationships)
         """
@@ -491,8 +493,8 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         Example:
             requests = [
-                ("task:123", "APPLIES_KNOWLEDGE", "outgoing"),
-                ("task:456", "REQUIRES_KNOWLEDGE", "outgoing"),
+                ("task_3f9a0c41d2e87b65", "APPLIES_KNOWLEDGE", "outgoing"),
+                ("task_8b21d4e6a0f7c359", "REQUIRES_KNOWLEDGE", "outgoing"),
             ]
             result = await backend.count_relationships_batch(requests)
         """
@@ -551,8 +553,8 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         Example:
             result = await backend.get_edge_metadata(
-                from_uid="ku:programming-101",
-                to_uid="ku:python-basics",
+                from_uid="ku.programming-101",
+                to_uid="ku.python-basics",
                 relationship_type=RelationshipName.REQUIRES_KNOWLEDGE
             )
             if result.is_ok and result.value:
@@ -609,7 +611,8 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 )
         """
         query = f"""
-        MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
+        {build_uid_anchor("a", "$from_uid", self.label)}
+        MATCH (a)-[r:{relationship_type}]->(b {{uid: $to_uid}})
         SET r = $metadata
         RETURN r
         """
@@ -649,13 +652,14 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         Example:
             # Track relationship usage
             await backend.increment_traversal_count(
-                from_uid="ku:programming-101",
-                to_uid="ku:python-basics",
+                from_uid="ku.programming-101",
+                to_uid="ku.python-basics",
                 relationship_type=RelationshipName.REQUIRES_PREREQUISITE
             )
         """
         query = f"""
-        MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
+        {build_uid_anchor("a", "$from_uid", self.label)}
+        MATCH (a)-[r:{relationship_type}]->(b {{uid: $to_uid}})
         SET r.traversal_count = coalesce(r.traversal_count, 0) + 1,
             r.last_traversed = datetime()
         RETURN r.traversal_count as count

@@ -111,7 +111,7 @@ class ZPDService:
         graph has fewer than 3 KUs.
 
         Args:
-            user_uid: User's unique identifier (e.g. "user_alice")
+            user_uid: User's unique identifier (e.g. "user_2b8e4d0a6c1f9573")
             context: Optional UserContext for life path + evidence enrichment.
 
         Returns:

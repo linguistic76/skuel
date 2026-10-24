@@ -22,7 +22,6 @@ SKUEL uses **graph-native authentication** (sessions stored in Neo4j) with cooki
 |---------|----------|---------|----------|
 | **Strict** | `require_authenticated_user(request)` | `UserUID` | API routes, USER_OWNED UI pages |
 | **Optional** | `get_current_user(request)` | `UserUID \| None` | SHARED content pages (enrich if authenticated) |
-| **Lenient** | `get_current_user_or_default(request)` | `UserUID` | Dev-only fallback (raises 401 in prod) |
 | **Role-Based** | `@require_admin(service_getter)` | `current_user: User` | Protected admin/teacher routes |
 
 ## Page Access Model
@@ -71,11 +70,11 @@ The Ku reading page (`/explore/ku/{uid}`, `learning_loop_routes.py`) and `/path-
 from adapters.inbound.auth import UserUID
 
 # UserUID = NewType("UserUID", str) — MyPy rejects plain str where UserUID is required
-# Examples: "user_mike", "user_alice"
+# Examples: "user_5f2c8e1a9b3d7046", "user_2b8e4d0a6c1f9573"
 user_uid: UserUID = require_authenticated_user(request)
 ```
 
-`UserUID` is implemented as a `NewType` (a nominal subtype of `str`). Zero runtime cost — `UserUID("user_mike")` returns `"user_mike"` — but MyPy treats it as a distinct type from plain `str`, catching accidental mixing of `UserUID`, `TaskUID`, `SessionUID`, etc.
+`UserUID` is implemented as a `NewType` (a nominal subtype of `str`). Zero runtime cost — `UserUID("user_5f2c8e1a9b3d7046")` returns `"user_5f2c8e1a9b3d7046"` — but MyPy treats it as a distinct type from plain `str`, catching accidental mixing of `UserUID`, `TaskUID`, `SessionUID`, etc.
 
 - **Type safety**: Passing a raw `str` or wrong UID type where `UserUID` is required is a MyPy error
 - **Documentation**: Makes expected format clear at call sites
@@ -99,7 +98,7 @@ async def list_tasks(request):
 ```
 
 **Behavior:**
-- Returns `UserUID` string (e.g., `"user.mike"`)
+- Returns `UserUID` string (e.g., `"user_5f2c8e1a9b3d7046"`)
 - Raises `HTTPException(401)` if user not authenticated
 - No fallback to default user
 - Logs warning on unauthenticated access attempts
@@ -109,34 +108,19 @@ async def list_tasks(request):
 - Any route that modifies user data
 - Any route that returns user-specific data
 
-## Pattern 2: Lenient Authentication (UI Routes)
+## Pattern 2: Optional Authentication (Pages a Visitor Can Read)
 
-**Use for:** UI routes where development convenience outweighs strict auth.
+**Use for:** SHARED content pages that show more to a signed-in user — see § Optional Auth Pattern above for the example and the live instances.
 
 ```python
-from adapters.inbound.auth import get_current_user_or_default
+from adapters.inbound.auth import get_current_user
 
-@rt("/tasks")
-async def tasks_page(request):
-    # Returns "user.mike" if not authenticated (development mode)
-    user_uid = get_current_user_or_default(request)
-
-    tasks = await tasks_service.list(user_uid=user_uid)
-    return render_tasks_page(tasks)
+user_uid = get_current_user(request)  # UserUID | None
 ```
 
 **Behavior:**
-- Returns `UserUID` from session if authenticated
-- Falls back to `DEFAULT_DEV_USER` (`"user.mike"`) if not authenticated
-- Never returns `None` - always a valid `UserUID`
-- Logs debug message when using default
-
-**When to use:**
-- UI pages during development
-- Read-only views that don't require strict auth
-- Demo/preview functionality
-
-**Note:** In production, consider switching to `require_authenticated_user()` for UI routes that display sensitive data.
+- Returns the session's `UserUID`, or `None` with no session
+- Never stands in a default user — a page that needs a user is Pattern 1
 
 ## Pattern 3: Role-Based Authentication (Admin/Teacher Routes)
 
@@ -219,13 +203,13 @@ async def create_item(request: Request, current_user: Any = None):
 
 ## Pattern Comparison
 
-| Aspect | `require_authenticated_user` | `get_current_user_or_default` | `@require_admin` |
-|--------|------------------------------|-------------------------------|------------------|
-| **Returns** | `UserUID` (string) | `UserUID` (string) | `current_user: User` |
-| **On no auth** | Raises 401 | Returns default | Raises 401 |
+| Aspect | `require_authenticated_user` | `get_current_user` | `@require_admin` |
+|--------|------------------------------|--------------------|------------------|
+| **Returns** | `UserUID` (string) | `UserUID \| None` | `current_user: User` |
+| **On no auth** | Raises 401 | Returns `None` | Raises 401 |
 | **On wrong role** | N/A | N/A | Raises 403 |
 | **DB fetch** | No | No | Yes (required for role check) |
-| **Best for** | API routes | UI development | Protected routes |
+| **Best for** | API routes | SHARED pages | Protected routes |
 
 ## Common Patterns
 
@@ -336,7 +320,7 @@ navbar = create_navbar_for_request(request, active_page="tasks")
 # create_navbar() is the primitive underneath — BasePage and the request helper call
 # it; a handler calls it directly only where no request-scoped context exists
 navbar = create_navbar(
-    current_user="user.mike",
+    current_user="user_5f2c8e1a9b3d7046",
     is_authenticated=True,
     is_admin=False,
     active_page="tasks",
@@ -451,7 +435,7 @@ SKUEL uses **graph-native authentication** where all auth data lives in Neo4j:
 class Session:
     uid: str                    # "session_{hex}"
     session_token: str = field(repr=False)  # Raw token: cookie only, never in Neo4j or repr()
-    user_uid: UserUID               # "user_mike"
+    user_uid: UserUID               # "user_5f2c8e1a9b3d7046"
     created_at: datetime        # UTC-aware
     expires_at: datetime        # UTC-aware
     last_active_at: datetime    # UTC-aware (sliding expiration)
@@ -525,8 +509,8 @@ SKUEL supports two password reset paths:
 ```python
 # Admin generates token
 token_result = await graph_auth.admin_generate_reset_token(
-    user_uid=UserUID("user_johndoe"),
-    admin_uid=UserUID("user_admin"),
+    user_uid=UserUID("user_5f2c8e1a9b3d7046"),
+    admin_uid=UserUID("user_9d3b7f1e5a2c8064"),
     ip_address=admin_ip,
     user_agent=admin_ua
 )

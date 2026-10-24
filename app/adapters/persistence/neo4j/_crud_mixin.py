@@ -276,7 +276,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         Returns None if the entity does not exist.
 
         Args:
-            uid: Unique identifier of the entity (e.g., "task:123", "event:456")
+            uid: Unique identifier of the entity (e.g., "task_3f9a0c41d2e87b65", "event_6e0c2a8f4b1d9735")
 
         Returns:
             Result[T | None]: Success with entity if found, Success with None if not found,
@@ -285,7 +285,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         Example:
             ```python
             backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-            result = await backend.get("task:123")
+            result = await backend.get("task_3f9a0c41d2e87b65")
 
             if result.is_ok:
                 task = result.value
@@ -533,7 +533,7 @@ class _CrudMixin[T: DomainModelProtocol]:
 
             # Update specific fields
             result = await backend.update(
-                "task:123",
+                "task_3f9a0c41d2e87b65",
                 {
                     "status": "completed",
                     "priority": "high",
@@ -940,13 +940,13 @@ class _CrudMixin[T: DomainModelProtocol]:
             backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
 
             # Delete with relationships (cascade)
-            result = await backend.delete("task:123", cascade=True)
+            result = await backend.delete("task_3f9a0c41d2e87b65", cascade=True)
 
             if result.is_ok and result.value:
                 print("Task and all relationships deleted")
 
             # Delete without relationships (fails if relationships exist)
-            result = await backend.delete("task:456", cascade=False)
+            result = await backend.delete("task_8b21d4e6a0f7c359", cascade=False)
             ```
 
         Warning:

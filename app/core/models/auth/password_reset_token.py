@@ -14,11 +14,11 @@ Neo4j Schema:
     (:PasswordResetToken {
         uid: "reset_{uuid}",
         token: "{secure_token}",
-        user_uid: "user_xxx",
+        user_uid: "user_5f2c8e1a9b3d7046",
         created_at: datetime(),
         expires_at: datetime(),
         is_used: false,
-        created_by_admin_uid: "user_admin"
+        created_by_admin_uid: "user_9d3b7f1e5a2c8064"
     })
 
     (user:User)-[:HAS_RESET_TOKEN]->(token:PasswordResetToken)

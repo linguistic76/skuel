@@ -1,6 +1,6 @@
 ---
 title: "ADR-075: Stage-2 LocalAgentVaultAdapter — Hosted Vault Sync Transport"
-updated: 2026-10-23
+updated: 2026-10-24
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, vault-bridge, local-agent, security, websocket, ed25519]
@@ -176,7 +176,7 @@ reconciler drives sync (human-initiated, ADR-070 Decision 9) and the agent is th
 //    non-revoked Device nodes, verified the signature, and bound a
 //    short-lived session to THIS connection (no bearer token exists
 //    outside it; connection closed = session gone):
-{"type": "session", "ok": true, "user_uid": "user_mike"}
+{"type": "session", "ok": true, "user_uid": "user_5f2c8e1a9b3d7046"}
 
 // 3b. failure (unknown pubkey, bad signature, or revoked_at set):
 {"type": "session", "ok": false, "error": "device_not_enrolled"}   // then close

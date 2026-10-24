@@ -19,7 +19,7 @@ Usage:
     # In any intelligence service:
     prerequisites = await get_knowledge_prerequisites(
         graph=self.graph,
-        entity_uid="task:123",
+        entity_uid="task_3f9a0c41d2e87b65",
         GraphDepth.DEFAULT
     )
 """
@@ -67,7 +67,7 @@ async def get_knowledge_prerequisites(
 
     Example:
         >>> result = await get_knowledge_prerequisites(
-        ...     graph=graph_service, entity_uid="task:advanced-python", GraphDepth.DEFAULT
+        ...     graph=graph_service, entity_uid="task_3f9a0c41d2e87b65", GraphDepth.DEFAULT
         ... )
         >>> if result.is_ok:
         ...     print(result.value["required_knowledge"])
@@ -120,7 +120,7 @@ async def get_learning_state(
         - learning_velocity: Estimated concepts per week
 
     Example:
-        >>> result = await get_learning_state(graph, "user:mike")
+        >>> result = await get_learning_state(graph, "user_5f2c8e1a9b3d7046")
         >>> if result.is_ok:
         ...     mastered = result.value["mastered_knowledge"]
     """
@@ -188,7 +188,10 @@ async def analyze_knowledge_patterns(
         - suggested_paths: Recommended learning paths to address gaps
 
     Example:
-        >>> result = await analyze_knowledge_patterns(graph, ["task:1", "task:2", "task:3"])
+        >>> result = await analyze_knowledge_patterns(
+        ...     graph,
+        ...     ["task_3f9a0c41d2e87b65", "task_8b21d4e6a0f7c359", "task_1c6e9a3f7d0b4528"],
+        ... )
         >>> if result.is_ok:
         ...     print(result.value["common_knowledge"])
     """
@@ -276,7 +279,7 @@ async def get_entity_neighborhood(
 
     Example:
         >>> result = await get_entity_neighborhood(
-        ...     graph, "task:deploy-app", relationship_types=["DEPENDS_ON", "BLOCKS"]
+        ...     graph, "task_3f9a0c41d2e87b65", relationship_types=["DEPENDS_ON", "BLOCKS"]
         ... )
     """
     # Fetch full context (filtering happens post-query for cleaner architecture)
@@ -355,7 +358,7 @@ async def find_cross_domain_connections(
 
     Example:
         >>> result = await find_cross_domain_connections(
-        ...     graph, "task:study-python", target_domains=["Entity", "Goal"]
+        ...     graph, "task_3f9a0c41d2e87b65", target_domains=["Entity", "Goal"]
         ... )
     """
     try:

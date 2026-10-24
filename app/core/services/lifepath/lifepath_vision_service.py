@@ -11,7 +11,7 @@ This service bridges:
 Flow:
 1. User expresses vision: "I want to become a mindful technical leader"
 2. LLM extracts themes: ["leadership", "mindfulness", "technology", "growth"]
-3. Themes match to LP candidates: [lp:mindful-engineer, lp:tech-leadership]
+3. Themes match to LP candidates: [lp.mindful-engineer, lp.tech-leadership]
 4. User confirms designation or refines vision
 
 Philosophy:

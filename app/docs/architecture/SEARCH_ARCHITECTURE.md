@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-10-13
+updated: 2026-10-24
 status: current
 category: architecture
 tags:
@@ -646,7 +646,7 @@ request = SearchRequest(
 request = SearchRequest(
     query_text="python programming",
     enable_learning_aware=True,
-    user_uid="user_alice",
+    user_uid="user_2b8e4d0a6c1f9573",
     prefer_unmastered=True,
 )
 # SearchRouter calls: vector_search.learning_aware_search(...)

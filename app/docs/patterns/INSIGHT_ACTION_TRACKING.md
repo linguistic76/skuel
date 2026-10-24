@@ -1,6 +1,6 @@
 ---
 title: Insight Action Tracking Pattern
-updated: '2026-10-18'
+updated: '2026-10-24'
 category: patterns
 related_skills:
 - chartjs
@@ -291,13 +291,13 @@ fetch(`/api/insights/${insightUid}/dismiss`, {
 # Dismiss with notes
 await insight_store.dismiss_insight(
     uid="insight.difficulty_pattern.habit_abc123.20260131",
-    user_uid="user_mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     notes="Not relevant to current goals"
 )
 
 # Retrieve history
 result = await insight_store.get_insight_history(
-    user_uid="user_mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     history_type="actioned",  # Only actioned insights
     limit=50
 )
@@ -310,7 +310,7 @@ result = await insight_store.get_insight_history(
 ```cypher
 CREATE (i:Insight {
   uid: "insight.difficulty_pattern.habit_meditation_abc123.20260131",
-  user_uid: "user_linguistic76",
+  user_uid: "user_5f2c8e1a9b3d7046",
   title: "Daily Meditation: Difficulty Detected",
   description: "You've missed this habit 5 times in a row.",
 
@@ -568,16 +568,16 @@ InsightStore centralizes all insight business logic. Route handlers are thin pas
 
 ```python
 # Bulk dismiss — loops and tracks successes/failures
-result = await insight_store.bulk_dismiss(uids=["uid1", "uid2"], user_uid="user_mike")
+result = await insight_store.bulk_dismiss(uids=["uid1", "uid2"], user_uid="user_5f2c8e1a9b3d7046")
 # → {"success_count": 2, "total_requested": 2, "failed_uids": []}
 
 # Bulk mark actioned
-result = await insight_store.bulk_mark_actioned(uids=["uid1"], user_uid="user_mike")
+result = await insight_store.bulk_mark_actioned(uids=["uid1"], user_uid="user_5f2c8e1a9b3d7046")
 
 # Smart dismiss — dismiss every active insight matching a filter, in one write
 # (every match or, on an error, none)
 result = await insight_store.smart_dismiss(
-    user_uid="user_mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     filter_type="impact",   # "impact", "domain", or "type" — anything else is a 400 at the route
     filter_value="low",
 )

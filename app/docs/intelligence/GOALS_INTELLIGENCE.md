@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-24
 ---
 
 # GoalsIntelligenceService - Progress Forecasting & Predictive Analytics
@@ -635,7 +635,7 @@ async def assess_progress_dual_track(
 **Returns:**
 ```python
 DualTrackResult[ProgressLevel](
-    entity_uid="user.mike",
+    entity_uid="user_5f2c8e1a9b3d7046",
     entity_type="progress_assessment",
 
     # USER-DECLARED (Vision)
@@ -687,7 +687,7 @@ class ProgressLevel(str, Enum):
 **Example:**
 ```python
 result = await goals_service.intelligence.assess_progress_dual_track(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     user_progress_level=ProgressLevel.ON_TRACK,
     user_evidence="I'm making steady progress on my goals",
     user_reflection="Feeling confident about reaching my targets",

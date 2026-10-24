@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-10-16
+updated: 2026-10-24
 status: current
 category: architecture
 tags:
@@ -448,9 +448,9 @@ There is no parallel layer of ISP "awareness slice" protocols. `UserContext` is 
 **Testing.** `UserContext` is a mutable `@dataclass` (see Mutation Rules below) with `default_factory` defaults on almost every field, so a minimal fixture is one line:
 
 ```python
-ctx = UserContext(user_uid="user_alice", username="alice")
+ctx = UserContext(user_uid="user_2b8e4d0a6c1f9573", username="alice")
 ctx_with_tasks = UserContext(
-    user_uid="user_alice",
+    user_uid="user_2b8e4d0a6c1f9573",
     username="alice",
     is_rich_context=True,
     active_task_uids=["task_abc"],

@@ -914,7 +914,7 @@ class SearchRouter:
                 query_text="meditation",
                 domain=Domain.HEALTH,
             )
-            result = await router.faceted_search(request, user_uid="user_123")
+            result = await router.faceted_search(request, user_uid="user_5f2c8e1a9b3d7046")
         """
         from datetime import datetime
 

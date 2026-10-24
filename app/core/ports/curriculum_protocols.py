@@ -1293,7 +1293,7 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
         Get a Learning Path by UID.
 
         Args:
-            uid: LP UID (e.g., "lp:a1b2c3d4")
+            uid: LP UID (e.g., "lp.python.fundamentals")
 
         Returns:
             Result[LearningPath]: The learning path or not-found error

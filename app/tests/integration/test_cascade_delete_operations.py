@@ -15,6 +15,7 @@ import pytest_asyncio
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.curriculum import Curriculum
 from core.models.enums import Domain, EntityStatus, Priority, SELCategory
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -47,7 +48,7 @@ class TestCascadeDeleteTrue:
         mismatch was invisible only while nothing touched the return value.
         """
         return UniversalNeo4jBackend[Task](
-            neo4j_driver, "Entity", Task, default_filters={"entity_type": "task"}
+            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
         )
 
     @pytest_asyncio.fixture

@@ -159,7 +159,7 @@ class GraphContextNode(TypedDict, total=False):
     ALL entities share, while raw_properties holds domain-specific data.
 
     Required fields (total=False but always present in practice):
-        uid: Entity UID (e.g., "task:123", "goal:456")
+        uid: Entity UID (e.g., "task_3f9a0c41d2e87b65", "goal_5d7e1a9c3b2f8064")
         labels: Neo4j node labels (e.g., ["Task", "Activity"])
         distance: Hops from source entity (1 = direct connection)
         path_strength: Confidence cascade (product of relationship confidences)

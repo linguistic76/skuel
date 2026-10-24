@@ -1,6 +1,6 @@
 ---
 title: Docstring Standards
-updated: 2026-10-10
+updated: 2026-10-24
 category: patterns
 related_skills:
 - python
@@ -425,7 +425,7 @@ async def verify_ownership(
 
     Args:
         uid: Task UID (e.g., "task.daily-standup")
-        user_uid: User UID (e.g., "user.john")
+        user_uid: User UID (e.g., "user_5f2c8e1a9b3d7046")
 
     Returns:
         Result[Task]: Task if owned, NotFound error otherwise

@@ -95,7 +95,7 @@ teacher's exercise list (`GET /api/teaching/exercises`) and dashboard count.
 
 | The file | The sync |
 |---|---|
-| `teacher: user_x`, a teacher or admin | writes the edge |
+| `teacher: user_{16 hex}`, a teacher or admin | writes the edge |
 | no `teacher:` line | refuses the file — a missing required field, listed with the file's name |
 | `teacher:` names no user, or a user below TEACHER, or is not one uid | refuses the file — a sync error naming the file (stage `exercise_teacher`) |
 | `teacher:` changed | moves the edge on the next sync (the old one is retracted with the file's authored edges) |
@@ -143,7 +143,7 @@ stats = await service.ingest_directory(
 )
 
 # Acting-user hint (owner is resolved from the vault descriptor for the path)
-result = await service.ingest_file(Path("task_example.yaml"), user_uid=UserUID("user_mike"))
+result = await service.ingest_file(Path("task_example.yaml"), user_uid=UserUID("user_5f2c8e1a9b3d7046"))
 ```
 
 ---
@@ -596,7 +596,7 @@ history = IngestionHistoryService(driver)
 # Create history entry before ingestion
 operation_id = await history.create_entry(
     operation_type="directory",
-    user_uid="user_admin",
+    user_uid="user_9d3b7f1e5a2c8064",
     source_path="/vault/docs"
 )
 

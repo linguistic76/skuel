@@ -41,6 +41,8 @@ Performance Impact:
 from dataclasses import dataclass
 from typing import Any
 
+from adapters.persistence.neo4j.endpoint_queries import build_uid_anchor
+
 
 @dataclass(frozen=True)
 class BatchQueryResult:
@@ -80,7 +82,7 @@ class BatchCypherBuilder:
     from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
     result = BatchCypherBuilder.build_relationship_properties_query(
-        [("task_1", "ku.python.basics", "APPLIES_KNOWLEDGE")],
+        [("task_3f9a0c41d2e87b65", "ku.python.basics", "APPLIES_KNOWLEDGE")],
     )
     records = await backend.execute_query(result.query, result.params)
     ```
@@ -110,15 +112,18 @@ class BatchCypherBuilder:
 
         Example:
             rels = [
-                ("task:123", "ku:python", "APPLIES_KNOWLEDGE"),
-                ("task:123", "ku:algorithms", "REQUIRES_KNOWLEDGE"),
+                ("task_3f9a0c41d2e87b65", "ku.python", "APPLIES_KNOWLEDGE"),
+                ("task_3f9a0c41d2e87b65", "ku.algorithms", "REQUIRES_KNOWLEDGE"),
             ]
             result = BatchCypherBuilder.build_relationship_properties_query(rels)
             records = await backend.execute_query(result.query, result.params)
         """
-        query = """
+        # OPTIONAL CALL keeps a row for a uid that names no node: its props are null.
+        query = f"""
         UNWIND $rels as rel
-        OPTIONAL MATCH (a {uid: rel.from_uid})-[r]->(b {uid: rel.to_uid})
+        WITH rel, rel.from_uid AS from_uid
+        OPTIONAL {build_uid_anchor("a", "from_uid")}
+        OPTIONAL MATCH (a)-[r]->(b {{uid: rel.to_uid}})
         WHERE type(r) = rel.rel_type
         RETURN rel.from_uid as from_uid, rel.to_uid as to_uid, rel.rel_type as rel_type, properties(r) as props
         """
@@ -150,16 +155,18 @@ class BatchCypherBuilder:
 
         Example:
             rels = [
-                ("task:123", "ku:python", "APPLIES_KNOWLEDGE"),
-                ("task:123", "ku:algorithms", "REQUIRES_KNOWLEDGE"),
+                ("task_3f9a0c41d2e87b65", "ku.python", "APPLIES_KNOWLEDGE"),
+                ("task_3f9a0c41d2e87b65", "ku.algorithms", "REQUIRES_KNOWLEDGE"),
             ]
             result = BatchCypherBuilder.build_relationship_delete_query(rels)
             records = await backend.execute_query(result.query, result.params)
             deleted_count = records[0]["deleted_count"] if records else 0
         """
-        query = """
+        query = f"""
         UNWIND $rels as rel
-        MATCH (a {uid: rel.from_uid})-[r]-(b {uid: rel.to_uid})
+        WITH rel, rel.from_uid AS from_uid
+        {build_uid_anchor("a", "from_uid")}
+        MATCH (a)-[r]->(b {{uid: rel.to_uid}})
         WHERE type(r) = rel.rel_type
         DELETE r
         RETURN count(r) as deleted_count
@@ -192,9 +199,9 @@ class BatchCypherBuilder:
 
         Example:
             requests = [
-                ("task:1", "DEPENDS_ON", "outgoing"),
-                ("task:2", "DEPENDS_ON", "outgoing"),
-                ("goal:1", "SUPPORTS_GOAL", "incoming"),
+                ("task_3f9a0c41d2e87b65", "DEPENDS_ON", "outgoing"),
+                ("task_8b21d4e6a0f7c359", "DEPENDS_ON", "outgoing"),
+                ("goal_5d7e1a9c3b2f8064", "SUPPORTS_GOAL", "incoming"),
             ]
             queries = BatchCypherBuilder.build_multi_direction_count_queries(requests)
 
@@ -219,9 +226,11 @@ class BatchCypherBuilder:
         results: dict[str, BatchQueryResult] = {}
 
         if outgoing:
-            query = """
+            query = f"""
             UNWIND $pairs as pair
-            MATCH (n {uid: pair.uid})-[r]->(related)
+            WITH pair, pair.uid AS uid
+            {build_uid_anchor("n", "uid")}
+            MATCH (n)-[r]->(related)
             WHERE type(r) = pair.rel_type
             RETURN pair.uid as uid, pair.rel_type as rel_type, count(r) as count
             """
@@ -231,9 +240,11 @@ class BatchCypherBuilder:
             )
 
         if incoming:
-            query = """
+            query = f"""
             UNWIND $pairs as pair
-            MATCH (n {uid: pair.uid})<-[r]-(related)
+            WITH pair, pair.uid AS uid
+            {build_uid_anchor("n", "uid")}
+            MATCH (n)<-[r]-(related)
             WHERE type(r) = pair.rel_type
             RETURN pair.uid as uid, pair.rel_type as rel_type, count(r) as count
             """
@@ -243,9 +254,11 @@ class BatchCypherBuilder:
             )
 
         if both:
-            query = """
+            query = f"""
             UNWIND $pairs as pair
-            MATCH (n {uid: pair.uid})-[r]-(related)
+            WITH pair, pair.uid AS uid
+            {build_uid_anchor("n", "uid")}
+            MATCH (n)-[r]-(related)
             WHERE type(r) = pair.rel_type
             RETURN pair.uid as uid, pair.rel_type as rel_type, count(r) as count
             """
@@ -276,13 +289,13 @@ class BatchCypherBuilder:
 
         Example:
             rels = [
-                ("task:1", "ku:a", "APPLIES_KNOWLEDGE", None),
-                ("task:1", "ku:b", "APPLIES_KNOWLEDGE", {"confidence": 0.9}),
-                ("task:1", "goal:1", "CONTRIBUTES_TO_GOAL", None),
+                ("task_3f9a0c41d2e87b65", "ku.a", "APPLIES_KNOWLEDGE", None),
+                ("task_3f9a0c41d2e87b65", "ku.b", "APPLIES_KNOWLEDGE", {"confidence": 0.9}),
+                ("task_3f9a0c41d2e87b65", "goal_5d7e1a9c3b2f8064", "CONTRIBUTES_TO_GOAL", None),
             ]
             grouped = BatchCypherBuilder.group_relationships_by_type(rels)
-            # {"APPLIES_KNOWLEDGE": [("task:1", "ku:a", {}), ("task:1", "ku:b", {"confidence": 0.9})],
-            #  "CONTRIBUTES_TO_GOAL": [("task:1", "goal:1", {})]}
+            # {"APPLIES_KNOWLEDGE": [("task_3f9a0c41d2e87b65", "ku.a", {}), ("task_3f9a0c41d2e87b65", "ku.b", {"confidence": 0.9})],
+            #  "CONTRIBUTES_TO_GOAL": [("task_3f9a0c41d2e87b65", "goal_5d7e1a9c3b2f8064", {})]}
         """
         by_type: dict[str, list[tuple[str, str, dict[str, Any]]]] = {}
         for from_uid, to_uid, rel_type, props in relationships:
@@ -305,9 +318,10 @@ class BatchCypherBuilder:
         - ``"Entity"`` (default) — both endpoints bound to ``:Entity``, an index
           seek per uid. Right for registry-validated entity↔entity edges
           (``create_relationships_batch`` on the universal backend).
-        - ``None`` — unlabeled endpoints for mixed-label batches
-          (User→Goal PURSUING_GOAL, User→User FOLLOWS, User→Group MEMBER_OF via
-          ``Neo4jQueryExecutor``).
+        - ``None`` — mixed-label batches (User→Goal PURSUING_GOAL, User→User
+          FOLLOWS, User→Group MEMBER_OF via ``Neo4jQueryExecutor``): each
+          endpoint is bound by ``build_uid_anchor`` — an index seek under
+          ``:Entity``, ``:User`` and ``:Group``.
 
         Endpoints are MATCHed and only the edge is MERGEd, so a uid that names
         no node creates nothing.
@@ -321,7 +335,7 @@ class BatchCypherBuilder:
 
         Example:
             query = BatchCypherBuilder.build_relationship_create_query("APPLIES_KNOWLEDGE")
-            rels_data = [{"from_uid": "task:1", "to_uid": "ku:a", "properties": {}}]
+            rels_data = [{"from_uid": "task_3f9a0c41d2e87b65", "to_uid": "ku.a", "properties": {}}]
             result = await session.run(query, {"rels": rels_data})
         """
         if endpoint_label is not None:
@@ -335,8 +349,9 @@ class BatchCypherBuilder:
         """.strip()
         return f"""
         UNWIND $rels AS rel
-        MATCH (a {{uid: rel.from_uid}})
-        MATCH (b {{uid: rel.to_uid}})
+        WITH rel, rel.from_uid AS from_uid, rel.to_uid AS to_uid
+        {build_uid_anchor("a", "from_uid")}
+        {build_uid_anchor("b", "to_uid")}
         MERGE (a)-[r:{rel_type}]->(b)
         SET r += rel.properties
         RETURN count(r) as created_count
@@ -365,8 +380,8 @@ class BatchCypherBuilder:
 
         Example:
             queries = BatchCypherBuilder.build_relationship_create_queries([
-                ("task:1", "ku:a", "APPLIES_KNOWLEDGE", None),
-                ("task:1", "goal:1", "CONTRIBUTES_TO_GOAL", None),
+                ("task_3f9a0c41d2e87b65", "ku.a", "APPLIES_KNOWLEDGE", None),
+                ("task_3f9a0c41d2e87b65", "goal_5d7e1a9c3b2f8064", "CONTRIBUTES_TO_GOAL", None),
             ])
 
             # Execute each query

@@ -84,7 +84,7 @@ async def fetch_relationships_parallel[T](
         ]
 
         result = await fetch_relationships_parallel(
-            uid="task_123",
+            uid="task_3f9a0c41d2e87b65",
             service=tasks_relationship_service,
             query_specs=QUERY_SPECS,
             dataclass_type=TaskRelationships,

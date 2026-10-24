@@ -1,6 +1,6 @@
 ---
 title: "ADR-022: Graph-Native Authentication"
-updated: 2026-09-23
+updated: 2026-10-24
 status: current
 category: decisions
 tags: [adr, decisions, authentication, security, neo4j]
@@ -92,7 +92,7 @@ result = await graph_auth.sign_in(
     ip_address=request_ip,
     user_agent=request_ua
 )
-# result.value = {"user_uid": "user_johndoe", "session_token": "abc123..."}
+# result.value = {"user_uid": "user_5f2c8e1a9b3d7046", "session_token": "abc123..."}
 
 # Validate session on each request
 result = await graph_auth.validate_session(session_token)
@@ -106,8 +106,8 @@ await graph_auth.reset_password_email(email)  # sends Resend email with token li
 
 # Admin-initiated: admin generates token and shares out-of-band
 token_result = await graph_auth.admin_generate_reset_token(
-    user_uid="user_johndoe",
-    admin_uid="user_admin",
+    user_uid="user_5f2c8e1a9b3d7046",
+    admin_uid="user_9d3b7f1e5a2c8064",
     ip_address=admin_ip,
     user_agent=admin_ua
 )

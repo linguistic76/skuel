@@ -405,12 +405,10 @@ async def test_the_census_stops_on_what_the_rename_cannot_account_for(
 
 
 @pytest.mark.usefixtures("old_graph")
-async def test_an_instruction_set_lands_on_the_uid_its_name_derives(
+async def test_an_instruction_set_lands_on_the_hash_of_its_slug(
     neo4j_driver: AsyncDriver,
 ) -> None:
-    """``instructions:{slug}`` was derived from the set's name — so is its new uid."""
-    from core.services.content_enrichment_service import instruction_set_uid
-
+    """``instructions:{slug}`` carried the set's folded name — its new uid hashes it."""
     await _run(
         neo4j_driver,
         "CREATE (:Entity:Exercise {uid: 'instructions:default-report-formatting', "
@@ -421,8 +419,8 @@ async def test_an_instruction_set_lands_on_the_uid_its_name_derives(
 
     assert plan.stops == [], plan.stops
     renamed = {r.old: r.new for r in plan.renames}
-    assert renamed["instructions:default-report-formatting"] == instruction_set_uid(
-        "Default Report Formatting"
+    assert renamed["instructions:default-report-formatting"] == hashed_uid(
+        "instructions", "default-report-formatting"
     )
 
 

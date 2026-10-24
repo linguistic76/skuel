@@ -11,7 +11,7 @@ Neo4j Schema:
     (:AuthEvent {
         uid: "auth_{uuid}",
         event_type: "LOGIN_SUCCESS",
-        user_uid: "user_xxx",  # May be null for failed logins
+        user_uid: "user_5f2c8e1a9b3d7046",  # May be null for failed logins
         email: "user@example.com",  # For failed login tracking
         timestamp: datetime(),
         ip_address: "192.168.1.1",

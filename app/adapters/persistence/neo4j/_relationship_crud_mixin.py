@@ -5,7 +5,6 @@ Relationship CRUD Mixin
 Graph-native relationship creation, deletion, validation, and private helpers.
 
 Provides:
-    _extract_label_from_uid: Fast UID-to-label mapping
     _validate_relationship_pair: Shared registry-validation pipeline (single + batch)
     _build_direction_pattern: Build directional Cypher patterns
     _get_node_labels: Query node labels from database
@@ -117,52 +116,6 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
     # Generic relationship methods for pure graph operations.
     # These eliminate the need for denormalized UID lists in domain models.
 
-    def _extract_label_from_uid(self, uid: str) -> str | None:
-        """
-        Extract label from UID pattern (e.g., 'ku.mindfulness.attention' → 'Ku').
-
-        Performance fast-path only: a known prefix skips the DB label lookup;
-        anything else falls back to the DB (never a wrong answer). UID prefixes
-        are provenance, not type authority (ADR-013 never-sniff) — the DB
-        fallback stays the source of truth for unknown shapes.
-
-        Args:
-            uid: Entity UID (e.g., "ku.python-basics", "task:123")
-
-        Returns:
-            Label string if pattern matches, None otherwise (requires DB fallback)
-
-        Examples:
-            >>> backend._extract_label_from_uid("ku.python-basics")
-            "Ku"
-            >>> backend._extract_label_from_uid("unknown:xyz")
-            None
-        """
-        # Common UID patterns in SKUEL. Curriculum entries match the authored
-        # dot form only — the colon spelling was retired 2026-08-14 (nothing
-        # stores or passes colon-form curriculum uids). The remaining colon
-        # entries cover legacy crud-factory mints that may persist in graphs.
-        patterns = {
-            "task:": "Task",
-            "event:": "Event",
-            "habit:": "Habit",
-            "goal:": "Goal",
-            "principle:": "Principle",
-            "choice:": "Choice",
-            "ku.": "Ku",
-            "ps.": "PathStep",
-            "lp.": "LearningPath",
-            "ex.": "Exercise",
-            "user.": "User",
-            "ue_": "UserEntry",  # ADR-054 unified user-authored content
-        }
-
-        for prefix, label in patterns.items():
-            if uid.startswith(prefix):
-                return label
-
-        return None  # Fallback to DB query
-
     @staticmethod
     def _pick_domain_label(labels: builtins.list[str]) -> str | None:
         """
@@ -171,9 +124,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         SKUEL domain entities use multi-label CREATE — e.g. ``(n:Entity:Ku)`` —
         and ``labels(n)`` returns them in unspecified order. The relationship
         registry (``LABEL_CONFIGS``) is keyed by domain-specific labels only;
-        the universal ``:Entity`` base label has no entry. So when the
-        validator falls back to DB labels, it must skip ``"Entity"`` to find
-        the label that actually keys the registry.
+        the universal ``:Entity`` base label has no entry, so the validator
+        skips ``"Entity"`` to find the label that actually keys the registry.
         """
         for label in labels:
             if label != NeoLabel.ENTITY.value:
@@ -182,7 +134,6 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
     def _validate_relationship_pair(
         self,
-        from_uid: str,
         rel_type: RelationshipName | str,
         source_labels: builtins.list[str],
         target_labels: builtins.list[str],
@@ -191,10 +142,10 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         Registry-validate one (source, target, relationship-type) triple.
 
         THE shared pipeline behind create_relationship and
-        create_relationships_batch — source-label extraction (UID parse with
-        DB-label fallback), relationship-type registry check, and target-label
-        check. The label *fetch* stays with the callers (single vs batched
-        query); this helper only consumes the fetched labels.
+        create_relationships_batch — the source label read from the node's
+        labels, relationship-type registry check, and target-label check. The
+        label *fetch* stays with the callers (single vs batched query); this
+        helper only consumes the fetched labels.
 
         Returns:
             None when the pair is valid, else a diagnosis dict with a
@@ -208,11 +159,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             validate_relationship,
         )
 
-        # Step 1: Extract source label (fast UID parsing, DB-label fallback —
-        # skipping the universal :Entity base label)
-        source_label = self._extract_label_from_uid(from_uid) or self._pick_domain_label(
-            source_labels
-        )
+        # Step 1: the source label, from the node's own labels (never its uid)
+        source_label = self._pick_domain_label(source_labels)
         if not source_label:
             return {"kind": "no_source_label"}
 
@@ -428,15 +376,16 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             Returns error if either node doesn't exist
 
         Example:
-            >>> result = await backend._get_node_labels("task:123", "ku.python")
+            >>> result = await backend._get_node_labels("task_3f9a0c41d2e87b65", "ku.python")
             >>> source_labels, target_labels = result.value
-            >>> print(source_labels)  # ["Task"]
-            >>> print(target_labels)  # ["Entity", "Entity"]
+            >>> print(source_labels)  # ["Entity", "Task"]
+            >>> print(target_labels)  # ["Entity", "Ku"]
         """
-        # Unlabeled: an endpoint may be a User or a Group, outside :Entity.
-        query = """
-        MATCH (a {uid: $from_uid})
-        MATCH (b {uid: $to_uid})
+        # An endpoint may be a User or a Group, outside :Entity: each is bound by
+        # build_uid_anchor, an index seek per label it can carry.
+        query = f"""
+        {build_uid_anchor("a", "$from_uid", self.label)}
+        {build_uid_anchor("b", "$to_uid", self.label)}
         RETURN labels(a) as source_labels, labels(b) as target_labels
         """
 
@@ -549,7 +498,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         - Validates relationship type for source domain (hard failure)
         - Validates target node label matches registry spec (hard failure)
-        - Uses UID parsing + DB fallback for label extraction
+        - Reads both endpoints' labels from the database (never from the uid)
         - Ensures semantic correctness of graph relationships
 
         GRAPH-NATIVE: Creates pure Neo4j relationship edges, not node properties.
@@ -584,7 +533,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
             # Valid relationship - passes validation
             result = await backend.create_relationship(
-                from_uid="task:123",
+                from_uid="task_3f9a0c41d2e87b65",
                 to_uid="ku.python-basics",
                 relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             )
@@ -592,8 +541,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
             # Invalid relationship - fails validation
             result = await backend.create_relationship(
-                from_uid="task:123",
-                to_uid="habit:exercise",
+                from_uid="task_3f9a0c41d2e87b65",
+                to_uid="habit_9c4e2b7a1d6f0835",
                 relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             )
             # ❌ Error: APPLIES_KNOWLEDGE expects Knowledge target, not Habit
@@ -627,7 +576,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         # Steps 1/3/4: shared registry-validation pipeline
         diagnosis = self._validate_relationship_pair(
-            from_uid, relationship_type, source_labels, target_labels
+            relationship_type, source_labels, target_labels
         )
         if diagnosis is not None:
             return Result.fail(
@@ -646,8 +595,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         props = properties or {}
 
         query = f"""
-        MATCH (a {{uid: $from_uid}})
-        MATCH (b {{uid: $to_uid}})
+        {build_uid_anchor("a", "$from_uid", self.label)}
+        {build_uid_anchor("b", "$to_uid", self.label)}
         MERGE (a)-[r:{relationship_type}]->(b)
         SET r += $properties
         RETURN r
@@ -1015,16 +964,18 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         Example:
             await backend.delete_relationship(
-                from_uid="task:123",
-                to_uid="ku:python-basics",
+                from_uid="task_3f9a0c41d2e87b65",
+                to_uid="ku.python-basics",
                 relationship_type=RelationshipName.APPLIES_KNOWLEDGE
             )
         """
         rel_type = relationship_type.value
-        from_kind = f":{from_label.value}" if from_label else ""
+        from_kind = f"WITH a WHERE a:{from_label.value}" if from_label else ""
         to_kind = f":{to_label.value}" if to_label else ""
         query = f"""
-        MATCH (a{from_kind} {{uid: $from_uid}})-[r:{rel_type}]->(b{to_kind} {{uid: $to_uid}})
+        {build_uid_anchor("a", "$from_uid", self.label)}
+        {from_kind}
+        MATCH (a)-[r:{rel_type}]->(b{to_kind} {{uid: $to_uid}})
         DELETE r
         RETURN count(r) as deleted_count
         """
@@ -1055,8 +1006,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         Example:
             relationships = [
-                ("task:123", "ku:python", "APPLIES_KNOWLEDGE"),
-                ("task:123", "ku:algorithms", "REQUIRES_KNOWLEDGE"),
+                ("task_3f9a0c41d2e87b65", "ku.python", "APPLIES_KNOWLEDGE"),
+                ("task_3f9a0c41d2e87b65", "ku.algorithms", "REQUIRES_KNOWLEDGE"),
             ]
             result = await backend.delete_relationships_batch(relationships)
             print(f"Deleted {result.value} relationships")
@@ -1102,15 +1053,15 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
             # Check before creating to avoid duplicates
             exists = await backend.has_relationship(
-                from_uid="task:123",
-                to_uid="ku:python-basics",
+                from_uid="task_3f9a0c41d2e87b65",
+                to_uid="ku.python-basics",
                 relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             )
 
             if not exists.value:
                 await backend.create_relationship(
-                    from_uid="task:123",
-                    to_uid="ku:python-basics",
+                    from_uid="task_3f9a0c41d2e87b65",
+                    to_uid="ku.python-basics",
                     relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
                 )
             ```
@@ -1133,7 +1084,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         """
         rel_type = relationship_type.value
         query = f"""
-        MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        {build_uid_anchor("a", "$from_uid", self.label)}
+        MATCH (a)-[r:{rel_type}]->(b {{uid: $to_uid}})
         RETURN count(r) > 0 as exists
         """
 
@@ -1173,7 +1125,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         Examples:
             # Count how many knowledge units this task applies
             count_result = await backend.count_related(
-                uid="task:123",
+                uid="task_3f9a0c41d2e87b65",
                 relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
                 direction="outgoing"
             )
@@ -1181,7 +1133,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             # Count a goal's essential habits (incoming SUPPORTS_GOAL from Habits,
             # filtered by tier)
             essential_count = await backend.count_related(
-                uid="goal:fitness",
+                uid="goal_5d7e1a9c3b2f8064",
                 relationship_type=RelationshipName.SUPPORTS_GOAL,
                 direction="incoming",
                 properties={"essentiality": "essential"},
@@ -1245,9 +1197,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         Example:
             # Create multiple task -> knowledge relationships
             rels = [
-                ("task:123", "ku.python-basics", "APPLIES_KNOWLEDGE", {"confidence": 0.9}),
-                ("task:123", "ku.functions", "APPLIES_KNOWLEDGE", {"confidence": 0.8}),
-                ("task:123", "ku.loops", "APPLIES_KNOWLEDGE", {"confidence": 0.7})
+                ("task_3f9a0c41d2e87b65", "ku.python-basics", "APPLIES_KNOWLEDGE", {"confidence": 0.9}),
+                ("task_3f9a0c41d2e87b65", "ku.functions", "APPLIES_KNOWLEDGE", {"confidence": 0.8}),
+                ("task_3f9a0c41d2e87b65", "ku.loops", "APPLIES_KNOWLEDGE", {"confidence": 0.7})
             ]
             result = await backend.create_relationships_batch(rels)
             print(f"Created {result.value} relationships") # All or nothing
@@ -1290,9 +1242,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 continue
 
             # Steps 1/3/4: shared registry-validation pipeline
-            diagnosis = self._validate_relationship_pair(
-                from_uid, rel_type, source_labels, target_labels
-            )
+            diagnosis = self._validate_relationship_pair(rel_type, source_labels, target_labels)
             if diagnosis is None:
                 continue
 

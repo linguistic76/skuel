@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-03
+updated: 2026-10-24
 ---
 
 # HabitsIntelligenceService - Streak Pattern Analysis & Habit Formation
@@ -389,7 +389,7 @@ async def assess_consistency_dual_track(
 **Returns:**
 ```python
 DualTrackResult[ConsistencyLevel](
-    entity_uid="user.mike",
+    entity_uid="user_5f2c8e1a9b3d7046",
     entity_type="consistency_assessment",
 
     # USER-DECLARED (Vision)
@@ -441,7 +441,7 @@ class ConsistencyLevel(str, Enum):
 **Example:**
 ```python
 result = await habits_service.intelligence.assess_consistency_dual_track(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     user_consistency_level=ConsistencyLevel.VERY_CONSISTENT,
     user_evidence="I maintain my habits every day",
     user_reflection="I'm very disciplined with my routines",

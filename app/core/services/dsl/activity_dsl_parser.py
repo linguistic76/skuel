@@ -1247,7 +1247,7 @@ class ActivityDSLParser:
         entry's APPLIES_KNOWLEDGE write takes a published Ku or PathStep, the
         create doors run the link guard), so only a stored uid ever lands.
 
-        Returns list of dicts: [{"type": "goal", "id": "goal_3f9a2b1c"}, ...]
+        Returns list of dicts: [{"type": "goal", "id": "goal_5d7e1a9c3b2f8064"}, ...]
         """
         if not value:
             return []

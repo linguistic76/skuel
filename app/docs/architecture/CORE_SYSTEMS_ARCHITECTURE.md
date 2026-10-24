@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-24
 ---
 
 # Core Systems Architecture
@@ -413,7 +413,7 @@ RETURN path
 
 ```cypher
 // Admin triggers ingestion
-(admin:User {uid: "user_admin"})
+(admin:User {uid: "user_9d3b7f1e5a2c8064"})
 
 // Ingestion operation node
 (sh:IngestionHistory {

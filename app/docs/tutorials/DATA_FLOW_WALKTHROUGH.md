@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-24
 ---
 
 # Data Flow Walkthrough: Following a Task Creation Request
@@ -210,7 +210,7 @@ def task_create_request_to_dto(
 # Mutable DTO with generated UID and timestamps
 task_dto: TaskDTO = TaskDTO(
     uid="task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",  # Generated
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     title="Review Python decorators",
     description="Study decorators before the advanced class",
     due_date=date(2026, 2, 5),
@@ -258,7 +258,7 @@ for ku_uid in request.prerequisite_knowledge_uids:
 CREATE (task:Task {
     uid: "task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     title: "Review Python decorators",
-    user_uid: "user.mike",
+    user_uid: "user_5f2c8e1a9b3d7046",
     priority: "high",
     status: "draft",
     due_date: "2026-02-05",
@@ -268,7 +268,7 @@ CREATE (task:Task {
 })
 
 # Ownership edge
-CREATE (user:User {uid: "user.mike"})-[:OWNS]->(task)
+CREATE (user:User {uid: "user_5f2c8e1a9b3d7046"})-[:OWNS]->(task)
 
 # Knowledge application edges
 CREATE (task)-[:APPLIES_KNOWLEDGE]->(ku1:KU {uid: "ku.python-decorators"})
@@ -299,7 +299,7 @@ async def create(self, entity: TaskDTO) -> Result[TaskDTO]:
     props = entity.to_dict()
     # {
     #     "uid": "task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    #     "user_uid": "user.mike",
+    #     "user_uid": "user_5f2c8e1a9b3d7046",
     #     "title": "Review Python decorators",
     #     "priority": "high",  # Enum converted to string
     #     "status": "draft",   # Enum converted to string
@@ -339,7 +339,7 @@ def to_dict(self) -> dict:
 ```cypher
 (:Task {
     uid: "task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    user_uid: "user.mike",
+    user_uid: "user_5f2c8e1a9b3d7046",
     title: "Review Python decorators",
     description: "Study decorators before the advanced class",
     due_date: "2026-02-05",
@@ -377,7 +377,7 @@ async def get(self, uid: str) -> Result[TaskDTO]:
     node_dict = dict(record["n"])
     # {
     #     "uid": "task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    #     "user_uid": "user.mike",
+    #     "user_uid": "user_5f2c8e1a9b3d7046",
     #     "title": "Review Python decorators",
     #     "priority": "high",  # String from Neo4j
     #     "status": "draft",   # String from Neo4j
@@ -455,7 +455,7 @@ def from_dto(cls, dto: TaskDTO) -> Task:
 ```python
 task: Task = Task(
     uid="task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     title="Review Python decorators",
     due_date=date(2026, 2, 5),
     priority=Priority.HIGH,

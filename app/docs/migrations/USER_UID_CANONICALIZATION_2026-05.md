@@ -1,5 +1,5 @@
 ---
-updated: 2026-05-23
+updated: 2026-10-24
 ---
 
 # user_uid Canonicalization — Underscore Convention
@@ -49,3 +49,8 @@ RETURN count(n)   // expect 0
 
 Applied to the local dev DB on 2026-05-22: 50 nodes rewritten, 0 non-canonical remaining.
 No backfill of relationships needed — only the `user_uid` property value changes.
+
+**Since 2026-10-24** the migration script and its one-time normalizer are deleted —
+a user uid is generated (`user_{16 hex}`) and the username is only its `title`
+(`scripts/migrations/user_uids_2026_10.py`). The script is in git history
+(`git log --diff-filter=D -- scripts/migrations/canonicalize_user_uid_2026_05.py`).

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-24
 ---
 
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
@@ -172,7 +172,7 @@ if result.is_ok:
 ```python
 # Ask a question about user's state
 result = await askesis.answer_user_question(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     question="What tasks should I focus on today?"
 )
 

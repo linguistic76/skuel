@@ -100,13 +100,13 @@ class GraphEntity(Protocol):
         Example:
             [
                 {
-                    "uid": "habit:daily-2min-meditation",
+                    "uid": "habit_9c4e2b7a1d6f0835",
                     "entity_type": "habit",
                     "relationship_type": "essential_support",
                     "reasoning": "Essential habit for goal achievement"
                 },
                 {
-                    "uid": "task:log-first-session",
+                    "uid": "task_3f9a0c41d2e87b65",
                     "entity_type": "task",
                     "relationship_type": "spawned_from",
                     "reasoning": "First milestone task"

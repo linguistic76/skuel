@@ -241,8 +241,8 @@ class PsIntelligenceService(
 
         Example:
             result = await intelligence.is_ready(
-                "ps:functions",
-                {"ps:intro", "ps:syntax"}
+                "ps.python.functions",
+                {"ps.python.intro", "ps.python.syntax"}
             )
             if result.is_ok and result.value:
                 print("Ready to learn functions!")
@@ -282,7 +282,7 @@ class PsIntelligenceService(
              "goals": int, "principles": int, "choices": int, "total": int}
 
         Example:
-            result = await intelligence.get_practice_summary("ps:functions")
+            result = await intelligence.get_practice_summary("ps.python.functions")
             if result.is_ok:
                 print(f"Total practice: {result.value['total']} items")
         """
@@ -340,7 +340,7 @@ class PsIntelligenceService(
             Result[float] - Practice completeness score (0.0 to 1.0)
 
         Example:
-            result = await intelligence.practice_completeness_score("ps:functions")
+            result = await intelligence.practice_completeness_score("ps.python.functions")
             if result.is_ok:
                 print(f"Practice completeness: {result.value:.0%}")
         """
@@ -370,7 +370,7 @@ class PsIntelligenceService(
             Result[float] - Guidance strength score (0.0 to 1.0)
 
         Example:
-            result = await intelligence.calculate_guidance_strength("ps:functions")
+            result = await intelligence.calculate_guidance_strength("ps.python.functions")
             if result.is_ok:
                 print(f"Guidance strength: {result.value:.0%}")
         """
@@ -422,7 +422,7 @@ class PsIntelligenceService(
             Result[bool] - True if step has prerequisites
 
         Example:
-            result = await intelligence.has_prerequisites("ps:functions")
+            result = await intelligence.has_prerequisites("ps.python.functions")
             if result.is_ok and result.value:
                 print("This step has prerequisites")
         """
@@ -447,7 +447,7 @@ class PsIntelligenceService(
             Result[bool] - True if step has guidance
 
         Example:
-            result = await intelligence.has_guidance("ps:functions")
+            result = await intelligence.has_guidance("ps.python.functions")
             if result.is_ok and result.value:
                 print("This step has guidance")
         """
@@ -472,7 +472,7 @@ class PsIntelligenceService(
             Result[bool] - True if step has practice opportunities
 
         Example:
-            result = await intelligence.has_practice_opportunities("ps:functions")
+            result = await intelligence.has_practice_opportunities("ps.python.functions")
             if result.is_ok and result.value:
                 print("This step has practice opportunities")
         """

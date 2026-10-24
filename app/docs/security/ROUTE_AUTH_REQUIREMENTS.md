@@ -1,6 +1,6 @@
 ---
 related_skills: [security]
-updated: 2026-10-10
+updated: 2026-10-24
 ---
 # Route Authentication Requirements
 
@@ -112,7 +112,6 @@ https_only = True  # In production
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `SKUEL_DEFAULT_DEV_USER` | Development fallback user | `user.mike` |
 | `INGESTION_PATH` | The content vault root — the one directory the admin content sync walks. | `/home/mike/0bsidian/0vault/` |
 | `SESSION_SECRET_KEY` | Session signing key | Generated (dev), **required** in production/staging |
 | `SKUEL_ENVIRONMENT` | Environment name | `local` |

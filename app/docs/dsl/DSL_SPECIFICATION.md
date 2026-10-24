@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-10-16
+updated: 2026-10-24
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -388,8 +388,8 @@ no principle field; registered in the [Activity Links registered residuals](../r
 **Examples:**
 ```markdown
 @link(goal:goal.teens-yoga.ten-members)
-@link(principle:principle.sel.discernment-first, goal:goal_3f9a2b1c)
-@link(ku:ku.sel.thought-not-reality, ku:ku_algebra-basics_a1b2c3d4)
+@link(principle:principle.sel.discernment-first, goal:goal_5d7e1a9c3b2f8064)
+@link(ku:ku.sel.thought-not-reality, ku:ku.math.algebra-basics)
 ```
 
 ---

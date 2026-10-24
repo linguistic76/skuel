@@ -24,8 +24,8 @@ def flatten_entity_connections(entity: Any, item: dict[str, Any]) -> dict[str, A
     Extract metadata._connections and flatten to dotted keys.
 
     Neo4j properties cannot store nested dictionaries, but CAN use them
-    in Cypher queries. By flattening {"requires": ["ku:A"]} to
-    {"connections.requires": ["ku:A"]}, we make it accessible in Cypher
+    in Cypher queries. By flattening {"requires": ["ku.a"]} to
+    {"connections.requires": ["ku.a"]}, we make it accessible in Cypher
     via backtick escaping: item.`connections.requires`
 
     Args:

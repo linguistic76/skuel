@@ -60,7 +60,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
     Example:
         insight = PersistedInsight(
             uid=PersistedInsight.generate_uid(),
-            user_uid="user_mike",
+            user_uid="user_5f2c8e1a9b3d7046",
             insight_type=InsightType.DIFFICULTY_PATTERN,
             domain="habits",
             title="Daily Meditation: Difficulty Detected",

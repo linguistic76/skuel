@@ -1108,7 +1108,7 @@ class CrossDomainBackend:
         """Analyze knowledge patterns across a set of entities."""
         return await self.executor.execute_query(
             """
-            MATCH (e)
+            MATCH (e:Entity)
             WHERE e.uid IN $entity_uids
             OPTIONAL MATCH (e)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE]->(ku:Entity)
             WITH ku, count(DISTINCT e) as usage_count

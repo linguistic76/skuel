@@ -14,7 +14,7 @@ Neo4j Schema:
     (:Session {
         uid: "session_{uuid}",
         token_hash: "{sha256_hex}",
-        user_uid: "user_xxx",
+        user_uid: "user_5f2c8e1a9b3d7046",
         created_at: datetime(),
         expires_at: datetime(),
         last_active_at: datetime(),

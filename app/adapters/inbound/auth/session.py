@@ -8,7 +8,6 @@ Design Principles:
 - Cookie stores session_token (signed, tamper-proof)
 - Neo4j stores token_hash (SHA-256) — raw tokens never persisted
 - Fail-fast: Invalid sessions return None (no user)
-- Production guard: Dev fallback auth raises 401 in production/staging
 
 Graph-Native Authentication:
 - Sessions are stored in Neo4j as Session nodes (token_hash, not raw token)
@@ -51,11 +50,6 @@ logger = get_logger("skuel.auth.session")
 SESSION_COOKIE_NAME = "skuel_session"
 SESSION_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
 SESSION_SECRET_KEY_ENV = "SESSION_SECRET_KEY"  # Environment variable name
-
-# Default user for development (when no session exists)
-# Security: Controlled via environment variable (January 2026 hardening)
-# If SKUEL_DEFAULT_DEV_USER is not set, defaults to "user_mike" (underscore convention)
-DEFAULT_DEV_USER = os.getenv("SKUEL_DEFAULT_DEV_USER", "user_mike")
 
 
 # ============================================================================
@@ -106,45 +100,6 @@ def get_current_user(request: Request) -> UserUID | None:
     except Exception as e:  # safety-net: session cookie access may fail unexpectedly
         logger.error(f"Error getting current user from session: {e}")
         return None
-
-
-def get_current_user_or_default(request: Request, default: str = DEFAULT_DEV_USER) -> UserUID:
-    """
-    Get current user or fall back to default (for development).
-
-    This is useful during development when you want to work without
-    implementing full authentication.
-
-    Args:
-        request: Starlette/FastHTML request object,
-        default: Default user UID to return if no session
-
-    Returns:
-        user_uid from session, or default,
-
-    Usage:
-        ```python
-        @rt("/tasks")
-        async def list_tasks(request):
-            # Development-friendly: always returns a user
-            user_uid = get_current_user_or_default(request)
-            tasks = await service.list_tasks(user_uid=user_uid)
-            ...
-        ```
-    """
-    user_uid = get_current_user(request)
-    if user_uid:
-        return user_uid
-
-    env = os.getenv("SKUEL_ENVIRONMENT", "local")
-    if env in ("production", "staging"):
-        logger.error("Dev fallback auth used in %s — denying access", env)
-        from starlette.exceptions import HTTPException
-
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    logger.debug(f"No session - using default user: {default}")
-    return UserUID(default)
 
 
 def get_session_token(request: Request) -> str | None:
@@ -296,8 +251,7 @@ def require_authenticated_user(request: Request) -> UserUID:
     """
     Get authenticated user UID or raise HTTPException.
 
-    This is the production version of get_current_user_or_default.
-    Instead of falling back to a default user, it requires real authentication.
+    A route reached without a session is refused, never served as a default user.
 
     Args:
         request: Starlette/FastHTML request object
@@ -368,39 +322,6 @@ def require_auth(redirect_to: str = "/login"):
     return decorator
 
 
-def optional_auth(default_user: str = DEFAULT_DEV_USER):
-    """
-    Decorator for routes that work with or without authentication.
-
-    Injects user_uid parameter (from session or default).
-
-    Args:
-        default_user: Default user UID if not authenticated,
-
-    Usage:
-        ```python
-        @rt("/tasks")
-        @optional_auth()
-        async def list_tasks(request, user_uid: UserUID):
-            # user_uid is automatically injected
-            tasks = await service.list_tasks(user_uid=user_uid)
-            ...
-        ```
-    """
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
-            # get_current_user_or_default already guards against prod dev fallback
-            user_uid = get_current_user_or_default(request, default=default_user)
-            kwargs["user_uid"] = user_uid
-            return await func(request, *args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
 # ============================================================================
 # SESSION DATA HELPERS
 # ============================================================================
@@ -463,7 +384,6 @@ def get_session_middleware_config() -> dict[str, Any]:
         app.add_middleware(SessionMiddleware, **config)
         ```
     """
-    import os
     import secrets
 
     from core.config.credential_store import get_credential
@@ -514,12 +434,9 @@ def get_session_middleware_config() -> dict[str, Any]:
 __all__ = [
     # Type aliases
     "UserUID",
-    # Constants
-    "DEFAULT_DEV_USER",
     "clear_current_user",
     # Core session functions
     "get_current_user",
-    "get_current_user_or_default",
     "get_is_admin",  # Admin role check from session (January 2026)
     "get_is_teacher",  # Teacher role check from session (February 2026)
     # Session data
@@ -528,7 +445,6 @@ __all__ = [
     "get_session_middleware_config",
     "get_session_token",
     "is_authenticated",
-    "optional_auth",
     # Decorators
     "require_auth",
     "require_authenticated_user",

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-22
+updated: 2026-10-24
 ---
 
 # A/B Testing Infrastructure
@@ -46,7 +46,7 @@ ABTestConfig (Dataclass)
 ### Hash-Based Assignment
 
 **Algorithm:**
-1. Combine `test_id` and `user_uid` → `"semantic_search_v1:user.alice"`
+1. Combine `test_id` and `user_uid` → `"semantic_search_v1:user_2b8e4d0a6c1f9573"`
 2. Hash with MD5 → `a1b2c3d4...`
 3. Take first 8 hex chars → `a1b2c3d4`
 4. Convert to integer → `2712847316`

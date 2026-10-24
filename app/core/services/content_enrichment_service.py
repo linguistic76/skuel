@@ -10,7 +10,9 @@ Submit (voice or text) → Extract (transcribe if audio) → Enrich (LLM + instr
 
 The power comes from Neo4j context awareness:
 - Active goals for personalized, goal-aware editing
-- Processing instructions stored as Exercise Entity nodes in Neo4j
+
+The formatting instructions are the prompt registry's ``transcript_formatting``
+template — overridden locally by ``data/instructions/transcript_formatting.md``.
 """
 
 from dataclasses import asdict
@@ -23,6 +25,7 @@ from core.models.entity_dto import EntityDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports import BackendOperations
+from core.prompts import PROMPT_REGISTRY
 from core.services.base_service import BaseService
 from core.services.content_enrichment.types import (
     EnrichmentContext,
@@ -33,22 +36,9 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
-from core.utils.uid_grammar import hashed_uid
 
 if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
-
-
-#: The instruction set enrichment reads when the caller names none.
-DEFAULT_INSTRUCTION_SET_NAME = "Default Report Formatting"
-
-
-def instruction_set_uid(name: str) -> str:
-    """The uid an instruction set named ``name`` takes when none is given.
-
-    Derived from the name, case and spaces folded, so one name names one set.
-    """
-    return hashed_uid("instructions", name.lower().replace(" ", "-"))
 
 
 class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
@@ -57,7 +47,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     Core Capabilities:
     - Process transcript → formatted document (via AI pipeline)
-    - Apply formatting instructions from Neo4j
+    - Apply the registry's formatting instructions (``transcript_formatting``)
     - Edit transcript using UserContext intelligence
     - Basic CRUD for storing processed documents
 
@@ -70,8 +60,9 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     ARCHITECTURE NOTE:
     =================
-    This service processes transcripts according to instruction sets stored in Neo4j.
-    The output is stored in Report.processed_content (Option A architecture).
+    This service processes transcripts according to the prompt registry's
+    ``transcript_formatting`` template. The output is stored in
+    Report.processed_content (Option A architecture).
 
     Semantic Types Used:
     - APPLIES_KNOWLEDGE: Processed documents apply knowledge units practically
@@ -120,7 +111,6 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     async def process_transcript(
         self,
         raw_transcript: str,
-        instructions_uid: str | None = None,
         user_uid: UserUID | None = None,
     ) -> Result[EnrichmentInsights]:
         """
@@ -136,13 +126,12 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         Steps:
         1. Pull active-goal context from Neo4j
-        2. Load formatting instructions (from Neo4j markdown)
+        2. Render the formatting instructions (``transcript_formatting``)
         3. Apply AI-powered editing with context awareness
         4. Return formatted insights (NO entity creation)
 
         Args:
             raw_transcript: Raw text from transcription service,
-            instructions_uid: UID of instruction set in Neo4j (default: use standard),
             user_uid: User identifier (optional, enables context-aware processing)
 
         Returns:
@@ -152,14 +141,12 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         context_obj = await self._gather_context(user_uid) if user_uid else None
         context = asdict(context_obj) if context_obj else None
 
-        # Step 2: Load formatting instructions
-        instructions = await self._load_instructions(instructions_uid)
-        if instructions.is_error:
-            return Result.fail(instructions)
+        # Step 2: The formatting instructions
+        instructions = PROMPT_REGISTRY.render("transcript_formatting")
 
         # Step 3: Apply intelligent editing
         insights_result = await self._apply_intelligent_editing(
-            raw_transcript=raw_transcript, instructions=instructions.value, context=context
+            raw_transcript=raw_transcript, instructions=instructions, context=context
         )
 
         if insights_result.is_error:
@@ -178,7 +165,6 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     async def process_audio(
         self,
         audio_file_path: str,
-        instructions_uid: str | None = None,
         user_uid: UserUID | None = None,
     ) -> Result[EnrichmentInsights]:
         """
@@ -188,7 +174,6 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         Args:
             audio_file_path: Path to audio file,
-            instructions_uid: UID of instruction set,
             user_uid: User identifier (REQUIRED for context-aware processing)
 
         Returns:
@@ -219,11 +204,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         )
 
         # Step 2: Process transcript → formatted insights
-        return await self.process_transcript(
-            raw_transcript=raw_transcript,
-            instructions_uid=instructions_uid,
-            user_uid=user_uid,
-        )
+        return await self.process_transcript(raw_transcript=raw_transcript, user_uid=user_uid)
 
     # ========================================================================
     # CONTEXT GATHERING (Neo4j Intelligence)
@@ -301,121 +282,6 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             )
 
         return result.value
-
-    # ========================================================================
-    # INSTRUCTION SET MANAGEMENT
-    # ========================================================================
-
-    async def _load_instructions(self, instructions_uid: str | None = None) -> Result[str]:
-        """
-        Load formatting instructions from Neo4j.
-
-        Instructions are stored as markdown files in Neo4j.
-        Each set is ~8000 characters with formatting rules.
-
-        Args:
-            instructions_uid: UID of instruction set (None = default),
-
-        Returns:
-            Result containing instruction text
-        """
-        if not instructions_uid:
-            instructions_uid = instruction_set_uid(DEFAULT_INSTRUCTION_SET_NAME)
-
-        # Load from Neo4j (instructions stored as Exercise Entity nodes)
-        result = await self.backend.load_exercise_instructions(instructions_uid)  # type: ignore[attr-defined]
-
-        if result.is_error:
-            self.logger.warning(f"Failed to load instructions, using default: {result.error}")
-            return Result.ok(self._get_default_instructions())
-
-        records = result.value or []
-        if not records:
-            # Return default instructions if not found
-            return Result.ok(self._get_default_instructions())
-
-        record = records[0]
-        instructions = record["instructions"]
-        self.logger.info(f"Loaded instructions: {record['name']} ({len(instructions)} chars)")
-
-        return Result.ok(instructions)
-
-    def _get_default_instructions(self) -> str:
-        """
-        Default formatting instructions.
-
-        These are used when no custom instruction set is specified.
-        """
-        return """
-# Journal Formatting Instructions
-
-## Purpose
-Transform raw transcript into well-formatted, flowing journal entry.
-
-## Formatting Rules
-1. **Structure**: Organize into coherent paragraphs
-2. **Flow**: Remove verbal fillers ("um", "uh", "like")
-3. **Clarity**: Improve sentence structure while preserving meaning
-4. **Themes**: Identify main themes and group related content
-5. **Action Items**: Extract concrete action items mentioned
-6. **Title**: Generate concise, descriptive title
-
-## Context Integration
-- Reference active goals, tasks, habits when relevant
-- Link to recent journal themes for continuity
-- Identify learning opportunities from current paths
-
-## Output Format
-- Title (concise, descriptive)
-- Summary (2-3 sentences)
-- Main content (well-formatted paragraphs)
-- Key themes (bullet list)
-- Action items (if any)
-
-Preserve the author's voice and authenticity while improving readability.
-"""
-
-    @with_error_handling("create_instruction_set", error_type="database", uid_param="uid")
-    async def create_instruction_set(
-        self, name: str, content: str, uid: str | None = None
-    ) -> Result[dict[str, Any]]:
-        """
-        Create new instruction set in Neo4j.
-
-        Args:
-            name: Instruction set name,
-            content: Markdown instructions (~8000 chars),
-            uid: Optional custom UID
-
-        Returns:
-            Result containing created instruction set
-        """
-        if not uid:
-            uid = instruction_set_uid(name)
-
-        result = await self.backend.create_exercise_instruction_set(  # type: ignore[attr-defined]
-            uid=uid, name=name, instructions=content
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok({"uid": uid, "name": name, "char_count": len(content)})
-
-    @with_error_handling("list_instruction_sets", error_type="database")
-    async def list_instruction_sets(self) -> Result[list[dict[str, Any]]]:
-        """List all available exercise instruction sets."""
-        result = await self.backend.list_exercise_instruction_sets()  # type: ignore[attr-defined]
-
-        if result.is_error:
-            return Result.fail(result)
-
-        instruction_sets = [
-            {"uid": record["uid"], "name": record["name"], "char_count": record["char_count"]}
-            for record in result.value or []
-        ]
-
-        return Result.ok(instruction_sets)
 
     # ========================================================================
     # AI-POWERED INTELLIGENT EDITING

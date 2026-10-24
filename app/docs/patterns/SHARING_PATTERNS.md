@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-10-23'
+updated: '2026-10-24'
 category: patterns
 related_skills:
 - pytest
@@ -128,8 +128,8 @@ grant.
 ```python
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 
-student_uid = "user_alice"
-teacher_uid = "user_teacher_bob"
+student_uid = "user_2b8e4d0a6c1f9573"
+teacher_uid = "user_7e1c5a9f3d0b2846"
 
 # Step 1: Student submits with the recipient on the request. Every door builds a
 # UserEntryCreateRequest and lands in UserEntryService.create_entry — the one
@@ -625,7 +625,7 @@ def sharing_service(mock_backend):
 async def test_share_success(mock_backend, sharing_service):
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_owner", "status": "completed", "entity_type": "submission"}]
+            [{"actual_owner": "user_5f2c8e1a9b3d7046", "status": "completed", "entity_type": "submission"}]
         )
     )
     mock_backend.create_share = AsyncMock(return_value=Result.ok([{"success": True}]))

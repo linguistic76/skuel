@@ -1601,8 +1601,8 @@ KU_CONFIG = DomainRelationshipConfig(
         # === Reference material: Ku cites curated Resources ===
         # (Askesis' get_cited_resources traverses CITES_RESOURCE from both
         # PathSteps and KUs — the registry makes Ku-authored `resource_uids:`
-        # free. Live in the vault: e.g. ku_tao-te-ching-v1 cites
-        # resource:tao-te-ching / resource:tao-of-pooh.)
+        # free. Live in the vault: e.g. ku.values.tao-te-ching-v1 cites
+        # resource.tao-te-ching / resource.tao-of-pooh.)
         UnifiedRelationshipDefinition(
             RelationshipName.CITES_RESOURCE,
             "Resource",

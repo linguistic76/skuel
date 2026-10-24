@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-16
+updated: 2026-10-24
 ---
 
 # Form Templates & Submissions — Admin/Builder Guide
@@ -137,7 +137,7 @@ POST /api/form-submissions/share
 {
   "uid": "fs_my_response_abc123",
   "group_uid": "group_class_a_xyz",
-  "recipient_uids": ["user_teacher_1"]
+  "recipient_uids": ["user_7e1c5a9f3d0b2846"]
 }
 ```
 

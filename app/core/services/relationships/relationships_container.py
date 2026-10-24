@@ -40,7 +40,7 @@ class DomainRelationships:
     Example Usage:
         # Using with UnifiedRelationshipService
         service = UnifiedRelationshipService(backend, TASKS_CONFIG)
-        rels = await DomainRelationships.fetch("task:123", service)
+        rels = await DomainRelationships.fetch("task_3f9a0c41d2e87b65", service)
 
         # Access relationship data
         if rels.has_field("applies_knowledge_uids"):
@@ -102,7 +102,7 @@ class DomainRelationships:
             DomainRelationships instance with all data populated
 
         Example:
-            rels = await DomainRelationships.fetch("task:123", tasks_service)
+            rels = await DomainRelationships.fetch("task_3f9a0c41d2e87b65", tasks_service)
             print(f"Applied knowledge: {rels.get_field('applies_knowledge_uids')}")
         """
         config = service.config
