@@ -17,7 +17,8 @@ that names a renamed uid or is derived from one:
     element, a string in a JSON map, a ``|``-joined token of
     a tracker row's authored-edge key                         →  the new uid
     a vault file's ``teacher:`` / ``user_uid:`` /
-    ``ownership:`` frontmatter line naming a renamed user —
+    ``ownership:`` line (markdown frontmatter, or a YAML
+    file's top level) naming a renamed user —
     by its uid, or on ``user_uid:`` / ``ownership:`` by its
     bare username                                             →  the new uid
 
@@ -49,9 +50,9 @@ something the rename cannot account for:
 - a new uid any node already holds, or two nodes the run would give one uid;
 - a value naming a renamed uid any other way — inside text that is not a JSON
   map or a tracker row's edge key — outside ``QUOTING_PROPERTIES``;
-- a vault file naming a renamed user anywhere but the frontmatter keys
-  ``VAULT_OWNER_KEYS``, a file that is not UTF-8, or a per-user vault directory
-  named by a renamed user.
+- a vault file naming a renamed user anywhere but a top-level
+  ``VAULT_OWNER_KEYS`` line, a file that is not UTF-8, or a per-user vault
+  directory named by a renamed user.
 
 Run order (the live graph is AuraDB; run under ``direnv exec .`` so the
 credentials resolve):
@@ -118,14 +119,18 @@ _HAS_CONTENT = RelationshipName.HAS_CONTENT.value
 _HAS_CHUNK = RelationshipName.HAS_CHUNK.value
 _HAS_REFERENCE_CHUNK = RelationshipName.HAS_REFERENCE_CHUNK.value
 
-#: ``(label, property)`` pairs whose text may quote a uid — a reply's prose, a
-#: file's path, a submitted file's body. The run leaves them as written and
-#: reports what they quote.
+#: ``(label, property)`` pairs whose text may quote a uid, or be a name shaped
+#: like one — a reply's prose, a file's path, a submitted file's body, a
+#: username (``user_admin`` fits the username rule), a display name. The run
+#: leaves them as written, even when one equals a renamed uid, and reports what
+#: they quote; ``plan_usernames`` alone changes a username.
 QUOTING_PROPERTIES: frozenset[tuple[str, str]] = frozenset(
     {
         (NeoLabel.CONVERSATION_MESSAGE.value, "content"),
         (NeoLabel.ENTRY_REPORT.value, "report_file_path"),
         (NeoLabel.USER_ENTRY.value, "content"),
+        (NeoLabel.USER.value, "title"),
+        (NeoLabel.USER.value, "display_name"),
     }
 )
 
@@ -431,12 +436,12 @@ def plan_rewrites(target: str, rows: list[Row], plan: Plan) -> None:
         for key, value in row["props"]:
             verdict, after = rewrite_of(value, new_uid_of, names, tracker=tracker)
             where = f"{_holder(target, row)}.{key}"
-            if verdict == "rewrite" and after is not None:
+            if verdict != "untouched" and _quotes_by_design(target, row, str(key)):
+                plan.quoted[where] += 1
+            elif verdict == "rewrite" and after is not None:
                 plan.rewrites.append(
                     Rewrite(target, str(row["id"]), _holder(target, row), str(key), value, after)
                 )
-            elif verdict == "quotes" and _quotes_by_design(target, row, str(key)):
-                plan.quoted[where] += 1
             elif verdict == "quotes":
                 plan.stops.append(f"{target} {where} names a renamed uid inside other text")
 
@@ -465,8 +470,15 @@ def _vault_files(root: Path) -> Iterable[Path]:
                 yield path
 
 
-def _frontmatter_end(text: str) -> int:
-    """The index where a file's frontmatter ends (0 when it has none)."""
+def _owner_region_end(path: Path, text: str) -> int:
+    """The index where the part of a file that can name its owner ends.
+
+    A YAML file is a mapping from its first line to its last; a markdown file
+    names one only in its frontmatter (0 when it has none). Only a top-level key
+    matches ``_OWNER_LINE``, so a nested ``ownership:`` is never read as one.
+    """
+    if path.suffix.lower() in {".yaml", ".yml"}:
+        return len(text)
     if not text.startswith("---"):
         return 0
     end = text.find("\n---", 3)
@@ -528,7 +540,7 @@ def plan_vaults(
 
     edits: dict[Path, dict[int, str]] = {}
     for path, text in sorted(texts.items()):
-        end, offset = _frontmatter_end(text), 0
+        end, offset = _owner_region_end(path, text), 0
         for number, line in enumerate(text.split("\n"), start=1):
             match = _owner_value(line) if offset < end else None
             offset += len(line) + 1
@@ -554,8 +566,8 @@ def plan_vaults(
             match = names.search(line) if number not in edited else None
             if match:
                 plan.stops.append(
-                    f"vault file {path}:{number} names {match.group(0)} outside its "
-                    f"{'/'.join(VAULT_OWNER_KEYS)} frontmatter — edit it to {moves[match.group(0)]}"
+                    f"vault file {path}:{number} names {match.group(0)} outside a top-level "
+                    f"{'/'.join(VAULT_OWNER_KEYS)} line — edit it to {moves[match.group(0)]}"
                 )
         if edited:
             after = [edited.get(number, line) for number, line in enumerate(lines, start=1)]

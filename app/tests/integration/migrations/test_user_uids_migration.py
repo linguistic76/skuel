@@ -125,6 +125,10 @@ def vaults(tmp_path: Path) -> tuple[Path, Path]:
     (content / "Ku").mkdir()
     (content / "Ku" / "plain.md").write_text("---\ntype: ku\n---\nNo account here.\n")
     (personal / "knowledge").mkdir(parents=True)
+    # A standalone YAML entry is one mapping — its top-level ownership line names an account.
+    (personal / "knowledge" / "entry.yaml").write_text(
+        "type: user_entry\nownership: zzustudent\nnested:\n  ownership: kept\n"
+    )
     # The bare name also appears in prose: only the ownership line names an account.
     (personal / "knowledge" / "bare.md").write_text(
         "---\ntype: user_entry\nownership: zzustudent\n---\nMention zzustudent here.\n"
@@ -174,6 +178,7 @@ class TestTheRename:
         assert dict(plan.quoted) == {"EntryReport.report_file_path": 1, "UserEntry.content": 1}
         assert sorted(edit.path.name for edit in plan.files) == [
             "bare.md",
+            "entry.yaml",
             "list.md",
             "one_exer.md",
         ]
@@ -190,7 +195,7 @@ class TestTheRename:
             "node values rewritten": 11,
             "edge values rewritten": 1,
         }
-        assert migration.edit_vaults(plan) == 3
+        assert migration.edit_vaults(plan) == 4
         assert await migration.read_back(graph, plan, list(vaults), tmp_path / "user_vaults") == []
 
         users = await _rows(graph, "MATCH (u:User) RETURN u.uid AS uid, u.title AS name")
@@ -246,6 +251,9 @@ class TestTheRename:
         assert (personal / "knowledge" / "list.md").read_bytes() == (
             f'---\r\ntype: user_entry\r\nuser_uid: "{STUDENT_NEW}"\r\n---\r\nBody\r\n'.encode()
         )
+        assert (personal / "knowledge" / "entry.yaml").read_text() == (
+            f"type: user_entry\nownership: {STUDENT_NEW}\nnested:\n  ownership: kept\n"
+        )
         # A bare username on an ownership line named its user_{name} uid: it names the new one.
         assert (personal / "knowledge" / "bare.md").read_text() == (
             f"---\ntype: user_entry\nownership: {STUDENT_NEW}\n---\nMention zzustudent here.\n"
@@ -272,12 +280,30 @@ class TestTheRename:
         assert again.renames == [] and again.stops == []
         assert sorted(edit.path.name for edit in again.files) == [
             "bare.md",
+            "entry.yaml",
             "list.md",
             "one_exer.md",
         ]
         migration.edit_vaults(again)
         content, _ = vaults
         assert f"teacher: {TEACHER_NEW}\n" in (content / "Exer" / "one_exer.md").read_text()
+
+
+async def test_a_username_shaped_like_a_renamed_uid_is_left_to_the_username_rule(
+    graph: Any, vaults: tuple[Path, Path], tmp_path: Path
+) -> None:
+    """``user_zzuteach`` fits the username rule: another account may hold it as its name."""
+    await graph.execute_query(
+        "CREATE (:User {uid: 'user_7e57000000000bbb', title: $name, display_name: $name})",
+        {"name": TEACHER},
+    )
+
+    plan = await _census(graph, vaults, tmp_path)
+
+    assert plan.stops == [], plan.stops
+    assert not [w for w in plan.rewrites if w.before == TEACHER and w.holder == "User"]
+    assert plan.quoted["User.title"] == 1
+    assert plan.quoted["User.display_name"] == 1
 
 
 class TestTheStops:
