@@ -520,7 +520,7 @@ async def main() -> int:
                 print(f"  {failure}")
             return 1
         print("Read-back holds: every periodic note at its uid, every tracker row on it.")
-        print(await closing_census(driver))
+        print((await closing_census(driver)).line)
         return 0
     finally:
         await driver.close()

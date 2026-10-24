@@ -32,7 +32,8 @@ Run order — the arc's close sitting (the live graph is AuraDB; run under
 A graph from before the uid migrations (a restored snapshot) is brought forward
 by them first, in the order they ran — ``chunk_and_content_uids_2026_10.py``,
 ``periodic_note_uids_2026_10.py``, ``generated_uids_2026_10.py``,
-``user_uids_2026_10.py`` — each of which ends by reading this census.
+``user_uids_2026_10.py`` — each of which ends by reading this census; the last,
+the user uid migration, fails its run when the census does not pass.
 
 Usage:
     uv run scripts/migrations/uid_grammar_2026_10.py            # census

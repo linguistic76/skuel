@@ -474,7 +474,9 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
   code that reads one grammar never boots on a graph holding another — a snapshot from before the
   uid migrations, restored, is brought forward by them in the order they ran, then stamped. The
   census, the stamp and the uid migrations open without requiring the record
-  (`Neo4jConnection(requires=…)`), and each migration ends its run with the census's verdict. The
+  (`Neo4jConnection(requires=…)`), and each migration ends its run with the census's verdict —
+  the last of them, `user_uids_2026_10.py`, fails its run (exit 1) when the census does not pass,
+  since no migration after it moves what the census names. The
   5-min graph-health poller reads the census's breaches with the grammar as a server-side filter
   (`uid_grammar.UID_PATTERN`): two gauges (`skuel_uids_outside_grammar_count`,
   `skuel_uids_shared_count`), their dev alerts, and an ERROR log every cycle in production.

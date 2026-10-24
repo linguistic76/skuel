@@ -18,15 +18,25 @@ import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.graph_driver import open_async_driver
+from adapters.persistence.neo4j.graph_driver import (
+    UTC_INSTANTS_MIGRATION,
+    DataMigration,
+    open_async_driver,
+)
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
+from core.models.enums.migration_enums import MigrationState
 from core.models.group.group import default_group_uid
 from core.models.user_entry.user_entry import periodic_note_uid
 from core.utils.uid_grammar import hashed_uid
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+    from testcontainers.community.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
@@ -447,3 +457,72 @@ class TestTheStops:
         plan = await _census(graph, vaults, tmp_path)
 
         assert plan.stops == ["node Task.description names a renamed uid inside other text"]
+
+
+@pytest.mark.usefixtures("connection_settings")
+class TestTheLastStop:
+    """The user uid migration is the last of the uid migrations, so its run ends on the census of
+    the whole graph: what it does not move, no later run will."""
+
+    @pytest.fixture
+    def run_on_the_scratch_graph(
+        self,
+        graph: AsyncDriver,
+        vaults: tuple[Path, Path],
+        tmp_path: Path,
+        scratch_neo4j_container: Neo4jContainer,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """``main()`` opens the scratch container and reads the test vaults."""
+        import adapters.persistence.neo4j.neo4j_connection as connection
+        import core.config.unified_config as unified_config
+
+        uri = scratch_neo4j_container.get_connection_url()
+
+        def opener(*, requires: tuple[DataMigration, ...]) -> Neo4jConnection:
+            return Neo4jConnection(uri=uri, username="neo4j", password="unused", requires=requires)
+
+        content, personal = vaults
+
+        class Vaults:
+            vault_path = personal
+            ingestion_path = content
+            user_vaults_path = tmp_path / "user_vaults"
+
+        monkeypatch.setattr(connection, "Neo4jConnection", opener)
+        monkeypatch.setattr(unified_config, "VaultConfig", Vaults)
+
+    async def _confirm(
+        self, graph: AsyncDriver, capsys: pytest.CaptureFixture[str]
+    ) -> tuple[int, str]:
+        # The run opens requiring the UTC record, as the live graph carries it.
+        await graph.execute_query(
+            "CREATE (:MigrationRecord {name: $name, state: $state})",
+            {"name": UTC_INSTANTS_MIGRATION, "state": MigrationState.APPLIED},
+        )
+        code = await migration.main(["--confirm"])
+        return code, capsys.readouterr().out
+
+    @pytest.mark.usefixtures("run_on_the_scratch_graph")
+    async def test_a_run_that_leaves_the_graph_in_the_grammar_passes(
+        self, graph: AsyncDriver, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        code, out = await self._confirm(graph, capsys)
+
+        assert code == 0, out
+        assert "uid census: passes" in out
+
+    @pytest.mark.usefixtures("run_on_the_scratch_graph")
+    async def test_a_uid_the_run_does_not_move_fails_it_after_its_writes(
+        self, graph: AsyncDriver, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A generated uid of the retired 8-hex width — a shape only an earlier migration moves."""
+        await graph.execute_query("CREATE (:Entity:Task {uid: 'task_a1b2c3d4'})")
+
+        code, out = await self._confirm(graph, capsys)
+
+        assert code == 1, out
+        assert "1 uid(s) outside the grammar" in out
+        assert "FAILED: this is the last uid migration" in out
+        result = await graph.execute_query("MATCH (u:User) RETURN u.uid AS uid")
+        assert TEACHER_NEW in {record["uid"] for record in result.records}, "the rename landed"

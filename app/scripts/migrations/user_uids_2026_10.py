@@ -54,6 +54,12 @@ something the rename cannot account for:
   ``VAULT_OWNER_KEYS`` line, a file that is not UTF-8, or a per-user vault
   directory named by a renamed user.
 
+The run FAILS (exit 1) after its writes when the read-back finds the graph or a
+vault other than the rename promises, or when the uid census of the whole graph
+(``scripts/uid_census.py``) does not pass: this is the last of the uid
+migrations, so no run after it moves what the census names. The owners to set in
+``.env`` are printed before that verdict — the writes have landed either way.
+
 Run order (the live graph is AuraDB; run under ``direnv exec .`` so the
 credentials resolve):
 
@@ -66,7 +72,9 @@ credentials resolve):
    from the plan rolls it back — then the vault files, then a read-back. A run
    whose graph write landed and whose file edits did not is re-run: the census
    finds a vault value whose hash is a live user's uid and plans that edit.
-4. Set the owners the run prints in ``.env``, then boot the app and sign in again.
+4. Set the owners the run prints in ``.env``, stamp the graph
+   (``scripts/migrations/uid_grammar_2026_10.py --confirm``), then boot the app and
+   sign in again.
 
 Usage:
     uv run scripts/migrations/user_uids_2026_10.py                  # census
@@ -830,7 +838,7 @@ async def read_back(
     return failures
 
 
-async def main() -> int:
+async def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Rename every user uid into the generated shape")
     parser.add_argument(
         "--confirm",
@@ -838,7 +846,7 @@ async def main() -> int:
         help="Write the rename (default is a census: print the plan, change nothing)",
     )
     parser.add_argument("--manifest", type=Path, help="Write every planned write to this JSON file")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     from adapters.persistence.neo4j.graph_driver import UTC_INSTANTS
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
@@ -880,12 +888,19 @@ async def main() -> int:
                 print(f"  {failure}")
             return 1
         print("Read-back holds: every user uid generated, every value on its new uid.")
-        print(await closing_census(driver))
         settings = owner_settings(plan.user_moves(), os.environ)
         if settings:
             print("\nSet in .env before booting (boot refuses an owner that is not a user uid):")
             for line in settings:
                 print(f"  {line}")
+        verdict = await closing_census(driver)
+        print(f"\n{verdict.line}")
+        if not verdict.passes:
+            print(
+                "\nFAILED: this is the last uid migration — no run after it moves what the "
+                "census names. Fix each writer, move its uids, then stamp."
+            )
+            return 1
         return 0
     finally:
         await driver.close()
