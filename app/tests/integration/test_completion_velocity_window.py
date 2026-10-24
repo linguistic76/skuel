@@ -56,6 +56,7 @@ from core.constants import CompletionVelocityWindow
 from core.models.enums.entity_enums import EntityStatus
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 WINDOW = seed_user_uid("velocity_window")
@@ -137,12 +138,9 @@ class TestCompletionVelocityWindow:
     async def tasks(self, neo4j_driver, backend):
         """The real task doors: the born-completed create, the update chokepoint, the delete."""
         from adapters.infrastructure.event_bus import InMemoryEventBus
-        from adapters.persistence.neo4j.backends.activity_backends import TasksBackend
-        from core.models.enums.neo_labels import NeoLabel
-        from core.models.task.task import Task
         from core.services.tasks.tasks_core_service import TasksCoreService
 
-        tasks_backend = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+        tasks_backend = build_production_backends(neo4j_driver)["tasks_backend"]
         return TasksCoreService(backend=tasks_backend, event_bus=InMemoryEventBus())
 
     @pytest_asyncio.fixture

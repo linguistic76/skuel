@@ -23,14 +23,13 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from core.events.curriculum_events import PathStepCompleted
 from core.events.learning_events import KnowledgeMastered
-from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.path_step import PathStep
 from core.services.ps.ps_mastery_service import (
     STEP_MASTERY_METHOD,
     STEP_MASTERY_SCORE,
     LearningState,
     PsMasteryService,
 )
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("step_mastery_derived")
@@ -81,7 +80,7 @@ async def backend(neo4j_driver, clean_neo4j) -> PsBackend:
             a=KU_A,
             b=KU_B,
         )
-    return PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    return build_production_backends(neo4j_driver)["ps_backend"]
 
 
 @pytest.fixture

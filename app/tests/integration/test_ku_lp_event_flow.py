@@ -27,8 +27,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend, LpBackend
-from adapters.persistence.neo4j.user_backend import UserBackend
+from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
 from core.events.curriculum_events import PathStepCompleted
 from core.events.learning_events import (
     KnowledgeMastered,
@@ -42,6 +41,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.services.lp.lp_progress_service import LpProgressService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -57,7 +57,7 @@ class TestKuLpEventFlow:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """The real Ku backend: a Ku is :Entity:Ku, which every progress tally matches on."""
-        return KuBackend(neo4j_driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["ku_backend"]
 
     @pytest_asyncio.fixture
     async def lp_backend(self, neo4j_driver, clean_neo4j):
@@ -366,7 +366,9 @@ class TestKuLpEventFlow:
                     ku_uid=ku.uid,
                 )
 
-        enrolled = await UserBackend(neo4j_driver).enroll_in_learning_path(test_user_uid, lp.uid)
+        enrolled = await build_production_backends(neo4j_driver)[
+            "users_backend"
+        ].enroll_in_learning_path(test_user_uid, lp.uid)
         assert enrolled.is_ok and enrolled.value is True
         await event_bus.publish_async(LearningPathStarted(path_uid=lp.uid, user_uid=test_user_uid))
         await asyncio.sleep(0.1)

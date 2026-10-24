@@ -40,8 +40,6 @@ from typing import Any
 
 import pytest
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_registry import TASKS_CONFIG
 from core.models.task.task import Task
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -49,6 +47,7 @@ from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenc
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 TK = "tkctx."  # uid prefix for this module's fixture graph
@@ -64,9 +63,7 @@ TK_GOAL_SECOND = TK + "goal-second"  # a second CONTRIBUTES_TO_GOAL from the sam
 def rel_backend(neo4j_driver):
     """Multi-label Entity backend — registry edge validation requires the domain label
     alongside :Entity, so the single-:Entity form is not used."""
-    return UniversalNeo4jBackend[Task](
-        neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-    )
+    return build_production_backends(neo4j_driver)["tasks_backend"]
 
 
 class _FakeTaskBackend:

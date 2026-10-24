@@ -35,16 +35,13 @@ from fasthtml.common import Div, to_xml
 
 from adapters.persistence.neo4j.backends.collab_backends import NotificationBackend
 from adapters.persistence.neo4j.backends.exercise_backends import EntryReportBackend
-from adapters.persistence.neo4j.backends.misc_backends import ActivityReportBackend
 from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.notification_enums import NotificationType
 from core.models.enums.pipeline import Pipeline
-from core.models.report.activity_report import ActivityReport
 from core.models.report.entry_report import EntryReport
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
@@ -55,6 +52,7 @@ from core.services.report.report_relationship_service import ReportRelationshipS
 from core.services.report.teacher_review_service import TeacherReviewService
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
 from core.services.user_entry.user_entry_service import UserEntryService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from ui.gradebook.recipient_card import RecipientEntryCard
 from ui.gradebook.summary import (
@@ -139,7 +137,8 @@ def _render(node: Any, names: dict[str, str]) -> str:
 
 
 async def test_every_stored_instant_renders_as_it_did(clean_neo4j, neo4j_driver) -> None:
-    user_entry_backend = UserEntryBackend(neo4j_driver)
+    backends = build_production_backends(neo4j_driver)
+    user_entry_backend = backends["user_entry_backend"]
     sharing = UnifiedSharingService(backend=SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity))
     entries = UserEntryService(backend=user_entry_backend, sharing_service=sharing)  # type: ignore[arg-type]
     report_backend = EntryReportBackend(
@@ -161,9 +160,7 @@ async def test_every_stored_instant_renders_as_it_did(clean_neo4j, neo4j_driver)
         backend=NotificationBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     )
     activity_reports = ActivityReportService(
-        backend=ActivityReportBackend(
-            neo4j_driver, NeoLabel.ACTIVITY_REPORT, ActivityReport, base_label=NeoLabel.ENTITY
-        ),
+        backend=backends["activity_report_backend"],
         context_builder=None,  # type: ignore[arg-type]
         event_bus=None,
         sharing_service=sharing,

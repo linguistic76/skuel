@@ -14,9 +14,9 @@ from typing import Any
 
 import pytest
 
-from adapters.persistence.neo4j.user_backend import UserBackend
 from core.models.user import create_user
 from core.utils.result_simplified import ErrorCategory
+from tests.helpers.production_backends import build_production_backends
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
@@ -33,7 +33,7 @@ async def _rows(driver: Any, query: str, **params: Any) -> list[Any]:  # boundar
 @pytest.fixture
 async def users(skuel_app: Any) -> Any:  # boundary: fasthtml-app
     driver = skuel_app.state.services.neo4j_driver
-    yield UserBackend(driver), driver
+    yield build_production_backends(driver)["users_backend"], driver
     await _rows(
         driver,
         "MATCH (u:User) WHERE u.title STARTS WITH $mark OR u.email STARTS WITH $mark "

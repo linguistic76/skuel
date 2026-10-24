@@ -24,7 +24,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Priority, RecurrencePattern, TimeOfDay
 from core.models.enums.entity_enums import EntityStatus as HabitStatus
 from core.models.enums.entity_enums import EntityType
@@ -32,6 +31,7 @@ from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitP
 from core.models.habit.habit import Habit as Habit
 from core.services.habits.habits_core_service import HabitsCoreService
 from core.utils.uid_grammar import slugify
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -47,9 +47,7 @@ class TestHabitsCoreOperations:
     @pytest_asyncio.fixture
     async def habits_backend(self, neo4j_driver, clean_neo4j):
         """Create habits backend with clean database."""
-        return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Entity", Habit, default_filters={"entity_type": "habit"}
-        )
+        return build_production_backends(neo4j_driver)["habits_backend"]
 
     @pytest_asyncio.fixture
     async def habits_service(self, habits_backend, event_bus):

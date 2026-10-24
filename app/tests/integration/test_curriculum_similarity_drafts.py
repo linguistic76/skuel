@@ -14,19 +14,18 @@ from unittest.mock import AsyncMock
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.constants import EmbeddingGeometry
 from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.path_step import PathStep
 from core.models.type_hints import EntityUID
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.services.ps.ps_ai_service import PsAIService
 from core.utils.result_simplified import Result
 from core.utils.vector_math import normalized_cosine_similarity
 from tests.fixtures.llm_doubles import embeddings_double, scripted_llm
+from tests.helpers.production_backends import build_production_backends
 
 DIM = EmbeddingGeometry.DIMENSION
 
@@ -95,7 +94,7 @@ def _ps_ai(neo4j_driver, query_embedding: AsyncMock | None = None) -> PsAIServic
         or AsyncMock(side_effect=AssertionError("a source with a stored vector is never embedded"))
     )
     vector_search = Neo4jVectorSearchService(VectorSearchBackend(executor=executor), embeddings)
-    backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["ps_backend"]
     return PsAIService(
         backend=backend,
         llm_service=scripted_llm(""),

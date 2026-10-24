@@ -35,14 +35,12 @@ import pytest_asyncio
 from neo4j import AsyncDriver
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, HabitsBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.habit_events import HabitCompleted
 from core.models.enums import Domain, EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.goal_enums import MeasurementType
-from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.habit.habit import Habit as Habit
@@ -50,13 +48,14 @@ from core.models.relationship_registry import GOALS_CONFIG
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.mixins.link_edge_guard import HABIT_FAR_END
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
 async def _link_habit_to_goal(neo4j_driver: AsyncDriver, goal_uid: str, habit_uid: str) -> None:
     """Write the link the way ``GoalsService.link_goal_to_habit`` does."""
     relationships = UnifiedRelationshipService[UniversalNeo4jBackend[GoalDTO], Goal, GoalDTO](
-        backend=UniversalNeo4jBackend[GoalDTO](neo4j_driver, "Entity", GoalDTO),
+        backend=build_production_backends(neo4j_driver)["goals_backend"],
         config=GOALS_CONFIG,
         graph_intel=None,
     )
@@ -82,12 +81,12 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def habits_backend(self, neo4j_driver, clean_neo4j):
         """Create habits backend with clean database."""
-        return HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["habits_backend"]
 
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["goals_backend"]
 
     @pytest_asyncio.fixture
     async def goals_progress_service(self, goals_backend, event_bus, neo4j_driver):

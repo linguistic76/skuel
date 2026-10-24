@@ -22,15 +22,14 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import TaskUpdated
 from core.models.enums import EntityStatus, Priority
-from core.models.enums.neo_labels import NeoLabel
 from core.models.sentinels import UNSET
 from core.models.task.task import Task
 from core.models.task.task_request import TaskUpdateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -44,9 +43,7 @@ class TestTaskUpdateIntentPipeline:
 
     @pytest_asyncio.fixture
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
-        return UniversalNeo4jBackend[Task](
-            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-        )
+        return build_production_backends(neo4j_driver)["tasks_backend"]
 
     @pytest_asyncio.fixture
     async def core_service(self, tasks_backend, event_bus):

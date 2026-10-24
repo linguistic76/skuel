@@ -51,14 +51,13 @@ import pytest_asyncio
 from neo4j.time import DateTime as Neo4jDateTime
 
 from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS
 from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
 from core.services.ingestion.config import ENTITY_CONFIGS
 from core.services.relationships import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("goal_window")
@@ -92,9 +91,7 @@ def _goal(uid: str, title: str, updated_at: datetime) -> Goal:
 async def _seed(neo4j_driver) -> None:
     """Seed three goals, each through the writer whose storage shape it represents."""
     now = datetime.now()
-    backend = UniversalNeo4jBackend[Goal](
-        neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
-    )
+    backend = build_production_backends(neo4j_driver)["goals_backend"]
 
     async with neo4j_driver.session() as session:
         await session.run("MERGE (u:User {uid: $u})", u=USER)
@@ -153,9 +150,7 @@ async def _read_raw_updated_at(neo4j_driver, uid: str) -> str | Neo4jDateTime:
 
 def _intelligence(neo4j_driver) -> GoalsIntelligenceService:
     """Built the way services_bootstrap builds it — production label pair and config."""
-    backend = UniversalNeo4jBackend[Goal](
-        neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
-    )
+    backend = build_production_backends(neo4j_driver)["goals_backend"]
     relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=backend,
         config=ACTIVITY_DOMAIN_CONFIGS["goals"].relationship_config,
@@ -259,9 +254,7 @@ class TestGoalsPerformanceAnalyticsWindow:
         would leak every user's goals into one user's analytics. The old ``find_by``
         carried this scoping; the replacement has to keep it.
         """
-        other_backend = UniversalNeo4jBackend[Goal](
-            neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
-        )
+        other_backend = build_production_backends(neo4j_driver)["goals_backend"]
         async with neo4j_driver.session() as session:
             await session.run("MERGE (u:User {uid: $uid})", uid=seed_user_uid("goal_window_other"))
         intruder = Goal(

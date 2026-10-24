@@ -16,11 +16,11 @@ from datetime import datetime
 import pytest
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.result_simplified import ErrorCategory
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 _STUDENT = seed_user_uid("writer_student")
@@ -97,7 +97,7 @@ async def _exists(driver: AsyncDriver, uid: str) -> bool:
 async def test_an_untitled_turn_in_is_titled_from_the_root_and_the_version_is_stamped(
     neo4j_driver: AsyncDriver, root_and_revision: None
 ) -> None:
-    backend = UserEntryBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
 
     result = await backend.create_with_exercise_link(_entry("ue.writer-1", ""), _ROOT)
 
@@ -117,7 +117,7 @@ async def test_an_untitled_turn_in_is_titled_from_the_root_and_the_version_is_st
 async def test_the_students_title_is_kept_verbatim(
     neo4j_driver: AsyncDriver, root_and_revision: None
 ) -> None:
-    backend = UserEntryBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
     first = await backend.create_with_exercise_link(_entry("ue.writer-first", ""), _ROOT)
     assert first.is_ok, first.error
 
@@ -137,7 +137,7 @@ async def test_a_revision_target_counts_on_the_root_and_is_titled_from_it(
     neo4j_driver: AsyncDriver, root_and_revision: None
 ) -> None:
     """A revision is titled "Revision N"; the default names the root the snapshot holds."""
-    backend = UserEntryBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
     first = await backend.create_with_exercise_link(_entry("ue.writer-first", ""), _ROOT)
     assert first.is_ok, first.error
 
@@ -157,7 +157,7 @@ async def test_a_revision_target_counts_on_the_root_and_is_titled_from_it(
 async def test_each_owner_has_their_own_sequence_on_an_exercise(
     neo4j_driver: AsyncDriver, root_and_revision: None
 ) -> None:
-    backend = UserEntryBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
 
     mine_1 = await backend.create_with_exercise_link(_entry("ue.mine-1", ""), _ROOT)
     mine_2 = await backend.create_with_exercise_link(_entry("ue.mine-2", ""), _ROOT)
@@ -175,7 +175,7 @@ async def test_a_deleted_turn_in_does_not_hand_its_number_to_a_later_one(
     neo4j_driver: AsyncDriver, root_and_revision: None
 ) -> None:
     """v1, v2, delete v1: the next is v3 — a living entry holds v2."""
-    backend = UserEntryBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
     for uid in ("ue_gap_1", "ue.gap-2"):
         created = await backend.create_with_exercise_link(_entry(uid, ""), _ROOT)
         assert created.is_ok, created.error
@@ -196,7 +196,7 @@ async def test_an_edge_without_a_revision_counts_by_its_snapshot(
     neo4j_driver: AsyncDriver, root_and_revision: None
 ) -> None:
     """A prior entry whose edge carries no ``revision`` is read by its ``turn_in_revision``."""
-    backend = UserEntryBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
     prior = await backend.create_with_exercise_link(_entry("ue.legacy", ""), _ROOT)
     assert prior.is_ok, prior.error
     async with neo4j_driver.session() as session:
@@ -219,7 +219,7 @@ async def test_concurrent_turn_ins_of_one_pair_take_distinct_revisions(
     neo4j_driver: AsyncDriver, root_and_revision: None
 ) -> None:
     """The write decides the number: six at once are 1..6, none shared."""
-    backend = UserEntryBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
 
     results = await asyncio.gather(
         *(backend.create_with_exercise_link(_entry(f"ue.race-{i}", ""), _ROOT) for i in range(6))
@@ -245,7 +245,7 @@ async def test_concurrent_turn_ins_of_one_pair_take_distinct_revisions(
 async def test_a_target_that_is_not_an_exercise_is_not_found_and_nothing_is_written(
     neo4j_driver: AsyncDriver, root_and_revision: None
 ) -> None:
-    backend = UserEntryBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
 
     result = await backend.create_with_exercise_link(_entry("ue_orphan", "Mine"), "ex.writer.gone")
 
@@ -259,7 +259,7 @@ async def test_an_owner_who_does_not_exist_writes_nothing(
     neo4j_driver: AsyncDriver, root_and_revision: None
 ) -> None:
     """The refusal is the create's own (no such owner), not a missing exercise."""
-    backend = UserEntryBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
 
     result = await backend.create_with_exercise_link(
         _entry("ue_ownerless", "Mine", owner=seed_user_uid("writer_nobody")), _ROOT

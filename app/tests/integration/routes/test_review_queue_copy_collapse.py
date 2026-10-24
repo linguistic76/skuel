@@ -31,11 +31,11 @@ from __future__ import annotations
 
 import pytest
 
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.models.type_hints import UserUID
 from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 from core.ports.query_types import ReviewQueueItem
 from core.services.report.teacher_review_service import TeacherReviewService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 TEACHER = seed_user_uid("qcc_teacher")
@@ -74,7 +74,7 @@ def review_service(neo4j_driver) -> TeacherReviewService:
     ``verify_teacher_authority``); the other collaborators are never touched,
     so ``None`` is honest here.
     """
-    user_entry_backend = UserEntryBackend(driver=neo4j_driver)
+    user_entry_backend = build_production_backends(neo4j_driver)["user_entry_backend"]
     return TeacherReviewService(
         user_entry_backend=user_entry_backend,
         report_backend=None,  # type: ignore[arg-type]

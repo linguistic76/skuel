@@ -10,9 +10,8 @@ Date: November 16, 2025
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task as Task
+from tests.helpers.production_backends import build_production_backends
 
 
 @pytest.mark.asyncio
@@ -22,9 +21,7 @@ class TestRelationshipBatchOperations:
     @pytest_asyncio.fixture
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
         """Create tasks backend with clean database."""
-        return UniversalNeo4jBackend[Task](
-            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-        )
+        return build_production_backends(neo4j_driver)["tasks_backend"]
 
     async def test_get_relationships_batch_empty(self, tasks_backend):
         """Test batch metadata query with empty list."""

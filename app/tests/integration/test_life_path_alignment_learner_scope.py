@@ -72,12 +72,11 @@ from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.path_step import PathStep
 from core.services.analytics.analytics_life_path_service import AnalyticsLifePathService
 from core.services.lifepath.lifepath_core_service import LifePathCoreService
 from core.services.ps.ps_intelligence_service import PsIntelligenceService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("life_path_scope")
@@ -329,7 +328,7 @@ class TestLifePathAlignmentLearnerScope:
         )
         assert designated.is_ok, f"designation failed: {designated}"
 
-        return PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["ps_backend"]
 
     @staticmethod
     def _service(backend: PsBackend) -> AnalyticsLifePathService:

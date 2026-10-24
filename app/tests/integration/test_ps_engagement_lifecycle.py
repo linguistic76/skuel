@@ -36,17 +36,9 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.goal_events import GoalContributionsChanged
-from core.models.choice.choice import Choice
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.neo_labels import NeoLabel
-from core.models.event.event import Event
-from core.models.goal.goal import Goal
-from core.models.habit.habit import Habit
 from core.models.pathways.path_step import PathStep
-from core.models.principle.principle import Principle
-from core.models.task.task import Task
 from core.models.templates.choice_template import ChoiceTemplate
 from core.models.templates.event_template import EventTemplate
 from core.models.templates.goal_template import GoalTemplate
@@ -56,6 +48,7 @@ from core.models.templates.relative_offset import RelativeOffset
 from core.models.templates.task_template import TaskTemplate
 from core.services.ps_engagement import PsEngagementService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 STUDENT_UID = seed_user_uid("test_ps_engagement")
@@ -69,59 +62,32 @@ PS_UID = "ps.test-engagement"
 
 @pytest_asyncio.fixture
 async def ps_backend(neo4j_driver, clean_neo4j):
-    return UniversalNeo4jBackend[PathStep](
-        neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY
-    )
+    return build_production_backends(neo4j_driver)["ps_backend"]
 
 
 @pytest_asyncio.fixture
 async def template_backends(neo4j_driver, clean_neo4j) -> dict[str, Any]:
+    backends = build_production_backends(neo4j_driver)
     return {
-        "task": UniversalNeo4jBackend[TaskTemplate](
-            neo4j_driver, NeoLabel.TASK_TEMPLATE, TaskTemplate, base_label=NeoLabel.ENTITY
-        ),
-        "goal": UniversalNeo4jBackend[GoalTemplate](
-            neo4j_driver, NeoLabel.GOAL_TEMPLATE, GoalTemplate, base_label=NeoLabel.ENTITY
-        ),
-        "habit": UniversalNeo4jBackend[HabitTemplate](
-            neo4j_driver, NeoLabel.HABIT_TEMPLATE, HabitTemplate, base_label=NeoLabel.ENTITY
-        ),
-        "event": UniversalNeo4jBackend[EventTemplate](
-            neo4j_driver, NeoLabel.EVENT_TEMPLATE, EventTemplate, base_label=NeoLabel.ENTITY
-        ),
-        "choice": UniversalNeo4jBackend[ChoiceTemplate](
-            neo4j_driver, NeoLabel.CHOICE_TEMPLATE, ChoiceTemplate, base_label=NeoLabel.ENTITY
-        ),
-        "principle": UniversalNeo4jBackend[PrincipleTemplate](
-            neo4j_driver,
-            NeoLabel.PRINCIPLE_TEMPLATE,
-            PrincipleTemplate,
-            base_label=NeoLabel.ENTITY,
-        ),
+        "task": backends["task_template_backend"],
+        "goal": backends["goal_template_backend"],
+        "habit": backends["habit_template_backend"],
+        "event": backends["event_template_backend"],
+        "choice": backends["choice_template_backend"],
+        "principle": backends["principle_template_backend"],
     }
 
 
 @pytest_asyncio.fixture
 async def instance_backends(neo4j_driver, clean_neo4j) -> dict[str, Any]:
+    backends = build_production_backends(neo4j_driver)
     return {
-        "tasks": UniversalNeo4jBackend[Task](
-            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-        ),
-        "goals": UniversalNeo4jBackend[Goal](
-            neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
-        ),
-        "habits": UniversalNeo4jBackend[Habit](
-            neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY
-        ),
-        "events": UniversalNeo4jBackend[Event](
-            neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY
-        ),
-        "choices": UniversalNeo4jBackend[Choice](
-            neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY
-        ),
-        "principles": UniversalNeo4jBackend[Principle](
-            neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
-        ),
+        "tasks": backends["tasks_backend"],
+        "goals": backends["goals_backend"],
+        "habits": backends["habits_backend"],
+        "events": backends["events_backend"],
+        "choices": backends["choices_backend"],
+        "principles": backends["principles_backend"],
     }
 
 

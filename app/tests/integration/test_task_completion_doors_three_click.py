@@ -24,12 +24,12 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.base import BaseEvent
 from core.events.task_events import TaskCompleted, TaskReopened
 from core.models.enums import EntityStatus
-from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("three_click")
@@ -58,9 +58,7 @@ class TestThreeClickSequence:
         self, neo4j_driver: AsyncDriver, clean_neo4j: None
     ) -> tuple[TasksCoreService, UniversalNeo4jBackend[Task], _CapturingBus]:
         """The one door over one real backend, publishing to one bus."""
-        backend = UniversalNeo4jBackend[Task](
-            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-        )
+        backend = build_production_backends(neo4j_driver)["tasks_backend"]
         bus = _CapturingBus()
         return TasksCoreService(backend=backend, event_bus=bus), backend, bus
 

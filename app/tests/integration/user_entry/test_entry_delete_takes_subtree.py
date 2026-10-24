@@ -15,10 +15,10 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
-from adapters.persistence.neo4j.user_backend import UserBackend
 from core.models.ps_content.content import CurriculumContent
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -160,7 +160,9 @@ class TestEveryDeleteDoorTakesTheSubtree:
     ) -> None:
         uid, chunk_uids = await _entry_with_subtree(neo4j_driver, user_entry_service, OWNER)
 
-        erased = await UserBackend(neo4j_driver).hard_delete_user(UserUID(OWNER))
+        erased = await build_production_backends(neo4j_driver)["users_backend"].hard_delete_user(
+            UserUID(OWNER)
+        )
 
         assert erased.is_ok and erased.value >= 2, erased  # the user and the entry
         assert (

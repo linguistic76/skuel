@@ -26,9 +26,9 @@ from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.entity import Entity
 from core.models.enums.neo_labels import NeoLabel
-from core.models.habit.completion import HabitCompletion
 from core.models.link_write_contracts import GuardedLinkWrite
 from core.models.relationship_names import RelationshipName
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -144,7 +144,7 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:  # boundary: fast
 
 @pytest.fixture
 def backend(graph: AsyncDriver) -> UniversalNeo4jBackend[Entity]:
-    return UniversalNeo4jBackend[Entity](graph, NeoLabel.ENTITY, Entity, base_label=NeoLabel.ENTITY)
+    return build_production_backends(graph)["activity_entity_backend"]
 
 
 async def _links(driver: AsyncDriver, source: str) -> set[tuple[str, str]]:
@@ -433,12 +433,9 @@ class TestTheUidBoundReads:
         assert counted.value == 2
 
     async def test_an_anchor_read_binds_the_backends_own_label(self, graph: AsyncDriver) -> None:
-        completions = UniversalNeo4jBackend[HabitCompletion](
-            graph, NeoLabel.HABIT_COMPLETION, HabitCompletion
-        )
-        entities = UniversalNeo4jBackend[Entity](
-            graph, NeoLabel.ENTITY, Entity, base_label=NeoLabel.ENTITY
-        )
+        backends = build_production_backends(graph)
+        completions = backends["habit_completions_backend"]
+        entities = backends["activity_entity_backend"]
 
         own = await completions.count_related(COMPLETION, RelationshipName.OWNS, "incoming")
         other = await entities.count_related(COMPLETION, RelationshipName.OWNS, "incoming")

@@ -23,11 +23,11 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.models.entity import Entity
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import EntityUID, UserUID
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -94,7 +94,7 @@ async def split_graph(neo4j_driver: Any) -> Any:
     yield (
         UnifiedSharingService(backend=sharing_backend),
         sharing_backend,
-        UserEntryBackend(driver=neo4j_driver),
+        build_production_backends(neo4j_driver)["user_entry_backend"],
     )
     await sharing_backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
 

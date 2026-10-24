@@ -27,16 +27,14 @@ import pytest
 
 from adapters.persistence.neo4j.cross_domain_backend import _INTENT_EDGE_SETS, CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.goal.goal_dto import GoalDTO
 from core.models.habit.habit import Habit
-from core.models.habit.habit_dto import HabitDTO
 from core.models.relationship_registry import GOALS_CONFIG, HABITS_CONFIG
 from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 
 P = "conv2b."  # uid prefix for this module's fixture graph
 
@@ -116,7 +114,7 @@ async def test_delegation_fails_cleanly_without_relationship_service():
 def goals_rel(neo4j_driver):
     """Goals UnifiedRelationshipService wired to a real graph_intel — mechanism B."""
     graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = UniversalNeo4jBackend[GoalDTO](neo4j_driver, "Entity", GoalDTO)
+    backend = build_production_backends(neo4j_driver)["goals_backend"]
     return UnifiedRelationshipService(backend=backend, config=GOALS_CONFIG, graph_intel=graph_intel)
 
 
@@ -124,7 +122,7 @@ def goals_rel(neo4j_driver):
 def habits_rel(neo4j_driver):
     """Habits UnifiedRelationshipService wired to a real graph_intel — mechanism B."""
     graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = UniversalNeo4jBackend[HabitDTO](neo4j_driver, "Entity", HabitDTO)
+    backend = build_production_backends(neo4j_driver)["habits_backend"]
     return UnifiedRelationshipService(
         backend=backend, config=HABITS_CONFIG, graph_intel=graph_intel
     )

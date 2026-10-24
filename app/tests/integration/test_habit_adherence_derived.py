@@ -49,13 +49,10 @@ from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.backends.activity_backends import HabitsBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 from core.constants import HabitConsistencyWindow
 from core.models.enums import RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.neo_labels import NeoLabel
-from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.type_hints import UserUID
 from core.models.user.user import User
@@ -70,6 +67,7 @@ from core.services.user_stats_types import _compute_domain_stats_from_context
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import instant_of, today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 KEPT = seed_user_uid("adherence_kept")
@@ -176,10 +174,9 @@ async def graph(neo4j_driver: AsyncDriver, clean_neo4j) -> HabitsBackend:
             "UNWIND $uids AS uid MERGE (u:User {uid: uid}) SET u.title = uid", uids=list(USERS)
         )
 
-    habits = HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
-    completions = UniversalNeo4jBackend[HabitCompletion](
-        neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
-    )
+    backends = build_production_backends(neo4j_driver)
+    habits = backends["habits_backend"]
+    completions = backends["habit_completions_backend"]
     service = HabitsCompletionService(habits, completions)
 
     for uid, owner in (

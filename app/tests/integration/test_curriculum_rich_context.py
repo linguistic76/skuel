@@ -22,6 +22,7 @@ from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType
 from core.models.goal.goal_dto import GoalDTO
+from core.models.ku.ku import Ku
 from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.pathways.path_step_dto import PathStepDTO
 from core.utils.uid_generator import UIDGenerator
@@ -32,7 +33,9 @@ from tests.helpers.seed_uids import seed_user_uid
 class TestCurriculumRichContext:
     """Test MEGA-QUERY curriculum rich data in UserContext."""
 
-    async def test_mega_query_curriculum_integration(self, services, test_user):
+    async def test_mega_query_curriculum_integration(
+        self, services, production_backends, test_user
+    ):
         """
         Test that MEGA-QUERY includes curriculum rich data in UserContext.
 
@@ -76,13 +79,12 @@ class TestCurriculumRichContext:
         )
         await services.ps.core.backend.create(related_step.to_dict())
 
-        ku = CurriculumDTO(
+        ku = Ku(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="First-Class Functions",
-            entity_type=EntityType.KU,
             domain=Domain.TECH,
         )
-        await services.ps.core.backend.create(ku.to_dict())
+        await production_backends["ku_backend"].create(ku)
 
         # Wait for persistence
         await asyncio.sleep(0.1)

@@ -20,18 +20,17 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.config.unified_config import VectorSearchConfig
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.path_step import PathStep
 from core.models.search_request import SearchRequest
 from core.orchestrator.search_router import SearchRouter
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.services.ps.ps_search_service import PsSearchService
+from tests.helpers.production_backends import build_production_backends
 
 PUBLISHED_UID = "ps.fulltext-probe.published"
 DRAFT_UID = "ps.fulltext-probe.draft"
@@ -264,9 +263,7 @@ async def test_router_rung_reaches_the_index_end_to_end(fulltext_graph: AsyncDri
     """
     backend = VectorSearchBackend(Neo4jQueryExecutor(fulltext_graph))
     vector_search = Neo4jVectorSearchService(backend=backend, config=VectorSearchConfig())
-    ps_search = PsSearchService(
-        backend=PsBackend(fulltext_graph, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
-    )
+    ps_search = PsSearchService(backend=build_production_backends(fulltext_graph)["ps_backend"])
     router = SearchRouter(vector_search_service=vector_search)
 
     items = await router._execute_advanced_search(

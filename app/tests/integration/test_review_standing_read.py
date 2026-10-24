@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import pytest
 
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.services.report.report_relationship_service import ReportRelationshipService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -37,7 +37,9 @@ EX_CROSS = "ex_rsr_cross"
 
 @pytest.fixture
 def service(neo4j_driver) -> ReportRelationshipService:
-    return ReportRelationshipService(backend=UserEntryBackend(driver=neo4j_driver))
+    return ReportRelationshipService(
+        backend=build_production_backends(neo4j_driver)["user_entry_backend"]
+    )
 
 
 @pytest.fixture

@@ -219,6 +219,18 @@ def create_all_backends(
         base_label=NeoLabel.ENTITY,
     )
 
+    # Cross-activity reads over any :Entity node — ActivityKnowledgeIntelligenceService,
+    # the one knowledge-intelligence service the six Activity facades share.
+    from core.models.entity import Entity
+
+    activity_entity_backend = UniversalNeo4jBackend[Entity](
+        driver,
+        NeoLabel.ENTITY,
+        Entity,
+        prometheus_metrics=prometheus_metrics,
+        base_label=NeoLabel.ENTITY,
+    )
+
     # The Activity pages' link reader (list cards, detail pages, the day view).
     # Standalone backend over the shared executor — keeps raw Cypher below the
     # boundary (ADR-044); what a page shows is the registry's page views (ADR-090 §2).
@@ -230,6 +242,7 @@ def create_all_backends(
 
     return {
         "connection_fetch_backend": connection_fetch_backend,
+        "activity_entity_backend": activity_entity_backend,
         "tasks_backend": tasks_backend,
         "events_backend": events_backend,
         "habits_backend": habits_backend,

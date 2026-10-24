@@ -32,16 +32,16 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, TasksBackend
+from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
 from core.events import GoalAchieved, GoalContributionsChanged, GoalProgressUpdated
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.goal_enums import GoalType, MeasurementType
-from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 _USER_UID = seed_user_uid("test_task_goal_flow")
@@ -57,11 +57,11 @@ class TestTaskGoalEventFlow:
 
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
-        return GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["goals_backend"]
 
     @pytest_asyncio.fixture
     async def tasks_service(self, neo4j_driver, clean_neo4j, event_bus):
-        backend = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+        backend = build_production_backends(neo4j_driver)["tasks_backend"]
         return TasksCoreService(backend=backend, event_bus=event_bus)
 
     @pytest_asyncio.fixture
@@ -302,9 +302,10 @@ class TestTaskGoalRecomputeUnderTheGoalLock:
         self, neo4j_driver, clean_neo4j
     ):
         bus = InMemoryEventBus(capture_history=True)
-        goals_backend = GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+        backends = build_production_backends(neo4j_driver)
+        goals_backend = backends["goals_backend"]
         tasks_service = TasksCoreService(
-            backend=TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY),
+            backend=backends["tasks_backend"],
             event_bus=bus,
         )
         # Not subscribed: this test fires the handler itself, at the moment it chooses.

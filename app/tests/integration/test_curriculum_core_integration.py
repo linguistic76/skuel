@@ -19,20 +19,20 @@ from collections.abc import Generator
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
+from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend, LpBackend, PsBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
-
-# Domain models - use domain-specific types
-from core.models.curriculum import Curriculum
-from core.models.enums import Domain, LearningLevel, SELCategory
+from core.models.enums import Domain, SELCategory
 
 # Backend
 from core.models.enums.neo_labels import NeoLabel
+
+# Domain models - use domain-specific types
+from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 # ============================================================================
@@ -41,11 +41,9 @@ from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.fixture
-def ku_backend(neo4j_driver) -> UniversalNeo4jBackend[Curriculum]:
-    """Create KU backend with real Neo4j."""
-    return UniversalNeo4jBackend[Curriculum](
-        neo4j_driver, NeoLabel.PATH_STEP, Curriculum, base_label=NeoLabel.ENTITY
-    )
+def ku_backend(neo4j_driver) -> KuBackend:
+    """The composition root's Ku backend, over the shared container."""
+    return build_production_backends(neo4j_driver)["ku_backend"]
 
 
 @pytest.fixture
@@ -55,11 +53,9 @@ def lp_backend(neo4j_driver) -> LpBackend:
 
 
 @pytest.fixture
-def ps_backend(neo4j_driver) -> UniversalNeo4jBackend[PathStep]:
-    """Create PS backend with real Neo4j."""
-    return UniversalNeo4jBackend[PathStep](
-        neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY
-    )
+def ps_backend(neo4j_driver) -> PsBackend:
+    """The composition root's PathStep backend, over the shared container."""
+    return build_production_backends(neo4j_driver)["ps_backend"]
 
 
 @pytest_asyncio.fixture
@@ -94,12 +90,11 @@ class TestKnowledgeUnitCRUD:
     @pytest.mark.asyncio
     async def test_create_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should create KU in Neo4j."""
-        ku = Curriculum(
+        ku = Ku(
             uid="ku.test-python-basics",
             title="Python Basics",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
-            learning_level=LearningLevel.BEGINNER,
         )
 
         result = await ku_backend.create(ku)
@@ -112,7 +107,7 @@ class TestKnowledgeUnitCRUD:
     async def test_get_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should retrieve KU from Neo4j."""
         # Create KU
-        ku = Curriculum(
+        ku = Ku(
             uid="ku.test-get",
             title="Test Get",
             domain=Domain.TECH,
@@ -133,7 +128,7 @@ class TestKnowledgeUnitCRUD:
     async def test_update_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should update KU in Neo4j."""
         # Create KU
-        ku = Curriculum(
+        ku = Ku(
             uid="ku.test-update",
             title="Original Title",
             domain=Domain.TECH,
@@ -145,19 +140,19 @@ class TestKnowledgeUnitCRUD:
         # Update KU with dictionary of changes
         updates = {
             "title": "Updated Title",
-            "content": "Updated content",
+            "description": "Updated description",
         }
         update_result = await ku_backend.update("ku.test-update", updates)
 
         assert update_result.is_ok
         assert update_result.value.title == "Updated Title"
-        assert update_result.value.content == "Updated content"
+        assert update_result.value.description == "Updated description"
 
     @pytest.mark.asyncio
     async def test_delete_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should delete KU from Neo4j."""
         # Create KU
-        ku = Curriculum(
+        ku = Ku(
             uid="ku.test-delete",
             title="Test Delete",
             domain=Domain.TECH,

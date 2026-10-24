@@ -20,7 +20,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import HabitsBackend
 from core.events.habit_events import AchievementEarned, HabitStreakMilestone
 from core.models.enums import RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus as HabitStatus
@@ -28,6 +27,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit import Habit as Habit
 from core.services.habits.habit_event_handler_service import HabitEventHandlerService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -56,9 +56,7 @@ class TestHabitAchievementsFlow:
     @pytest_asyncio.fixture
     async def habit_backend(self, neo4j_driver, clean_neo4j):
         """Create Habit backend with clean database."""
-        return HabitsBackend(
-            neo4j_driver, "Entity", Habit, default_filters={"entity_type": "habit"}
-        )
+        return build_production_backends(neo4j_driver)["habits_backend"]
 
     @pytest_asyncio.fixture
     async def achievement_service(self, habit_backend, event_bus):

@@ -21,11 +21,7 @@ from datetime import UTC, datetime
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend, PsBackend
-from adapters.persistence.neo4j.user_backend import UserBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.ku.ku import Ku
-from core.models.pathways.path_step import PathStep
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("transition_flag")
@@ -56,7 +52,7 @@ async def graph(neo4j_driver, clean_neo4j) -> None:
 
 @pytest.mark.asyncio
 async def test_learning_state_writer(neo4j_driver, graph) -> None:
-    backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["ps_backend"]
     now = datetime.now(UTC).isoformat()
 
     first = await backend.mark_mastered(USER, KU_A, now, 0.8, "report_approval")
@@ -71,7 +67,7 @@ async def test_learning_state_writer(neo4j_driver, graph) -> None:
 
 @pytest.mark.asyncio
 async def test_ku_backend_writer(neo4j_driver, graph) -> None:
-    backend = KuBackend(neo4j_driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["ku_backend"]
 
     first = await backend.mark_mastered(USER, KU_B, mastery_score=0.7, method="self_report")
     assert first.is_ok and first.value == [{"mastery_score": 0.7, "was_mastered": False}]
@@ -86,7 +82,7 @@ async def test_ku_backend_writer(neo4j_driver, graph) -> None:
 
 @pytest.mark.asyncio
 async def test_user_backend_writer(neo4j_driver, graph) -> None:
-    backend = UserBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["users_backend"]
 
     first = await backend.record_knowledge_mastery(USER, KU_C, 0.85)
     assert first.is_ok and first.value == {"mastery_score": 0.85, "was_mastered": False}
@@ -117,9 +113,10 @@ async def _edge_count(neo4j_driver, ku_uid: str) -> int:
 
 @pytest.mark.asyncio
 async def test_concurrent_first_writes_report_one_transition(neo4j_driver, graph) -> None:
-    ps = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
-    ku = KuBackend(neo4j_driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
-    user = UserBackend(neo4j_driver)
+    backends = build_production_backends(neo4j_driver)
+    ps = backends["ps_backend"]
+    ku = backends["ku_backend"]
+    user = backends["users_backend"]
     now = datetime.now(UTC).isoformat()
 
     learning_state = await asyncio.gather(

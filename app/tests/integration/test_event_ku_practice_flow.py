@@ -38,8 +38,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend, PsBackend
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.knowledge_substance_events import KnowledgePracticed
 from core.models.enums import (
@@ -47,12 +45,12 @@ from core.models.enums import (
     EntityStatus,
     SELCategory,
 )
-from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.ku.ku import Ku
 from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
 from core.services.ps.ps_practice_service import PsPracticeService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -73,14 +71,12 @@ class TestEventKuPracticeFlow:
         test-side instance of the ku-named-but-grain-agnostic pattern the
         substance-write-grain arc renamed (item C rider, 2026-08-21).
         """
-        return PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["ps_backend"]
 
     @pytest_asyncio.fixture
     async def event_backend(self, neo4j_driver, clean_neo4j):
         """Create Event backend with clean database."""
-        return UniversalNeo4jBackend[Event](
-            neo4j_driver, "Entity", Event, default_filters={"entity_type": "event"}
-        )
+        return build_production_backends(neo4j_driver)["events_backend"]
 
     @pytest_asyncio.fixture
     async def ku_practice_service(self, event_bus, ps_backend):
@@ -454,12 +450,12 @@ class TestIncrementSubstanceGrain:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create a real Ku backend (label :Ku) with clean database."""
-        return KuBackend(neo4j_driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["ku_backend"]
 
     @pytest_asyncio.fixture
     async def ps_backend(self, neo4j_driver, clean_neo4j):
         """Create PathStep backend with clean database."""
-        return PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["ps_backend"]
 
     async def _counter(self, neo4j_driver, uid: str) -> int | None:
         async with neo4j_driver.session() as session:

@@ -41,8 +41,8 @@ async def test_create_task_success(tasks_service, sample_task):
 import pytest_asyncio
 
 @pytest_asyncio.fixture
-async def tasks_backend(neo4j_driver):
-    return UniversalNeo4jBackend[Task](neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+async def tasks_service(production_backends, event_bus):
+    return TasksCoreService(backend=production_backends["tasks_backend"], event_bus=event_bus)
 ```
 
 **When to use**: Any `async def` fixture. Plain `@pytest.fixture` on an async fixture hands the test an un-awaited coroutine.
@@ -102,7 +102,8 @@ The root conftest also runs `load_dotenv()` — every `.env` value the developer
 | `skuel_app_container` / `skuel_app` (session) | The whole app bootstrapped via `scripts/dev/bootstrap.py` **against a testcontainer of its own** (same pinned image, no APOC): the fixture overrides `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` with that container before settings are built, and refuses to yield an app whose driver reports any other kernel (`.env` names the production AuraDB instance — `tests/integration/test_skuel_app_fixture.py` is the permanent guard). Private, not shared, because the app's boot syncs uniqueness constraints on `:User` that the shared graph's accumulated users violate. Seed app-fixture data through `skuel_app.state.services.neo4j_driver`, never `neo4j_driver`. Boots at any tier — CI runs the integration job at `INTELLIGENCE_TIER=core` with no API key; only FULL demands `OPENAI_API_KEY` (`EnvironmentValidator.REQUIRED_VARS`) |
 | `clean_neo4j` | Per-test wipe of everything but `:User` and `:MigrationRecord` nodes (before and after) + creates the `entity_embedding_idx` vector index |
 | `ensure_test_users` (session) | MERGEs the shared test-user UIDs (`user_test_*`, `user_mike`, …) plus the resolved ingestion fallback owner. **Required by any test that creates or ingests an owned entity** — the `:OWNS` write doors refuse an owner with no `:User` node (ADR-086) |
-| `{tasks,goals,habits,events,choices,principles}_backend` / `_service` | Real `UniversalNeo4jBackend[T](neo4j_driver, NeoLabel.X, Model, base_label=NeoLabel.ENTITY)` + the CORE sub-service per domain |
+| `production_backends` | Every backend `create_all_backends` builds, over `neo4j_driver` (`build_production_backends(driver)` for any other driver, `tests/helpers/production_backends.py`). Never construct one of those backends by hand — `tests/unit/test_production_backend_census.py` fails it |
+| `{tasks,goals,habits,events,choices,principles}_backend` / `_service`, `ku_backend` | The domain's entry of `production_backends` (`TasksBackend`, …) + the CORE sub-service per domain |
 | `services` | `TestServices` — the domain facades (`tasks`, `goals`, `events`, `choices`, `principles`, `lp`, `ps`, `users` + aliases) over real backends; Activity backends wrapped so `create()` accepts a dict |
 | `event_bus` | Real `InMemoryEventBus`; `create_relationship` / `count_relationships` — raw edge helpers; `user_uid` — a plain string (there is no `test_user_uid`) |
 | `laptop_zone` (root conftest, opt-in) | A Vancouver user on a UTC-pinned process; `forced_zone(zone)` (`tests/helpers/forced_zone.py`) for one block of the unpinned behaviour |

@@ -26,12 +26,10 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec
 
 import pytest
 
-from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.config.unified_config import VectorSearchConfig
 from core.models.enums.neo_labels import NeoLabel
-from core.models.ku.ku import Ku
 from core.services.choices_service import ChoicesService
 from core.services.events_service import EventsService
 from core.services.exercises.exercise_service import ExerciseService
@@ -49,6 +47,7 @@ from core.services.user.intelligence import (
 )
 from core.services.user.unified_user_context import RichUserContext
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -199,7 +198,7 @@ async def test_the_published_titles_read_answers_the_published_ku_alone(
     neo4j_driver: AsyncDriver, clean_neo4j: None
 ) -> None:
     await _seed(neo4j_driver)
-    backend = KuBackend(neo4j_driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["ku_backend"]
 
     titles = await KuService(backend=backend, graph_intel=MagicMock()).get_published_titles(
         [PUBLISHED_KU, DRAFT_KU, FOREIGN_TASK, "ku.hls.missing"]

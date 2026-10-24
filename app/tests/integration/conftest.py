@@ -24,8 +24,8 @@ from adapters.persistence.neo4j.graph_driver import (
     open_async_driver,
     require_migration_records,
 )
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration import _uid_census
 from tests.integration._container_lifecycle import bounded_neo4j_container
@@ -422,44 +422,21 @@ def temp_yaml_dir() -> Generator[Path]:
     shutil.rmtree(temp_dir)
 
 
-@pytest_asyncio.fixture
-async def ku_backend(neo4j_driver):
-    """Create real PsService backend."""
-    from core.models.curriculum_dto import CurriculumDTO
-
-    # Use "Entity" to match what UnifiedIngestionService creates
-    # IMPORTANT: Must use CurriculumDTO (not EntityDTO) to include quality_score, complexity, etc.
-    backend = UniversalNeo4jBackend[CurriculumDTO](neo4j_driver, "Entity", CurriculumDTO)
-
-    yield backend
-
-
 @pytest.fixture
-def mock_intelligence_service() -> AsyncMock:
-    """Create mock intelligence service for PsService."""
-    from unittest.mock import AsyncMock
+def production_backends(neo4j_driver):
+    """Every backend the composition root builds, over the shared container.
 
-    return AsyncMock()
-
-
-@pytest.fixture
-def mock_graph_intel():
-    """Create mock GraphIntelligenceService for services that require it.
-
-    January 2026: graph_intel is REQUIRED for unified Curriculum architecture.
-    This mock satisfies the fail-fast requirement.
+    ``create_all_backends`` is the one constructor of the domain backends; a test
+    never copies its arguments (``tests/unit/test_production_backend_census.py``).
+    Function-scoped: a test that patches a backend method patches only its own.
     """
-    from unittest.mock import MagicMock
-
-    return MagicMock()
+    return build_production_backends(neo4j_driver)
 
 
 @pytest.fixture
-def ku_service(ku_backend):
-    """Backend with .get() for integration tests that only need read access."""
-    # PsService facade requires many sub-services; for round-trip tests
-    # the backend's .get() method is sufficient.
-    return ku_backend
+def ku_backend(production_backends):
+    """The composition root's Ku backend."""
+    return production_backends["ku_backend"]
 
 
 @pytest_asyncio.fixture
@@ -475,17 +452,14 @@ async def ingestion_service(neo4j_driver):
 
 
 @pytest_asyncio.fixture
-async def user_service(neo4j_driver):
+async def user_service(neo4j_driver, production_backends):
     """Create UserService for user-entity tracking tests."""
     from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from adapters.persistence.neo4j.user_backend import UserBackend
     from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
     from core.services.user_service import UserService
 
-    # UserBackend is the dedicated identity backend — has get_user_by_username etc.
-    # UniversalNeo4jBackend[User] lacks these domain-specific methods.
-    user_backend = UserBackend(neo4j_driver)
+    user_backend = production_backends["users_backend"]
 
     # UserService takes an injected UserContextQueryExecutor for context building
     # (built at the composition root in production). Mirror that here.
@@ -615,7 +589,7 @@ async def create_moc_test_user(neo4j_driver):
 
 
 @pytest_asyncio.fixture
-async def services(neo4j_driver):
+async def services(neo4j_driver, production_backends):
     """
     Create unified services fixture with all domain services and their relationship services.
 
@@ -629,9 +603,7 @@ async def services(neo4j_driver):
     from dataclasses import dataclass
     from unittest.mock import MagicMock
 
-    from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.models.entity import Entity
-    from core.models.user.user import User
+    from core.models.pathways.path_step import PathStep
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
@@ -693,32 +665,23 @@ async def services(neo4j_driver):
             return getattr(self.backend, name)
 
     # Create backends with test wrappers
-    from adapters.persistence.neo4j.backends.activity_backends import TasksBackend
-    from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
-    from core.models.choice.choice import Choice
     from core.models.enums.neo_labels import NeoLabel
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
 
-    raw_tasks_backend = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+    raw_tasks_backend = production_backends["tasks_backend"]
     tasks_backend = TestBackendWrapper(raw_tasks_backend, Task)
 
-    from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
-
-    raw_goals_backend = GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+    raw_goals_backend = production_backends["goals_backend"]
     goals_backend = TestBackendWrapper(raw_goals_backend, Goal)
 
-    from adapters.persistence.neo4j.backends.activity_backends import EventsBackend
-
-    raw_events_backend = EventsBackend(
-        neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY
-    )
+    raw_events_backend = production_backends["events_backend"]
     events_backend = TestBackendWrapper(raw_events_backend, Event)
 
-    raw_ps_backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, Entity, base_label=NeoLabel.ENTITY)
-    ps_backend = TestBackendWrapper(raw_ps_backend, Entity)
+    raw_ps_backend = production_backends["ps_backend"]
+    ps_backend = TestBackendWrapper(raw_ps_backend, PathStep)
 
     from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
     from core.models.pathways.learning_path import LearningPath
@@ -728,20 +691,11 @@ async def services(neo4j_driver):
     )
     lp_backend = TestBackendWrapper(raw_lp_backend, LearningPath)
 
-    from adapters.persistence.neo4j.backends.activity_backends import PrinciplesBackend
-
-    raw_principles_backend = PrinciplesBackend(
-        neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
-    )
+    raw_principles_backend = production_backends["principles_backend"]
     principles_backend = TestBackendWrapper(raw_principles_backend, Principle)
 
-    # Use domain-specific backends so sub-services can bind methods at init time
-    from adapters.persistence.neo4j.backends.activity_backends import ChoicesBackend
-
-    choices_backend = ChoicesBackend(
-        neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY
-    )
-    users_backend = UniversalNeo4jBackend[User](neo4j_driver, "User", User)
+    choices_backend = production_backends["choices_backend"]
+    users_backend = production_backends["users_backend"]
 
     # Mock GraphIntelligenceService for services that require it
     mock_graph_intel = MagicMock()
@@ -1238,7 +1192,7 @@ def embeddings_service():
     client is sufficient. The vendor SDK now lives in the adapter, so there is
     no HF_API_TOKEN to set up here.
     """
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     from core.services.embeddings_service import EmbeddingsService
     from core.utils.result_simplified import Result
@@ -1275,14 +1229,9 @@ def user_uid():
 
 
 @pytest_asyncio.fixture
-async def tasks_backend(neo4j_driver):
-    """Create tasks backend for testing."""
-    from core.models.enums.neo_labels import NeoLabel
-    from core.models.task.task import Task
-
-    return UniversalNeo4jBackend[Task](
-        neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-    )
+async def tasks_backend(production_backends):
+    """The composition root's tasks backend."""
+    return production_backends["tasks_backend"]
 
 
 @pytest_asyncio.fixture
@@ -1294,14 +1243,9 @@ async def tasks_service(tasks_backend, event_bus):
 
 
 @pytest_asyncio.fixture
-async def goals_backend(neo4j_driver):
-    """Create goals backend for testing."""
-    from core.models.enums.neo_labels import NeoLabel
-    from core.models.goal.goal import Goal
-
-    return UniversalNeo4jBackend[Goal](
-        neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
-    )
+async def goals_backend(production_backends):
+    """The composition root's goals backend."""
+    return production_backends["goals_backend"]
 
 
 @pytest_asyncio.fixture
@@ -1317,14 +1261,9 @@ async def goals_service(goals_backend, event_bus):
 
 
 @pytest_asyncio.fixture
-async def habits_backend(neo4j_driver):
-    """Create habits backend for testing."""
-    from core.models.enums.neo_labels import NeoLabel
-    from core.models.habit.habit import Habit
-
-    return UniversalNeo4jBackend[Habit](
-        neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY
-    )
+async def habits_backend(production_backends):
+    """The composition root's habits backend."""
+    return production_backends["habits_backend"]
 
 
 @pytest_asyncio.fixture
@@ -1336,14 +1275,9 @@ async def habits_service(habits_backend, event_bus):
 
 
 @pytest_asyncio.fixture
-async def events_backend(neo4j_driver):
-    """Create events backend for testing."""
-    from core.models.enums.neo_labels import NeoLabel
-    from core.models.event.event import Event
-
-    return UniversalNeo4jBackend[Event](
-        neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY
-    )
+async def events_backend(production_backends):
+    """The composition root's events backend."""
+    return production_backends["events_backend"]
 
 
 @pytest_asyncio.fixture
@@ -1355,14 +1289,9 @@ async def events_service(events_backend, event_bus):
 
 
 @pytest_asyncio.fixture
-async def choices_backend(neo4j_driver):
-    """Create choices backend for testing."""
-    from core.models.choice.choice import Choice
-    from core.models.enums.neo_labels import NeoLabel
-
-    return UniversalNeo4jBackend[Choice](
-        neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY
-    )
+async def choices_backend(production_backends):
+    """The composition root's choices backend."""
+    return production_backends["choices_backend"]
 
 
 @pytest_asyncio.fixture
@@ -1374,14 +1303,9 @@ async def choices_service(choices_backend, event_bus):
 
 
 @pytest_asyncio.fixture
-async def principles_backend(neo4j_driver):
-    """Create principles backend for testing."""
-    from core.models.enums.neo_labels import NeoLabel
-    from core.models.principle.principle import Principle
-
-    return UniversalNeo4jBackend[Principle](
-        neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
-    )
+async def principles_backend(production_backends):
+    """The composition root's principles backend."""
+    return production_backends["principles_backend"]
 
 
 @pytest_asyncio.fixture

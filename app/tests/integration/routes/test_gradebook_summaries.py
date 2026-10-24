@@ -30,9 +30,9 @@ from __future__ import annotations
 
 import pytest
 
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.models.enums.pipeline import ExchangeStatus
 from core.services.report.report_relationship_service import ReportRelationshipService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 STUDENT = seed_user_uid("sum_student")
@@ -50,7 +50,9 @@ EX_F = "ex.sum-f"  # the stamp trap: the prior's report is NEWER than the latest
 @pytest.fixture
 def service(neo4j_driver) -> ReportRelationshipService:
     """Real service over a real user_entry backend."""
-    return ReportRelationshipService(backend=UserEntryBackend(driver=neo4j_driver))
+    return ReportRelationshipService(
+        backend=build_production_backends(neo4j_driver)["user_entry_backend"]
+    )
 
 
 @pytest.fixture

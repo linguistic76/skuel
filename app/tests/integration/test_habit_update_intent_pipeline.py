@@ -22,7 +22,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import HabitUpdated
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus
@@ -32,6 +31,7 @@ from core.models.habit.habit_request import HabitUpdateRequest
 from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.models.sentinels import UNSET
 from core.services.habits.habits_core_service import HabitsCoreService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -45,9 +45,7 @@ class TestHabitUpdateIntentPipeline:
 
     @pytest_asyncio.fixture
     async def habits_backend(self, neo4j_driver, clean_neo4j):
-        return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Entity", Habit, default_filters={"entity_type": "habit"}
-        )
+        return build_production_backends(neo4j_driver)["habits_backend"]
 
     @pytest_asyncio.fixture
     async def core_service(self, habits_backend, event_bus):

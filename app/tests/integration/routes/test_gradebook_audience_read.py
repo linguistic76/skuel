@@ -36,10 +36,10 @@ from starlette.responses import Response
 
 from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.user_entry_ui import create_user_entry_ui_routes
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 from core.services.user_entry.user_entry_service import UserEntryService
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -166,7 +166,7 @@ def _collector() -> tuple[RouteDecorator, dict[str, Handler]]:
 @pytest_asyncio.fixture
 async def handlers(neo4j_driver: Any) -> Any:
     """Seed the matrix; yield the two registered handlers over the real read."""
-    backend = UserEntryBackend(driver=neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
     await backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
     seeded = await backend.execute_query(_SEED, _PARAMS)
     assert seeded.is_ok and seeded.value and seeded.value[0]["seeded"] == 1, seeded

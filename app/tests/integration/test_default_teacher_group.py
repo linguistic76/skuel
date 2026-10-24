@@ -24,11 +24,11 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.models.entity import Entity
 from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import default_group_uid
 from core.services.ps.ps_mastery_service import PsMasteryService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -230,7 +230,7 @@ async def enrollment_cap_graph(neo4j_driver):
 
 
 async def test_get_admin_uid_picks_the_oldest_admin(neo4j_driver, admin_pick_graph):
-    backend = UserEntryBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["user_entry_backend"]
 
     result = await backend.get_admin_uid()
 
@@ -336,7 +336,7 @@ async def test_a_revision_is_usable_by_the_student_it_names(neo4j_driver, defaul
 
 def _ps_backend(neo4j_driver) -> PsBackend:
     # Same construction as the conftest `services` fixture.
-    return PsBackend(neo4j_driver, NeoLabel.PATH_STEP, Entity, base_label=NeoLabel.ENTITY)
+    return build_production_backends(neo4j_driver)["ps_backend"]
 
 
 async def test_count_in_progress_counts_path_steps_only(neo4j_driver, enrollment_cap_graph):

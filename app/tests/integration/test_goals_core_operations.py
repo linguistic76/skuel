@@ -25,13 +25,13 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
 from core.models.goal.goal import Goal
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.utils.result_simplified import ErrorCategory
 from core.utils.uid_grammar import slugify
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -47,9 +47,7 @@ class TestGoalsCoreOperations:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return UniversalNeo4jBackend[Goal](
-            neo4j_driver, "Entity", Goal, default_filters={"entity_type": "goal"}
-        )
+        return build_production_backends(neo4j_driver)["goals_backend"]
 
     @pytest_asyncio.fixture
     async def goals_service(self, goals_backend, event_bus):

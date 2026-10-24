@@ -38,10 +38,8 @@ from adapters.persistence.neo4j.backends.activity_backends import (
     PrinciplesBackend,
     TasksBackend,
 )
-from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
 from core.models.enums.habit_enums import HabitCategory
 from core.models.enums.learning_enums import SELCategory
@@ -50,9 +48,7 @@ from core.models.enums.principle_enums import AlignmentLevel
 from core.models.event.event import Event
 from core.models.finance.invoice import InvoicePure, InvoiceType
 from core.models.goal.goal import Goal
-from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
-from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
 from core.models.principle.principle_types import AlignmentAssessment
 from core.models.task.task import Task
@@ -89,6 +85,7 @@ from core.services.user.unified_user_context import RichUserContext
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -393,7 +390,7 @@ class TestCurriculumSetsAreWhole:
                 category=SEL_CATEGORY.value,
                 now=datetime.now(UTC).isoformat(),
             )
-        backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+        backend = build_production_backends(neo4j_driver)["ps_backend"]
         # No stored learner: the service falls back to its default intelligence.
         user_service = MagicMock()
         user_service.get_user = AsyncMock(return_value=Result.ok(None))
@@ -527,9 +524,7 @@ class TestWrittenCapsReadEveryRow:
 
     async def test_habit_badge_progress(self, neo4j_driver, seeded):
         await _set_on_users_nodes(neo4j_driver, NeoLabel.HABIT, "n.total_completions = 1")
-        completions = UniversalNeo4jBackend[HabitCompletion](
-            neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
-        )
+        completions = build_production_backends(neo4j_driver)["habit_completions_backend"]
         service = HabitsCompletionService(
             habits_backend=_backend(neo4j_driver, "habits"), completions_backend=completions
         )
@@ -812,7 +807,7 @@ class TestLargeCapsReadEveryRow:
         assert result.value["stats"]["total"] == LARGE_SET
 
     async def test_invoice_stats(self, neo4j_driver, clean_neo4j):
-        backend = UniversalNeo4jBackend[InvoicePure](neo4j_driver, NeoLabel.INVOICE, InvoicePure)
+        backend = build_production_backends(neo4j_driver)["invoice_backend"]
         created = await backend.create(
             InvoicePure(
                 uid="invoice.whole-set",

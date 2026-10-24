@@ -22,7 +22,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalUpdated
 from core.models.enums import EntityStatus, Priority
 from core.models.goal.goal import Goal
@@ -30,6 +29,7 @@ from core.models.goal.goal_request import GoalUpdateRequest
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.sentinels import UNSET
 from core.services.goals.goals_core_service import GoalsCoreService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -43,9 +43,7 @@ class TestGoalUpdateIntentPipeline:
 
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
-        return UniversalNeo4jBackend[Goal](
-            neo4j_driver, "Entity", Goal, default_filters={"entity_type": "goal"}
-        )
+        return build_production_backends(neo4j_driver)["goals_backend"]
 
     @pytest_asyncio.fixture
     async def core_service(self, goals_backend, event_bus):

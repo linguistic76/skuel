@@ -25,11 +25,11 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import EntityStatus, Priority, Visibility
 from core.models.event.event import Event
 from core.services.events.events_core_service import EventsCoreService
 from core.utils.uid_grammar import slugify
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -45,9 +45,7 @@ class TestEventsCoreOperations:
     @pytest_asyncio.fixture
     async def events_backend(self, neo4j_driver, clean_neo4j):
         """Create events backend with clean database."""
-        return UniversalNeo4jBackend[Event](
-            neo4j_driver, "Entity", Event, default_filters={"entity_type": "event"}
-        )
+        return build_production_backends(neo4j_driver)["events_backend"]
 
     @pytest_asyncio.fixture
     async def events_service(self, events_backend, event_bus):

@@ -27,11 +27,8 @@ import pytest
 import time_machine
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.backends.activity_backends import ChoicesBackend, TasksBackend
 from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
-from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
 from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
@@ -50,6 +47,7 @@ from core.services.groups.group_service import GroupService
 from core.services.search_event_recorder import SearchEventRecorder
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
 from core.services.user_entry.user_entry_service import UserEntryService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 TEACHER = seed_user_uid("6b_teacher")
@@ -180,7 +178,7 @@ async def test_groups_list_newest_first(clean_neo4j, neo4j_driver, newer_is_nati
 
 @pytest.mark.parametrize("newer_is_native", [True, False])
 async def test_recent_tasks_list_by_last_update(clean_neo4j, neo4j_driver, newer_is_native) -> None:
-    tasks = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+    tasks = build_production_backends(neo4j_driver)["tasks_backend"]
     user = seed_user_uid("test")
     for uid in ("task.6b-edited", "task.6b-resynced"):
         created = await tasks.create(
@@ -230,7 +228,7 @@ async def test_recent_tasks_list_by_last_update(clean_neo4j, neo4j_driver, newer
 async def test_curriculum_searches_list_by_last_update(
     clean_neo4j, neo4j_driver, newer_is_native
 ) -> None:
-    kus = KuBackend(neo4j_driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
+    kus = build_production_backends(neo4j_driver)["ku_backend"]
     for uid in ("ku.6b.edited", "ku.6b.resynced"):
         created = await kus.create(Ku(uid=uid, title=f"Breath {uid}", tags=["breath"]))
         assert created.is_ok, created.expect_error()
@@ -284,7 +282,7 @@ async def test_curriculum_searches_list_by_last_update(
 
 
 async def test_pending_choices_order_by_the_deadline_instant(clean_neo4j, neo4j_driver) -> None:
-    choices = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
+    choices = build_production_backends(neo4j_driver)["choices_backend"]
     user = seed_user_uid("test")
     # 10:00 at -07:00 is 17:00Z, after the offset-less 12:00 (UTC) — though its
     # digits sort first.
@@ -323,7 +321,10 @@ async def test_pending_choices_order_by_the_deadline_instant(clean_neo4j, neo4j_
 async def test_shared_lists_order_by_the_share_instant(clean_neo4j, neo4j_driver) -> None:
     await _seed_classroom(neo4j_driver)
     sharing = UnifiedSharingService(backend=SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity))
-    entries = UserEntryService(backend=UserEntryBackend(neo4j_driver), sharing_service=sharing)  # type: ignore[arg-type]
+    entries = UserEntryService(
+        backend=build_production_backends(neo4j_driver)["user_entry_backend"],
+        sharing_service=sharing,
+    )
     second = datetime.now(UTC).replace(microsecond=0) - timedelta(hours=1)
     # The earlier share lands on a whole second; the later one half a second on.
     shares = {"first": second, "later": second + timedelta(milliseconds=500)}

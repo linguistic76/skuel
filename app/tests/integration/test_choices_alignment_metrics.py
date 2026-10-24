@@ -47,12 +47,10 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.activity_backends import ChoicesBackend
-from core.models.choice.choice import Choice
-from core.models.enums.neo_labels import NeoLabel
 from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS
 from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("choice_alignment")
@@ -161,7 +159,7 @@ class TestChoicesAlignmentMetrics:
         # Backend and relationship service constructed as the composition root builds them
         # (services_bootstrap/_backends.py + create_common_sub_services), so the test
         # exercises the production label pair and the production registry config.
-        backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
+        backend = build_production_backends(neo4j_driver)["choices_backend"]
         # boundary: service-registry — mirrors the parameterisation the composition root
         # produces (activity_domain_config.py:330); annotated because mypy cannot infer the
         # type arguments from these constructor arguments.
@@ -264,7 +262,7 @@ class TestChoicesAlignmentMetrics:
         `analyze_learning_patterns` is route-reachable (`choices_api.py:191`): a read-time
         raise would turn a mis-wired service into a 500 on a live route.
         """
-        backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
+        backend = build_production_backends(neo4j_driver)["choices_backend"]
 
         with pytest.raises(ValueError, match="requires relationship_service"):
             ChoicesIntelligenceService(backend=backend, cross_domain_query=None)

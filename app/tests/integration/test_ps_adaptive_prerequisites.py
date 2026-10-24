@@ -12,8 +12,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.path_step import PathStep
+from tests.helpers.production_backends import build_production_backends
 
 pytestmark = pytest.mark.integration
 
@@ -33,7 +32,7 @@ async def backend(neo4j_driver) -> PsBackend:
             CREATE (a)-[:REQUIRES_KNOWLEDGE]->(root)
             """
         )
-    yield PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    yield build_production_backends(neo4j_driver)["ps_backend"]
     async with neo4j_driver.session() as session:
         await session.run("MATCH (n:Entity) WHERE n.uid STARTS WITH 'ps.prereq-' DETACH DELETE n")
 

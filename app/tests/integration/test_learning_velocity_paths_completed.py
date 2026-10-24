@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 import pytest
 import pytest_asyncio
 
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 LEARNER = seed_user_uid("paths_completed")
@@ -57,12 +58,11 @@ class TestPathsCompleted:
     @pytest_asyncio.fixture
     async def doors(self, neo4j_driver):
         from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
-        from adapters.persistence.neo4j.user_backend import UserBackend
         from core.models.enums.neo_labels import NeoLabel
         from core.models.pathways.learning_path import LearningPath
 
         return (
-            UserBackend(neo4j_driver),
+            build_production_backends(neo4j_driver)["users_backend"],
             LpBackend(
                 neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
             ),

@@ -19,7 +19,6 @@ from datetime import date, timedelta
 
 import pytest
 
-from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
 from core.models.choice.choice import Choice
 from core.models.enums import (
     Domain,
@@ -35,7 +34,6 @@ from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.event_enums import AttendanceStatus
 from core.models.enums.habit_enums import HabitCategory
-from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.event.event import Event
 from core.models.event.event_request import AddAttendeeRequest, RemoveAttendeeRequest
@@ -62,8 +60,7 @@ class TestRelationshipLinkRoundTrip:
     async def _make_ku(self, ku_backend, uid: str) -> None:
         """A shared ``:Ku`` — written through ``KuBackend``, so it carries the label."""
         ku = Ku(uid=uid, title=uid, domain=Domain.TECH, sel_category=SELCategory.SELF_AWARENESS)
-        backend = KuBackend(ku_backend.driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
-        assert (await backend.create(ku)).is_ok
+        assert (await ku_backend.create(ku)).is_ok
 
     async def _make_task(self, services, uid: str) -> None:
         task = Task(

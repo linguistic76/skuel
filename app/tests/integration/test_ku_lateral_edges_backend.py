@@ -13,8 +13,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.path_step import PathStep
+from tests.helpers.production_backends import build_production_backends
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -29,7 +28,7 @@ _FIXTURE_UIDS = [
 
 @pytest.fixture
 def ps_backend(neo4j_driver) -> PsBackend:
-    return PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    return build_production_backends(neo4j_driver)["ps_backend"]
 
 
 @pytest_asyncio.fixture(loop_scope="session")

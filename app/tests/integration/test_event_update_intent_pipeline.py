@@ -29,14 +29,12 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import EventsBackend
 from core.events.calendar_event_events import (
     CalendarEventCompleted,
     CalendarEventRescheduled,
     CalendarEventUpdated,
 )
 from core.models.enums import EntityStatus, Priority
-from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.event.event_request import EventUpdateRequest
 from core.models.event.event_update_intent import EventUpdateIntent
@@ -44,6 +42,7 @@ from core.models.sentinels import UNSET
 from core.services.events.events_core_service import EventsCoreService
 from core.services.events_service import EventsService
 from core.services.mixins.link_edge_guard import GOAL_FAR_END, HABIT_FAR_END
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -60,7 +59,7 @@ class TestEventUpdateIntentPipeline:
         # Real domain backend (multi-label :Entity:Event) so the facade's learning
         # sub-service binds `get_user_events` and relationship validation sees the
         # source domain label.
-        return EventsBackend(neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["events_backend"]
 
     @pytest_asyncio.fixture
     async def core_service(self, events_backend, event_bus):

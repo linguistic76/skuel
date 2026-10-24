@@ -27,6 +27,7 @@ import pytest
 
 from adapters.persistence.neo4j.backends.misc_backends import ActivityReportGeneratorBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 _COOLDOWN = seed_user_uid("cooldown")
@@ -121,9 +122,6 @@ class TestNewestFirstCoercion:
     async def test_newest_first_reads_order_by_the_coerced_value(
         self, neo4j_driver, clean_neo4j, newer_is_datetime
     ):
-        from adapters.persistence.neo4j.backends.misc_backends import ActivityReportBackend
-        from core.models.enums.neo_labels import NeoLabel
-        from core.models.report.activity_report import ActivityReport
 
         now = datetime.now(UTC)
         older_iso = (now - timedelta(days=2)).isoformat()
@@ -150,9 +148,7 @@ class TestNewestFirstCoercion:
                 newer=newer_iso,
                 order=_ORDER,
             )
-        backend = ActivityReportBackend(
-            neo4j_driver, NeoLabel.ACTIVITY_REPORT, ActivityReport, base_label=NeoLabel.ENTITY
-        )
+        backend = build_production_backends(neo4j_driver)["activity_report_backend"]
 
         found = await backend.find_by_period(_ORDER, _ORDER, "2026-09")
         history = await backend.get_history(_ORDER)

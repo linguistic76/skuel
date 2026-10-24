@@ -26,15 +26,12 @@ from datetime import UTC, datetime, time, timedelta, timezone
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.activity_backends import HabitsBackend
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.neo_labels import NeoLabel
-from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("completion_range")
@@ -78,12 +75,9 @@ async def _seed_native_completion(neo4j_driver) -> None:
 class TestHabitCompletionRangeReads:
     @pytest_asyncio.fixture
     async def seeded(self, neo4j_driver, clean_neo4j):
-        habits_backend = HabitsBackend(
-            neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY
-        )
-        completions_backend = UniversalNeo4jBackend[HabitCompletion](
-            neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
-        )
+        backends = build_production_backends(neo4j_driver)
+        habits_backend = backends["habits_backend"]
+        completions_backend = backends["habit_completions_backend"]
         created = await habits_backend.create(
             Habit(uid=HABIT, user_uid=USER, entity_type=EntityType.HABIT, title="Range")
         )

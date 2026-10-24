@@ -20,7 +20,6 @@ from collections.abc import AsyncGenerator
 import pytest
 import pytest_asyncio
 
-from core.models.askesis.askesis import Askesis
 from core.models.askesis.askesis_request import (
     AskesisCreateRequest,
     AskesisUpdateRequest,
@@ -29,16 +28,14 @@ from core.models.enums import GuidanceMode
 from core.models.enums.askesis_enums import QueryComplexity
 from core.services.askesis.askesis_core_service import AskesisCoreService
 from core.utils.uid_generator import UIDGenerator
+from tests.helpers.production_backends import build_production_backends
 
 
 @pytest.fixture
 async def core_service(neo4j_driver):
     """Create AskesisCoreService for testing."""
-    from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
-    backend = UniversalNeo4jBackend[Askesis](
-        driver=neo4j_driver, label="Askesis", entity_class=Askesis
-    )
+    backend = build_production_backends(neo4j_driver)["askesis_backend"]
 
     return AskesisCoreService(backend=backend)
 

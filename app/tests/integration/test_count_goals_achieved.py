@@ -22,8 +22,8 @@ from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
 from core.models.enums import EntityStatus
-from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("agg_count")
@@ -37,7 +37,7 @@ class TestCountGoalsAchieved:
         # Mirror the production construction (services_bootstrap/_backends.py):
         # multi-label :Entity:Goal nodes — the count's MATCH is on (g:Goal), so
         # a test backend that wrote bare :Entity nodes would pass vacuously.
-        return GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["goals_backend"]
 
     async def _seed_achieved(
         self, backend: GoalsBackend, uid: str, achieved: str, user_uid: str = USER

@@ -36,9 +36,7 @@ from adapters.persistence.neo4j.backends import collab_backends
 from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, TasksBackend
 from adapters.persistence.neo4j.backends.collab_backends import GroupBackend, NotificationBackend
 from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
-from adapters.persistence.neo4j.backends.misc_backends import ActivityReportBackend
 from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
 from adapters.persistence.neo4j.graph_driver import (
     UTC_INSTANTS,
@@ -59,7 +57,6 @@ from core.models.enums.notification_enums import NotificationType
 from core.models.goal.goal import Goal
 from core.models.group.group import Group
 from core.models.ku.ku import Ku
-from core.models.report.activity_report import ActivityReport
 from core.models.task.task import Task
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
@@ -71,6 +68,7 @@ from core.services.user_entry.user_entry_service import UserEntryService
 from core.utils import timestamp_helpers
 from core.utils.result_simplified import Result
 from tests.helpers.forced_zone import forced_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "migrations" / "utc_instants_2026_10.py"
@@ -163,18 +161,17 @@ async def _seed(driver: Any) -> Corpus:
         admin=ADMIN,
         group=CLASS,
     )
-    tasks = TasksBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
-    goals = GoalsBackend(driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
-    kus = KuBackend(driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
+    backends = build_production_backends(driver)
+    tasks = backends["tasks_backend"]
+    goals = backends["goals_backend"]
+    kus = backends["ku_backend"]
     executor = Neo4jQueryExecutor(driver)
     groups = GroupBackend(driver, NeoLabel.GROUP, Group)
     sharing = UnifiedSharingService(backend=SharingBackend(driver, NeoLabel.ENTITY, Entity))
-    entries = UserEntryService(backend=UserEntryBackend(driver), sharing_service=sharing)  # type: ignore[arg-type]
+    entries = UserEntryService(backend=backends["user_entry_backend"], sharing_service=sharing)
     notifications = NotificationService(backend=NotificationBackend(executor=executor))
     reports = ActivityReportService(
-        backend=ActivityReportBackend(
-            driver, NeoLabel.ACTIVITY_REPORT, ActivityReport, base_label=NeoLabel.ENTITY
-        ),
+        backend=backends["activity_report_backend"],
         context_builder=None,  # type: ignore[arg-type]
         event_bus=None,
         sharing_service=sharing,
@@ -649,7 +646,7 @@ async def test_the_census_stops_on_what_no_rule_settles(
         admin=ADMIN,
         default=f"group_default_{ADMIN}",
     )
-    tasks = TasksBackend(graph, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+    tasks = build_production_backends(graph)["tasks_backend"]
     if case == "zone_change_day":
         with (
             _the_old_code(),

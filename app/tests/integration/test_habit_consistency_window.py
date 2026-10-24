@@ -54,6 +54,7 @@ import pytest_asyncio
 from core.constants import HabitConsistencyWindow
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 WINDOW = seed_user_uid("consistency_window")
@@ -296,13 +297,9 @@ class TestHabitConsistencyWindow:
         ``completed_at`` the mapper produces all have to line up with what the
         query matches.
         """
-        from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-        from core.models.enums.neo_labels import NeoLabel
         from core.models.habit.completion import HabitCompletion
 
-        completions_backend = UniversalNeo4jBackend[HabitCompletion](
-            neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
-        )
+        completions_backend = build_production_backends(neo4j_driver)["habit_completions_backend"]
         now = datetime.now()
         created = await completions_backend.create(
             HabitCompletion(
@@ -368,20 +365,13 @@ class TestHabitConsistencyWindow:
         handler would never see these two. Driven through the real door, on two
         days, so the moments are the door's own.
         """
-        from adapters.persistence.neo4j.backends.activity_backends import HabitsBackend
-        from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.enums.entity_enums import EntityType
-        from core.models.enums.neo_labels import NeoLabel
-        from core.models.habit.completion import HabitCompletion
         from core.models.habit.habit import Habit
         from core.services.habits.habits_completion_service import HabitsCompletionService
 
-        habits_backend = HabitsBackend(
-            neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY
-        )
-        completions_backend = UniversalNeo4jBackend[HabitCompletion](
-            neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
-        )
+        backends = build_production_backends(neo4j_driver)
+        habits_backend = backends["habits_backend"]
+        completions_backend = backends["habit_completions_backend"]
         habit_uid = "habit.bulk-logged"
         created = await habits_backend.create(
             Habit(uid=habit_uid, user_uid=BULK, entity_type=EntityType.HABIT, title="Bulk")

@@ -23,19 +23,10 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import (
-    EventsBackend,
-    GoalsBackend,
-    HabitsBackend,
-)
 from core.events.calendar_event_events import CalendarEventCreated
 from core.models.enums import Domain, MeasurementType, Priority, RecurrencePattern
-from core.models.enums.neo_labels import NeoLabel
-from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest
-from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest
-from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import HABITS_CONFIG
@@ -47,6 +38,7 @@ from core.services.relationships.unified_relationship_service import (
     UnifiedRelationshipService,
 )
 from core.services.user import UserContext
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("test_habit_event_goals")
@@ -80,13 +72,13 @@ async def users(neo4j_driver, clean_neo4j):
 
 @pytest_asyncio.fixture
 async def goals_service(neo4j_driver, clean_neo4j, event_bus):
-    backend = GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["goals_backend"]
     return GoalsCoreService(backend=backend, event_bus=event_bus)
 
 
 @pytest_asyncio.fixture
 async def habits_backend(neo4j_driver, clean_neo4j):
-    return HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
+    return build_production_backends(neo4j_driver)["habits_backend"]
 
 
 @pytest_asyncio.fixture
@@ -96,7 +88,7 @@ async def habits_service(habits_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def events_backend(neo4j_driver, clean_neo4j):
-    return EventsBackend(neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY)
+    return build_production_backends(neo4j_driver)["events_backend"]
 
 
 @pytest_asyncio.fixture
