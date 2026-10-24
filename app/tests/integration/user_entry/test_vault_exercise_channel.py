@@ -44,6 +44,7 @@ from core.services.groups.group_service import GroupService
 from core.services.ingestion.user_entry_ingestion import ingest_user_entry
 from core.services.interaction import InteractionService
 from core.services.user_entry.user_entry_service import UserEntryService
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -335,8 +336,8 @@ async def test_unreachable_teacher_surfaces_error_and_compensates(
     """A submitted copy that reaches no teacher/group is never written and is
     reported — the living entry stays. (The student is in progress on the
     exercise's step, so the use-guard passes; the exercise names no teacher.)"""
-    student = await seed_user("user_ue_loner", name="Loner")
-    exercise_uid = await seed_exercise("exercise.ue_unreviewed", learner_uids=(student,))
+    student = await seed_user(seed_user_uid("ue_loner"), name="Loner")
+    exercise_uid = await seed_exercise("exercise.ue-unreviewed", learner_uids=(student,))
 
     result = await _sync(
         channel_service,
@@ -406,7 +407,7 @@ async def test_an_authored_uid_never_edits_a_submission(
             """
             MATCH (u:User {uid: $student})
             CREATE (t:Entity:UserEntry {
-                uid: 'ue_ai_turn_in', entity_type: 'user_entry', title: 'AI turn-in',
+                uid: 'ue.ai-turn-in', entity_type: 'user_entry', title: 'AI turn-in',
                 user_uid: $student, pipeline: 'llm_summary', status: 'active',
                 content: '- asked the AI', turn_in_exercise_uid: $exercise,
                 created_at: datetime(), updated_at: datetime()
@@ -417,7 +418,7 @@ async def test_an_authored_uid_never_edits_a_submission(
             exercise=ctx["exercise_uid"],
         )
     squat_ai = await ingest_user_entry(
-        data={**other_note, "uid": "ue_ai_turn_in"},
+        data={**other_note, "uid": "ue.ai-turn-in"},
         file_path=Path("/vault/knowledge/squatter.md"),
         user_uid=ctx["student_uid"],
         user_entry_service=channel_service,
@@ -426,7 +427,7 @@ async def test_an_authored_uid_never_edits_a_submission(
     assert squat_ai.expect_error().details["field"] == "uid"
     async with neo4j_driver.session() as session:
         ai = await (
-            await session.run("MATCH (t:Entity {uid: 'ue_ai_turn_in'}) RETURN t.content AS content")
+            await session.run("MATCH (t:Entity {uid: 'ue.ai-turn-in'}) RETURN t.content AS content")
         ).single()
     assert ai is not None and ai["content"] == "- asked the AI"
 
@@ -559,7 +560,7 @@ async def test_stop_sharing_a_copy_stays_durable_until_the_note_changes(
     re-files nor re-shares. A real edit of the audience files a new copy."""
     ctx = await seed_classroom()
     await _study_in(neo4j_driver, ctx["student_uid"], ctx["group_uid"])
-    reader = await seed_user("user_ue_reader", name="Reader")
+    reader = await seed_user(seed_user_uid("ue_reader"), name="Reader")
     await seed_membership(reader, ctx["group_uid"])
     async with neo4j_driver.session() as session:
         await session.run("MATCH (u:User {uid: $uid}) SET u.title = 'ue_reader'", uid=reader)
@@ -672,7 +673,7 @@ async def test_another_users_living_entry_is_invisible(
     """Ownership scope: student B's status rows never reflect student A's
     living entry against the same exercise."""
     ctx = await seed_classroom()
-    other = await seed_user("user_ue_other", name="Other")
+    other = await seed_user(seed_user_uid("ue_other"), name="Other")
     await seed_exercise(ctx["exercise_uid"], learner_uids=(other,))
 
     result = await _sync(
@@ -703,7 +704,7 @@ async def test_user_entry_backend_reads_organized_children(
         await session.run(
             """
             MATCH (living:Entity:UserEntry {uid: $living_uid})
-            MERGE (t:Entity:Task {uid: 'tk_moc_child', entity_type: 'task',
+            MERGE (t:Entity:Task {uid: 'tk.moc-child', entity_type: 'task',
                                   title: 'Child task'})
             MERGE (ex:Entity {uid: $exercise_uid})
             MERGE (living)-[:ORGANIZES {order: 1}]->(t)
@@ -716,7 +717,7 @@ async def test_user_entry_backend_reads_organized_children(
     children_result = await user_entry_backend.get_organized_children(LIVING_UID)
     assert children_result.is_ok, children_result.expect_error()
     children = children_result.value
-    assert [c["uid"] for c in children] == [ctx["exercise_uid"], "tk_moc_child"]
+    assert [c["uid"] for c in children] == [ctx["exercise_uid"], "tk.moc-child"]
     assert children[0]["entity_type"] == "exercise"
     assert children[1]["entity_type"] == "task"
     assert [c["order"] for c in children] == [0, 1]

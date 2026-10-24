@@ -27,6 +27,7 @@ from core.services.report.teacher_review_service import (
     REVISION_NAMED_TEACHER_ONLY,
     REVISION_NEEDS_EXERCISE,
 )
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client, sync_vault_exercises
 
 if TYPE_CHECKING:
@@ -48,9 +49,9 @@ MARK = "zzzrevisiondoor"
 NAMED_MARK = f"{MARK}n"
 CLASS_MARK = f"{MARK}c"
 LEARNER_MARK = f"{MARK}l"
-NAMED = f"user_{NAMED_MARK}"  # the teacher the exercise's vault file names
-CLASS_TEACHER = f"user_{CLASS_MARK}"  # owns a class the learner is in; not named
-LEARNER = f"user_{LEARNER_MARK}"
+NAMED = seed_user_uid(f"{NAMED_MARK}")  # the teacher the exercise's vault file names
+CLASS_TEACHER = seed_user_uid(f"{CLASS_MARK}")  # owns a class the learner is in; not named
+LEARNER = seed_user_uid(f"{LEARNER_MARK}")
 STEP = f"ps.{MARK}.step"
 PRACTICE = f"ex.{MARK}.practice"
 USERS = [NAMED, CLASS_TEACHER, LEARNER]

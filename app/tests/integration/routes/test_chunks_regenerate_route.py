@@ -35,6 +35,7 @@ from core.services.entity_chunking_service import EntityChunkingService
 from core.utils.result_simplified import Result
 from tests.fixtures.csrf import attach_csrf
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.seed_uids import seed_user_uid
 
 
 class _RouteRegistry:
@@ -76,7 +77,7 @@ def _admin_user_service() -> MagicMock:
 
 def _admin_request(json_body: dict | None = None):
     request = SimpleNamespace()
-    request.session = {"user_uid": "user_admin"}
+    request.session = {"user_uid": seed_user_uid("admin")}
     request.method = "POST"
     request.url = SimpleNamespace(path="/api/chunks/regenerate")
     request.body = AsyncMock(return_value=json.dumps(json_body or {}).encode())

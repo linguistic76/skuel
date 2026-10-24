@@ -21,11 +21,12 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.result_simplified import ErrorCategory
+from tests.helpers.seed_uids import seed_user_uid
 
-_STUDENT = "user_writer_student"
-_OTHER_STUDENT = "user_writer_other_student"
+_STUDENT = seed_user_uid("writer_student")
+_OTHER_STUDENT = seed_user_uid("writer_other_student")
 _ROOT = "ex.writer.root"
-_REVISION = "re_writer_revision"
+_REVISION = "re.writer-revision"
 
 
 @pytest.fixture
@@ -98,14 +99,14 @@ async def test_an_untitled_turn_in_is_titled_from_the_root_and_the_version_is_st
 ) -> None:
     backend = UserEntryBackend(neo4j_driver)
 
-    result = await backend.create_with_exercise_link(_entry("ue_writer_1", ""), _ROOT)
+    result = await backend.create_with_exercise_link(_entry("ue.writer-1", ""), _ROOT)
 
     assert result.is_ok, result.error
     assert result.value.title == "Root v1"
     assert result.value.turn_in_revision == 1
     assert result.value.turn_in_exercise_uid == _ROOT
     assert result.value.turn_in_exercise_title == "Root"
-    stored = await _stored(neo4j_driver, "ue_writer_1")
+    stored = await _stored(neo4j_driver, "ue.writer-1")
     assert stored["title"] == "Root v1"
     assert stored["turn_in_revision"] == 1
     assert stored["edge_revision"] == 1
@@ -117,15 +118,15 @@ async def test_the_students_title_is_kept_verbatim(
     neo4j_driver: AsyncDriver, root_and_revision: None
 ) -> None:
     backend = UserEntryBackend(neo4j_driver)
-    first = await backend.create_with_exercise_link(_entry("ue_writer_first", ""), _ROOT)
+    first = await backend.create_with_exercise_link(_entry("ue.writer-first", ""), _ROOT)
     assert first.is_ok, first.error
 
-    result = await backend.create_with_exercise_link(_entry("ue_writer_2", "My own words"), _ROOT)
+    result = await backend.create_with_exercise_link(_entry("ue.writer-2", "My own words"), _ROOT)
 
     assert result.is_ok, result.error
     assert result.value.title == "My own words"
     assert result.value.turn_in_revision == 2
-    stored = await _stored(neo4j_driver, "ue_writer_2")
+    stored = await _stored(neo4j_driver, "ue.writer-2")
     assert stored["title"] == "My own words"
     assert stored["turn_in_revision"] == 2
     assert stored["edge_revision"] == 2
@@ -137,14 +138,14 @@ async def test_a_revision_target_counts_on_the_root_and_is_titled_from_it(
 ) -> None:
     """A revision is titled "Revision N"; the default names the root the snapshot holds."""
     backend = UserEntryBackend(neo4j_driver)
-    first = await backend.create_with_exercise_link(_entry("ue_writer_first", ""), _ROOT)
+    first = await backend.create_with_exercise_link(_entry("ue.writer-first", ""), _ROOT)
     assert first.is_ok, first.error
 
-    result = await backend.create_with_exercise_link(_entry("ue_writer_3", ""), _REVISION)
+    result = await backend.create_with_exercise_link(_entry("ue.writer-3", ""), _REVISION)
 
     assert result.is_ok, result.error
     assert result.value.title == "Root v2"
-    stored = await _stored(neo4j_driver, "ue_writer_3")
+    stored = await _stored(neo4j_driver, "ue.writer-3")
     assert stored["root_uid"] == _ROOT
     assert stored["root_title"] == "Root"
     assert stored["turn_in_revision"] == 2
@@ -158,10 +159,10 @@ async def test_each_owner_has_their_own_sequence_on_an_exercise(
 ) -> None:
     backend = UserEntryBackend(neo4j_driver)
 
-    mine_1 = await backend.create_with_exercise_link(_entry("ue_mine_1", ""), _ROOT)
-    mine_2 = await backend.create_with_exercise_link(_entry("ue_mine_2", ""), _ROOT)
+    mine_1 = await backend.create_with_exercise_link(_entry("ue.mine-1", ""), _ROOT)
+    mine_2 = await backend.create_with_exercise_link(_entry("ue.mine-2", ""), _ROOT)
     theirs = await backend.create_with_exercise_link(
-        _entry("ue_theirs_1", "", owner=_OTHER_STUDENT), _ROOT
+        _entry("ue.theirs-1", "", owner=_OTHER_STUDENT), _ROOT
     )
 
     assert mine_1.is_ok and mine_2.is_ok and theirs.is_ok
@@ -175,19 +176,19 @@ async def test_a_deleted_turn_in_does_not_hand_its_number_to_a_later_one(
 ) -> None:
     """v1, v2, delete v1: the next is v3 — a living entry holds v2."""
     backend = UserEntryBackend(neo4j_driver)
-    for uid in ("ue_gap_1", "ue_gap_2"):
+    for uid in ("ue_gap_1", "ue.gap-2"):
         created = await backend.create_with_exercise_link(_entry(uid, ""), _ROOT)
         assert created.is_ok, created.error
     deleted = await backend.delete("ue_gap_1", cascade=True)
     assert deleted.is_ok, deleted.error
 
-    result = await backend.create_with_exercise_link(_entry("ue_gap_3", ""), _ROOT)
+    result = await backend.create_with_exercise_link(_entry("ue.gap-3", ""), _ROOT)
 
     assert result.is_ok, result.error
     assert result.value.turn_in_revision == 3
     assert result.value.title == "Root v3"
-    assert (await _stored(neo4j_driver, "ue_gap_2"))["edge_revision"] == 2
-    assert (await _stored(neo4j_driver, "ue_gap_3"))["edge_revision"] == 3
+    assert (await _stored(neo4j_driver, "ue.gap-2"))["edge_revision"] == 2
+    assert (await _stored(neo4j_driver, "ue.gap-3"))["edge_revision"] == 3
 
 
 @pytest.mark.asyncio
@@ -196,18 +197,18 @@ async def test_an_edge_without_a_revision_counts_by_its_snapshot(
 ) -> None:
     """A prior entry whose edge carries no ``revision`` is read by its ``turn_in_revision``."""
     backend = UserEntryBackend(neo4j_driver)
-    prior = await backend.create_with_exercise_link(_entry("ue_legacy", ""), _ROOT)
+    prior = await backend.create_with_exercise_link(_entry("ue.legacy", ""), _ROOT)
     assert prior.is_ok, prior.error
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MATCH (e:Entity {uid: 'ue_legacy'})-[r:FULFILLS_EXERCISE]->()
+            MATCH (e:Entity {uid: 'ue.legacy'})-[r:FULFILLS_EXERCISE]->()
             REMOVE r.revision
             SET e.turn_in_revision = 4
             """
         )
 
-    result = await backend.create_with_exercise_link(_entry("ue_after_legacy", ""), _ROOT)
+    result = await backend.create_with_exercise_link(_entry("ue.after-legacy", ""), _ROOT)
 
     assert result.is_ok, result.error
     assert result.value.turn_in_revision == 5
@@ -221,12 +222,12 @@ async def test_concurrent_turn_ins_of_one_pair_take_distinct_revisions(
     backend = UserEntryBackend(neo4j_driver)
 
     results = await asyncio.gather(
-        *(backend.create_with_exercise_link(_entry(f"ue_race_{i}", ""), _ROOT) for i in range(6))
+        *(backend.create_with_exercise_link(_entry(f"ue.race-{i}", ""), _ROOT) for i in range(6))
     )
 
     assert all(result.is_ok for result in results), [r.error for r in results if r.is_error]
     assert sorted(result.value.turn_in_revision for result in results) == [1, 2, 3, 4, 5, 6]
-    stored = [await _stored(neo4j_driver, f"ue_race_{i}") for i in range(6)]
+    stored = [await _stored(neo4j_driver, f"ue.race-{i}") for i in range(6)]
     assert sorted(row["edge_revision"] for row in stored) == [1, 2, 3, 4, 5, 6]
     assert all(row["edge_revision"] == row["turn_in_revision"] for row in stored)
     # The lock's sentinel never outlives its statement.
@@ -261,7 +262,7 @@ async def test_an_owner_who_does_not_exist_writes_nothing(
     backend = UserEntryBackend(neo4j_driver)
 
     result = await backend.create_with_exercise_link(
-        _entry("ue_ownerless", "Mine", owner="user_writer_nobody"), _ROOT
+        _entry("ue_ownerless", "Mine", owner=seed_user_uid("writer_nobody")), _ROOT
     )
 
     assert result.is_error

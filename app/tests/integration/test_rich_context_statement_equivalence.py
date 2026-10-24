@@ -43,8 +43,9 @@ from core.models.user.user import User
 from core.services.user.user_context_builder import UserContextBuilder
 from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
-_USER_UID = UserUID("user_test")
+_USER_UID = seed_user_uid("test")
 # Noon yesterday: inside every activity window the reads apply (a fixed calendar
 # date ages out of the 30-day window and drops the in-window rows the test pins).
 _SEEDED_AT = datetime.combine(datetime.now().date() - timedelta(days=1), time(12, 0))
@@ -110,7 +111,7 @@ CREATE (h_pre:Entity:Habit {uid: 'habit.eq.pre', entity_type: 'habit', title: 'P
 CREATE (h_old:Entity:Habit {uid: 'habit.eq.old', entity_type: 'habit', title: 'Old habit', status: 'completed',
                             updated_at: $old, user_uid: $user_uid})
 CREATE (h_other:Entity:Habit {uid: 'habit.eq.other', entity_type: 'habit', title: 'Other user habit',
-                              status: 'active', updated_at: $iso, user_uid: 'user_other'})
+                              status: 'active', updated_at: $iso, user_uid: $other})
 CREATE (u)-[:OWNS]->(h_active) CREATE (u)-[:OWNS]->(h_pre) CREATE (u)-[:OWNS]->(h_old)
 CREATE (h_active)-[:SUPPORTS_GOAL]->(g_active)
 CREATE (h_active)-[:REINFORCES_KNOWLEDGE]->(ku_a)
@@ -173,7 +174,7 @@ CREATE (ps_life)-[:USES_KU]->(ku_draft)
 CREATE (g_active)-[:SERVES_LIFE_PATH]->(life)
 CREATE (g_done)-[:SERVES_LIFE_PATH]->(life)
 CREATE (g_other:Entity:Goal {uid: 'goal.eq.other', entity_type: 'goal', title: 'Other user goal',
-                             status: 'active', user_uid: 'user_other'})
+                             status: 'active', user_uid: $other})
 CREATE (g_other)-[:SERVES_LIFE_PATH]->(life)
 CREATE (moc:Entity {uid: 'moc.eq.one', entity_type: 'ku', title: 'MOC', updated_at: $iso})
 CREATE (u)-[:OWNS]->(moc)
@@ -189,7 +190,7 @@ CREATE (ar_new:Entity:ActivityReport {uid: 'ar.eq.new', entity_type: 'activity_r
 // review, not the user's generation.
 CREATE (ar_admin:Entity:ActivityReport {uid: 'ar.eq.admin', entity_type: 'activity_report', time_period: '2026-W38',
                                         period_end: '2026-09-21', processed_content: 'Admin review',
-                                        processor_type: 'human', created_by: 'user_admin'})
+                                        processor_type: 'human', created_by: $admin})
 CREATE (u)-[:OWNS]->(ar_old) CREATE (u)-[:OWNS]->(ar_new) CREATE (u)-[:OWNS]->(ar_admin)
 CREATE (i_live:Insight {uid: 'ins.eq.active', insight_type: 'cross_domain', title: 'Live insight', impact: 'high',
                         confidence: 0.9, dismissed: false, actioned: false})
@@ -204,6 +205,8 @@ def _seed_params(user_uid: UserUID) -> dict[str, Any]:
     today = today_in(current_zone())
     return {
         "user_uid": user_uid,
+        "other": seed_user_uid("other"),
+        "admin": seed_user_uid("admin"),
         "iso": _SEEDED_AT.isoformat(),
         "old": (_SEEDED_AT - timedelta(days=60)).isoformat(),
         "today": today.isoformat(),
@@ -231,7 +234,7 @@ def _by_uid(items: list[dict[str, Any]], key: str = "entity") -> dict[str, dict[
 _SEED_COMPLETIONS = """
 MATCH (u:User {uid: $user_uid})
 UNWIND $stamps AS stamp
-CREATE (hc:HabitCompletion {uid: 'hc.eq.' + stamp, habit_uid: 'habit.eq.active',
+CREATE (hc:HabitCompletion {uid: 'hc.eq.' + left(stamp, 10), habit_uid: 'habit.eq.active',
                             user_uid: $user_uid, completed_at: stamp})
 CREATE (u)-[:OWNS]->(hc)
 """
@@ -787,7 +790,7 @@ async def test_an_unknown_user_reads_as_the_empty_sentinel(
 ) -> None:
     executor = UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver))
 
-    result = await executor.execute_mega_query(UserUID("user_nobody"))
+    result = await executor.execute_mega_query(seed_user_uid("nobody"))
 
     assert result.is_ok and result.value == {"uids": {}, "entities": {}, "rich": {}}
 
@@ -797,7 +800,7 @@ async def test_a_learner_whose_every_insight_is_dismissed_keeps_the_rest_of_the_
     neo4j_driver: AsyncDriver, clean_neo4j
 ) -> None:
     """The insight predicate is on the OPTIONAL MATCH, so no row is filtered before the aggregation."""
-    user_uid = UserUID("user_test_123")
+    user_uid = seed_user_uid("test_123")
     async with neo4j_driver.session() as session:
         await session.run(
             """
@@ -827,7 +830,7 @@ async def test_a_learner_whose_every_insight_is_dismissed_keeps_the_rest_of_the_
 @pytest.mark.asyncio
 async def test_a_goal_with_milestones_builds(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
     """Goal.milestones is a JSON string on the node; no projection iterates it as a list."""
-    user_uid = UserUID("user_test_456")
+    user_uid = seed_user_uid("test_456")
     milestones = '[{"uid": "m1", "title": "First", "is_completed": true}]'
     async with neo4j_driver.session() as session:
         await session.run(

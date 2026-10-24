@@ -189,11 +189,12 @@ from core.services.embeddings_service import EmbeddingsService
 from core.services.llm_service import LLMService
 from core.services.tasks.tasks_ai_service import TasksAIService
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.fixture
 def tasks_ai() -> TasksAIService:
-    task = MagicMock(uid="task_a", title="Write report", description="", user_uid="user_a")
+    task = MagicMock(uid="task.a", title="Write report", description="", user_uid=seed_user_uid("a"))
     backend = MagicMock()
     backend.get = AsyncMock(return_value=Result.ok(task))
     backend.find_by = AsyncMock(return_value=Result.ok([task]))

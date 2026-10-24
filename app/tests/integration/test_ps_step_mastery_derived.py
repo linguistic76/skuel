@@ -25,15 +25,15 @@ from core.events.curriculum_events import PathStepCompleted
 from core.events.learning_events import KnowledgeMastered
 from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.path_step import PathStep
-from core.models.type_hints import UserUID
 from core.services.ps.ps_mastery_service import (
     STEP_MASTERY_METHOD,
     STEP_MASTERY_SCORE,
     LearningState,
     PsMasteryService,
 )
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = UserUID("user_step_mastery_derived")
+USER = seed_user_uid("step_mastery_derived")
 STEP = "ps.probe.two-kus"
 STEP_EMPTY = "ps.probe.zero-kus"
 STEP_DRAFT = "ps.probe.draft"

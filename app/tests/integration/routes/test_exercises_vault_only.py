@@ -28,6 +28,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import signed_in_client, sync_vault, touch_forward
 
 if TYPE_CHECKING:
@@ -50,18 +51,18 @@ NAMED_MARK = f"{MARK}n"
 AUTHOR_MARK = f"{MARK}a"
 LEARNER_MARK = f"{MARK}l"
 IDLE_MARK = f"{MARK}i"
-NAMED = f"user_{NAMED_MARK}"  # the teacher the vault exercise names
-AUTHOR = f"user_{AUTHOR_MARK}"  # a teacher who owns what the retired create door wrote
-LEARNER = f"user_{LEARNER_MARK}"  # in progress on the step, member of AUTHOR's class
-IDLE = f"user_{IDLE_MARK}"  # no tie to any exercise
+NAMED = seed_user_uid(f"{NAMED_MARK}")  # the teacher the vault exercise names
+AUTHOR = seed_user_uid(f"{AUTHOR_MARK}")  # a teacher who owns what the retired create door wrote
+LEARNER = seed_user_uid(f"{LEARNER_MARK}")  # in progress on the step, member of AUTHOR's class
+IDLE = seed_user_uid(f"{IDLE_MARK}")  # no tie to any exercise
 STEP = f"ps.{MARK}.step"
 KU = f"ku.{MARK}.idea"
 PRACTICE = f"ex.{MARK}.practice"
 # What the retired create door wrote: owned, uid-generated, carrying its scope.
-ANCHORED = f"ex_{AUTHOR_MARK}_anchored"
-ASSIGNED = f"ex_{AUTHOR_MARK}_assigned"
-DOOMED = f"ex_{AUTHOR_MARK}_doomed"
-CLASS = f"group_{AUTHOR_MARK}_class"
+ANCHORED = f"ex.{AUTHOR_MARK}-anchored"
+ASSIGNED = f"ex.{AUTHOR_MARK}-assigned"
+DOOMED = f"ex.{AUTHOR_MARK}-doomed"
+CLASS = f"group.{AUTHOR_MARK}-class"
 NO_TEACHER = "reached no teacher"
 
 

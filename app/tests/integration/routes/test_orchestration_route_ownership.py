@@ -38,6 +38,7 @@ from adapters.inbound.fasthtml_types import Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.helpers.lateral_routes_client import without_timestamp
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [
     pytest.mark.asyncio(loop_scope="session"),
@@ -47,14 +48,14 @@ pytestmark = [
     ),
 ]
 
-CALLER = "user_nb2a_caller"
-OTHER = "user_nb2a_other"  # owns the foreign goal and habit; never signs in
+CALLER = seed_user_uid("nb2a_caller")
+OTHER = seed_user_uid("nb2a_other")  # owns the foreign goal and habit; never signs in
 USERS = (CALLER, OTHER)
 
-OWN_GOAL = "goal_nb2a_own"
-OWN_HABIT = "habit_nb2a_own"
-FOREIGN_GOAL = "goal_nb2a_foreign"
-FOREIGN_HABIT = "habit_nb2a_foreign"
+OWN_GOAL = "goal.nb2a-own"
+OWN_HABIT = "habit.nb2a-own"
+FOREIGN_GOAL = "goal.nb2a-foreign"
+FOREIGN_HABIT = "habit.nb2a-foreign"
 MISSING_GOAL = "goal_nb2a_missing"
 MISSING_HABIT = "habit_nb2a_missing"
 

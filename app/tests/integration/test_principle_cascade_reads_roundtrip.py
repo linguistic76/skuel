@@ -28,6 +28,7 @@ from core.models.type_hints import EntityUID
 from core.services.principles.principle_event_handler_service import (
     PrincipleEventHandlerService,
 )
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -52,7 +53,7 @@ class TestPrincipleCascadeReadsRoundTrip:
 
     async def test_cascade_keys_resolve_real_edges(self, services, neo4j_driver, clean_neo4j):
         """'supported_goals' and 'inspired_habits' resolve; the old 'habits' key is invalid."""
-        p, g, h = "principle_cascade_1", "goal_cascade_1", "habit_cascade_1"
+        p, g, h = "principle.cascade-1", "goal.cascade-1", "habit.cascade-1"
         await self._seed(neo4j_driver, p, g, h)
         rels = services.principles.relationships
 
@@ -85,15 +86,15 @@ class TestPrincipleCascadeReadsRoundTrip:
         principle = (
             await services.principles.create_principle(
                 PrincipleCreateRequest(title="Integrity", statement="Act with integrity"),
-                "user_cascade",
+                seed_user_uid("cascade"),
             )
         ).value
         async with neo4j_driver.session() as session:
             await session.run(
                 """
                 MATCH (p:Entity {uid: $p})
-                MERGE (g:Entity:Goal {uid: 'goal_cascade_2'}) SET g.entity_type='goal', g.title='G'
-                MERGE (h:Entity:Habit {uid: 'habit_cascade_2'}) SET h.entity_type='habit', h.title='H'
+                MERGE (g:Entity:Goal {uid: 'goal.cascade-2'}) SET g.entity_type='goal', g.title='G'
+                MERGE (h:Entity:Habit {uid: 'habit.cascade-2'}) SET h.entity_type='habit', h.title='H'
                 MERGE (p)-[:SUPPORTS_GOAL]->(g)
                 MERGE (p)-[:INSPIRES_HABIT]->(h)
                 """,
@@ -102,7 +103,7 @@ class TestPrincipleCascadeReadsRoundTrip:
 
         event = PrincipleStrengthChanged(
             principle_uid=principle.uid,
-            user_uid="user_cascade",
+            user_uid=seed_user_uid("cascade"),
             old_strength="exploring",
             new_strength="core",  # elevation, so the cascade-impact branch logs
         )

@@ -23,6 +23,7 @@ import pytest_asyncio
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.relationship_names import RelationshipName
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     edges_between,
@@ -48,8 +49,8 @@ MARK = "zzzentryknow"
 # One mark per signed-in client: each client's exit wipes every uid carrying its mark.
 LEARNER_MARK = f"{MARK}l"
 OTHER_MARK = f"{MARK}o"
-LEARNER = f"user_{LEARNER_MARK}"  # a member who writes the entries
-OTHER = f"user_{OTHER_MARK}"  # a teacher, named by the vault exercise
+LEARNER = seed_user_uid(f"{LEARNER_MARK}")  # a member who writes the entries
+OTHER = seed_user_uid(f"{OTHER_MARK}")  # a teacher, named by the vault exercise
 ROLES = {LEARNER: "member", OTHER: "teacher"}
 KU_PUBLISHED = f"ku.{LEARNER_MARK}.published"
 KU_DRAFT = f"ku.{LEARNER_MARK}.draft"

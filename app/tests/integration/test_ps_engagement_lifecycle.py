@@ -56,9 +56,10 @@ from core.models.templates.relative_offset import RelativeOffset
 from core.models.templates.task_template import TaskTemplate
 from core.services.ps_engagement import PsEngagementService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 
-STUDENT_UID = "user_test_ps_engagement"
-PS_UID = "ps_test_engagement"
+STUDENT_UID = seed_user_uid("test_ps_engagement")
+PS_UID = "ps.test-engagement"
 
 
 # ============================================================================
@@ -209,12 +210,12 @@ async def _seed_full_bundle(
     """
     uids = {
         "ps": PS_UID,
-        "task": "ttpl_test",
-        "goal": "gtpl_test",
-        "habit": "htpl_test",
-        "event": "etpl_test",
-        "choice": "ctpl_test",
-        "principle": "ptpl_test",
+        "task": "ttpl.test",
+        "goal": "gtpl.test",
+        "habit": "htpl.test",
+        "event": "etpl.test",
+        "choice": "ctpl.test",
+        "principle": "ptpl.test",
     }
 
     ps = PathStep(uid=uids["ps"], title="Test PathStep")
@@ -449,13 +450,13 @@ class TestEngagePathStep:
         # Build a PS whose Task template references a non-existent goal.
         await ps_backend.create(PathStep(uid=PS_UID, title="Broken PS"))
         bad_task = TaskTemplate(
-            uid="ttpl_bad",
+            uid="ttpl.bad",
             title="Task with broken ref",
             status=EntityStatus.ACTIVE,
-            contributes_to_goal_template_uid="gtpl_does_not_exist",
+            contributes_to_goal_template_uid="gtpl.does-not-exist",
         )
         await template_backends["task"].create(bad_task)
-        await _attach_template(executor, PS_UID, "ttpl_bad", "HAS_TASK_TEMPLATE")
+        await _attach_template(executor, PS_UID, "ttpl.bad", "HAS_TASK_TEMPLATE")
 
         result = await engagement_service.engage_pathstep(test_user, PS_UID)
 
@@ -467,7 +468,7 @@ class TestEngagePathStep:
         v = violations[0]
         assert v["violation"] == "target_missing"
         assert v["field"] == "contributes_to_goal_template_uid"
-        assert v["referenced_uid"] == "gtpl_does_not_exist"
+        assert v["referenced_uid"] == "gtpl.does-not-exist"
         assert v["template_type"] == "TaskTemplate"
         # Refused before the spawn: nothing was made for the student.
         assert await _instance_count(executor, test_user, PS_UID) == 0
@@ -811,7 +812,7 @@ class TestEngagementInstanceScope:
         test_user,
     ):
         uids = await _seed_full_bundle(ps_backend, template_backends, executor)
-        other_ps = "ps_test_engagement_shared"
+        other_ps = "ps.test-engagement-shared"
         assert (await ps_backend.create(PathStep(uid=other_ps, title="Sharing step"))).is_ok
         await _attach_template(executor, other_ps, uids["habit"], "HAS_HABIT_TEMPLATE")
 

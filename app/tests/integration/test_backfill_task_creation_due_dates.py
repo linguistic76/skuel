@@ -40,13 +40,13 @@ LATER_DONE = "2026-09-12"
 DUE = "2026-09-30"
 SCHEDULED = "2026-09-20"
 _UIDS = [
-    "task_bf_undated_draft",
-    "task_bf_undated_native_created_at",
-    "task_bf_done_earlier",
-    "task_bf_done_later",
-    "task_bf_has_due",
-    "task_bf_has_scheduled",
-    "task_bf_open_with_stale_stamp",
+    "task.bf-undated-draft",
+    "task.bf-undated-native-created-at",
+    "task.bf-done-earlier",
+    "task.bf-done-later",
+    "task.bf-has-due",
+    "task.bf-has-scheduled",
+    "task.bf-open-with-stale-stamp",
 ]
 
 

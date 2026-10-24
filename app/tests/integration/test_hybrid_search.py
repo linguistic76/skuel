@@ -260,13 +260,13 @@ async def test_results_report_which_half_matched(vector_search_service, mock_bac
     mock_backend.query_vector_index.return_value = Result.ok(
         [
             {"node": {"uid": "ku.both", "title": "Both"}, "score": 0.9},
-            {"node": {"uid": "ku.vector_only", "title": "Vector"}, "score": 0.8},
+            {"node": {"uid": "ku.vector-only", "title": "Vector"}, "score": 0.8},
         ]
     )
     mock_backend.query_fulltext_index.return_value = Result.ok(
         [
             {"node": {"uid": "ku.both", "title": "Both"}, "score": 5.0},
-            {"node": {"uid": "ku.text_only", "title": "Text"}, "score": 3.0},
+            {"node": {"uid": "ku.text-only", "title": "Text"}, "score": 3.0},
         ]
     )
 
@@ -281,12 +281,12 @@ async def test_results_report_which_half_matched(vector_search_service, mock_bac
         True,
     )
     assert (
-        by_uid["ku.vector_only"]["matched_vector"],
-        by_uid["ku.vector_only"]["matched_fulltext"],
+        by_uid["ku.vector-only"]["matched_vector"],
+        by_uid["ku.vector-only"]["matched_fulltext"],
     ) == (True, False)
     assert (
-        by_uid["ku.text_only"]["matched_vector"],
-        by_uid["ku.text_only"]["matched_fulltext"],
+        by_uid["ku.text-only"]["matched_vector"],
+        by_uid["ku.text-only"]["matched_fulltext"],
     ) == (False, True)
 
 

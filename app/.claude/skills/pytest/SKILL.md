@@ -84,7 +84,7 @@ async def test_create_task_success(tasks_service, sample_task):
 
 ```python
 async def test_get_task_not_found(tasks_service):
-    result = await tasks_service.get("task_nonexistent_000000")
+    result = await tasks_service.get("task.nonexistent")
 
     # use is_error (NOT is_err — SKUEL003)
     assert result.is_error
@@ -104,7 +104,7 @@ def test_task_request_refuses_an_empty_title():
 
 async def test_verify_ownership_without_user_fails_validation(tasks_service):
     # A rule the model cannot see answers as a Result
-    result = await tasks_service.verify_ownership("task_x_000001", UserUID(""))
+    result = await tasks_service.verify_ownership("task.x", UserUID(""))
 
     assert result.is_error
     assert result.error.category == ErrorCategory.VALIDATION
@@ -206,15 +206,24 @@ class TestTasksCRUD:
     """Test complete CRUD flow with real Neo4j."""
 
     async def test_create_task(self, tasks_backend, clean_neo4j, ensure_test_users):
-        task = Task(uid="task_test-create_000001", title="Test Task", priority=Priority.HIGH, user_uid="user_test")
+        task = Task(uid="task.test-create", title="Test Task", priority=Priority.HIGH, user_uid=seed_user_uid("test"))
 
         result = await tasks_backend.create(task)
 
         assert result.is_ok, f"Create failed: {result.error}"
-        assert result.value.uid == "task_test-create_000001"
+        assert result.value.uid == "task.test-create"
 ```
 
 A test that creates or ingests an **owned** entity depends on `ensure_test_users`: the `:OWNS` write doors refuse an owner with no `:User` node (ADR-086) rather than leaving a property-only orphan.
+
+### Seed uids fit the uid grammar
+
+After each integration test, its graph is read against the uid grammar (`core/utils/uid_grammar.py`) — the shared container's and the bootstrapped app's — and the test fails on a uid it wrote outside the grammar or one two nodes hold (`tests/integration/_uid_census.py`). So:
+
+- **An entity seed is authored:** `{prefix}.{slug}` or `{prefix}.{ns}.{slug}` — `task.test-create`, `ku.seed.python`. No `_` or `:` in a slug, at most three segments; fold an enum value or free text with `uid_grammar.slugify`.
+- **A user seed is generated:** `seed_user_uid("test")` (`tests/helpers/seed_uids.py`) — the hash of the name, the same uid every run. `TypeConverter.to_user_uid` and the ingestion validator refuse any other shape, a username included.
+- **A user uid is no spelling to clean by:** `n.uid CONTAINS $mark` misses a hashed user; delete users by `n.uid IN $users`.
+- **A test that writes an outside uid on purpose** (an old-shape graph a migration reads, a refusal path) carries `@pytest.mark.outside_uid_grammar("why")`. A marked test that writes no breach fails — the marker is stale.
 
 ### Guard tests: where mocks are blind
 
@@ -236,11 +245,11 @@ CI at 00:00–07:00Z exposes a test that builds "today" from the host's day (the
 ```python
 async def test_get_for_user_returns_not_found_for_other_user(tasks_service, clean_neo4j, ensure_test_users):
     # Arrange — create a task owned by user A (the model carries user_uid; the backend writes :OWNS)
-    created = await tasks_service.create(Task(uid="task_owned_000001", title="Owned", user_uid="user_test"))
+    created = await tasks_service.create(Task(uid="task.owned", title="Owned", user_uid=seed_user_uid("test")))
     assert created.is_ok
 
     # Act — read as user B
-    result = await tasks_service.get_for_user(created.value.uid, UserUID("user_test_integration"))
+    result = await tasks_service.get_for_user(created.value.uid, seed_user_uid("test_integration"))
 
     # Assert — returns NotFound, not Forbidden: an ownership miss must answer like a missing uid
     assert result.is_error
@@ -251,13 +260,14 @@ async def test_get_for_user_returns_not_found_for_other_user(tasks_service, clea
 
 ```python
 from dataclasses import replace
+from tests.helpers.seed_uids import seed_user_uid
 from tests.helpers.status_guarded_backend import guarded_backend
 
 async def test_completing_a_task_publishes_task_completed():
     # A status write goes through update_with_status_guard (ADR-087), which
     # create_mock_backend does not provide — the guarded fake evaluates the guard
     # the way the Cypher does and answers with the prior it was seeded with.
-    current = Task(uid="task_probe_000001", title="Probe", status=EntityStatus.ACTIVE, user_uid="user_test")
+    current = Task(uid="task.probe", title="Probe", status=EntityStatus.ACTIVE, user_uid=seed_user_uid("test"))
     backend, recorder = guarded_backend(current, replace(current, status=EntityStatus.COMPLETED))
     event_bus = AsyncMock()
     service = create_tasks_service_for_testing(backend=backend, event_bus=event_bus)
@@ -266,11 +276,13 @@ async def test_completing_a_task_publishes_task_completed():
 
     assert result.is_ok
     published = [type(c.args[0]).__name__ for c in event_bus.publish_async.await_args_list]
-    assert published == ["TaskUpdated", "TaskCompleted"]    # measured — both, in this order
+    # measured, in this order — the last because completing moves the task between its
+    # goals' tally classes (done / not done)
+    assert published == ["TaskUpdated", "TaskCompleted", "GoalContributionsChanged"]
     assert recorder.last_guard is not None                   # the guard the service built
 ```
 
-`InMemoryEventBus` has `publish(event)` (sync) and `publish_async(event)`; services publish through `publish_event(...)` → `publish_async`. A completed re-post still writes (`status`, `updated_at`) and publishes `TaskUpdated` — only `TaskCompleted` and the stamp are held back, so assert on the event *type*, never `assert_called_once`.
+`InMemoryEventBus` has `publish(event)` (sync) and `publish_async(event)`; services publish through `publish_event(...)` → `publish_async`. A completed re-post still writes (`status`, `updated_at`) and publishes `TaskUpdated` — only `TaskCompleted`, `GoalContributionsChanged` and the stamp are held back, so assert on the event *type*, never `assert_called_once`.
 
 ### CSRF at the HTTP boundary
 

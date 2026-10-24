@@ -13,9 +13,10 @@ import pytest
 
 from core.models.enums.entity_enums import EntityType
 from core.services.ingestion.preparer import prepare_entity_data
+from tests.helpers.seed_uids import seed_user_uid
 
 _PATH = Path("/vault/tasks/ship-it.md")
-_USER = "user_parity"
+_USER = seed_user_uid("parity")
 
 
 def _prepare(entity_type: EntityType, data: dict) -> dict:

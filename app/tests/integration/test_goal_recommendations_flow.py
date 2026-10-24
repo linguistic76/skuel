@@ -54,6 +54,7 @@ from core.services.mixins.link_edge_guard import (
     PRINCIPLE_FAR_END,
 )
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -99,7 +100,7 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user_test_goal_recommendations"
+        return seed_user_uid("test_goal_recommendations")
 
     @pytest_asyncio.fixture
     async def test_user(self, neo4j_driver, test_user_uid):
@@ -130,7 +131,7 @@ class TestGoalRecommendationsFlow:
         # Create 2 related knowledge units
         kus = []
         for i, title in enumerate(["Python Basics", "Web Development Fundamentals"], start=1):
-            ku = Ku(uid=f"ku.tech_{i}", title=title)
+            ku = Ku(uid=f"ku.tech-{i}", title=title)
             result = await ku_backend.create(ku)
             assert result.is_ok
             kus.append(result.value)
@@ -141,7 +142,7 @@ class TestGoalRecommendationsFlow:
             from core.models.enums.habit_enums import HabitCategory
 
             habit = Habit(
-                uid=f"habit.tech_{i}",
+                uid=f"habit.tech-{i}",
                 user_uid=test_user_uid,
                 title=name,
                 description=f"Maintain {name.lower()}",
@@ -154,7 +155,7 @@ class TestGoalRecommendationsFlow:
 
         # Create 1 guiding principle
         principle = Principle(
-            uid="principle.continuous_learning",
+            uid="principle.continuous-learning",
             user_uid=test_user_uid,
             title="Continuous Learning",
             statement="Always be learning and growing",
@@ -166,7 +167,7 @@ class TestGoalRecommendationsFlow:
 
         # Create achieved goal
         goal = Goal(
-            uid="goal.build_web_app",
+            uid="goal.build-web-app",
             user_uid=test_user_uid,
             title="Build First Web Application",
             description="Complete a full-stack web application",

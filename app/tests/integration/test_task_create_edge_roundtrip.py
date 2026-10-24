@@ -51,8 +51,9 @@ from core.models.task.task_request import TaskCreateRequest
 from core.services.conversion_service import ConversionServiceV2
 from core.services.cross_domain import CrossDomainQueryService
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
-OTHER_USER = "user_test_task_edges_victim"
+OTHER_USER = seed_user_uid("test_task_edges_victim")
 
 
 @pytest_asyncio.fixture
@@ -70,7 +71,7 @@ async def tasks_service(neo4j_driver, clean_neo4j, event_bus):
 
 @pytest_asyncio.fixture
 async def test_user_uid(neo4j_driver, clean_neo4j):
-    uid = "user_test_task_create_edges"
+    uid = seed_user_uid("test_task_create_edges")
     async with neo4j_driver.session() as session:
         await session.run(
             "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()", uid=uid
@@ -129,13 +130,13 @@ class TestSubtaskEdgeRoundTrip:
         no property and wrote no edge, so this read returned an empty list for a subtask
         the API had just created.
         """
-        parent = await _route_create(tasks_service, task_request(), "task:rt-parent", test_user_uid)
+        parent = await _route_create(tasks_service, task_request(), "task.rt-parent", test_user_uid)
         assert parent.is_ok, f"parent create failed: {parent.error}"
 
         child = await _route_create(
             tasks_service,
             task_request(title="Subtask", parent_uid=parent.value.uid),
-            "task:rt-child",
+            "task.rt-child",
             test_user_uid,
         )
         assert child.is_ok, f"subtask create failed: {child.error}"
@@ -154,12 +155,12 @@ class TestSubtaskEdgeRoundTrip:
         HAS_SUBTASK and skipped SUBTASK_OF, leaving ``/api/tasks/parent`` broken.
         """
         parent = await _route_create(
-            tasks_service, task_request(), "task:rt-parent2", test_user_uid
+            tasks_service, task_request(), "task.rt-parent2", test_user_uid
         )
         child = await _route_create(
             tasks_service,
             task_request(title="Subtask", parent_uid=parent.value.uid),
-            "task:rt-child2",
+            "task.rt-child2",
             test_user_uid,
         )
 
@@ -174,12 +175,12 @@ class TestSubtaskEdgeRoundTrip:
         """The edge REPLACES the property. A denormalized copy would drift on re-parent —
         ``POST /api/tasks/add-child`` moves the edge and would never touch a property."""
         parent = await _route_create(
-            tasks_service, task_request(), "task:rt-parent3", test_user_uid
+            tasks_service, task_request(), "task.rt-parent3", test_user_uid
         )
         child = await _route_create(
             tasks_service,
             task_request(title="Subtask", parent_uid=parent.value.uid),
-            "task:rt-child3",
+            "task.rt-child3",
             test_user_uid,
         )
 
@@ -199,7 +200,7 @@ class TestSubtaskEdgeRoundTrip:
         actually READS it back — ``calculate_parent_progress`` weights subtask completion
         by it, so a lost weight silently changes every parent's reported progress."""
         parent = await _route_create(
-            tasks_service, task_request(), "task:rt-parent4", test_user_uid
+            tasks_service, task_request(), "task.rt-parent4", test_user_uid
         )
         child = await tasks_service.create_task(
             task_request(
@@ -227,12 +228,12 @@ class TestSubtaskEdgeRoundTrip:
         """The entity door has no weight to pass. Its default must land on the edge, or
         ``calculate_parent_progress`` reads a null and weights the subtask as zero."""
         parent = await _route_create(
-            tasks_service, task_request(), "task:rt-parent5", test_user_uid
+            tasks_service, task_request(), "task.rt-parent5", test_user_uid
         )
         child = await _route_create(
             tasks_service,
             task_request(title="Subtask", parent_uid=parent.value.uid),
-            "task:rt-child5",
+            "task.rt-child5",
             test_user_uid,
         )
 
@@ -269,17 +270,17 @@ class TestSubtaskEdgeRoundTrip:
                 uid=OTHER_USER,
             )
         await _create_node(
-            neo4j_driver, "task:victims", "Task:Entity", "task", "Victim's task", OTHER_USER
+            neo4j_driver, "task.victims", "Task:Entity", "task", "Victim's task", OTHER_USER
         )
 
         child = await tasks_service.create_task(
-            task_request(title="Attacker subtask", parent_uid="task:victims"), test_user_uid
+            task_request(title="Attacker subtask", parent_uid="task.victims"), test_user_uid
         )
 
         assert child.is_ok, "the task itself is the caller's own and must still be created"
         async with neo4j_driver.session() as session:
             result = await session.run(
-                "MATCH (p {uid: 'task:victims'})-[r:HAS_SUBTASK]->(c {uid: $child}) "
+                "MATCH (p {uid: 'task.victims'})-[r:HAS_SUBTASK]->(c {uid: $child}) "
                 "RETURN count(r) AS edges",
                 child=child.value.uid,
             )
@@ -296,13 +297,13 @@ class TestHabitEdgeRoundTrip:
         self, tasks_service, neo4j_driver, test_user_uid
     ) -> None:
         await _create_node(
-            neo4j_driver, "habit:rt", "Habit:Entity", "habit", "Morning pages", test_user_uid
+            neo4j_driver, "habit.rt", "Habit:Entity", "habit", "Morning pages", test_user_uid
         )
 
         task = await _route_create(
             tasks_service,
-            task_request(reinforces_habit_uid="habit:rt"),
-            "task:rt-habit",
+            task_request(reinforces_habit_uid="habit.rt"),
+            "task.rt-habit",
             test_user_uid,
         )
         assert task.is_ok, f"create failed: {task.error}"
@@ -310,7 +311,7 @@ class TestHabitEdgeRoundTrip:
         async with neo4j_driver.session() as session:
             result = await session.run(
                 f"MATCH (t {{uid: $task}})-[:{RelationshipName.REINFORCES_HABIT.value}]->"
-                "(h {uid: 'habit:rt'}) RETURN count(*) AS edges",
+                "(h {uid: 'habit.rt'}) RETURN count(*) AS edges",
                 task=task.value.uid,
             )
             row = await result.single()
@@ -329,13 +330,13 @@ class TestHabitEdgeRoundTrip:
         from ``TaskDTO``, and this door persists the ENTITY.
         """
         await _create_node(
-            neo4j_driver, "habit:rt2", "Habit:Entity", "habit", "Morning pages", test_user_uid
+            neo4j_driver, "habit.rt2", "Habit:Entity", "habit", "Morning pages", test_user_uid
         )
 
         task = await _route_create(
             tasks_service,
-            task_request(reinforces_habit_uid="habit:rt2"),
-            "task:rt-habit2",
+            task_request(reinforces_habit_uid="habit.rt2"),
+            "task.rt-habit2",
             test_user_uid,
         )
 
@@ -361,11 +362,11 @@ class TestHabitEdgeRoundTrip:
                 uid=OTHER_USER,
             )
         await _create_node(
-            neo4j_driver, "habit:victims", "Habit:Entity", "habit", "Victim's habit", OTHER_USER
+            neo4j_driver, "habit.victims", "Habit:Entity", "habit", "Victim's habit", OTHER_USER
         )
 
         task = await tasks_service.create_task(
-            task_request(reinforces_habit_uid="habit:victims"), test_user_uid
+            task_request(reinforces_habit_uid="habit.victims"), test_user_uid
         )
 
         assert task.is_ok
@@ -388,11 +389,11 @@ class TestHabitEdgeRoundTrip:
 
         Through ``create_task``, for the same RED-proof reason as the two guards above."""
         await _create_node(
-            neo4j_driver, "goal:not-a-habit", "Goal:Entity", "goal", "A goal", test_user_uid
+            neo4j_driver, "goal.not-a-habit", "Goal:Entity", "goal", "A goal", test_user_uid
         )
 
         task = await tasks_service.create_task(
-            task_request(reinforces_habit_uid="goal:not-a-habit"), test_user_uid
+            task_request(reinforces_habit_uid="goal.not-a-habit"), test_user_uid
         )
 
         assert task.is_ok
@@ -502,15 +503,15 @@ class TestGoalEdgeRoundTrip:
     async def test_one_edge_per_goal_and_no_property(
         self, tasks_service, neo4j_driver, test_user_uid
     ) -> None:
-        for uid, title in (("goal:rt", "Ship v1"), ("goal:rt-b", "Grow the team")):
+        for uid, title in (("goal.rt", "Ship v1"), ("goal.rt-b", "Grow the team")):
             await _create_node(neo4j_driver, uid, "Goal:Entity", "goal", title, test_user_uid)
 
         task = await tasks_service.create_task(
-            task_request(contributes_to_goal_uids=["goal:rt", "goal:rt-b"]), test_user_uid
+            task_request(contributes_to_goal_uids=["goal.rt", "goal.rt-b"]), test_user_uid
         )
         assert task.is_ok, f"create_task failed: {task.error}"
 
-        assert await _goal_edge_targets(neo4j_driver, task.value.uid) == ["goal:rt", "goal:rt-b"]
+        assert await _goal_edge_targets(neo4j_driver, task.value.uid) == ["goal.rt", "goal.rt-b"]
         assert await _goal_named_properties(neo4j_driver, task.value.uid) == [], (
             "a node property names a goal — the edges are the one record"
         )
@@ -522,41 +523,41 @@ class TestGoalEdgeRoundTrip:
         abandonment guard) and the goals-for-tasks batch (``TasksPlanningService``
         dependency context)."""
         await _create_node(
-            neo4j_driver, "goal:rt2", "Goal:Entity", "goal", "Ship v2", test_user_uid
+            neo4j_driver, "goal.rt2", "Goal:Entity", "goal", "Ship v2", test_user_uid
         )
 
         task = await tasks_service.create_task(
-            task_request(contributes_to_goal_uids=["goal:rt2"], status=EntityStatus.ACTIVE),
+            task_request(contributes_to_goal_uids=["goal.rt2"], status=EntityStatus.ACTIVE),
             test_user_uid,
         )
         assert task.is_ok, f"create_task failed: {task.error}"
 
-        count = await cross_domain.count_active_tasks_for_goal("goal:rt2")
+        count = await cross_domain.count_active_tasks_for_goal("goal.rt2")
         assert count.is_ok, f"count_active_tasks_for_goal failed: {count.error}"
         assert count.value.count == 1
 
         goals = await cross_domain.get_goals_for_tasks_batch([task.value.uid])
         assert goals.is_ok, f"get_goals_for_tasks_batch failed: {goals.error}"
-        assert [g.uid for g in goals.value.get(task.value.uid, ())] == ["goal:rt2"]
+        assert [g.uid for g in goals.value.get(task.value.uid, ())] == ["goal.rt2"]
 
     async def test_entity_door_writes_the_edge_too(
         self, tasks_service, neo4j_driver, test_user_uid
     ) -> None:
         """The field rides on the Task, so the shared primitive writes it for BOTH doors."""
         await _create_node(
-            neo4j_driver, "goal:rt3", "Goal:Entity", "goal", "Ship v3", test_user_uid
+            neo4j_driver, "goal.rt3", "Goal:Entity", "goal", "Ship v3", test_user_uid
         )
 
         task = await _route_create(
             tasks_service,
-            task_request(contributes_to_goal_uids=["goal:rt3"]),
-            "task:rt-goal",
+            task_request(contributes_to_goal_uids=["goal.rt3"]),
+            "task.rt-goal",
             test_user_uid,
         )
         assert task.is_ok, f"create failed: {task.error}"
 
-        assert await _goal_edge_targets(neo4j_driver, "task:rt-goal") == ["goal:rt3"]
-        assert await _goal_named_properties(neo4j_driver, "task:rt-goal") == []
+        assert await _goal_edge_targets(neo4j_driver, "task.rt-goal") == ["goal.rt3"]
+        assert await _goal_named_properties(neo4j_driver, "task.rt-goal") == []
 
     async def test_another_users_goal_is_refused_and_the_own_goal_kept(
         self, tasks_service, cross_domain, neo4j_driver, test_user_uid
@@ -569,25 +570,25 @@ class TestGoalEdgeRoundTrip:
                 uid=OTHER_USER,
             )
         await _create_node(
-            neo4j_driver, "goal:victims", "Goal:Entity", "goal", "Victim's goal", OTHER_USER
+            neo4j_driver, "goal.victims", "Goal:Entity", "goal", "Victim's goal", OTHER_USER
         )
         await _create_node(
-            neo4j_driver, "goal:mine", "Goal:Entity", "goal", "My goal", test_user_uid
+            neo4j_driver, "goal.mine", "Goal:Entity", "goal", "My goal", test_user_uid
         )
 
         task = await tasks_service.create_task(
             task_request(
-                contributes_to_goal_uids=["goal:victims", "goal:mine"],
+                contributes_to_goal_uids=["goal.victims", "goal.mine"],
                 status=EntityStatus.ACTIVE,
             ),
             test_user_uid,
         )
         assert task.is_ok, "the attacker's own task is legitimate and is created"
 
-        assert await _goal_edge_targets(neo4j_driver, task.value.uid) == ["goal:mine"], (
+        assert await _goal_edge_targets(neo4j_driver, task.value.uid) == ["goal.mine"], (
             "a cross-user CONTRIBUTES_TO_GOAL edge reached the graph"
         )
-        count = await cross_domain.count_active_tasks_for_goal("goal:victims")
+        count = await cross_domain.count_active_tasks_for_goal("goal.victims")
         assert count.is_ok and count.value.count == 0, (
             "the victim's open-task count exposes the attacker's task"
         )
@@ -610,11 +611,11 @@ class TestGoalEdgeRoundTrip:
         """The field name declares the kind; a same-user Habit UID must not become a goal
         the task contributes to."""
         await _create_node(
-            neo4j_driver, "habit:not-a-goal", "Habit:Entity", "habit", "A habit", test_user_uid
+            neo4j_driver, "habit.not-a-goal", "Habit:Entity", "habit", "A habit", test_user_uid
         )
 
         task = await tasks_service.create_task(
-            task_request(contributes_to_goal_uids=["habit:not-a-goal"]), test_user_uid
+            task_request(contributes_to_goal_uids=["habit.not-a-goal"]), test_user_uid
         )
         assert task.is_ok
 

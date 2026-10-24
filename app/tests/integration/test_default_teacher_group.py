@@ -29,6 +29,7 @@ from core.models.entity import Entity
 from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import default_group_uid
 from core.services.ps.ps_mastery_service import PsMasteryService
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -36,23 +37,23 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 _RUN = uuid.uuid4().hex[:8]
 
 # --- (a) get_admin_uid fixtures -------------------------------------------
-_OLDER_ADMIN_UID = f"user_zz_older_admin_{_RUN}"
-_NEWER_ADMIN_UID = f"user_zz_newer_admin_{_RUN}"
+_OLDER_ADMIN_UID = seed_user_uid(f"zz_older_admin_{_RUN}")
+_NEWER_ADMIN_UID = seed_user_uid(f"zz_newer_admin_{_RUN}")
 
 # --- (b) default-group fixtures --------------------------------------------
-_CURRICULUM_EX_UID = f"ex.test.dtg.{_RUN}"
-_UNNAMED_EX_UID = f"ex.test.dtg-unnamed.{_RUN}"
-_CURRICULUM_REVISION_UID = f"re_test_curriculum_{_RUN}"
-_ORPHAN_REVISION_UID = f"re_test_orphan_{_RUN}"
-_STUDENT_UID = f"user_zz_student_{_RUN}"
-_LONER_UID = f"user_zz_loner_{_RUN}"  # in no default group
-_NAMED_TEACHER_UID = f"user_zz_named_teacher_{_RUN}"  # the curriculum exercise's teacher
-_DEFAULT_GROUP_UID = default_group_uid(f"user_zz_admin_{_RUN}")
+_CURRICULUM_EX_UID = f"ex.test.dtg-{_RUN}"
+_UNNAMED_EX_UID = f"ex.test.dtg-unnamed-{_RUN}"
+_CURRICULUM_REVISION_UID = f"re.test-curriculum-{_RUN}"
+_ORPHAN_REVISION_UID = f"re.test-orphan-{_RUN}"
+_STUDENT_UID = seed_user_uid(f"zz_student_{_RUN}")
+_LONER_UID = seed_user_uid(f"zz_loner_{_RUN}")  # in no default group
+_NAMED_TEACHER_UID = seed_user_uid(f"zz_named_teacher_{_RUN}")  # the curriculum exercise's teacher
+_DEFAULT_GROUP_UID = default_group_uid(seed_user_uid(f"zz_admin_{_RUN}"))
 
 # --- (c) enrollment-cap fixtures --------------------------------------------
-_LEARNER_UID = f"user_zz_learner_{_RUN}"
-_PS_UIDS = [f"ps.test.cap-one.{_RUN}", f"ps.test.cap-two.{_RUN}"]
-_KU_UID = f"ku_test_cap_{_RUN}"
+_LEARNER_UID = seed_user_uid(f"zz_learner_{_RUN}")
+_PS_UIDS = [f"ps.test.cap-one-{_RUN}", f"ps.test.cap-two-{_RUN}"]
+_KU_UID = f"ku.test-cap-{_RUN}"
 
 
 @pytest_asyncio.fixture(loop_scope="session")

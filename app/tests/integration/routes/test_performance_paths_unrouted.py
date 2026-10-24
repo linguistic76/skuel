@@ -15,6 +15,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import signed_in_client
 
 if TYPE_CHECKING:
@@ -32,7 +33,7 @@ pytestmark = [
 ]
 
 MARK = "perfgone"
-ADMIN = f"user_{MARK}_admin"
+ADMIN = seed_user_uid(f"{MARK}_admin")
 
 PERFORMANCE_PATHS = [
     ("GET", "/performance/metrics"),

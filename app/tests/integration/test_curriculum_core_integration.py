@@ -33,6 +33,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
+from tests.helpers.seed_uids import seed_user_uid
 
 # ============================================================================
 # FIXTURES
@@ -94,7 +95,7 @@ class TestKnowledgeUnitCRUD:
     async def test_create_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should create KU in Neo4j."""
         ku = Curriculum(
-            uid="ku:test_python_basics",
+            uid="ku.test-python-basics",
             title="Python Basics",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
@@ -104,7 +105,7 @@ class TestKnowledgeUnitCRUD:
         result = await ku_backend.create(ku)
 
         assert result.is_ok
-        assert result.value.uid == "ku:test_python_basics"
+        assert result.value.uid == "ku.test-python-basics"
         assert result.value.title == "Python Basics"
 
     @pytest.mark.asyncio
@@ -112,7 +113,7 @@ class TestKnowledgeUnitCRUD:
         """Should retrieve KU from Neo4j."""
         # Create KU
         ku = Curriculum(
-            uid="ku:test_get",
+            uid="ku.test-get",
             title="Test Get",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
@@ -121,11 +122,11 @@ class TestKnowledgeUnitCRUD:
         assert result.is_ok, "Setup failed: Could not create KU"
 
         # Retrieve KU
-        result = await ku_backend.get("ku:test_get")
+        result = await ku_backend.get("ku.test-get")
 
         assert result.is_ok
         assert result.value is not None
-        assert result.value.uid == "ku:test_get"
+        assert result.value.uid == "ku.test-get"
         assert result.value.title == "Test Get"
 
     @pytest.mark.asyncio
@@ -133,7 +134,7 @@ class TestKnowledgeUnitCRUD:
         """Should update KU in Neo4j."""
         # Create KU
         ku = Curriculum(
-            uid="ku:test_update",
+            uid="ku.test-update",
             title="Original Title",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
@@ -146,7 +147,7 @@ class TestKnowledgeUnitCRUD:
             "title": "Updated Title",
             "content": "Updated content",
         }
-        update_result = await ku_backend.update("ku:test_update", updates)
+        update_result = await ku_backend.update("ku.test-update", updates)
 
         assert update_result.is_ok
         assert update_result.value.title == "Updated Title"
@@ -157,7 +158,7 @@ class TestKnowledgeUnitCRUD:
         """Should delete KU from Neo4j."""
         # Create KU
         ku = Curriculum(
-            uid="ku:test_delete",
+            uid="ku.test-delete",
             title="Test Delete",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
@@ -166,12 +167,12 @@ class TestKnowledgeUnitCRUD:
         assert result.is_ok, "Setup failed: Could not create KU"
 
         # Delete KU
-        delete_result = await ku_backend.delete("ku:test_delete")
+        delete_result = await ku_backend.delete("ku.test-delete")
         assert delete_result.is_ok
         assert delete_result.value is True
 
         # Verify deletion
-        get_result = await ku_backend.get("ku:test_delete")
+        get_result = await ku_backend.get("ku.test-delete")
         assert get_result.is_ok
         assert get_result.value is None
 
@@ -188,7 +189,7 @@ class TestPathStepCRUD:
     async def test_create_path_step(self, ps_backend, clean_curriculum) -> None:
         """Should create PS in Neo4j."""
         ls = PathStep(
-            uid="ps:test_step_1",
+            uid="ps.test-step-1",
             title="Step 1: Learn Python Basics",
             intent="Master Python fundamentals",
             description="First step in Python journey",
@@ -198,7 +199,7 @@ class TestPathStepCRUD:
         result = await ps_backend.create(ls)
 
         assert result.is_ok
-        assert result.value.uid == "ps:test_step_1"
+        assert result.value.uid == "ps.test-step-1"
         assert result.value.title == "Step 1: Learn Python Basics"
         assert result.value.intent == "Master Python fundamentals"
 
@@ -207,7 +208,7 @@ class TestPathStepCRUD:
         """Should retrieve PS from Neo4j."""
         # Create PS
         ls = PathStep(
-            uid="ps:test_get",
+            uid="ps.test-get",
             title="Test Get Step",
             intent="Test learning objective",
             description="Test description",
@@ -216,11 +217,11 @@ class TestPathStepCRUD:
         assert result.is_ok, "Setup failed: Could not create PS"
 
         # Retrieve PS
-        result = await ps_backend.get("ps:test_get")
+        result = await ps_backend.get("ps.test-get")
 
         assert result.is_ok
         assert result.value is not None
-        assert result.value.uid == "ps:test_get"
+        assert result.value.uid == "ps.test-get"
         assert result.value.title == "Test Get Step"
 
     @pytest.mark.asyncio
@@ -228,7 +229,7 @@ class TestPathStepCRUD:
         """Should update PS in Neo4j."""
         # Create PS
         ls = PathStep(
-            uid="ps:test_update",
+            uid="ps.test-update",
             title="Original Step Title",
             intent="Original learning objective",
             description="Original description",
@@ -244,7 +245,7 @@ class TestPathStepCRUD:
             "description": "Updated description",
             "estimated_hours": 2.0,
         }
-        update_result = await ps_backend.update("ps:test_update", updates)
+        update_result = await ps_backend.update("ps.test-update", updates)
 
         assert update_result.is_ok
         assert update_result.value.title == "Updated Step Title"
@@ -257,7 +258,7 @@ class TestPathStepCRUD:
         """Should delete PS from Neo4j."""
         # Create PS
         ls = PathStep(
-            uid="ps:test_delete",
+            uid="ps.test-delete",
             title="Test Delete Step",
             intent="Test deletion",
             description="This step will be deleted",
@@ -266,12 +267,12 @@ class TestPathStepCRUD:
         assert result.is_ok, "Setup failed: Could not create PS"
 
         # Delete PS
-        delete_result = await ps_backend.delete("ps:test_delete")
+        delete_result = await ps_backend.delete("ps.test-delete")
         assert delete_result.is_ok
         assert delete_result.value is True
 
         # Verify deletion
-        get_result = await ps_backend.get("ps:test_delete")
+        get_result = await ps_backend.get("ps.test-delete")
         assert get_result.is_ok
         assert get_result.value is None
 
@@ -288,7 +289,7 @@ class TestLearningPathCRUD:
     async def test_create_learning_path(self, lp_backend, clean_curriculum) -> None:
         """Should create LP in Neo4j."""
         lp = LearningPath(
-            uid="lp:test_python_journey",
+            uid="lp.test-python-journey",
             title="Python Learning Journey",
             description="Complete path to Python mastery",
             domain=Domain.TECH,
@@ -298,7 +299,7 @@ class TestLearningPathCRUD:
         result = await lp_backend.create(lp)
 
         assert result.is_ok
-        assert result.value.uid == "lp:test_python_journey"
+        assert result.value.uid == "lp.test-python-journey"
         assert result.value.title == "Python Learning Journey"
 
     @pytest.mark.asyncio
@@ -306,7 +307,7 @@ class TestLearningPathCRUD:
         """Should retrieve LP from Neo4j."""
         # Create LP
         lp = LearningPath(
-            uid="lp:test_get",
+            uid="lp.test-get",
             title="Test Get Path",
             description="Test learning goal",
             domain=Domain.TECH,
@@ -315,11 +316,11 @@ class TestLearningPathCRUD:
         assert result.is_ok, "Setup failed: Could not create LP"
 
         # Retrieve LP
-        result = await lp_backend.get("lp:test_get")
+        result = await lp_backend.get("lp.test-get")
 
         assert result.is_ok
         assert result.value is not None
-        assert result.value.uid == "lp:test_get"
+        assert result.value.uid == "lp.test-get"
         assert result.value.title == "Test Get Path"
 
     @pytest.mark.asyncio
@@ -327,7 +328,7 @@ class TestLearningPathCRUD:
         """Should update LP in Neo4j."""
         # Create LP
         lp = LearningPath(
-            uid="lp:test_update",
+            uid="lp.test-update",
             title="Original Path Name",
             description="Original learning goal",
             domain=Domain.TECH,
@@ -344,7 +345,7 @@ class TestLearningPathCRUD:
             "difficulty_rating": 0.8,  # advanced
             "estimated_hours": 25.0,
         }
-        update_result = await lp_backend.update("lp:test_update", updates)
+        update_result = await lp_backend.update("lp.test-update", updates)
 
         assert update_result.is_ok
         assert update_result.value.title == "Updated Path Name"
@@ -357,7 +358,7 @@ class TestLearningPathCRUD:
         """Should delete LP from Neo4j."""
         # Create LP
         lp = LearningPath(
-            uid="lp:test_delete",
+            uid="lp.test-delete",
             title="Test Delete Path",
             description="This path will be deleted",
             domain=Domain.TECH,
@@ -366,12 +367,12 @@ class TestLearningPathCRUD:
         assert result.is_ok, "Setup failed: Could not create LP"
 
         # Delete LP
-        delete_result = await lp_backend.delete("lp:test_delete")
+        delete_result = await lp_backend.delete("lp.test-delete")
         assert delete_result.is_ok
         assert delete_result.value is True
 
         # Verify deletion
-        get_result = await lp_backend.get("lp:test_delete")
+        get_result = await lp_backend.get("lp.test-delete")
         assert get_result.is_ok
         assert get_result.value is None
 
@@ -392,7 +393,7 @@ class TestCurriculumRelationships:
             await session.run("""
                 CREATE (ku1:Entity:Ku {
                     entity_type: 'ku',
-                    uid: 'ku:python_basics',
+                    uid: 'ku.python-basics',
                     title: 'Python Basics',
                     content: 'Basic Python',
                     domain: 'tech',
@@ -401,7 +402,7 @@ class TestCurriculumRelationships:
                 })
                 CREATE (ku2:Entity:Ku {
                     entity_type: 'ku',
-                    uid: 'ku:python_advanced',
+                    uid: 'ku.python-advanced',
                     title: 'Advanced Python',
                     content: 'Advanced Python',
                     domain: 'tech',
@@ -414,14 +415,14 @@ class TestCurriculumRelationships:
         # Verify relationship exists
         async with neo4j_driver.session() as session:
             result = await session.run("""
-                MATCH (ku2:Entity {uid: 'ku:python_advanced'})-[:REQUIRES]->(ku1:Entity {uid: 'ku:python_basics'})
+                MATCH (ku2:Entity {uid: 'ku.python-advanced'})-[:REQUIRES]->(ku1:Entity {uid: 'ku.python-basics'})
                 RETURN ku1.uid as prereq_uid, ku2.uid as dependent_uid
             """)
             record = await result.single()
 
             assert record is not None
-            assert record["prereq_uid"] == "ku:python_basics"
-            assert record["dependent_uid"] == "ku:python_advanced"
+            assert record["prereq_uid"] == "ku.python-basics"
+            assert record["dependent_uid"] == "ku.python-advanced"
 
     @pytest.mark.asyncio
     async def test_lp_contains_ls_relationship(self, neo4j_driver, clean_curriculum) -> None:
@@ -430,7 +431,7 @@ class TestCurriculumRelationships:
         async with neo4j_driver.session() as session:
             await session.run("""
                 CREATE (lp:Entity {
-                    uid: 'lp:python_journey',
+                    uid: 'lp.python-journey',
                     title: 'Python Journey',
                     description: 'Learn Python',
                     domain: 'tech',
@@ -439,7 +440,7 @@ class TestCurriculumRelationships:
                     updated_at: datetime()
                 })
                 CREATE (ps:Entity {
-                    uid: 'ps:step_1',
+                    uid: 'ps.step-1',
                     title: 'Step 1',
                     description: 'First step',
                     entity_type: 'path_step',
@@ -453,14 +454,14 @@ class TestCurriculumRelationships:
         # Verify relationship exists
         async with neo4j_driver.session() as session:
             result = await session.run("""
-                MATCH (lp:Entity {uid: 'lp:python_journey'})-[r:HAS_STEP]->(ps:Entity {uid: 'ps:step_1'})
+                MATCH (lp:Entity {uid: 'lp.python-journey'})-[r:HAS_STEP]->(ps:Entity {uid: 'ps.step-1'})
                 RETURN lp.uid as lp_uid, ps.uid as ps_uid, r.order as step_order
             """)
             record = await result.single()
 
             assert record is not None
-            assert record["lp_uid"] == "lp:python_journey"
-            assert record["ps_uid"] == "ps:step_1"
+            assert record["lp_uid"] == "lp.python-journey"
+            assert record["ps_uid"] == "ps.step-1"
             assert record["step_order"] == 1
 
 
@@ -477,9 +478,10 @@ class TestCurriculumUserIntegration:
         """Should track user mastery of KUs."""
         # Create user and KU with MASTERED relationship
         async with neo4j_driver.session() as session:
-            await session.run("""
+            await session.run(
+                """
                 CREATE (u:User {
-                    uid: 'user_test_learner',
+                    uid: $user,
                     title: 'Test Learner',
                     email: 'learner@test.com',
                     created_at: datetime(),
@@ -487,7 +489,7 @@ class TestCurriculumUserIntegration:
                 })
                 CREATE (ku:Entity:Ku {
                     entity_type: 'ku',
-                    uid: 'ku:python_basics',
+                    uid: 'ku.python-basics',
                     title: 'Python Basics',
                     content: 'Basic Python',
                     domain: 'tech',
@@ -495,19 +497,24 @@ class TestCurriculumUserIntegration:
                     updated_at: datetime()
                 })
                 CREATE (u)-[:MASTERED {mastery_score: 0.85, mastered_at: datetime()}]->(ku)
-            """)
+                """,
+                user=seed_user_uid("test_learner"),
+            )
 
         # Verify mastery relationship
         async with neo4j_driver.session() as session:
-            result = await session.run("""
-                MATCH (u:User {uid: 'user_test_learner'})-[m:MASTERED]->(ku:Entity {uid: 'ku:python_basics'})
+            result = await session.run(
+                """
+                MATCH (u:User {uid: $user})-[m:MASTERED]->(ku:Entity {uid: 'ku.python-basics'})
                 RETURN u.uid as user_uid, ku.uid as ku_uid, m.mastery_score as score
-            """)
+                """,
+                user=seed_user_uid("test_learner"),
+            )
             record = await result.single()
 
             assert record is not None
-            assert record["user_uid"] == "user_test_learner"
-            assert record["ku_uid"] == "ku:python_basics"
+            assert record["user_uid"] == seed_user_uid("test_learner")
+            assert record["ku_uid"] == "ku.python-basics"
             assert record["score"] == 0.85
 
 
@@ -533,7 +540,7 @@ class TestCurriculumContextBuilder:
         from core.services.user.user_context_builder import UserContextBuilder
 
         # Setup: Create user and multiple KUs with varying mastery scores
-        test_user_uid = "user_builder_test"
+        test_user_uid = seed_user_uid("builder_test")
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -547,7 +554,7 @@ class TestCurriculumContextBuilder:
                 })
                 CREATE (ku1:Entity:Ku {
                     entity_type: 'ku',
-                    uid: 'ku:python_basics',
+                    uid: 'ku.python-basics',
                     title: 'Python Basics',
                     content: 'Basic Python',
                     domain: 'tech',
@@ -556,7 +563,7 @@ class TestCurriculumContextBuilder:
                 })
                 CREATE (ku2:Entity:Ku {
                     entity_type: 'ku',
-                    uid: 'ku:advanced_python',
+                    uid: 'ku.advanced-python',
                     title: 'Advanced Python',
                     content: 'Advanced Python',
                     domain: 'tech',
@@ -565,7 +572,7 @@ class TestCurriculumContextBuilder:
                 })
                 CREATE (ku3:Entity:Ku {
                     entity_type: 'ku',
-                    uid: 'ku:testing',
+                    uid: 'ku.testing',
                     title: 'Testing',
                     content: 'Testing knowledge',
                     domain: 'tech',
@@ -597,15 +604,15 @@ class TestCurriculumContextBuilder:
 
         # Verify mastered knowledge UIDs
         assert len(context.mastered_knowledge_uids) == 3
-        assert "ku:python_basics" in context.mastered_knowledge_uids
-        assert "ku:advanced_python" in context.mastered_knowledge_uids
-        assert "ku:testing" in context.mastered_knowledge_uids
+        assert "ku.python-basics" in context.mastered_knowledge_uids
+        assert "ku.advanced-python" in context.mastered_knowledge_uids
+        assert "ku.testing" in context.mastered_knowledge_uids
 
         # Verify knowledge mastery scores
         assert len(context.knowledge_mastery) == 3
-        assert context.knowledge_mastery["ku:python_basics"] == 0.9
-        assert context.knowledge_mastery["ku:advanced_python"] == 0.75
-        assert context.knowledge_mastery["ku:testing"] == 0.6
+        assert context.knowledge_mastery["ku.python-basics"] == 0.9
+        assert context.knowledge_mastery["ku.advanced-python"] == 0.75
+        assert context.knowledge_mastery["ku.testing"] == 0.6
 
     @pytest.mark.asyncio
     async def test_builder_populates_enrolled_learning_paths(
@@ -620,7 +627,7 @@ class TestCurriculumContextBuilder:
         from core.services.user.user_context_builder import UserContextBuilder
 
         # Setup: Create user enrolled in multiple learning paths
-        test_user_uid = "user_learning_path_test"
+        test_user_uid = seed_user_uid("learning_path_test")
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -632,7 +639,7 @@ class TestCurriculumContextBuilder:
                     updated_at: datetime()
                 })
                 CREATE (lp1:Entity {
-                    uid: 'lp:python_journey',
+                    uid: 'lp.python-journey',
                     title: 'Python Journey',
                     description: 'Complete Python learning',
                     entity_type: 'learning_path',
@@ -640,7 +647,7 @@ class TestCurriculumContextBuilder:
                     updated_at: datetime()
                 })
                 CREATE (lp2:Entity {
-                    uid: 'lp:web_development',
+                    uid: 'lp.web-development',
                     title: 'Web Development',
                     description: 'Web dev path',
                     entity_type: 'learning_path',
@@ -670,8 +677,8 @@ class TestCurriculumContextBuilder:
 
         # Verify: Enrolled learning paths populated from Neo4j queries
         assert len(context.enrolled_path_uids) == 2
-        assert "lp:python_journey" in context.enrolled_path_uids
-        assert "lp:web_development" in context.enrolled_path_uids
+        assert "lp.python-journey" in context.enrolled_path_uids
+        assert "lp.web-development" in context.enrolled_path_uids
 
     @pytest.mark.asyncio
     async def test_builder_handles_no_curriculum_data(self, neo4j_driver, clean_curriculum) -> None:
@@ -684,7 +691,7 @@ class TestCurriculumContextBuilder:
         from core.services.user.user_context_builder import UserContextBuilder
 
         # Setup: Create user with NO curriculum data
-        test_user_uid = "user_empty_curriculum"
+        test_user_uid = seed_user_uid("empty_curriculum")
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -732,7 +739,7 @@ class TestCurriculumContextBuilder:
         from core.services.user.user_context_builder import UserContextBuilder
 
         # Setup: Create user with curriculum + activity domain entities
-        test_user_uid = "user_integrated_test"
+        test_user_uid = seed_user_uid("integrated_test")
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -748,7 +755,7 @@ class TestCurriculumContextBuilder:
                 // Curriculum: Knowledge units
                 CREATE (ku1:Entity:Ku {
                     entity_type: 'ku',
-                    uid: 'ku:python',
+                    uid: 'ku.python',
                     title: 'Python',
                     content: 'Python programming',
                     created_at: datetime(),
@@ -756,7 +763,7 @@ class TestCurriculumContextBuilder:
                 })
                 CREATE (ku2:Entity:Ku {
                     entity_type: 'ku',
-                    uid: 'ku:testing',
+                    uid: 'ku.testing',
                     title: 'Testing',
                     content: 'Testing knowledge',
                     created_at: datetime(),
@@ -765,7 +772,7 @@ class TestCurriculumContextBuilder:
 
                 // Curriculum: Learning path
                 CREATE (lp:Entity {
-                    uid: 'lp:python_mastery',
+                    uid: 'lp.python-mastery',
                     title: 'Python Mastery',
                     description: 'Complete Python path',
                     entity_type: 'learning_path',
@@ -775,7 +782,7 @@ class TestCurriculumContextBuilder:
 
                 // Activity: Task
                 CREATE (t:Task {
-                    uid: 'task:build_api',
+                    uid: 'task.build-api',
                     title: 'Build API',
                     user_uid: $user_uid,
                     status: 'active',
@@ -787,7 +794,7 @@ class TestCurriculumContextBuilder:
 
                 // Activity: Goal
                 CREATE (g:Goal {
-                    uid: 'goal:learn_python',
+                    uid: 'goal.learn-python',
                     title: 'Learn Python',
                     user_uid: $user_uid,
                     status: 'active',
@@ -835,18 +842,18 @@ class TestCurriculumContextBuilder:
 
         # Curriculum data
         assert len(context.mastered_knowledge_uids) == 2
-        assert "ku:python" in context.mastered_knowledge_uids
-        assert context.knowledge_mastery["ku:python"] == 0.8
-        assert context.knowledge_mastery["ku:testing"] == 0.6
+        assert "ku.python" in context.mastered_knowledge_uids
+        assert context.knowledge_mastery["ku.python"] == 0.8
+        assert context.knowledge_mastery["ku.testing"] == 0.6
         assert len(context.enrolled_path_uids) == 1
-        assert "lp:python_mastery" in context.enrolled_path_uids
+        assert "lp.python-mastery" in context.enrolled_path_uids
 
         # Activity domain data
         assert len(context.active_task_uids) == 1
-        assert "task:build_api" in context.active_task_uids
+        assert "task.build-api" in context.active_task_uids
         assert len(context.active_goal_uids) == 1
-        assert "goal:learn_python" in context.active_goal_uids
-        assert context.goal_progress["goal:learn_python"] == 0.7
+        assert "goal.learn-python" in context.active_goal_uids
+        assert context.goal_progress["goal.learn-python"] == 0.7
 
 
 # ============================================================================
@@ -878,13 +885,13 @@ class TestPrerequisiteChainWithDistance:
         #   A -REQUIRES_KNOWLEDGE-> D (Ku)   (D direct  = distance 1)  ← min wins
         # D being a Ku is the point: with a PathStep-only target match it would be
         # silently dropped despite the endpoint promising to unify knowledge prereqs.
-        steps = {"A": "ps:chain_a", "B": "ps:chain_b", "C": "ps:chain_c"}
+        steps = {"A": "ps.chain-a", "B": "ps.chain-b", "C": "ps.chain-c"}
         for label, uid in steps.items():
             create = await ps_backend.create(
                 PathStep(uid=uid, title=f"Step {label}", intent=f"intent {label}")
             )
             assert create.is_ok, f"Setup failed: could not create {uid}"
-        ku_d = "ku:chain_d"
+        ku_d = "ku.chain-d"
 
         step_rel = RelationshipName.REQUIRES_STEP
         know_rel = RelationshipName.REQUIRES_KNOWLEDGE
@@ -928,7 +935,7 @@ class TestPrerequisiteChainWithDistance:
     @pytest.mark.asyncio
     async def test_depth_bounds_the_chain(self, ps_backend, neo4j_driver, clean_curriculum) -> None:
         """depth=1 yields only immediate prerequisites; deeper nodes are excluded."""
-        chain = ["ps:linear_a", "ps:linear_b", "ps:linear_c"]
+        chain = ["ps.linear-a", "ps.linear-b", "ps.linear-c"]
         for i, uid in enumerate(chain):
             create = await ps_backend.create(PathStep(uid=uid, title=f"Linear {i}"))
             assert create.is_ok
@@ -960,7 +967,7 @@ class TestPrerequisiteChainWithDistance:
         self, ps_backend, neo4j_driver, clean_curriculum
     ) -> None:
         """A prerequisite cycle (A→B→A) must not return A as its own prerequisite."""
-        cycle = ["ps:cycle_a", "ps:cycle_b"]
+        cycle = ["ps.cycle-a", "ps.cycle-b"]
         for i, uid in enumerate(cycle):
             create = await ps_backend.create(PathStep(uid=uid, title=f"Cycle {i}"))
             assert create.is_ok

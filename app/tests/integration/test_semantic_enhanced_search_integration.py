@@ -19,6 +19,7 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.config.unified_config import VectorSearchConfig
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.integration
@@ -124,10 +125,13 @@ async def test_learning_aware_search_with_states(
     # Create test user and KUs
     async with neo4j_driver.session() as session:
         # Create user (MERGE to avoid conflicts with ensure_test_users fixture)
-        result = await session.run("""
-            MERGE (u:User {uid: 'user_test_learning'})
+        result = await session.run(
+            """
+            MERGE (u:User {uid: $user_test_learning})
             ON CREATE SET u.created_at = datetime()
-        """)
+        """,
+            user_test_learning=seed_user_uid("test_learning"),
+        )
         await result.consume()
 
         # Create mastered KU
@@ -161,14 +165,17 @@ async def test_learning_aware_search_with_states(
         await result.consume()
 
         # Create MASTERED relationship
-        result = await session.run("""
-            MATCH (u:User {uid: 'user_test_learning'})
+        result = await session.run(
+            """
+            MATCH (u:User {uid: $user_test_learning})
             MATCH (k:Entity {uid: 'ku.mastered-topic'})
             CREATE (u)-[:MASTERED {
                 mastered_at: datetime(),
                 confidence: 1.0
             }]->(k)
-        """)
+        """,
+            user_test_learning=seed_user_uid("test_learning"),
+        )
         await result.consume()  # Ensure transaction commits
 
     # Create vector search service
@@ -183,7 +190,7 @@ async def test_learning_aware_search_with_states(
     result = await vector_search.learning_aware_search(
         label="Ku",
         text="topic",
-        user_uid="user_test_learning",
+        user_uid=seed_user_uid("test_learning"),
         prefer_unmastered=True,
         limit=10,
     )
@@ -369,10 +376,13 @@ async def test_performance_learning_aware_search(
 
     # Create user and 10 KUs with varying learning states
     async with neo4j_driver.session() as session:
-        result = await session.run("""
-            MERGE (u:User {uid: 'user_test_perf'})
+        result = await session.run(
+            """
+            MERGE (u:User {uid: $user_test_perf})
             ON CREATE SET u.created_at = datetime()
-        """)
+        """,
+            user_test_perf=seed_user_uid("test_perf"),
+        )
         await result.consume()
 
         for i in range(10):
@@ -391,20 +401,26 @@ async def test_performance_learning_aware_search(
         # Create learning state relationships
         for i in range(3):
             # MASTERED
-            result = await session.run(f"""
-                MATCH (u:User {{uid: 'user_test_perf'}})
+            result = await session.run(
+                f"""
+                MATCH (u:User {{uid: $user_test_perf}})
                 MATCH (k:Entity {{uid: 'ku.perf-{i}'}})
                 CREATE (u)-[:MASTERED {{mastered_at: datetime()}}]->(k)
-            """)
+            """,
+                user_test_perf=seed_user_uid("test_perf"),
+            )
             await result.consume()  # Ensure transaction commits
 
         for i in range(3, 6):
             # IN_PROGRESS
-            result = await session.run(f"""
-                MATCH (u:User {{uid: 'user_test_perf'}})
+            result = await session.run(
+                f"""
+                MATCH (u:User {{uid: $user_test_perf}})
                 MATCH (k:Entity {{uid: 'ku.perf-{i}'}})
                 CREATE (u)-[:IN_PROGRESS {{started_at: datetime()}}]->(k)
-            """)
+            """,
+                user_test_perf=seed_user_uid("test_perf"),
+            )
             await result.consume()  # Ensure transaction commits
 
     vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
@@ -420,7 +436,7 @@ async def test_performance_learning_aware_search(
     result = await vector_search.learning_aware_search(
         label="Ku",
         text="performance test",
-        user_uid="user_test_perf",
+        user_uid=seed_user_uid("test_perf"),
         prefer_unmastered=True,
         limit=10,
     )
@@ -476,10 +492,13 @@ async def test_end_to_end_semantic_discovery_workflow(
     # Setup: User learning Python, wants to find related advanced topics
     async with neo4j_driver.session() as session:
         # Create user (MERGE to avoid conflicts with ensure_test_users fixture)
-        result = await session.run("""
-            MERGE (u:User {uid: 'user_discovery'})
+        result = await session.run(
+            """
+            MERGE (u:User {uid: $user_discovery})
             ON CREATE SET u.created_at = datetime()
-        """)
+        """,
+            user_discovery=seed_user_uid("discovery"),
+        )
         await result.consume()
 
         # Create learning path: basics -> intermediate -> advanced
@@ -527,13 +546,16 @@ async def test_end_to_end_semantic_discovery_workflow(
         await result.consume()  # Ensure transaction commits
 
         # User has mastered basics, viewing intermediate
-        result = await session.run("""
-            MATCH (u:User {uid: 'user_discovery'})
+        result = await session.run(
+            """
+            MATCH (u:User {uid: $user_discovery})
             MATCH (basics:Entity {uid: 'ku.python-basics'})
             MATCH (inter:Entity {uid: 'ku.python-intermediate'})
             CREATE (u)-[:MASTERED {mastered_at: datetime()}]->(basics)
             CREATE (u)-[:VIEWED {last_viewed_at: datetime()}]->(inter)
-        """)
+        """,
+            user_discovery=seed_user_uid("discovery"),
+        )
         await result.consume()  # Ensure transaction commits
 
     vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
@@ -565,7 +587,7 @@ async def test_end_to_end_semantic_discovery_workflow(
     learning_result = await vector_search.learning_aware_search(
         label="Ku",
         text="python programming",
-        user_uid="user_discovery",
+        user_uid=seed_user_uid("discovery"),
         prefer_unmastered=True,
         limit=10,
     )

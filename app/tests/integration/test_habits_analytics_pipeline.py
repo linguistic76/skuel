@@ -43,14 +43,15 @@ from core.services.relationships.unified_relationship_service import UnifiedRela
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
-HB = "hbctx_"  # uid prefix for this module's fixture graph
+HB = "hbctx."  # uid prefix for this module's fixture graph
 HB_HABIT = HB + "habit"
-HB_HABIT_BARE = HB + "habit_bare"  # negative control: no cross-domain edges
+HB_HABIT_BARE = HB + "habit-bare"  # negative control: no cross-domain edges
 HB_GOAL = HB + "goal"  # habit -[SUPPORTS_GOAL]-> (supported_goals)
 HB_KU = HB + "ku"  # habit -[REINFORCES_KNOWLEDGE]-> (reinforced_knowledge)
-HB_PRIN_OUT = HB + "principle_out"  # habit -[EMBODIES_PRINCIPLE]-> (embodied_principles)
-HB_PRIN_IN = HB + "principle_in"  # (principle) -[INSPIRES_HABIT]-> habit (inspiring_principles)
+HB_PRIN_OUT = HB + "principle-out"  # habit -[EMBODIES_PRINCIPLE]-> (embodied_principles)
+HB_PRIN_IN = HB + "principle-in"  # (principle) -[INSPIRES_HABIT]-> habit (inspiring_principles)
 HB_PREREQ = HB + "prereq"  # habit -[REQUIRES_PREREQUISITE]-> (prerequisite_habits)
 
 
@@ -109,7 +110,10 @@ def _harness(
     done_days_ago: list[int] | None = None,
 ) -> _HabitIntelHarness:
     habit = habit or Habit(
-        uid=habit_uid, title="Daily practice", user_uid="hbctx_user", current_streak=10
+        uid=habit_uid,
+        title="Daily practice",
+        user_uid=seed_user_uid("hbctx_user"),
+        current_streak=10,
     )
     rels: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=rel_backend, config=HABITS_CONFIG, graph_intel=None
@@ -123,7 +127,7 @@ def _measured_habit(habit_uid: str) -> Habit:
     return Habit(
         uid=habit_uid,
         title="Daily practice",
-        user_uid="hbctx_user",
+        user_uid=seed_user_uid("hbctx_user"),
         current_streak=10,
         recurrence_pattern=RecurrencePattern.DAILY,
         created_at=as_stored_clock(local_day_bounds(today_in(zone) - timedelta(days=90), zone)[0]),
@@ -136,7 +140,7 @@ def _unmeasured_habit(habit_uid: str) -> Habit:
     return Habit(
         uid=habit_uid,
         title="Weekly practice",
-        user_uid="hbctx_user",
+        user_uid=seed_user_uid("hbctx_user"),
         current_streak=10,
         recurrence_pattern=RecurrencePattern.WEEKLY,
         created_at=as_stored_clock(local_day_bounds(today_in(zone), zone)[0]),
@@ -316,9 +320,9 @@ async def test_habit_goal_support_dedupes_multipath_goals_at_depth2(
     twice in the ``supported_goals`` bucket. _union_path_buckets de-dupes by uid keeping the
     STRONGEST path, so the goal set is the one goal, once.
     """
-    dup_habit = HB + "dup_habit"
-    dup_mid = HB + "dup_mid_habit"  # habit -REQUIRES_PREREQUISITE_HABIT-> mid -SUPPORTS_GOAL-> goal
-    dup_goal = HB + "dup_goal"  # also habit -SUPPORTS_GOAL-> goal (reached twice)
+    dup_habit = HB + "dup-habit"
+    dup_mid = HB + "dup-mid-habit"  # habit -REQUIRES_PREREQUISITE_HABIT-> mid -SUPPORTS_GOAL-> goal
+    dup_goal = HB + "dup-goal"  # also habit -SUPPORTS_GOAL-> goal (reached twice)
     async with neo4j_driver.session() as s:
         for uid in (dup_habit, dup_mid):
             await s.run(

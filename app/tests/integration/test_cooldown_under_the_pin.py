@@ -27,11 +27,13 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers.seed_uids import seed_user_uid
+
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
 APP = Path(__file__).resolve().parents[2]
 PROBE = Path(__file__).parent / "probes" / "cooldown_under_the_pin.py"
-USER = "user_cooldown_pin"
+USER = seed_user_uid("cooldown_pin")
 
 
 async def test_a_report_written_by_a_vancouver_started_process_is_in_cooldown(

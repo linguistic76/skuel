@@ -56,10 +56,11 @@ from core.constants import CompletionVelocityWindow
 from core.models.enums.entity_enums import EntityStatus
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
-WINDOW = "user_velocity_window"
-STALE = "user_velocity_stale"
-VAULT = "user_velocity_vault"
+WINDOW = seed_user_uid("velocity_window")
+STALE = seed_user_uid("velocity_stale")
+VAULT = seed_user_uid("velocity_vault")
 
 TODAY = today_in(current_zone())
 FIRST_DAY_IN = CompletionVelocityWindow.start_date(TODAY)
@@ -149,44 +150,44 @@ class TestCompletionVelocityWindow:
         """One user per shape the figures have to discriminate."""
         # WINDOW: four rows inside the window, four completed rows outside it,
         # one reopened row in neither count. Total 8, window 4.
-        await _seed_task(neo4j_driver, WINDOW, "task.win_today", completion_date=TODAY.isoformat())
+        await _seed_task(neo4j_driver, WINDOW, "task.win-today", completion_date=TODAY.isoformat())
         await _seed_task(
             neo4j_driver,
             WINDOW,
-            "task.win_yesterday",
+            "task.win-yesterday",
             completion_date=(TODAY - timedelta(days=1)).isoformat(),
         )
         # The boundary itself: the first day inside the window.
         await _seed_task(
-            neo4j_driver, WINDOW, "task.win_boundary", completion_date=FIRST_DAY_IN.isoformat()
+            neo4j_driver, WINDOW, "task.win-boundary", completion_date=FIRST_DAY_IN.isoformat()
         )
         # A stamp written as a native temporal rather than an ISO string.
         await _seed_task(
             neo4j_driver,
             WINDOW,
-            "task.win_temporal",
+            "task.win-temporal",
             completion_date=TODAY.isoformat(),
             temporal_stamp=True,
         )
         # One day past the boundary — exactly DAYS old.
         await _seed_task(
-            neo4j_driver, WINDOW, "task.out_boundary", completion_date=LAST_DAY_OUT.isoformat()
+            neo4j_driver, WINDOW, "task.out-boundary", completion_date=LAST_DAY_OUT.isoformat()
         )
         await _seed_task(
             neo4j_driver,
             WINDOW,
-            "task.out_ancient",
+            "task.out-ancient",
             completion_date=(TODAY - timedelta(days=200)).isoformat(),
         )
         # Completed but never stamped — in the total, excluded from the window
         # rather than assumed recent.
-        await _seed_task(neo4j_driver, WINDOW, "task.out_unstamped", completion_date=None)
+        await _seed_task(neo4j_driver, WINDOW, "task.out-unstamped", completion_date=None)
         # Stamped but reopened — the stamp clear is the writer's job; even if one
         # lingered, a task that is not completed is not a completion, in any figure.
         await _seed_task(
             neo4j_driver,
             WINDOW,
-            "task.out_reopened",
+            "task.out-reopened",
             status=EntityStatus.ACTIVE,
             completion_date=(TODAY - timedelta(days=400)).isoformat(),
         )
@@ -195,7 +196,7 @@ class TestCompletionVelocityWindow:
         await _seed_task(
             neo4j_driver,
             WINDOW,
-            "task.out_future",
+            "task.out-future",
             completion_date=(TODAY + timedelta(days=1)).isoformat(),
         )
         # STALE: real history, nothing inside the window.
@@ -203,7 +204,7 @@ class TestCompletionVelocityWindow:
             await _seed_task(
                 neo4j_driver,
                 STALE,
-                f"task.stale_{offset}",
+                f"task.stale-{offset}",
                 completion_date=(TODAY - timedelta(days=offset)).isoformat(),
             )
 
@@ -212,7 +213,7 @@ class TestCompletionVelocityWindow:
             await _seed_task(
                 neo4j_driver,
                 VAULT,
-                f"task.vault_{n}",
+                f"task.vault-{n}",
                 completion_date=(TODAY - timedelta(days=n)).isoformat(),
             )
 
@@ -248,10 +249,10 @@ class TestCompletionVelocityWindow:
         boundary rather than merely counting.
         """
         await _seed_task(
-            neo4j_driver, WINDOW, "task.edge_in", completion_date=FIRST_DAY_IN.isoformat()
+            neo4j_driver, WINDOW, "task.edge-in", completion_date=FIRST_DAY_IN.isoformat()
         )
         await _seed_task(
-            neo4j_driver, WINDOW, "task.edge_out", completion_date=LAST_DAY_OUT.isoformat()
+            neo4j_driver, WINDOW, "task.edge-out", completion_date=LAST_DAY_OUT.isoformat()
         )
 
         row = await self._read(backend, WINDOW)
@@ -273,12 +274,12 @@ class TestCompletionVelocityWindow:
         rather than merely counting.
         """
         await _seed_task(
-            neo4j_driver, WINDOW, "task.bound_today", completion_date=TODAY.isoformat()
+            neo4j_driver, WINDOW, "task.bound-today", completion_date=TODAY.isoformat()
         )
         await _seed_task(
             neo4j_driver,
             WINDOW,
-            "task.bound_tomorrow",
+            "task.bound-tomorrow",
             completion_date=(TODAY + timedelta(days=1)).isoformat(),
         )
 
@@ -297,7 +298,7 @@ class TestCompletionVelocityWindow:
         await _seed_task(
             neo4j_driver,
             WINDOW,
-            "task.temporal_only",
+            "task.temporal-only",
             completion_date=TODAY.isoformat(),
             temporal_stamp=True,
         )
@@ -323,24 +324,24 @@ class TestCompletionVelocityWindow:
         it is not completed, whatever stamp it still carries. The window inside
         the same read is exactly one of the four.
         """
-        await _seed_task(neo4j_driver, WINDOW, "task.t_recent", completion_date=TODAY.isoformat())
-        await _seed_task(neo4j_driver, WINDOW, "task.t_unstamped", completion_date=None)
+        await _seed_task(neo4j_driver, WINDOW, "task.t-recent", completion_date=TODAY.isoformat())
+        await _seed_task(neo4j_driver, WINDOW, "task.t-unstamped", completion_date=None)
         await _seed_task(
             neo4j_driver,
             WINDOW,
-            "task.t_ancient",
+            "task.t-ancient",
             completion_date=(TODAY - timedelta(days=365)).isoformat(),
         )
         await _seed_task(
             neo4j_driver,
             WINDOW,
-            "task.t_future",
+            "task.t-future",
             completion_date=(TODAY + timedelta(days=3)).isoformat(),
         )
         await _seed_task(
             neo4j_driver,
             WINDOW,
-            "task.t_reopened",
+            "task.t-reopened",
             status=EntityStatus.ACTIVE,
             completion_date=TODAY.isoformat(),
         )
@@ -485,7 +486,7 @@ class TestCompletionVelocityWindow:
         exactly one row rather than an empty result the service would have to
         treat as a separate case.
         """
-        result = await service.get_productivity_metrics("user_velocity_nobody")
+        result = await service.get_productivity_metrics(seed_user_uid("velocity_nobody"))
 
         assert result.is_ok
         assert result.value["completion_velocity"] == 0.0

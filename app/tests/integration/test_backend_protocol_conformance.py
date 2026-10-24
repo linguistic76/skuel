@@ -26,6 +26,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -58,10 +59,10 @@ class TestBackendProtocolConformance:
     async def _seed_two_typed_relationships(self, tasks_service, tasks_backend, ku_backend):
         """Create one task with an APPLIES_KNOWLEDGE and a REQUIRES_KNOWLEDGE edge to two KUs."""
         task = Task(
-            uid="task:rel_filter_source",
+            uid="task.rel-filter-source",
             title="Source Task",
             description="Has two differently-typed outgoing edges",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.MEDIUM,
             status=EntityStatus.DRAFT,
         )
@@ -69,7 +70,7 @@ class TestBackendProtocolConformance:
 
         for slug in ("applies-target", "requires-target"):
             ku = Curriculum(
-                uid=f"ku:{slug}",
+                uid=f"ku.{slug}",
                 title=slug,
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
@@ -78,8 +79,8 @@ class TestBackendProtocolConformance:
 
         rel_result = await tasks_backend.create_relationships_batch(
             [
-                ("task:rel_filter_source", "ku:applies-target", "APPLIES_KNOWLEDGE", None),
-                ("task:rel_filter_source", "ku:requires-target", "REQUIRES_KNOWLEDGE", None),
+                ("task.rel-filter-source", "ku.applies-target", "APPLIES_KNOWLEDGE", None),
+                ("task.rel-filter-source", "ku.requires-target", "REQUIRES_KNOWLEDGE", None),
             ]
         )
         assert rel_result.is_ok
@@ -92,13 +93,13 @@ class TestBackendProtocolConformance:
         await self._seed_two_typed_relationships(tasks_service, tasks_backend, ku_backend)
 
         applies_only = await tasks_backend.get_relationships(
-            "task:rel_filter_source",
+            "task.rel-filter-source",
             rel_type=RelationshipName.APPLIES_KNOWLEDGE,
             direction="outgoing",
         )
         assert applies_only.is_ok
         assert [r["type"] for r in applies_only.value] == ["APPLIES_KNOWLEDGE"]
-        assert applies_only.value[0]["target_uid"] == "ku:applies-target"
+        assert applies_only.value[0]["target_uid"] == "ku.applies-target"
 
     async def test_get_relationships_no_filter_returns_all(
         self, tasks_service, tasks_backend, ku_backend
@@ -107,7 +108,7 @@ class TestBackendProtocolConformance:
         await self._seed_two_typed_relationships(tasks_service, tasks_backend, ku_backend)
 
         all_rels = await tasks_backend.get_relationships(
-            "task:rel_filter_source", direction="outgoing"
+            "task.rel-filter-source", direction="outgoing"
         )
         assert all_rels.is_ok
         assert {r["type"] for r in all_rels.value} == {
@@ -126,7 +127,7 @@ class TestBackendProtocolConformance:
         await self._seed_two_typed_relationships(tasks_service, tasks_backend, ku_backend)
 
         result = await tasks_backend.get_relationships(
-            "task:rel_filter_source", RelationshipName.REQUIRES_KNOWLEDGE, "outgoing"
+            "task.rel-filter-source", RelationshipName.REQUIRES_KNOWLEDGE, "outgoing"
         )
         assert result.is_ok
         assert [r["type"] for r in result.value] == ["REQUIRES_KNOWLEDGE"]
@@ -139,10 +140,10 @@ class TestBackendProtocolConformance:
         """backend.list() returns Result[tuple[list[T], int]] with an accurate total."""
         for i in range(5):
             task = Task(
-                uid=f"task:list_count_{i}",
+                uid=f"task.list-count-{i}",
                 title=f"List Count Task {i}",
                 description="seed",
-                user_uid="user_test",
+                user_uid=seed_user_uid("test"),
                 status=EntityStatus.ACTIVE,
             )
             assert (await tasks_service.create(task)).is_ok

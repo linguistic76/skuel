@@ -18,8 +18,9 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.zpd_backend import ZPDBackend
+from tests.helpers.seed_uids import seed_user_uid
 
-USER_UID = "user_test_zpd_enables"
+USER_UID = seed_user_uid("test_zpd_enables")
 
 KU_ENGAGED = "ku.test.zpd-engaged"  # engaged via task
 KU_ENABLED = "ku.test.zpd-enabled"  # KU_ENGAGED -ENABLES-> this → proximal
@@ -30,8 +31,8 @@ KU_ENABLED_CANONICAL = "ku.test.zpd-enabled-canonical"  # via ENABLES_KNOWLEDGE 
 PS_ENGAGED = "ps.test.zpd-engaged"  # engaged via a second task (PathStep grain)
 PS_ENABLED = "ps.test.zpd-enabled"  # PS_ENGAGED -ENABLES_KNOWLEDGE-> this
 KU_BRIDGED = "ku.test.zpd-bridged"  # PS_ENABLED -USES_KU-> this → proximal (bridge)
-TASK_PS_UID = "task_test_zpd_ps_engage"
-TASK_UID = "task_test_zpd_enables"
+TASK_PS_UID = "task.test-zpd-ps-engage"
+TASK_UID = "task.test-zpd-enables"
 
 _ALL_UIDS = [
     USER_UID,

@@ -36,14 +36,14 @@ from core.models.relationship_registry import GOALS_CONFIG
 from core.services.mixins.link_edge_guard import HABIT_FAR_END
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
-P = "esstest_"
+P = "esstest."
 GOAL = P + "goal"
-GOAL_BARE = P + "goal_untiered"  # control: a single un-tiered (supporting) habit
-H_ESSENTIAL = P + "h_essential"
-H_CRITICAL = P + "h_critical"
-H_SUPPORTING = P + "h_supporting"
-H_OPTIONAL = P + "h_optional"
-H_PLAIN = P + "h_plain"  # linked with the default "supporting" tier
+GOAL_BARE = P + "goal-untiered"  # control: a single un-tiered (supporting) habit
+H_ESSENTIAL = P + "h-essential"
+H_CRITICAL = P + "h-critical"
+H_SUPPORTING = P + "h-supporting"
+H_OPTIONAL = P + "h-optional"
+H_PLAIN = P + "h-plain"  # linked with the default "supporting" tier
 
 
 @pytest.fixture

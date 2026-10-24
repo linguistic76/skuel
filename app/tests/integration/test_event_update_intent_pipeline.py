@@ -44,6 +44,7 @@ from core.models.sentinels import UNSET
 from core.services.events.events_core_service import EventsCoreService
 from core.services.events_service import EventsService
 from core.services.mixins.link_edge_guard import GOAL_FAR_END, HABIT_FAR_END
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -83,8 +84,8 @@ class TestEventUpdateIntentPipeline:
     async def seeded_event(self, core_service):
         """A future-dated event (past-event immutability would block updates otherwise)."""
         event = Event(
-            uid="event:intent_pipeline",
-            user_uid="user_intent_pipeline",
+            uid="event.intent-pipeline",
+            user_uid=seed_user_uid("intent_pipeline"),
             title="Original title",
             description="Original description",
             event_date=date.today() + timedelta(days=10),
@@ -197,14 +198,14 @@ class TestEventUpdateIntentPipeline:
             practices_knowledge_uids=["ku_x"],
             executes_tasks=["task:y"],
             milestone_celebration_for_goal="goal:z",
-            reinforces_habit_uid="habit:w",
+            reinforces_habit_uid="habit.w",
         )
         intent = request.to_intent()
 
         assert intent.to_changes() == {
             "title": "Edges plus junk",
             "milestone_celebration_for_goal": "goal:z",
-            "reinforces_habit_uid": "habit:w",
+            "reinforces_habit_uid": "habit.w",
         }
 
     async def test_edge_only_update_rewires_edges_without_junk_properties(
@@ -218,13 +219,13 @@ class TestEventUpdateIntentPipeline:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MERGE (g_old:Entity:Goal {uid: 'goal:edge_old'})
+                MERGE (g_old:Entity:Goal {uid: 'goal.edge-old'})
                   ON CREATE SET g_old.entity_type = 'goal', g_old.title = 'Old goal'
-                MERGE (g_new:Entity:Goal {uid: 'goal:edge_new'})
+                MERGE (g_new:Entity:Goal {uid: 'goal.edge-new'})
                   ON CREATE SET g_new.entity_type = 'goal', g_new.title = 'New goal'
-                MERGE (h_old:Entity:Habit {uid: 'habit:edge_old'})
+                MERGE (h_old:Entity:Habit {uid: 'habit.edge-old'})
                   ON CREATE SET h_old.entity_type = 'habit', h_old.title = 'Old habit'
-                MERGE (h_new:Entity:Habit {uid: 'habit:edge_new'})
+                MERGE (h_new:Entity:Habit {uid: 'habit.edge-new'})
                   ON CREATE SET h_new.entity_type = 'habit', h_new.title = 'New habit'
                 """
             )
@@ -232,12 +233,12 @@ class TestEventUpdateIntentPipeline:
         # Establish the initial edges to the "old" targets.
         assert (
             await facade.relationships.create_relationship(
-                "celebrated_goals", event_uid, "goal:edge_old", far_end=GOAL_FAR_END
+                "celebrated_goals", event_uid, "goal.edge-old", far_end=GOAL_FAR_END
             )
         ).is_ok
         assert (
             await facade.relationships.create_relationship(
-                "habits", event_uid, "habit:edge_old", far_end=HABIT_FAR_END
+                "habits", event_uid, "habit.edge-old", far_end=HABIT_FAR_END
             )
         ).is_ok
 
@@ -245,8 +246,8 @@ class TestEventUpdateIntentPipeline:
 
         # Edge-only intent: no node properties, only the two edge UIDs.
         intent = EventUpdateIntent(
-            milestone_celebration_for_goal="goal:edge_new",
-            reinforces_habit_uid="habit:edge_new",
+            milestone_celebration_for_goal="goal.edge-new",
+            reinforces_habit_uid="habit.edge-new",
         )
         result = await facade.update_event(event_uid, intent)
         assert result.is_ok
@@ -278,8 +279,8 @@ class TestEventUpdateIntentPipeline:
                 )
             ).single()
 
-        assert goals["uids"] == ["goal:edge_new"]
-        assert habits["uids"] == ["habit:edge_new"]
+        assert goals["uids"] == ["goal.edge-new"]
+        assert habits["uids"] == ["habit.edge-new"]
 
         # The edge UIDs were never written as node properties (the whole point of the split).
         props = node["props"]
@@ -290,8 +291,8 @@ class TestEventUpdateIntentPipeline:
         updated = [e for e in event_bus.get_event_history() if isinstance(e, CalendarEventUpdated)]
         assert updated, "edge-only update must fire CalendarEventUpdated"
         assert updated[-1].updated_fields == {
-            "milestone_celebration_for_goal": "goal:edge_new",
-            "reinforces_habit_uid": "habit:edge_new",
+            "milestone_celebration_for_goal": "goal.edge-new",
+            "reinforces_habit_uid": "habit.edge-new",
         }
 
     @pytest.mark.asyncio
@@ -309,9 +310,9 @@ class TestEventUpdateIntentPipeline:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MERGE (g:Entity:Goal {uid: 'goal:to_clear'})
+                MERGE (g:Entity:Goal {uid: 'goal.to-clear'})
                   ON CREATE SET g.entity_type = 'goal', g.title = 'Goal to clear'
-                MERGE (h:Entity:Habit {uid: 'habit:keep'})
+                MERGE (h:Entity:Habit {uid: 'habit.keep'})
                   ON CREATE SET h.entity_type = 'habit', h.title = 'Habit to keep'
                 """
             )
@@ -319,12 +320,12 @@ class TestEventUpdateIntentPipeline:
         # Seed both edges; only the goal edge will be cleared.
         assert (
             await facade.relationships.create_relationship(
-                "celebrated_goals", event_uid, "goal:to_clear", far_end=GOAL_FAR_END
+                "celebrated_goals", event_uid, "goal.to-clear", far_end=GOAL_FAR_END
             )
         ).is_ok
         assert (
             await facade.relationships.create_relationship(
-                "habits", event_uid, "habit:keep", far_end=HABIT_FAR_END
+                "habits", event_uid, "habit.keep", far_end=HABIT_FAR_END
             )
         ).is_ok
 
@@ -352,7 +353,7 @@ class TestEventUpdateIntentPipeline:
 
         # Goal edge gone; the UNSET habit edge untouched.
         assert goals["uids"] == []
-        assert habits["uids"] == ["habit:keep"]
+        assert habits["uids"] == ["habit.keep"]
 
         # CalendarEventUpdated reports the cleared field (None), not the untouched habit.
         updated = [e for e in event_bus.get_event_history() if isinstance(e, CalendarEventUpdated)]

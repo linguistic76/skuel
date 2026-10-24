@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest_asyncio
 
+from tests.helpers.seed_uids import seed_user_uid
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
 
@@ -215,10 +217,10 @@ async def seed_classroom(
 
     async def _seed(
         *,
-        teacher_uid: str = "user_ue_teacher",
-        student_uid: str = "user_ue_student",
-        group_uid: str = "group.ue_class",
-        exercise_uid: str = "exercise.ue_demo",
+        teacher_uid: str = seed_user_uid("ue_teacher"),
+        student_uid: str = seed_user_uid("ue_student"),
+        group_uid: str = "group.ue-class",
+        exercise_uid: str = "exercise.ue-demo",
     ) -> dict[str, Any]:
         await seed_user(teacher_uid, name="Teacher")
         await seed_user(student_uid, name="Student")

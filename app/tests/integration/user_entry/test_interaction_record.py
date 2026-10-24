@@ -25,6 +25,8 @@ from typing import TYPE_CHECKING
 import pytest
 import pytest_asyncio
 
+from tests.helpers.seed_uids import seed_user_uid
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
@@ -103,16 +105,16 @@ async def test_create_interaction_direct(
 
     # An Interaction is user-owned, so its owner must exist: the CRUD door
     # writes the :OWNS edge in the same statement as the node.
-    await seed_user("user_ue_student")
+    await seed_user(seed_user_uid("ue_student"))
 
     ia = Interaction(
         uid=UIDGenerator.generate_random_uid("ia"),
         title="user_entry — ex.direct",
         entity_type=EntityType.INTERACTION,
-        user_uid="user_ue_student",
+        user_uid=seed_user_uid("ue_student"),
         interaction_type=InteractionType.EXERCISE_SUBMISSION,
-        target_uid="exercise.ue_demo",
-        source_entity_uid="ue_direct_test",
+        target_uid="exercise.ue-demo",
+        source_entity_uid="ue.direct-test",
     )
     result = await interaction_service.create_interaction(ia)
     assert result.is_ok, f"create_interaction failed: {result.expect_error()}"
@@ -136,7 +138,7 @@ async def test_exercise_submission_creates_interaction_with_ps_context(
     seed_path_step,
 ) -> None:
     ctx = await seed_classroom()
-    ps_uid = await seed_path_step("ps.ue_demo_step")
+    ps_uid = await seed_path_step("ps.ue-demo-step")
 
     request = UserEntryCreateRequest(
         title="Worked exercise",
@@ -193,14 +195,14 @@ async def test_result_status_transitions_forward_only(
     from core.models.enums.interaction_enums import InteractionResult, InteractionType
     from core.utils.uid_generator import UIDGenerator
 
-    entry_uid = "ue_transition_test"
+    entry_uid = "ue.transition-test"
     ia = Interaction(
         uid=UIDGenerator.generate_random_uid("ia"),
         title="user_entry — ex.transition",
         entity_type=EntityType.INTERACTION,
-        user_uid="user_ue_student",
+        user_uid=seed_user_uid("ue_student"),
         interaction_type=InteractionType.EXERCISE_SUBMISSION,
-        target_uid="exercise.ue_demo",
+        target_uid="exercise.ue-demo",
         source_entity_uid=entry_uid,
     )
     create_result = await interaction_service.create_interaction(ia)

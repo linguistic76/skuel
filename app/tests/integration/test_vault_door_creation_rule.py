@@ -40,8 +40,9 @@ import pytest
 from core.utils.timestamp_helpers import day_of
 from core.utils.zone_context import current_zone
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.seed_uids import seed_user_uid
 
-OWNER_UID = "user_test_integration"  # seeded by the ensure_test_users fixture
+OWNER_UID = seed_user_uid("test_integration")  # seeded by the ensure_test_users fixture
 
 
 @pytest.fixture

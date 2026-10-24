@@ -28,10 +28,11 @@ from adapters.persistence.neo4j.insight_backend import InsightBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.services.insight.insight_store import InsightStore
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
-USER = "user_insight_whole_set"
+USER = seed_user_uid("insight_whole_set")
 ACTIVE_COUNT = 230
 IMPACTS = [InsightImpact.CRITICAL, InsightImpact.HIGH, InsightImpact.MEDIUM, InsightImpact.LOW]
 TYPES = [InsightType.DIFFICULTY_PATTERN, InsightType.LEARNING_PROGRESS, InsightType.KNOWLEDGE_GAP]
@@ -59,9 +60,9 @@ def _insight(uid: str, n: int, **fields: Any) -> PersistedInsight:
 # difficulty-pattern type — values every chart already shows, so a count that
 # ignored the active predicate would raise a pinned figure.
 INACTIVE = {
-    "insight.whole_set.expired": {"expires_at": datetime.now(UTC) - timedelta(days=1)},
-    "insight.whole_set.dismissed": {"dismissed": True},
-    "insight.whole_set.actioned": {"actioned": True},
+    "insight.whole-set.expired": {"expires_at": datetime.now(UTC) - timedelta(days=1)},
+    "insight.whole-set.dismissed": {"dismissed": True},
+    "insight.whole-set.actioned": {"actioned": True},
 }
 
 
@@ -72,7 +73,7 @@ async def store(neo4j_driver, clean_neo4j) -> InsightStore:
         await session.run("MERGE (:User {uid: $uid})", uid=USER)
     store = InsightStore(InsightBackend(Neo4jQueryExecutor(neo4j_driver)))
 
-    seeds = [_insight(f"insight.whole_set.{n}", n) for n in range(ACTIVE_COUNT)]
+    seeds = [_insight(f"insight.whole-set.{n}", n) for n in range(ACTIVE_COUNT)]
     seeds += [
         PersistedInsight(
             uid=uid,
@@ -198,7 +199,7 @@ class TestSmartDismissDismissesTheWholeMatchingSet:
         async with neo4j_driver.session() as session:
             record = await (
                 await session.run(
-                    "MATCH (i:Insight {uid: 'insight.whole_set.expired'}) "
+                    "MATCH (i:Insight {uid: 'insight.whole-set.expired'}) "
                     "RETURN i.dismissed AS dismissed, i.dismissed_at AS at",
                 )
             ).single()

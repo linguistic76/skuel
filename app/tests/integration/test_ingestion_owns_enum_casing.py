@@ -31,10 +31,12 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 
-OWNER_UID = "user_test_integration"  # seeded by the ensure_test_users fixture
+from tests.helpers.seed_uids import seed_user_uid
+
+OWNER_UID = seed_user_uid("test_integration")  # seeded by the ensure_test_users fixture
 # Every exercise file names its teacher (ADR-091 S3); ingestion admits a user with the
 # TEACHER role or higher.
-EXERCISE_TEACHER_UID = "user_test_owns_casing_teacher"
+EXERCISE_TEACHER_UID = seed_user_uid("test_owns_casing_teacher")
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -178,8 +180,9 @@ async def test_reingest_never_changes_a_nodes_owners(
     async with neo4j_driver.session() as session:
         await session.run(
             "MATCH (n:Entity {uid: 'task.ownstest-stale'}) "
-            "MATCH (u:User {uid: 'user_test_123'}) "
-            "MERGE (u)-[:OWNS]->(n)"
+            "MATCH (u:User {uid: $other}) "
+            "MERGE (u)-[:OWNS]->(n)",
+            other=seed_user_uid("test_123"),
         )
     assert len(await _owns_edges(neo4j_driver, "task.ownstest-stale")) == 2
 
@@ -190,7 +193,7 @@ async def test_reingest_never_changes_a_nodes_owners(
     assert [e["field"] for e in result.value.errors or []] == ["uid"], result.value.errors
 
     edges = await _owns_edges(neo4j_driver, "task.ownstest-stale")
-    assert sorted(e["owner"] for e in edges) == sorted([OWNER_UID, "user_test_123"])
+    assert sorted(e["owner"] for e in edges) == sorted([OWNER_UID, seed_user_uid("test_123")])
     async with neo4j_driver.session() as session:
         record = await (
             await session.run(
@@ -216,7 +219,7 @@ async def test_unknown_owner_is_refused_and_nothing_lands(
     """
     vault = tmp_path / "vault"
     vault.mkdir()
-    ghost = "user_owns_ghost_never_created"
+    ghost = seed_user_uid("owns_ghost_never_created")
     path = vault / "ownstest-ghost.md"
     path.write_text(
         f"""---
@@ -288,7 +291,7 @@ async def test_invariant_no_user_uid_bearing_entity_without_owns(
     async with neo4j_driver.session() as session:
         res = await session.run(
             "MATCH (e:Entity) "
-            "WHERE e.user_uid IS NOT NULL AND e.user_uid <> 'user_system' "
+            "WHERE e.user_uid IS NOT NULL "
             "MATCH (owner:User {uid: e.user_uid}) "
             "WHERE NOT (owner)-[:OWNS]->(e) "
             "RETURN count(e) AS missing"

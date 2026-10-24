@@ -39,23 +39,25 @@ import pytest_asyncio
 from adapters.persistence.neo4j.backends.forms_backends import FormSubmissionBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.forms.form_submission import FormSubmission
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 PREFIX = "fsgate"
-TEACHER_A, TEACHER_B, TEACHER_C = f"{PREFIX}_ta", f"{PREFIX}_tb", f"{PREFIX}_tc"
-STUDENT_1 = f"{PREFIX}_s1"
-GROUP_X, GROUP_Y, GROUP_Z = f"{PREFIX}_gx", f"{PREFIX}_gy", f"{PREFIX}_gz"
-GROUP_INACTIVE = f"{PREFIX}_g_inactive"
-TEMPLATE = f"{PREFIX}_ft"
-PATH_STEP = f"{PREFIX}_ps"
-STANDALONE_TEMPLATE = f"{PREFIX}_ft_standalone"
-FS_SHARED_X = f"{PREFIX}_fs_shared_x"
-FS_UNSHARED = f"{PREFIX}_fs_unshared"
-FS_SHARED_INACTIVE = f"{PREFIX}_fs_shared_inactive"
+TEACHER_A, TEACHER_B, TEACHER_C = (seed_user_uid(f"{PREFIX}_{name}") for name in ("ta", "tb", "tc"))
+STUDENT_1 = seed_user_uid(f"{PREFIX}_s1")
+LONER = seed_user_uid(f"{PREFIX}_loner")
+GROUP_X, GROUP_Y, GROUP_Z = f"group.{PREFIX}-gx", f"group.{PREFIX}-gy", f"group.{PREFIX}-gz"
+GROUP_INACTIVE = f"group.{PREFIX}-inactive"
+TEMPLATE = f"ft.{PREFIX}"
+PATH_STEP = f"ps.{PREFIX}"
+STANDALONE_TEMPLATE = f"ft.{PREFIX}-standalone"
+FS_SHARED_X = f"fs.{PREFIX}-shared-x"
+FS_UNSHARED = f"fs.{PREFIX}-unshared"
+FS_SHARED_INACTIVE = f"fs.{PREFIX}-shared-inactive"
 # Audience-less, but answering a template no PathStep embeds — reachable only
 # through the API, where an empty audience was the submitter's choice.
-FS_STANDALONE = f"{PREFIX}_fs_standalone"
+FS_STANDALONE = f"fs.{PREFIX}-standalone"
 
 _SEED = """
 CREATE (ta:User {uid: $ta}), (tb:User {uid: $tb}), (tc:User {uid: $tc}),
@@ -106,7 +108,8 @@ MATCH (t:User {uid: $teacher}), (fs:Entity {uid: $fs})
 CREATE (t)-[:SHARES_WITH {role: 'viewer'}]->(fs)
 """
 
-_CLEANUP = f"MATCH (n) WHERE n.uid STARTS WITH '{PREFIX}' DETACH DELETE n"
+_CLEANUP = "MATCH (n) WHERE n.uid CONTAINS $mark OR n.uid IN $users DETACH DELETE n"
+_CLEANUP_PARAMS = {"mark": PREFIX, "users": [TEACHER_A, TEACHER_B, TEACHER_C, STUDENT_1, LONER]}
 
 
 @pytest_asyncio.fixture
@@ -118,7 +121,7 @@ async def gate_backend(neo4j_driver: Any):
         entity_class=FormSubmission,
         base_label=NeoLabel.ENTITY,
     )
-    await backend.execute_query(_CLEANUP)
+    await backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
     await backend.execute_query(
         _SEED,
         {
@@ -142,7 +145,7 @@ async def gate_backend(neo4j_driver: Any):
         {"ft2": STANDALONE_TEMPLATE, "fs": FS_STANDALONE, "s1": STUDENT_1},
     )
     yield backend
-    await backend.execute_query(_CLEANUP)
+    await backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
 
 
 async def _granting_groups(backend: Any, submission_uid: str, teacher_uid: str) -> list[Any]:
@@ -193,7 +196,7 @@ class TestVerifyTeacherSubmissionAccess:
         assert await _granting_groups(gate_backend, FS_SHARED_INACTIVE, TEACHER_A) == []
 
     async def test_missing_submission_is_refused(self, gate_backend: Any) -> None:
-        assert await _granting_groups(gate_backend, f"{PREFIX}_nope", TEACHER_A) == []
+        assert await _granting_groups(gate_backend, f"fs.{PREFIX}-nope", TEACHER_A) == []
 
     async def test_a_refusal_returns_no_row_at_all(self, gate_backend: Any) -> None:
         """Refusals must be *empty*, not a row carrying a null.
@@ -208,7 +211,7 @@ class TestVerifyTeacherSubmissionAccess:
         for submission_uid, teacher in (
             (FS_SHARED_X, TEACHER_B),
             (FS_UNSHARED, TEACHER_A),
-            (f"{PREFIX}_nope", TEACHER_A),
+            (f"fs.{PREFIX}-nope", TEACHER_A),
         ):
             result = await gate_backend.verify_teacher_submission_access(submission_uid, teacher)
             assert result.is_ok, result.error
@@ -405,7 +408,7 @@ class TestFindSubmissionsWithoutAudience:
         return {
             str(row["submission_uid"]): str(row["owner_uid"])
             for row in (result.value or [])
-            if str(row["submission_uid"]).startswith(PREFIX)
+            if str(row["submission_uid"]).startswith(f"fs.{PREFIX}")
         }
 
     async def test_selects_the_submission_with_no_audience(self, gate_backend: Any) -> None:
@@ -563,9 +566,9 @@ class TestShareWithDefaultAudience:
             CREATE (ta)-[:OWNS]->(fs)
             CREATE (ta)-[:MEMBER_OF {role: 'teacher'}]->(gx)
             """,
-            {"ta": TEACHER_A, "gx": GROUP_X, "fs": f"{PREFIX}_fs_by_teacher"},
+            {"ta": TEACHER_A, "gx": GROUP_X, "fs": f"fs.{PREFIX}-by-teacher"},
         )
-        result = await gate_backend.share_with_default_audience(f"{PREFIX}_fs_by_teacher")
+        result = await gate_backend.share_with_default_audience(f"fs.{PREFIX}-by-teacher")
         assert result.is_ok, result.error
         assert result.value == []
 
@@ -750,7 +753,7 @@ class TestShareWithDefaultAudience:
 
         created = await gate_backend.create_with_relationships(
             FormSubmission(
-                uid=f"{PREFIX}_fs_real",
+                uid=f"fs.{PREFIX}-real",
                 title="Real write path",
                 entity_type=EntityType.FORM_SUBMISSION,
                 user_uid=STUDENT_1,
@@ -763,7 +766,7 @@ class TestShareWithDefaultAudience:
         )
         assert created.is_ok, created.error
 
-        result = await gate_backend.share_with_default_audience(f"{PREFIX}_fs_real")
+        result = await gate_backend.share_with_default_audience(f"fs.{PREFIX}-real")
 
         assert result.is_ok, result.error
         # Non-empty is the whole point: a type mismatch would yield [].
@@ -778,9 +781,9 @@ class TestShareWithDefaultAudience:
             CREATE (fs:Entity {uid: $fs, entity_type: 'form_submission'})
             CREATE (u)-[:OWNS]->(fs)
             """,
-            {"u": f"{PREFIX}_loner", "fs": f"{PREFIX}_fs_loner"},
+            {"u": LONER, "fs": f"fs.{PREFIX}-loner"},
         )
-        result = await gate_backend.share_with_default_audience(f"{PREFIX}_fs_loner")
+        result = await gate_backend.share_with_default_audience(f"fs.{PREFIX}-loner")
         assert result.is_ok, result.error
         assert result.value == []
 

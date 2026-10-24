@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-10-23
+updated: 2026-10-24
 status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -64,6 +64,13 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    writes → three nodes sharing one uid. The `hc.` spelling is registered nowhere else (no prefix validation knows it);
    the ratified separator grammar spells generated UIDs with `_` — settle the spelling when the key
    is redesigned, not before.
+   **Status (2026-10-24):** the uid is `hashed_uid("hc", user, habit, second)`
+   (`habit_completion_uid`, uid arc PR 4 #1606), `HabitCompletion` carries a uid uniqueness
+   constraint (`UID_UNIQUE_LABELS`), and since the uid seed sweep both doors key on the
+   completion's own instant (`completed_at`), so two days backfilled in one second are two
+   completions. Still open: a second record of the same habit in the same second meets the
+   constraint at the write — refused, no longer a twin node — and the day-keyed redesign (defect 3)
+   is what makes it a no-op.
 3. **Day idempotency is a read-before-write guard, not an invariant.** `record_habit_occurrence`
    (`core/services/calendar_service.py:1188-1193`) reads that day's completions and returns the existing one; two
    concurrent requests (two tabs) both pass the read and each create a node and increment the

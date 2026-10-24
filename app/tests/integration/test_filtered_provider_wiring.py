@@ -18,6 +18,7 @@ from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.ports.filtered_context_protocols import FilteredContextProvider
 from core.services.user.unified_user_context import RichUserContext
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.skipif(
     IntelligenceTier.from_env().ai_enabled and not get_credential("OPENAI_API_KEY"),
@@ -32,7 +33,7 @@ async def test_every_composed_provider_serves_a_filtered_context(skuel_app) -> N
     factory = skuel_app.state.services.context_intelligence
     assert factory is not None
     # The registry reaches a consumer through create(); the context is not read here.
-    context = cast("RichUserContext", SimpleNamespace(user_uid="user_wiring_probe"))
+    context = cast("RichUserContext", SimpleNamespace(user_uid=seed_user_uid("wiring_probe")))
     providers = factory.create(context).filtered_providers
 
     assert set(providers) >= _ACTIVITY_DOMAINS, "the daily plan asks for each Activity domain"

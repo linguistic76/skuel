@@ -40,16 +40,17 @@ from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 
-OWNER = "user_owner"
-INTRUDER = "user_intruder"
-OWNED_UID = "goal_owned_001"
+OWNER = seed_user_uid("owner")
+INTRUDER = seed_user_uid("intruder")
+OWNED_UID = "goal.owned-001"
 
 # One row per backend read, shaped as the real Cypher returns them. Enough for
 # the service to build a non-empty payload, so a missing ownership gate shows up
 # as a 200 with data rather than an incidental empty result.
 _CHAIN_ROW = {
-    "uid": "goal_blocker",
+    "uid": "goal.blocker",
     "title": "Blocker",
     "entity_type": "goal",
     "status": "active",
@@ -57,7 +58,7 @@ _CHAIN_ROW = {
     "depth": 1,
 }
 _ALTERNATIVE_ROW = {
-    "uid": "goal_alt",
+    "uid": "goal.alt",
     "title": "Alternative",
     "entity_type": "goal",
     "status": "active",
@@ -83,14 +84,14 @@ _GRAPH_ROW = {
     "center_type": "Goal",
     "center_entity_type": "goal",
     "center_status": "active",
-    "related_uid": "goal_neighbour",
+    "related_uid": "goal.neighbour",
     "related_title": "Neighbour",
     "related_type": "Goal",
     "related_entity_type": "goal",
     "related_status": "active",
     "depth_level": 1,
     "relationships": [
-        {"from": OWNED_UID, "to": "goal_neighbour", "type": RelationshipName.BLOCKS.value}
+        {"from": OWNED_UID, "to": "goal.neighbour", "type": RelationshipName.BLOCKS.value}
     ],
 }
 
@@ -295,7 +296,7 @@ class TestOwnerStillSucceeds:
 
         assert response.status_code == 200
         payload = json.loads(bytes(response.body).decode())
-        assert {node["id"] for node in payload["nodes"]} == {OWNED_UID, "goal_neighbour"}
+        assert {node["id"] for node in payload["nodes"]} == {OWNED_UID, "goal.neighbour"}
         assert len(payload["edges"]) == 1
         # The url enrichment that runs after the gate is still applied.
         assert payload["nodes"][0]["url"] is not None
@@ -460,7 +461,7 @@ class TestCurriculumRemainsPublic:
         mock_backend.check_entity_exists.return_value = Result.ok([{"entity_count": 0}])
 
         responses = [
-            await handler(request=_make_request(INTRUDER), uid="task_theirs")
+            await handler(request=_make_request(INTRUDER), uid="task.theirs")
             for handler in (
                 _chain(curriculum_handlers, "ps"),
                 _compare(curriculum_handlers, "ps"),

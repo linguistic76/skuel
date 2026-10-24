@@ -19,6 +19,7 @@ from adapters.persistence.neo4j.user_backend import UserBackend
 from core.models.ps_content.content import CurriculumContent
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -29,8 +30,8 @@ if TYPE_CHECKING:
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
-OWNER = "user_zzzdelsub_owner"
-TEACHER = "user_zzzdelsub_teacher"
+OWNER = seed_user_uid("zzzdelsub_owner")
+TEACHER = seed_user_uid("zzzdelsub_teacher")
 _BODY = """# A note
 
 Breath awareness came easier today than it did last week.

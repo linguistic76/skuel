@@ -14,8 +14,10 @@ from datetime import UTC, datetime
 import pytest
 import pytest_asyncio
 
-LEARNER = "user_paths_completed"
-OTHER = "user_paths_other"
+from tests.helpers.seed_uids import seed_user_uid
+
+LEARNER = seed_user_uid("paths_completed")
+OTHER = seed_user_uid("paths_other")
 
 FINISHED = "lp.paths.finished"
 UNDERWAY = "lp.paths.underway"

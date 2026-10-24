@@ -38,12 +38,13 @@ from core.models.report.entry_report import EntryReport
 from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 from core.services.report.entry_report_service import EntryReportService
 from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
+from tests.helpers.seed_uids import seed_user_uid
 
-STUDENT = "user_erd_student"
-TEACHER = "user_erd_teacher"
-STRANGER = "user_erd_stranger"
-ENTRY = "ue_erd_turn_in"
-REPORT = "er_erd_feedback"
+STUDENT = seed_user_uid("erd_student")
+TEACHER = seed_user_uid("erd_teacher")
+STRANGER = seed_user_uid("erd_stranger")
+ENTRY = "ue.erd-turn-in"
+REPORT = "er.erd-feedback"
 FEEDBACK_TEXT = "Your thesis is clear; tighten the second paragraph."
 
 DETAIL_PATH = "/entry-reports/detail"
@@ -187,6 +188,6 @@ class TestEntryReportDetailOwnerRead:
 
     async def test_missing_uid_is_the_same_404(self, handler, seeded) -> None:
         """Absent and not-owned are one outcome — no existence leak."""
-        status, html = await _open(handler, STUDENT, uid="er_erd_does_not_exist")
+        status, html = await _open(handler, STUDENT, uid="er.erd-does-not-exist")
         assert status == 404
         assert "Report not found" in html

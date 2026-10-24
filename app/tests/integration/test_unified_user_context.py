@@ -33,6 +33,7 @@ from core.models.enums import (
 from core.services.user.unified_user_context import RichUserContext, UserContext
 from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 
 class TestUnifiedUserContextBasics:
@@ -41,11 +42,11 @@ class TestUnifiedUserContextBasics:
     def test_create_minimal_context(self):
         """Should create context with only required fields"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
         )
 
-        assert context.user_uid == "user_test"
+        assert context.user_uid == seed_user_uid("test")
         assert context.username == "testuser"
         assert context.context_version == "3.0"  # Bumped for services layer move
         assert context.active_task_uids == []
@@ -55,7 +56,7 @@ class TestUnifiedUserContextBasics:
     def test_create_full_context(self):
         """Should create context with all fields populated"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             email="test@example.com",
             display_name="Test User",
@@ -75,11 +76,11 @@ class TestUnifiedUserContextBasics:
             habit_streaks={"habit:1": 30, "habit:2": 7},
             habit_completion_rates={"habit:1": 0.95, "habit:2": 0.75},
             # Knowledge awareness
-            knowledge_mastery={"ku:python": 0.8, "ku:testing": 0.6},
-            mastered_knowledge_uids={"ku:python"},
-            in_progress_knowledge_uids={"ku:testing"},
+            knowledge_mastery={"ku.python": 0.8, "ku.testing": 0.6},
+            mastered_knowledge_uids={"ku.python"},
+            in_progress_knowledge_uids={"ku.testing"},
             # Learning path
-            life_path_uid="lp:engineer",
+            life_path_uid="lp.engineer",
             life_path_alignment_score=0.75,
             # Preferences
             learning_level=LearningLevel.ADVANCED,
@@ -90,19 +91,19 @@ class TestUnifiedUserContextBasics:
         )
 
         # Verify all fields set correctly
-        assert context.user_uid == "user_test"
+        assert context.user_uid == seed_user_uid("test")
         assert len(context.active_task_uids) == 2
         assert context.task_priorities["task:1"] == 0.9
         assert context.goal_progress["goal:1"] == 0.6
         assert context.habit_streaks["habit:1"] == 30
-        assert context.knowledge_mastery["ku:python"] == 0.8
-        assert context.life_path_uid == "lp:engineer"
+        assert context.knowledge_mastery["ku.python"] == 0.8
+        assert context.life_path_uid == "lp.engineer"
         assert context.learning_level == LearningLevel.ADVANCED
 
     def test_default_field_types(self):
         """Should initialize all collection fields with correct types"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
         )
 
@@ -130,7 +131,7 @@ class TestCacheValidity:
     def test_fresh_context_is_valid(self):
         """Should be valid immediately after creation"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
         )
 
@@ -139,7 +140,7 @@ class TestCacheValidity:
     def test_expired_context_is_invalid(self):
         """Should be invalid after TTL expires"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             cache_ttl_seconds=1,  # 1 second TTL
         )
@@ -152,7 +153,7 @@ class TestCacheValidity:
     def test_custom_ttl(self):
         """Should respect custom TTL settings"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             cache_ttl_seconds=600,  # 10 minutes
         )
@@ -176,20 +177,20 @@ class TestIntelligenceMethods:
     def test_get_ready_to_learn_reads_the_built_set_in_uid_order(self):
         """get_ready_to_learn() answers the builder's ready_to_learn_uids, sorted."""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
-            ready_to_learn_uids={"ku.web_dev", "ku.advanced_python"},
+            ready_to_learn_uids={"ku.web_dev", "ku.advanced-python"},
         )
 
-        assert context.get_ready_to_learn() == ["ku.advanced_python", "ku.web_dev"]
+        assert context.get_ready_to_learn() == ["ku.advanced-python", "ku.web_dev"]
 
     def test_unmet_prerequisites_are_the_prerequisites_not_mastered(self):
         """A Ku is blocked while one of its prerequisites is unmastered."""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             ku_prerequisites={
-                "ku.advanced_python": {"ku.python"},
+                "ku.advanced-python": {"ku.python"},
                 "ku.web_dev": {"ku.python", "ku.html"},
                 "ku.python": set(),
             },
@@ -197,7 +198,7 @@ class TestIntelligenceMethods:
         )
 
         assert context.unmet_prerequisites("ku.web_dev") == {"ku.html"}
-        assert context.unmet_prerequisites("ku.advanced_python") == set()
+        assert context.unmet_prerequisites("ku.advanced-python") == set()
         assert context.unmet_prerequisites("ku.unknown") == set()
         assert context.unmet_prerequisites_by_ku() == {"ku.web_dev": {"ku.html"}}
         assert context.blocked_knowledge_uids == {"ku.web_dev"}
@@ -205,7 +206,7 @@ class TestIntelligenceMethods:
     def test_active_goals_requiring_reads_goal_knowledge_required(self):
         """Only active goals that require the Ku answer, in active-goal order."""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             active_goal_uids=["goal_b", "goal_a"],
             goal_knowledge_required={
@@ -221,7 +222,7 @@ class TestIntelligenceMethods:
     def test_estimated_minutes_reads_an_in_progress_step_else_the_default(self):
         """A step the user has in progress answers its own minutes; a Ku the default."""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             active_path_steps_rich=[
                 {"step": {"uid": "ps.test.timed", "estimated_time_minutes": 25}},
@@ -237,7 +238,7 @@ class TestIntelligenceMethods:
         """Should check alignment against default threshold (0.7)"""
         # High alignment - should pass
         context_aligned = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             life_path_alignment_score=0.8,
         )
@@ -245,7 +246,7 @@ class TestIntelligenceMethods:
 
         # Low alignment - should fail
         context_unaligned = UserContext(
-            user_uid="user_test2",
+            user_uid=seed_user_uid("test2"),
             username="testuser2",
             life_path_alignment_score=0.5,
         )
@@ -254,7 +255,7 @@ class TestIntelligenceMethods:
     def test_is_life_aligned_custom_threshold(self):
         """Should check alignment against custom threshold"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             life_path_alignment_score=0.6,
         )
@@ -272,7 +273,7 @@ class TestPropertyCalculations:
     def test_mastery_average_empty(self):
         """Should return 0.0 for no knowledge"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             knowledge_mastery={},
         )
@@ -282,11 +283,11 @@ class TestPropertyCalculations:
     def test_mastery_average_calculation(self):
         """Should correctly calculate average mastery"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             knowledge_mastery={
-                "ku:python": 0.8,
-                "ku:testing": 0.6,
+                "ku.python": 0.8,
+                "ku.testing": 0.6,
                 "ku:docker": 0.9,
             },
         )
@@ -297,7 +298,7 @@ class TestPropertyCalculations:
     def test_concepts_needing_review(self):
         """Should identify knowledge in review range (0.4-0.8)"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             knowledge_mastery={
                 "ku:mastered": 0.9,  # Above review range
@@ -322,7 +323,7 @@ class TestCrossDomainRelationships:
     def test_tasks_by_goal_relationship(self):
         """Should maintain task-goal relationships"""
         context = RichUserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             tasks_by_goal={
                 "goal:1": ["task:1", "task:2"],
@@ -338,7 +339,7 @@ class TestCrossDomainRelationships:
     def test_habits_by_goal_relationship(self):
         """Should maintain habit-goal relationships"""
         context = RichUserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             habits_by_goal={
                 "goal:fitness": ["habit:run", "habit:yoga"],
@@ -353,7 +354,7 @@ class TestCrossDomainRelationships:
     def test_events_by_habit_relationship(self):
         """Should maintain event-habit relationships"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             events_by_habit={
                 "habit:meditation": ["event:1", "event:2", "event:3"],
@@ -369,7 +370,7 @@ class TestWorkloadAndCapacity:
     def test_workload_score_calculation(self):
         """Should track current workload"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             current_workload_score=0.75,  # 75% capacity
             recommended_daily_tasks=3,
@@ -382,7 +383,7 @@ class TestWorkloadAndCapacity:
     def test_capacity_by_domain(self):
         """Should track capacity across domains"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             capacity_by_domain={
                 Domain.TECH: 0.8,
@@ -397,14 +398,14 @@ class TestWorkloadAndCapacity:
     def test_overwhelmed_state(self):
         """Should track overwhelmed state"""
         context_normal = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             is_overwhelmed=False,
         )
         assert context_normal.is_overwhelmed is False
 
         context_overwhelmed = UserContext(
-            user_uid="user_test2",
+            user_uid=seed_user_uid("test2"),
             username="testuser2",
             is_overwhelmed=True,
         )
@@ -417,7 +418,7 @@ class TestDomainProgress:
     def test_domain_progress_tracking(self):
         """Should track progress by domain"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             domain_progress={
                 Domain.TECH: 0.75,
@@ -432,7 +433,7 @@ class TestDomainProgress:
     def test_velocity_tracking(self):
         """Should track velocity by domain"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             velocity_by_domain={
                 Domain.TECH: 0.05,  # 5% progress per week
@@ -445,7 +446,7 @@ class TestDomainProgress:
     def test_acceleration_tracking(self):
         """Should track acceleration (velocity change)"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             acceleration_by_domain={
                 Domain.TECH: 0.01,  # Velocity increasing
@@ -459,7 +460,7 @@ class TestDomainProgress:
     def test_consistency_tracking(self):
         """Should track consistency by domain"""
         context = UserContext(
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             username="testuser",
             overall_consistency_score=0.85,
             consistency_by_domain={
@@ -490,7 +491,7 @@ class TestUserContextBuilder:
         from core.models.user.user import User
 
         # Setup: Create test user directly via Cypher (bypassing UserService serialization bug)
-        test_user_uid = "user_context_builder_test"
+        test_user_uid = seed_user_uid("context_builder_test")
         driver = user_service.context_builder._query_executor.executor.driver
 
         # Clean up any existing test data from previous runs
@@ -506,11 +507,11 @@ class TestUserContextBuilder:
             await session.run(
                 """
                 MATCH (n)
-                WHERE n.uid STARTS WITH 'task:builder_'
-                   OR n.uid STARTS WITH 'habit:builder_'
-                   OR n.uid STARTS WITH 'goal:builder_'
-                   OR n.uid STARTS WITH 'event:builder_'
-                   OR n.uid STARTS WITH 'ku:builder_'
+                WHERE n.uid STARTS WITH 'task.builder-'
+                   OR n.uid STARTS WITH 'habit.builder-'
+                   OR n.uid STARTS WITH 'goal.builder-'
+                   OR n.uid STARTS WITH 'event.builder-'
+                   OR n.uid STARTS WITH 'ku.builder-'
                 DETACH DELETE n
                 """
             )
@@ -581,8 +582,8 @@ class TestUserContextBuilder:
                 CREATE (u)-[:OWNS]->(t1)
                 CREATE (u)-[:OWNS]->(t2)
                 """,
-                uid1="task:builder_1",
-                uid2="task:builder_2",
+                uid1="task.builder-1",
+                uid2="task.builder-2",
                 user_uid=test_user_uid,
                 status="active",
                 priority=Priority.HIGH.value,
@@ -606,7 +607,7 @@ class TestUserContextBuilder:
                 })
                 CREATE (u)-[:OWNS]->(h)
                 """,
-                uid="habit:builder_1",
+                uid="habit.builder-1",
                 user_uid=test_user_uid,
                 status="active",
                 frequency=RecurrencePattern.DAILY.value,
@@ -619,12 +620,12 @@ class TestUserContextBuilder:
                 """
                 MATCH (u:User {uid: $user_uid})
                 UNWIND $stamps AS stamp
-                CREATE (hc:HabitCompletion {uid: 'hc.builder.' + stamp, habit_uid: $habit_uid,
+                CREATE (hc:HabitCompletion {uid: 'hc.builder.' + left(stamp, 10), habit_uid: $habit_uid,
                                             user_uid: $user_uid, completed_at: stamp})
                 CREATE (u)-[:OWNS]->(hc)
                 """,
                 user_uid=test_user_uid,
-                habit_uid="habit:builder_1",
+                habit_uid="habit.builder-1",
                 stamps=[
                     as_stored_clock(
                         local_day_bounds(today_in(zone) - timedelta(days=n), zone)[0]
@@ -650,7 +651,7 @@ class TestUserContextBuilder:
                 })
                 CREATE (u)-[:OWNS]->(g)
                 """,
-                uid="goal:builder_1",
+                uid="goal.builder-1",
                 user_uid=test_user_uid,
                 status=EntityStatus.ACTIVE.value,
                 progress_percentage=60.0,
@@ -674,7 +675,7 @@ class TestUserContextBuilder:
                 })
                 CREATE (u)-[:OWNS]->(e)
                 """,
-                uid="event:builder_1",
+                uid="event.builder-1",
                 user_uid=test_user_uid,
                 status=EntityStatus.SCHEDULED.value,
                 event_date=(today_in(current_zone()) + timedelta(days=2)).isoformat(),
@@ -696,7 +697,7 @@ class TestUserContextBuilder:
                 })
                 CREATE (u)-[:MASTERED {mastery_score: $score}]->(k)
                 """,
-                uid="ku:builder_1",
+                uid="ku.builder-1",
                 user_uid=test_user_uid,
                 score=0.9,
             )
@@ -744,29 +745,29 @@ class TestUserContextBuilder:
 
         # Verify task data
         assert len(context.active_task_uids) == 2
-        assert "task:builder_1" in context.active_task_uids
-        assert "task:builder_2" in context.active_task_uids
-        assert "task:builder_2" in context.today_task_uids  # Due today
+        assert "task.builder-1" in context.active_task_uids
+        assert "task.builder-2" in context.active_task_uids
+        assert "task.builder-2" in context.today_task_uids  # Due today
 
         # Verify habit data
         assert len(context.active_habit_uids) == 1
-        assert "habit:builder_1" in context.active_habit_uids
-        assert context.habit_streaks["habit:builder_1"] == 15
-        assert context.habit_completion_rates["habit:builder_1"] == 0.5  # 15 of 30 days
+        assert "habit.builder-1" in context.active_habit_uids
+        assert context.habit_streaks["habit.builder-1"] == 15
+        assert context.habit_completion_rates["habit.builder-1"] == 0.5  # 15 of 30 days
 
         # Verify goal data
         assert len(context.active_goal_uids) == 1
-        assert "goal:builder_1" in context.active_goal_uids
-        assert context.goal_progress["goal:builder_1"] == 0.6
+        assert "goal.builder-1" in context.active_goal_uids
+        assert context.goal_progress["goal.builder-1"] == 0.6
 
         # Verify event data
         assert len(context.upcoming_event_uids) == 1
-        assert "event:builder_1" in context.upcoming_event_uids
+        assert "event.builder-1" in context.upcoming_event_uids
 
         # Verify knowledge data
         assert len(context.mastered_knowledge_uids) == 1
-        assert "ku:builder_1" in context.mastered_knowledge_uids
-        assert context.knowledge_mastery["ku:builder_1"] == 0.9
+        assert "ku.builder-1" in context.mastered_knowledge_uids
+        assert context.knowledge_mastery["ku.builder-1"] == 0.9
 
     @pytest.mark.asyncio
     async def test_context_builder_empty_user(self, user_service, clean_neo4j):
@@ -807,7 +808,7 @@ class TestEntitiesRichField:
 
     def test_entities_rich_defaults_to_empty_dict(self):
         """UserContext.entities_rich is an empty dict by default."""
-        context = UserContext(user_uid="user_test", username="testuser")
+        context = UserContext(user_uid=seed_user_uid("test"), username="testuser")
         assert context.entities_rich == {}
 
     @pytest.mark.asyncio
@@ -815,7 +816,7 @@ class TestEntitiesRichField:
         """build_rich_user_context() → entities_rich is a dict."""
         from core.models.user.user import User
 
-        user_uid = "user_ar_no_period"
+        user_uid = seed_user_uid("ar_no_period")
         driver = user_service.context_builder._query_executor.executor.driver
         async with driver.session() as session:
             await session.run(
@@ -838,7 +839,7 @@ class TestEntitiesRichField:
 
         from core.models.user.user import User
 
-        user_uid = "user_ar_with_period"
+        user_uid = seed_user_uid("ar_with_period")
         driver = user_service.context_builder._query_executor.executor.driver
 
         async with driver.session() as session:
@@ -861,7 +862,7 @@ class TestEntitiesRichField:
                 CREATE (u)-[:OWNS]->(t)
                 """,
                 uid=user_uid,
-                task_uid="task:ar_recent_1",
+                task_uid="task.ar-recent-1",
                 due_date=(today_in(current_zone()) + timedelta(days=1)).isoformat(),
             )
 
@@ -886,6 +887,6 @@ class TestEntitiesRichField:
         item = tasks[0]
         assert "entity" in item
         assert "graph_context" in item
-        assert item["entity"]["uid"] == "task:ar_recent_1"
+        assert item["entity"]["uid"] == "task.ar-recent-1"
         assert item["entity"]["title"] == "Recent Task"
         assert item["entity"]["status"] == "completed"

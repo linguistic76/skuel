@@ -52,26 +52,29 @@ from core.services.lifepath.lifepath_alignment_service import LifePathAlignmentS
 from core.services.lifepath.lifepath_service import LifePathService
 from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 
 # One learner per scenario; each gets its own LearningPath because
 # designate_life_path MATCHes entity_type 'learning_path' and flips it in place,
 # so a path already designated by someone else can no longer be designated.
-USER_BARE = "user_lp5d_bare"
-USER_HABIT = "user_lp5d_habit_only"
-USER_SIX = "user_lp5d_six_channels"
-USER_CAP = "user_lp5d_capped"
-USER_OTHER = "user_lp5d_other_learner"
+USER_BARE = seed_user_uid("lp5d_bare")
+USER_HABIT = seed_user_uid("lp5d_habit_only")
+USER_SIX = seed_user_uid("lp5d_six_channels")
+USER_CAP = seed_user_uid("lp5d_capped")
+USER_OTHER = seed_user_uid("lp5d_other_learner")
+# The uid prefix of an entity type whose name is not one word.
+_UID_PREFIX = {"user_entry": "ue"}
 
 DESIGNATED = {
-    USER_BARE: "lp.test.5d.bare",
-    USER_HABIT: "lp.test.5d.habit",
-    USER_SIX: "lp.test.5d.six",
-    USER_CAP: "lp.test.5d.cap",
+    USER_BARE: "lp.test.5d-bare",
+    USER_HABIT: "lp.test.5d-habit",
+    USER_SIX: "lp.test.5d-six",
+    USER_CAP: "lp.test.5d-cap",
 }
 
-PS_SHARED = "ps.test.5d.shared"
-KU_PATH = "ku_test_5d_on_path"
-KU_OFF_PATH = "ku_test_5d_off_path"
+PS_SHARED = "ps.test.5d-shared"
+KU_PATH = "ku.test-5d-on-path"
+KU_OFF_PATH = "ku.test-5d-off-path"
 
 # (user, count, entity_type, ku, edge) — the production vocabulary per channel.
 # Tasks, events and entries share APPLIES_KNOWLEDGE and are told apart by
@@ -131,7 +134,7 @@ async def graph(neo4j_driver, clean_neo4j):
         # an already-designated path cannot be designated a second time.
         await session.run(
             """
-            CREATE (lp:Entity:LearningPath {uid: 'lp.test.5d.unclaimed',
+            CREATE (lp:Entity:LearningPath {uid: 'lp.test.5d-unclaimed',
                                             entity_type: 'learning_path',
                                             title: 'Unclaimed', status: 'active'})
             WITH lp
@@ -169,7 +172,8 @@ async def graph(neo4j_driver, clean_neo4j):
                 u=user_uid,
                 ku=ku_uid,
                 count=count,
-                prefix=f"{user_uid}_{entity_type}_",
+                # one learner's seeds: {type}.lp5d-{the hex of their uid}-{i}
+                prefix=f"{_UID_PREFIX.get(entity_type, entity_type)}.lp5d-{user_uid.removeprefix('user_')}-",
                 entity_type=entity_type,
                 created=recent,
             )
@@ -410,7 +414,7 @@ class TestAlignmentRefusesRatherThanScoringAConfidentZero:
         )
 
         # A path nobody has designated yet, so step 1 can succeed.
-        result = await facade.designate_and_calculate(USER_OTHER, "lp.test.5d.unclaimed")
+        result = await facade.designate_and_calculate(USER_OTHER, "lp.test.5d-unclaimed")
 
         assert result.is_error, (
             "the score never reached ULTIMATE_PATH and the flow still reported "

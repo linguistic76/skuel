@@ -38,10 +38,11 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from tests.helpers.seed_uids import seed_user_uid
 
-USER_UID = "user_recent_acts"
-OTHER_USER_UID = "user_recent_acts_other"
-EMPTY_USER_UID = "user_recent_acts_empty"
+USER_UID = seed_user_uid("recent_acts")
+OTHER_USER_UID = seed_user_uid("recent_acts_other")
+EMPTY_USER_UID = seed_user_uid("recent_acts_empty")
 
 
 @pytest_asyncio.fixture
@@ -78,34 +79,34 @@ async def graph(neo4j_driver, clean_neo4j):
             """
             MATCH (u:User {uid: $user_uid})
             CREATE (u)-[:OWNS]->(:Task:Entity {
-                uid: 'task_unstamped_ra', title: 'Closed before the stamp existed',
+                uid: 'task.unstamped-ra', title: 'Closed before the stamp existed',
                 entity_type: 'task', user_uid: $user_uid, status: 'completed'
             })
             CREATE (u)-[:OWNS]->(:Task:Entity {
-                uid: 'task_stamped_ra', title: 'Ship the fix', entity_type: 'task',
+                uid: 'task.stamped-ra', title: 'Ship the fix', entity_type: 'task',
                 user_uid: $user_uid, status: 'completed',
                 completion_date: $d1_date, updated_at: $d0_dt
             })
             CREATE (u)-[:OWNS]->(:Goal:Entity {
-                uid: 'goal_achieved_ra', title: 'Hit 100 percent', entity_type: 'goal',
+                uid: 'goal.achieved-ra', title: 'Hit 100 percent', entity_type: 'goal',
                 user_uid: $user_uid, status: 'completed',
                 achieved_date: $d2_date, updated_at: $d0_dt
             })
             CREATE (u)-[:OWNS]->(:Goal:Entity {
-                uid: 'goal_legacy_ra', title: 'Close the arc', entity_type: 'goal',
+                uid: 'goal.legacy-ra', title: 'Close the arc', entity_type: 'goal',
                 user_uid: $user_uid, status: 'completed',
                 completion_date: $d3_date, updated_at: $d0_dt
             })
             CREATE (u)-[:MASTERED {mastered_at: datetime($d4_dt)}]->(:Ku:Entity {
-                uid: 'ku_done_ra', title: 'Cypher subqueries', entity_type: 'ku'
+                uid: 'ku.done-ra', title: 'Cypher subqueries', entity_type: 'ku'
             })
             CREATE (u)-[:OWNS]->(:Task:Entity {
-                uid: 'task_active_ra', title: 'Still open', entity_type: 'task',
+                uid: 'task.active-ra', title: 'Still open', entity_type: 'task',
                 user_uid: $user_uid, status: 'active',
                 completion_date: $d0_date, updated_at: $d0_dt
             })
             CREATE (u)-[:OWNS]->(:Goal:Entity {
-                uid: 'goal_active_ra', title: 'Still going', entity_type: 'goal',
+                uid: 'goal.active-ra', title: 'Still going', entity_type: 'goal',
                 user_uid: $user_uid, status: 'active', updated_at: $d0_dt
             })
             """,
@@ -122,7 +123,7 @@ async def graph(neo4j_driver, clean_neo4j):
             """
             MATCH (u:User {uid: $user_uid})
             CREATE (u)-[:OWNS]->(:Task:Entity {
-                uid: 'task_done_other_ra', title: 'Someone else finished this',
+                uid: 'task.done-other-ra', title: 'Someone else finished this',
                 entity_type: 'task', user_uid: $user_uid,
                 status: 'completed', completion_date: $d5_date
             })
@@ -150,18 +151,18 @@ class TestGetRecentActivities:
         activities = [r["activity"] for r in result.value]
         by_uid = {a["entity_uid"]: a for a in activities}
 
-        assert by_uid["task_stamped_ra"]["type"] == "task"  # completion_date
-        assert by_uid["goal_achieved_ra"]["type"] == "goal"  # achieved_date
-        assert by_uid["ku_done_ra"]["type"] == "knowledge"  # datetime() edge
-        assert by_uid["ku_done_ra"]["action"] == "mastered"
+        assert by_uid["task.stamped-ra"]["type"] == "task"  # completion_date
+        assert by_uid["goal.achieved-ra"]["type"] == "goal"  # achieved_date
+        assert by_uid["ku.done-ra"]["type"] == "knowledge"  # datetime() edge
+        assert by_uid["ku.done-ra"]["action"] == "mastered"
         assert all(a["action"] == "completed" for a in activities if a["type"] in ("task", "goal"))
 
         # Ordered by the stamp, not by updated_at — both stamped rows were
         # touched at day 0, so a coalesce regression would float them to the top.
         assert [a["entity_uid"] for a in activities] == [
-            "task_stamped_ra",
-            "goal_achieved_ra",
-            "ku_done_ra",
+            "task.stamped-ra",
+            "goal.achieved-ra",
+            "ku.done-ra",
         ]
 
     async def test_completed_without_a_stamp_is_excluded_not_approximated(self, backend, graph):
@@ -174,8 +175,8 @@ class TestGetRecentActivities:
 
         assert result.is_ok
         uids = {r["activity"]["entity_uid"] for r in result.value}
-        assert "task_unstamped_ra" not in uids
-        assert "goal_legacy_ra" not in uids
+        assert "task.unstamped-ra" not in uids
+        assert "goal.legacy-ra" not in uids
 
     async def test_no_phantom_rows_and_no_incomplete_work(self, backend, graph):
         """Empty/partial legs contribute nothing — no all-null phantom activities.
@@ -190,8 +191,8 @@ class TestGetRecentActivities:
         assert all(a["entity_uid"] is not None for a in activities)
         assert all(a["timestamp"] is not None for a in activities)
         uids = {a["entity_uid"] for a in activities}
-        assert "task_active_ra" not in uids
-        assert "goal_active_ra" not in uids
+        assert "task.active-ra" not in uids
+        assert "goal.active-ra" not in uids
 
     async def test_scoped_to_the_requesting_user(self, backend, graph):
         """Another user's completed work never appears."""
@@ -199,7 +200,7 @@ class TestGetRecentActivities:
 
         assert result.is_ok
         uids = {r["activity"]["entity_uid"] for r in result.value}
-        assert "task_done_other_ra" not in uids
+        assert "task.done-other-ra" not in uids
 
     async def test_user_with_no_activity_gets_empty_list(self, backend, graph):
         """The pre-fix query returned 3 phantom null activities here."""

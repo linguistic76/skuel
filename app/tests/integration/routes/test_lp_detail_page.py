@@ -23,6 +23,7 @@ from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.fasthtml_types import Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -37,8 +38,8 @@ pytestmark = [
     ),
 ]
 
-LEARNER = "user_lp1_learner"
-ENROLLER = "user_lp1_enroller"
+LEARNER = seed_user_uid("lp1_learner")
+ENROLLER = seed_user_uid("lp1_enroller")
 USERS = (LEARNER, ENROLLER)
 
 PATH = "lp.lp1.path"
@@ -46,7 +47,7 @@ STEP_1 = "ps.lp1.first"
 STEP_2 = "ps.lp1.second"
 KU_A = "ku.lp1.alpha"
 KU_DRAFT = "ku.lp1.draft"
-TASK = "task_lp1_own"
+TASK = "task.lp1-own"
 CURRICULUM = (PATH, STEP_1, STEP_2, KU_A, KU_DRAFT)
 
 

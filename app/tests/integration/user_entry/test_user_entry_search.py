@@ -24,9 +24,10 @@ from core.models.enums.pipeline import Pipeline
 from core.models.search_request import SearchRequest
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.orchestrator.search_router import SearchRouter
+from tests.helpers.seed_uids import seed_user_uid
 
-OWNER_UID = "user_ue_search_owner"
-OTHER_UID = "user_ue_search_other"
+OWNER_UID = seed_user_uid("ue_search_owner")
+OTHER_UID = seed_user_uid("ue_search_other")
 
 
 @pytest.fixture

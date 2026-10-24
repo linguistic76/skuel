@@ -24,6 +24,7 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
 from core.events.search_events import SearchExecuted
 from core.services.search_event_recorder import SearchEventRecorder
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -44,7 +45,7 @@ def _event(
     query: str,
     result_count: int,
     entry_point: str = "faceted",
-    user_uid: str = "user_test",
+    user_uid: str = seed_user_uid("test"),
 ) -> SearchExecuted:
     return SearchExecuted(
         query_text=query,
@@ -77,7 +78,7 @@ async def test_event_bus_roundtrip_persists_search_event(neo4j_driver, search_ev
     assert record is not None, ":SearchEvent node was not created"
     node = record["e"]
     assert node["query_text"] == "Zxqv Probe "
-    assert node["user_uid"] == "user_test"
+    assert node["user_uid"] == seed_user_uid("test")
     assert node["entry_point"] == "faceted"
     assert node["zero_results"] is True
     assert node["result_count"] == 0

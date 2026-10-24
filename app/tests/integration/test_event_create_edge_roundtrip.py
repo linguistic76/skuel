@@ -46,8 +46,9 @@ from core.models.event.event_request import EventCreateRequest
 from core.models.relationship_names import RelationshipName
 from core.services.conversion_service import ConversionServiceV2
 from core.services.events_service import EventsService
+from tests.helpers.seed_uids import seed_user_uid
 
-OTHER_USER = "user_test_event_edges_victim"
+OTHER_USER = seed_user_uid("test_event_edges_victim")
 TOMORROW = date.today() + timedelta(days=1)
 
 
@@ -90,7 +91,7 @@ async def events_service(events_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def test_user_uid(neo4j_driver, clean_neo4j):
-    uid = "user_test_event_create_edges"
+    uid = seed_user_uid("test_event_create_edges")
     async with neo4j_driver.session() as session:
         await session.run(
             "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()", uid=uid
@@ -148,13 +149,13 @@ class TestHabitEdgeRoundTrip:
         """The assertion the whole change exists for: before it, the route door wrote
         no edge at all — the request's habit link simply vanished."""
         await _create_node(
-            neo4j_driver, "habit:rt", "Habit:Entity", "habit", "Morning pages", test_user_uid
+            neo4j_driver, "habit.rt", "Habit:Entity", "habit", "Morning pages", test_user_uid
         )
 
         event = await _route_create(
             events_service,
-            event_request(reinforces_habit_uid="habit:rt"),
-            "event:rt-habit",
+            event_request(reinforces_habit_uid="habit.rt"),
+            "event.rt-habit",
             test_user_uid,
         )
         assert event.is_ok, f"create failed: {event.error}"
@@ -162,7 +163,7 @@ class TestHabitEdgeRoundTrip:
         async with neo4j_driver.session() as session:
             result = await session.run(
                 f"MATCH (e {{uid: $event}})-[:{RelationshipName.REINFORCES_HABIT.value}]->"
-                "(h {uid: 'habit:rt'}) RETURN count(*) AS edges",
+                "(h {uid: 'habit.rt'}) RETURN count(*) AS edges",
                 event=event.value.uid,
             )
             row = await result.single()
@@ -178,19 +179,19 @@ class TestHabitEdgeRoundTrip:
         derived ``reinforces_habit_uid`` field calls — must resolve it. This is the
         direction proof: an edge written backwards reads back empty here."""
         await _create_node(
-            neo4j_driver, "habit:rt2", "Habit:Entity", "habit", "Morning pages", test_user_uid
+            neo4j_driver, "habit.rt2", "Habit:Entity", "habit", "Morning pages", test_user_uid
         )
 
         event = await _route_create(
             events_service,
-            event_request(reinforces_habit_uid="habit:rt2"),
-            "event:rt-habit2",
+            event_request(reinforces_habit_uid="habit.rt2"),
+            "event.rt-habit2",
             test_user_uid,
         )
 
         links = await events_backend.get_habit_links_for_events([event.value.uid])
         assert links.is_ok, f"get_habit_links_for_events failed: {links.error}"
-        assert links.value.get(event.value.uid) == "habit:rt2", (
+        assert links.value.get(event.value.uid) == "habit.rt2", (
             "the reader that populates the derived field cannot see the edge"
         )
 
@@ -200,11 +201,11 @@ class TestHabitEdgeRoundTrip:
         """``create_event`` rides the same primitive now — its old post-create edge
         write is gone, so one door writing twice would be a regression here."""
         await _create_node(
-            neo4j_driver, "habit:rt3", "Habit:Entity", "habit", "Morning pages", test_user_uid
+            neo4j_driver, "habit.rt3", "Habit:Entity", "habit", "Morning pages", test_user_uid
         )
 
         event = await events_service.create_event(
-            event_request(reinforces_habit_uid="habit:rt3"), test_user_uid
+            event_request(reinforces_habit_uid="habit.rt3"), test_user_uid
         )
         assert event.is_ok, f"create_event failed: {event.error}"
 
@@ -223,13 +224,13 @@ class TestHabitEdgeRoundTrip:
     ) -> None:
         """#967's half, asserted against the real serializer through the route door."""
         await _create_node(
-            neo4j_driver, "habit:rt4", "Habit:Entity", "habit", "Morning pages", test_user_uid
+            neo4j_driver, "habit.rt4", "Habit:Entity", "habit", "Morning pages", test_user_uid
         )
 
         event = await _route_create(
             events_service,
-            event_request(reinforces_habit_uid="habit:rt4"),
-            "event:rt-habit4",
+            event_request(reinforces_habit_uid="habit.rt4"),
+            "event.rt-habit4",
             test_user_uid,
         )
 
@@ -256,11 +257,11 @@ class TestHabitEdgeRoundTrip:
                 uid=OTHER_USER,
             )
         await _create_node(
-            neo4j_driver, "habit:victims", "Habit:Entity", "habit", "Victim's habit", OTHER_USER
+            neo4j_driver, "habit.victims", "Habit:Entity", "habit", "Victim's habit", OTHER_USER
         )
 
         event = await events_service.create_event(
-            event_request(reinforces_habit_uid="habit:victims"), test_user_uid
+            event_request(reinforces_habit_uid="habit.victims"), test_user_uid
         )
 
         assert event.is_ok, "the event itself is the caller's own and must still be created"
@@ -281,11 +282,11 @@ class TestHabitEdgeRoundTrip:
         REINFORCES_HABIT spec declares its target label as ``Entity``, so a same-user
         Goal UID would validate and then surface as a habit in every edge reader."""
         await _create_node(
-            neo4j_driver, "goal:not-a-habit", "Goal:Entity", "goal", "A goal", test_user_uid
+            neo4j_driver, "goal.not-a-habit", "Goal:Entity", "goal", "A goal", test_user_uid
         )
 
         event = await events_service.create_event(
-            event_request(reinforces_habit_uid="goal:not-a-habit"), test_user_uid
+            event_request(reinforces_habit_uid="goal.not-a-habit"), test_user_uid
         )
 
         assert event.is_ok
@@ -308,18 +309,18 @@ class TestCelebratedGoalEdgeRoundTrip:
         self, events_service, neo4j_driver, test_user_uid
     ) -> None:
         await _create_node(
-            neo4j_driver, "goal:launch", "Goal:Entity", "goal", "Ship the beta", test_user_uid
+            neo4j_driver, "goal.launch", "Goal:Entity", "goal", "Ship the beta", test_user_uid
         )
 
         event = await events_service.create_event(
-            event_request(milestone_celebration_for_goal="goal:launch"), test_user_uid
+            event_request(milestone_celebration_for_goal="goal.launch"), test_user_uid
         )
         assert event.is_ok, f"create_event failed: {event.error}"
 
         async with neo4j_driver.session() as session:
             result = await session.run(
                 f"MATCH (e {{uid: $event}})-[:{RelationshipName.CELEBRATES_GOAL.value}]->"
-                "(g {uid: 'goal:launch'}) RETURN count(*) AS edges",
+                "(g {uid: 'goal.launch'}) RETURN count(*) AS edges",
                 event=event.value.uid,
             )
             row = await result.single()
@@ -338,11 +339,11 @@ class TestCelebratedGoalEdgeRoundTrip:
                 uid=OTHER_USER,
             )
         await _create_node(
-            neo4j_driver, "goal:victims", "Goal:Entity", "goal", "Victim's goal", OTHER_USER
+            neo4j_driver, "goal.victims", "Goal:Entity", "goal", "Victim's goal", OTHER_USER
         )
 
         event = await events_service.create_event(
-            event_request(milestone_celebration_for_goal="goal:victims"), test_user_uid
+            event_request(milestone_celebration_for_goal="goal.victims"), test_user_uid
         )
 
         assert event.is_ok
@@ -364,12 +365,12 @@ class TestCelebratedGoalEdgeRoundTrip:
         killed the whole create. Now the event is created, the dangling goal link is
         dropped with a log line, and the valid habit link survives the same batch."""
         await _create_node(
-            neo4j_driver, "habit:rt5", "Habit:Entity", "habit", "Morning pages", test_user_uid
+            neo4j_driver, "habit.rt5", "Habit:Entity", "habit", "Morning pages", test_user_uid
         )
 
         event = await events_service.create_event(
             event_request(
-                reinforces_habit_uid="habit:rt5",
+                reinforces_habit_uid="habit.rt5",
                 milestone_celebration_for_goal="goal:deleted-since",
             ),
             test_user_uid,
@@ -386,7 +387,7 @@ class TestCelebratedGoalEdgeRoundTrip:
             )
             rows = [(record["rel"], record["target"]) async for record in result]
 
-        assert (RelationshipName.REINFORCES_HABIT.value, "habit:rt5") in rows, (
+        assert (RelationshipName.REINFORCES_HABIT.value, "habit.rt5") in rows, (
             "the valid habit link was lost along with the dangling goal link"
         )
         assert all(rel != RelationshipName.CELEBRATES_GOAL.value for rel, _ in rows)

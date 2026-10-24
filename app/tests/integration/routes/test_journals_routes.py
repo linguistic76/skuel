@@ -30,6 +30,7 @@ from starlette.exceptions import HTTPException
 
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +43,7 @@ def _reset_rate_limiter() -> None:
 
 
 def _make_request(
-    user_uid: str | None = "user_mike",
+    user_uid: str | None = seed_user_uid("mike"),
     form: dict[str, str] | None = None,
     form_items: list[tuple[str, str]] | None = None,
 ) -> Any:
@@ -117,11 +118,11 @@ def mock_services() -> Any:
     # zero-persistence journal paths (ADR-073).
     services.user_entry = MagicMock()
     services.user_entry.create_entry = AsyncMock(
-        return_value=Result.ok((MagicMock(uid="ue_x"), None))
+        return_value=Result.ok((MagicMock(uid="ue.x"), None))
     )
     services.user_entry.update_processed_content = AsyncMock(return_value=Result.ok(True))
     services.user_entry.submit_file = AsyncMock(
-        return_value=Result.ok((MagicMock(uid="ue_x"), None))
+        return_value=Result.ok((MagicMock(uid="ue.x"), None))
     )
     services.user_entry.list_for_user = AsyncMock(return_value=Result.ok([]))
 
@@ -140,7 +141,7 @@ def mock_services() -> Any:
         return_value=Result.ok(
             ConversationSession(
                 session_id="cs_abc123abc123",
-                user_uid="user_mike",
+                user_uid=seed_user_uid("mike"),
                 kind="discussion",
                 started_at=_now,
                 last_activity=_now,
@@ -173,7 +174,7 @@ def mock_services() -> Any:
     # Save this chat (ADR-078 §5) — the only path into the store.
     _saved_session = ConversationSession(
         session_id="cs_saved0000001",
-        user_uid="user_mike",
+        user_uid=seed_user_uid("mike"),
         kind="discussion",
         started_at=_now,
         last_activity=_now,
@@ -220,7 +221,9 @@ def _assert_no_discussion_persisted(services: Any) -> None:
     services.conversation.save_transcript.assert_not_awaited()
 
 
-def _make_upload_request(form_items: list[tuple[str, Any]], user_uid: str = "user_mike") -> Any:
+def _make_upload_request(
+    form_items: list[tuple[str, Any]], user_uid: str = seed_user_uid("mike")
+) -> Any:
     """Build a POST request whose ``form()`` yields a starlette FormData.
 
     Upload handlers use ``form.getlist("file")`` + ``UploadFile`` filtering, so a
@@ -1079,7 +1082,7 @@ class TestJournalsDailyLlmQuota:
         from adapters.inbound.rate_limit import llm_quota_allowed
 
         for _ in range(n):
-            assert llm_quota_allowed("user_mike")
+            assert llm_quota_allowed(seed_user_uid("mike"))
 
     @staticmethod
     def _as_founder(mock_services: Any) -> None:
@@ -1115,7 +1118,7 @@ class TestJournalsDailyLlmQuota:
 
         mock_services.journal.run_stage1.assert_awaited_once()
         self._consume_quota_units(LLMQuota.DAILY_LIMIT - 1)
-        assert llm_quota_allowed("user_mike") is False
+        assert llm_quota_allowed(seed_user_uid("mike")) is False
 
     async def test_upload_invalid_utf8_burns_no_quota(
         self, handlers: dict[str, Any], mock_services: Any
@@ -1138,7 +1141,7 @@ class TestJournalsDailyLlmQuota:
         assert "valid UTF-8" in to_xml(response)
         # The decode rejection fired before the quota check — the final unit
         # survived (Codex round 2 P2).
-        assert llm_quota_allowed("user_mike") is True
+        assert llm_quota_allowed(seed_user_uid("mike")) is True
 
     async def test_upload_unknown_mode_burns_no_quota(
         self, mock_services: Any, tmp_path: Any
@@ -1174,4 +1177,4 @@ class TestJournalsDailyLlmQuota:
         assert "Unknown processing mode" in to_xml(response)
         # Rejected at the form boundary, before the quota gate — the final unit
         # survived.
-        assert llm_quota_allowed("user_mike") is True
+        assert llm_quota_allowed(seed_user_uid("mike")) is True

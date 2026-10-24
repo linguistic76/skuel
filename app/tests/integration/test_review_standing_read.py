@@ -24,11 +24,12 @@ import pytest
 
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.services.report.report_relationship_service import ReportRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
-OWNER = "user_rsr_owner"
-OTHER = "user_rsr_other"
+OWNER = seed_user_uid("rsr_owner")
+OTHER = seed_user_uid("rsr_other")
 EX = "ex_rsr_main"
 EX_TRAP = "ex_rsr_trap"
 EX_CROSS = "ex_rsr_cross"
@@ -48,25 +49,25 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (x:User {uid: $other})
 
             // the main exchange: e1 (reviewed) → e2 (revised) → e3 (native stamp, reviewed twice)
-            CREATE (e1:Entity:UserEntry {uid: 'ue_rsr_e1', entity_type: 'user_entry',
+            CREATE (e1:Entity:UserEntry {uid: 'ue.rsr-e1', entity_type: 'user_entry',
                 title: 'first', status: 'completed', user_uid: $owner,
                 turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Main',
                 created_at: '2026-08-01T00:00:00.000000'})
-            CREATE (r1:Entity:EntryReport {uid: 'er_rsr_r1', entity_type: 'entry_report',
+            CREATE (r1:Entity:EntryReport {uid: 'er.rsr-r1', entity_type: 'entry_report',
                 title: 'r1', status: 'completed', processor_type: 'human',
                 assessment_outcome: 'needs_revision', created_at: datetime('2026-08-01T01:00:00Z')})
-            CREATE (e2:Entity:UserEntry {uid: 'ue_rsr_e2', entity_type: 'user_entry',
+            CREATE (e2:Entity:UserEntry {uid: 'ue.rsr-e2', entity_type: 'user_entry',
                 title: 'second', status: 'submitted', user_uid: $owner,
                 turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Main',
                 created_at: '2026-08-01T02:00:00.000000'})
-            CREATE (e3:Entity:UserEntry {uid: 'ue_rsr_e3', entity_type: 'user_entry',
+            CREATE (e3:Entity:UserEntry {uid: 'ue.rsr-e3', entity_type: 'user_entry',
                 title: 'third', status: 'completed', user_uid: $owner,
                 turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Main',
                 created_at: datetime('2026-08-01T03:00:00Z')})
-            CREATE (r3h:Entity:EntryReport {uid: 'er_rsr_r3h', entity_type: 'entry_report',
+            CREATE (r3h:Entity:EntryReport {uid: 'er.rsr-r3h', entity_type: 'entry_report',
                 title: 'r3 human', status: 'completed', processor_type: 'human',
                 assessment_outcome: 'approved', created_at: datetime('2026-08-01T03:30:00Z')})
-            CREATE (r3a:Entity:EntryReport {uid: 'er_rsr_r3a', entity_type: 'entry_report',
+            CREATE (r3a:Entity:EntryReport {uid: 'er.rsr-r3a', entity_type: 'entry_report',
                 title: 'r3 ai', status: 'completed', processor_type: 'llm',
                 assessment_outcome: 'ai_evaluated', created_at: datetime('2026-08-01T04:00:00Z')})
             MERGE (o)-[:OWNS]->(e1) MERGE (o)-[:OWNS]->(e2) MERGE (o)-[:OWNS]->(e3)
@@ -76,39 +77,39 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (r3a)-[:REPORT_FOR]->(e3)
 
             // the trap exchange: the prior's report is dated AFTER the later entry
-            CREATE (t1:Entity:UserEntry {uid: 'ue_rsr_t1', entity_type: 'user_entry',
+            CREATE (t1:Entity:UserEntry {uid: 'ue.rsr-t1', entity_type: 'user_entry',
                 title: 'trap first', status: 'completed', user_uid: $owner,
                 turn_in_exercise_uid: $ex_trap, turn_in_exercise_title: 'Trap',
                 created_at: '2026-08-02T00:00:00.000000'})
-            CREATE (t2:Entity:UserEntry {uid: 'ue_rsr_t2', entity_type: 'user_entry',
+            CREATE (t2:Entity:UserEntry {uid: 'ue.rsr-t2', entity_type: 'user_entry',
                 title: 'trap second', status: 'submitted', user_uid: $owner,
                 turn_in_exercise_uid: $ex_trap, turn_in_exercise_title: 'Trap',
                 created_at: '2026-08-02T01:00:00.000000'})
-            CREATE (rt:Entity:EntryReport {uid: 'er_rsr_rt', entity_type: 'entry_report',
+            CREATE (rt:Entity:EntryReport {uid: 'er.rsr-rt', entity_type: 'entry_report',
                 title: 'late report on t1', status: 'completed', processor_type: 'human',
                 assessment_outcome: 'approved', created_at: datetime('2026-08-02T02:00:00Z')})
             MERGE (o)-[:OWNS]->(t1) MERGE (o)-[:OWNS]->(t2) MERGE (o)-[:OWNS]->(rt)
             MERGE (rt)-[:REPORT_FOR]->(t1)
 
             // an outcome-less report (a journal reflection) reviews nothing
-            CREATE (j1:Entity:UserEntry {uid: 'ue_rsr_j1', entity_type: 'user_entry',
+            CREATE (j1:Entity:UserEntry {uid: 'ue.rsr-j1', entity_type: 'user_entry',
                 title: 'journal', status: 'completed', user_uid: $owner,
                 created_at: '2026-08-03T00:00:00.000000'})
-            CREATE (rj:Entity:EntryReport {uid: 'er_rsr_rj', entity_type: 'entry_report',
+            CREATE (rj:Entity:EntryReport {uid: 'er.rsr-rj', entity_type: 'entry_report',
                 title: 'reflection', status: 'completed', processor_type: 'llm',
                 created_at: datetime('2026-08-03T01:00:00Z')})
             MERGE (o)-[:OWNS]->(j1) MERGE (o)-[:OWNS]->(rj)
             MERGE (rj)-[:REPORT_FOR]->(j1)
 
             // another owner reviewed earlier in the same exchange — not the owner's revision
-            CREATE (xo:Entity:UserEntry {uid: 'ue_rsr_xo', entity_type: 'user_entry',
+            CREATE (xo:Entity:UserEntry {uid: 'ue.rsr-xo', entity_type: 'user_entry',
                 title: 'other first', status: 'completed', user_uid: $other,
                 turn_in_exercise_uid: $ex_cross, turn_in_exercise_title: 'Cross',
                 created_at: '2026-08-04T00:00:00.000000'})
-            CREATE (rx:Entity:EntryReport {uid: 'er_rsr_rx', entity_type: 'entry_report',
+            CREATE (rx:Entity:EntryReport {uid: 'er.rsr-rx', entity_type: 'entry_report',
                 title: 'other report', status: 'completed', processor_type: 'human',
                 assessment_outcome: 'approved', created_at: datetime('2026-08-04T01:00:00Z')})
-            CREATE (x1:Entity:UserEntry {uid: 'ue_rsr_x1', entity_type: 'user_entry',
+            CREATE (x1:Entity:UserEntry {uid: 'ue.rsr-x1', entity_type: 'user_entry',
                 title: 'mine later', status: 'submitted', user_uid: $owner,
                 turn_in_exercise_uid: $ex_cross, turn_in_exercise_title: 'Cross',
                 created_at: '2026-08-04T02:00:00.000000'})
@@ -116,10 +117,10 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (rx)-[:REPORT_FOR]->(xo)
 
             // reviewed work that is not a turn-in can never be "revised after feedback"
-            CREATE (p1:Entity:UserEntry {uid: 'ue_rsr_p1', entity_type: 'user_entry',
+            CREATE (p1:Entity:UserEntry {uid: 'ue.rsr-p1', entity_type: 'user_entry',
                 title: 'plain', status: 'completed', user_uid: $owner,
                 created_at: '2026-08-05T00:00:00.000000'})
-            CREATE (rp:Entity:EntryReport {uid: 'er_rsr_rp', entity_type: 'entry_report',
+            CREATE (rp:Entity:EntryReport {uid: 'er.rsr-rp', entity_type: 'entry_report',
                 title: 'plain report', status: 'completed', processor_type: 'human',
                 assessment_outcome: 'approved', created_at: datetime('2026-08-05T01:00:00Z')})
             MERGE (o)-[:OWNS]->(p1) MERGE (o)-[:OWNS]->(rp)
@@ -141,14 +142,14 @@ async def _standing(service: ReportRelationshipService, uid: str):
 
 class TestReviewStanding:
     async def test_a_reviewed_first_entry_is_reviewed_and_not_revised(self, service, seeded):
-        assert await _standing(service, "ue_rsr_e1") == {
+        assert await _standing(service, "ue.rsr-e1") == {
             "reviewed_by": "human",
             "revised_after_feedback": False,
         }
 
     async def test_a_later_entry_after_the_report_is_revised_after_feedback(self, service, seeded):
         """The stamp trap crossed: a string entry stamp against a native report stamp."""
-        assert await _standing(service, "ue_rsr_e2") == {
+        assert await _standing(service, "ue.rsr-e2") == {
             "reviewed_by": None,
             "revised_after_feedback": True,
         }
@@ -156,7 +157,7 @@ class TestReviewStanding:
     async def test_a_native_entry_stamp_derives_the_same_way_and_the_newest_report_names_the_source(
         self, service, seeded
     ):
-        assert await _standing(service, "ue_rsr_e3") == {
+        assert await _standing(service, "ue.rsr-e3") == {
             "reviewed_by": "llm",
             "revised_after_feedback": True,
         }
@@ -164,25 +165,25 @@ class TestReviewStanding:
     async def test_a_report_written_after_the_later_entry_does_not_make_it_a_revision(
         self, service, seeded
     ):
-        assert await _standing(service, "ue_rsr_t2") == {
+        assert await _standing(service, "ue.rsr-t2") == {
             "reviewed_by": None,
             "revised_after_feedback": False,
         }
 
     async def test_an_outcome_less_report_reviews_nothing(self, service, seeded):
-        assert await _standing(service, "ue_rsr_j1") == {
+        assert await _standing(service, "ue.rsr-j1") == {
             "reviewed_by": None,
             "revised_after_feedback": False,
         }
 
     async def test_another_owners_review_in_the_exchange_is_not_mine(self, service, seeded):
-        assert await _standing(service, "ue_rsr_x1") == {
+        assert await _standing(service, "ue.rsr-x1") == {
             "reviewed_by": None,
             "revised_after_feedback": False,
         }
 
     async def test_reviewed_work_outside_any_exchange_is_never_revised(self, service, seeded):
-        assert await _standing(service, "ue_rsr_p1") == {
+        assert await _standing(service, "ue.rsr-p1") == {
             "reviewed_by": "human",
             "revised_after_feedback": False,
         }

@@ -34,6 +34,7 @@ from core.services.dsl.activity_extractor import ActivityExtractorService
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration.user_entry.test_extract_activities_pipeline import (
     _GraphTasksStub,
     _seed_ku,
@@ -109,7 +110,7 @@ class TestEntryKnowledgeCreditedOnce:
     async def test_an_inferred_link_the_owner_names_becomes_theirs_without_a_second_credit(
         self, neo4j_driver, user_entry_service, seed_user, grounding
     ):
-        user_uid = await seed_user(f"user_credit_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"credit_{uuid4().hex[:6]}"))
         inferred = await _seed_ku(neo4j_driver, f"ku.it.inferred-{uuid4().hex[:6]}")
         fresh = await _seed_ku(neo4j_driver, f"ku.it.fresh-{uuid4().hex[:6]}")
         entry = await _entry(
@@ -133,7 +134,7 @@ class TestEntryKnowledgeCreditedOnce:
     async def test_a_removed_link_the_owner_names_relinks_without_a_second_credit(
         self, neo4j_driver, user_entry_service, seed_user, grounding
     ):
-        user_uid = await seed_user(f"user_credit_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"credit_{uuid4().hex[:6]}"))
         removed = await _seed_ku(neo4j_driver, f"ku.it.removed-{uuid4().hex[:6]}")
         fresh = await _seed_ku(neo4j_driver, f"ku.it.fresh-{uuid4().hex[:6]}")
         entry = await _entry(
@@ -158,7 +159,7 @@ class TestEntryKnowledgeCreditedOnce:
     async def test_the_grounding_pass_leaves_a_named_link_alone(
         self, neo4j_driver, user_entry_service, seed_user, grounding
     ):
-        user_uid = await seed_user(f"user_credit_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"credit_{uuid4().hex[:6]}"))
         named = await _seed_ku(neo4j_driver, f"ku.it.named-{uuid4().hex[:6]}")
         entry = await _entry(
             user_entry_service, user_uid, f"- [ ] Read on it @context(task) @ku({named})\n"
@@ -179,7 +180,7 @@ class TestEntryKnowledgeCreditedOnce:
         self, neo4j_driver, user_entry_backend, seed_user, grounding
     ):
         for _ in range(20):
-            entry_uid = f"ue_credit_race_{uuid4().hex[:8]}"
+            entry_uid = f"ue.credit-race-{uuid4().hex[:8]}"
             ku_uid = await _seed_ku(neo4j_driver, f"ku.it.race-{uuid4().hex[:8]}")
             async with neo4j_driver.session() as session:
                 await session.run(

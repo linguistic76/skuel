@@ -27,6 +27,10 @@ import pytest
 
 from adapters.persistence.neo4j.backends.misc_backends import ActivityReportGeneratorBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from tests.helpers.seed_uids import seed_user_uid
+
+_COOLDOWN = seed_user_uid("cooldown")
+_ORDER = seed_user_uid("order")
 
 
 @pytest.mark.asyncio
@@ -41,60 +45,63 @@ class TestCreatedAtWindowCoercion:
         old_iso = (now - timedelta(hours=5)).isoformat()  # string, out of window
 
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: 'user_cooldown'})")
+            await session.run("MERGE (u:User {uid: $user})", user=_COOLDOWN)
             # Majority shape: created_at as an ISO string, recent.
             await session.run(
                 """
-                MATCH (u:User {uid: 'user_cooldown'})
-                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar_str',
+                MATCH (u:User {uid: $user})
+                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar.str',
                     entity_type: 'activity_report', time_period: '7d', created_at: $c})
                 """,
                 c=recent_iso,
+                user=_COOLDOWN,
             )
             # Minority shape: created_at as a real zoned datetime, recent.
             await session.run(
                 """
-                MATCH (u:User {uid: 'user_cooldown'})
-                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar_dt',
+                MATCH (u:User {uid: $user})
+                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar.dt',
                     entity_type: 'activity_report', time_period: '7d',
                     created_at: datetime() - duration({minutes: 5})})
-                """
+                """,
+                user=_COOLDOWN,
             )
             # String, but outside the cooldown window — must NOT count.
             await session.run(
                 """
-                MATCH (u:User {uid: 'user_cooldown'})
-                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar_old',
+                MATCH (u:User {uid: $user})
+                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar.old',
                     entity_type: 'activity_report', time_period: '7d', created_at: $c})
                 """,
                 c=old_iso,
+                user=_COOLDOWN,
             )
 
             # Recent, but for another period — the cooldown is keyed per (user, period).
             await session.run(
                 """
-                MATCH (u:User {uid: 'user_cooldown'})
-                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar_other_period',
+                MATCH (u:User {uid: $user})
+                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar.other-period',
                     entity_type: 'activity_report', time_period: '2026-09', created_at: $c})
                 """,
                 c=recent_iso,
+                user=_COOLDOWN,
             )
             # Recent and the right period, but an admin's report on the user
             # (theirs to own — Submit & Share arc R11): a review, not a generation, so it
             # never puts them in cooldown.
             await session.run(
                 """
-                MATCH (u:User {uid: 'user_cooldown'})
-                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar_admin',
+                MATCH (u:User {uid: $user})
+                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar.admin',
                     entity_type: 'activity_report', time_period: '7d',
                     processor_type: 'human', created_at: $c})
                 """,
                 c=recent_iso,
+                user=_COOLDOWN,
             )
         backend = ActivityReportGeneratorBackend(Neo4jQueryExecutor(neo4j_driver))
-        result = await backend.check_cooldown(
-            "user_cooldown", cooldown_minutes=60, time_period="7d"
-        )
+        result = await backend.check_cooldown(_COOLDOWN, cooldown_minutes=60, time_period="7d")
         assert result.is_ok, f"check_cooldown failed: {result}"
         # str + datetime are both in-window; the old string one and the
         # admin's report are excluded.
@@ -121,10 +128,7 @@ class TestNewestFirstCoercion:
         now = datetime.now(UTC)
         older_iso = (now - timedelta(days=2)).isoformat()
         newer_iso = (now - timedelta(hours=1)).isoformat()
-        common = (
-            "entity_type: 'activity_report', user_uid: 'user_order', "
-            "subject_uid: 'user_order', time_period: '2026-09'"
-        )
+        common = "entity_type: 'activity_report', user_uid: $order, subject_uid: $order, time_period: '2026-09'"
         if newer_is_datetime:
             older_created = "$older"
             newer_created = "datetime() - duration({hours: 1})"
@@ -132,31 +136,32 @@ class TestNewestFirstCoercion:
             older_created = "datetime() - duration({days: 2})"
             newer_created = "$newer"
         async with neo4j_driver.session() as session:
-            # ar_admin is the newest of all and the user's own (Submit & Share arc R11),
+            # ar.admin is the newest of all and the user's own (Submit & Share arc R11),
             # but an admin's review: the period read skips it, the GradeBook
             # history lists it, the comparison history (generated_only) does not.
             await session.run(
                 f"""
-                CREATE (:Entity {{uid: 'ar_older', {common}, created_at: {older_created}}})
-                CREATE (:Entity {{uid: 'ar_newer', {common}, created_at: {newer_created}}})
-                CREATE (:Entity {{uid: 'ar_admin', {common}, processor_type: 'human',
+                CREATE (:Entity {{uid: 'ar.older', {common}, created_at: {older_created}}})
+                CREATE (:Entity {{uid: 'ar.newer', {common}, created_at: {newer_created}}})
+                CREATE (:Entity {{uid: 'ar.admin', {common}, processor_type: 'human',
                                   created_at: datetime()}})
                 """,
                 older=older_iso,
                 newer=newer_iso,
+                order=_ORDER,
             )
         backend = ActivityReportBackend(
             neo4j_driver, NeoLabel.ACTIVITY_REPORT, ActivityReport, base_label=NeoLabel.ENTITY
         )
 
-        found = await backend.find_by_period("user_order", "user_order", "2026-09")
-        history = await backend.get_history("user_order")
-        generated = await backend.get_history("user_order", generated_only=True)
+        found = await backend.find_by_period(_ORDER, _ORDER, "2026-09")
+        history = await backend.get_history(_ORDER)
+        generated = await backend.get_history(_ORDER, generated_only=True)
 
         assert found.is_ok and history.is_ok and generated.is_ok
-        assert _uid(found.value[0]) == "ar_newer"
-        assert [_uid(row) for row in history.value] == ["ar_admin", "ar_newer", "ar_older"]
-        assert [_uid(row) for row in generated.value] == ["ar_newer", "ar_older"]
+        assert _uid(found.value[0]) == "ar.newer"
+        assert [_uid(row) for row in history.value] == ["ar.admin", "ar.newer", "ar.older"]
+        assert [_uid(row) for row in generated.value] == ["ar.newer", "ar.older"]
 
 
 def _uid(row: Mapping[str, object]) -> str:

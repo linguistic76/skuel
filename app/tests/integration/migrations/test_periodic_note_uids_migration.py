@@ -29,7 +29,13 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
-pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
+pytestmark = [
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.integration,
+    pytest.mark.outside_uid_grammar(
+        "seeds the old periodic note uid shapes this migration renames"
+    ),
+]
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts/migrations/periodic_note_uids_2026_10.py"
 
@@ -134,9 +140,7 @@ class TestTheRename:
         assert sorted((r.old, r.new) for r in plan.renames) == sorted(
             [(DAILY_OLD, DAILY_NEW), (WEEKLY_OLD, WEEKLY_NEW)]
         )
-        assert plan.repoints == [
-            migration.Repoint(path=VAULT_FILE, old=DAILY_OLD, new=DAILY_NEW)
-        ]
+        assert plan.repoints == [migration.Repoint(path=VAULT_FILE, old=DAILY_OLD, new=DAILY_NEW)]
         assert (plan.periodic, plan.embedded) == (2, 1)
 
     async def test_confirm_renames_in_place_and_keeps_every_edge_and_vector(

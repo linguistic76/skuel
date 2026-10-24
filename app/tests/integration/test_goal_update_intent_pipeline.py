@@ -30,6 +30,7 @@ from core.models.goal.goal_request import GoalUpdateRequest
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.sentinels import UNSET
 from core.services.goals.goals_core_service import GoalsCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -53,8 +54,8 @@ class TestGoalUpdateIntentPipeline:
     @pytest_asyncio.fixture
     async def seeded_goal(self, core_service):
         goal = Goal(
-            uid="goal.intent_pipeline",
-            user_uid="user_intent_pipeline",
+            uid="goal.intent-pipeline",
+            user_uid=seed_user_uid("intent_pipeline"),
             title="Original title",
             description="Original description",
             target_date=date.today() + timedelta(days=30),

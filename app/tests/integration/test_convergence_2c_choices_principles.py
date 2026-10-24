@@ -45,19 +45,19 @@ from core.services.infrastructure.graph_intelligence_service import GraphIntelli
 from core.services.principles.principles_intelligence_service import PrinciplesIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
-P = "conv2c_"  # uid prefix for this module's fixture graph
+P = "conv2c."  # uid prefix for this module's fixture graph
 
 # --- Choices fixture graph ---
 CHOICE = P + "choice"
-CHOICE_GOAL = P + "choice_goal"  # via AFFECTS_GOAL (registry edge, NOT in HIERARCHICAL clause)
-CHOICE_NOISE = P + "choice_noise"  # via NOISE_LINK (outside the registry → filtered)
+CHOICE_GOAL = P + "choice-goal"  # via AFFECTS_GOAL (registry edge, NOT in HIERARCHICAL clause)
+CHOICE_NOISE = P + "choice-noise"  # via NOISE_LINK (outside the registry → filtered)
 
 # --- Principles fixture graph ---
 PRINCIPLE = P + "principle"
 PRINCIPLE_GOAL = (
-    P + "principle_goal"
+    P + "principle-goal"
 )  # via SUPPORTS_GOAL (registry edge, NOT in HIERARCHICAL clause)
-PRINCIPLE_NOISE = P + "principle_noise"  # via NOISE_LINK (outside the registry → filtered)
+PRINCIPLE_NOISE = P + "principle-noise"  # via NOISE_LINK (outside the registry → filtered)
 
 
 def _uids(graph_context) -> set[str]:

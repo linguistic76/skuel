@@ -49,28 +49,29 @@ from core.models.report.entry_report import EntryReport
 from core.models.user.user import User
 from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 
-STUDENT_A = "user_rcs_student_a"  # in the group IN_TEACHER owns
-STUDENT_B = "user_rcs_student_b"  # in the group OUT_TEACHER owns
-IN_TEACHER = "user_rcs_in_teacher"
-OUT_TEACHER = "user_rcs_out_teacher"
-LONE_TEACHER = "user_rcs_lone_teacher"  # a TEACHER with no classroom at all
-GROUP_A = "group_rcs_a"
-GROUP_B = "group_rcs_b"
+STUDENT_A = seed_user_uid("rcs_student_a")  # in the group IN_TEACHER owns
+STUDENT_B = seed_user_uid("rcs_student_b")  # in the group OUT_TEACHER owns
+IN_TEACHER = seed_user_uid("rcs_in_teacher")
+OUT_TEACHER = seed_user_uid("rcs_out_teacher")
+LONE_TEACHER = seed_user_uid("rcs_lone_teacher")  # a TEACHER with no classroom at all
+GROUP_A = "group.rcs-a"
+GROUP_B = "group.rcs-b"
 
-EXERCISE_UID = "ex_rcs_original"
-RE_A2 = "re_rcs_a2"  # STUDENT_A, revision_number 2 (legacy global numbering)
-RE_A5 = "re_rcs_a5"  # STUDENT_A, revision_number 5 (gap on purpose)
-RE_B4 = "re_rcs_b4"  # STUDENT_B, revision_number 4
+EXERCISE_UID = "ex.rcs-original"
+RE_A2 = "re.rcs-a2"  # STUDENT_A, revision_number 2 (legacy global numbering)
+RE_A5 = "re.rcs-a5"  # STUDENT_A, revision_number 5 (gap on purpose)
+RE_B4 = "re.rcs-b4"  # STUDENT_B, revision_number 4
 SECRET_TITLE_B = "RCS_SECRET_OTHER_CLASSROOM_TITLE_7e2a"
 
-SUB_B = "ue_rcs_sub_b"  # STUDENT_B submission for the service-create path
-SUB_B2 = "ue_rcs_sub_b2"  # STUDENT_B submission for the atomic path
-REPORT_B = "er_rcs_report_b"
+SUB_B = "ue.rcs-sub-b"  # STUDENT_B submission for the service-create path
+SUB_B2 = "ue.rcs-sub-b2"  # STUDENT_B submission for the atomic path
+REPORT_B = "er.rcs-report-b"
 
 CHAIN_PATH = "/api/revised-exercises/chain"
 
-ROLES = {
+ROLES: dict[str, UserRole] = {
     STUDENT_A: UserRole.MEMBER,
     STUDENT_B: UserRole.MEMBER,
     IN_TEACHER: UserRole.TEACHER,
@@ -277,7 +278,7 @@ class TestRevisionChainScope:
     ) -> None:
         """The refusal is indistinguishable from a genuinely missing exercise."""
         denied = await _chain(api_handlers, LONE_TEACHER, exercise_uid=EXERCISE_UID)
-        missing = await _chain(api_handlers, IN_TEACHER, exercise_uid="ex_does_not_exist")
+        missing = await _chain(api_handlers, IN_TEACHER, exercise_uid="ex.does-not-exist")
         assert denied == missing == []
 
     async def test_student_filter_stays_inside_the_classroom(self, api_handlers, seeded) -> None:
@@ -308,19 +309,19 @@ class TestRevisionOrdinalPerStudent:
         exercise); a per-student len+1 would mint 2. Both are wrong.
         """
         re_entity = RevisedExercise(
-            uid="re_rcs_new_atomic",
+            uid="re.rcs-new-atomic",
             entity_type=EntityType.REVISED_EXERCISE,
             title="",
             user_uid=OUT_TEACHER,
             student_uid=STUDENT_B,
-            report_uid="er_rcs_atomic",
+            report_uid="er.rcs-atomic",
             original_exercise_uid=EXERCISE_UID,
             instructions="Atomic revision notes",
         )
         result = await report_backend.create_report_and_revised_exercise(
             {
                 "report_uid": SUB_B2,
-                "report_entity_uid": "er_rcs_atomic",
+                "report_entity_uid": "er.rcs-atomic",
                 "author_uid": OUT_TEACHER,
                 "feedback": "Atomic revision notes",
                 "report_file_path": None,
@@ -337,7 +338,7 @@ class TestRevisionOrdinalPerStudent:
                 ],
                 "reviewing_teacher_uid": OUT_TEACHER,
                 "now": datetime.now().isoformat(),
-                "re_uid": "re_rcs_new_atomic",
+                "re_uid": "re.rcs-new-atomic",
                 "original_exercise_uid": EXERCISE_UID,
             },
             re_entity,

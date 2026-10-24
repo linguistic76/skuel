@@ -13,6 +13,7 @@ import pytest
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.principle.principle_request import PrincipleCreateRequest
+from tests.helpers.seed_uids import seed_user_uid
 
 # Every owned entity here belongs to ``test_user``, who must exist before a create.
 pytestmark = pytest.mark.usefixtures("ensure_test_users")
@@ -29,9 +30,11 @@ class TestChoicesIntelligenceOptimization:
             title="Test Decision",
             description="Test choice for quick metrics",
             decision_date=date.today(),
-            user_uid="test_user",
+            user_uid=seed_user_uid("test_user"),
         )
-        choice_result = await services.choices.core.create_choice(choice_request, "test_user")
+        choice_result = await services.choices.core.create_choice(
+            choice_request, seed_user_uid("test_user")
+        )
         assert choice_result.is_ok
         choice_uid = choice_result.value.uid
 
@@ -72,9 +75,11 @@ class TestChoicesIntelligenceOptimization:
                 title=f"Test Choice {i}",
                 description=f"Test choice {i}",
                 decision_date=date.today(),
-                user_uid="test_user",
+                user_uid=seed_user_uid("test_user"),
             )
-            choice_result = await services.choices.core.create_choice(choice_request, "test_user")
+            choice_result = await services.choices.core.create_choice(
+                choice_request, seed_user_uid("test_user")
+            )
             assert choice_result.is_ok
             choice_uids.append(choice_result.value.uid)
 
@@ -111,7 +116,7 @@ class TestPrinciplesIntelligenceOptimization:
             why_important="For testing",
         )
         principle_result = await services.principles.core.create_principle(
-            request, user_uid="test_user"
+            request, user_uid=seed_user_uid("test_user")
         )
         assert principle_result.is_ok
         principle_uid = principle_result.value.uid
@@ -161,7 +166,7 @@ class TestPrinciplesIntelligenceOptimization:
                 why_important="For testing",
             )
             principle_result = await services.principles.core.create_principle(
-                request, user_uid="test_user"
+                request, user_uid=seed_user_uid("test_user")
             )
             assert principle_result.is_ok
             principle_uids.append(principle_result.value.uid)

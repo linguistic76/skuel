@@ -35,10 +35,11 @@ from core.utils.zone_context import current_zone
 
 
 def habit_completion_uid(user_uid: str, habit_uid: str, at: datetime) -> str:
-    """The uid of one completion of ``habit_uid`` by ``user_uid`` at ``at`` (whole seconds).
+    """The uid of ``user_uid``'s completion of ``habit_uid`` at ``at``, to the second.
 
-    Derived, so a second record of the same completion in the same second names
-    the node the first one wrote.
+    Derived from when the habit was completed, never from when that was recorded:
+    a second record of the same completion names the node the first one wrote, and
+    two days backfilled in the same second are two completions.
     """
     return hashed_uid("hc", user_uid, habit_uid, str(int(at.timestamp())))
 
@@ -142,7 +143,7 @@ class HabitsCompletionService:
         new_streak, last_completed, best_candidate = streak_result.value
 
         # Create completion record
-        completion_uid = habit_completion_uid(user_uid, habit_uid, now)
+        completion_uid = habit_completion_uid(user_uid, habit_uid, completed_at)
         completion_dto = HabitCompletionDTO(
             uid=completion_uid,
             habit_uid=habit_uid,

@@ -49,15 +49,18 @@ from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
 
-GL = "glctx_"  # uid prefix for this module's fixture graph
+GL = "glctx."  # uid prefix for this module's fixture graph
 GL_USER = GL + "user"  # owner of every seeded goal and activity
-GL_OTHER_USER = GL + "other_user"
+GL_OTHER_USER = GL + "other-user"
 GL_OWNER = (
-    "user_goal_dashboard"  # a real User node (ensure_test_users): OWNS and MASTERED hang off it
+    seed_user_uid(
+        "goal_dashboard"
+    )  # a real User node (ensure_test_users): OWNS and MASTERED hang off it
 )
 GL_GOAL = GL + "goal"
-GL_GOAL_BARE = GL + "goal_bare"  # negative control: no cross-domain edges
+GL_GOAL_BARE = GL + "goal-bare"  # negative control: no cross-domain edges
 GL_TASK = GL + "task"  # task -[CONTRIBUTES_TO_GOAL]-> goal (contributing_tasks)
 GL_HABIT = GL + "habit"  # habit -[SUPPORTS_GOAL]-> goal (contributing_habits)
 GL_KU = GL + "ku"  # goal -[REQUIRES_KNOWLEDGE]-> ku (required_knowledge)
@@ -209,12 +212,12 @@ async def test_goal_dashboard_figures_are_the_contribution_tally(
     neo4j_driver, rel_backend, clean_neo4j
 ):
     """8 of a goal's 10 contributing tasks completed reads 8 / 10 / 80.0 — computed, not 0 / 0.0."""
-    goal_uid = GL + "tally_goal"
+    goal_uid = GL + "tally-goal"
     await _seed_tally_goal(
         neo4j_driver,
         goal_uid,
         [
-            {"uid": f"{GL}tally_task_{i}", "status": "completed" if i < 8 else "active"}
+            {"uid": f"{GL}tally-task-{i}", "status": "completed" if i < 8 else "active"}
             for i in range(10)
         ],
     )
@@ -250,12 +253,12 @@ async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
         opt-out is a task's, so the event still counts.
     The counts are the pair a recompute of this goal plans its write from.
     """
-    goal_uid = GL + "rule_goal"
+    goal_uid = GL + "rule-goal"
     counted, opted_out, weak, foreign = (
-        GL + "rule_counted",
-        GL + "rule_opted_out",
-        GL + "rule_weak",
-        GL + "rule_foreign",
+        GL + "rule-counted",
+        GL + "rule-opted-out",
+        GL + "rule-weak",
+        GL + "rule-foreign",
     )
     await _seed_tally_goal(
         neo4j_driver,
@@ -265,12 +268,12 @@ async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
             {"uid": opted_out, "status": "completed", "counts": False},
             {"uid": weak, "status": "completed", "confidence": 0.3},
             {"uid": foreign, "status": "completed", "owner": GL_OTHER_USER},
-            {"uid": GL + "rule_open", "status": "active"},
-            {"uid": GL + "rule_cancelled", "status": "cancelled"},
-            {"uid": GL + "rule_failed", "status": "failed"},
-            {"uid": GL + "rule_event_done", "status": "completed", "kind": "event"},
+            {"uid": GL + "rule-open", "status": "active"},
+            {"uid": GL + "rule-cancelled", "status": "cancelled"},
+            {"uid": GL + "rule-failed", "status": "failed"},
+            {"uid": GL + "rule-event-done", "status": "completed", "kind": "event"},
             {
-                "uid": GL + "rule_event_opted",
+                "uid": GL + "rule-event-opted",
                 "status": "completed",
                 "kind": "event",
                 "counts": False,
@@ -313,16 +316,16 @@ async def test_needs_more_tasks_reads_the_tally_not_the_neighbourhood(
     The insight follows the tally (``GoalDashboard.MIN_COUNTING_CONTRIBUTIONS``): the goal
     with three opted-out tasks needs more tasks, the one with three counting tasks does not.
     """
-    opted_goal, counting_goal = GL + "needs_goal", GL + "enough_goal"
+    opted_goal, counting_goal = GL + "needs-goal", GL + "enough-goal"
     await _seed_tally_goal(
         neo4j_driver,
         opted_goal,
-        [{"uid": f"{GL}needs_task_{i}", "status": "active", "counts": False} for i in range(3)],
+        [{"uid": f"{GL}needs-task-{i}", "status": "active", "counts": False} for i in range(3)],
     )
     await _seed_tally_goal(
         neo4j_driver,
         counting_goal,
-        [{"uid": f"{GL}enough_task_{i}", "status": "active"} for i in range(3)],
+        [{"uid": f"{GL}enough-task-{i}", "status": "active"} for i in range(3)],
     )
     svc = _harness(rel_backend)
 
@@ -407,10 +410,10 @@ async def test_habit_contribution_is_the_weighted_adherence_of_the_supporting_ha
     make 40; the foreign habit is not the owner's and counts for nothing (it would read
     the pair as 22 if it did; an unweighted mean would read 25).
     """
-    goal_uid = GL + "habit_figure_goal"
+    goal_uid = GL + "habit-figure-goal"
     await _seed_owned_goal(neo4j_driver, goal_uid)
     await _seed_supporting_habit(
-        neo4j_driver, GL + "essential_habit", goal_uid, essentiality="essential", kept_days=2
+        neo4j_driver, GL + "essential-habit", goal_uid, essentiality="essential", kept_days=2
     )
     svc = _harness(rel_backend)
 
@@ -419,7 +422,7 @@ async def test_habit_contribution_is_the_weighted_adherence_of_the_supporting_ha
     assert alone.value["contributions"]["habit_contribution"] == pytest.approx(50.0)
 
     await _seed_supporting_habit(
-        neo4j_driver, GL + "optional_habit", goal_uid, essentiality="optional", kept_days=0
+        neo4j_driver, GL + "optional-habit", goal_uid, essentiality="optional", kept_days=0
     )
     async with neo4j_driver.session() as s:
         await s.run(
@@ -429,7 +432,7 @@ async def test_habit_contribution_is_the_weighted_adherence_of_the_supporting_ha
             "created_at:datetime() - duration({days:3})})"
             "-[:SUPPORTS_GOAL {confidence:0.95, essentiality:'essential'}]->(g)",
             g=goal_uid,
-            h=GL + "foreign_habit",
+            h=GL + "foreign-habit",
             other=GL_OTHER_USER,
         )
 
@@ -444,8 +447,8 @@ async def test_learning_contribution_is_the_share_of_required_knowledge_mastered
 ):
     """Two required Kus, one of them mastered by the owner, reads 50 — not a count of
     learning paths. A Ku another user mastered is not the owner's mastery."""
-    goal_uid = GL + "knowledge_figure_goal"
-    mastered_ku, open_ku = GL + "mastered_ku", GL + "open_ku"
+    goal_uid = GL + "knowledge-figure-goal"
+    mastered_ku, open_ku = GL + "mastered-ku", GL + "open-ku"
     await _seed_owned_goal(neo4j_driver, goal_uid)
     async with neo4j_driver.session() as s:
         for ku in (mastered_ku, open_ku):
@@ -466,7 +469,7 @@ async def test_learning_contribution_is_the_share_of_required_knowledge_mastered
         await s.run(
             "MATCH (k:Entity {uid:$k}) "
             "CREATE (:User {uid:$other})-[:MASTERED {mastery_score:1.0}]->(k)",
-            other=GL + "mastery_other_user",
+            other=seed_user_uid("glctx_mastery_other"),
             k=open_ku,
         )
     svc = _harness(rel_backend)
@@ -482,7 +485,9 @@ async def test_learning_contribution_is_the_share_of_required_knowledge_mastered
 
     # ``clean_neo4j`` keeps User nodes; the other user was this test's alone.
     async with neo4j_driver.session() as s:
-        await s.run("MATCH (u:User {uid:$u}) DETACH DELETE u", u=GL + "mastery_other_user")
+        await s.run(
+            "MATCH (u:User {uid:$u}) DETACH DELETE u", u=seed_user_uid("glctx_mastery_other")
+        )
 
 
 @pytest.mark.asyncio
@@ -490,8 +495,8 @@ async def test_a_contributor_with_two_edges_to_the_goal_counts_once(
     neo4j_driver, rel_backend, clean_neo4j
 ):
     """The tally counts contributors, not edges: a duplicate edge is one contribution."""
-    goal_uid = GL + "dup_goal"
-    task_uid = GL + "dup_task"
+    goal_uid = GL + "dup-goal"
+    task_uid = GL + "dup-task"
     await _seed_tally_goal(neo4j_driver, goal_uid, [{"uid": task_uid, "status": "completed"}])
     async with neo4j_driver.session() as s:
         await s.run(
@@ -528,12 +533,12 @@ async def test_goal_completion_forecast_reads_the_goals_tasks_and_habit_adherenc
     progress tally (two contributing tasks, one completed) and its supporting habits'
     adherence — an essential daily habit kept one of its four days reads 0.25, below the
     0.5 the risk factors hold a habit system to."""
-    goal_uid = GL + "forecast_goal"
+    goal_uid = GL + "forecast-goal"
     await _seed_owned_goal(neo4j_driver, goal_uid)
     async with neo4j_driver.session() as s:
         for task_uid, status in [
-            (GL + "forecast_done", "completed"),
-            (GL + "forecast_open", "active"),
+            (GL + "forecast-done", "completed"),
+            (GL + "forecast-open", "active"),
         ]:
             await s.run(
                 "MATCH (owner:User {uid:$owner}), (g:Entity {uid:$g}) "
@@ -546,7 +551,7 @@ async def test_goal_completion_forecast_reads_the_goals_tasks_and_habit_adherenc
                 status=status,
             )
     await _seed_supporting_habit(
-        neo4j_driver, GL + "forecast_habit", goal_uid, essentiality="essential", kept_days=1
+        neo4j_driver, GL + "forecast-habit", goal_uid, essentiality="essential", kept_days=1
     )
 
     res = await _harness(rel_backend).get_goal_completion_forecast(
@@ -574,7 +579,7 @@ async def test_goal_completion_forecast_without_habits_is_neutral_on_consistency
 ):
     """No supporting habit is no measurement: the consistency reads the neutral 0.5 —
     no "low consistency" risk — and the missing habit system is the risk named."""
-    goal_uid = GL + "forecast_bare_goal"
+    goal_uid = GL + "forecast-bare-goal"
     await _seed_owned_goal(neo4j_driver, goal_uid)
 
     res = await _harness(rel_backend).get_goal_completion_forecast(
@@ -713,9 +718,9 @@ async def test_goal_dashboard_dedupes_multipath_knowledge_at_depth2(
     twice in the ``required_knowledge`` bucket. _union_path_buckets de-dupes by uid keeping
     the STRONGEST path, so the knowledge set is the one KU, once.
     """
-    dup_goal = GL + "dup_goal"
-    dup_mid = GL + "dup_mid_goal"  # mid -SUBGOAL_OF-> goal; mid -REQUIRES_KNOWLEDGE-> ku
-    dup_ku = GL + "dup_ku"  # also goal -REQUIRES_KNOWLEDGE-> ku (reached twice)
+    dup_goal = GL + "dup-goal"
+    dup_mid = GL + "dup-mid-goal"  # mid -SUBGOAL_OF-> goal; mid -REQUIRES_KNOWLEDGE-> ku
+    dup_ku = GL + "dup-ku"  # also goal -REQUIRES_KNOWLEDGE-> ku (reached twice)
     async with neo4j_driver.session() as s:
         for uid in (dup_goal, dup_mid):
             await s.run(

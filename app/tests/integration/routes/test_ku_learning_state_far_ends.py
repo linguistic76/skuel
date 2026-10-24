@@ -21,6 +21,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client
 
 if TYPE_CHECKING:
@@ -41,8 +42,8 @@ MARK = "zzzkulearn"
 # One mark per signed-in client: each client's exit wipes every uid carrying its mark.
 LEARNER_MARK = f"{MARK}l"
 OTHER_MARK = f"{MARK}o"
-LEARNER = f"user_{LEARNER_MARK}"
-OTHER = f"user_{OTHER_MARK}"
+LEARNER = seed_user_uid(f"{LEARNER_MARK}")
+OTHER = seed_user_uid(f"{OTHER_MARK}")
 KU_PUBLISHED = f"ku.{LEARNER_MARK}.published"
 KU_DRAFT = f"ku.{LEARNER_MARK}.draft"
 PS_PUBLISHED = f"ps.{LEARNER_MARK}.published"

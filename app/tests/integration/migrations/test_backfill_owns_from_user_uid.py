@@ -36,6 +36,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers.seed_uids import seed_user_uid
+
 MIGRATION_PATH = (
     Path(__file__).resolve().parents[3]
     / "scripts"
@@ -47,9 +49,7 @@ MIGRATION_PATH = (
 def _load_statements() -> list[str]:
     """Split the migration file into individual Cypher statements."""
     raw = MIGRATION_PATH.read_text()
-    no_comments = "\n".join(
-        line for line in raw.splitlines() if not line.lstrip().startswith("//")
-    )
+    no_comments = "\n".join(line for line in raw.splitlines() if not line.lstrip().startswith("//"))
     chunks = [c.strip() for c in no_comments.split(";")]
     return [c for c in chunks if c and not re.fullmatch(r"\s*", c)]
 
@@ -67,14 +67,14 @@ async def _seed(neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (owner:User {uid: 'user_owns_bf'})
-            CREATE (walker:User {uid: 'user_owns_bf_walker'})
+            CREATE (owner:User {uid: $user_owns_bf})
+            CREATE (walker:User {uid: $user_owns_bf_walker})
             CREATE (sys:User {uid: 'user_system'})
             // Property-only: user_uid set, owner exists, edge missing (the bug)
             CREATE (t:Entity:Task {
                 uid: 'ownsbf.property-only',
                 entity_type: 'task',
-                user_uid: 'user_owns_bf',
+                user_uid: $user_owns_bf,
                 status: 'pending',
                 created_at: datetime()
             })
@@ -82,7 +82,7 @@ async def _seed(neo4j_driver) -> None:
             CREATE (g:Entity:Goal {
                 uid: 'ownsbf.consistent',
                 entity_type: 'goal',
-                user_uid: 'user_owns_bf',
+                user_uid: $user_owns_bf,
                 status: 'active',
                 created_at: datetime()
             })
@@ -90,7 +90,7 @@ async def _seed(neo4j_driver) -> None:
             CREATE (e:Entity:Event {
                 uid: 'ownsbf.dangling',
                 entity_type: 'event',
-                user_uid: 'user_never_registered',
+                user_uid: $user_never_registered,
                 status: 'scheduled',
                 created_at: datetime()
             })
@@ -107,13 +107,16 @@ async def _seed(neo4j_driver) -> None:
             CREATE (p:Entity:Principle {
                 uid: 'ownsbf.dual-owned',
                 entity_type: 'principle',
-                user_uid: 'user_owns_bf',
+                user_uid: $user_owns_bf,
                 status: 'active',
                 created_at: datetime()
             })
             CREATE (owner)-[:OWNS {access_count: 7, is_active: true}]->(g)
             CREATE (walker)-[:OWNS]->(p)
-            """
+            """,
+            user_owns_bf=seed_user_uid("owns_bf"),
+            user_owns_bf_walker=seed_user_uid("owns_bf_walker"),
+            user_never_registered=seed_user_uid("never_registered"),
         )
 
 
@@ -135,6 +138,9 @@ async def _count(neo4j_driver, query: str, **params) -> int:
 
 
 @pytest.mark.asyncio
+@pytest.mark.outside_uid_grammar(
+    "seeds the retired user_system account, which the 2026-07 backfill excludes by its literal uid"
+)
 async def test_backfill_creates_owns_edges_from_user_uid(
     clean_neo4j,
     neo4j_driver,
@@ -149,7 +155,7 @@ async def test_backfill_creates_owns_edges_from_user_uid(
     # 1. Property-only node gains exactly one edge with CRUD-shaped props
     edges = await _owns_edges(neo4j_driver, "ownsbf.property-only")
     assert len(edges) == 1
-    assert edges[0]["owner"] == "user_owns_bf"
+    assert edges[0]["owner"] == seed_user_uid("owns_bf")
     props = edges[0]["props"]
     assert props["access_count"] == 0
     assert props["is_active"] is True
@@ -166,7 +172,8 @@ async def test_backfill_creates_owns_edges_from_user_uid(
     assert (
         await _count(
             neo4j_driver,
-            "MATCH (u:User {uid: 'user_never_registered'}) RETURN count(u)",
+            "MATCH (u:User {uid: $uid}) RETURN count(u)",
+            uid=seed_user_uid("never_registered"),
         )
         == 0
     )
@@ -176,7 +183,7 @@ async def test_backfill_creates_owns_edges_from_user_uid(
 
     # 5. Dual-owned node reduced to its single property owner (Phase 1b)
     edges = await _owns_edges(neo4j_driver, "ownsbf.dual-owned")
-    assert [e["owner"] for e in edges] == ["user_owns_bf"]
+    assert [e["owner"] for e in edges] == [seed_user_uid("owns_bf")]
 
     # 6. Global invariant: every user_uid-bearing Entity whose (non-system)
     # owner exists has its :OWNS edge, and no other user owns it

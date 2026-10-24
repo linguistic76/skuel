@@ -32,6 +32,7 @@ import pytest_asyncio
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.session_backend import SessionBackend
 from adapters.persistence.neo4j.telemetry_retention_backend import TelemetryRetentionBackend
+from tests.helpers.seed_uids import seed_user_uid
 
 _TAG = "retention_it"
 
@@ -69,29 +70,30 @@ async def seeded(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (:AuthEvent {uid:'ret_auth_old', timestamp: datetime($old), test_tag:$tag})
-            CREATE (:AuthEvent {uid:'ret_auth_new', timestamp: datetime($recent), test_tag:$tag})
-            CREATE (:SearchEvent {uid:'ret_se_old', created_at: datetime($old), test_tag:$tag})
-            CREATE (:SearchEvent {uid:'ret_se_new', created_at: datetime($recent), test_tag:$tag})
+            CREATE (:AuthEvent {uid:'ret.auth-old', timestamp: datetime($old), test_tag:$tag})
+            CREATE (:AuthEvent {uid:'ret.auth-new', timestamp: datetime($recent), test_tag:$tag})
+            CREATE (:SearchEvent {uid:'ret.se-old', created_at: datetime($old), test_tag:$tag})
+            CREATE (:SearchEvent {uid:'ret.se-new', created_at: datetime($recent), test_tag:$tag})
             // Interaction.created_at is a STRING (universal-backend writer) — NOT datetime()
-            CREATE (:Entity:Interaction {uid:'ret_int_old', created_at: $old, test_tag:$tag})
-            CREATE (:Entity:Interaction {uid:'ret_int_new', created_at: $recent, test_tag:$tag})
-            CREATE (u:User {uid:'ret_user', test_tag:$tag})
-            CREATE (ko:Ku {uid:'ret_ku_old', test_tag:$tag})
-            CREATE (kn:Ku {uid:'ret_ku_new', test_tag:$tag})
+            CREATE (:Entity:Interaction {uid:'ret.int-old', created_at: $old, test_tag:$tag})
+            CREATE (:Entity:Interaction {uid:'ret.int-new', created_at: $recent, test_tag:$tag})
+            CREATE (u:User {uid:$user_ret_user, test_tag:$tag})
+            CREATE (ko:Ku {uid:'ret.ku-old', test_tag:$tag})
+            CREATE (kn:Ku {uid:'ret.ku-new', test_tag:$tag})
             CREATE (u)-[:VIEWED {last_viewed_at: datetime($old)}]->(ko)
             CREATE (u)-[:VIEWED {last_viewed_at: datetime($recent)}]->(kn)
             CREATE (so:ConversationSession {session_id:'ret_cs_old', last_activity: datetime($old), test_tag:$tag})
             CREATE (sn:ConversationSession {session_id:'ret_cs_new', last_activity: datetime($recent), test_tag:$tag})
             CREATE (so)-[:HAS_TURN]->(:ConversationTurn {turn_id:'ret_ct_old', test_tag:$tag})
             CREATE (sn)-[:HAS_TURN]->(:ConversationTurn {turn_id:'ret_ct_new', test_tag:$tag})
-            CREATE (:Session {uid:'ret_sess_expired', expires_at: datetime($old), test_tag:$tag})
-            CREATE (:Session {uid:'ret_sess_valid', expires_at: datetime($future), test_tag:$tag})
+            CREATE (:Session {uid:'ret.sess-expired', expires_at: datetime($old), test_tag:$tag})
+            CREATE (:Session {uid:'ret.sess-valid', expires_at: datetime($future), test_tag:$tag})
             """,
             old=old,
             recent=recent,
             future=future,
             tag=_TAG,
+            user_ret_user=seed_user_uid("ret_user"),
         )
 
     backend = TelemetryRetentionBackend(Neo4jQueryExecutor(neo4j_driver))
@@ -106,7 +108,7 @@ async def test_interaction_string_timestamp_is_pruned(neo4j_driver, seeded):
     This is the temporal-storage-bug-class guard: if the predicate compared a
     string to a datetime it would match zero rows and silently prune nothing.
     """
-    assert await _exists(neo4j_driver, "uid", "ret_int_old")
+    assert await _exists(neo4j_driver, "uid", "ret.int-old")
 
     dry = await seeded.prune_interactions(days=90, batch_size=500, dry_run=True)
     assert dry.is_ok and dry.value >= 1
@@ -115,8 +117,8 @@ async def test_interaction_string_timestamp_is_pruned(neo4j_driver, seeded):
     assert real.is_ok
     assert real.value == dry.value  # dry-run count == real deletions
 
-    assert not await _exists(neo4j_driver, "uid", "ret_int_old")
-    assert await _exists(neo4j_driver, "uid", "ret_int_new")  # recent kept
+    assert not await _exists(neo4j_driver, "uid", "ret.int-old")
+    assert await _exists(neo4j_driver, "uid", "ret.int-new")  # recent kept
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -125,10 +127,10 @@ async def test_native_datetime_types_prune_old_keep_recent(neo4j_driver, seeded)
     await seeded.prune_auth_events(days=90, batch_size=500, dry_run=False)
     await seeded.prune_search_events(days=90, batch_size=500, dry_run=False)
 
-    assert not await _exists(neo4j_driver, "uid", "ret_auth_old")
-    assert await _exists(neo4j_driver, "uid", "ret_auth_new")
-    assert not await _exists(neo4j_driver, "uid", "ret_se_old")
-    assert await _exists(neo4j_driver, "uid", "ret_se_new")
+    assert not await _exists(neo4j_driver, "uid", "ret.auth-old")
+    assert await _exists(neo4j_driver, "uid", "ret.auth-new")
+    assert not await _exists(neo4j_driver, "uid", "ret.se-old")
+    assert await _exists(neo4j_driver, "uid", "ret.se-new")
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -140,14 +142,16 @@ async def test_viewed_edge_pruned_but_ku_survives(neo4j_driver, seeded):
     # The stale edge is gone...
     async with neo4j_driver.session() as session:
         edge = await session.run(
-            "MATCH (:User {uid:'ret_user'})-[r:VIEWED]->(:Ku {uid:'ret_ku_old'}) RETURN count(r) AS c"
+            "MATCH (:User {uid:$user_ret_user})-[r:VIEWED]->(:Ku {uid:'ret.ku-old'}) RETURN count(r) AS c",
+            user_ret_user=seed_user_uid("ret_user"),
         )
         assert (await edge.single())["c"] == 0
     # ...but both Ku nodes and the recent edge survive.
-    assert await _exists(neo4j_driver, "uid", "ret_ku_old")
+    assert await _exists(neo4j_driver, "uid", "ret.ku-old")
     async with neo4j_driver.session() as session:
         kept = await session.run(
-            "MATCH (:User {uid:'ret_user'})-[r:VIEWED]->(:Ku {uid:'ret_ku_new'}) RETURN count(r) AS c"
+            "MATCH (:User {uid:$user_ret_user})-[r:VIEWED]->(:Ku {uid:'ret.ku-new'}) RETURN count(r) AS c",
+            user_ret_user=seed_user_uid("ret_user"),
         )
         assert (await kept.single())["c"] == 1
 
@@ -187,8 +191,8 @@ async def test_dry_run_deletes_nothing(neo4j_driver, seeded):
         assert result.is_ok and result.value >= 1
 
     # Nothing was deleted.
-    assert await _exists(neo4j_driver, "uid", "ret_auth_old")
-    assert await _exists(neo4j_driver, "uid", "ret_int_old")
+    assert await _exists(neo4j_driver, "uid", "ret.auth-old")
+    assert await _exists(neo4j_driver, "uid", "ret.int-old")
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -200,11 +204,11 @@ async def test_expired_session_count_sees_seeded_expired(neo4j_driver, seeded):
     (expires 200d ago) is guaranteed present; the valid one (+30d) is not counted.
     """
     session_backend = SessionBackend(neo4j_driver)
-    assert await _exists(neo4j_driver, "uid", "ret_sess_expired")
+    assert await _exists(neo4j_driver, "uid", "ret.sess-expired")
 
     count = await session_backend.count_expired_sessions()
     assert count.is_ok
     assert count.value >= 1  # at least our seeded expired session
 
     # The valid (future-expiry) session must still be present — never counted.
-    assert await _exists(neo4j_driver, "uid", "ret_sess_valid")
+    assert await _exists(neo4j_driver, "uid", "ret.sess-valid")

@@ -49,8 +49,9 @@ from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_goal_cycle"
+USER = seed_user_uid("goal_cycle")
 
 
 class _CapturingBus:
@@ -149,7 +150,7 @@ class TestGoalCompletionCycle:
 
     async def test_complete_reopen_complete_keeps_both_invariants(self, rig, neo4j_driver):
         service, backend, bus = rig
-        uid = await self._seed(backend, "goal.cycle_1")
+        uid = await self._seed(backend, "goal.cycle-1")
 
         assert (await service.complete_goal(uid)).is_ok
         props = await _props(neo4j_driver, uid)
@@ -181,7 +182,7 @@ class TestGoalCompletionCycle:
         protected stamp from an overwritten one. Backdating the stored stamp between the
         two writes is what makes this test bite (and what makes its RED check bite)."""
         service, backend, bus = rig
-        uid = await self._seed(backend, "goal.cycle_2")
+        uid = await self._seed(backend, "goal.cycle-2")
 
         assert (await service.complete_goal(uid)).is_ok
 
@@ -201,7 +202,7 @@ class TestGoalCompletionCycle:
         """A terminal target is not a reopen. The stamp still clears (the invariant is
         about COMPLETED, not about terminality), but the 100% stays as a record."""
         service, backend, _bus = rig
-        uid = await self._seed(backend, "goal.cycle_3")
+        uid = await self._seed(backend, "goal.cycle-3")
 
         assert (await service.complete_goal(uid)).is_ok
         assert (await service.archive_goal(uid)).is_ok
@@ -218,7 +219,7 @@ class TestGoalCompletionCycle:
         the complete landed, which is exactly how an ACTIVE goal ends up at 100%."""
         service, backend, _bus = rig
         for iteration in range(5):
-            uid = await self._seed(backend, f"goal.cycle_race_{iteration}")
+            uid = await self._seed(backend, f"goal.cycle-race-{iteration}")
 
             await asyncio.gather(
                 service.complete_goal(uid),
@@ -273,7 +274,7 @@ class TestMilestoneCompletionCycle:
 
     async def test_the_last_milestone_completes_the_goal(self, rig, neo4j_driver):
         service, backend, bus = rig
-        uid = await self._seed(backend, "goal.milestone_1")
+        uid = await self._seed(backend, "goal.milestone-1")
 
         result = await service.complete_milestone(uid, 1, _UserContextStub())
         assert result.is_ok
@@ -296,7 +297,7 @@ class TestMilestoneCompletionCycle:
         ``achieved_date`` and a duplicate ``GoalAchieved``.
         """
         service, backend, bus = rig
-        uid = await self._seed(backend, "goal.milestone_2")
+        uid = await self._seed(backend, "goal.milestone-2")
 
         assert (await service.complete_milestone(uid, 1, _UserContextStub())).is_ok
 
@@ -319,7 +320,7 @@ class TestMilestoneCompletionCycle:
         """The target half, against the graph: 1 of 2 milestones writes no status at all,
         so nothing can strand a stamp on an open goal."""
         service, backend, bus = rig
-        uid = await self._seed(backend, "goal.milestone_3")
+        uid = await self._seed(backend, "goal.milestone-3")
 
         assert (await service.complete_milestone(uid, 0, _UserContextStub())).is_ok
 

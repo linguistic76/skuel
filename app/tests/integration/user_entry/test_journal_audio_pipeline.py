@@ -31,6 +31,7 @@ from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @dataclass
@@ -58,7 +59,7 @@ async def test_transcribe_and_structure_creates_linked_pair(
     neo4j_driver,
     seed_user,
 ) -> None:
-    student_uid = await seed_user("user_ue_journaler", name="Journaler")
+    student_uid = await seed_user(seed_user_uid("ue_journaler"), name="Journaler")
 
     # Mock the external I/O the processing service reaches out to.
     transcript_text = "Today I learned about protocols in Python."

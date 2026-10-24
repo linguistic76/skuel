@@ -24,12 +24,12 @@ import pytest_asyncio
 from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from core.models.type_hints import UserUID
 from core.services.ingestion.types import IncrementalStats
+from tests.helpers.seed_uids import seed_user_uid
 
 _MARK = "zzzgrpowns"
-_OWNER = UserUID(f"user_{_MARK}_owner")
-_NOBODY = f"user_{_MARK}_nobody"  # never given a :User node
+_OWNER = seed_user_uid(f"{_MARK}_owner")
+_NOBODY = seed_user_uid(f"{_MARK}_nobody")  # never given a :User node
 _GROUP_ONE = f"group.{_MARK}.one"
 _GROUP_TWO = f"group.{_MARK}.two"
 
@@ -81,7 +81,7 @@ async def group_ingestion_service(neo4j_driver):
             "MATCH (g:Group) WHERE g.uid CONTAINS $mark DETACH DELETE g", {"mark": _MARK}
         )
         await session.run(
-            "MATCH (u:User) WHERE u.uid CONTAINS $mark DETACH DELETE u", {"mark": _MARK}
+            "MATCH (u:User) WHERE u.uid IN $uids DETACH DELETE u", {"uids": [_OWNER, _NOBODY]}
         )
         await session.run(
             "MATCH (s:IngestionMetadata) WHERE s.entity_uid CONTAINS $mark DELETE s",

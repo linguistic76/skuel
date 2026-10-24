@@ -37,6 +37,7 @@ from adapters.inbound.route_factories.lateral_route_factory import (
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.ports.query_types import DerivedSiblingItem, EntityHierarchy, LateralRelationshipItem
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client
 
 if TYPE_CHECKING:
@@ -53,7 +54,7 @@ pytestmark = [
 ]
 
 MARK = "zzzrfpay"
-USER = f"user_{MARK}"
+USER = seed_user_uid(f"{MARK}")
 
 
 def _keys(payload: Any) -> set[str]:  # boundary: any TypedDict class

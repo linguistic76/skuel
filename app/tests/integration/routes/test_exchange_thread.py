@@ -40,27 +40,28 @@ from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBack
 from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 from core.services.report.report_relationship_service import ReportRelationshipService
 from core.services.report.teacher_review_service import TeacherReviewService
+from tests.helpers.seed_uids import seed_user_uid
 
-TEACHER = "user_ext_teacher"
-SECOND_TEACHER = "user_ext_second_teacher"  # student's OTHER class
-OTHER_TEACHER = "user_ext_other_teacher"  # no shared group with STUDENT
-STUDENT = "user_ext_student"
-OTHER_STUDENT = "user_ext_other_student"
-GROUP_UID = "group_ext"
-SECOND_GROUP_UID = "group_ext_second"  # STUDENT's other class
-OTHER_GROUP_UID = "group_ext_other"
+TEACHER = seed_user_uid("ext_teacher")
+SECOND_TEACHER = seed_user_uid("ext_second_teacher")  # student's OTHER class
+OTHER_TEACHER = seed_user_uid("ext_other_teacher")  # no shared group with STUDENT
+STUDENT = seed_user_uid("ext_student")
+OTHER_STUDENT = seed_user_uid("ext_other_student")
+GROUP_UID = "group.ext"
+SECOND_GROUP_UID = "group.ext-second"  # STUDENT's other class
+OTHER_GROUP_UID = "group.ext-other"
 
-EX = "ex_ext_root"
-E1 = "ue_ext_rev1"  # direct turn-in, revision 1
-E2 = "ue_ext_rev2"  # direct turn-in, revision 2 — carries the reports
-E3 = "ue_ext_via_revised"  # entry against the revision request
-E_SECOND = "ue_ext_second_class"  # shared ONLY with SECOND_TEACHER's group
-R_SHARED = "er_ext_shared"  # teacher feedback on E2 — in the thread
-R_PRIVATE = "er_ext_private"  # self-owned journal reflection (no outcome) — excluded
-REVISED = "re_ext_revision"  # revision request responding to R_SHARED
-O_ENTRY = "ue_ext_other_student"  # other student, same exercise — excluded
-O_REPORT = "er_ext_other_student"
-O_REVISED = "re_ext_other_student"
+EX = "ex.ext-root"
+E1 = "ue.ext-rev1"  # direct turn-in, revision 1
+E2 = "ue.ext-rev2"  # direct turn-in, revision 2 — carries the reports
+E3 = "ue.ext-via-revised"  # entry against the revision request
+E_SECOND = "ue.ext-second-class"  # shared ONLY with SECOND_TEACHER's group
+R_SHARED = "er.ext-shared"  # teacher feedback on E2 — in the thread
+R_PRIVATE = "er.ext-private"  # self-owned journal reflection (no outcome) — excluded
+REVISED = "re.ext-revision"  # revision request responding to R_SHARED
+O_ENTRY = "ue.ext-other-student"  # other student, same exercise — excluded
+O_REPORT = "er.ext-other-student"
+O_REVISED = "re.ext-other-student"
 
 
 @pytest.fixture

@@ -30,11 +30,12 @@ from core.models.report.entry_report import EntryReport
 from core.models.user_entry.user_entry import UserEntry
 from core.services.report.entry_report_service import AdmittedReport, EntryReportService
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
-STUDENT_UID = "user_ai_report_student"
-AUTHOR_UID = "user_ai_report_author"
-SUBMISSION_UID = "ue_ai_report_integration_001"
-EXERCISE_UID = "ex_ai_report_integration_001"
+STUDENT_UID = seed_user_uid("ai_report_student")
+AUTHOR_UID = seed_user_uid("ai_report_author")
+SUBMISSION_UID = "ue.ai-report-integration-001"
+EXERCISE_UID = "ex.ai-report-integration-001"
 
 
 @pytest_asyncio.fixture

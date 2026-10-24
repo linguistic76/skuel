@@ -40,6 +40,7 @@ from adapters.inbound.fasthtml_types import Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import PublicationState
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -54,8 +55,8 @@ pytestmark = [
     ),
 ]
 
-CALLER = "user_nb2e_caller"
-OTHER = "user_nb2e_other"
+CALLER = seed_user_uid("nb2e_caller")
+OTHER = seed_user_uid("nb2e_other")
 USERS = (CALLER, OTHER)
 
 FOREIGN_MARK = "nb2e-foreign-private"
@@ -63,21 +64,21 @@ CONTROL_MARK = "nb2e-control-linked"
 KU_MARK = "nb2e-linked-ku"
 
 OWN = {
-    "Goal": "goal_nb2e_own",
-    "Habit": "habit_nb2e_own",
-    "Principle": "principle_nb2e_own",
-    "Event": "event_nb2e_own",
-    "Task": "task_nb2e_own",
-    "Choice": "choice_nb2e_own",
+    "Goal": "goal.nb2e-own",
+    "Habit": "habit.nb2e-own",
+    "Principle": "principle.nb2e-own",
+    "Event": "event.nb2e-own",
+    "Task": "task.nb2e-own",
+    "Choice": "choice.nb2e-own",
 }
 FOREIGN = {
-    "Goal": "goal_nb2e_foreign",
-    "Habit": "habit_nb2e_foreign",
-    "Task": "task_nb2e_foreign",
-    "Choice": "choice_nb2e_foreign",
-    "Principle": "principle_nb2e_foreign",
+    "Goal": "goal.nb2e-foreign",
+    "Habit": "habit.nb2e-foreign",
+    "Task": "task.nb2e-foreign",
+    "Choice": "choice.nb2e-foreign",
+    "Principle": "principle.nb2e-foreign",
 }
-CONTROL = {label: uid.replace("_foreign", "_control") for label, uid in FOREIGN.items()}
+CONTROL = {label: uid.replace("-foreign", "-control") for label, uid in FOREIGN.items()}
 
 KU = "ku.nb2e.linked"
 KU_REQUIRING = "ku.nb2e.requiring"
@@ -229,8 +230,8 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     await _wipe(driver)
     async with driver.session() as session:
-        for uid in USERS:
-            await session.run("MERGE (u:User {uid: $uid}) SET u.title = $uid", uid=uid)
+        for user in USERS:
+            await session.run("MERGE (u:User {uid: $uid}) SET u.title = $uid", uid=user)
         # ISO text, as the mapper stores it, and older than anything else in the
         # library: the linked Ku is the library's first, so the reading plan's
         # fallback hero while it is published.

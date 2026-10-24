@@ -27,7 +27,13 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
-pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
+pytestmark = [
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.integration,
+    pytest.mark.outside_uid_grammar(
+        "seeds the old chunk and content uid shapes this migration renames"
+    ),
+]
 
 SCRIPT = (
     Path(__file__).resolve().parents[3] / "scripts/migrations/chunk_and_content_uids_2026_10.py"

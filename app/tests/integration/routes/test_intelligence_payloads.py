@@ -46,6 +46,7 @@ from core.ports.query_types import (
 )
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client
 
 if TYPE_CHECKING:
@@ -62,9 +63,9 @@ pytestmark = [
 ]
 
 MARK = "zzzintpay"
-USER = f"user_{MARK}"
+USER = seed_user_uid(f"{MARK}")
 FEW_MARK = "zzzintfew"
-FEW_USER = f"user_{FEW_MARK}"
+FEW_USER = seed_user_uid(f"{FEW_MARK}")
 KU = f"ku.{MARK}.atom"
 
 LONG_RATIO = 1.5  # tasks take half again as long as estimated

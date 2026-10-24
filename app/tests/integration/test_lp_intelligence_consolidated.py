@@ -28,20 +28,22 @@ from __future__ import annotations
 import pytest
 import pytest_asyncio
 
+from tests.helpers.seed_uids import seed_user_uid
+
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-_NOVICE = "user_lpintel_novice"  # no mastery at all
-_ADEPT = "user_lpintel_adept"  # MASTERED: alpha, gamma, opt_prereq
+_NOVICE = seed_user_uid("lpintel_novice")  # no mastery at all
+_ADEPT = seed_user_uid("lpintel_adept")  # MASTERED: alpha, gamma, opt_prereq
 
-_LP_GOOD = "lp.test.lpintel.good"
-_LP_BAD = "lp.test.lpintel.bad"
-_LP_MULTI = "lp.test.lpintel.multi"
-_LP_OPT_READY = "lp.test.lpintel.opt.ready"
-_LP_OPT_BLOCKED = "lp.test.lpintel.opt.blocked"
-_LP_SOLO = "lp.test.lpintel.solo"  # 1 step, 1 KU, no prerequisites (depth 0)
-_LP_DEEP = "lp.test.lpintel.deep"  # 1 step, 1 KU, 2-hop prerequisite chain
-_LP_PRACTICE = "lp.test.lpintel.practice"  # 3 steps: full / partial / no practice
-_LP_PRACTICE_FULL = "lp.test.lpintel.practice.full_path"  # 1 fully-practiced step
+_LP_GOOD = "lp.test.lpintel-good"
+_LP_BAD = "lp.test.lpintel-bad"
+_LP_MULTI = "lp.test.lpintel-multi"
+_LP_OPT_READY = "lp.test.lpintel-opt-ready"
+_LP_OPT_BLOCKED = "lp.test.lpintel-opt-blocked"
+_LP_SOLO = "lp.test.lpintel-solo"  # 1 step, 1 KU, no prerequisites (depth 0)
+_LP_DEEP = "lp.test.lpintel-deep"  # 1 step, 1 KU, 2-hop prerequisite chain
+_LP_PRACTICE = "lp.test.lpintel-practice"  # 3 steps: full / partial / no practice
+_LP_PRACTICE_FULL = "lp.test.lpintel-practice-full-path"  # 1 fully-practiced step
 
 # Practice edge → target node, one activity node per domain (shared across the
 # practice paths; MERGE-idempotent). A step wired to all six has complete practice.
@@ -54,32 +56,32 @@ _PRACTICE_EDGES = {
     "choices": "INFORMS_CHOICE",
 }
 _PRACTICE_TARGETS = {
-    "habits": "act_lpintel_habit",
-    "tasks": "act_lpintel_task",
-    "events": "act_lpintel_event",
-    "goals": "act_lpintel_goal",
-    "principles": "act_lpintel_principle",
-    "choices": "act_lpintel_choice",
+    "habits": "act.lpintel-habit",
+    "tasks": "act.lpintel-task",
+    "events": "act.lpintel-event",
+    "goals": "act.lpintel-goal",
+    "principles": "act.lpintel-principle",
+    "choices": "act.lpintel-choice",
 }
-_PS_PRACTICE_FULL = "ps.test.lpintel.practice.full"
-_PS_PRACTICE_PARTIAL = "ps.test.lpintel.practice.partial"
-_PS_PRACTICE_NONE = "ps.test.lpintel.practice.none"
-_PS_PRACTICE_SOLO = "ps.test.lpintel.practice.solo"
+_PS_PRACTICE_FULL = "ps.test.lpintel-practice-full"
+_PS_PRACTICE_PARTIAL = "ps.test.lpintel-practice-partial"
+_PS_PRACTICE_NONE = "ps.test.lpintel-practice-none"
+_PS_PRACTICE_SOLO = "ps.test.lpintel-practice-solo"
 
 # Domain used ONLY to scope the optimal-path query to this file's seeds.
 # 'transcription' is a valid Domain member no other integration seed uses.
 _OPT_DOMAIN = "transcription"
 
-_KU_ALPHA = "ku_lpintel_alpha"
-_KU_BETA = "ku_lpintel_beta"
-_KU_GAMMA = "ku_lpintel_gamma"
-_KU_DELTA = "ku_lpintel_delta"
-_KU_NEXT = "ku_lpintel_next"
-_KU_HARD = "ku_lpintel_hard"
-_KU_ISLAND = "ku_lpintel_island"
-_KU_DEEP_A = "ku_lpintel_deep_a"
-_KU_DEEP_B = "ku_lpintel_deep_b"
-_KU_DEEP_C = "ku_lpintel_deep_c"
+_KU_ALPHA = "ku.lpintel-alpha"
+_KU_BETA = "ku.lpintel-beta"
+_KU_GAMMA = "ku.lpintel-gamma"
+_KU_DELTA = "ku.lpintel-delta"
+_KU_NEXT = "ku.lpintel-next"
+_KU_HARD = "ku.lpintel-hard"
+_KU_ISLAND = "ku.lpintel-island"
+_KU_DEEP_A = "ku.lpintel-deep-a"
+_KU_DEEP_B = "ku.lpintel-deep-b"
+_KU_DEEP_C = "ku.lpintel-deep-c"
 
 _UIDS = [
     _NOVICE,
@@ -93,15 +95,15 @@ _UIDS = [
     _LP_DEEP,
     _LP_PRACTICE,
     _LP_PRACTICE_FULL,
-    "ps.test.lpintel.good.1",
-    "ps.test.lpintel.good.2",
-    "ps.test.lpintel.bad.1",
-    "ps.test.lpintel.bad.2",
-    "ps.test.lpintel.multi.1",
-    "ps.test.lpintel.opt.a",
-    "ps.test.lpintel.opt.b",
-    "ps.test.lpintel.solo.1",
-    "ps.test.lpintel.deep.1",
+    "ps.test.lpintel-good-1",
+    "ps.test.lpintel-good-2",
+    "ps.test.lpintel-bad-1",
+    "ps.test.lpintel-bad-2",
+    "ps.test.lpintel-multi-1",
+    "ps.test.lpintel-opt-a",
+    "ps.test.lpintel-opt-b",
+    "ps.test.lpintel-solo-1",
+    "ps.test.lpintel-deep-1",
     _PS_PRACTICE_FULL,
     _PS_PRACTICE_PARTIAL,
     _PS_PRACTICE_NONE,
@@ -117,12 +119,12 @@ _UIDS = [
     _KU_DEEP_A,
     _KU_DEEP_B,
     _KU_DEEP_C,
-    "ku_lpintel_multi_a",
-    "ku_lpintel_multi_b",
-    "ku_lpintel_opt_a",
-    "ku_lpintel_opt_b",
-    "ku_lpintel_opt_prereq",
-    "ku_lpintel_opt_unmet",
+    "ku.lpintel-multi-a",
+    "ku.lpintel-multi-b",
+    "ku.lpintel-opt-a",
+    "ku.lpintel-opt-b",
+    "ku.lpintel-opt-prereq",
+    "ku.lpintel-opt-unmet",
 ]
 
 
@@ -195,12 +197,12 @@ async def lpintel_graph(neo4j_driver):
             _KU_DEEP_A,
             _KU_DEEP_B,
             _KU_DEEP_C,
-            "ku_lpintel_multi_a",
-            "ku_lpintel_multi_b",
-            "ku_lpintel_opt_a",
-            "ku_lpintel_opt_b",
-            "ku_lpintel_opt_prereq",
-            "ku_lpintel_opt_unmet",
+            "ku.lpintel-multi-a",
+            "ku.lpintel-multi-b",
+            "ku.lpintel-opt-a",
+            "ku.lpintel-opt-b",
+            "ku.lpintel-opt-prereq",
+            "ku.lpintel-opt-unmet",
         ):
             await session.run(
                 """
@@ -214,25 +216,25 @@ async def lpintel_graph(neo4j_driver):
             session,
             _LP_GOOD,
             "LP Intel Good Ordering",
-            [("ps.test.lpintel.good.1", _KU_ALPHA), ("ps.test.lpintel.good.2", _KU_BETA)],
+            [("ps.test.lpintel-good-1", _KU_ALPHA), ("ps.test.lpintel-good-2", _KU_BETA)],
         )
         await _seed_path(
             session,
             _LP_BAD,
             "LP Intel Bad Ordering",
-            [("ps.test.lpintel.bad.1", _KU_DELTA), ("ps.test.lpintel.bad.2", _KU_GAMMA)],
+            [("ps.test.lpintel-bad-1", _KU_DELTA), ("ps.test.lpintel-bad-2", _KU_GAMMA)],
         )
         # One step composing TWO KUs (the PathStep norm — "every Ps = 2+ Kus")
         await _seed_path(
             session,
             _LP_MULTI,
             "LP Intel Multi-KU Step",
-            [("ps.test.lpintel.multi.1", "ku_lpintel_multi_a")],
+            [("ps.test.lpintel-multi-1", "ku.lpintel-multi-a")],
         )
         await session.run(
             """
-            MATCH (ps:Entity {uid: 'ps.test.lpintel.multi.1'}),
-                  (ku:Entity {uid: 'ku_lpintel_multi_b'})
+            MATCH (ps:Entity {uid: 'ps.test.lpintel-multi-1'}),
+                  (ku:Entity {uid: 'ku.lpintel-multi-b'})
             MERGE (ps)-[:USES_KU]->(ku)
             """
         )
@@ -241,7 +243,7 @@ async def lpintel_graph(neo4j_driver):
             session,
             _LP_OPT_READY,
             "LP Intel Optimal Ready",
-            [("ps.test.lpintel.opt.a", "ku_lpintel_opt_a")],
+            [("ps.test.lpintel-opt-a", "ku.lpintel-opt-a")],
             domain=_OPT_DOMAIN,
             estimated_hours=10,
         )
@@ -249,7 +251,7 @@ async def lpintel_graph(neo4j_driver):
             session,
             _LP_OPT_BLOCKED,
             "LP Intel Optimal Blocked",
-            [("ps.test.lpintel.opt.b", "ku_lpintel_opt_b")],
+            [("ps.test.lpintel-opt-b", "ku.lpintel-opt-b")],
             domain=_OPT_DOMAIN,
             estimated_hours=20,
         )
@@ -257,10 +259,10 @@ async def lpintel_graph(neo4j_driver):
         # whose prereq chain runs two hops → depth 2). Same breadth, so any
         # complexity gap between them is purely the depth axis.
         await _seed_path(
-            session, _LP_SOLO, "LP Intel Solo", [("ps.test.lpintel.solo.1", _KU_ISLAND)]
+            session, _LP_SOLO, "LP Intel Solo", [("ps.test.lpintel-solo-1", _KU_ISLAND)]
         )
         await _seed_path(
-            session, _LP_DEEP, "LP Intel Deep Chain", [("ps.test.lpintel.deep.1", _KU_DEEP_C)]
+            session, _LP_DEEP, "LP Intel Deep Chain", [("ps.test.lpintel-deep-1", _KU_DEEP_C)]
         )
 
         # Practice-gap path: three steps with descending practice completeness —
@@ -294,9 +296,9 @@ async def lpintel_graph(neo4j_driver):
             (_KU_BETA, _KU_ALPHA),
             (_KU_DELTA, _KU_GAMMA),
             (_KU_NEXT, _KU_ALPHA),
-            ("ku_lpintel_multi_b", _KU_GAMMA),
-            ("ku_lpintel_opt_a", "ku_lpintel_opt_prereq"),
-            ("ku_lpintel_opt_b", "ku_lpintel_opt_unmet"),
+            ("ku.lpintel-multi-b", _KU_GAMMA),
+            ("ku.lpintel-opt-a", "ku.lpintel-opt-prereq"),
+            ("ku.lpintel-opt-b", "ku.lpintel-opt-unmet"),
             (_KU_DEEP_C, _KU_DEEP_B),  # two-hop chain: deep_c → deep_b → deep_a
             (_KU_DEEP_B, _KU_DEEP_A),
         ):
@@ -331,7 +333,7 @@ async def lpintel_graph(neo4j_driver):
         )
 
         # Adept's masteries
-        for ku_uid in (_KU_ALPHA, _KU_GAMMA, "ku_lpintel_opt_prereq"):
+        for ku_uid in (_KU_ALPHA, _KU_GAMMA, "ku.lpintel-opt-prereq"):
             await session.run(
                 """
                 MATCH (u:User {uid: $user}), (k:Entity {uid: $ku})
@@ -387,7 +389,7 @@ class TestValidatePathPrerequisites:
         assert validation["steps_with_issues"] == 1
 
         issue = validation["issues"][0]
-        assert set(issue["knowledge_uids"]) == {"ku_lpintel_multi_a", "ku_lpintel_multi_b"}
+        assert set(issue["knowledge_uids"]) == {"ku.lpintel-multi-a", "ku.lpintel-multi-b"}
         # multi_b requires gamma, which no earlier step teaches
         assert issue["unmet_prerequisites"] == [_KU_GAMMA]
 
@@ -435,7 +437,7 @@ class TestIdentifyPathBlockers:
         assert analysis["total_steps"] == 1
         assert analysis["blocker_count"] == 1
         first = analysis["first_blocker"]
-        assert set(first["knowledge_uids"]) == {"ku_lpintel_multi_a", "ku_lpintel_multi_b"}
+        assert set(first["knowledge_uids"]) == {"ku.lpintel-multi-a", "ku.lpintel-multi-b"}
         assert first["blocking_prerequisites"] == [_KU_GAMMA]
 
     async def test_unknown_path_defaults_to_ready(self, services, lpintel_graph):
@@ -608,7 +610,7 @@ class TestKnowledgeScope:
         assert scope["total_steps"] == 1
         assert scope["total_unique_kus"] == 2
         assert scope["kus_per_step"] == pytest.approx(2.0)
-        assert scope["all_knowledge_uids"] == ["ku_lpintel_multi_a", "ku_lpintel_multi_b"]
+        assert scope["all_knowledge_uids"] == ["ku.lpintel-multi-a", "ku.lpintel-multi-b"]
 
     async def test_prerequisite_depth_measures_longest_chain(self, services, lpintel_graph):
         solo = await services.lp.analyze_path_knowledge_scope(_LP_SOLO)
@@ -713,16 +715,16 @@ class TestPracticeGaps:
 # knowledge search must both traverse it, and a step with no Ku still counts.
 # ============================================================================
 
-_COMPOSED_LP = "lp.test.lpcompose.path"
-_COMPOSED_KU_A = "ku_lpcompose_a"
-_COMPOSED_KU_B = "ku_lpcompose_b"
-_COMPOSED_KU_C = "ku_lpcompose_c"
+_COMPOSED_LP = "lp.test.lpcompose-path"
+_COMPOSED_KU_A = "ku.lpcompose-a"
+_COMPOSED_KU_B = "ku.lpcompose-b"
+_COMPOSED_KU_C = "ku.lpcompose-c"
 _COMPOSED_KUS = [_COMPOSED_KU_A, _COMPOSED_KU_B, _COMPOSED_KU_C]
 # step uid → the Kus it composes: multi-KU, single-KU, and KU-less
 _COMPOSED_STEPS = {
-    "ps.test.lpcompose.1": [_COMPOSED_KU_A, _COMPOSED_KU_B],
-    "ps.test.lpcompose.2": [_COMPOSED_KU_C],
-    "ps.test.lpcompose.3": [],
+    "ps.test.lpcompose-1": [_COMPOSED_KU_A, _COMPOSED_KU_B],
+    "ps.test.lpcompose-2": [_COMPOSED_KU_C],
+    "ps.test.lpcompose-3": [],
 }
 _COMPOSED_UIDS = [_COMPOSED_LP, *_COMPOSED_STEPS, *_COMPOSED_KUS]
 

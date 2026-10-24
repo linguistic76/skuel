@@ -53,6 +53,7 @@ from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import UserEntry
 from core.services.dsl.activity_extractor import ActivityExtractorService
 from core.services.user.unified_user_context import UserContext
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     goal_contributors,
@@ -85,7 +86,7 @@ pytestmark = [
 ]
 
 MARK = "zzzgoaldoor"
-CALLER = f"user_{MARK}"
+CALLER = seed_user_uid(f"{MARK}")
 
 CONTRIBUTES_TO_GOAL = RelationshipName.CONTRIBUTES_TO_GOAL.value
 
@@ -369,7 +370,7 @@ async def test_the_habit_schedulers_events_contribute_to_the_habits_goal(env: En
 
 async def _seed_path_step(driver: AsyncDriver) -> tuple[str, str, str]:
     """A PathStep with a TASK_BASED goal template and a task template contributing to it."""
-    ps_uid, task_tpl, goal_tpl = f"ps_{MARK}", f"ttpl_{MARK}", f"gtpl_{MARK}"
+    ps_uid, task_tpl, goal_tpl = f"ps.{MARK}", f"ttpl.{MARK}", f"gtpl.{MARK}"
     step = UniversalNeo4jBackend[PathStep](
         driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY
     )

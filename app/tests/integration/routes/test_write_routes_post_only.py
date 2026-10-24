@@ -38,6 +38,7 @@ from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.fasthtml_types import Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, wipe
 
 if TYPE_CHECKING:
@@ -52,7 +53,7 @@ pytestmark = [
 ]
 
 MARK = "postonly"
-CALLER = f"user_{MARK}_caller"
+CALLER = seed_user_uid(f"{MARK}_caller")
 
 # The hand-written writes, by route family. Each path is a `@csrf_protected` handler
 # registered with methods=["POST"]; the admin reset-token door is one of the account

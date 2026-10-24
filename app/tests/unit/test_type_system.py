@@ -18,6 +18,7 @@ from core.models.type_hints import (
     is_valid_uid,
 )
 from core.services.user import UserContext
+from tests.helpers.seed_uids import seed_user_uid
 
 
 def test_newtype_definitions():
@@ -73,8 +74,8 @@ def test_type_converter():
     entity_uid = TypeConverter.to_entity_uid("entity_3f9a0c41d2e87b65")
     assert entity_uid == "entity_3f9a0c41d2e87b65"
 
-    user_uid = TypeConverter.to_user_uid("user_456")
-    assert user_uid == "user_456"
+    user_uid = TypeConverter.to_user_uid(seed_user_uid("456"))
+    assert user_uid == seed_user_uid("456")
 
     percentage = TypeConverter.to_percentage(75.0)
     assert percentage == 75.0

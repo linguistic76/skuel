@@ -323,8 +323,13 @@ class TypeConverter:
 
     @staticmethod
     def to_user_uid(value: str) -> UserUID:
-        """Convert string to UserUID with validation"""
-        if not value.startswith("user_"):
+        """``value`` as a UserUID — a generated user uid, ``user_{16 hex}``.
+
+        Raises:
+            ValueError: when ``value`` is not a generated user uid (a username, a
+                colon or dot spelling, any other shape).
+        """
+        if not uid_grammar.is_generated_uid(value, "user"):
             raise ValueError(f"Invalid UserUID: {value}")
         return UserUID(value)
 

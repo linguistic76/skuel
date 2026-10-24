@@ -34,6 +34,7 @@ from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.fasthtml_types import Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [
     pytest.mark.asyncio(loop_scope="session"),
@@ -43,19 +44,19 @@ pytestmark = [
     ),
 ]
 
-USER = "user_f7b1_reader"
+USER = seed_user_uid("f7b1_reader")
 KU = "ku.f7b1.atom"
 PS = "ps.f7b1.step"
 LP = "lp.f7b1.path"
 
 ACTIVITY_DOMAINS = ("tasks", "goals", "habits", "events", "choices", "principles")
 ACTIVITY_ANCHORS = {
-    "tasks": ("Task", "task", "task_f7b1_owned"),
-    "goals": ("Goal", "goal", "goal_f7b1_owned"),
-    "habits": ("Habit", "habit", "habit_f7b1_owned"),
-    "events": ("Event", "event", "event_f7b1_owned"),
-    "choices": ("Choice", "choice", "choice_f7b1_owned"),
-    "principles": ("Principle", "principle", "principle_f7b1_owned"),
+    "tasks": ("Task", "task", "task.f7b1-owned"),
+    "goals": ("Goal", "goal", "goal.f7b1-owned"),
+    "habits": ("Habit", "habit", "habit.f7b1-owned"),
+    "events": ("Event", "event", "event.f7b1-owned"),
+    "choices": ("Choice", "choice", "choice.f7b1-owned"),
+    "principles": ("Principle", "principle", "principle.f7b1-owned"),
 }
 CURRICULUM_ANCHORS = {"ku": KU, "path-steps": PS, "pathways": LP}
 _UIDS = [USER, KU, PS, LP, *(uid for _, _, uid in ACTIVITY_ANCHORS.values())]

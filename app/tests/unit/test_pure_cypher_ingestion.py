@@ -23,6 +23,7 @@ from core.services.ingestion.parser import check_file_size, parse_markdown, pars
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.validator import validate_entity_data, validate_required_fields
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.seed_uids import seed_user_uid
 
 
 def test_factory_rejects_none_driver():
@@ -228,7 +229,7 @@ def test_user_uid_injection():
 
     # Create mock driver
     mock_driver = MagicMock()
-    custom_user_uid = "user_test_user_123"
+    custom_user_uid = seed_user_uid("test_user_123")
 
     service = make_unified_ingestion_service(driver=mock_driver, default_user_uid=custom_user_uid)
 
@@ -246,11 +247,11 @@ def test_user_uid_injection():
     )
 
     # Test 2: Explicit user_uid in data should NOT be overwritten
-    task_with_user = {"title": "Test Task", "user_uid": "user_explicit_user"}
+    task_with_user = {"title": "Test Task", "user_uid": seed_user_uid("explicit_user")}
     prepared = prepare_entity_data(
         EntityType.TASK, task_with_user, None, mock_path, service.default_user_uid
     )
-    assert prepared["user_uid"] == "user_explicit_user", (
+    assert prepared["user_uid"] == seed_user_uid("explicit_user"), (
         "Explicit user_uid should not be overwritten"
     )
 

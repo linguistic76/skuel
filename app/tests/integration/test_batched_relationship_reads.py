@@ -29,9 +29,12 @@ from core.services.principles.principle_relationships import (
     PrincipleRelationships,
 )
 from core.services.user import UserContext
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_batched_reads"
-STRANGER = "user_batched_reads_stranger"
+USER = seed_user_uid("batched_reads")
+STRANGER = seed_user_uid("batched_reads_stranger")
+# The middle segment of each owner's seeded uids: ``{entity_type}.{tag}-{i}``.
+TAGS: dict[str, str] = {USER: "batched", STRANGER: "batched-stranger"}
 KU = "ku.batched-reads.concept"
 
 SMALL = 3
@@ -60,7 +63,7 @@ async def _run(neo4j_driver: AsyncDriver, query: str, **params: Any) -> None:
 async def _seed_owned(
     neo4j_driver: AsyncDriver, label: NeoLabel, entity_type: str, owner: str, first: int, last: int
 ) -> list[str]:
-    """Owned nodes ``{entity_type}_{owner}_{i}`` for i in [first, last], as the create door owns them."""
+    """Owned nodes ``{entity_type}.{tag}-{i}`` for i in [first, last], as the create door owns them."""
     now = datetime.now(UTC).isoformat()
     await _run(
         neo4j_driver,
@@ -69,7 +72,7 @@ async def _seed_owned(
         WITH u
         UNWIND range($first, $last) AS i
         CREATE (n:Entity:{label} {{
-            uid: $entity_type + '_' + $owner + '_' + toString(i),
+            uid: $entity_type + '.' + $tag + '-' + toString(i),
             user_uid: $owner,
             entity_type: $entity_type,
             title: $entity_type + ' ' + toString(i),
@@ -80,12 +83,13 @@ async def _seed_owned(
         CREATE (u)-[:OWNS]->(n)
         """,
         owner=owner,
+        tag=TAGS[owner],
         first=first,
         last=last,
         entity_type=entity_type,
         now=now,
     )
-    return [f"{entity_type}_{owner}_{i}" for i in range(first, last + 1)]
+    return [f"{entity_type}.{TAGS[owner]}-{i}" for i in range(first, last + 1)]
 
 
 async def _seed_ku(neo4j_driver: AsyncDriver) -> None:
@@ -143,7 +147,7 @@ class TestChoiceComplexityBatch:
         assert batch.is_ok, batch
         for uid in choices:
             assert batch.value[uid] == await ChoiceRelationships.fetch(uid, relationships)
-        assert batch.value[choices[0]].informing_principle_uids == [f"principle_{USER}_1"]
+        assert batch.value[choices[0]].informing_principle_uids == ["principle.batched-1"]
 
     async def test_one_statement_per_key_whatever_the_number_of_choices(
         self, services, clean_neo4j, statements

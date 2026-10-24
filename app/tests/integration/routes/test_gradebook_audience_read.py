@@ -40,22 +40,23 @@ from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBack
 from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 from core.services.user_entry.user_entry_service import UserEntryService
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 PREFIX = "gbaud"
-ALICE = f"user_{PREFIX}_alice"
-BOB = f"user_{PREFIX}_bob"
-CAROL = f"user_{PREFIX}_carol"
-TEACHER = f"user_{PREFIX}_teacher"
-DAN = f"user_{PREFIX}_dan"
-EVE = f"user_{PREFIX}_eve"
-FRANK = f"user_{PREFIX}_frank"
-STRANGER = f"user_{PREFIX}_stranger"
-GROUP = f"group_{PREFIX}_class"
-INACTIVE_GROUP = f"group_{PREFIX}_old_class"
-ENTRY_SHARED = f"ue_{PREFIX}_shared"
-ENTRY_SUBMITTED = f"ue_{PREFIX}_submitted"
+ALICE = seed_user_uid(f"{PREFIX}_alice")
+BOB = seed_user_uid(f"{PREFIX}_bob")
+CAROL = seed_user_uid(f"{PREFIX}_carol")
+TEACHER = seed_user_uid(f"{PREFIX}_teacher")
+DAN = seed_user_uid(f"{PREFIX}_dan")
+EVE = seed_user_uid(f"{PREFIX}_eve")
+FRANK = seed_user_uid(f"{PREFIX}_frank")
+STRANGER = seed_user_uid(f"{PREFIX}_stranger")
+GROUP = f"group.{PREFIX}-class"
+INACTIVE_GROUP = f"group.{PREFIX}-old-class"
+ENTRY_SHARED = f"ue.{PREFIX}-shared"
+ENTRY_SUBMITTED = f"ue.{PREFIX}-submitted"
 
 TITLE = "Breath awareness, week one"
 DESCRIPTION = "What changed after five days of counting breaths."
@@ -111,11 +112,11 @@ WITH count(*) AS _
 MATCH (:User {uid: $frank})-[s:SHARES_WITH]->(:Entity {uid: $shared}) DELETE s
 """
 
-_CLEANUP = f"""
-MATCH (n) WHERE n.uid STARTS WITH 'ue_{PREFIX}' OR n.uid STARTS WITH 'group_{PREFIX}'
-   OR n.uid STARTS WITH 'user_{PREFIX}'
-DETACH DELETE n
-"""
+_CLEANUP = "MATCH (n) WHERE n.uid CONTAINS $mark OR n.uid IN $users DETACH DELETE n"
+_CLEANUP_PARAMS = {
+    "mark": PREFIX,
+    "users": [ALICE, BOB, CAROL, TEACHER, DAN, EVE, FRANK, STRANGER],
+}
 
 _PARAMS = {
     "alice": ALICE,
@@ -166,7 +167,7 @@ def _collector() -> tuple[RouteDecorator, dict[str, Handler]]:
 async def handlers(neo4j_driver: Any) -> Any:
     """Seed the matrix; yield the two registered handlers over the real read."""
     backend = UserEntryBackend(driver=neo4j_driver)
-    await backend.execute_query(_CLEANUP)
+    await backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
     seeded = await backend.execute_query(_SEED, _PARAMS)
     assert seeded.is_ok and seeded.value and seeded.value[0]["seeded"] == 1, seeded
     retracted = await backend.execute_query(_RETRACT, _PARAMS)
@@ -193,7 +194,7 @@ async def handlers(neo4j_driver: Any) -> Any:
     # The chain carries feedback so the recipient assertions prove it is
     # never fetched for them, not merely absent from the seed.
     orchestrator.get_entry_chain = AsyncMock(  # type: ignore[method-assign]
-        return_value=Result.ok({"exercise": None, "feedback": [{"uid": "er_1", "title": FEEDBACK}]})
+        return_value=Result.ok({"exercise": None, "feedback": [{"uid": "er.1", "title": FEEDBACK}]})
     )
     orchestrator.get_entry_organized_children = AsyncMock(  # type: ignore[method-assign]
         return_value=Result.ok([])
@@ -211,7 +212,7 @@ async def handlers(neo4j_driver: Any) -> Any:
     rt, registered = _collector()
     create_user_entry_ui_routes(None, rt, entries, orchestrator=orchestrator)
     yield registered
-    await backend.execute_query(_CLEANUP)
+    await backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
 
 
 async def _open(handlers: dict[str, Handler], user_uid: str, uid: str) -> tuple[int, str]:
@@ -305,7 +306,7 @@ class TestRefusals:
 
     async def test_a_missing_uid_is_the_same_404(self, handlers: Any) -> None:
         """Absent and out-of-audience are one outcome — no existence oracle."""
-        status, html = await _open(handlers, BOB, f"ue_{PREFIX}_does_not_exist")
+        status, html = await _open(handlers, BOB, f"ue.{PREFIX}-does-not-exist")
         assert status == 404
         assert "Submission not found" in html
 

@@ -19,9 +19,9 @@ that survived. The guard has to be a row that must be *included* and was not.
 So the two in-window goals here are seeded through the two real writers, not through
 hand-written Cypher that merely resembles them:
 
-  * ``goal.win_crud_string`` — last written by ``UniversalNeo4jBackend.update``, whose
+  * ``goal.win-crud-string`` — last written by ``UniversalNeo4jBackend.update``, whose
     ``_crud_mixin`` stamp is ``datetime.now().isoformat()``: an ISO **string**.
-  * ``goal.win_bulk_temporal`` — last written by ``BulkUpsertBackend.upsert_nodes``, whose
+  * ``goal.win-bulk-temporal`` — last written by ``BulkUpsertBackend.upsert_nodes``, whose
     template sets ``n.updated_at = datetime()`` on ``ON MATCH``: a native **temporal**.
     ``Goal`` carries an ``EntityIngestionConfig``, so this is the shape of any goal whose
     last write came from a vault re-ingest, and the config used below is the production one.
@@ -59,12 +59,13 @@ from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS
 from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
 from core.services.ingestion.config import ENTITY_CONFIGS
 from core.services.relationships import UnifiedRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_goal_window"
+USER = seed_user_uid("goal_window")
 
-CRUD_STRING = "goal.win_crud_string"  # updated_at: ISO string, via the CRUD update path
-BULK_TEMPORAL = "goal.win_bulk_temporal"  # updated_at: native temporal, via ON MATCH
-OUT_OF_WINDOW = "goal.win_out_of_window"  # updated_at: ISO string, 200 days ago
+CRUD_STRING = "goal.win-crud-string"  # updated_at: ISO string, via the CRUD update path
+BULK_TEMPORAL = "goal.win-bulk-temporal"  # updated_at: native temporal, via ON MATCH
+OUT_OF_WINDOW = "goal.win-out-of-window"  # updated_at: ISO string, 200 days ago
 
 STALE_DAYS = 200
 GOAL_CONFIG = ENTITY_CONFIGS[EntityType.GOAL]
@@ -262,10 +263,10 @@ class TestGoalsPerformanceAnalyticsWindow:
             neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
         )
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: 'user_goal_window_other'})")
+            await session.run("MERGE (u:User {uid: $uid})", uid=seed_user_uid("goal_window_other"))
         intruder = Goal(
-            uid="goal.win_other_user",
-            user_uid="user_goal_window_other",
+            uid="goal.win-other-user",
+            user_uid=seed_user_uid("goal_window_other"),
             title="Another user's in-window goal",
             progress_percentage=50.0,
             updated_at=datetime.now(),

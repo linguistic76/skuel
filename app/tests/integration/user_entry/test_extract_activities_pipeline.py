@@ -47,6 +47,7 @@ from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
@@ -61,7 +62,7 @@ class _GraphTasksStub:
         self.created_uids: list[str] = []
 
     async def create_task(self, request: Any, user_uid: str) -> Result[Any]:
-        uid = f"task:extract_it_{uuid4().hex[:8]}"
+        uid = f"task.extract-it-{uuid4().hex[:8]}"
         async with self.driver.session() as session:
             await session.run(
                 """
@@ -85,7 +86,7 @@ class _GraphHabitsStub:
         self.created_uids: list[str] = []
 
     async def create_habit(self, request: Any, user_uid: str) -> Result[Any]:
-        uid = f"habit:extract_it_{uuid4().hex[:8]}"
+        uid = f"habit.extract-it-{uuid4().hex[:8]}"
         async with self.driver.session() as session:
             await session.run(
                 """
@@ -186,7 +187,7 @@ class TestExtractActivitiesPipeline:
     async def test_full_run_writes_entities_provenance_and_knowledge_edges(
         self, neo4j_driver, user_entry_service, seed_user
     ):
-        user_uid = await seed_user(f"user_extract_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"extract_{uuid4().hex[:6]}"))
         ku_uid = await _seed_ku(neo4j_driver, f"ku.it.extract-{uuid4().hex[:6]}")
 
         content = (
@@ -263,7 +264,7 @@ class TestExtractActivitiesPipeline:
         """``@link(ku:<uid>)`` names a stored uid, so the reference resolves:
         the entry gets its APPLIES_KNOWLEDGE edge and the run reports no
         link error — with no ``@ku()`` on the line."""
-        user_uid = await seed_user(f"user_link_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"link_{uuid4().hex[:6]}"))
         ku_uid = await _seed_ku(neo4j_driver, f"ku.it.link-{uuid4().hex[:6]}")
         content = f"- [ ] Practice decorators @context(task) @link(ku:{ku_uid})\n"
         entry = await _create_entry(user_entry_service, user_uid, content)
@@ -294,6 +295,9 @@ class TestExtractActivitiesPipeline:
         )
 
     @pytest.mark.asyncio
+    @pytest.mark.outside_uid_grammar(
+        "seeds a Ku at the retired generated spelling to prove @ku() refuses it"
+    )
     async def test_a_ku_reference_in_another_spelling_links_nothing_and_says_so(
         self, neo4j_driver, user_entry_service, seed_user
     ):
@@ -301,7 +305,7 @@ class TestExtractActivitiesPipeline:
         names no Ku even when a node with that exact uid is in the graph, so the
         entry gains no APPLIES_KNOWLEDGE edge and the run reports the dropped
         reference. The authored reference on the next line still links."""
-        user_uid = await seed_user(f"user_kuform_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"kuform_{uuid4().hex[:6]}"))
         token = uuid4().hex[:6]
         generated = await _seed_ku(neo4j_driver, f"ku_generated_{token}")
         authored = await _seed_ku(neo4j_driver, f"ku.it.authored-{token}")
@@ -415,7 +419,7 @@ class TestExtractActivitiesPipeline:
     async def test_reprocess_is_noop_and_force_is_duplicate_free(
         self, neo4j_driver, user_entry_service, seed_user
     ):
-        user_uid = await seed_user(f"user_extract_{uuid4().hex[:6]}")
+        user_uid = await seed_user(seed_user_uid(f"extract_{uuid4().hex[:6]}"))
         content = "- [ ] One task @context(task)\n"
         entry = await _create_entry(user_entry_service, user_uid, content)
 

@@ -104,7 +104,7 @@ async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_
     # Create test entity without embedding
     create_query = """
     CREATE (ku:Entity {
-        uid: 'ku.test_embedding',
+        uid: 'ku.test-embedding',
         title: 'Test Embedding Generation',
         content: 'This is test content for embedding generation.',
         created_at: datetime(),
@@ -118,7 +118,7 @@ async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_
         record = await result.single()
         uid = record["uid"]
 
-    assert uid == "ku.test_embedding"
+    assert uid == "ku.test-embedding"
 
     # Generate embedding using mock service
     text = "Test Embedding Generation This is test content for embedding generation."
@@ -170,7 +170,7 @@ async def test_batch_embedding_generation(neo4j_driver, clean_neo4j, mock_embedd
     # Create multiple KUs
     kus = [
         {
-            "uid": f"ku.test_batch_{i}",
+            "uid": f"ku.test-batch-{i}",
             "title": f"Test KU {i}",
             "content": f"Test content {i}" * 10,  # Vary length
         }
@@ -218,7 +218,7 @@ async def test_batch_embedding_generation(neo4j_driver, clean_neo4j, mock_embedd
     # Verify all stored
     verify_query = """
     MATCH (ku:Entity)
-    WHERE ku.uid STARTS WITH 'ku.test_batch_'
+    WHERE ku.uid STARTS WITH 'ku.test-batch-'
     RETURN count(ku) as count,
            count(ku.embedding) as with_embedding
     """
@@ -262,13 +262,13 @@ async def test_vector_search_by_text_mock(neo4j_driver, clean_neo4j, services_wi
 
     kus = [
         {
-            "uid": "ku.python_basics",
+            "uid": "ku.python-basics",
             "title": "Python Basics",
             "content": "Introduction to Python programming",
             "embedding": base_embedding,
         },
         {
-            "uid": "ku.python_advanced",
+            "uid": "ku.python-advanced",
             "title": "Python Advanced",
             "content": "Advanced Python concepts",
             "embedding": [e * 1.1 for e in base_embedding],  # Similar to basics
@@ -353,8 +353,8 @@ async def test_vector_search_find_similar_to_node_mock(
     # Create test KUs
     kus = [
         {"uid": "ku.source", "title": "Source KU", "embedding": [0.1] * DIM},
-        {"uid": "ku.similar_1", "title": "Similar KU 1", "embedding": [0.11] * DIM},
-        {"uid": "ku.similar_2", "title": "Similar KU 2", "embedding": [0.12] * DIM},
+        {"uid": "ku.similar-1", "title": "Similar KU 1", "embedding": [0.11] * DIM},
+        {"uid": "ku.similar-2", "title": "Similar KU 2", "embedding": [0.12] * DIM},
     ]
 
     for ku in kus:

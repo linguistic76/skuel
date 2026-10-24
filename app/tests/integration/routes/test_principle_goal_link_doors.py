@@ -41,6 +41,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.user_entry.user_entry_processing_service import UserEntryProcessingService
 from tests.helpers.activity_links import Link, links_read_at_both_ends
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     RETIRED_PRINCIPLE_GOAL,
     Edge,
@@ -67,7 +68,7 @@ pytestmark = [
 ]
 
 MARK = "zzzpgdoors"
-CALLER = f"user_{MARK}"
+CALLER = seed_user_uid(f"{MARK}")
 
 SUPPORTS_GOAL = RelationshipName.SUPPORTS_GOAL.value
 APP_STAMP = {"weight": 1.0, "essentiality": "supporting"}

@@ -11,27 +11,27 @@ One user (``user.xdq``) owns:
 
 - principle_1 ("Continuous Learning")
     - SUPPORTS_GOAL -> goal_1
-    - INSPIRES_HABIT -> habit_1
+    - INSPIRES_HABIT -> habit.1
     - INFORMS_CHOICE -> choice_1
 - goal_1 ("Ship v2")
-    - goal_1 <-[CONTRIBUTES_TO_GOAL]- task_1 (active)
-    - goal_1 <-[CONTRIBUTES_TO_GOAL]- task_2 (active)
+    - goal_1 <-[CONTRIBUTES_TO_GOAL]- task.1 (active)
+    - goal_1 <-[CONTRIBUTES_TO_GOAL]- task.2 (active)
 - goal_2 ("Stay Healthy") — no task links
-- task_1 ("Write tests") — status: active
+- task.1 ("Write tests") — status: active
     - APPLIES_KNOWLEDGE -> ku_1
-- task_2 ("Review PR") — status: active
+- task.2 ("Review PR") — status: active
     - REQUIRES_KNOWLEDGE -> ku_1
 - task_3 ("Old cleanup") — status: completed (terminal)
     - CONTRIBUTES_TO_GOAL -> goal_1
-- habit_1 ("Morning reading") — status: active, streak 12, rate 0.85
+- habit.1 ("Morning reading") — status: active, streak 12, rate 0.85
     - REINFORCES_KNOWLEDGE -> ku_1
     - REINFORCES_KNOWLEDGE -> ku_2
     - INFORMS_CHOICE -> choice_2 (a habit informer: not a principle)
-- habit_2 ("Exercise") — status: active, no KU links
+- habit.2 ("Exercise") — status: active, no KU links
 - choice_1 (recent, aligned)
     - principle_1 -[INFORMS_CHOICE]-> it
     - satisfaction_score: 4.5
-- choice_2 (recent, no principle — informed by habit_1 only)
+- choice_2 (recent, no principle — informed by habit.1 only)
 - choice_3 (recent, conflicting)
     - CONFLICTS_WITH_PRINCIPLE -> principle_1
 - ku_1 ("Python Basics")
@@ -51,8 +51,9 @@ import pytest_asyncio
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.principle_enums import AlignmentLevel
 from core.services.cross_domain import CrossDomainQueryService
+from tests.helpers.seed_uids import seed_user_uid
 
-USER_UID = "user_xdq"
+USER_UID = seed_user_uid("xdq")
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +77,8 @@ async def graph(neo4j_driver, clean_neo4j):
 
         # -- KUs --
         for ku_uid, title in [
-            ("ku_python_xdq", "Python Basics"),
-            ("ku_neo4j_xdq", "Neo4j Fundamentals"),
+            ("ku.python-xdq", "Python Basics"),
+            ("ku.neo4j-xdq", "Neo4j Fundamentals"),
         ]:
             await s.run(
                 """
@@ -95,7 +96,7 @@ async def graph(neo4j_driver, clean_neo4j):
         await s.run(
             """
             CREATE (p:Entity {
-                uid: 'principle_cl_xdq', entity_type: 'principle',
+                uid: 'principle.cl-xdq', entity_type: 'principle',
                 title: 'Continuous Learning', created_at: datetime($ts)
             })
             """,
@@ -103,7 +104,7 @@ async def graph(neo4j_driver, clean_neo4j):
         )
 
         # -- Goals --
-        for uid, title in [("goal_ship_xdq", "Ship v2"), ("goal_health_xdq", "Stay Healthy")]:
+        for uid, title in [("goal.ship-xdq", "Ship v2"), ("goal.health-xdq", "Stay Healthy")]:
             await s.run(
                 """
                 CREATE (g:Entity {
@@ -118,9 +119,9 @@ async def graph(neo4j_driver, clean_neo4j):
 
         # -- Tasks --
         for uid, title, status in [
-            ("task_tests_xdq", "Write tests", "active"),
-            ("task_review_xdq", "Review PR", "active"),
-            ("task_cleanup_xdq", "Old cleanup", "completed"),
+            ("task.tests-xdq", "Write tests", "active"),
+            ("task.review-xdq", "Review PR", "active"),
+            ("task.cleanup-xdq", "Old cleanup", "completed"),
         ]:
             await s.run(
                 """
@@ -139,7 +140,7 @@ async def graph(neo4j_driver, clean_neo4j):
         await s.run(
             """
             CREATE (h:Entity {
-                uid: 'habit_reading_xdq', entity_type: 'habit',
+                uid: 'habit.reading-xdq', entity_type: 'habit',
                 title: 'Morning reading', status: 'active',
                 current_streak: 12, recurrence_pattern: 'daily',
                 created_at: datetime($created), last_completed: $yesterday
@@ -151,7 +152,7 @@ async def graph(neo4j_driver, clean_neo4j):
         await s.run(
             """
             CREATE (h:Entity {
-                uid: 'habit_exercise_xdq', entity_type: 'habit',
+                uid: 'habit.exercise-xdq', entity_type: 'habit',
                 title: 'Exercise', status: 'active',
                 current_streak: 3,
                 created_at: datetime($ts)
@@ -164,7 +165,7 @@ async def graph(neo4j_driver, clean_neo4j):
         await s.run(
             """
             CREATE (c:Entity {
-                uid: 'choice_aligned_xdq', entity_type: 'choice',
+                uid: 'choice.aligned-xdq', entity_type: 'choice',
                 title: 'Pick a book', satisfaction_score: 4.5,
                 created_at: datetime($ts)
             })
@@ -174,7 +175,7 @@ async def graph(neo4j_driver, clean_neo4j):
         await s.run(
             """
             CREATE (c:Entity {
-                uid: 'choice_plain_xdq', entity_type: 'choice',
+                uid: 'choice.plain-xdq', entity_type: 'choice',
                 title: 'Go for a walk',
                 created_at: datetime($ts)
             })
@@ -184,7 +185,7 @@ async def graph(neo4j_driver, clean_neo4j):
         await s.run(
             """
             CREATE (c:Entity {
-                uid: 'choice_conflict_xdq', entity_type: 'choice',
+                uid: 'choice.conflict-xdq', entity_type: 'choice',
                 title: 'Skip studying',
                 created_at: datetime($ts)
             })
@@ -194,17 +195,17 @@ async def graph(neo4j_driver, clean_neo4j):
 
         # ── OWNS edges (user -> every owned entity) ──
         owned = [
-            "principle_cl_xdq",
-            "goal_ship_xdq",
-            "goal_health_xdq",
-            "task_tests_xdq",
-            "task_review_xdq",
-            "task_cleanup_xdq",
-            "habit_reading_xdq",
-            "habit_exercise_xdq",
-            "choice_aligned_xdq",
-            "choice_plain_xdq",
-            "choice_conflict_xdq",
+            "principle.cl-xdq",
+            "goal.ship-xdq",
+            "goal.health-xdq",
+            "task.tests-xdq",
+            "task.review-xdq",
+            "task.cleanup-xdq",
+            "habit.reading-xdq",
+            "habit.exercise-xdq",
+            "choice.aligned-xdq",
+            "choice.plain-xdq",
+            "choice.conflict-xdq",
         ]
         for entity_uid in owned:
             await s.run(
@@ -221,7 +222,7 @@ async def graph(neo4j_driver, clean_neo4j):
         # Principle -> Goal: SUPPORTS_GOAL
         await s.run(
             """
-            MATCH (p:Entity {uid: 'principle_cl_xdq'}), (g:Entity {uid: 'goal_ship_xdq'})
+            MATCH (p:Entity {uid: 'principle.cl-xdq'}), (g:Entity {uid: 'goal.ship-xdq'})
             CREATE (p)-[:SUPPORTS_GOAL]->(g)
             """,
         )
@@ -229,16 +230,16 @@ async def graph(neo4j_driver, clean_neo4j):
         # Principle -> Habit: INSPIRES_HABIT
         await s.run(
             """
-            MATCH (p:Entity {uid: 'principle_cl_xdq'}), (h:Entity {uid: 'habit_reading_xdq'})
+            MATCH (p:Entity {uid: 'principle.cl-xdq'}), (h:Entity {uid: 'habit.reading-xdq'})
             CREATE (p)-[:INSPIRES_HABIT]->(h)
             """,
         )
 
         # Task -> Goal: CONTRIBUTES_TO_GOAL
-        for task_uid in ("task_tests_xdq", "task_review_xdq", "task_cleanup_xdq"):
+        for task_uid in ("task.tests-xdq", "task.review-xdq", "task.cleanup-xdq"):
             await s.run(
                 """
-                MATCH (t:Entity {uid: $task_uid}), (g:Entity {uid: 'goal_ship_xdq'})
+                MATCH (t:Entity {uid: $task_uid}), (g:Entity {uid: 'goal.ship-xdq'})
                 CREATE (t)-[:CONTRIBUTES_TO_GOAL]->(g)
                 """,
                 task_uid=task_uid,
@@ -247,13 +248,13 @@ async def graph(neo4j_driver, clean_neo4j):
         # Task -> KU: APPLIES_KNOWLEDGE, REQUIRES_KNOWLEDGE
         await s.run(
             """
-            MATCH (t:Entity {uid: 'task_tests_xdq'}), (k:Entity {uid: 'ku_python_xdq'})
+            MATCH (t:Entity {uid: 'task.tests-xdq'}), (k:Entity {uid: 'ku.python-xdq'})
             CREATE (t)-[:APPLIES_KNOWLEDGE]->(k)
             """,
         )
         await s.run(
             """
-            MATCH (t:Entity {uid: 'task_review_xdq'}), (k:Entity {uid: 'ku_python_xdq'})
+            MATCH (t:Entity {uid: 'task.review-xdq'}), (k:Entity {uid: 'ku.python-xdq'})
             CREATE (t)-[:REQUIRES_KNOWLEDGE]->(k)
             """,
         )
@@ -265,7 +266,7 @@ async def graph(neo4j_driver, clean_neo4j):
             MATCH (u:User {uid: $uid})
             UNWIND range(1, 24) AS n
             CREATE (u)-[:OWNS]->(:HabitCompletion {
-                uid: 'hc_xdq_' + toString(n), habit_uid: 'habit_reading_xdq',
+                uid: 'hc.xdq-' + toString(n), habit_uid: 'habit.reading-xdq',
                 completed_at: toString(localdatetime({
                     date: date() - duration({days: n}), hour: 12
                 }))
@@ -277,13 +278,13 @@ async def graph(neo4j_driver, clean_neo4j):
         # Habit -> KU: REINFORCES_KNOWLEDGE
         await s.run(
             """
-            MATCH (h:Entity {uid: 'habit_reading_xdq'}), (k:Entity {uid: 'ku_python_xdq'})
+            MATCH (h:Entity {uid: 'habit.reading-xdq'}), (k:Entity {uid: 'ku.python-xdq'})
             CREATE (h)-[:REINFORCES_KNOWLEDGE]->(k)
             """,
         )
         await s.run(
             """
-            MATCH (h:Entity {uid: 'habit_reading_xdq'}), (k:Entity {uid: 'ku_neo4j_xdq'})
+            MATCH (h:Entity {uid: 'habit.reading-xdq'}), (k:Entity {uid: 'ku.neo4j-xdq'})
             CREATE (h)-[:REINFORCES_KNOWLEDGE]->(k)
             """,
         )
@@ -291,21 +292,21 @@ async def graph(neo4j_driver, clean_neo4j):
         # Principle -> Choice: INFORMS_CHOICE, the one principle-choice link.
         await s.run(
             """
-            MATCH (c:Entity {uid: 'choice_aligned_xdq'}), (p:Entity {uid: 'principle_cl_xdq'})
+            MATCH (c:Entity {uid: 'choice.aligned-xdq'}), (p:Entity {uid: 'principle.cl-xdq'})
             CREATE (p)-[:INFORMS_CHOICE]->(c)
             """,
         )
         # A habit informs a choice over the same edge type; it is not a principle.
         await s.run(
             """
-            MATCH (c:Entity {uid: 'choice_plain_xdq'}), (h:Entity {uid: 'habit_reading_xdq'})
+            MATCH (c:Entity {uid: 'choice.plain-xdq'}), (h:Entity {uid: 'habit.reading-xdq'})
             CREATE (h)-[:INFORMS_CHOICE]->(c)
             """,
         )
         # Choice -> Principle: CONFLICTS_WITH_PRINCIPLE
         await s.run(
             """
-            MATCH (c:Entity {uid: 'choice_conflict_xdq'}), (p:Entity {uid: 'principle_cl_xdq'})
+            MATCH (c:Entity {uid: 'choice.conflict-xdq'}), (p:Entity {uid: 'principle.cl-xdq'})
             CREATE (c)-[:CONFLICTS_WITH_PRINCIPLE]->(p)
             """,
         )
@@ -330,20 +331,20 @@ def service(neo4j_driver):
 class TestPrincipleAlignmentEvidence:
     async def test_finds_aligned_goals_and_habits(self, service, graph):
         result = await service.get_principle_alignment_evidence(
-            principle_uid="principle_cl_xdq",
+            principle_uid="principle.cl-xdq",
             user_uid=USER_UID,
         )
 
         assert result.is_ok
         ev = result.value
-        assert ev.principle_uid == "principle_cl_xdq"
+        assert ev.principle_uid == "principle.cl-xdq"
         assert ev.user_uid == USER_UID
 
         goal_uids = {g.uid for g in ev.aligned_goals}
-        assert goal_uids == {"goal_ship_xdq"}
+        assert goal_uids == {"goal.ship-xdq"}
 
         habit_uids = {h.uid for h in ev.aligned_habits}
-        assert habit_uids == {"habit_reading_xdq"}
+        assert habit_uids == {"habit.reading-xdq"}
 
         # 2 connections -> score = 2/5 = 0.4
         assert ev.score == pytest.approx(0.4)
@@ -352,7 +353,7 @@ class TestPrincipleAlignmentEvidence:
     async def test_unowned_principle_returns_empty(self, service, graph):
         """Principle that doesn't exist returns zero-score evidence."""
         result = await service.get_principle_alignment_evidence(
-            principle_uid="principle_nonexistent",
+            principle_uid="principle.nonexistent",
             user_uid=USER_UID,
         )
 
@@ -366,25 +367,25 @@ class TestPrincipleAlignmentEvidence:
 class TestTasksApplyingKnowledge:
     async def test_finds_tasks_for_ku(self, service, graph):
         result = await service.get_tasks_applying_knowledge(
-            knowledge_uid="ku_python_xdq",
+            knowledge_uid="ku.python-xdq",
             user_uid=USER_UID,
         )
 
         assert result.is_ok
         payload = result.value
-        assert payload.knowledge_uid == "ku_python_xdq"
+        assert payload.knowledge_uid == "ku.python-xdq"
 
         task_uids = {t.uid for t in payload.tasks}
-        assert "task_tests_xdq" in task_uids
-        assert "task_review_xdq" in task_uids
+        assert "task.tests-xdq" in task_uids
+        assert "task.review-xdq" in task_uids
 
         rels = {t.uid: t.relationship for t in payload.tasks}
-        assert rels["task_tests_xdq"] == "APPLIES_KNOWLEDGE"
-        assert rels["task_review_xdq"] == "REQUIRES_KNOWLEDGE"
+        assert rels["task.tests-xdq"] == "APPLIES_KNOWLEDGE"
+        assert rels["task.review-xdq"] == "REQUIRES_KNOWLEDGE"
 
     async def test_ku_with_no_tasks_returns_empty(self, service, graph):
         result = await service.get_tasks_applying_knowledge(
-            knowledge_uid="ku_neo4j_xdq",
+            knowledge_uid="ku.neo4j-xdq",
             user_uid=USER_UID,
         )
 
@@ -393,7 +394,7 @@ class TestTasksApplyingKnowledge:
 
     async def test_respects_limit(self, service, graph):
         result = await service.get_tasks_applying_knowledge(
-            knowledge_uid="ku_python_xdq",
+            knowledge_uid="ku.python-xdq",
             user_uid=USER_UID,
             limit=1,
         )
@@ -407,24 +408,24 @@ class TestGoalsForTasksBatch:
     async def test_batch_finds_the_goals_each_task_contributes_to(
         self, service, graph, neo4j_driver
     ):
-        # Both tasks CONTRIBUTES_TO_GOAL goal_ship_xdq. A retired FULFILLS_GOAL edge left
-        # on task_tests_xdq (the shape a pre-migration graph holds) is not read.
+        # Both tasks CONTRIBUTES_TO_GOAL goal.ship-xdq. A retired FULFILLS_GOAL edge left
+        # on task.tests-xdq (the shape a pre-migration graph holds) is not read.
         async with neo4j_driver.session() as s:
             await s.run(
                 """
-                MATCH (t:Entity {uid: 'task_tests_xdq'}), (g:Entity {uid: 'goal_health_xdq'})
+                MATCH (t:Entity {uid: 'task.tests-xdq'}), (g:Entity {uid: 'goal.health-xdq'})
                 CREATE (t)-[:FULFILLS_GOAL]->(g)
                 """
             )
 
         result = await service.get_goals_for_tasks_batch(
-            task_uids=["task_tests_xdq", "task_review_xdq"]
+            task_uids=["task.tests-xdq", "task.review-xdq"]
         )
 
         assert result.is_ok
         goals_by_task = result.value
-        assert {g.uid for g in goals_by_task["task_tests_xdq"]} == {"goal_ship_xdq"}
-        assert {g.uid for g in goals_by_task["task_review_xdq"]} == {"goal_ship_xdq"}
+        assert {g.uid for g in goals_by_task["task.tests-xdq"]} == {"goal.ship-xdq"}
+        assert {g.uid for g in goals_by_task["task.review-xdq"]} == {"goal.ship-xdq"}
 
     async def test_missing_task_absent_from_map(self, service, graph):
         result = await service.get_goals_for_tasks_batch(task_uids=["task_nonexistent"])
@@ -444,7 +445,7 @@ class TestCountActiveTasksForGoal:
     async def test_counts_open_contributing_tasks_and_no_events(self, service, graph, neo4j_driver):
         """Open = any status but COMPLETED, CANCELLED and FAILED; only TASKS block.
 
-        goal_ship_xdq's contributors, by ``CONTRIBUTES_TO_GOAL`` unless noted:
+        goal.ship-xdq's contributors, by ``CONTRIBUTES_TO_GOAL`` unless noted:
         - task_tests (active), task_review (active) -> counted
         - task_draft (draft), task_postponed (postponed) -> counted: still part of the plan
         - task_cleanup (completed), task_failed (failed), task_cancelled (cancelled) -> not
@@ -456,16 +457,16 @@ class TestCountActiveTasksForGoal:
         """
         async with neo4j_driver.session() as s:
             for uid, entity_type, status, edge in [
-                ("task_draft_xdq", "task", "draft", "CONTRIBUTES_TO_GOAL"),
-                ("task_postponed_xdq", "task", "postponed", "CONTRIBUTES_TO_GOAL"),
-                ("task_failed_xdq", "task", "failed", "CONTRIBUTES_TO_GOAL"),
-                ("task_cancelled_xdq", "task", "cancelled", "CONTRIBUTES_TO_GOAL"),
-                ("event_open_xdq", "event", "active", "CONTRIBUTES_TO_GOAL"),
-                ("task_retired_xdq", "task", "active", "FULFILLS_GOAL"),
+                ("task.draft-xdq", "task", "draft", "CONTRIBUTES_TO_GOAL"),
+                ("task.postponed-xdq", "task", "postponed", "CONTRIBUTES_TO_GOAL"),
+                ("task.failed-xdq", "task", "failed", "CONTRIBUTES_TO_GOAL"),
+                ("task.cancelled-xdq", "task", "cancelled", "CONTRIBUTES_TO_GOAL"),
+                ("event.open-xdq", "event", "active", "CONTRIBUTES_TO_GOAL"),
+                ("task.retired-xdq", "task", "active", "FULFILLS_GOAL"),
             ]:
                 await s.run(
                     f"""
-                    MATCH (g:Entity {{uid: 'goal_ship_xdq'}})
+                    MATCH (g:Entity {{uid: 'goal.ship-xdq'}})
                     CREATE (c:Entity {{uid: $uid, entity_type: $entity_type, title: $uid,
                                        status: $status, user_uid: $user_uid}})
                     CREATE (c)-[:{edge}]->(g)
@@ -476,19 +477,19 @@ class TestCountActiveTasksForGoal:
                     user_uid=USER_UID,
                 )
 
-        result = await service.count_active_tasks_for_goal(goal_uid="goal_ship_xdq")
+        result = await service.count_active_tasks_for_goal(goal_uid="goal.ship-xdq")
 
         assert result.is_ok
         assert result.value.count == 4
 
     async def test_goal_with_no_tasks(self, service, graph):
-        result = await service.count_active_tasks_for_goal(goal_uid="goal_health_xdq")
+        result = await service.count_active_tasks_for_goal(goal_uid="goal.health-xdq")
 
         assert result.is_ok
         assert result.value.count == 0
 
     async def test_nonexistent_goal(self, service, graph):
-        result = await service.count_active_tasks_for_goal(goal_uid="goal_nonexistent")
+        result = await service.count_active_tasks_for_goal(goal_uid="goal.nonexistent")
 
         assert result.is_ok
         assert result.value.count == 0
@@ -505,15 +506,15 @@ class TestHabitKnowledgeReinforcement:
         # Only habit_reading has KU links; habit_exercise has none (filtered out)
         assert len(rows) == 1
         row = rows[0]
-        assert row.habit_uid == "habit_reading_xdq"
+        assert row.habit_uid == "habit.reading-xdq"
         assert row.current_streak == 12
         # Derived from the 24 completions in the window, not read off the node.
         assert row.success_rate == pytest.approx(24 / 30)
         assert row.at_risk is False
-        assert set(row.ku_uids) == {"ku_python_xdq", "ku_neo4j_xdq"}
+        assert set(row.ku_uids) == {"ku.python-xdq", "ku.neo4j-xdq"}
 
     async def test_user_with_no_habits(self, service, graph):
-        result = await service.get_habit_knowledge_reinforcement(user_uid="user_nobody")
+        result = await service.get_habit_knowledge_reinforcement(user_uid=seed_user_uid("nobody"))
 
         assert result.is_ok
         assert result.value == ()
@@ -534,13 +535,13 @@ class TestChoicePrincipleAdherence:
 
         # Verify per-choice detail
         detail_map = {d.choice_uid: d for d in adh.choice_details}
-        assert "choice_aligned_xdq" in detail_map
-        aligned = detail_map["choice_aligned_xdq"]
-        assert "principle_cl_xdq" in aligned.principle_uids
+        assert "choice.aligned-xdq" in detail_map
+        aligned = detail_map["choice.aligned-xdq"]
+        assert "principle.cl-xdq" in aligned.principle_uids
         assert aligned.satisfaction == pytest.approx(4.5)
 
         # The habit-informed choice has empty principle_uids
-        plain = detail_map["choice_plain_xdq"]
+        plain = detail_map["choice.plain-xdq"]
         assert plain.principle_uids == ()
 
     async def test_period_filter_excludes_old_choices(self, service, graph, neo4j_driver):
@@ -550,7 +551,7 @@ class TestChoicePrincipleAdherence:
             await s.run(
                 """
                 CREATE (c:Entity {
-                    uid: 'choice_old_xdq', entity_type: 'choice',
+                    uid: 'choice.old-xdq', entity_type: 'choice',
                     title: 'Ancient choice', created_at: datetime($ts)
                 })
                 """,
@@ -558,7 +559,7 @@ class TestChoicePrincipleAdherence:
             )
             await s.run(
                 """
-                MATCH (u:User {uid: $user_uid}), (c:Entity {uid: 'choice_old_xdq'})
+                MATCH (u:User {uid: $user_uid}), (c:Entity {uid: 'choice.old-xdq'})
                 CREATE (u)-[:OWNS]->(c)
                 """,
                 user_uid=USER_UID,
@@ -575,7 +576,7 @@ class TestChoicePrincipleAdherence:
 
     async def test_user_with_no_choices(self, service, graph):
         result = await service.get_choice_principle_adherence(
-            user_uid="user_nobody",
+            user_uid=seed_user_uid("nobody"),
             period_days=90,
         )
 
@@ -589,10 +590,10 @@ class TestChoiceConflictCount:
         result = await service.get_choice_conflict_count(user_uid=USER_UID)
 
         assert result.is_ok
-        assert result.value.conflict_count == 1  # choice_conflict_xdq
+        assert result.value.conflict_count == 1  # choice.conflict-xdq
 
     async def test_user_with_no_conflicts(self, service, graph):
-        result = await service.get_choice_conflict_count(user_uid="user_nobody")
+        result = await service.get_choice_conflict_count(user_uid=seed_user_uid("nobody"))
 
         assert result.is_ok
         assert result.value.conflict_count == 0

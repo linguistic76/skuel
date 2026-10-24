@@ -16,11 +16,11 @@ from adapters.persistence.neo4j.backends.exercise_backends import RevisedExercis
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.search_request import SearchRequest
-from core.models.type_hints import UserUID
 from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
+from tests.helpers.seed_uids import seed_user_uid
 
-_TEACHER_UID = UserUID("user_test")
-_STUDENT_UID = "user_other"
+_TEACHER_UID = seed_user_uid("test")
+_STUDENT_UID = seed_user_uid("other")
 _REVISION_UID = "rex.lineage.revision"
 _ROOT_UID = "ex.lineage.root"
 _ANSWER_UID = "ue.lineage.answer"

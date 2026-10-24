@@ -41,13 +41,13 @@ STAMPED = "2026-04-02"
 EDITED_AT = "2026-08-20T11:22:33.444555"  # later than STAMPED — the re-dating risk
 UNSTAMPED_AT = "2026-06-15T08:09:10.111213"
 _UIDS = [
-    "task_bf_unstamped",
-    "task_bf_native_dt",
-    "task_bf_already_stamped",
-    "task_bf_active",
-    "goal_bf_unstamped",
-    "choice_bf_unstamped",
-    "principle_bf_illegal",
+    "task.bf-unstamped",
+    "task.bf-native-dt",
+    "task.bf-already-stamped",
+    "task.bf-active",
+    "goal.bf-unstamped",
+    "choice.bf-unstamped",
+    "principle.bf-illegal",
 ]
 
 

@@ -25,18 +25,19 @@ from adapters.persistence.neo4j.neo4j_schema_manager import UID_UNIQUE_LABELS
 from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import Group, default_group_uid
 from core.models.user_entry.user_entry import periodic_note_uid
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
-TEACHER = "user_zzzgenuid_teacher"
-MINTED = "ue_00000000zzzgen01"
+TEACHER = seed_user_uid("zzzgenuid_teacher")
+MINTED = "ue.00000000zzzgen01"
 PERIODIC = periodic_note_uid("daily", TEACHER, "2026-10-23")
-BROKEN = "ue_00000000zzzgen02"
-TASK = "task_00000000zzzgen03"
-GROUP_UID = "group_00000000zzzgen04"
+BROKEN = "ue.00000000zzzgen02"
+TASK = "task.00000000zzzgen03"
+GROUP_UID = "group_7e57000000000004"
 
 
 async def _rows(

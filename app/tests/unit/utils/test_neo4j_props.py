@@ -10,8 +10,8 @@ drift fails fast at the read boundary.
 
 import pytest
 
-from core.models.type_hints import UserUID
 from core.utils.neo4j_props import neo4j_str, neo4j_str_list, neo4j_user_uid
+from tests.helpers.seed_uids import seed_user_uid
 
 
 class TestNeo4jStr:
@@ -35,8 +35,8 @@ class TestNeo4jStr:
 
 class TestNeo4jUserUid:
     def test_wraps_canonical_uid(self) -> None:
-        result = neo4j_user_uid({"k": "user_alice"}, "k")
-        assert result == UserUID("user_alice")
+        result = neo4j_user_uid({"k": seed_user_uid("alice")}, "k")
+        assert result == seed_user_uid("alice")
 
     def test_raises_on_non_canonical_uid(self) -> None:
         with pytest.raises(ValueError):

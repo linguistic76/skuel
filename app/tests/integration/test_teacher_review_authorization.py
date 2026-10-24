@@ -36,20 +36,21 @@ Expectations:
 import pytest
 
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.fixture
 async def teacher_review_fixture(neo4j_driver):
     """Seed two teachers, two groups, two students, two submissions + one inactive group."""
-    teacher_a = "test_trreview_teacher_a"
-    teacher_b = "test_trreview_teacher_b"
-    student_1 = "test_trreview_student_1"
-    student_2 = "test_trreview_student_2"
-    group_x = "test_trreview_group_x"
-    group_y = "test_trreview_group_y"
-    group_z_inactive = "test_trreview_group_z"
-    submission_1 = "ue_trreview_s1_submission"
-    submission_2 = "ue_trreview_s2_submission"
+    teacher_a = seed_user_uid("test_trreview_teacher_a")
+    teacher_b = seed_user_uid("test_trreview_teacher_b")
+    student_1 = seed_user_uid("test_trreview_student_1")
+    student_2 = seed_user_uid("test_trreview_student_2")
+    group_x = "test.trreview-group-x"
+    group_y = "test.trreview-group-y"
+    group_z_inactive = "test.trreview-group-z"
+    submission_1 = "ue.trreview-s1-submission"
+    submission_2 = "ue.trreview-s2-submission"
 
     await neo4j_driver.execute_query(
         """

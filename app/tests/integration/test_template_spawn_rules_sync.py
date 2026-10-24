@@ -25,12 +25,12 @@ from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.entity_enums import EntityType
-from core.models.type_hints import UserUID
 from core.ports.vault_bridge_protocol import VaultBridgePort
 from core.services.ingestion.config import ENTITY_CONFIGS, build_sync_allowlist
 from core.services.ps_engagement._spawn_orchestrator import copied_text_caps
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.services.vault.vault_reconciler import VaultReconciler, VaultSyncStats
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import touch_forward
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.asyncio
 
 MARK = "zzztplrules"
-OWNER = UserUID(f"user_{MARK}")
+OWNER = seed_user_uid(f"{MARK}")
 TEMPLATE_TYPES = tuple(t for t in EntityType if t.is_activity_template())
 CAPPED_FIELDS = [
     (template_type, name, cap)
@@ -110,7 +110,11 @@ async def vault(neo4j_driver: AsyncDriver, tmp_path: Path) -> AsyncIterator[Vaul
     )
     yield Vault(neo4j_driver, root, reconciler)
     async with neo4j_driver.session() as session:
-        await session.run("MATCH (n) WHERE n.uid CONTAINS $mark DETACH DELETE n", mark=MARK)
+        await session.run(
+            "MATCH (n) WHERE n.uid CONTAINS $mark OR n.uid = $owner DETACH DELETE n",
+            mark=MARK,
+            owner=OWNER,
+        )
         await session.run(
             "MATCH (m:IngestionMetadata) WHERE m.file_path STARTS WITH $root DELETE m",
             root=str(root.resolve()),

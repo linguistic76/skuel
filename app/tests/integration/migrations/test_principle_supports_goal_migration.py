@@ -36,6 +36,7 @@ from structlog.testing import capture_logs
 from core.models.enums.entity_enums import EntityType
 from core.services.ingestion.authored_edges import authored_edge_fingerprint
 from core.services.ingestion.config import ENTITY_CONFIGS
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import sync_vault, write_vault_file
 
 if TYPE_CHECKING:
@@ -67,7 +68,7 @@ def _load() -> ModuleType:
 migration = _load()
 
 MARK = "zzzpsgmig"
-USER = f"user_{MARK}"
+USER = seed_user_uid(f"{MARK}")
 STATES = ("guides", "guided", "both", "kept", "partial")
 PRINCIPLE = {state: f"principle.{MARK}.{state}" for state in STATES}
 GOAL = {state: f"goal.{MARK}.{state}" for state in STATES}

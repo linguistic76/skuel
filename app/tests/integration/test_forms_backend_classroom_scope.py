@@ -40,20 +40,21 @@ from adapters.persistence.neo4j.backends.forms_backends import (
 from core.models.enums.neo_labels import NeoLabel
 from core.models.forms.form_submission import FormSubmission
 from core.models.forms.form_template import FormTemplate
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
-P = "fcs_"  # namespace for every node this module creates
+P = "fcs"  # the mark in every uid this module creates
 
-TEACHER_A = f"{P}teacher_a"
-TEACHER_B = f"{P}teacher_b"
-STUDENT_1 = f"{P}student_1"  # in TWO active groups Teacher A owns
-STUDENT_2 = f"{P}student_2"  # in Teacher B's group
-STUDENT_3 = f"{P}student_3"  # in an INACTIVE group Teacher A owns
-TEMPLATE = f"{P}ft"
-SUB_1, SUB_2, SUB_3, SUB_ORPHAN = f"{P}fs1", f"{P}fs2", f"{P}fs3", f"{P}fs4"
+TEACHER_A = seed_user_uid(f"{P}_teacher_a")
+TEACHER_B = seed_user_uid(f"{P}_teacher_b")
+STUDENT_1 = seed_user_uid(f"{P}_student_1")  # in TWO active groups Teacher A owns
+STUDENT_2 = seed_user_uid(f"{P}_student_2")  # in Teacher B's group
+STUDENT_3 = seed_user_uid(f"{P}_student_3")  # in an INACTIVE group Teacher A owns
+TEMPLATE = f"ft.{P}"
+SUB_1, SUB_2, SUB_3, SUB_ORPHAN = (f"fs.{P}-{n}" for n in (1, 2, 3, 4))
 
-_CLEANUP = "MATCH (n) WHERE n.uid STARTS WITH $prefix DETACH DELETE n"
+_CLEANUP = "MATCH (n) WHERE n.uid CONTAINS $mark OR n.uid IN $users DETACH DELETE n"
 
 _SEED = """
 CREATE (ta:User {uid: $teacher_a, display_name: 'Teacher A'})
@@ -107,10 +108,10 @@ _SEED_PARAMS = {
     "student_1": STUDENT_1,
     "student_2": STUDENT_2,
     "student_3": STUDENT_3,
-    "g1": f"{P}g1",
-    "g2": f"{P}g2",
-    "g3": f"{P}g3",
-    "g4": f"{P}g4",
+    "g1": f"group.{P}-g1",
+    "g2": f"group.{P}-g2",
+    "g3": f"group.{P}-g3",
+    "g4": f"group.{P}-g4",
     "template": TEMPLATE,
     "sub_1": SUB_1,
     "sub_2": SUB_2,
@@ -123,11 +124,17 @@ _SEED_PARAMS = {
 async def forms_graph(neo4j_driver: Any) -> Any:
     """Seed one template with four submissions across three classrooms."""
     async with neo4j_driver.session() as session:
-        await session.run(_CLEANUP, {"prefix": P})
+        await session.run(
+            _CLEANUP,
+            {"mark": P, "users": [TEACHER_A, TEACHER_B, STUDENT_1, STUDENT_2, STUDENT_3]},
+        )
         await session.run(_SEED, _SEED_PARAMS)
     yield neo4j_driver
     async with neo4j_driver.session() as session:
-        await session.run(_CLEANUP, {"prefix": P})
+        await session.run(
+            _CLEANUP,
+            {"mark": P, "users": [TEACHER_A, TEACHER_B, STUDENT_1, STUDENT_2, STUDENT_3]},
+        )
 
 
 @pytest.fixture
@@ -187,7 +194,7 @@ class TestScopedReadStopsAtTheClassroom:
         assert result.value == len(await _uids(submissions, TEACHER_A)) == 1
 
     async def test_unknown_teacher_sees_nothing(self, submissions: FormSubmissionBackend) -> None:
-        assert await _uids(submissions, f"{P}no_such_teacher") == []
+        assert await _uids(submissions, seed_user_uid(f"{P}_no_such_teacher")) == []
 
     async def test_scoped_read_preserves_submitter_columns(
         self, submissions: FormSubmissionBackend
@@ -261,7 +268,7 @@ class TestPredicateShape:
             await session.run(
                 "MATCH (t:User {uid: $teacher}), (g:Group {uid: $group}) "
                 "CREATE (t)-[:MEMBER_OF]->(g)",
-                {"teacher": TEACHER_B, "group": f"{P}g1"},
+                {"teacher": TEACHER_B, "group": f"group.{P}-g1"},
             )
 
         assert await _uids(submissions, TEACHER_B) == [SUB_2]

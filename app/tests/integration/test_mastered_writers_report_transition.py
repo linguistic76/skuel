@@ -26,9 +26,9 @@ from adapters.persistence.neo4j.user_backend import UserBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
 from core.models.pathways.path_step import PathStep
-from core.models.type_hints import UserUID
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = UserUID("user_transition_flag")
+USER = seed_user_uid("transition_flag")
 KU_A = "ku.flag.a"
 KU_B = "ku.flag.b"
 KU_C = "ku.flag.c"

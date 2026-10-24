@@ -29,6 +29,7 @@ from adapters.persistence.neo4j.ingestion_service_factory import make_unified_in
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.ingestion.types import IncrementalStats
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -40,10 +41,10 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 _MARK = "zzzexteachingest"
-_TEACHER = f"user_{_MARK}_teacher"
-_SECOND_TEACHER = f"user_{_MARK}_second"
-_MEMBER = f"user_{_MARK}_member"
-_UNKNOWN = f"user_{_MARK}_nobody"
+_TEACHER = seed_user_uid(f"{_MARK}_teacher")
+_SECOND_TEACHER = seed_user_uid(f"{_MARK}_second")
+_MEMBER = seed_user_uid(f"{_MARK}_member")
+_UNKNOWN = seed_user_uid(f"{_MARK}_nobody")
 
 
 def _exercise_file(vault: Path, name: str, *, teacher: str | None) -> Path:
@@ -105,10 +106,11 @@ async def service(neo4j_driver: AsyncDriver) -> AsyncIterator[UnifiedIngestionSe
         await session.run(
             """
             MATCH (n)
-            WHERE n.uid CONTAINS $mark OR n.entity_uid CONTAINS $mark
+            WHERE n.uid CONTAINS $mark OR n.entity_uid CONTAINS $mark OR n.uid IN $users
             DETACH DELETE n
             """,
             mark=_MARK,
+            users=[_TEACHER, _SECOND_TEACHER, _MEMBER],
         )
 
 

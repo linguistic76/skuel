@@ -38,8 +38,9 @@ from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.embeddings_service import EmbeddingsService
 from core.utils.embedding_text_builder import build_embedding_text
+from tests.helpers.seed_uids import seed_user_uid
 
-_UID = "ue_resync01"  # the tracker's path-keyed prior uid shape for a uid-less note
+_UID = "ue.resync01"  # the tracker's path-keyed prior uid shape for a uid-less note
 _MODEL = "text-embedding-3-small"
 
 
@@ -93,7 +94,7 @@ async def _embed_as_the_writer(embeddings: EmbeddingsService, props: dict) -> st
 async def test_identical_resync_keeps_vector_and_stays_hash_fresh(
     clean_neo4j, user_entry_service, neo4j_driver, seed_user, pipeline: Pipeline
 ) -> None:
-    owner = await seed_user("user_resync_owner")
+    owner = await seed_user(seed_user_uid("resync_owner"))
     content = "A decision is when you have power to choose."
 
     first = await user_entry_service.create_entry(
@@ -133,7 +134,7 @@ async def test_edited_resync_refreshes_content_but_keeps_vector_until_the_worker
 ) -> None:
     """The entity writer refreshes what the FILE authors; the vector stays the
     embedding writer's to replace (hash mismatch → not fresh → worker re-embeds)."""
-    owner = await seed_user("user_resync_owner")
+    owner = await seed_user(seed_user_uid("resync_owner"))
 
     first = await user_entry_service.create_entry(
         request=_note_request("first draft"), user_uid=owner
@@ -174,7 +175,7 @@ async def test_resync_that_forbids_a_vector_removes_the_stored_one(
     """A note that turns ``private: true``, or moves to a pipeline that is not
     embedded, may hold no vector (canon P3): the re-sync that says so removes the
     vector and every property the embeddings writer stored beside it."""
-    owner = await seed_user("user_resync_owner")
+    owner = await seed_user(seed_user_uid("resync_owner"))
     content = "A decision is when you have power to choose."
 
     first = await user_entry_service.create_entry(request=_note_request(content), user_uid=owner)

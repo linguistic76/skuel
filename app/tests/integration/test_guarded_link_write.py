@@ -29,6 +29,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.completion import HabitCompletion
 from core.models.link_write_contracts import GuardedLinkWrite
 from core.models.relationship_names import RelationshipName
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -44,22 +45,22 @@ pytestmark = [
 ]
 
 MARK = "zzzguardedlink"
-ALICE = f"user_{MARK}_alice"
-BOB = f"user_{MARK}_bob"
+ALICE = seed_user_uid(f"{MARK}_alice")
+BOB = seed_user_uid(f"{MARK}_bob")
 
-GOAL = f"goal_{MARK}_alice"
-GOAL_TWO = f"goal_{MARK}_alice_two"
-GOAL_SHARED_SOURCE = f"goal_{MARK}_nobodys"  # a goal nobody owns
-HABIT = f"habit_{MARK}_alice"
-HABIT_TWO = f"habit_{MARK}_alice_two"
-HABIT_BOB = f"habit_{MARK}_bob"
-HABIT_CONTESTED = f"habit_{MARK}_contested"
-KU = f"ku_{MARK}_published"
-KU_TWO = f"ku_{MARK}_published_two"
-KU_DRAFT = f"ku_{MARK}_draft"
-GROUP = f"group_{MARK}"
-SESSION = f"session_{MARK}"
-COMPLETION = f"completion_{MARK}"
+GOAL = f"goal.{MARK}-alice"
+GOAL_TWO = f"goal.{MARK}-alice-two"
+GOAL_SHARED_SOURCE = f"goal.{MARK}-nobodys"  # a goal nobody owns
+HABIT = f"habit.{MARK}-alice"
+HABIT_TWO = f"habit.{MARK}-alice-two"
+HABIT_BOB = f"habit.{MARK}-bob"
+HABIT_CONTESTED = f"habit.{MARK}-contested"
+KU = f"ku.{MARK}-published"
+KU_TWO = f"ku.{MARK}-published-two"
+KU_DRAFT = f"ku.{MARK}-draft"
+GROUP = f"group.{MARK}"
+SESSION = f"session.{MARK}"
+COMPLETION = f"completion.{MARK}"
 MISSING = f"habit_{MARK}_names_nothing"
 
 ALICES = frozenset({ALICE})
@@ -77,7 +78,12 @@ async def _run(driver: AsyncDriver, query: str, **params: Any) -> None:  # bound
 
 
 async def _wipe(driver: AsyncDriver) -> None:
-    await _run(driver, "MATCH (n) WHERE n.uid CONTAINS $mark DETACH DELETE n", mark=MARK)
+    await _run(
+        driver,
+        "MATCH (n) WHERE n.uid CONTAINS $mark OR n.uid IN $users DETACH DELETE n",
+        mark=MARK,
+        users=[ALICE, BOB],
+    )
 
 
 async def _owned(driver: AsyncDriver, label: str, uid: str, owner: str) -> None:

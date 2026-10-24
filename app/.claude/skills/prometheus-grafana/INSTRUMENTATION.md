@@ -442,7 +442,7 @@ async def test_journal_creation_increments_metric():
     )
 
     # Act
-    await service.create_journal_entry(request, user_uid="user_test")
+    await service.create_journal_entry(request, user_uid=seed_user_uid("test"))
 
     # Assert - check cache (not Prometheus)
     # Note: Direct counter value access requires prometheus_client internals

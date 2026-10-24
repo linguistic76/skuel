@@ -55,6 +55,9 @@ from core.models.relationship_registry import GOALS_CONFIG
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.habits.habits_core_service import HabitsCoreService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.seed_uids import seed_user_uid
+
+VICTIM = seed_user_uid("test_victim")
 
 
 @pytest_asyncio.fixture
@@ -78,7 +81,7 @@ async def habits_service(neo4j_driver, clean_neo4j, event_bus):
 
 @pytest_asyncio.fixture
 async def test_user_uid(neo4j_driver, clean_neo4j):
-    uid = "user_test_create_edges"
+    uid = seed_user_uid("test_create_edges")
     async with neo4j_driver.session() as session:
         await session.run(
             "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()", uid=uid
@@ -200,10 +203,11 @@ class TestGoalHierarchyEdgeRoundTrip:
         """
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: 'user_test_victim'}) ON CREATE SET u.created_at = datetime()"
+                "MERGE (u:User {uid: $victim}) ON CREATE SET u.created_at = datetime()",
+                victim=VICTIM,
             )
         victim = await goals_service.create_goal(
-            goal_request(title="Victim's private goal"), "user_test_victim"
+            goal_request(title="Victim's private goal"), VICTIM
         )
         assert victim.is_ok, f"victim goal create failed: {victim.error}"
 
@@ -241,13 +245,13 @@ class TestGoalHierarchyEdgeRoundTrip:
         incoming, so the habit is the source. An edge written the other way persists
         perfectly and is invisible to every tier read. (Codex, #965.)
         """
-        await _create_node(neo4j_driver, "ku_goal_link_abc", "Entity:Ku", "ku", "Systems")
+        await _create_node(neo4j_driver, "ku.goal-link-abc", "Entity:Ku", "ku", "Systems")
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (p:Entity:Principle {uid: 'principle_goal_link_abc'}) "
+                "MERGE (p:Entity:Principle {uid: 'principle.goal-link-abc'}) "
                 "ON CREATE SET p.entity_type = 'principle', p.title = 'Consistency', "
                 "p.user_uid = $user "
-                "MERGE (h:Entity:Habit {uid: 'habit_goal_link_abc'}) "
+                "MERGE (h:Entity:Habit {uid: 'habit.goal-link-abc'}) "
                 "ON CREATE SET h.entity_type = 'habit', h.title = 'Daily review', "
                 "h.user_uid = $user",
                 user=test_user_uid,
@@ -256,9 +260,9 @@ class TestGoalHierarchyEdgeRoundTrip:
         goal = await goals_service.create_goal(
             goal_request(
                 title="Linked goal",
-                required_knowledge_uids=["ku_goal_link_abc"],
-                supporting_principle_uids=["principle_goal_link_abc"],
-                supporting_habit_uids=["habit_goal_link_abc"],
+                required_knowledge_uids=["ku.goal-link-abc"],
+                supporting_principle_uids=["principle.goal-link-abc"],
+                supporting_habit_uids=["habit.goal-link-abc"],
             ),
             test_user_uid,
         )
@@ -268,7 +272,7 @@ class TestGoalHierarchyEdgeRoundTrip:
             goal.value.uid, rel_type=RelationshipName.REQUIRES_KNOWLEDGE, direction="outgoing"
         )
         assert knowledge.is_ok, f"REQUIRES_KNOWLEDGE read failed: {knowledge.error}"
-        assert [r["target_uid"] for r in knowledge.value] == ["ku_goal_link_abc"]
+        assert [r["target_uid"] for r in knowledge.value] == ["ku.goal-link-abc"]
 
         # SUPPORTS_GOAL is INCOMING, from the habit and from the principle: one edge
         # type, two kinds of source. Every edge touching the goal, by source kind.
@@ -285,9 +289,9 @@ class TestGoalHierarchyEdgeRoundTrip:
             )
         assert edges == sorted(
             [
-                ("REQUIRES_KNOWLEDGE", goal.value.uid, "ku_goal_link_abc", ["Ku"]),
-                ("SUPPORTS_GOAL", "habit_goal_link_abc", goal.value.uid, ["Habit"]),
-                ("SUPPORTS_GOAL", "principle_goal_link_abc", goal.value.uid, ["Principle"]),
+                ("REQUIRES_KNOWLEDGE", goal.value.uid, "ku.goal-link-abc", ["Ku"]),
+                ("SUPPORTS_GOAL", "habit.goal-link-abc", goal.value.uid, ["Habit"]),
+                ("SUPPORTS_GOAL", "principle.goal-link-abc", goal.value.uid, ["Principle"]),
             ]
         ), (
             "the link lists did not produce (habit)-[:SUPPORTS_GOAL]->(goal) and "
@@ -301,26 +305,26 @@ class TestGoalHierarchyEdgeRoundTrip:
         for key in ("supporting_habits", "essential_habits", "critical_habits", "optional_habits"):
             habits = await relationships.get_related_uids(key, goal.value.uid)
             assert habits.is_ok, f"{key} read failed: {habits.error}"
-            assert "principle_goal_link_abc" not in habits.value, key
+            assert "principle.goal-link-abc" not in habits.value, key
         supporting_habits = await relationships.get_related_uids(
             "supporting_habits", goal.value.uid
         )
-        assert supporting_habits.value == ["habit_goal_link_abc"]
+        assert supporting_habits.value == ["habit.goal-link-abc"]
         principles = await relationships.get_related_uids("supporting_principles", goal.value.uid)
         assert principles.is_ok, f"supporting_principles read failed: {principles.error}"
-        assert principles.value == ["principle_goal_link_abc"]
+        assert principles.value == ["principle.goal-link-abc"]
 
     @pytest.mark.parametrize(
         ("uid", "ownership_clause", "owns_edge"),
         [
             pytest.param(
-                "exercise_owner_prop",
-                "e.owner_uid = 'user_test_victim'",
+                "exercise.owner-prop",
+                "e.owner_uid = $victim",
                 False,
                 id="owner_uid-property",
             ),
             pytest.param(
-                "exercise_owns_edge", "e.title = 'Private drill'", True, id="OWNS-edge-only"
+                "exercise.owns-edge", "e.title = 'Private drill'", True, id="OWNS-edge-only"
             ),
         ],
     )
@@ -339,19 +343,21 @@ class TestGoalHierarchyEdgeRoundTrip:
         """
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: 'user_test_victim'}) ON CREATE SET u.created_at = datetime()"
+                "MERGE (u:User {uid: $victim}) ON CREATE SET u.created_at = datetime()",
+                victim=VICTIM,
             )
             await session.run(
                 f"MERGE (e:Entity:Exercise {{uid: $uid}}) "
                 f"ON CREATE SET e.entity_type = 'exercise', e.title = 'Private drill', "
                 f"{ownership_clause}",
                 uid=uid,
+                victim=VICTIM,
             )
             if owns_edge:
                 await session.run(
-                    "MATCH (u:User {uid: 'user_test_victim'}), (e {uid: $uid}) "
-                    "MERGE (u)-[:OWNS]->(e)",
+                    "MATCH (u:User {uid: $victim}), (e {uid: $uid}) MERGE (u)-[:OWNS]->(e)",
                     uid=uid,
+                    victim=VICTIM,
                 )
 
         goal = await goals_service.create_goal(
@@ -421,12 +427,12 @@ class TestGoalHierarchyEdgeRoundTrip:
         success. Not an attack: a deleted Ku still named in a form does this.
         Asserted at the graph, since the return value cannot show it. (Codex, #965.)
         """
-        await _create_node(neo4j_driver, "ku_still_here", "Entity:Ku", "ku", "Systems")
+        await _create_node(neo4j_driver, "ku.still-here", "Entity:Ku", "ku", "Systems")
 
         goal = await goals_service.create_goal(
             goal_request(
                 title="Goal with one stale link",
-                required_knowledge_uids=["ku_deleted_long_ago", "ku_still_here"],
+                required_knowledge_uids=["ku_deleted_long_ago", "ku.still-here"],
             ),
             test_user_uid,
         )
@@ -440,7 +446,7 @@ class TestGoalHierarchyEdgeRoundTrip:
                 )
             ).values()
 
-        assert [row[0] for row in rows] == ["ku_still_here"], (
+        assert [row[0] for row in rows] == ["ku.still-here"], (
             "the live knowledge link was lost — a dangling UID in an all-or-nothing "
             f"batch discards every valid link alongside it. Got: {rows}"
         )
@@ -470,12 +476,12 @@ class TestHabitLinkEdgeRoundTrip:
         self, habits_service, neo4j_driver, test_user_uid
     ) -> None:
         """RED before the fix: every one of these lists was silently discarded."""
-        await _create_node(neo4j_driver, "ku_habit_link_abc", "Entity:Ku", "ku", "Deep Work")
+        await _create_node(neo4j_driver, "ku.habit-link-abc", "Entity:Ku", "ku", "Deep Work")
         await _create_node(
-            neo4j_driver, "principle_habit_link_abc", "Entity:Principle", "principle", "Focus"
+            neo4j_driver, "principle.habit-link-abc", "Entity:Principle", "principle", "Focus"
         )
-        await _create_node(neo4j_driver, "goal_habit_link_abc", "Entity:Goal", "goal", "Ship it")
-        await _create_node(neo4j_driver, "habit_prereq_abc", "Entity:Habit", "habit", "Wake at six")
+        await _create_node(neo4j_driver, "goal.habit-link-abc", "Entity:Goal", "goal", "Ship it")
+        await _create_node(neo4j_driver, "habit.prereq-abc", "Entity:Habit", "habit", "Wake at six")
 
         result = await habits_service.create_habit(
             HabitCreateRequest(
@@ -483,10 +489,10 @@ class TestHabitLinkEdgeRoundTrip:
                 description="Ninety minutes before email",
                 recurrence_pattern=RecurrencePattern.DAILY,
                 target_days_per_week=7,
-                linked_knowledge_uids=["ku_habit_link_abc"],
-                linked_principle_uids=["principle_habit_link_abc"],
-                linked_goal_uids=["goal_habit_link_abc"],
-                prerequisite_habit_uids=["habit_prereq_abc"],
+                linked_knowledge_uids=["ku.habit-link-abc"],
+                linked_principle_uids=["principle.habit-link-abc"],
+                linked_goal_uids=["goal.habit-link-abc"],
+                prerequisite_habit_uids=["habit.prereq-abc"],
             ),
             test_user_uid,
         )
@@ -494,10 +500,10 @@ class TestHabitLinkEdgeRoundTrip:
         habit = result.value
 
         for relationship, target in (
-            (RelationshipName.REINFORCES_KNOWLEDGE, "ku_habit_link_abc"),
-            (RelationshipName.EMBODIES_PRINCIPLE, "principle_habit_link_abc"),
-            (RelationshipName.SUPPORTS_GOAL, "goal_habit_link_abc"),
-            (RelationshipName.REQUIRES_PREREQUISITE_HABIT, "habit_prereq_abc"),
+            (RelationshipName.REINFORCES_KNOWLEDGE, "ku.habit-link-abc"),
+            (RelationshipName.EMBODIES_PRINCIPLE, "principle.habit-link-abc"),
+            (RelationshipName.SUPPORTS_GOAL, "goal.habit-link-abc"),
+            (RelationshipName.REQUIRES_PREREQUISITE_HABIT, "habit.prereq-abc"),
         ):
             # direction="outgoing" is the assertion, not a filter: every one of the
             # four specs is declared outgoing from the habit, so an edge written
@@ -518,14 +524,14 @@ class TestHabitLinkEdgeRoundTrip:
         An unstamped edge is not merely untidy — it disappears from every filtered
         tier read. Pinned against the value ``link_goal_to_habit`` writes by default.
         """
-        await _create_node(neo4j_driver, "goal_essentiality_abc", "Entity:Goal", "goal", "Ship")
+        await _create_node(neo4j_driver, "goal.essentiality-abc", "Entity:Goal", "goal", "Ship")
 
         result = await habits_service.create_habit(
             HabitCreateRequest(
                 title="Weekly review",
                 recurrence_pattern=RecurrencePattern.WEEKLY,
                 target_days_per_week=1,
-                linked_goal_uids=["goal_essentiality_abc"],
+                linked_goal_uids=["goal.essentiality-abc"],
             ),
             test_user_uid,
         )
@@ -537,7 +543,7 @@ class TestHabitLinkEdgeRoundTrip:
                     "MATCH (h {uid: $habit})-[r:SUPPORTS_GOAL]->(g {uid: $goal}) "
                     "RETURN r.essentiality AS essentiality, r.weight AS weight",
                     habit=result.value.uid,
-                    goal="goal_essentiality_abc",
+                    goal="goal.essentiality-abc",
                 )
             ).single()
 
@@ -560,7 +566,7 @@ class TestHabitLinkEdgeRoundTrip:
         from core.models.user.user import User
 
         await _create_node(
-            neo4j_driver, "habit_ctx_prereq_abc", "Entity:Habit", "habit", "Wake at six"
+            neo4j_driver, "habit.ctx-prereq-abc", "Entity:Habit", "habit", "Wake at six"
         )
 
         result = await habits_service.create_habit(
@@ -568,7 +574,7 @@ class TestHabitLinkEdgeRoundTrip:
                 title="Morning run",
                 recurrence_pattern=RecurrencePattern.DAILY,
                 target_days_per_week=7,
-                prerequisite_habit_uids=["habit_ctx_prereq_abc"],
+                prerequisite_habit_uids=["habit.ctx-prereq-abc"],
             ),
             test_user_uid,
         )
@@ -596,7 +602,7 @@ class TestHabitLinkEdgeRoundTrip:
         )
         assert habit_entry is not None, "the newly created habit is absent from entities_rich"
         prereq_uids = [p["uid"] for p in habit_entry["graph_context"]["prerequisites"]]
-        assert "habit_ctx_prereq_abc" in prereq_uids, (
+        assert "habit.ctx-prereq-abc" in prereq_uids, (
             "REQUIRES_PREREQUISITE_HABIT is invisible to the rich context — the rebuild "
             f"HabitCreated triggers would cache empty prerequisites. Got: {prereq_uids}"
         )
@@ -615,23 +621,24 @@ class TestHabitLinkEdgeRoundTrip:
         # Victim-owned goal and principle; a shared Ku with no user_uid at all.
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (g:Entity:Goal {uid: 'goal_victim_owned'}) "
+                "MERGE (g:Entity:Goal {uid: 'goal.victim-owned'}) "
                 "ON CREATE SET g.entity_type = 'goal', g.title = 'Victim goal', "
-                "g.user_uid = 'user_test_victim' "
-                "MERGE (p:Entity:Principle {uid: 'principle_victim_owned'}) "
+                "g.user_uid = $victim "
+                "MERGE (p:Entity:Principle {uid: 'principle.victim-owned'}) "
                 "ON CREATE SET p.entity_type = 'principle', p.title = 'Victim principle', "
-                "p.user_uid = 'user_test_victim'"
+                "p.user_uid = $victim",
+                victim=VICTIM,
             )
-        await _create_node(neo4j_driver, "ku_shared_link", "Entity:Ku", "ku", "Deep Work")
+        await _create_node(neo4j_driver, "ku.shared-link", "Entity:Ku", "ku", "Deep Work")
 
         result = await habits_service.create_habit(
             HabitCreateRequest(
                 title="Mixed links",
                 recurrence_pattern=RecurrencePattern.DAILY,
                 target_days_per_week=7,
-                linked_goal_uids=["goal_victim_owned"],
-                linked_principle_uids=["principle_victim_owned"],
-                linked_knowledge_uids=["ku_shared_link"],
+                linked_goal_uids=["goal.victim-owned"],
+                linked_principle_uids=["principle.victim-owned"],
+                linked_knowledge_uids=["ku.shared-link"],
             ),
             test_user_uid,
         )
@@ -655,7 +662,7 @@ class TestHabitLinkEdgeRoundTrip:
             direction="outgoing",
         )
         assert knowledge.is_ok
-        assert [r["target_uid"] for r in knowledge.value] == ["ku_shared_link"], (
+        assert [r["target_uid"] for r in knowledge.value] == ["ku.shared-link"], (
             "the shared Ku was refused — the ownership rule must let unowned content "
             "through, or it breaks the most common habit link"
         )
@@ -677,7 +684,7 @@ class TestHabitLinkEdgeRoundTrip:
         """
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (t:Entity:Task {uid: 'task_not_a_habit'}) "
+                "MERGE (t:Entity:Task {uid: 'task.not-a-habit'}) "
                 "ON CREATE SET t.entity_type = 'task', t.title = 'Not a habit', "
                 "t.user_uid = $user",
                 user=test_user_uid,
@@ -688,7 +695,7 @@ class TestHabitLinkEdgeRoundTrip:
                 title="Habit with a bogus prerequisite",
                 recurrence_pattern=RecurrencePattern.DAILY,
                 target_days_per_week=7,
-                prerequisite_habit_uids=["task_not_a_habit"],
+                prerequisite_habit_uids=["task.not-a-habit"],
             ),
             test_user_uid,
         )

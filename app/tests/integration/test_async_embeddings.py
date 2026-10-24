@@ -29,6 +29,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 from core.utils.embedding_text_builder import build_embedding_text
+from tests.helpers.seed_uids import seed_user_uid
 
 
 class TestTaskEmbeddingEvents:
@@ -204,7 +205,7 @@ class TestEmbeddingTextExtraction:
 
         task = Task(
             uid="task.test",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             title="Learn Python",
             description="Study async/await patterns",
             priority="medium",
@@ -226,7 +227,7 @@ class TestEmbeddingTextExtraction:
 
         task = Task(
             uid="task.test",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             title="Buy groceries",
             description=None,
             priority="low",
@@ -323,7 +324,7 @@ class TestGoalEmbeddingTextExtraction:
 
         goal = Goal(
             uid="goal.test",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             title="Learn Machine Learning",
             description="Study ML algorithms and frameworks",
             vision_statement="Deploy AI models to production",
@@ -346,7 +347,7 @@ class TestGoalEmbeddingTextExtraction:
 
         goal = Goal(
             uid="goal.test",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             title="Get fit",
             description=None,
             vision_statement=None,

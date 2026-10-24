@@ -36,32 +36,33 @@ from core.models.type_hints import UserUID
 from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 from core.ports.query_types import ReviewQueueItem
 from core.services.report.teacher_review_service import TeacherReviewService
+from tests.helpers.seed_uids import seed_user_uid
 
-TEACHER = "user_qcc_teacher"
-OTHER_TEACHER = "user_qcc_other_teacher"
-STUDENT_1 = "user_qcc_student_1"
-STUDENT_2 = "user_qcc_student_2"
-GROUP_UID = "group_qcc"
-OTHER_GROUP_UID = "group_qcc_other"
-INACTIVE_GROUP_UID = "group_qcc_inactive"  # owned by TEACHER, deactivated
+TEACHER = seed_user_uid("qcc_teacher")
+OTHER_TEACHER = seed_user_uid("qcc_other_teacher")
+STUDENT_1 = seed_user_uid("qcc_student_1")
+STUDENT_2 = seed_user_uid("qcc_student_2")
+GROUP_UID = "group.qcc"
+OTHER_GROUP_UID = "group.qcc-other"
+INACTIVE_GROUP_UID = "group.qcc-inactive"  # owned by TEACHER, deactivated
 
-EX_1 = "ex_qcc_one"
-EX_2 = "ex_qcc_two"
-EX_3 = "ex_qcc_three"
+EX_1 = "ex.qcc-one"
+EX_2 = "ex.qcc-two"
+EX_3 = "ex.qcc-three"
 
-S1_REV1 = "ue_qcc_s1_rev1"  # superseded by S1_REV2 — must NOT queue
-S1_REV2 = "ue_qcc_s1_rev2"  # newest TEACHER-REVIEW copy, pending — must queue
-S1_AI = "ue_qcc_s1_ai"  # newer PRIVATE llm_summary entry — must not retire S1_REV2
-S1_LONE = "ue_qcc_s1_lone"  # no exercise anchor — no lineage, must queue
-S2_EX1 = "ue_qcc_s2_ex1"  # other student, same exercise — own lineage, must queue
-S2_EX1_OTHER = "ue_qcc_s2_ex1_other"  # rev 2 shared ONLY with the other classroom
-S2_EX2_REV1 = "ue_qcc_s2_ex2_rev1"  # superseded by a REVIEWED rev 2 — must NOT queue
-S2_EX2_REV2 = "ue_qcc_s2_ex2_rev2"  # completed — not pending, not queued
-S1_EX2_REV1 = "ue_qcc_s1_ex2_rev1"  # active-group share, pending — must queue
-S1_EX2_REV2 = "ue_qcc_s1_ex2_rev2"  # shared ONLY with the deactivated group
-S1_EX3_WAIT = "ue_qcc_s1_ex3_wait"  # revision requested, no resubmit — waiting
-S2_EX3_REV1 = "ue_qcc_s2_ex3_rev1"  # revision requested, then resubmitted — history
-S2_EX3_REV2 = "ue_qcc_s2_ex3_rev2"  # the resubmit — back in Needs review
+S1_REV1 = "ue.qcc-s1-rev1"  # superseded by S1_REV2 — must NOT queue
+S1_REV2 = "ue.qcc-s1-rev2"  # newest TEACHER-REVIEW copy, pending — must queue
+S1_AI = "ue.qcc-s1-ai"  # newer PRIVATE llm_summary entry — must not retire S1_REV2
+S1_LONE = "ue.qcc-s1-lone"  # no exercise anchor — no lineage, must queue
+S2_EX1 = "ue.qcc-s2-ex1"  # other student, same exercise — own lineage, must queue
+S2_EX1_OTHER = "ue.qcc-s2-ex1-other"  # rev 2 shared ONLY with the other classroom
+S2_EX2_REV1 = "ue.qcc-s2-ex2-rev1"  # superseded by a REVIEWED rev 2 — must NOT queue
+S2_EX2_REV2 = "ue.qcc-s2-ex2-rev2"  # completed — not pending, not queued
+S1_EX2_REV1 = "ue.qcc-s1-ex2-rev1"  # active-group share, pending — must queue
+S1_EX2_REV2 = "ue.qcc-s1-ex2-rev2"  # shared ONLY with the deactivated group
+S1_EX3_WAIT = "ue.qcc-s1-ex3-wait"  # revision requested, no resubmit — waiting
+S2_EX3_REV1 = "ue.qcc-s2-ex3-rev1"  # revision requested, then resubmitted — history
+S2_EX3_REV2 = "ue.qcc-s2-ex3-rev2"  # the resubmit — back in Needs review
 
 
 @pytest.fixture
@@ -542,11 +543,11 @@ class TestStudentPageAgreesWithQueue:
 
 NOTE_A = "ue.vault.qcc-note-a"
 NOTE_B = "ue.vault.qcc-note-b"
-S1_NOTE_A_V1 = "ue_qcc_s1_note_a_v1"  # superseded by S1_NOTE_A_V2 — must NOT queue
-S1_NOTE_A_V2 = "ue_qcc_s1_note_a_v2"  # the note's newest request — must queue
-S1_NOTE_A_SHARE = "ue_qcc_s1_note_a_share"  # a newer share-only copy — supersedes nothing
-S1_NOTE_B = "ue_qcc_s1_note_b"  # another note — its own lineage, must queue
-S2_NOTE_A = "ue_qcc_s2_note_a"  # another student, same provenance string — must queue
+S1_NOTE_A_V1 = "ue.qcc-s1-note-a-v1"  # superseded by S1_NOTE_A_V2 — must NOT queue
+S1_NOTE_A_V2 = "ue.qcc-s1-note-a-v2"  # the note's newest request — must queue
+S1_NOTE_A_SHARE = "ue.qcc-s1-note-a-share"  # a newer share-only copy — supersedes nothing
+S1_NOTE_B = "ue.qcc-s1-note-b"  # another note — its own lineage, must queue
+S2_NOTE_A = "ue.qcc-s2-note-a"  # another student, same provenance string — must queue
 
 
 @pytest.fixture
@@ -659,8 +660,8 @@ class TestNoteLineageCollapse:
 # One row per entry across a teacher's classes
 # ----------------------------------------------------------------------------
 
-SECOND_GROUP_UID = "group_qcc_second"  # TEACHER's second class; STUDENT_1 is in both
-S1_NONE_SUBMITTED = "ue_qcc_s1_none_submitted"  # a feedback-request edge on a non-review entry
+SECOND_GROUP_UID = "group.qcc-second"  # TEACHER's second class; STUDENT_1 is in both
+S1_NONE_SUBMITTED = "ue.qcc-s1-none-submitted"  # a feedback-request edge on a non-review entry
 
 
 @pytest.fixture

@@ -18,6 +18,7 @@ from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from core.models.entity import Entity
 from core.models.enums.neo_labels import NeoLabel
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.fixture
@@ -29,14 +30,14 @@ async def sharing_service(neo4j_driver):
 @pytest.fixture
 async def curriculum_group_fixture(neo4j_driver):
     """Create a teacher-owned group + one exercise, path_step, learning_path."""
-    teacher_uid = "test_unified_sharing_teacher"
-    student_uid = "test_unified_sharing_student"
-    group_uid = "group_unified_sharing_test"
+    teacher_uid = seed_user_uid("test_unified_sharing_teacher")
+    student_uid = seed_user_uid("test_unified_sharing_student")
+    group_uid = "group.unified-sharing-test"
 
     entities = {
-        "exercise": "ex_unified_sharing_test",
-        "path_step": "ps_unified_sharing_test",
-        "learning_path": "lp_unified_sharing_test",
+        "exercise": "ex.unified-sharing-test",
+        "path_step": "ps.unified-sharing-test",
+        "learning_path": "lp.unified-sharing-test",
     }
 
     # Create users, group, and curriculum entities authored by the teacher
@@ -209,10 +210,10 @@ async def test_share_with_group_rejects_non_member_non_owner(
     """A user who neither OWNS nor is MEMBER_OF the group cannot share into it,
     and the Cypher guard leaves the graph untouched."""
     ctx = curriculum_group_fixture
-    stranger_uid = "test_unified_sharing_stranger"
+    stranger_uid = seed_user_uid("test_unified_sharing_stranger")
 
     # Stranger user + their own entity (so the ownership check passes)
-    stranger_entity_uid = "ue_stranger_attempt"
+    stranger_entity_uid = "ue.stranger-attempt"
     await neo4j_driver.execute_query(
         """
         MERGE (u:User {uid: $user_uid})
@@ -300,7 +301,7 @@ async def test_share_entity_owned_via_owns_edge_only(
     auto-share silently fails ("Entity not found" on a node that exists)."""
     ctx = curriculum_group_fixture
     teacher_uid = ctx["teacher_uid"]
-    entity_uid = "ex_owns_edge_only_test"
+    entity_uid = "ex.owns-edge-only-test"
 
     await neo4j_driver.execute_query(
         """
@@ -350,7 +351,7 @@ async def test_share_owns_edge_ownership_mismatch_still_rejected(
     """The :OWNS fallback must not weaken the check: an entity owned (via edge)
     by someone else is still not_found for the requesting user."""
     ctx = curriculum_group_fixture
-    entity_uid = "ex_owns_edge_mismatch_test"
+    entity_uid = "ex.owns-edge-mismatch-test"
 
     await neo4j_driver.execute_query(
         """
@@ -391,7 +392,7 @@ async def test_share_entity_owner_uid_property_without_owns_edge(
     otherwise the same node passes CRUD ownership but fails sharing."""
     ctx = curriculum_group_fixture
     teacher_uid = ctx["teacher_uid"]
-    entity_uid = "ex_owner_prop_no_edge_test"
+    entity_uid = "ex.owner-prop-no-edge-test"
 
     await neo4j_driver.execute_query(
         """

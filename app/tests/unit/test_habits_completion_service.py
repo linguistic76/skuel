@@ -16,6 +16,7 @@ from datetime import date, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
+import time_machine
 
 from core.constants import QueryLimit
 from core.models.enums import Priority, RecurrencePattern
@@ -163,6 +164,31 @@ class TestRecordCompletion:
         # Verify habits backend was called (implementation may call get multiple times)
         mock_habits_backend.get.assert_called_with("habit.test.1")
         mock_completions_backend.create.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_backfills_recorded_together_are_two_completions(
+        self, completion_service, mock_habits_backend, mock_completions_backend, sample_habit
+    ):
+        """A completion's uid comes from when the habit was completed, not when it was recorded.
+
+        Two backfilled days recorded in the same second are two completions. One uid
+        for both is a second node HabitCompletion's uid uniqueness constraint refuses.
+        """
+        mock_habits_backend.get.return_value = Result.ok(sample_habit)
+        mock_completions_backend.create.side_effect = lambda entity: Result.ok(entity)
+        mock_habits_backend.update.return_value = Result.ok(sample_habit)
+
+        with time_machine.travel(datetime(2026, 10, 24, 12), tick=False):
+            for days_ago in (2, 1):
+                recorded = await completion_service.record_completion(
+                    habit_uid=sample_habit.uid,
+                    user_uid="user_mike",
+                    completed_at=datetime(2026, 10, 24, 9) - timedelta(days=days_ago),
+                )
+                assert recorded.is_ok, recorded
+
+        persisted = {call.args[0].uid for call in mock_completions_backend.create.await_args_list}
+        assert len(persisted) == 2, persisted
 
     @pytest.mark.asyncio
     async def test_record_completion_with_quality(

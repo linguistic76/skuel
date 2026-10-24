@@ -28,6 +28,8 @@ from core.models.enums import Domain, Priority
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus
 from core.services.choices.choices_core_service import ChoicesCoreService
+from core.utils.uid_grammar import slugify
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -54,7 +56,7 @@ class TestChoicesCoreOperations:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user_test_choices_core"
+        return seed_user_uid("test_choices_core")
 
     @pytest_asyncio.fixture
     async def sample_options(self):
@@ -84,7 +86,7 @@ class TestChoicesCoreOperations:
         """Test creating a new choice."""
         # Arrange
         choice = Choice(
-            uid="choice.tech_stack",
+            uid="choice.tech-stack",
             title="Choose Primary Tech Stack",
             description="Select primary programming language to focus on",
             user_uid=test_user_uid,
@@ -101,7 +103,7 @@ class TestChoicesCoreOperations:
         # Assert
         assert result.is_ok
         created_choice = result.value
-        assert created_choice.uid == "choice.tech_stack"
+        assert created_choice.uid == "choice.tech-stack"
         assert created_choice.title == "Choose Primary Tech Stack"
         assert created_choice.status == EntityStatus.DRAFT
         assert len(created_choice.options) == 2
@@ -110,7 +112,7 @@ class TestChoicesCoreOperations:
         """Test retrieving a choice by UID."""
         # Arrange - Create a choice first
         choice = Choice(
-            uid="choice.get_test",
+            uid="choice.get-test",
             title="Test Choice",
             description="Test choice for retrieval",
             user_uid=test_user_uid,
@@ -120,12 +122,12 @@ class TestChoicesCoreOperations:
         assert create_result.is_ok
 
         # Act - Retrieve the choice
-        result = await choices_service.get("choice.get_test")
+        result = await choices_service.get("choice.get-test")
 
         # Assert
         assert result.is_ok
         retrieved_choice = result.value
-        assert retrieved_choice.uid == "choice.get_test"
+        assert retrieved_choice.uid == "choice.get-test"
         assert retrieved_choice.title == "Test Choice"
 
     async def test_get_nonexistent_choice(self, choices_service):
@@ -142,7 +144,7 @@ class TestChoicesCoreOperations:
         # Arrange - Create multiple choices
         choices = [
             Choice(
-                uid=f"choice.list_test_{i}",
+                uid=f"choice.list-test-{i}",
                 title=f"Choice {i}",
                 description=f"Test choice {i}",
                 user_uid=test_user_uid,
@@ -210,7 +212,7 @@ class TestChoicesCoreOperations:
         choices = []
         for i in range(5):
             choice = Choice(
-                uid=f"choice.multi_{i}",
+                uid=f"choice.multi-{i}",
                 title=f"Multiple Choice {i}",
                 description=f"Choice number {i}",
                 user_uid=test_user_uid,
@@ -232,7 +234,7 @@ class TestChoicesCoreOperations:
         priorities = [Priority.LOW, Priority.MEDIUM, Priority.HIGH]
         for priority in priorities:
             choice = Choice(
-                uid=f"choice.priority_{priority.value}",
+                uid=f"choice.priority-{slugify(priority.value)}",
                 title=f"{priority.value.capitalize()} Priority Choice",
                 description=f"Choice with {priority.value} priority",
                 user_uid=test_user_uid,
@@ -249,7 +251,7 @@ class TestChoicesCoreOperations:
         domains = [Domain.TECH, Domain.PERSONAL, Domain.BUSINESS, Domain.HEALTH]
         for domain in domains:
             choice = Choice(
-                uid=f"choice.domain_{domain.value}",
+                uid=f"choice.domain-{slugify(domain.value)}",
                 title=f"{domain.value.capitalize()} Choice",
                 description=f"Choice in {domain.value} domain",
                 user_uid=test_user_uid,
@@ -266,7 +268,7 @@ class TestChoicesCoreOperations:
         """Test creating a choice with decision criteria."""
         # Arrange
         choice = Choice(
-            uid="choice.with_criteria",
+            uid="choice.with-criteria",
             title="Choice with Criteria",
             description="Choice that has decision criteria",
             user_uid=test_user_uid,
@@ -290,7 +292,7 @@ class TestChoicesCoreOperations:
         """Test creating a choice with inspiration/possibility fields."""
         # Arrange
         choice = Choice(
-            uid="choice.career_pivot",
+            uid="choice.career-pivot",
             title="Career Pivot Decision",
             description="Becoming a lead software architect in 5 years",
             user_uid=test_user_uid,

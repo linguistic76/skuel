@@ -24,6 +24,7 @@ from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.events import TaskUpdated
 from core.models.relationship_names import RelationshipName
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
     published,
@@ -47,8 +48,8 @@ pytestmark = [
 ]
 
 MARK = "zzztaskprin"
-CALLER = f"user_{MARK}"
-OTHER = f"user_{MARK}_other"
+CALLER = seed_user_uid(f"{MARK}")
+OTHER = seed_user_uid(f"{MARK}_other")
 
 ALIGNED_WITH_PRINCIPLE = RelationshipName.ALIGNED_WITH_PRINCIPLE.value
 

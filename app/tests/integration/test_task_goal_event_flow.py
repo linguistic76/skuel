@@ -42,8 +42,9 @@ from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
-_USER_UID = "user_test_task_goal_flow"
+_USER_UID = seed_user_uid("test_task_goal_flow")
 
 
 @pytest.mark.asyncio
@@ -136,7 +137,7 @@ class TestTaskGoalEventFlow:
         """Completing a linked task publishes GoalProgressUpdated for its goal."""
         goal = await self._create_goal(goals_backend, "goal.flow", MeasurementType.TASK_BASED)
         tasks = [
-            await self._create_task(tasks_service, f"task.flow_{i}", goal.uid) for i in (1, 2, 3)
+            await self._create_task(tasks_service, f"task.flow-{i}", goal.uid) for i in (1, 2, 3)
         ]
 
         await self._complete(tasks_service, tasks[0].uid)
@@ -152,7 +153,7 @@ class TestTaskGoalEventFlow:
         """1 of 3 → ~33%; 2 of 3 → ~67%."""
         goal = await self._create_goal(goals_backend, "goal.calc", MeasurementType.TASK_BASED)
         tasks = [
-            await self._create_task(tasks_service, f"task.calc_{i}", goal.uid) for i in (1, 2, 3)
+            await self._create_task(tasks_service, f"task.calc-{i}", goal.uid) for i in (1, 2, 3)
         ]
 
         await self._complete(tasks_service, tasks[0].uid)
@@ -169,7 +170,7 @@ class TestTaskGoalEventFlow:
         """Completing every linked task achieves the goal, announced once."""
         goal = await self._create_goal(goals_backend, "goal.all", MeasurementType.TASK_BASED)
         tasks = [
-            await self._create_task(tasks_service, f"task.all_{i}", goal.uid) for i in (1, 2, 3)
+            await self._create_task(tasks_service, f"task.all-{i}", goal.uid) for i in (1, 2, 3)
         ]
 
         for task in tasks:
@@ -209,7 +210,7 @@ class TestTaskGoalEventFlow:
         """A MIXED goal is not recomputed from its task tally — completions leave it alone."""
         goal = await self._create_goal(goals_backend, "goal.mixed", MeasurementType.MIXED)
         tasks = [
-            await self._create_task(tasks_service, f"task.mixed_{i}", goal.uid) for i in (1, 2)
+            await self._create_task(tasks_service, f"task.mixed-{i}", goal.uid) for i in (1, 2)
         ]
 
         for task in tasks:
@@ -227,10 +228,10 @@ class TestTaskGoalEventFlow:
         self, event_bus, goals_progress_service, goals_backend, tasks_service
     ):
         """One task, two goals: its completion recomputes both."""
-        first = await self._create_goal(goals_backend, "goal.fan_a", MeasurementType.TASK_BASED)
-        second = await self._create_goal(goals_backend, "goal.fan_b", MeasurementType.TASK_BASED)
-        shared = await self._create_task(tasks_service, "task.fan_shared", first.uid, second.uid)
-        await self._create_task(tasks_service, "task.fan_b_only", second.uid)
+        first = await self._create_goal(goals_backend, "goal.fan-a", MeasurementType.TASK_BASED)
+        second = await self._create_goal(goals_backend, "goal.fan-b", MeasurementType.TASK_BASED)
+        shared = await self._create_task(tasks_service, "task.fan-shared", first.uid, second.uid)
+        await self._create_task(tasks_service, "task.fan-b-only", second.uid)
 
         await self._complete(tasks_service, shared.uid)
 
@@ -243,7 +244,7 @@ class TestTaskGoalEventFlow:
     ):
         """A redelivered GoalContributionsChanged does not announce the achievement twice."""
         goal = await self._create_goal(goals_backend, "goal.single", MeasurementType.TASK_BASED)
-        task = await self._create_task(tasks_service, "task.only_one", goal.uid)
+        task = await self._create_task(tasks_service, "task.only-one", goal.uid)
 
         await self._complete(tasks_service, task.uid)
         # Redeliver the event the completion published — the door itself never republishes.
@@ -259,12 +260,12 @@ class TestTaskGoalEventFlow:
         """PROJECT goals are filtered by measurement_type like any other: 1/4 → 25% … 100%."""
         goal = await self._create_goal(
             goals_backend,
-            "goal.api_project",
+            "goal.api-project",
             MeasurementType.TASK_BASED,
             goal_type=GoalType.PROJECT,
         )
         tasks = [
-            await self._create_task(tasks_service, f"task.api_{i}", goal.uid) for i in (1, 2, 3, 4)
+            await self._create_task(tasks_service, f"task.api-{i}", goal.uid) for i in (1, 2, 3, 4)
         ]
 
         await self._complete(tasks_service, tasks[0].uid)
@@ -311,8 +312,8 @@ class TestTaskGoalRecomputeUnderTheGoalLock:
 
         flow = TestTaskGoalEventFlow()
         goal = await flow._create_goal(goals_backend, "goal.race", MeasurementType.TASK_BASED)
-        first = await flow._create_task(tasks_service, "task.race_1", goal.uid)
-        second = await flow._create_task(tasks_service, "task.race_2", goal.uid)
+        first = await flow._create_task(tasks_service, "task.race-1", goal.uid)
+        second = await flow._create_task(tasks_service, "task.race-2", goal.uid)
         await flow._complete(tasks_service, first.uid)
 
         async with neo4j_driver.session() as session:

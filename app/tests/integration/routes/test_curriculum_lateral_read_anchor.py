@@ -29,11 +29,12 @@ import pytest_asyncio
 from neo4j import AsyncDriver
 
 from tests.helpers.lateral_routes_client import lateral_client, without_timestamp
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-MEMBER = "user_f4b_member"
-OTHER = "user_f4b_other"  # owns the private tasks; never signs in
+MEMBER = seed_user_uid("f4b_member")
+OTHER = seed_user_uid("f4b_other")  # owns the private tasks; never signs in
 
 KU_PARENT = "ku.f4b.parent"
 KU_A = "ku.f4b.a"
@@ -41,10 +42,10 @@ KU_B = "ku.f4b.b"
 KU_DRAFT = "ku.f4b.draft"
 PS_A = "ps.f4b.a"
 LP_A = "lp.f4b.a"
-PRIVATE_TASK = "task_f4b_private"
-PRIVATE_BLOCKER = "task_f4b_private_blocker"
-PRIVATE_ALT = "task_f4b_private_alt"
-MEMBER_TASK = "task_f4b_member"
+PRIVATE_TASK = "task.f4b-private"
+PRIVATE_BLOCKER = "task.f4b-private-blocker"
+PRIVATE_ALT = "task.f4b-private-alt"
+MEMBER_TASK = "task.f4b-member"
 MISSING = "ku.f4b.missing"
 _ALL_UIDS = [
     KU_PARENT,

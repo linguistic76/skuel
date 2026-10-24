@@ -36,6 +36,7 @@ from core.models.enums.entity_enums import EntityType
 from core.services.ingestion.config import ENTITY_CONFIGS
 from core.services.ingestion.types import IncrementalStats
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -45,7 +46,7 @@ KU_UID = "ku.nodewrite-reporting"
 EXISTING_TASK = "task.nodewrite-existing"
 NEW_TASK = "task.nodewrite-new"
 FOREIGN_TASK = "task.nodewrite-foreign"
-OTHER_OWNER = "user_test_123"  # seeded by the ensure_test_users fixture
+OTHER_OWNER = seed_user_uid("test_123")  # seeded by the ensure_test_users fixture
 
 _FIXTURE_UIDS = [KU_UID, EXISTING_TASK, NEW_TASK, FOREIGN_TASK]
 

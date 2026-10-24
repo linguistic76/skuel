@@ -61,11 +61,11 @@ Fixtures that seed data for the app (`populated_test_data`, `enrolled_user_with_
 
 | Fixture | Scope | Provides |
 |---------|-------|----------|
-| `ensure_test_users` | session | `MERGE`s every `:User` uid the tier's tests use (`user_test`, `user_test_integration`, `user_mike`, the per-flow `user_test_*` uids, …) plus the owner the run ingests as, `INGESTION_TEST_OWNER` (`tests/helpers/ingestion_owner.py`): `tests/conftest.py` sets `SKUEL_DEFAULT_USER_UID` to it, and the tests that build the ingestion service pass it (or an owner of their own), so the owner never differs by machine |
-| `create_moc_test_user` | session | `user_test_integration` with the properties the MOC tests read |
+| `ensure_test_users` | session | `MERGE`s every `:User` uid the tier's tests use — each `seed_user_uid(name)` (`tests/helpers/seed_uids.py`: `"test"`, `"test_integration"`, `"mike"`, the per-flow `"test_*"` names, …) — plus the owner the run ingests as, `INGESTION_TEST_OWNER` (`tests/helpers/ingestion_owner.py`): `tests/conftest.py` sets `SKUEL_DEFAULT_USER_UID` to it, and the tests that build the ingestion service pass it (or an owner of their own), so the owner never differs by machine |
+| `create_moc_test_user` | session | `seed_user_uid("test_integration")` with the properties the MOC tests read |
 | `clean_neo4j` | function | Depends on `neo4j_driver`, `create_moc_test_user`, `ensure_test_users`. Before AND after the test: `MATCH (n) WHERE NOT n:User AND NOT n:MigrationRecord DETACH DELETE n`; then creates the `entity_embedding_idx` vector index (1024-dim cosine on `:Entity(embedding)`) the semantic-search tests need |
 | `test_user` | function | A `User` domain model (for tests that read `test_user.uid` etc.) |
-| `user_uid` | function | The string `"user_test_async_embeddings"` — there is no `test_user_uid` fixture |
+| `user_uid` | function | `seed_user_uid("test_async_embeddings")` — there is no `test_user_uid` fixture |
 
 **A test that creates or ingests an owned entity MUST depend on `ensure_test_users`** (directly, or through `clean_neo4j`). The `:OWNS` write doors refuse an owner with no `:User` node rather than leaving a property-only orphan (ADR-086) — the CRUD door aborts the write, the bulk ingestion door refuses the batch. The failure names the missing owner, so the fix is normally "add the uid" — except for the ingestion fallback owner above, which must be resolved rather than spelled.
 
@@ -101,10 +101,10 @@ async def test_cross_domain_flow(services, clean_neo4j):
 ```python
 # create_relationship(from_uid, from_label, to_uid, to_label, rel_type, properties=None)
 #   MERGEs both endpoints by label + uid, then CREATEs the edge with the properties
-await create_relationship("task_x_000001", "Task", "ku.python.basics", "Ku", "APPLIES_KNOWLEDGE", {"confidence": 0.9})
+await create_relationship("task.x", "Task", "ku.python.basics", "Ku", "APPLIES_KNOWLEDGE", {"confidence": 0.9})
 
 # count_relationships(uid, rel_type) -> int  (an UNLABELED uid match — a scan, fine at test size)
-assert await count_relationships("task_x_000001", "APPLIES_KNOWLEDGE") == 1
+assert await count_relationships("task.x", "APPLIES_KNOWLEDGE") == 1
 ```
 
 Both take the shared `neo4j_driver`. For a RelationshipName-typed round-trip prefer the backend's own `add_relationship` / `get_relationships` (the guard-test shape in SKILL.md).
@@ -166,7 +166,7 @@ def neo4j_container(): ...
 # GOOD - fixture just provides a value
 @pytest.fixture
 def sample_task():
-    return Task(uid="task_sample_000001", title="Test Task", user_uid="user_test")
+    return Task(uid="task.sample", title="Test Task", user_uid=seed_user_uid("test"))
 
 # BAD - fixture writes state (and `await` in a sync fixture is a SyntaxError anyway)
 @pytest.fixture

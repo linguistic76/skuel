@@ -19,6 +19,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -47,8 +48,8 @@ class TestRelationshipMetadataOperations:
     async def test_get_metadata_nonexistent_relationship(self, tasks_backend):
         """Test getting metadata for non-existent relationship returns None."""
         result = await tasks_backend.get_relationship_metadata(
-            from_uid="task:nonexistent",
-            to_uid="ku:nonexistent",
+            from_uid="task.nonexistent",
+            to_uid="ku.nonexistent",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         assert result.is_ok
@@ -58,7 +59,7 @@ class TestRelationshipMetadataOperations:
         """Test getting metadata from relationship with properties."""
         # Create knowledge unit first
         ku = Curriculum(
-            uid="ku:python",
+            uid="ku.python",
             title="Python",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
@@ -68,10 +69,10 @@ class TestRelationshipMetadataOperations:
 
         # Create a task
         task = Task(
-            uid="task:metadata_test",
+            uid="task.metadata-test",
             title="Test Metadata",
             description="Test getting metadata",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.MEDIUM,
             status=EntityStatus.DRAFT,
         )
@@ -85,14 +86,14 @@ class TestRelationshipMetadataOperations:
             "created_at": datetime.now().isoformat(),
         }
         create_rel_result = await tasks_backend.create_relationships_batch(
-            [("task:metadata_test", "ku:python", "APPLIES_KNOWLEDGE", properties)]
+            [("task.metadata-test", "ku.python", "APPLIES_KNOWLEDGE", properties)]
         )
         assert create_rel_result.is_ok
 
         # Get metadata (methods use enums)
         metadata_result = await tasks_backend.get_relationship_metadata(
-            from_uid="task:metadata_test",
-            to_uid="ku:python",
+            from_uid="task.metadata-test",
+            to_uid="ku.python",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         assert metadata_result.is_ok
@@ -107,8 +108,8 @@ class TestRelationshipMetadataOperations:
     async def test_update_properties_nonexistent_relationship(self, tasks_backend):
         """Test updating properties on non-existent relationship fails."""
         result = await tasks_backend.update_relationship_properties(
-            from_uid="task:nonexistent",
-            to_uid="ku:nonexistent",
+            from_uid="task.nonexistent",
+            to_uid="ku.nonexistent",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             properties={"confidence": 0.9},
         )
@@ -118,8 +119,8 @@ class TestRelationshipMetadataOperations:
     async def test_update_properties_empty_dict(self, tasks_backend):
         """Test updating with empty properties dict succeeds (no-op)."""
         result = await tasks_backend.update_relationship_properties(
-            from_uid="task:any",
-            to_uid="ku:any",
+            from_uid="task.any",
+            to_uid="ku.any",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             properties={},
         )
@@ -130,7 +131,7 @@ class TestRelationshipMetadataOperations:
         """Test updating a single property preserves others."""
         # Create knowledge unit first
         ku = Curriculum(
-            uid="ku:algorithms",
+            uid="ku.algorithms",
             title="Algorithms",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
@@ -140,10 +141,10 @@ class TestRelationshipMetadataOperations:
 
         # Create task (HIGH priority requires due_date)
         task = Task(
-            uid="task:update_single",
+            uid="task.update-single",
             title="Test Update Single",
             description="Test single property update",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.HIGH,
             due_date=date.today(),
             status=EntityStatus.ACTIVE,
@@ -154,14 +155,14 @@ class TestRelationshipMetadataOperations:
         # Create relationship with multiple properties (tuples use strings)
         initial_props = {"confidence": 0.8, "strength": 1.5, "weight": 10}
         create_rel_result = await tasks_backend.create_relationships_batch(
-            [("task:update_single", "ku:algorithms", "APPLIES_KNOWLEDGE", initial_props)]
+            [("task.update-single", "ku.algorithms", "APPLIES_KNOWLEDGE", initial_props)]
         )
         assert create_rel_result.is_ok
 
         # Update only confidence (methods use enums)
         update_result = await tasks_backend.update_relationship_properties(
-            from_uid="task:update_single",
-            to_uid="ku:algorithms",
+            from_uid="task.update-single",
+            to_uid="ku.algorithms",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             properties={"confidence": 0.95},
         )
@@ -169,8 +170,8 @@ class TestRelationshipMetadataOperations:
 
         # Get metadata and verify
         metadata_result = await tasks_backend.get_relationship_metadata(
-            from_uid="task:update_single",
-            to_uid="ku:algorithms",
+            from_uid="task.update-single",
+            to_uid="ku.algorithms",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         assert metadata_result.is_ok
@@ -185,7 +186,7 @@ class TestRelationshipMetadataOperations:
         """Test updating multiple properties at once."""
         # Create knowledge unit first
         ku = Curriculum(
-            uid="ku:databases",
+            uid="ku.databases",
             title="Databases",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
@@ -195,10 +196,10 @@ class TestRelationshipMetadataOperations:
 
         # Create task
         task = Task(
-            uid="task:update_multiple",
+            uid="task.update-multiple",
             title="Test Update Multiple",
             description="Test multiple property updates",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.LOW,
             status=EntityStatus.DRAFT,
         )
@@ -213,15 +214,15 @@ class TestRelationshipMetadataOperations:
             "last_updated": "2025-01-01",
         }
         create_rel_result = await tasks_backend.create_relationships_batch(
-            [("task:update_multiple", "ku:databases", "REQUIRES_KNOWLEDGE", initial_props)]
+            [("task.update-multiple", "ku.databases", "REQUIRES_KNOWLEDGE", initial_props)]
         )
         assert create_rel_result.is_ok
 
         # Update multiple properties (methods use enums)
         now = datetime.now().isoformat()
         update_result = await tasks_backend.update_relationship_properties(
-            from_uid="task:update_multiple",
-            to_uid="ku:databases",
+            from_uid="task.update-multiple",
+            to_uid="ku.databases",
             relationship_type=RelationshipName.REQUIRES_KNOWLEDGE,
             properties={
                 "confidence": 0.9,
@@ -233,8 +234,8 @@ class TestRelationshipMetadataOperations:
 
         # Get metadata and verify
         metadata_result = await tasks_backend.get_relationship_metadata(
-            from_uid="task:update_multiple",
-            to_uid="ku:databases",
+            from_uid="task.update-multiple",
+            to_uid="ku.databases",
             relationship_type=RelationshipName.REQUIRES_KNOWLEDGE,
         )
         assert metadata_result.is_ok
@@ -251,7 +252,7 @@ class TestRelationshipMetadataOperations:
         """Test adding new properties to relationship that didn't have them."""
         # Create knowledge unit first
         ku = Curriculum(
-            uid="ku:testing",
+            uid="ku.testing",
             title="Testing",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
@@ -261,10 +262,10 @@ class TestRelationshipMetadataOperations:
 
         # Create task
         task = Task(
-            uid="task:add_props",
+            uid="task.add-props",
             title="Test Add Properties",
             description="Test adding new properties",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.MEDIUM,
             status=EntityStatus.ACTIVE,
         )
@@ -273,14 +274,14 @@ class TestRelationshipMetadataOperations:
 
         # Create relationship with minimal properties (tuples use strings)
         create_rel_result = await tasks_backend.create_relationships_batch(
-            [("task:add_props", "ku:testing", "APPLIES_KNOWLEDGE", {"confidence": 0.7})]
+            [("task.add-props", "ku.testing", "APPLIES_KNOWLEDGE", {"confidence": 0.7})]
         )
         assert create_rel_result.is_ok
 
         # Add new properties (methods use enums)
         update_result = await tasks_backend.update_relationship_properties(
-            from_uid="task:add_props",
-            to_uid="ku:testing",
+            from_uid="task.add-props",
+            to_uid="ku.testing",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             properties={
                 "new_field": "new_value",
@@ -292,8 +293,8 @@ class TestRelationshipMetadataOperations:
 
         # Get metadata and verify
         metadata_result = await tasks_backend.get_relationship_metadata(
-            from_uid="task:add_props",
-            to_uid="ku:testing",
+            from_uid="task.add-props",
+            to_uid="ku.testing",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         assert metadata_result.is_ok
@@ -310,7 +311,7 @@ class TestRelationshipMetadataOperations:
         """Test common pattern: get, increment, update."""
         # Create knowledge unit first
         ku = Curriculum(
-            uid="ku:patterns",
+            uid="ku.patterns",
             title="Patterns",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
@@ -320,10 +321,10 @@ class TestRelationshipMetadataOperations:
 
         # Create task
         task = Task(
-            uid="task:counter",
+            uid="task.counter",
             title="Test Counter",
             description="Test counter increment pattern",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.MEDIUM,
             status=EntityStatus.ACTIVE,
         )
@@ -332,7 +333,7 @@ class TestRelationshipMetadataOperations:
 
         # Create relationship with counter (tuples use strings)
         create_rel_result = await tasks_backend.create_relationships_batch(
-            [("task:counter", "ku:patterns", "APPLIES_KNOWLEDGE", {"access_count": 0})]
+            [("task.counter", "ku.patterns", "APPLIES_KNOWLEDGE", {"access_count": 0})]
         )
         assert create_rel_result.is_ok
 
@@ -340,8 +341,8 @@ class TestRelationshipMetadataOperations:
         for _ in range(3):
             # Get current count (methods use enums)
             metadata_result = await tasks_backend.get_relationship_metadata(
-                from_uid="task:counter",
-                to_uid="ku:patterns",
+                from_uid="task.counter",
+                to_uid="ku.patterns",
                 relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             )
             assert metadata_result.is_ok
@@ -349,8 +350,8 @@ class TestRelationshipMetadataOperations:
 
             # Increment
             update_result = await tasks_backend.update_relationship_properties(
-                from_uid="task:counter",
-                to_uid="ku:patterns",
+                from_uid="task.counter",
+                to_uid="ku.patterns",
                 relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
                 properties={"access_count": current_count + 1},
             )
@@ -358,8 +359,8 @@ class TestRelationshipMetadataOperations:
 
         # Verify final count
         metadata_result = await tasks_backend.get_relationship_metadata(
-            from_uid="task:counter",
-            to_uid="ku:patterns",
+            from_uid="task.counter",
+            to_uid="ku.patterns",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         assert metadata_result.is_ok

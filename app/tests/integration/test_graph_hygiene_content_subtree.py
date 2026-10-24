@@ -23,6 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
 from audit_graph_hygiene import fetch_anomalies  # type: ignore[import-not-found]
 
+from tests.helpers.seed_uids import seed_user_uid
+
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 CHECK = ":Content off its subtree"
@@ -33,11 +35,11 @@ STRAY_EDGE = "ku.hygiene-r4.stray-edge"
 SECOND_HOLDER = "ku.hygiene-r4.second-holder"
 WRONG_CHUNK = "ku.hygiene-r4.wrong-chunk"
 EXTRA_LABEL = "ku.hygiene-r4.extra-label"
-USER = "user_hygiene_r4"
-REFERENCE_CHUNK = "chunk_hygiene_r4_reference"
-ENTRY = "ue_hygiene_r4_entry"
-CHUNK = "chunk_hygiene_r4"
-CONTENT_UID = "content_hygiene_r4"
+USER = seed_user_uid("hygiene_r4")
+REFERENCE_CHUNK = "chunk.hygiene-r4-reference"
+ENTRY = "ue.hygiene-r4-entry"
+CHUNK = "chunk.hygiene-r4"
+CONTENT_UID = "content.hygiene-r4"
 
 
 @pytest.fixture

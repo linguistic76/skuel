@@ -37,12 +37,13 @@ from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-OWNER = "user_alt_owner"
-SOURCE_UID = "goal_alt_source"
-TARGET_UID = "goal_alt_target"
+OWNER = seed_user_uid("alt_owner")
+SOURCE_UID = "goal.alt-source"
+TARGET_UID = "goal.alt-target"
 _FIXTURE_UIDS = [SOURCE_UID, TARGET_UID]
 
 # Distinctive values — a substring match on the rendered HTML must not be able
@@ -417,7 +418,9 @@ class TestOwnershipIsUnchanged:
     ) -> None:
         await _author_alternative(handlers, timeframe=AUTHORED_TIMEFRAME)
 
-        response = await _compare(handlers)(request=_make_request("user_intruder"), uid=SOURCE_UID)
+        response = await _compare(handlers)(
+            request=_make_request(seed_user_uid("intruder")), uid=SOURCE_UID
+        )
 
         assert response.status_code == 404
         assert AUTHORED_TIMEFRAME.encode() not in bytes(response.body)

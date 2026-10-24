@@ -32,6 +32,7 @@ from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBac
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration.user_entry.test_entry_grounding_pending import _embed
 from tests.integration.user_entry.test_extract_activities_pipeline import _seed_ku
 
@@ -93,7 +94,7 @@ async def _grounded_note(
 ) -> tuple[str, str, str]:
     """A grounded note holding one inferred and one named link; returns (uid, inferred, named)."""
     tag = uuid4().hex[:6]
-    uid = f"ue_optout_{tag}"
+    uid = f"ue.optout-{tag}"
     inferred = await _seed_ku(neo4j_driver, f"ku.it.inferred-{tag}")
     named = await _seed_ku(neo4j_driver, f"ku.it.named-{tag}")
     await _sync(service, owner, uid, pipeline)
@@ -140,7 +141,7 @@ class TestOptingOutRetractsInferredLinks:
         after: Pipeline,
         private: bool,
     ):
-        owner = await seed_user(f"user_optout_{uuid4().hex[:6]}")
+        owner = await seed_user(seed_user_uid(f"optout_{uuid4().hex[:6]}"))
         uid, inferred, named = await _grounded_note(
             neo4j_driver, user_entry_service, grounding, owner, before
         )
@@ -178,7 +179,7 @@ class TestOptingOutRetractsInferredLinks:
         before: Pipeline,
         after: Pipeline,
     ):
-        owner = await seed_user(f"user_optout_{uuid4().hex[:6]}")
+        owner = await seed_user(seed_user_uid(f"optout_{uuid4().hex[:6]}"))
         uid, inferred, named = await _grounded_note(
             neo4j_driver, user_entry_service, grounding, owner, before
         )
@@ -194,7 +195,7 @@ class TestOptingOutRetractsInferredLinks:
     async def test_a_note_that_opts_back_in_is_pending_but_never_relinked_to_the_retracted_ku(
         self, clean_neo4j, neo4j_driver, user_entry_service, seed_user, grounding
     ):
-        owner = await seed_user(f"user_optout_{uuid4().hex[:6]}")
+        owner = await seed_user(seed_user_uid(f"optout_{uuid4().hex[:6]}"))
         uid, inferred, _named = await _grounded_note(
             neo4j_driver, user_entry_service, grounding, owner, Pipeline.EXTRACT_ACTIVITIES
         )
@@ -218,8 +219,8 @@ class TestOptingOutRetractsInferredLinks:
     async def test_a_resync_that_takes_no_write_retracts_nothing(
         self, clean_neo4j, neo4j_driver, user_entry_service, seed_user, grounding
     ):
-        owner = await seed_user(f"user_optout_{uuid4().hex[:6]}")
-        other = await seed_user(f"user_optout_other_{uuid4().hex[:6]}")
+        owner = await seed_user(seed_user_uid(f"optout_{uuid4().hex[:6]}"))
+        other = await seed_user(seed_user_uid(f"optout_other_{uuid4().hex[:6]}"))
         uid, inferred, named = await _grounded_note(
             neo4j_driver, user_entry_service, grounding, owner, Pipeline.KNOWLEDGE
         )
@@ -248,7 +249,7 @@ class TestAPassThatReadTheNoteBeforeItOptedOut:
     async def test_its_links_and_stamp_land_only_on_a_note_that_still_grounds(
         self, clean_neo4j, neo4j_driver, user_entry_service, seed_user, grounding, opts_out: bool
     ):
-        owner = await seed_user(f"user_optout_{uuid4().hex[:6]}")
+        owner = await seed_user(seed_user_uid(f"optout_{uuid4().hex[:6]}"))
         uid, _inferred, _named = await _grounded_note(
             neo4j_driver, user_entry_service, grounding, owner, Pipeline.KNOWLEDGE
         )
@@ -280,7 +281,7 @@ class TestAPassThatReadTheNoteBeforeItOptedOut:
         """Out and back in before the pass stamps: the note grounds again, but its
         vector is gone until the worker stores it, so the old pass's stamp is not
         for the text it holds."""
-        owner = await seed_user(f"user_optout_{uuid4().hex[:6]}")
+        owner = await seed_user(seed_user_uid(f"optout_{uuid4().hex[:6]}"))
         uid, _inferred, _named = await _grounded_note(
             neo4j_driver, user_entry_service, grounding, owner, Pipeline.EXTRACT_ACTIVITIES
         )

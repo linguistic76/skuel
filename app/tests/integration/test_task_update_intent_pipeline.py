@@ -31,6 +31,7 @@ from core.models.task.task import Task
 from core.models.task.task_request import TaskUpdateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -54,8 +55,8 @@ class TestTaskUpdateIntentPipeline:
     @pytest_asyncio.fixture
     async def seeded_task(self, core_service):
         task = Task(
-            uid="task.intent_pipeline",
-            user_uid="user_intent_pipeline",
+            uid="task.intent-pipeline",
+            user_uid=seed_user_uid("intent_pipeline"),
             title="Original title",
             description="Original description",
             due_date=date.today() + timedelta(days=5),
@@ -117,8 +118,8 @@ class TestTaskUpdateIntentPipeline:
         wired the rule had no production caller at all.
         """
         overdue = Task(
-            uid="task.intent_pipeline_overdue",
-            user_uid="user_intent_pipeline",
+            uid="task.intent-pipeline-overdue",
+            user_uid=seed_user_uid("intent_pipeline"),
             title="Overdue task",
             due_date=date.today() - timedelta(days=3),
             priority=Priority.MEDIUM,

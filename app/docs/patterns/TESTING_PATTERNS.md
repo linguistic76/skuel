@@ -1,6 +1,6 @@
 ---
 title: Testing Patterns
-updated: 2026-10-10
+updated: 2026-10-24
 category: patterns
 related_skills:
 - pytest
@@ -32,8 +32,8 @@ Activity Domain entities have auto-created user relationships. Without `cascade=
 
 ```python
 # ❌ FAILS - Entity has OWNS relationship
-await tasks_backend.delete("task_test_001")
-# Error: "Cannot delete Task 'task_test_001' - has existing relationships"
+await tasks_backend.delete("task.test-001")
+# Error: "Cannot delete Task 'task.test-001' - has existing relationships"
 ```
 
 ### The Solution
@@ -42,19 +42,19 @@ Always use `cascade=True` for test cleanup:
 
 ```python
 # ✅ WORKS - Deletes entity AND its relationships
-await tasks_backend.delete("task_test_001", cascade=True)
+await tasks_backend.delete("task.test-001", cascade=True)
 ```
 
 ### Complete Cleanup Pattern
 
 ```python
 @pytest.mark.asyncio
-async def test_some_feature(tasks_backend, test_user_uid, create_test_users):
+async def test_some_feature(tasks_backend, ensure_test_users):
     """Test with proper cleanup."""
     # Setup
     task = Task(
-        uid="task_test_001",
-        user_uid=test_user_uid,
+        uid="task.test-001",
+        user_uid=seed_user_uid("test"),
         title="Test Task",
         status=EntityStatus.DRAFT,
         priority=Priority.MEDIUM,
@@ -72,7 +72,7 @@ async def test_some_feature(tasks_backend, test_user_uid, create_test_users):
         assert result.is_ok
     finally:
         # Cleanup (cascade=True for auto-created relationships)
-        result = await tasks_backend.delete("task_test_001", cascade=True)
+        result = await tasks_backend.delete("task.test-001", cascade=True)
         assert result.is_ok, "Cleanup failed"
 ```
 
@@ -320,15 +320,23 @@ async def test_bad():
     # No cleanup - pollutes database
 ```
 
-### ❌ Don't Use Colon-Spelled Entity UIDs
+### ❌ Don't Seed a UID Outside the Grammar
 
 ```python
 # BAD - the retired colon spelling; no entity carries it, so this reads nothing
 await service.get("ku:topic")
+# BAD - an underscore is in no authored segment, and a username is no user uid
+Task(uid="task_001", title="t", user_uid="user_alice")
 
-# GOOD - authored = stored: the dot form
+# GOOD - an authored entity uid, a generated user uid
 await service.get("ku.topic")
+Task(uid="task.001", title="t", user_uid=seed_user_uid("alice"))
 ```
+
+After each integration test the census reads its graph against the uid grammar
+(`tests/integration/_uid_census.py`) and fails the test on a uid it wrote outside it, or
+one two nodes hold. A test that writes one on purpose carries
+`@pytest.mark.outside_uid_grammar("why")`.
 
 ### ❌ Don't Assume Mock Methods
 

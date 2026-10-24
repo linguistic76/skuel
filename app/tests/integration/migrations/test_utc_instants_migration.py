@@ -71,6 +71,7 @@ from core.services.user_entry.user_entry_service import UserEntryService
 from core.utils import timestamp_helpers
 from core.utils.result_simplified import Result
 from tests.helpers.forced_zone import forced_zone
+from tests.helpers.seed_uids import seed_user_uid
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "migrations" / "utc_instants_2026_10.py"
 _spec = importlib.util.spec_from_file_location("utc_instants_2026_10", SCRIPT)
@@ -85,9 +86,9 @@ pytestmark = [
     pytest.mark.usefixtures("connection_settings"),
 ]
 
-TEACHER = "user_utcmig_teacher"
-STUDENT = "user_utcmig_student"
-ADMIN = "user_utcmig_admin"
+TEACHER = seed_user_uid("utcmig_teacher")
+STUDENT = seed_user_uid("utcmig_student")
+ADMIN = seed_user_uid("utcmig_admin")
 CLASS = "group.utcmig_class"
 
 
@@ -218,7 +219,7 @@ async def _seed(driver: Any) -> Corpus:
         inferred_task_uid="task.utcmig-inferred",
         goal_uid="goal.utcmig",
         ku_uid="ku.utcmig.concept",
-        entry_uid="ue_utcmig",
+        entry_uid="ue.utcmig",
         notification_uid=str(rows[0]["uid"]),
         report_uid=str(report[0]["uid"]),
     )
@@ -311,7 +312,7 @@ async def _seed_on_the_old_clocks(
         with time_machine.travel(_at("2026-09-21T01:30:00.000321"), tick=False):
             created = await entries.create_entry(
                 UserEntryCreateRequest(
-                    uid="ue_utcmig",
+                    uid="ue.utcmig",
                     title="Where I grew up",
                     content="A river town, and the bridge we crossed every day.",
                 ),
@@ -319,10 +320,10 @@ async def _seed_on_the_old_clocks(
             )
             assert created.is_ok, created.expect_error()
         with time_machine.travel(_at("2026-09-21T01:45:00.250123"), tick=False):
-            shared = await sharing.share_with_group("ue_utcmig", STUDENT, CLASS)
+            shared = await sharing.share_with_group("ue.utcmig", STUDENT, CLASS)
             assert shared.is_ok, shared.expect_error()
         with time_machine.travel(_at("2026-09-28T00:40:00.500123"), tick=False):
-            personal = await sharing.share("ue_utcmig", STUDENT, TEACHER)
+            personal = await sharing.share("ue.utcmig", STUDENT, TEACHER)
             assert personal.is_ok, personal.expect_error()
         with time_machine.travel(_at("2026-09-28T00:41:00.750123"), tick=False):
             notified = await notifications.create_notification(
@@ -330,7 +331,7 @@ async def _seed_on_the_old_clocks(
                 notification_type=NotificationType.SHARED_WITH_YOU,
                 title="Sam Student shared an entry with you",
                 message="Where I grew up",
-                source_uid="ue_utcmig",
+                source_uid="ue.utcmig",
                 source_type=EntityType.USER_ENTRY,
             )
             assert notified.is_ok, notified.expect_error()
@@ -675,7 +676,7 @@ async def test_the_census_stops_on_what_no_rule_settles(
     elif case == "duplicate_relationship_key":
         await graph.execute_query(
             "MATCH (s:User {uid: $student}), (t:User {uid: $teacher}) "
-            "CREATE (e:Entity:UserEntry {uid: 'ue_dup'}) "
+            "CREATE (e:Entity:UserEntry {uid: 'ue.dup'}) "
             "CREATE (t)-[:SHARES_WITH {shared_at: datetime('2026-09-20T09:00:00.123456Z')}]->(e) "
             "CREATE (t)-[:SHARES_WITH {shared_at: datetime('2026-09-20T09:00:01.123456Z')}]->(e)",
             student=STUDENT,

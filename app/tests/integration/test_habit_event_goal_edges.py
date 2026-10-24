@@ -47,9 +47,10 @@ from core.services.relationships.unified_relationship_service import (
     UnifiedRelationshipService,
 )
 from core.services.user import UserContext
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_test_habit_event_goals"
-OTHER_USER = "user_test_habit_event_goals_victim"
+USER = seed_user_uid("test_habit_event_goals")
+OTHER_USER = seed_user_uid("test_habit_event_goals_victim")
 CTG = RelationshipName.CONTRIBUTES_TO_GOAL.value
 
 

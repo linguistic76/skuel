@@ -53,6 +53,7 @@ from core.models.ku.ku import Ku
 from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
 from core.services.ps.ps_practice_service import PsPracticeService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -92,7 +93,7 @@ class TestEventKuPracticeFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user_test_event_ku_flow"
+        return seed_user_uid("test_event_ku_flow")
 
     @pytest_asyncio.fixture
     async def test_user(self, neo4j_driver, test_user_uid):
@@ -136,7 +137,7 @@ class TestEventKuPracticeFlow:
 
         # Create meditation event
         event = Event(
-            uid="event.morning_meditation",
+            uid="event.morning-meditation",
             user_uid=test_user_uid,
             title="Morning Meditation Session",
             event_type="learning",
@@ -310,7 +311,7 @@ class TestEventKuPracticeFlow:
         """Test that completing an event with no KUs doesn't affect practice counts."""
         # Create event with no APPLIES_KNOWLEDGE relationships
         event = Event(
-            uid="event.no_kus",
+            uid="event.no-kus",
             user_uid=test_user_uid,
             title="Event Without KUs",
             event_type="work",
@@ -557,14 +558,15 @@ class TestIncrementSubstanceGrain:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                CREATE (:Entity:Task {uid: 'task_test_someones', entity_type: 'task',
-                                      user_uid: 'user_someone'})
-                CREATE (:Entity:Exercise {uid: 'ex_test_someones', entity_type: 'exercise',
-                                          owner_uid: 'user_someone'})
-                """
+                CREATE (:Entity:Task {uid: 'task.test-someones', entity_type: 'task',
+                                      user_uid: $someone})
+                CREATE (:Entity:Exercise {uid: 'ex.test-someones', entity_type: 'exercise',
+                                          owner_uid: $someone})
+                """,
+                someone=seed_user_uid("someone"),
             )
 
-        for uid in ("task_test_someones", "ex_test_someones"):
+        for uid in ("task.test-someones", "ex.test-someones"):
             single = await ku_backend.increment_substance(
                 knowledge_uid=uid,
                 metric=self.METRIC,
@@ -574,15 +576,15 @@ class TestIncrementSubstanceGrain:
             assert single.is_ok
             assert single.value == 0
         batch = await ku_backend.batch_increment_substance(
-            knowledge_uids=["task_test_someones", "ex_test_someones", ku.uid],
+            knowledge_uids=["task.test-someones", "ex.test-someones", ku.uid],
             metric=self.METRIC,
             timestamp_field=self.TS_FIELD,
             timestamp_str=datetime.now().isoformat(),
         )
         assert batch.is_ok
 
-        assert await self._counter(neo4j_driver, "task_test_someones") is None
-        assert await self._counter(neo4j_driver, "ex_test_someones") is None
+        assert await self._counter(neo4j_driver, "task.test-someones") is None
+        assert await self._counter(neo4j_driver, "ex.test-someones") is None
         assert await self._counter(neo4j_driver, ku.uid) == 1
 
     async def test_unknown_uid_is_a_true_noop(self, ku_backend):

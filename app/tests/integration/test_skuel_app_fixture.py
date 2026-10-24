@@ -30,7 +30,7 @@ pytestmark = pytest.mark.skipif(
     reason="FULL tier cannot bootstrap without OPENAI_API_KEY — run with INTELLIGENCE_TIER=core",
 )
 
-_MARKER_UID = "skuel_app_fixture_probe"
+_MARKER_UID = "skuel.app-fixture-probe"
 
 
 @pytest.mark.asyncio

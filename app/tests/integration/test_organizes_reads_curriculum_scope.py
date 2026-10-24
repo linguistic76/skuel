@@ -22,19 +22,20 @@ from core.services.ps.ps_organization_service import (
     SHARED_CURRICULUM_TYPES,
     PsOrganizationService,
 )
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.integration
 
-PREFIX = "orgscope_"
-PS_ROOT = f"{PREFIX}ps_root"
-PS_CHILD = f"{PREFIX}ps_child"
-PS_SIBLING = f"{PREFIX}ps_sibling"
-KU_CHILD = f"{PREFIX}ku_child"
-UE_MAP = f"{PREFIX}ue_map"  # a private personal-vault map that links curriculum
-UE_LEAF = f"{PREFIX}ue_leaf"  # a private entry a curriculum root (contrived) organizes
-PS_LONELY = f"{PREFIX}ps_lonely"  # a PathStep whose ONLY organized child is private
-PS_UNDER_MAP = f"{PREFIX}ps_under_map"  # a PathStep organized ONLY by the private map
-PS_GRANDCHILD = f"{PREFIX}ps_grandchild"  # … which organizes a curriculum child of its own
+PREFIX = "orgscope."
+PS_ROOT = f"{PREFIX}ps-root"
+PS_CHILD = f"{PREFIX}ps-child"
+PS_SIBLING = f"{PREFIX}ps-sibling"
+KU_CHILD = f"{PREFIX}ku-child"
+UE_MAP = f"{PREFIX}ue-map"  # a private personal-vault map that links curriculum
+UE_LEAF = f"{PREFIX}ue-leaf"  # a private entry a curriculum root (contrived) organizes
+PS_LONELY = f"{PREFIX}ps-lonely"  # a PathStep whose ONLY organized child is private
+PS_UNDER_MAP = f"{PREFIX}ps-under-map"  # a PathStep organized ONLY by the private map
+PS_GRANDCHILD = f"{PREFIX}ps-grandchild"  # … which organizes a curriculum child of its own
 
 
 @pytest_asyncio.fixture
@@ -59,10 +60,10 @@ async def graph(neo4j_driver) -> PsBackend:
                                   title: 'Empathy', status: 'active'})
             CREATE (map:Entity:UserEntry {uid: $ue_map, entity_type: 'user_entry',
                                           title: 'AAA my private study map',
-                                          user_uid: 'user_private', status: 'active'})
+                                          user_uid: $user_private, status: 'active'})
             CREATE (leaf:Entity:UserEntry {uid: $ue_leaf, entity_type: 'user_entry',
                                            title: 'private journal entry',
-                                           user_uid: 'user_private', status: 'active'})
+                                           user_uid: $user_private, status: 'active'})
             CREATE (lonely:Entity:PathStep {uid: $ps_lonely, entity_type: 'path_step',
                                             title: 'Zzz lonely step', status: 'active'})
             CREATE (under:Entity:PathStep {uid: $ps_under_map, entity_type: 'path_step',
@@ -88,6 +89,7 @@ async def graph(neo4j_driver) -> PsBackend:
             ps_lonely=PS_LONELY,
             ps_under_map=PS_UNDER_MAP,
             ps_grandchild=PS_GRANDCHILD,
+            user_private=seed_user_uid("private"),
         )
     yield PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
     async with neo4j_driver.session() as session:

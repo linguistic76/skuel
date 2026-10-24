@@ -23,12 +23,13 @@ from adapters.persistence.neo4j.query.cypher.relationship_filter_fragments impor
     build_relationship_filter_fragments,
 )
 from core.models.relationship_filters import RelationshipFilters
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 _PREFIX = "sffrag"
-USER = f"user_{_PREFIX}_owner"
-OTHER = f"user_{_PREFIX}_other"
+USER = seed_user_uid(f"{_PREFIX}_owner")
+OTHER = seed_user_uid(f"{_PREFIX}_other")
 
 
 def _fragment(flag: str) -> str:
@@ -61,71 +62,71 @@ async def seeded_graph(neo4j_driver):
             MERGE (o:User {uid: $other})
 
             // ready_to_learn: entity with one prereq the user mastered
-            MERGE (rtl:Entity:Ku {uid: $p + '_rtl'})
-            MERGE (rtl_pre:Entity:Ku {uid: $p + '_rtl_pre'})
+            MERGE (rtl:Entity:Ku {uid: $p + '.rtl'})
+            MERGE (rtl_pre:Entity:Ku {uid: $p + '.rtl-pre'})
             MERGE (rtl)-[:REQUIRES_KNOWLEDGE]->(rtl_pre)
             MERGE (u)-[:MASTERED]->(rtl_pre)
 
             // builds_on_mastered: mastered neighbor RELATED_TO entity
-            MERGE (bom:Entity:Ku {uid: $p + '_bom'})
-            MERGE (bom_m:Entity:Ku {uid: $p + '_bom_m'})
+            MERGE (bom:Entity:Ku {uid: $p + '.bom'})
+            MERGE (bom_m:Entity:Ku {uid: $p + '.bom-m'})
             MERGE (u)-[:MASTERED]->(bom_m)
             MERGE (bom_m)-[:RELATED_TO]->(bom)
 
             // in_active_path: enrollment (no status) -> lp -> step -> USES_KU
-            MERGE (iap:Entity:Ku {uid: $p + '_iap'})
-            MERGE (iap_lp:Entity:LearningPath {uid: $p + '_iap_lp'})
-            MERGE (iap_ps:Entity:PathStep {uid: $p + '_iap_ps'})
+            MERGE (iap:Entity:Ku {uid: $p + '.iap'})
+            MERGE (iap_lp:Entity:LearningPath {uid: $p + '.iap-lp'})
+            MERGE (iap_ps:Entity:PathStep {uid: $p + '.iap-ps'})
             MERGE (u)-[:ENROLLED_IN]->(iap_lp)
             MERGE (iap_lp)-[:HAS_STEP]->(iap_ps)
             MERGE (iap_ps)-[:USES_KU]->(iap)
 
             // in_active_path variant: CONTAINS_KNOWLEDGE hop also matches
-            MERGE (iap2:Entity:Ku {uid: $p + '_iap2'})
+            MERGE (iap2:Entity:Ku {uid: $p + '.iap2'})
             MERGE (iap_ps)-[:CONTAINS_KNOWLEDGE]->(iap2)
 
             // supports_goals: OWNS active goal REQUIRES_KNOWLEDGE entity
-            MERGE (sg:Entity:Ku {uid: $p + '_sg'})
-            MERGE (sg_goal:Entity:Goal {uid: $p + '_sg_goal'})
+            MERGE (sg:Entity:Ku {uid: $p + '.sg'})
+            MERGE (sg_goal:Entity:Goal {uid: $p + '.sg-goal'})
             SET sg_goal.status = 'active'
             MERGE (u)-[:OWNS]->(sg_goal)
             MERGE (sg_goal)-[:REQUIRES_KNOWLEDGE]->(sg)
 
             // builds_on_habits: OWNS active habit REINFORCES_KNOWLEDGE entity
-            MERGE (bh:Entity:Ku {uid: $p + '_bh'})
-            MERGE (bh_habit:Entity:Habit {uid: $p + '_bh_habit'})
+            MERGE (bh:Entity:Ku {uid: $p + '.bh'})
+            MERGE (bh_habit:Entity:Habit {uid: $p + '.bh-habit'})
             SET bh_habit.status = 'active'
             MERGE (u)-[:OWNS]->(bh_habit)
             MERGE (bh_habit)-[:REINFORCES_KNOWLEDGE]->(bh)
 
             // applied_in_tasks: recent task with STRING updated_at (DTO shape)
-            MERGE (at:Entity:Ku {uid: $p + '_at'})
-            MERGE (at_task:Entity:Task {uid: $p + '_at_task'})
+            MERGE (at:Entity:Ku {uid: $p + '.at'})
+            MERGE (at_task:Entity:Task {uid: $p + '.at-task'})
             SET at_task.status = 'completed', at_task.updated_at = $now_iso
             MERGE (u)-[:OWNS]->(at_task)
             MERGE (at_task)-[:APPLIES_KNOWLEDGE]->(at)
 
             // aligned_with_principles: OWNS active principle GROUNDED_IN_KNOWLEDGE
-            MERGE (ap:Entity:Ku {uid: $p + '_ap'})
-            MERGE (ap_pr:Entity:Principle {uid: $p + '_ap_pr'})
+            MERGE (ap:Entity:Ku {uid: $p + '.ap'})
+            MERGE (ap_pr:Entity:Principle {uid: $p + '.ap-pr'})
             SET ap_pr.status = 'active'
             MERGE (u)-[:OWNS]->(ap_pr)
             MERGE (ap_pr)-[:GROUNDED_IN_KNOWLEDGE]->(ap)
 
             // next_logical_step: mastered ENABLES_KNOWLEDGE entity, no prereqs
-            MERGE (nls:Entity:Ku {uid: $p + '_nls'})
-            MERGE (nls_m:Entity:Ku {uid: $p + '_nls_m'})
+            MERGE (nls:Entity:Ku {uid: $p + '.nls'})
+            MERGE (nls_m:Entity:Ku {uid: $p + '.nls-m'})
             MERGE (u)-[:MASTERED]->(nls_m)
             MERGE (nls_m)-[:ENABLES_KNOWLEDGE]->(nls)
 
             // viewed_not_mastered / not_yet_viewed
-            MERGE (vnm:Entity:Ku {uid: $p + '_vnm'})
+            MERGE (vnm:Entity:Ku {uid: $p + '.vnm'})
             MERGE (u)-[:VIEWED]->(vnm)
-            MERGE (nyv:Entity:Ku {uid: $p + '_nyv'})
+            MERGE (nyv:Entity:Ku {uid: $p + '.nyv'})
 
             // ready_to_review: mastered 60 days ago (native datetime — the
             // writer is Cypher datetime($now) in mark_mastered)
-            MERGE (rtr:Entity:Ku {uid: $p + '_rtr'})
+            MERGE (rtr:Entity:Ku {uid: $p + '.rtr'})
             MERGE (u)-[m:MASTERED]->(rtr)
             SET m.mastered_at = datetime() - duration({days: 60})
             """,
@@ -146,17 +147,17 @@ async def seeded_graph(neo4j_driver):
 
 # (flag, entity uid suffix) — each seeded above
 _CASES = [
-    ("ready_to_learn", "_rtl"),
-    ("builds_on_mastered", "_bom"),
-    ("in_active_path", "_iap"),
-    ("supports_goals", "_sg"),
-    ("builds_on_habits", "_bh"),
-    ("applied_in_tasks", "_at"),
-    ("aligned_with_principles", "_ap"),
-    ("next_logical_step", "_nls"),
-    ("not_yet_viewed", "_nyv"),
-    ("viewed_not_mastered", "_vnm"),
-    ("ready_to_review", "_rtr"),
+    ("ready_to_learn", ".rtl"),
+    ("builds_on_mastered", ".bom"),
+    ("in_active_path", ".iap"),
+    ("supports_goals", ".sg"),
+    ("builds_on_habits", ".bh"),
+    ("applied_in_tasks", ".at"),
+    ("aligned_with_principles", ".ap"),
+    ("next_logical_step", ".nls"),
+    ("not_yet_viewed", ".nyv"),
+    ("viewed_not_mastered", ".vnm"),
+    ("ready_to_review", ".rtr"),
 ]
 
 
@@ -187,7 +188,7 @@ async def test_filter_is_user_scoped(neo4j_driver, flag: str, suffix: str) -> No
 async def test_in_active_path_matches_contains_knowledge_hop(neo4j_driver) -> None:
     """All three composition edges (USES_KU|TRAINS_KU|CONTAINS_KNOWLEDGE) count."""
     fragment = _fragment("in_active_path")
-    assert await _matches(neo4j_driver, fragment, _PREFIX + "_iap2", USER)
+    assert await _matches(neo4j_driver, fragment, _PREFIX + ".iap2", USER)
 
 
 async def test_applied_in_tasks_survives_string_updated_at(neo4j_driver) -> None:
@@ -198,4 +199,4 @@ async def test_applied_in_tasks_survives_string_updated_at(neo4j_driver) -> None
     """
     fragment = _fragment("applied_in_tasks")
     assert "datetime(task.updated_at)" in fragment
-    assert await _matches(neo4j_driver, fragment, _PREFIX + "_at", USER)
+    assert await _matches(neo4j_driver, fragment, _PREFIX + ".at", USER)

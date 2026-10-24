@@ -27,6 +27,7 @@ from adapters.inbound.fasthtml_types import Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.relationship_names import RelationshipName
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -41,23 +42,23 @@ pytestmark = [
     ),
 ]
 
-CALLER = "user_r5_caller"
-OTHER = "user_r5_other"
+CALLER = seed_user_uid("r5_caller")
+OTHER = seed_user_uid("r5_other")
 USERS = (CALLER, OTHER)
 
 KU = "ku.r5.shared"
 STEP = "ps.r5.shared"
 KNOWLEDGE_UIDS = (KU, STEP)
 
-GOAL = "goal_r5_callers"
-HABIT = "habit_r5_callers"
+GOAL = "goal.r5-callers"
+HABIT = "habit.r5-callers"
 
-OWN_TASK = "task_r5_own"
-FOREIGN_TASK = "task_r5_foreign"
-OWN_HABIT = "habit_r5_own"
-FOREIGN_HABIT = "habit_r5_foreign"
-OWN_PRINCIPLE = "principle_r5_own"
-FOREIGN_PRINCIPLE = "principle_r5_foreign"
+OWN_TASK = "task.r5-own"
+FOREIGN_TASK = "task.r5-foreign"
+OWN_HABIT = "habit.r5-own"
+FOREIGN_HABIT = "habit.r5-foreign"
+OWN_PRINCIPLE = "principle.r5-own"
+FOREIGN_PRINCIPLE = "principle.r5-foreign"
 
 OWN_MARK = "r5-own-title"
 FOREIGN_MARK = "r5-foreign-private"
@@ -115,8 +116,8 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     await _wipe(driver)
     async with driver.session() as session:
-        for uid in USERS:
-            await session.run("MERGE (u:User {uid: $uid}) SET u.title = $uid", uid=uid)
+        for user in USERS:
+            await session.run("MERGE (u:User {uid: $uid}) SET u.title = $uid", uid=user)
         for label, entity_type, uid in (("Ku", "ku", KU), ("PathStep", "path_step", STEP)):
             await session.run(
                 f"""

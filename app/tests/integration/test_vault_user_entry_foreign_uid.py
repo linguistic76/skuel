@@ -13,9 +13,10 @@ from __future__ import annotations
 import pytest
 
 from core.services.vault.vault_descriptor import VaultKind
+from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._vault_rig import OWNER, Rig
 
-OTHER = "user_nb2c_entry_other"
+OTHER = seed_user_uid("nb2c_entry_other")
 
 
 @pytest.mark.asyncio

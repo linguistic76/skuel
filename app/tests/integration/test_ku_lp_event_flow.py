@@ -42,6 +42,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.services.lp.lp_progress_service import LpProgressService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -78,7 +79,7 @@ class TestKuLpEventFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user_test_ku_lp_flow"
+        return seed_user_uid("test_ku_lp_flow")
 
     @pytest_asyncio.fixture
     async def test_user(self, neo4j_driver, test_user_uid):
@@ -105,7 +106,7 @@ class TestKuLpEventFlow:
             ["Python Variables", "Python Functions", "Python Classes"], start=1
         ):
             ku = Ku(
-                uid=f"ku.python_basics_{i}",
+                uid=f"ku.python-basics-{i}",
                 title=title,
                 sel_category=SELCategory.SELF_AWARENESS,
             )
@@ -115,7 +116,7 @@ class TestKuLpEventFlow:
 
         # Create learning path
         lp = LearningPath(
-            uid="lp.python_basics",
+            uid="lp.python-basics",
             title="Python Basics",
             description="Master Python fundamentals",
             domain=Domain.TECH,
@@ -442,7 +443,7 @@ class TestKuLpEventFlow:
 
         # Create unrelated KU
         unrelated_ku = Ku(
-            uid="ku.advanced_algorithms",
+            uid="ku.advanced-algorithms",
             title="Advanced Algorithms",
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -479,7 +480,7 @@ class TestKuLpEventFlow:
 
         # Create second LP that also includes the first KU
         lp2 = LearningPath(
-            uid="lp.python_advanced",
+            uid="lp.python-advanced",
             title="Python Advanced",
             description="Master advanced Python",
             domain=Domain.TECH,

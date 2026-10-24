@@ -40,12 +40,13 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
-EV = "evctx_"  # uid prefix for this module's fixture graph
+EV = "evctx."  # uid prefix for this module's fixture graph
 EV_EVENT = EV + "event"
-EV_EVENT_BARE = EV + "event_bare"  # negative control: no cross-domain edges
+EV_EVENT_BARE = EV + "event-bare"  # negative control: no cross-domain edges
 EV_GOAL = EV + "goal"  # event -[CONTRIBUTES_TO_GOAL]-> goal (supported_goals)
-EV_GOAL_CELEB = EV + "goal_celeb"  # event -[CELEBRATES_GOAL]-> goal (celebrated_goals)
+EV_GOAL_CELEB = EV + "goal-celeb"  # event -[CELEBRATES_GOAL]-> goal (celebrated_goals)
 EV_HABIT = EV + "habit"  # event -[REINFORCES_HABIT]-> habit (reinforced_habits)
 EV_KU = EV + "ku"  # event -[APPLIES_KNOWLEDGE]-> ku (applied_knowledge)
 
@@ -84,7 +85,7 @@ def _harness(rel_backend, event_uid: str, *, quality: int | None = 4) -> _EventI
     event = Event(
         uid=event_uid,
         title="Morning workout",
-        user_uid="evctx_user",
+        user_uid=seed_user_uid("evctx_user"),
         habit_completion_quality=quality,
         duration_minutes=45,
     )
@@ -233,9 +234,9 @@ async def test_event_performance_dedupes_multipath_goal_at_depth2(
     twice in the ``supported_goals`` bucket. _union_path_buckets de-dupes by uid keeping the
     STRONGEST path, so the goal is counted once.
     """
-    dup_event = EV + "dup_event"
-    dup_mid = EV + "dup_mid_event"  # event -CONFLICTS_WITH-> mid -CONTRIBUTES_TO_GOAL-> goal
-    dup_goal = EV + "dup_goal"  # also event -CONTRIBUTES_TO_GOAL-> goal (reached twice)
+    dup_event = EV + "dup-event"
+    dup_mid = EV + "dup-mid-event"  # event -CONFLICTS_WITH-> mid -CONTRIBUTES_TO_GOAL-> goal
+    dup_goal = EV + "dup-goal"  # also event -CONTRIBUTES_TO_GOAL-> goal (reached twice)
     async with neo4j_driver.session() as s:
         for uid in (dup_event, dup_mid):
             await s.run(

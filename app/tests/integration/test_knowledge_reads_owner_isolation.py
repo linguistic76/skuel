@@ -29,13 +29,14 @@ from core.services.knowledge.activity_knowledge_intelligence_service import (
 )
 from core.utils.intelligence_queries import get_knowledge_prerequisites
 from core.utils.result_simplified import Result
+from tests.helpers.seed_uids import seed_user_uid
 
-P = "koi_"  # uid prefix for this module's fixture graph
+P = "koi."  # uid prefix for this module's fixture graph
 
-MY_TASK = P + "task_mine"
-THEIR_TASK = P + "task_theirs"
+MY_TASK = P + "task-mine"
+THEIR_TASK = P + "task-theirs"
 KU = P + "ku"
-DRAFT_KU = P + "ku_draft"
+DRAFT_KU = P + "ku-draft"
 
 
 @pytest.fixture
@@ -46,7 +47,7 @@ def graph_intel(neo4j_driver):
 
 async def _seed(neo4j_driver) -> None:
     async with neo4j_driver.session() as s:
-        for uid, owner in [(MY_TASK, "user_mine"), (THEIR_TASK, "user_theirs")]:
+        for uid, owner in [(MY_TASK, seed_user_uid("mine")), (THEIR_TASK, seed_user_uid("theirs"))]:
             await s.run(
                 "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
                 "user_uid:$o, status:'active', created_at:datetime()})",
@@ -98,7 +99,7 @@ async def test_prerequisites_of_my_task_omit_their_task(neo4j_driver, graph_inte
 
 class _MyTasksBackend:
     async def find_by(self, limit: int = 100, **filters: Neo4jValue) -> Result[list[Task]]:
-        return Result.ok([Task(uid=MY_TASK, title=MY_TASK, user_uid="user_mine")])
+        return Result.ok([Task(uid=MY_TASK, title=MY_TASK, user_uid=seed_user_uid("mine"))])
 
 
 @pytest.mark.asyncio
@@ -110,7 +111,7 @@ async def test_learning_opportunities_of_my_task_omit_their_task(
         backend=_MyTasksBackend(), graph_intel=graph_intel
     )
 
-    result = await service.get_learning_opportunities("user_mine")
+    result = await service.get_learning_opportunities(seed_user_uid("mine"))
 
     assert result.is_ok, result
     gaps = [o for o in result.value["opportunities"] if o["type"] == "knowledge_gap"]

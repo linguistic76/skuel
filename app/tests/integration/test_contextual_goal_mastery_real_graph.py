@@ -17,10 +17,11 @@ import pytest
 
 from core.models.context_types import ContextualGoal
 from core.models.user.user import User
+from tests.helpers.seed_uids import seed_user_uid
 
-USER = "user_ctxgoal_mastery_test"
-KU_MASTERED = "ku:ctxgoal_mastered"
-KU_GAP = "ku:ctxgoal_gap"
+USER = seed_user_uid("ctxgoal_mastery_test")
+KU_MASTERED = "ku.ctxgoal-mastered"
+KU_GAP = "ku.ctxgoal-gap"
 
 
 @pytest.mark.asyncio
@@ -61,7 +62,7 @@ async def test_contextual_goal_learning_requirements_reads_real_mastery(user_ser
 
     # Consolidated lens: the MASTERED KU is mastered, the other is an open gap.
     goal = ContextualGoal.from_entity_and_context(
-        uid="goal_ctxgoal_test",
+        uid="goal.ctxgoal-test",
         title="Real-graph goal",
         context=context,
         required_knowledge_uids=[KU_MASTERED, KU_GAP],

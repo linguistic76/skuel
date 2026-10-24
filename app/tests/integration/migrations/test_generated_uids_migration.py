@@ -32,7 +32,11 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
-pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
+pytestmark = [
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.integration,
+    pytest.mark.outside_uid_grammar("seeds the old generated uid shapes this migration renames"),
+]
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts/migrations/generated_uids_2026_10.py"
 

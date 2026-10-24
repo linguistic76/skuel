@@ -54,7 +54,7 @@ from unittest.mock import AsyncMock
 from core.utils.result_simplified import Result, Errors
 
 backend.get = AsyncMock(return_value=Result.ok(task))
-backend.get.return_value = Result.fail(Errors.not_found("Task", "task_123"))
+backend.get.return_value = Result.fail(Errors.not_found("Task", "task.missing"))
 backend.get.side_effect = [Result.ok(t1), Result.fail(Errors.not_found("Task", "x"))]
 ```
 
@@ -146,7 +146,8 @@ service = create_tasks_service_for_testing(backend=backend)
 | A unit test passes alone, fails under `./dev test-unit` | Parallel unsafety — a fixed path, port, or module state another worker also touches; fix the test (`tmp_path`, per-test state), never a serial marker |
 | A "today" test goes red in CI between 00:00 and 07:00Z | The host day ≠ the Vancouver day; probe with `time_machine.travel(ts, tick=…)` at 03:00Z (no `faketime` on the laptop) and build days with `today_in(current_zone())` |
 | Proving a new test fails on the old code | `git stash push -- <tree>`, run a scratch copy, `git stash pop` — never while a background suite runs; `git add` a staged deletion first |
-| `Task(uid="task:x")` in a fixture | Colons are never an entity-uid spelling — `task_{16 hex}` (generated) / `ku.{ns}.{slug}` (vault) |
+| `Task(uid="task:x")` / `"task_001"` in a fixture | Outside the uid grammar — the integration census fails the test. Seed `task.x` (authored); a user seed is `seed_user_uid("name")` (`tests/helpers/seed_uids.py`) |
+| `the test wrote uids the uid grammar refuses` | Fix the seed; a test that writes one on purpose carries `@pytest.mark.outside_uid_grammar("why")` (`tests/integration/_uid_census.py`) |
 
 ---
 

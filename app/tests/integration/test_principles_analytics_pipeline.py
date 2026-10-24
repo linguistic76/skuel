@@ -40,18 +40,18 @@ from core.services.infrastructure.graph_intelligence_service import GraphIntelli
 from core.services.principles._alignment_intelligence_mixin import _AlignmentIntelligenceMixin
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
-PR = "prnctx_"  # uid prefix for this module's fixture graph
+PR = "prnctx."  # uid prefix for this module's fixture graph
 PR_USER = PR + "user"  # every seeded activity node is user-owned (Principle.user_uid is required)
 PR_PRIN = PR + "principle"
-PR_PRIN_BARE = PR + "principle_bare"  # negative control: no cross-domain edges
+PR_PRIN_BARE = PR + "principle-bare"  # negative control: no cross-domain edges
 PR_GOAL = PR + "goal"  # principle -[SUPPORTS_GOAL]-> goal (supported_goals)
-PR_HABIT_GOAL = PR + "habit_goal"  # habit -[SUPPORTS_GOAL]-> goal: the inspired habit's goal only
+PR_HABIT_GOAL = PR + "habit-goal"  # habit -[SUPPORTS_GOAL]-> goal: the inspired habit's goal only
 PR_CHOICE = PR + "choice"  # principle -[INFORMS_CHOICE]-> choice (informed_choices)
 # habit -[INFORMS_CHOICE]-> choice: the inspired habit's choice only
-PR_HABIT_CHOICE = PR + "habit_choice"
+PR_HABIT_CHOICE = PR + "habit-choice"
 PR_KU = PR + "ku"  # principle -[GROUNDED_IN_KNOWLEDGE]-> ku (grounding_knowledge)
 PR_HABIT = PR + "habit"  # principle -[INSPIRES_HABIT]-> habit (inspired_habits)
-PR_HABIT_EMB = PR + "habit_emb"  # habit -[EMBODIES_PRINCIPLE]-> principle (embodying_habits)
+PR_HABIT_EMB = PR + "habit-emb"  # habit -[EMBODIES_PRINCIPLE]-> principle (embodying_habits)
 
 
 @pytest.fixture
@@ -251,11 +251,11 @@ async def test_principle_alignment_dedupes_multipath_habit_at_depth2(
     surfaces twice in the ``inspired_habits`` bucket. _union_path_buckets de-dupes by uid
     keeping the STRONGEST path, so the habit set is the one habit, once.
     """
-    dup_prin = PR + "dup_principle"
+    dup_prin = PR + "dup-principle"
     dup_mid = (
-        PR + "dup_mid_principle"
+        PR + "dup-mid-principle"
     )  # mid -SUPPORTS_PRINCIPLE-> prin; mid -INSPIRES_HABIT-> habit
-    dup_habit = PR + "dup_habit"  # also prin -INSPIRES_HABIT-> habit (reached twice)
+    dup_habit = PR + "dup-habit"  # also prin -INSPIRES_HABIT-> habit (reached twice)
     async with neo4j_driver.session() as s:
         for uid in (dup_prin, dup_mid):
             await s.run(

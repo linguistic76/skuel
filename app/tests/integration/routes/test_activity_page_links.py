@@ -32,6 +32,7 @@ from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.neo_labels import NeoLabel
 from tests.helpers.activity_links import Link, heading_at, links_read_at_both_ends
+from tests.helpers.seed_uids import seed_user_uid
 from ui.activities._shared import safe_id
 
 if TYPE_CHECKING:
@@ -47,7 +48,7 @@ pytestmark = [
     ),
 ]
 
-CALLER = "user_pagelinks_caller"
+CALLER = seed_user_uid("pagelinks_caller")
 
 PAIRS = links_read_at_both_ends()
 

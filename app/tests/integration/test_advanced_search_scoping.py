@@ -33,11 +33,13 @@ from core.models.search_request import SearchRequest
 from core.models.task.task import Task
 from core.orchestrator.search_router import SearchRouter
 from core.services.exercises.exercise_service import ExerciseService
+from core.utils.uid_grammar import slugify
+from tests.helpers.seed_uids import seed_user_uid
 
-OWNER = "user_scope_owner"
-STRANGER = "user_scope_stranger"
-TEACHER = "user_scope_teacher"
-GROUP_UID = "group_scope_test"
+OWNER = seed_user_uid("scope_owner")
+STRANGER = seed_user_uid("scope_stranger")
+TEACHER = seed_user_uid("scope_teacher")
+GROUP_UID = "group.scope-test"
 
 
 @pytest.fixture
@@ -88,7 +90,7 @@ async def _seed_tasks(neo4j_driver, tasks_service) -> dict[str, str]:
     ]
     for key, user, title, tags in specs:
         task = Task(
-            uid=f"task_scope_{key}",
+            uid=f"task.scope-{slugify(key)}",
             user_uid=user,
             title=title,
             description="advanced_search scoping fixture",
@@ -110,17 +112,17 @@ async def _seed_tasks(neo4j_driver, tasks_service) -> dict[str, str]:
             MATCH (t:Task) WHERE t.uid IN $task_uids
             MERGE (t)-[:CONTRIBUTES_TO_GOAL]->(g)
             """,
-            goal_uid="goal_scope_hub",
+            goal_uid="goal.scope-hub",
             task_uids=list(created.values()),
         )
-    created["goal"] = "goal_scope_hub"
+    created["goal"] = "goal.scope-hub"
     return created
 
 
 async def _seed_exercises(neo4j_driver) -> dict[str, str]:
     """A published and a draft exercise, as the content-vault sync writes them:
     ownerless curriculum, no ``:OWNS`` edge."""
-    created = {"published": "exercise_scope_published", "draft": "exercise_scope_draft"}
+    created = {"published": "exercise.scope-published", "draft": "exercise.scope-draft"}
     async with neo4j_driver.session() as session:
         await session.run(
             """

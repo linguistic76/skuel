@@ -17,12 +17,14 @@ from types import ModuleType
 
 import pytest
 
+from tests.helpers.seed_uids import seed_user_uid
+
 SCRIPT = (
     Path(__file__).resolve().parents[2] / "scripts/migrations/vault_notes_are_drafts_2026_09.py"
 )
-OWNER = "user_drafts_migration"
-READER = "user_drafts_migration_reader"
-GROUP = "group_drafts_migration"
+OWNER = seed_user_uid("drafts_migration")
+READER = seed_user_uid("drafts_migration_reader")
+GROUP = "group.drafts-migration"
 
 
 def _load() -> ModuleType:
@@ -45,14 +47,14 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (o:User {uid: $owner})
             MERGE (r:User {uid: $reader})
             MERGE (g:Group {uid: $group}) SET g.is_active = true
-            CREATE (ex:Entity:Exercise {uid: 'ex_drafts_migration', entity_type: 'exercise'})
-            CREATE (living:Entity:UserEntry {uid: 'ue_living', entity_type: 'user_entry',
+            CREATE (ex:Entity:Exercise {uid: 'ex.drafts-migration', entity_type: 'exercise'})
+            CREATE (living:Entity:UserEntry {uid: 'ue.living', entity_type: 'user_entry',
                 pipeline: 'knowledge', metadata: $living_meta})
-            CREATE (turn_in:Entity:UserEntry {uid: 'ue_vault_turn_in', entity_type: 'user_entry',
+            CREATE (turn_in:Entity:UserEntry {uid: 'ue.vault-turn-in', entity_type: 'user_entry',
                 pipeline: 'llm_summary', metadata: $turn_in_meta})
-            CREATE (review:Entity:UserEntry {uid: 'ue_vault_review', entity_type: 'user_entry',
+            CREATE (review:Entity:UserEntry {uid: 'ue.vault-review', entity_type: 'user_entry',
                 pipeline: 'teacher_review', metadata: $review_meta})
-            CREATE (copy:Entity:UserEntry {uid: 'ue_old_copy', entity_type: 'user_entry',
+            CREATE (copy:Entity:UserEntry {uid: 'ue.old-copy', entity_type: 'user_entry',
                 pipeline: 'teacher_review', metadata: $copy_meta})
             MERGE (o)-[:OWNS]->(living)
             MERGE (o)-[:OWNS]->(turn_in)
@@ -71,7 +73,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             living_meta=_vault("knowledge/note.md"),
             turn_in_meta=_vault("knowledge/turned-in.md"),
             review_meta=_vault("knowledge/for-review.md"),
-            copy_meta=json.dumps({"submitted_from_entry": "ue_living", "keep": "me"}),
+            copy_meta=json.dumps({"submitted_from_entry": "ue.living", "keep": "me"}),
         )
 
 
@@ -97,31 +99,31 @@ async def test_confirm_retracts_living_links_only_and_moves_the_key(seeded, neo4
 
     census = await migration._census(neo4j_driver)
     assert {(r["uid"], r["kind"]) for r in census.share_links} == {
-        ("ue_living", "SHARED_WITH_GROUP"),
-        ("ue_living", "SHARES_WITH"),
+        ("ue.living", "SHARED_WITH_GROUP"),
+        ("ue.living", "SHARES_WITH"),
     }, "only the living note's links are retraction candidates"
     assert census.feedback_requests == [], "a teacher_review vault node is frozen, not a STOP"
     assert {r["uid"] for r in census.frozen_vault_entries} == {
-        "ue_vault_turn_in",
-        "ue_vault_review",
+        "ue.vault-turn-in",
+        "ue.vault-review",
     }
-    assert [r["uid"] for r in census.old_keys] == ["ue_old_copy"]
+    assert [r["uid"] for r in census.old_keys] == ["ue.old-copy"]
 
     assert await migration._move_keys(neo4j_driver, census.old_keys) == []
     assert await migration._retract(neo4j_driver, census.share_links) == []
 
-    assert await _links(neo4j_driver, "ue_living") == 0
-    assert await _links(neo4j_driver, "ue_vault_turn_in") == 2, "a turn-in keeps its audience"
-    assert await _links(neo4j_driver, "ue_vault_review") == 1, "a feedback request stands"
+    assert await _links(neo4j_driver, "ue.living") == 0
+    assert await _links(neo4j_driver, "ue.vault-turn-in") == 2, "a turn-in keeps its audience"
+    assert await _links(neo4j_driver, "ue.vault-review") == 1, "a feedback request stands"
     async with neo4j_driver.session() as session:
         copy = await (
             await session.run(
-                "MATCH (c:Entity {uid: 'ue_old_copy'}) "
+                "MATCH (c:Entity {uid: 'ue.old-copy'}) "
                 "RETURN c.submitted_from_uid AS from_uid, c.metadata AS metadata"
             )
         ).single()
     assert copy is not None
-    assert copy["from_uid"] == "ue_living"
+    assert copy["from_uid"] == "ue.living"
     assert json.loads(copy["metadata"]) == {"keep": "me"}
 
     after = await migration._census(neo4j_driver)

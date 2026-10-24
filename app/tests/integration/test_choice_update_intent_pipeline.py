@@ -33,6 +33,7 @@ from core.models.enums import EntityStatus, Priority
 from core.models.enums.choice_enums import ChoiceType
 from core.models.sentinels import UNSET
 from core.services.choices.choices_core_service import ChoicesCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -58,8 +59,8 @@ class TestChoiceUpdateIntentPipeline:
         # Two options satisfy _validate_create's minimum-options rule; MULTIPLE avoids
         # the BINARY (exactly 2) and STRATEGIC (50+ char description) special cases.
         choice = Choice(
-            uid="choice.intent_pipeline",
-            user_uid="user_intent_pipeline",
+            uid="choice.intent-pipeline",
+            user_uid=seed_user_uid("intent_pipeline"),
             title="Original title",
             description="Original description",
             choice_type=ChoiceType.MULTIPLE,

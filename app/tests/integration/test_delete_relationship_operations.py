@@ -19,6 +19,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -48,7 +49,7 @@ class TestDeleteRelationshipOperations:
         """Test deleting a single relationship."""
         # Create a knowledge unit first
         ku = Curriculum(
-            uid="ku:test-knowledge",
+            uid="ku.test-knowledge",
             title="Test Knowledge",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
@@ -58,10 +59,10 @@ class TestDeleteRelationshipOperations:
 
         # Create a task
         task = Task(
-            uid="task:delete_test_1",
+            uid="task.delete-test-1",
             title="Test Delete Relationship",
             description="Test task for delete",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.MEDIUM,
             status=EntityStatus.DRAFT,
         )
@@ -70,15 +71,15 @@ class TestDeleteRelationshipOperations:
 
         # Create a relationship (tuples use strings)
         create_rel_result = await tasks_backend.create_relationships_batch(
-            [("task:delete_test_1", "ku:test-knowledge", "APPLIES_KNOWLEDGE", None)]
+            [("task.delete-test-1", "ku.test-knowledge", "APPLIES_KNOWLEDGE", None)]
         )
         assert create_rel_result.is_ok
         assert create_rel_result.value == 1
 
         # Verify relationship exists (methods use enums)
         has_rel_result = await tasks_backend.has_relationship(
-            from_uid="task:delete_test_1",
-            to_uid="ku:test-knowledge",
+            from_uid="task.delete-test-1",
+            to_uid="ku.test-knowledge",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         assert has_rel_result.is_ok
@@ -86,8 +87,8 @@ class TestDeleteRelationshipOperations:
 
         # Delete the relationship
         delete_result = await tasks_backend.delete_relationship(
-            from_uid="task:delete_test_1",
-            to_uid="ku:test-knowledge",
+            from_uid="task.delete-test-1",
+            to_uid="ku.test-knowledge",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         assert delete_result.is_ok
@@ -95,8 +96,8 @@ class TestDeleteRelationshipOperations:
 
         # Verify relationship no longer exists
         has_rel_after_result = await tasks_backend.has_relationship(
-            from_uid="task:delete_test_1",
-            to_uid="ku:test-knowledge",
+            from_uid="task.delete-test-1",
+            to_uid="ku.test-knowledge",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         assert has_rel_after_result.is_ok
@@ -106,8 +107,8 @@ class TestDeleteRelationshipOperations:
         """Test that deleting non-existent relationship succeeds (idempotent)."""
         # Delete a relationship that doesn't exist
         delete_result = await tasks_backend.delete_relationship(
-            from_uid="task:nonexistent",
-            to_uid="ku:nonexistent",
+            from_uid="task.nonexistent",
+            to_uid="ku.nonexistent",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         # Should succeed even if relationship didn't exist
@@ -118,9 +119,9 @@ class TestDeleteRelationshipOperations:
         """Test batch deletion of multiple relationships."""
         # Create knowledge units first
         for ku_uid, title in [
-            ("ku:python", "Python"),
-            ("ku:algorithms", "Algorithms"),
-            ("ku:databases", "Databases"),
+            ("ku.python", "Python"),
+            ("ku.algorithms", "Algorithms"),
+            ("ku.databases", "Databases"),
         ]:
             ku = Curriculum(
                 uid=ku_uid,
@@ -132,10 +133,10 @@ class TestDeleteRelationshipOperations:
 
         # Create a task (with due_date since HIGH priority)
         task = Task(
-            uid="task:batch_delete_test",
+            uid="task.batch-delete-test",
             title="Test Batch Delete",
             description="Test task for batch delete",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.HIGH,
             due_date=date.today(),
             status=EntityStatus.ACTIVE,
@@ -145,9 +146,9 @@ class TestDeleteRelationshipOperations:
 
         # Create multiple relationships (tuples use strings)
         relationships = [
-            ("task:batch_delete_test", "ku:python", "APPLIES_KNOWLEDGE", None),
-            ("task:batch_delete_test", "ku:algorithms", "REQUIRES_KNOWLEDGE", None),
-            ("task:batch_delete_test", "ku:databases", "APPLIES_KNOWLEDGE", None),
+            ("task.batch-delete-test", "ku.python", "APPLIES_KNOWLEDGE", None),
+            ("task.batch-delete-test", "ku.algorithms", "REQUIRES_KNOWLEDGE", None),
+            ("task.batch-delete-test", "ku.databases", "APPLIES_KNOWLEDGE", None),
         ]
         create_result = await tasks_backend.create_relationships_batch(relationships)
         assert create_result.is_ok
@@ -183,7 +184,7 @@ class TestDeleteRelationshipOperations:
     ):
         """Test batch delete with mix of existing and non-existing relationships."""
         # Create knowledge units first
-        for ku_uid, title in [("ku:existing1", "Existing 1"), ("ku:existing2", "Existing 2")]:
+        for ku_uid, title in [("ku.existing1", "Existing 1"), ("ku.existing2", "Existing 2")]:
             ku = Curriculum(
                 uid=ku_uid,
                 title=title,
@@ -194,10 +195,10 @@ class TestDeleteRelationshipOperations:
 
         # Create a task
         task = Task(
-            uid="task:partial_delete_test",
+            uid="task.partial-delete-test",
             title="Test Partial Delete",
             description="Test task for partial batch delete",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.LOW,
             status=EntityStatus.DRAFT,
         )
@@ -206,8 +207,8 @@ class TestDeleteRelationshipOperations:
 
         # Create only 2 relationships (tuples use strings)
         existing_rels = [
-            ("task:partial_delete_test", "ku:existing1", "APPLIES_KNOWLEDGE", None),
-            ("task:partial_delete_test", "ku:existing2", "REQUIRES_KNOWLEDGE", None),
+            ("task.partial-delete-test", "ku.existing1", "APPLIES_KNOWLEDGE", None),
+            ("task.partial-delete-test", "ku.existing2", "REQUIRES_KNOWLEDGE", None),
         ]
         create_result = await tasks_backend.create_relationships_batch(existing_rels)
         assert create_result.is_ok
@@ -215,10 +216,10 @@ class TestDeleteRelationshipOperations:
 
         # Try to delete 4 relationships (2 exist, 2 don't) - tuples use strings
         rels_to_delete = [
-            ("task:partial_delete_test", "ku:existing1", "APPLIES_KNOWLEDGE"),
-            ("task:partial_delete_test", "ku:existing2", "REQUIRES_KNOWLEDGE"),
-            ("task:partial_delete_test", "ku:nonexistent1", "APPLIES_KNOWLEDGE"),
-            ("task:partial_delete_test", "ku:nonexistent2", "REQUIRES_KNOWLEDGE"),
+            ("task.partial-delete-test", "ku.existing1", "APPLIES_KNOWLEDGE"),
+            ("task.partial-delete-test", "ku.existing2", "REQUIRES_KNOWLEDGE"),
+            ("task.partial-delete-test", "ku:nonexistent1", "APPLIES_KNOWLEDGE"),
+            ("task.partial-delete-test", "ku:nonexistent2", "REQUIRES_KNOWLEDGE"),
         ]
         delete_result = await tasks_backend.delete_relationships_batch(rels_to_delete)
         assert delete_result.is_ok
@@ -237,9 +238,9 @@ class TestDeleteRelationshipOperations:
         """Test that delete operations work with count_related."""
         # Create knowledge units first
         for ku_uid, title in [
-            ("ku:python", "Python"),
-            ("ku:algorithms", "Algorithms"),
-            ("ku:databases", "Databases"),
+            ("ku.python", "Python"),
+            ("ku.algorithms", "Algorithms"),
+            ("ku.databases", "Databases"),
         ]:
             ku = Curriculum(
                 uid=ku_uid,
@@ -251,10 +252,10 @@ class TestDeleteRelationshipOperations:
 
         # Create a task
         task = Task(
-            uid="task:count_delete_test",
+            uid="task.count-delete-test",
             title="Test Delete with Count",
             description="Test delete with count operations",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             priority=Priority.MEDIUM,
             status=EntityStatus.ACTIVE,
         )
@@ -263,16 +264,16 @@ class TestDeleteRelationshipOperations:
 
         # Create 3 APPLIES_KNOWLEDGE relationships (tuples use strings)
         relationships = [
-            ("task:count_delete_test", "ku:python", "APPLIES_KNOWLEDGE", None),
-            ("task:count_delete_test", "ku:algorithms", "APPLIES_KNOWLEDGE", None),
-            ("task:count_delete_test", "ku:databases", "APPLIES_KNOWLEDGE", None),
+            ("task.count-delete-test", "ku.python", "APPLIES_KNOWLEDGE", None),
+            ("task.count-delete-test", "ku.algorithms", "APPLIES_KNOWLEDGE", None),
+            ("task.count-delete-test", "ku.databases", "APPLIES_KNOWLEDGE", None),
         ]
         create_result = await tasks_backend.create_relationships_batch(relationships)
         assert create_result.is_ok
 
         # Count should be 3 (methods use enums)
         count_result = await tasks_backend.count_related(
-            uid="task:count_delete_test",
+            uid="task.count-delete-test",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             direction="outgoing",
         )
@@ -281,15 +282,15 @@ class TestDeleteRelationshipOperations:
 
         # Delete one relationship
         delete_result = await tasks_backend.delete_relationship(
-            from_uid="task:count_delete_test",
-            to_uid="ku:python",
+            from_uid="task.count-delete-test",
+            to_uid="ku.python",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         assert delete_result.is_ok
 
         # Count should now be 2
         count_result = await tasks_backend.count_related(
-            uid="task:count_delete_test",
+            uid="task.count-delete-test",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             direction="outgoing",
         )
@@ -299,8 +300,8 @@ class TestDeleteRelationshipOperations:
         # Delete remaining 2 in batch (tuples use strings)
         delete_result = await tasks_backend.delete_relationships_batch(
             [
-                ("task:count_delete_test", "ku:algorithms", "APPLIES_KNOWLEDGE"),
-                ("task:count_delete_test", "ku:databases", "APPLIES_KNOWLEDGE"),
+                ("task.count-delete-test", "ku.algorithms", "APPLIES_KNOWLEDGE"),
+                ("task.count-delete-test", "ku.databases", "APPLIES_KNOWLEDGE"),
             ]
         )
         assert delete_result.is_ok
@@ -308,7 +309,7 @@ class TestDeleteRelationshipOperations:
 
         # Count should now be 0
         count_result = await tasks_backend.count_related(
-            uid="task:count_delete_test",
+            uid="task.count-delete-test",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             direction="outgoing",
         )

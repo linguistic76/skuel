@@ -29,6 +29,7 @@ from core.services.lp_intelligence.learning_recommendation_engine import (
     LearningRecommendationEngine,
 )
 from core.services.lp_intelligence.learning_state_analyzer import LearningStateAnalyzer
+from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.mark.asyncio
@@ -74,8 +75,8 @@ class TestLearningRecommendationsFlow:
         """Test that LearningPathCompleted event triggers recommendations."""
         # Publish LearningPathCompleted event
         event = LearningPathCompleted(
-            path_uid="lp.intro_python",
-            user_uid="user_test",
+            path_uid="lp.intro-python",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
             actual_duration_hours=40,
             estimated_duration_hours=50,
@@ -95,8 +96,8 @@ class TestLearningRecommendationsFlow:
     async def test_path_completed_ahead_of_schedule_reason(self, recommendation_engine, event_bus):
         """Test that accelerated completion generates 'accelerated_learner' reason."""
         event = LearningPathCompleted(
-            path_uid="lp.advanced_python",
-            user_uid="user_test",
+            path_uid="lp.advanced-python",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
             actual_duration_hours=30,
             estimated_duration_hours=50,
@@ -114,8 +115,8 @@ class TestLearningRecommendationsFlow:
     async def test_path_completed_high_mastery_reason(self, recommendation_engine, event_bus):
         """Test that high mastery completion generates 'high_mastery' reason."""
         event = LearningPathCompleted(
-            path_uid="lp.data_structures",
-            user_uid="user_test",
+            path_uid="lp.data-structures",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
             actual_duration_hours=50,
             estimated_duration_hours=50,
@@ -140,8 +141,8 @@ class TestLearningRecommendationsFlow:
         """Test that KnowledgeMastered event triggers recommendations."""
         # Publish KnowledgeMastered event
         event = KnowledgeMastered(
-            ku_uid="ku.python_functions",
-            user_uid="user_test",
+            ku_uid="ku.python-functions",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
             mastery_score=0.85,
             time_to_mastery_hours=5,
@@ -156,8 +157,8 @@ class TestLearningRecommendationsFlow:
     async def test_high_mastery_advanced_topics_reason(self, recommendation_engine, event_bus):
         """Test that high mastery (≥0.9) generates 'advanced_topics' reason."""
         event = KnowledgeMastered(
-            ku_uid="ku.async_programming",
-            user_uid="user_test",
+            ku_uid="ku.async-programming",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
             mastery_score=0.95,
         )
@@ -170,8 +171,8 @@ class TestLearningRecommendationsFlow:
     async def test_good_mastery_related_topics_reason(self, recommendation_engine, event_bus):
         """Test that good mastery (0.7-0.9) generates 'related_topics' reason."""
         event = KnowledgeMastered(
-            ku_uid="ku.web_frameworks",
-            user_uid="user_test",
+            ku_uid="ku.web-frameworks",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
             mastery_score=0.80,
         )
@@ -184,8 +185,8 @@ class TestLearningRecommendationsFlow:
     async def test_minimal_mastery_reinforcement_reason(self, recommendation_engine, event_bus):
         """Test that minimal mastery (<0.7) generates 'reinforcement' reason."""
         event = KnowledgeMastered(
-            ku_uid="ku.design_patterns",
-            user_uid="user_test",
+            ku_uid="ku.design-patterns",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
             mastery_score=0.65,
         )
@@ -204,8 +205,8 @@ class TestLearningRecommendationsFlow:
     ):
         """Test that recommendations are not published without learning_backend."""
         event = LearningPathCompleted(
-            path_uid="lp.test_path",
-            user_uid="user_test",
+            path_uid="lp.test-path",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
             kus_mastered=5,
             average_mastery_score=0.75,
@@ -231,7 +232,7 @@ class TestLearningRecommendationsFlow:
         # Create event with minimal data
         event = LearningPathCompleted(
             path_uid="lp.test",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
         )
 
@@ -246,7 +247,7 @@ class TestLearningRecommendationsFlow:
         # Create event
         event = KnowledgeMastered(
             ku_uid="ku.test",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
             mastery_score=0.75,
         )
@@ -269,7 +270,7 @@ class TestLearningRecommendationsFlow:
         # Try to handle event
         event = KnowledgeMastered(
             ku_uid="ku.test",
-            user_uid="user_test",
+            user_uid=seed_user_uid("test"),
             occurred_at=datetime.now(),
             mastery_score=0.85,
         )
