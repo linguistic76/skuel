@@ -88,6 +88,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import yaml
+
 from core.utils.process_clock import pin_process_clock_to_utc
 
 pin_process_clock_to_utc()  # before any clock read (ADR-089)
@@ -97,6 +99,7 @@ from core.models.group.group import default_group_uid
 from core.models.relationship_names import RelationshipName
 from core.models.user.user import fold_username, username_problem
 from core.models.user_entry.user_entry import periodic_note_uid
+from core.utils.frontmatter import split_frontmatter
 from core.utils.uid_grammar import hashed_uid, is_generated_uid
 
 if TYPE_CHECKING:
@@ -139,7 +142,7 @@ VAULT_OWNER_KEYS: tuple[str, ...] = ("teacher", "user_uid", "ownership")
 #: The owner keys a bare username may fill (``_named_uid``).
 BARE_OWNER_KEYS: tuple[str, ...] = ("user_uid", "ownership")
 _OWNER_LINE = re.compile(
-    rf"(?P<key>{'|'.join(VAULT_OWNER_KEYS)}):[ \t]*(?P<q>[\"']?)(?P<value>[A-Za-z0-9._-]+)(?P=q)[ \t]*\r?"
+    rf"(?P<key>{'|'.join(VAULT_OWNER_KEYS)}):[ \t]*(?P<q>[\"']?)(?P<value>[A-Za-z0-9._-]+)(?P=q)(?:[ \t]+#[^\r\n]*|[ \t]*)\r?"
 )
 
 #: The settings that name an account by uid (``VaultConfig.validate_owners``).
@@ -488,8 +491,9 @@ def _owner_region_end(path: Path, text: str) -> int:
 def _owner_value(line: str) -> re.Match[str] | None:
     """A ``VAULT_OWNER_KEYS`` line's match — ``key``, ``value`` — or ``None``.
 
-    The value may be quoted; the quotes, the gap after the colon and any
-    trailing blank or ``\r`` are kept by an edit.
+    The value may be quoted and followed by a ``# comment``; the quotes, the gap
+    after the colon, the comment and any trailing blank or ``\r`` are kept by an
+    edit.
     """
     return _OWNER_LINE.fullmatch(line)
 
@@ -506,16 +510,46 @@ def _named_uid(key: str, value: str) -> str:
     return value
 
 
+def _declared_owners(path: Path, text: str) -> dict[str, str]:
+    """The top-level owner keys a file declares, read as ingestion reads them.
+
+    A YAML file is parsed whole, a markdown file's frontmatter alone
+    (``split_frontmatter``, ingestion's own splitter); a value is read as
+    ingestion compares it, ``str(value).strip()``. A file that does not parse,
+    and a list or map value, declare nothing here — ingestion refuses those
+    before this run and after it alike.
+    """
+    if path.suffix.lower() in {".yaml", ".yml"}:
+        raw: str | None = text
+    else:
+        raw, _ = split_frontmatter(text)
+    if raw is None:
+        return {}
+    try:
+        data = yaml.safe_load(raw)
+    except yaml.YAMLError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {
+        key: str(data[key]).strip()
+        for key in VAULT_OWNER_KEYS
+        if data.get(key) is not None and not isinstance(data[key], list | dict)
+    }
+
+
 def plan_vaults(
     roots: Iterable[Path], user_vaults_root: Path | None, live_users: set[str], plan: Plan
 ) -> None:
     """Plan each vault file edit that moves a renamed user's old uid to its new one.
 
     Every file under ``roots`` and under ``user_vaults_root`` (each member's
-    personal vault) is read. A frontmatter owner line is edited when the uid it
-    names (``_named_uid``) is
-    one the plan renames, or — on a re-run after the graph moved — one whose hash
-    is a live user's uid. Any other mention of a retired uid stops the run.
+    personal vault) is read. A top-level owner line is edited when the uid it
+    names (``_named_uid``) is one the plan renames, or — on a re-run after the
+    graph moved — one whose hash is a live user's uid. The run stops on a
+    declared owner that needs moving and that no line edit reached (read as
+    ingestion reads it, ``_declared_owners``), and on any other mention of a
+    renamed uid — a user's, a periodic note's or a default group's.
     """
     texts: dict[Path, str] = {}
     for root in [*roots, *([user_vaults_root] if user_vaults_root is not None else [])]:
@@ -540,7 +574,7 @@ def plan_vaults(
 
     edits: dict[Path, dict[int, str]] = {}
     for path, text in sorted(texts.items()):
-        end, offset = _owner_region_end(path, text), 0
+        end, offset, edited_keys = _owner_region_end(path, text), 0, set()
         for number, line in enumerate(text.split("\n"), start=1):
             match = _owner_value(line) if offset < end else None
             offset += len(line) + 1
@@ -550,15 +584,28 @@ def plan_vaults(
             if new is not None:
                 start, stop = match.span("value")
                 edits.setdefault(path, {})[number] = line[:start] + new + line[stop:]
-    if not moves:
-        return
+                edited_keys.add(match["key"])
+        # What ingestion will read is the authority: a declared owner the line
+        # editor did not reach (a folded scalar, an odd quoting) stops the run.
+        for key, value in _declared_owners(path, text).items():
+            new = new_uid(_named_uid(key, value))
+            if new is not None and key not in edited_keys:
+                plan.stops.append(
+                    f"vault file {path}: its {key}: names {_named_uid(key, value)} in a form "
+                    f"the run cannot edit — set it to {new}"
+                )
     if user_vaults_root is not None:
         for old in sorted(moves):
             if (user_vaults_root / old).exists():
                 plan.stops.append(
                     f"per-user vault {user_vaults_root / old}: rename it to {moves[old]}"
                 )
-    names = uid_pattern(moves)
+    # Every renamed uid — a user's, a periodic note's, a default group's — that a
+    # file names anywhere but an owner line it edits stops the run.
+    retired = plan.new_uid_of() | moves
+    if not retired:
+        return
+    names = uid_pattern(retired)
     for path, text in sorted(texts.items()):
         edited = edits.get(path, {})
         lines = text.split("\n")
@@ -567,7 +614,7 @@ def plan_vaults(
             if match:
                 plan.stops.append(
                     f"vault file {path}:{number} names {match.group(0)} outside a top-level "
-                    f"{'/'.join(VAULT_OWNER_KEYS)} line — edit it to {moves[match.group(0)]}"
+                    f"{'/'.join(VAULT_OWNER_KEYS)} line — edit it to {retired[match.group(0)]}"
                 )
         if edited:
             after = [edited.get(number, line) for number, line in enumerate(lines, start=1)]

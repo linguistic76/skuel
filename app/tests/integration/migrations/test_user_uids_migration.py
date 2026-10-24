@@ -319,6 +319,44 @@ class TestTheStops:
         with pytest.raises(migration.CountMismatchError):
             await migration.migrate(graph, plan)
 
+    async def test_an_owner_line_with_a_comment_is_edited_and_keeps_it(
+        self, graph: Any, vaults: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        _, personal = vaults
+        note = personal / "knowledge" / "commented.md"
+        note.write_text("---\ntype: user_entry\nownership: zzustudent # me\n---\n")
+
+        plan = await _census(graph, vaults, tmp_path)
+
+        assert plan.stops == [], plan.stops
+        (edit,) = [edit for edit in plan.files if edit.path == note]
+        assert edit.after == f"---\ntype: user_entry\nownership: {STUDENT_NEW} # me\n---\n"
+
+    async def test_a_declared_owner_no_line_edit_reaches_stops_the_run(
+        self, graph: Any, vaults: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        """Ingestion reads a folded scalar's owner; the line editor cannot move it."""
+        _, personal = vaults
+        (personal / "knowledge" / "folded.md").write_text(
+            "---\ntype: user_entry\nownership: >-\n  zzustudent\n---\n"
+        )
+
+        plan = await _census(graph, vaults, tmp_path)
+
+        assert any("folded.md: its ownership:" in stop for stop in plan.stops), plan.stops
+
+    async def test_a_vault_naming_a_renamed_group_stops_the_run(
+        self, graph: Any, vaults: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        _, personal = vaults
+        (personal / "knowledge" / "shared.md").write_text(
+            f"---\ntype: user_entry\naudience: group:{GROUP}\n---\n"
+        )
+
+        plan = await _census(graph, vaults, tmp_path)
+
+        assert any(f"shared.md:3 names {GROUP}" in stop for stop in plan.stops), plan.stops
+
     async def test_a_member_vault_is_read_too(
         self, graph: Any, vaults: tuple[Path, Path], tmp_path: Path
     ) -> None:

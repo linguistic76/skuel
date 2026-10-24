@@ -104,6 +104,7 @@ class TestOwnerLines:
             (f'user_uid: "{OLD}"', "user_uid", OLD),
             ("ownership: 'linguistic76'", "ownership", "linguistic76"),
             (f"teacher:{OLD}  \r", "teacher", OLD),
+            ("ownership: admin # my account", "ownership", "admin"),
         ],
     )
     def test_an_owner_key_and_its_value(self, line: str, key: str, value: str) -> None:
@@ -111,7 +112,15 @@ class TestOwnerLines:
         assert match is not None and (match["key"], match["value"]) == (key, value)
 
     @pytest.mark.parametrize(
-        "line", [f"author: {OLD}", f"teacher: {OLD} and more", f"- {OLD}", f"teacher: [{OLD}]"]
+        "line",
+        [
+            f"author: {OLD}",
+            f"teacher: {OLD} and more",
+            f"- {OLD}",
+            f"teacher: [{OLD}]",
+            "ownership: admin#x",  # YAML reads the value as `admin#x`
+            "  ownership: admin",  # nested, not the file's owner
+        ],
     )
     def test_anything_else(self, line: str) -> None:
         assert migration._owner_value(line) is None
@@ -129,6 +138,30 @@ class TestOwnerLines:
         self, key: str, value: str, uid: str
     ) -> None:
         assert migration._named_uid(key, value) == uid
+
+
+class TestDeclaredOwners:
+    def test_a_markdown_file_declares_in_its_frontmatter_as_ingestion_reads_it(self) -> None:
+        text = "---\nownership: >-\n  admin\nteacher: user_admin\n---\nownership: body\n"
+        assert migration._declared_owners(Path("n.md"), text) == {
+            "ownership": "admin",
+            "teacher": "user_admin",
+        }
+
+    def test_a_yaml_file_declares_at_its_top_level(self) -> None:
+        text = "ownership: 1234\nnested:\n  user_uid: user_x\n"
+        assert migration._declared_owners(Path("e.yaml"), text) == {"ownership": "1234"}
+
+    @pytest.mark.parametrize(
+        ("name", "text"),
+        [
+            ("n.md", "no fence\nownership: admin\n"),
+            ("n.md", "---\nownership: [admin]\n---\n"),
+            ("e.yml", "ownership: [unclosed\n"),
+        ],
+    )
+    def test_nothing_ingestion_refuses_anyway(self, name: str, text: str) -> None:
+        assert migration._declared_owners(Path(name), text) == {}
 
 
 class TestOwnerSettings:
