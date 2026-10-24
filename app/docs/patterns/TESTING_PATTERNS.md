@@ -220,53 +220,42 @@ status_calls = mock_service.update_assignment_status.call_args_list
 
 ### Standard Fixtures
 
-SKUEL integration tests use pytest fixtures for common setup:
+SKUEL integration tests use the fixtures in `tests/integration/conftest.py` (the full list:
+`.claude/skills/pytest/fixtures-reference.md`). The driver is the shared session one; a backend
+the composition root builds comes from `create_all_backends` itself — never a copy of its
+arguments (`tests/unit/test_production_backend_census.py` fails one):
 
 ```python
 @pytest.fixture
-async def test_user_uid():
-    """Standard test user UID."""
-    return "user.test"
+def production_backends(neo4j_driver):
+    """Every backend the composition root builds, over the shared container."""
+    return build_production_backends(neo4j_driver)  # tests/helpers/production_backends.py
 
-@pytest.fixture
-async def create_test_users(user_backend, test_user_uid):
-    """Ensure test users exist in database."""
-    user = User(uid=test_user_uid, ...)
-    await user_backend.create(user)
-    yield
-    await user_backend.delete(test_user_uid, cascade=True)
 
-@pytest.fixture
-async def tasks_backend(neo4j_container):
-    """Backend with connection to test Neo4j."""
-    driver = open_async_driver(neo4j_container.get_connection_url(), auth=None)
-    backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-    yield backend
-    await driver.close()
+@pytest_asyncio.fixture
+async def tasks_backend(production_backends):
+    return production_backends["tasks_backend"]  # TasksBackend, as production builds it
+
+
+async def test_create_task(tasks_backend, clean_neo4j, ensure_test_users):
+    task = Task(uid="task.test-create", title="Test", user_uid=seed_user_uid("test"))
+    assert (await tasks_backend.create(task)).is_ok
 ```
 
 ### Fixture Dependency Chain
 
 ```
-neo4j_container
-    └── driver
-        └── backends (tasks_backend, goals_backend, etc.)
-            └── services (tasks_service, goals_service, etc.)
-                └── test functions
+neo4j_container (session)
+    └── neo4j_driver (session)
+        ├── clean_neo4j (function: wipes all but :User / :MigrationRecord, before and after)
+        └── production_backends (function: create_all_backends over the driver)
+            └── tasks_backend, goals_backend, …, ku_backend
+                └── tasks_service, goals_service, … (the CORE sub-services)
+                    └── test functions
 ```
 
-### Clean Database Fixture
-
-```python
-@pytest.fixture
-async def clean_neo4j(neo4j_container):
-    """Start each test with empty database."""
-    driver = open_async_driver(neo4j_container.get_connection_url(), auth=None)
-    async with driver.session() as session:
-        await session.run("MATCH (n) DETACH DELETE n")
-    yield driver
-    await driver.close()
-```
+`ensure_test_users` (session) seeds every `seed_user_uid(name)` the tier uses; a test that creates
+an owned entity depends on it — the `:OWNS` write doors refuse an owner with no `:User` node.
 
 ---
 
