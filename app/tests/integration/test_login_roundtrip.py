@@ -21,9 +21,9 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.session_backend import SessionBackend
-from adapters.persistence.neo4j.user_backend import UserBackend
 from core.auth.graph_auth import GraphAuthService
 from core.utils.uid_grammar import is_generated_uid
+from tests.helpers.production_backends import build_production_backends
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -48,7 +48,7 @@ async def auth_env(neo4j_driver):
     nodes (via HAS_RESET_TOKEN) — teardown removes all of them by test uid/email.
     """
     auth = GraphAuthService(
-        user_backend=UserBackend(neo4j_driver),
+        user_backend=build_production_backends(neo4j_driver)["users_backend"],
         session_backend=SessionBackend(neo4j_driver),
     )
     created: list[tuple[str, str]] = []  # (username, email)
@@ -146,7 +146,7 @@ async def test_signin_via_username_lookup(neo4j_driver, auth_env):
     # Same composition as the conftest user_service fixture / bootstrap:
     # UserService delegates identity lookups to UserBackend.
     user_service = UserService(
-        user_repo=UserBackend(neo4j_driver),
+        user_repo=build_production_backends(neo4j_driver)["users_backend"],
         query_executor=UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver)),
     )
 
@@ -307,7 +307,7 @@ async def test_soft_deleted_user_sessions_stop_validating(neo4j_driver, auth_env
     assert signin.is_ok, f"sign_in failed: {signin.error}"
     token = signin.value["session_token"]
 
-    deleted = await UserBackend(neo4j_driver).delete_user(user_uid)
+    deleted = await build_production_backends(neo4j_driver)["users_backend"].delete_user(user_uid)
     assert deleted.is_ok and deleted.value is True, f"soft delete failed: {deleted.error}"
 
     after = await auth.validate_session_identity(token)
@@ -332,7 +332,9 @@ async def test_hard_deleted_user_sessions_are_erased(neo4j_driver, auth_env):
     assert signin.is_ok, f"sign_in failed: {signin.error}"
     token = signin.value["session_token"]
 
-    erased = await UserBackend(neo4j_driver).hard_delete_user(user_uid)
+    erased = await build_production_backends(neo4j_driver)["users_backend"].hard_delete_user(
+        user_uid
+    )
     assert erased.is_ok and erased.value >= 1, f"hard delete failed: {erased.error}"
 
     after = await auth.validate_session_identity(token)

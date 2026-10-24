@@ -30,20 +30,16 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from adapters.persistence.neo4j.backends.activity_backends import (
-    ChoicesBackend,
-    PrinciplesBackend,
-)
 from adapters.persistence.neo4j.cross_domain_backend import _INTENT_EDGE_SETS, CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.choice.choice import Choice
-from core.models.enums.neo_labels import NeoLabel
 from core.models.principle.principle import Principle
 from core.models.relationship_registry import CHOICES_CONFIG, PRINCIPLES_CONFIG
 from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.principles.principles_intelligence_service import PrinciplesIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 
 P = "conv2c."  # uid prefix for this module's fixture graph
 
@@ -119,7 +115,7 @@ def choices_rel(neo4j_driver):
     for the focal-entity-type assertion below (Codex P2 refutation).
     """
     graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["choices_backend"]
     return UnifiedRelationshipService(
         backend=backend, config=CHOICES_CONFIG, graph_intel=graph_intel
     )
@@ -133,9 +129,7 @@ def principles_rel(neo4j_driver):
     backend.get() returns a full Principle domain model — faithful to production.
     """
     graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = PrinciplesBackend(
-        neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
-    )
+    backend = build_production_backends(neo4j_driver)["principles_backend"]
     return UnifiedRelationshipService(
         backend=backend, config=PRINCIPLES_CONFIG, graph_intel=graph_intel
     )

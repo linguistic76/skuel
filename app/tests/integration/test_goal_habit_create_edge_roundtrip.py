@@ -42,19 +42,18 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, HabitsBackend
+from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
 from core.models.enums import Domain, MeasurementType, Priority, RecurrencePattern
-from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
-from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import GOALS_CONFIG
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.habits.habits_core_service import HabitsCoreService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 VICTIM = seed_user_uid("test_victim")
@@ -69,13 +68,13 @@ async def event_bus():
 async def goals_service(neo4j_driver, clean_neo4j, event_bus):
     # Multi-label (:Goal:Entity) to match production — the relationship registry keys
     # its edge validation off the domain label.
-    backend = GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["goals_backend"]
     return GoalsCoreService(backend=backend, event_bus=event_bus)
 
 
 @pytest_asyncio.fixture
 async def habits_service(neo4j_driver, clean_neo4j, event_bus):
-    backend = HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["habits_backend"]
     return HabitsCoreService(backend=backend, event_bus=event_bus)
 
 

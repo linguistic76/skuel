@@ -5,9 +5,9 @@ Debug test to verify relationship properties are being stored.
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.curriculum import Curriculum
 from core.models.enums import Domain, SELCategory
+from core.models.pathways.path_step import PathStep
+from tests.helpers.production_backends import build_production_backends
 
 
 @pytest.mark.asyncio
@@ -21,20 +21,18 @@ class TestRelationshipPropertiesDebug:
         Uses PathStep (not Ku) because the test exercises REQUIRES_KNOWLEDGE,
         which the relationship registry defines on PathStep, not Ku.
         """
-        return UniversalNeo4jBackend[Curriculum](
-            neo4j_driver, "PathStep", Curriculum, base_label="Entity"
-        )
+        return build_production_backends(neo4j_driver)["ps_backend"]
 
     async def test_relationship_properties_are_stored(self, ku_backend):
         """Verify that relationship properties are actually persisted."""
         # Create two KUs
-        ku1 = Curriculum(
+        ku1 = PathStep(
             uid="ps.test1",
             title="Test 1",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
-        ku2 = Curriculum(
+        ku2 = PathStep(
             uid="ps.test2",
             title="Test 2",
             domain=Domain.TECH,

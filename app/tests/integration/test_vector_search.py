@@ -413,23 +413,6 @@ async def test_cross_domain_search_mock(neo4j_driver, clean_neo4j, mock_vector_s
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_graceful_degradation_no_embeddings_service(ku_backend):
-    """Test that services work without embeddings service (graceful degradation)."""
-
-    # Create a search service-like component WITHOUT embeddings
-    # This tests the pattern used in domain services
-
-    # Simulate service initialization with None for embeddings
-    embeddings_service = None
-    vector_search_service = None
-
-    # Service should initialize successfully
-    assert embeddings_service is None
-    assert vector_search_service is None
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
 async def test_graceful_degradation_unavailable_service(
     neo4j_driver, clean_neo4j, mock_embeddings_unavailable
 ):

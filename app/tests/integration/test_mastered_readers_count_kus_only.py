@@ -16,13 +16,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.path_step import PathStep
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("mastered_readers")
@@ -45,7 +43,7 @@ async def graph(neo4j_driver, clean_neo4j) -> None:
             step=STEP,
             ku=KU,
         )
-    backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["ps_backend"]
     now = datetime.now(UTC).isoformat()
     assert (await backend.mark_mastered(USER, KU, now, 0.9, "report_approval")).is_ok
     assert (await backend.mark_mastered(USER, STEP, now, 1.0, "derived")).is_ok

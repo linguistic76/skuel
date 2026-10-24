@@ -36,6 +36,7 @@ from adapters.inbound.boundary import result_to_response
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.services.report.teacher_review_service import TeacherReviewService
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -128,7 +129,7 @@ async def two_classroom_fixture(neo4j_driver):
 
 @pytest.fixture
 def backend(neo4j_driver):
-    return UserEntryBackend(neo4j_driver)
+    return build_production_backends(neo4j_driver)["user_entry_backend"]
 
 
 @pytest.mark.asyncio

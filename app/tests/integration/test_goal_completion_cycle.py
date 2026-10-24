@@ -41,7 +41,6 @@ from core.events.base import BaseEvent
 from core.events.goal_events import GoalAchieved
 from core.models.enums import EntityStatus
 from core.models.enums.goal_enums import MeasurementType
-from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.goal.milestone import Milestone
@@ -49,6 +48,7 @@ from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("goal_cycle")
@@ -127,9 +127,7 @@ class TestGoalCompletionCycle:
     async def rig(
         self, neo4j_driver: AsyncDriver, clean_neo4j: None
     ) -> tuple[GoalsCoreService, UniversalNeo4jBackend[Goal], _CapturingBus]:
-        backend = UniversalNeo4jBackend[Goal](
-            neo4j_driver, "Entity", Goal, default_filters={"entity_type": "goal"}
-        )
+        backend = build_production_backends(neo4j_driver)["goals_backend"]
         bus = _CapturingBus()
         return GoalsCoreService(backend=backend, event_bus=bus), backend, bus
 
@@ -250,7 +248,7 @@ class TestMilestoneCompletionCycle:
         # ``complete_milestone`` reads through ``get_goal``, which is a REAL method on the
         # domain backend (a ``get_or_fail`` wrapper), not one of the ``__getattr__``
         # aliases — a universal backend raises AttributeError on it.
-        backend = GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+        backend = build_production_backends(neo4j_driver)["goals_backend"]
         bus = _CapturingBus()
         return GoalsProgressService(backend=backend, event_bus=bus), backend, bus
 

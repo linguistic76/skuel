@@ -33,8 +33,6 @@ import pytest
 from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend, PsBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.path_step import PathStep
 from core.models.relationship_registry import PS_CONFIG
 from core.ports import query_types
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -46,6 +44,7 @@ from core.services.ps.ps_core_service import PsCoreService
 from core.services.ps.ps_intelligence_service import PsIntelligenceService
 from core.services.ps_service import PsService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 
 P = "ctxguard."
 PS = P + "ps"  # center PathStep
@@ -106,7 +105,7 @@ def test_dead_facade_and_backend_readers_gone():
 def ps_intel(neo4j_driver):
     """PsIntelligenceService wired exactly like production (mechanism B)."""
     graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["ps_backend"]
     relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=backend, config=PS_CONFIG, graph_intel=graph_intel
     )

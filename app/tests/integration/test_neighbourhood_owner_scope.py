@@ -23,7 +23,6 @@ from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain
-from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
     EVENTS_CONFIG,
@@ -37,6 +36,7 @@ from core.models.task.task import Task
 from core.models.type_hints import Neo4jValue
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -80,7 +80,7 @@ SPELLINGS = ["entity", "user_uid", "owner_uid", "owns_edge"]
 @pytest.fixture
 def backend(neo4j_driver: AsyncDriver) -> UniversalNeo4jBackend[Task]:
     """Any domain backend runs the producer — the statement takes its label as an argument."""
-    return UniversalNeo4jBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+    return build_production_backends(neo4j_driver)["tasks_backend"]
 
 
 @pytest.fixture

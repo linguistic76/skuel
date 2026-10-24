@@ -30,8 +30,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.habit.habit import Habit
 from core.models.relationship_registry import HABITS_CONFIG
@@ -43,6 +41,7 @@ from core.services.relationships.unified_relationship_service import UnifiedRela
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 HB = "hbctx."  # uid prefix for this module's fixture graph
@@ -59,9 +58,7 @@ HB_PREREQ = HB + "prereq"  # habit -[REQUIRES_PREREQUISITE]-> (prerequisite_habi
 def rel_backend(neo4j_driver):
     """Multi-label Entity backend — registry edge validation requires the domain label
     alongside :Entity, so the single-:Entity form is not used."""
-    return UniversalNeo4jBackend[Habit](
-        neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY
-    )
+    return build_production_backends(neo4j_driver)["habits_backend"]
 
 
 class _FakeHabitBackend:

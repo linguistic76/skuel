@@ -21,7 +21,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
 from core.models.enums import Domain, Priority
@@ -29,6 +28,7 @@ from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus
 from core.services.choices.choices_core_service import ChoicesCoreService
 from core.utils.uid_grammar import slugify
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -44,9 +44,7 @@ class TestChoicesCoreOperations:
     @pytest_asyncio.fixture
     async def choices_backend(self, neo4j_driver, clean_neo4j):
         """Create choices backend with clean database."""
-        return UniversalNeo4jBackend[Choice](
-            neo4j_driver, "Entity", Choice, default_filters={"entity_type": "choice"}
-        )
+        return build_production_backends(neo4j_driver)["choices_backend"]
 
     @pytest_asyncio.fixture
     async def choices_service(self, choices_backend, event_bus):

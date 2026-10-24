@@ -13,8 +13,8 @@ from __future__ import annotations
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.user_backend import UserBackend
 from core.utils.result_simplified import ErrorCategory
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -68,7 +68,7 @@ async def _count_enrollments(neo4j_driver, status: str | None = None) -> int:
 
 async def test_enroll_creates_enrolled_in_edge(neo4j_driver, enrollment_graph):
     """enroll_in_learning_path lands a real ENROLLED_IN edge on :LearningPath."""
-    backend = UserBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["users_backend"]
 
     result = await backend.enroll_in_learning_path(
         _USER_UID, _LP_UID, motivation_note="arc-b integration"
@@ -85,7 +85,7 @@ async def test_enroll_creates_enrolled_in_edge(neo4j_driver, enrollment_graph):
 async def test_enroll_is_idempotent(neo4j_driver, enrollment_graph):
     """MERGE semantics: enrolling twice leaves exactly one edge — and reports
     the transition once, so LearningPathStarted is published once."""
-    backend = UserBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["users_backend"]
 
     first = await backend.enroll_in_learning_path(_USER_UID, _LP_UID)
     second = await backend.enroll_in_learning_path(_USER_UID, _LP_UID)
@@ -97,7 +97,7 @@ async def test_enroll_is_idempotent(neo4j_driver, enrollment_graph):
 
 async def test_enroll_nonexistent_lp_fails(neo4j_driver, enrollment_graph):
     """Enrolling in a missing LP returns an error Result, not silent success."""
-    backend = UserBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["users_backend"]
 
     result = await backend.enroll_in_learning_path(_USER_UID, "lp:test:does-not-exist")
 
@@ -109,7 +109,7 @@ async def test_enroll_nonexistent_lp_fails(neo4j_driver, enrollment_graph):
 
 async def test_complete_learning_path_updates_enrollment(neo4j_driver, enrollment_graph):
     """complete_learning_path (same phantom-label bug) flips the edge to completed."""
-    backend = UserBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["users_backend"]
 
     enroll = await backend.enroll_in_learning_path(_USER_UID, _LP_UID)
     assert enroll.is_ok
@@ -129,7 +129,7 @@ async def test_a_repeat_enroll_keeps_a_completed_enrollment_completed(
     completed, so this is reachable from the UI. The commitment fields are what
     a repeat enroll is for; the completion stays where the learner earned it.
     """
-    backend = UserBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["users_backend"]
     assert (await backend.enroll_in_learning_path(_USER_UID, _LP_UID)).is_ok
     assert (await backend.complete_learning_path(_USER_UID, _LP_UID)).is_ok
 
@@ -161,14 +161,12 @@ async def test_enrollment_lifecycle_visible_to_readers(neo4j_driver, enrollment_
     forever and the completed readers were permanently empty. All four
     readers now read r.status on the ENROLLED_IN edge the writer maintains.
     """
-    from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
-    from core.models.entity import Entity
-    from core.models.enums import NeoLabel
 
-    user_backend = UserBackend(neo4j_driver)
-    adaptive = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, Entity, base_label=NeoLabel.ENTITY)
+    backends = build_production_backends(neo4j_driver)
+    user_backend = backends["users_backend"]
+    adaptive = backends["ps_backend"]
     progress = UserProgressBackend(Neo4jQueryExecutor(neo4j_driver))
 
     async def active_uids() -> tuple[list[str], list[str]]:

@@ -33,12 +33,10 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.activity_backends import ChoicesBackend
-from core.models.choice.choice import Choice
-from core.models.enums.neo_labels import NeoLabel
 from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS
 from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("choice_window")
@@ -103,7 +101,7 @@ class TestChoicesAnalyticsWindow:
         # The relationship service is not optional here: get_decision_patterns reads
         # alignment from graph edges and fails without it rather than reporting a 0% that
         # is really a missing dependency.
-        backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
+        backend = build_production_backends(neo4j_driver)["choices_backend"]
         relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
             backend=backend,
             config=ACTIVITY_DOMAIN_CONFIGS["choices"].relationship_config,
@@ -208,7 +206,7 @@ class TestDomainPatternsTolerateUnknownDomain:
                 c=(now - timedelta(days=4)).isoformat(),
             )
 
-        backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
+        backend = build_production_backends(neo4j_driver)["choices_backend"]
         # Required since ChoicesIntelligenceService declares _require_relationships = True.
         # This class does not exercise a graph read, but the constructor refuses without it.
         relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(

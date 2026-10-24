@@ -39,13 +39,11 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import EventsBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest
 from core.models.relationship_names import RelationshipName
 from core.services.conversion_service import ConversionServiceV2
 from core.services.events_service import EventsService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 OTHER_USER = seed_user_uid("test_event_edges_victim")
@@ -71,7 +69,7 @@ class _Inert:
 async def events_backend(neo4j_driver, clean_neo4j):
     # Multi-label (:Event:Entity) to match production — the relationship registry keys
     # its edge validation off the domain label.
-    return EventsBackend(neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY)
+    return build_production_backends(neo4j_driver)["events_backend"]
 
 
 @pytest_asyncio.fixture

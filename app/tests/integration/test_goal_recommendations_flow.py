@@ -25,17 +25,10 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import (
-    GoalsBackend,
-    HabitsBackend,
-    PrinciplesBackend,
-)
-from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.goal_events import GoalAchieved, GoalRecommendationsGenerated
 from core.models.enums import (
     Domain,
-    NeoLabel,
 )
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.entity_enums import EntityStatus as HabitStatus
@@ -54,6 +47,7 @@ from core.services.mixins.link_edge_guard import (
     PRINCIPLE_FAR_END,
 )
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -69,24 +63,22 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def goal_backend(self, neo4j_driver, clean_neo4j):
         """Create Goal backend with clean database."""
-        return GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["goals_backend"]
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return KuBackend(neo4j_driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["ku_backend"]
 
     @pytest_asyncio.fixture
     async def habit_backend(self, neo4j_driver, clean_neo4j):
         """Create Habit backend with clean database."""
-        return HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
+        return build_production_backends(neo4j_driver)["habits_backend"]
 
     @pytest_asyncio.fixture
     async def principle_backend(self, neo4j_driver, clean_neo4j):
         """Create Principle backend with clean database."""
-        return PrinciplesBackend(
-            neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
-        )
+        return build_production_backends(neo4j_driver)["principles_backend"]
 
     @pytest_asyncio.fixture
     async def recommendation_service(self, goal_backend, event_bus):
@@ -187,7 +179,7 @@ class TestGoalRecommendationsFlow:
         # Link through the writer each GoalsService.link_goal_to_* method delegates to,
         # so every edge has the direction GOALS_CONFIG declares.
         relationships = UnifiedRelationshipService[UniversalNeo4jBackend[GoalDTO], Goal, GoalDTO](
-            backend=UniversalNeo4jBackend[GoalDTO](neo4j_driver, "Entity", GoalDTO),
+            backend=build_production_backends(neo4j_driver)["goals_backend"],
             config=GOALS_CONFIG,
             graph_intel=None,
         )

@@ -26,9 +26,9 @@ from typing import Any
 
 import pytest
 
-from adapters.persistence.neo4j.user_backend import UserBackend
 from core.models.type_hints import UserUID
 from core.models.user import create_user
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
@@ -74,7 +74,7 @@ async def _seed(neo4j_driver, uid: str, timezone: str | None) -> None:
         uid=UserUID(uid),
         preferences=dataclasses.replace(user.preferences, timezone=timezone, theme="dark"),
     )
-    created = await UserBackend(neo4j_driver).create_user(user)
+    created = await build_production_backends(neo4j_driver)["users_backend"].create_user(user)
     assert created.is_ok, f"create_user failed: {created.error}"
 
 

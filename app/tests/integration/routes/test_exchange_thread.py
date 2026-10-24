@@ -36,10 +36,10 @@ from __future__ import annotations
 
 import pytest
 
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 from core.services.report.report_relationship_service import ReportRelationshipService
 from core.services.report.teacher_review_service import TeacherReviewService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 TEACHER = seed_user_uid("ext_teacher")
@@ -67,7 +67,9 @@ O_REVISED = "re.ext-other-student"
 @pytest.fixture
 def relationship_service(neo4j_driver) -> ReportRelationshipService:
     """Real service over a real user_entry backend."""
-    return ReportRelationshipService(backend=UserEntryBackend(driver=neo4j_driver))
+    return ReportRelationshipService(
+        backend=build_production_backends(neo4j_driver)["user_entry_backend"]
+    )
 
 
 @pytest.fixture
@@ -79,7 +81,7 @@ def orchestrator(neo4j_driver, relationship_service) -> UserEntryOrchestrator:
     collaborators are never reached, so ``None`` is honest here.
     """
     review_service = TeacherReviewService(
-        user_entry_backend=UserEntryBackend(driver=neo4j_driver),
+        user_entry_backend=build_production_backends(neo4j_driver)["user_entry_backend"],
         report_backend=None,  # type: ignore[arg-type]
         exercise_backend=None,  # type: ignore[arg-type]
         group_backend=None,  # type: ignore[arg-type]

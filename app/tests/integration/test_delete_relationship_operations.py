@@ -12,13 +12,12 @@ from datetime import date
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.curriculum import Curriculum
 from core.models.enums import Domain, EntityStatus, Priority, SELCategory
-from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -29,16 +28,12 @@ class TestDeleteRelationshipOperations:
     @pytest_asyncio.fixture
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
         """Create tasks backend with clean database."""
-        return UniversalNeo4jBackend[Task](
-            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-        )
+        return build_production_backends(neo4j_driver)["tasks_backend"]
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver):
         """Create KU backend for creating knowledge units."""
-        return UniversalNeo4jBackend[Curriculum](
-            neo4j_driver, NeoLabel.KU, Curriculum, base_label=NeoLabel.ENTITY
-        )
+        return build_production_backends(neo4j_driver)["ku_backend"]
 
     @pytest_asyncio.fixture
     async def tasks_service(self, tasks_backend):

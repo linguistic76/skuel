@@ -20,27 +20,24 @@ import sys  # noqa: E402
 from datetime import datetime, timedelta  # noqa: E402
 
 from adapters.persistence.neo4j.backends.misc_backends import (  # noqa: E402
-    ActivityReportBackend,
     ActivityReportGeneratorBackend,
 )
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection  # noqa: E402
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor  # noqa: E402
 from core.constants import ReportTimePeriod  # noqa: E402
-from core.models.enums.neo_labels import NeoLabel  # noqa: E402
 from core.models.enums.pipeline import ReportSource  # noqa: E402
 from core.models.report.activity_report import ActivityReport  # noqa: E402
 from core.models.type_hints import UserUID  # noqa: E402
 from core.services.report.activity_report_service import ActivityReportService  # noqa: E402
 from core.utils.zone_context import default_zone  # noqa: E402
+from tests.helpers.production_backends import build_production_backends  # noqa: E402
 
 
 async def probe(uri: str, user_uid: str) -> dict[str, object]:
     connection = Neo4jConnection(uri=uri, username="neo4j", password="testpassword")
     driver = await connection.connect()
     try:
-        backend = ActivityReportBackend(
-            driver, NeoLabel.ACTIVITY_REPORT, ActivityReport, base_label=NeoLabel.ENTITY
-        )
+        backend = build_production_backends(driver)["activity_report_backend"]
         service = ActivityReportService(
             backend=backend, context_builder=None, event_bus=None, sharing_service=None
         )

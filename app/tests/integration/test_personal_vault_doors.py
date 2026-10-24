@@ -52,6 +52,7 @@ from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, Vau
 from core.services.vault.vault_reconciler import VaultReconciler
 from core.utils.result_simplified import Result
 from core.utils.zone_context import default_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -743,8 +744,6 @@ async def test_a_source_path_step_names_only_a_path_step(env) -> None:
     not the door — is where another user's entity stops: a uid that is not a
     PathStep renders nothing, exactly like a uid that names nothing.
     """
-    from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
     d = env["driver"]
     _write(env["content"] / "step.md", _md("path_step", "A real step", "uid: ps.nb2c.step\n"))
@@ -758,7 +757,7 @@ async def test_a_source_path_step_names_only_a_path_step(env) -> None:
     )
     await _sync(env, "alice", "reconciler")
 
-    fetch = ConnectionFetchBackend(Neo4jQueryExecutor(d))
+    fetch = build_production_backends(d)["connection_fetch_backend"]
     assert await fetch.fetch_source_pathstep(secret, ALICE) is None
     assert await fetch.fetch_source_pathstep("task.nowhere", ALICE) is None
     # Positive control: a real PathStep still resolves.

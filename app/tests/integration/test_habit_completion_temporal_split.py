@@ -22,6 +22,7 @@ from datetime import datetime, time, timedelta
 import pytest
 import pytest_asyncio
 
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("temporal_split")
@@ -64,13 +65,8 @@ async def _seed_completion(neo4j_driver, uid: str, *, temporal_stamp: bool) -> N
 class TestHabitCompletionTemporalSplit:
     @pytest_asyncio.fixture
     async def completions_backend(self, neo4j_driver, clean_neo4j):
-        from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-        from core.models.enums.neo_labels import NeoLabel
-        from core.models.habit.completion import HabitCompletion
 
-        return UniversalNeo4jBackend[HabitCompletion](
-            neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
-        )
+        return build_production_backends(neo4j_driver)["habit_completions_backend"]
 
     @pytest_asyncio.fixture
     async def seeded(self, neo4j_driver, completions_backend):

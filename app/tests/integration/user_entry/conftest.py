@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest_asyncio
 
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -34,7 +35,7 @@ from core.services.user_entry.user_entry_service import UserEntryService
 @pytest_asyncio.fixture
 async def user_entry_backend(neo4j_driver) -> AsyncIterator[UserEntryBackend]:
     """Real ``UserEntryBackend`` bound to the test Neo4j driver."""
-    yield UserEntryBackend(neo4j_driver)
+    yield build_production_backends(neo4j_driver)["user_entry_backend"]
 
 
 @pytest_asyncio.fixture

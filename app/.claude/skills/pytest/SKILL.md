@@ -216,6 +216,10 @@ class TestTasksCRUD:
 
 A test that creates or ingests an **owned** entity depends on `ensure_test_users`: the `:OWNS` write doors refuse an owner with no `:User` node (ADR-086) rather than leaving a property-only orphan.
 
+### Backends come from the composition root
+
+A backend `create_all_backends` builds (`services_bootstrap/_backends.py`) is taken from it — the `production_backends` fixture over the shared driver, `build_production_backends(driver)` over any other (`tests/helpers/production_backends.py`) — never constructed by hand. A hand-built copy runs a backend production never runs once the two drift (a generic `UniversalNeo4jBackend[Task]` lacks `TasksBackend`'s reads; an `"Entity"` label writes nodes no writer makes), and `tests/unit/test_production_backend_census.py` fails it. Seed with the domain's own model too: a `Curriculum` written through the PathStep backend is a `:PathStep` carrying `entity_type=ku`, a node no writer makes — and `PathStep` refuses to read it back. **See:** `fixtures-reference.md § Domain Backend and Service Fixtures`.
+
 ### Seed uids fit the uid grammar
 
 After each integration test, its graph is read against the uid grammar (`core/utils/uid_grammar.py`) — the shared container's and the bootstrapped app's — and the test fails on a uid it wrote outside the grammar or one two nodes hold (`tests/integration/_uid_census.py`). So:

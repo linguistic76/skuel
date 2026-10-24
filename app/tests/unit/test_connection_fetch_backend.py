@@ -9,7 +9,7 @@ empty-on-error safety-net. The real-graph half is
 tests/integration/routes/test_activity_page_links.py.
 """
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -17,12 +17,18 @@ from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchB
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_registry import LABEL_CONFIGS
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.production_backends import build_production_backends
+
+
+def _backend_over(executor: AsyncMock) -> ConnectionFetchBackend:
+    """The composition root's reader, over a mocked executor."""
+    return build_production_backends(Mock(), executor)["connection_fetch_backend"]
 
 
 def _backend_returning(records: object) -> tuple[ConnectionFetchBackend, AsyncMock]:
     executor = AsyncMock()
     executor.execute_query = AsyncMock(return_value=records)
-    return ConnectionFetchBackend(executor), executor.execute_query
+    return _backend_over(executor), executor.execute_query
 
 
 def _row(
@@ -91,7 +97,7 @@ class TestTheStatement:
     async def test_empty_on_executor_exception_safety_net(self):
         executor = AsyncMock()
         executor.execute_query = AsyncMock(side_effect=RuntimeError("driver down"))
-        backend = ConnectionFetchBackend(executor)
+        backend = _backend_over(executor)
         # Page-resilient: a Neo4j failure must not propagate.
         assert await backend.fetch_entity_connections(NeoLabel.TASK, ["task_1"]) == {}
 
@@ -327,7 +333,7 @@ class TestFetchSourcePathstep:
     async def test_none_on_executor_exception_safety_net(self):
         executor = AsyncMock()
         executor.execute_query = AsyncMock(side_effect=RuntimeError("driver down"))
-        backend = ConnectionFetchBackend(executor)
+        backend = _backend_over(executor)
         assert await backend.fetch_source_pathstep("ps:demo:step-1", "user_owner") is None
 
     @pytest.mark.asyncio

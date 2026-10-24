@@ -20,9 +20,9 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from core.infrastructure.relationships.semantic_relationships import RelationshipMetadata
-from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
+from tests.helpers.production_backends import build_production_backends
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
@@ -35,7 +35,7 @@ OPEN = "ps.utc-arc.no-window"
 
 @pytest_asyncio.fixture
 async def ps_backend(neo4j_driver, clean_neo4j) -> PsBackend:
-    backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["ps_backend"]
     for uid in (TARGET, CURRENT, EXPIRED, NOT_YET, OPEN):
         created = await backend.create(PathStep(uid=uid, title=uid))
         assert created.is_ok, created

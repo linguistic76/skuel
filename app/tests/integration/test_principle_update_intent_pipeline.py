@@ -24,7 +24,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import PrincipleStrengthChanged, PrincipleUpdated
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus
@@ -33,6 +32,7 @@ from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleUpdateRequest
 from core.models.sentinels import UNSET
 from core.services.principles.principles_core_service import PrinciplesCoreService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -46,9 +46,7 @@ class TestPrincipleUpdateIntentPipeline:
 
     @pytest_asyncio.fixture
     async def principles_backend(self, neo4j_driver, clean_neo4j):
-        return UniversalNeo4jBackend[Principle](
-            neo4j_driver, "Entity", Principle, default_filters={"entity_type": "principle"}
-        )
+        return build_production_backends(neo4j_driver)["principles_backend"]
 
     @pytest_asyncio.fixture
     async def core_service(self, principles_backend, event_bus):

@@ -48,7 +48,6 @@ from starlette.responses import FileResponse
 from adapters.inbound.teaching_api import create_teaching_api_routes
 from adapters.inbound.teaching_ui import create_teaching_ui_routes
 from adapters.persistence.neo4j.backends.exercise_backends import EntryReportBackend
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.models.enums import UserRole
 from core.models.enums.neo_labels import NeoLabel
 from core.models.report.entry_report import EntryReport
@@ -57,6 +56,7 @@ from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 from core.services.report.entry_report_service import EntryReportService
 from core.services.report.teacher_review_service import TeacherReviewService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 STUDENT = seed_user_uid("trs_student")
@@ -131,7 +131,7 @@ def review_service(neo4j_driver) -> TeacherReviewService:
     (``get_submission_detail``, ``get_report_file_path``); the other
     collaborators are never touched, so ``None`` is honest here.
     """
-    user_entry_backend = UserEntryBackend(driver=neo4j_driver)
+    user_entry_backend = build_production_backends(neo4j_driver)["user_entry_backend"]
     return TeacherReviewService(
         user_entry_backend=user_entry_backend,
         report_backend=None,  # type: ignore[arg-type]
@@ -514,7 +514,7 @@ class TestTheWritesRefuseHistory:
         assert len(await revise(NEWER_UID, "new")) == 1
 
     async def test_approve_on_history_writes_nothing(self, seeded_newer_copy, neo4j_driver) -> None:
-        backend = UserEntryBackend(driver=neo4j_driver)
+        backend = build_production_backends(neo4j_driver)["user_entry_backend"]
         refused = await backend.approve_and_get_linked_kus(
             SUB_UID, "2026-09-27T10:00:00", "completed", ["submitted"], IN_TEACHER
         )

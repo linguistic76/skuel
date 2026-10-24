@@ -40,17 +40,15 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import TasksBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums import EntityStatus, Priority
-from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
-from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
 from core.services.conversion_service import ConversionServiceV2
 from core.services.cross_domain import CrossDomainQueryService
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 OTHER_USER = seed_user_uid("test_task_edges_victim")
@@ -65,7 +63,7 @@ async def event_bus():
 async def tasks_service(neo4j_driver, clean_neo4j, event_bus):
     # Multi-label (:Task:Entity) to match production — the relationship registry keys its
     # edge validation off the domain label.
-    backend = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["tasks_backend"]
     return TasksCoreService(backend=backend, event_bus=event_bus)
 
 

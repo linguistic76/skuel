@@ -22,6 +22,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
@@ -259,48 +260,20 @@ async def test_the_spawn_loader_never_reads_a_stray_edges_far_node(world: World)
     user's Task posing as the step, are neither a template of this step nor a step at
     all: the loader returns the real template alone, and nothing for the Task.
     """
-    from adapters.persistence.neo4j.backends.templates_backends import (
-        ChoiceTemplateBackend,
-        EventTemplateBackend,
-        GoalTemplateBackend,
-        HabitTemplateBackend,
-        PrincipleTemplateBackend,
-        TaskTemplateBackend,
-    )
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
-    from core.models.enums.neo_labels import NeoLabel
-    from core.models.templates import (
-        ChoiceTemplate,
-        EventTemplate,
-        GoalTemplate,
-        HabitTemplate,
-        PrincipleTemplate,
-        TaskTemplate,
-    )
     from core.services.ps_engagement._template_loader import _TemplateLoader
 
     driver = world.driver
+    backends = build_production_backends(driver)
     loader = _TemplateLoader(
         PsEngagementBackend(Neo4jQueryExecutor(driver)),
-        TaskTemplateBackend(
-            driver, NeoLabel.TASK_TEMPLATE, TaskTemplate, base_label=NeoLabel.ENTITY
-        ),
-        GoalTemplateBackend(
-            driver, NeoLabel.GOAL_TEMPLATE, GoalTemplate, base_label=NeoLabel.ENTITY
-        ),
-        HabitTemplateBackend(
-            driver, NeoLabel.HABIT_TEMPLATE, HabitTemplate, base_label=NeoLabel.ENTITY
-        ),
-        EventTemplateBackend(
-            driver, NeoLabel.EVENT_TEMPLATE, EventTemplate, base_label=NeoLabel.ENTITY
-        ),
-        ChoiceTemplateBackend(
-            driver, NeoLabel.CHOICE_TEMPLATE, ChoiceTemplate, base_label=NeoLabel.ENTITY
-        ),
-        PrincipleTemplateBackend(
-            driver, NeoLabel.PRINCIPLE_TEMPLATE, PrincipleTemplate, base_label=NeoLabel.ENTITY
-        ),
+        backends["task_template_backend"],
+        backends["goal_template_backend"],
+        backends["habit_template_backend"],
+        backends["event_template_backend"],
+        backends["choice_template_backend"],
+        backends["principle_template_backend"],
     )
     await write_edge(driver, PS, "HAS_GOAL_TEMPLATE", world.foreign_goal)
     await write_edge(driver, world.foreign_task, "HAS_GOAL_TEMPLATE", attached("gt"))

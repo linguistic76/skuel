@@ -30,15 +30,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.principle.principle import Principle
 from core.models.relationship_registry import PRINCIPLES_CONFIG
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.principles._alignment_intelligence_mixin import _AlignmentIntelligenceMixin
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 
 PR = "prnctx."  # uid prefix for this module's fixture graph
 PR_USER = PR + "user"  # every seeded activity node is user-owned (Principle.user_uid is required)
@@ -58,9 +56,7 @@ PR_HABIT_EMB = PR + "habit-emb"  # habit -[EMBODIES_PRINCIPLE]-> principle (embo
 def rel_backend(neo4j_driver):
     """Multi-label Entity backend — registry edge validation requires the domain label
     alongside :Entity, so the single-:Entity form is not used."""
-    return UniversalNeo4jBackend[Principle](
-        neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
-    )
+    return build_production_backends(neo4j_driver)["principles_backend"]
 
 
 class _PrincipleIntelHarness(_AlignmentIntelligenceMixin, BaseAnalyticsService):

@@ -71,12 +71,24 @@ Fixtures that seed data for the app (`populated_test_data`, `enrolled_user_with_
 
 ## Domain Backend and Service Fixtures
 
-The per-domain fixtures take the **shared session driver** — they open none of their own:
+Every backend the composition root builds comes from its one constructor, `create_all_backends`
+(`services_bootstrap/_backends.py`) — never from a copy of its arguments. `production_backends`
+(function scope) is that dict over the shared session driver; `build_production_backends(driver)`
+(`tests/helpers/production_backends.py`) builds it over any other driver — a test's own graph, a
+mock with a fake executor. A copy runs a backend production never runs the moment the two drift: a
+generic `UniversalNeo4jBackend[Task]` lacks every read `TasksBackend` adds, and an `"Entity"`-labelled
+one writes nodes no production writer makes. `tests/unit/test_production_backend_census.py` fails a
+test that builds one by hand; it reads the set from `create_all_backends` itself.
 
 ```python
+@pytest.fixture
+def production_backends(neo4j_driver):
+    return build_production_backends(neo4j_driver)
+
+
 @pytest_asyncio.fixture
-async def tasks_backend(neo4j_driver):
-    return UniversalNeo4jBackend[Task](neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+async def tasks_backend(production_backends):
+    return production_backends["tasks_backend"]
 
 
 @pytest_asyncio.fixture
@@ -84,11 +96,11 @@ async def tasks_service(tasks_backend, event_bus):
     return TasksCoreService(backend=tasks_backend, event_bus=event_bus)   # the CORE sub-service, not the facade
 ```
 
-`{tasks,goals,habits,events,choices,principles}_backend` / `_service` follow this shape (`event_bus` is a real `InMemoryEventBus`). `ku_backend`, `ku_service`, `ingestion_service`, `user_service`, `lp_relationship_service`, `embeddings_service`, `temp_yaml_dir` are the others — read their bodies for what they wire.
+`{tasks,goals,habits,events,choices,principles}_backend` / `_service` follow this shape (`event_bus` is a real `InMemoryEventBus`). `ku_backend` is the production `KuBackend`; `ingestion_service`, `user_service`, `lp_relationship_service`, `embeddings_service`, `temp_yaml_dir` are the others — read their bodies for what they wire.
 
 ## `services` — the composed container
 
-`services(neo4j_driver)` builds a `TestServices` dataclass of **facades** over real backends: `choices`, `principles`, `lp`, `ps` (+ the aliases `knowledge`, `path_steps` → ps and `learning_paths` → lp, kept for older tests), `tasks`, `goals`, `events`, `users`. The Activity backends are wrapped in a local `TestBackendWrapper` so `create()` accepts a dict as well as a dataclass (it filters the dict to the model's fields and delegates everything else via `__getattr__`).
+`services(neo4j_driver, production_backends)` builds a `TestServices` dataclass of **facades** over the composition root's backends (LP's, which `create_all_backends` does not build, by hand): `choices`, `principles`, `lp`, `ps` (+ the aliases `knowledge`, `path_steps` → ps and `learning_paths` → lp, kept for older tests), `tasks`, `goals`, `events`, `users`. The Activity backends are wrapped in a local `TestBackendWrapper` so `create()` accepts a dict as well as a dataclass (it filters the dict to the model's fields and delegates everything else via `__getattr__`).
 
 ```python
 async def test_cross_domain_flow(services, clean_neo4j):

@@ -25,14 +25,13 @@ from zoneinfo import ZoneInfo
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task
 from core.models.update_contracts import StatusWriteGuard
 from core.services.completion_stamp import is_completion_transition, status_transition_guard
 from core.utils.timestamp_helpers import today_in
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 # The zone of the user whose entity the guard stamps.
@@ -48,9 +47,7 @@ _RACE_ITERATIONS = 20
 class TestStatusGuardedUpdate:
     @pytest_asyncio.fixture
     async def backend(self, neo4j_driver, clean_neo4j):
-        return UniversalNeo4jBackend[Task](
-            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-        )
+        return build_production_backends(neo4j_driver)["tasks_backend"]
 
     @pytest_asyncio.fixture
     async def seed(self, backend):
@@ -370,9 +367,7 @@ class TestRecomputeWithStatusGuard:
 
     @pytest_asyncio.fixture
     async def backend(self, neo4j_driver, clean_neo4j):
-        return UniversalNeo4jBackend[Task](
-            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-        )
+        return build_production_backends(neo4j_driver)["tasks_backend"]
 
     async def _seed(self, backend, uid: str, status: EntityStatus = EntityStatus.ACTIVE) -> str:
         result = await backend.create(

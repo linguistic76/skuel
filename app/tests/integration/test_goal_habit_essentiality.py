@@ -30,11 +30,10 @@ from typing import Any
 import pytest
 
 from adapters.persistence.neo4j.query import generate_context_query
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_registry import GOALS_CONFIG
 from core.services.mixins.link_edge_guard import HABIT_FAR_END
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 
 P = "esstest."
 GOAL = P + "goal"
@@ -49,7 +48,7 @@ H_PLAIN = P + "h-plain"  # linked with the default "supporting" tier
 @pytest.fixture
 def rel_backend(neo4j_driver):
     """Generic Entity backend — the shape injected as a domain's relationships backend."""
-    return UniversalNeo4jBackend[GoalDTO](neo4j_driver, "Entity", GoalDTO)
+    return build_production_backends(neo4j_driver)["goals_backend"]
 
 
 @pytest.fixture

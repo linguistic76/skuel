@@ -26,7 +26,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from adapters.persistence.neo4j.batch_preparer import prepare_batch_items
 from adapters.persistence.neo4j.neo4j_mapper import (
     EMBEDDING_OWNED_PROPERTIES,
@@ -35,6 +34,7 @@ from adapters.persistence.neo4j.neo4j_mapper import (
 )
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
+from tests.helpers.production_backends import build_production_backends
 
 _OWNED = {
     "embedding",
@@ -88,7 +88,7 @@ async def _upsert_params(entry: UserEntry) -> tuple[str, dict[str, Any]]:
     """Run ``UserEntryBackend.upsert`` against a capturing driver; return query + params."""
     driver = Mock()
     driver._closed = False
-    backend = UserEntryBackend(driver)
+    backend = build_production_backends(driver)["user_entry_backend"]
     captured: dict[str, Any] = {}
 
     async def _run_single(query: str, params: dict[str, Any] | None = None) -> dict[str, Any]:

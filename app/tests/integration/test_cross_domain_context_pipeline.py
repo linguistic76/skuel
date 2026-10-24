@@ -25,9 +25,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
-from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
     GOALS_CONFIG,
@@ -41,6 +39,7 @@ from core.services.choices._core_intelligence_mixin import (
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -61,7 +60,7 @@ def _bucket_uids(raw: dict[str, Any], *names: str) -> set[str]:
 @pytest.fixture
 def rel_backend(neo4j_driver):
     """Generic Entity backend — the same shape injected as a domain's relationships backend."""
-    return UniversalNeo4jBackend[GoalDTO](neo4j_driver, "Entity", GoalDTO)
+    return build_production_backends(neo4j_driver)["goals_backend"]
 
 
 # ---------------------------------------------------------------------------

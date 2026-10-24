@@ -35,7 +35,7 @@ Expectations:
 
 import pytest
 
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -137,7 +137,7 @@ async def teacher_review_fixture(neo4j_driver):
 
 @pytest.fixture
 def user_entry_backend(neo4j_driver):
-    return UserEntryBackend(neo4j_driver)
+    return build_production_backends(neo4j_driver)["user_entry_backend"]
 
 
 @pytest.mark.asyncio

@@ -32,14 +32,13 @@ from typing import Any
 
 import pytest
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.relationship_registry import EVENTS_CONFIG
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 EV = "evctx."  # uid prefix for this module's fixture graph
@@ -55,9 +54,7 @@ EV_KU = EV + "ku"  # event -[APPLIES_KNOWLEDGE]-> ku (applied_knowledge)
 def rel_backend(neo4j_driver):
     """Multi-label Entity backend — registry edge validation requires the domain label
     alongside :Entity, so the single-:Entity form is not used."""
-    return UniversalNeo4jBackend[Event](
-        neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY
-    )
+    return build_production_backends(neo4j_driver)["events_backend"]
 
 
 class _FakeEventBackend:

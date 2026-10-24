@@ -10,9 +10,9 @@ Date: January 2026
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.curriculum import Curriculum
 from core.models.enums import Domain, SELCategory
+from core.models.pathways.path_step import PathStep
+from tests.helpers.production_backends import build_production_backends
 
 
 @pytest.mark.asyncio
@@ -27,9 +27,7 @@ class TestTraverseOperations:
         ENABLES_KNOWLEDGE edges, which the relationship registry defines on
         PathStep, not Ku. (Ku's only outgoing edges are ORGANIZES.)
         """
-        return UniversalNeo4jBackend[Curriculum](
-            neo4j_driver, "PathStep", Curriculum, base_label="Entity"
-        )
+        return build_production_backends(neo4j_driver)["ps_backend"]
 
     @pytest_asyncio.fixture
     async def traversal_graph(self, ku_backend):
@@ -43,37 +41,37 @@ class TestTraverseOperations:
         """
         # Create nodes
         nodes = {
-            "A": Curriculum(
+            "A": PathStep(
                 uid="ps.traverse-a",
                 title="Node A",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            "B": Curriculum(
+            "B": PathStep(
                 uid="ps.traverse-b",
                 title="Node B",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            "C": Curriculum(
+            "C": PathStep(
                 uid="ps.traverse-c",
                 title="Node C",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            "D": Curriculum(
+            "D": PathStep(
                 uid="ps.traverse-d",
                 title="Node D",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            "E": Curriculum(
+            "E": PathStep(
                 uid="ps.traverse-e",
                 title="Node E",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            "F": Curriculum(
+            "F": PathStep(
                 uid="ps.traverse-f",
                 title="Node F",
                 domain=Domain.TECH,
@@ -268,19 +266,19 @@ class TestTraverseOperations:
         """Test traversal handles cycles without infinite loop."""
         # Create a cycle: X -> Y -> Z -> X
         nodes = [
-            Curriculum(
+            PathStep(
                 uid="ps.cycle-x",
                 title="Cycle X",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Curriculum(
+            PathStep(
                 uid="ps.cycle-y",
                 title="Cycle Y",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Curriculum(
+            PathStep(
                 uid="ps.cycle-z",
                 title="Cycle Z",
                 domain=Domain.TECH,
@@ -314,7 +312,7 @@ class TestTraverseOperations:
     async def test_traverse_self_loop(self, ku_backend, clean_neo4j):
         """Test traversal handles self-referential relationships."""
         # Create node with self-loop
-        node = Curriculum(
+        node = PathStep(
             uid="ps.selfloop",
             title="Self Loop",
             domain=Domain.TECH,
@@ -349,9 +347,7 @@ class TestGetDomainContextRaw:
         ENABLES_KNOWLEDGE edges, which the relationship registry defines on
         PathStep, not Ku. (Ku's only outgoing edges are ORGANIZES.)
         """
-        return UniversalNeo4jBackend[Curriculum](
-            neo4j_driver, "PathStep", Curriculum, base_label="Entity"
-        )
+        return build_production_backends(neo4j_driver)["ps_backend"]
 
     @pytest_asyncio.fixture
     async def context_graph(self, ku_backend):
@@ -363,25 +359,25 @@ class TestGetDomainContextRaw:
             Center --ENABLES(0.7)---> Related2
         """
         nodes = [
-            Curriculum(
+            PathStep(
                 uid="ps.context-center",
                 title="Center Node",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Curriculum(
+            PathStep(
                 uid="ps.context-related1",
                 title="Related 1",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Curriculum(
+            PathStep(
                 uid="ps.context-related2",
                 title="Related 2",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Curriculum(
+            PathStep(
                 uid="ps.context-deep1",
                 title="Deep 1",
                 domain=Domain.TECH,
@@ -472,7 +468,7 @@ class TestGetDomainContextRaw:
     async def test_context_raw_empty(self, ku_backend, context_graph):
         """Test context for isolated node returns empty list."""
         # Create isolated node
-        isolated = Curriculum(
+        isolated = PathStep(
             uid="ps.isolated",
             title="Isolated",
             domain=Domain.TECH,

@@ -23,14 +23,13 @@ from typing import Any
 
 import pytest
 
-from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
 from adapters.persistence.neo4j.query.cypher.crud_queries import build_link_far_node_clause
 from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.neo_labels import NeoLabel
-from core.models.goal.goal import Goal
 from core.models.relationship_registry import GOALS_CONFIG, UnifiedRelationshipDefinition
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from tests.helpers.activity_links import undeclared_edge
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 EDGE = undeclared_edge()
@@ -73,7 +72,7 @@ VIEWS = (
 
 @pytest.fixture
 def goal_relationships(neo4j_driver) -> UnifiedRelationshipService[Any, Any, Any]:
-    backend = GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["goals_backend"]
     config = dataclasses.replace(GOALS_CONFIG, relationships=VIEWS)
     return UnifiedRelationshipService[Any, Any, Any](
         backend=backend, config=config, graph_intel=None

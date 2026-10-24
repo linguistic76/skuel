@@ -20,11 +20,11 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 from core.models.choice.choice import Choice
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import UserUID
 from core.models.user.user import User
 from core.services.user.user_context_builder import UserContextBuilder
 from core.utils.uid_grammar import slugify
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 _OWNER = seed_user_uid("choice_vocabulary")
@@ -39,7 +39,7 @@ async def choices(neo4j_driver, clean_neo4j) -> ChoicesBackend:
     """One choice per (status, decided or not) for the owner, plus a stranger's open one."""
     async with neo4j_driver.session() as session:
         await session.run("UNWIND $uids AS uid MERGE (:User {uid: uid})", uids=[_OWNER, _STRANGER])
-    backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
+    backend = build_production_backends(neo4j_driver)["choices_backend"]
     seeds = [
         Choice(
             uid=f"choice.{slugify(status.value)}-{'decided' if decided_at else 'open'}",

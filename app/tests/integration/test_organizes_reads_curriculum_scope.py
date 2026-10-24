@@ -15,13 +15,12 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.path_step import PathStep
 from core.services.ps.ps_core_service import PsCoreService
 from core.services.ps.ps_organization_service import (
     SHARED_CURRICULUM_TYPES,
     PsOrganizationService,
 )
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.integration
@@ -91,7 +90,7 @@ async def graph(neo4j_driver) -> PsBackend:
             ps_grandchild=PS_GRANDCHILD,
             user_private=seed_user_uid("private"),
         )
-    yield PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    yield build_production_backends(neo4j_driver)["ps_backend"]
     async with neo4j_driver.session() as session:
         await session.run(f"MATCH (n:Entity) WHERE n.uid STARTS WITH '{PREFIX}' DETACH DELETE n")
 

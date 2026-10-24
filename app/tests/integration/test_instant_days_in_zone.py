@@ -36,12 +36,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import ChoicesBackend, HabitsBackend
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.choice.choice import Choice
 from core.models.choice.choice_request import ChoiceCreateRequest
-from core.models.enums.neo_labels import NeoLabel
-from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.type_hints import UserUID
 from core.services.choices.choices_core_service import ChoicesCoreService
@@ -51,6 +46,7 @@ from core.utils.timestamp_helpers import as_stored_clock
 from core.utils.zone_context import zone_scope
 from tests.helpers.forced_zone import forced_zone
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
@@ -201,12 +197,11 @@ class TestAnInstantsDayInTheGraph:
         uid = await _register(users, "habit_window")
         zone = await _zone_of(users, uid)
         assert zone == VANCOUVER
-        habits = HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
+        backends = build_production_backends(neo4j_driver)
+        habits = backends["habits_backend"]
         completions = HabitsCompletionService(
             habits,
-            UniversalNeo4jBackend[HabitCompletion](
-                neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
-            ),
+            backends["habit_completions_backend"],
         )
         habit_uid = f"habit.evening-{_RUN_ID}"
         created = await habits.create(Habit(uid=habit_uid, title="Evening walk", user_uid=uid))
@@ -242,7 +237,7 @@ class TestAnInstantsDayInTheGraph:
         uid = await _register(users, "choice_deadline", zone="Asia/Bangkok")
         zone = await _zone_of(users, uid)
         assert zone == BANGKOK
-        backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
+        backend = build_production_backends(neo4j_driver)["choices_backend"]
         service = ChoicesCoreService(backend=backend, event_bus=InMemoryEventBus())
 
         # The user types 05:00 on the 28th into a datetime-local field: on their

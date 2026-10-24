@@ -470,27 +470,25 @@ async def test_create_task(mock_backend):
 
 ### Pattern 2: Integration Testing with Real Backend
 
-The service runs on its domain backend (`TasksBackend`), built as `services_bootstrap/_backends.py`
-builds it — the generic `UniversalNeo4jBackend[Task]` has none of the Task-specific reads the
-service calls. The owner is a seeded user (`ensure_test_users`), and the uids fit the uid grammar
-(the integration census fails a test that writes one outside it).
+The service runs on its domain backend (`TasksBackend`), taken from the composition root's own
+constructor — the `production_backends` fixture is `create_all_backends` over the shared driver, and
+`tests/unit/test_production_backend_census.py` fails a test that builds the backend by hand (a
+generic `UniversalNeo4jBackend[Task]` has none of the Task-specific reads the service calls). The
+owner is a seeded user (`ensure_test_users`), and the uids fit the uid grammar (the integration
+census fails a test that writes one outside it).
 
 ```python
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.activity_backends import TasksBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks import TasksCoreService
 from tests.helpers.seed_uids import seed_user_uid
 
 @pytest_asyncio.fixture
-async def tasks_core_service(neo4j_driver):
+async def tasks_core_service(production_backends):
     """Real TasksCoreService with real backend."""
-    backend = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
-    return TasksCoreService(backend=backend)
+    return TasksCoreService(backend=production_backends["tasks_backend"])
 
 
 async def test_task_lifecycle(tasks_core_service, clean_neo4j, ensure_test_users):

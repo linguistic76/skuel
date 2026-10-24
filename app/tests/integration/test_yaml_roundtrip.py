@@ -16,6 +16,7 @@ Run with: uv run pytest tests/integration/test_yaml_roundtrip.py -v
 import pytest
 
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.production_backends import build_production_backends
 
 
 @pytest.mark.integration
@@ -36,8 +37,6 @@ class TestYAMLRoundTrip:
         from adapters.persistence.neo4j.ingestion_service_factory import (
             make_unified_ingestion_service,
         )
-        from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-        from core.models.curriculum_dto import CurriculumDTO
 
         # Verify connection and clean database
         async with neo4j_driver.session() as session:
@@ -52,11 +51,7 @@ class TestYAMLRoundTrip:
         ingestion_service = make_unified_ingestion_service(
             driver=neo4j_driver, default_user_uid=INGESTION_TEST_OWNER
         )
-        # Use "Entity" to match what UnifiedIngestionService creates
-        # IMPORTANT: Backend must use CurriculumDTO (mutable), not Curriculum (immutable)
-        ku_backend = UniversalNeo4jBackend[CurriculumDTO](neo4j_driver, "Entity", CurriculumDTO)
-        # Use backend directly for get() — no facade needed for round-trip tests
-        ku_service = ku_backend
+        path_steps = build_production_backends(neo4j_driver)["ps_backend"]
 
         # Step 1: Create initial YAML file
         # Note: Use dot notation (l.xxx) as ingestion normalizes colons to dots
@@ -86,29 +81,26 @@ This is test content for verifying basic round-trip functionality.
             f"Import failed: {import_result.error if not import_result.is_ok else 'Unknown'}"
         )
 
-        # Step 3: Retrieve KU from Neo4j (use dot notation)
-        get_result = await ku_service.get("ps.simple-test")
+        # Step 3: Retrieve the PathStep from Neo4j
+        get_result = await path_steps.get("ps.simple-test")
         assert get_result.is_ok, (
             f"Get failed: {get_result.error if not get_result.is_ok else 'Unknown'}"
         )
-        ku_dto = get_result.value
+        path_step = get_result.value
 
         # Step 4: Verify retrieved data matches original
-        assert ku_dto.uid == "ps.simple-test"
-        assert ku_dto.title == "Simple Test"
+        assert path_step.uid == "ps.simple-test"
+        assert path_step.title == "Simple Test"
         # domain may be a Domain enum or string depending on deserialization
-        domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
+        domain_val = getattr(path_step.domain, "value", path_step.domain)
         assert domain_val == "tech"
-        assert ku_dto.quality_score == 0.8
-        assert ku_dto.complexity == "basic"
+        assert path_step.quality_score == 0.8
+        assert path_step.complexity == "basic"
 
-        # Tags should be a list
-        assert isinstance(ku_dto.tags, list), f"Expected tags to be list, got {type(ku_dto.tags)}"
-        assert "test" in ku_dto.tags
-        assert "integration" in ku_dto.tags
+        assert set(path_step.tags) == {"test", "integration"}
 
     async def test_roundtrip_with_relationships(
-        self, clean_neo4j, ku_service, ingestion_service, temp_yaml_dir
+        self, clean_neo4j, production_backends, ingestion_service, temp_yaml_dir
     ):
         """
         Test round-trip preserving relationships.
@@ -182,23 +174,23 @@ Main content.
         )
 
         # Step 5: Retrieve main topic from Neo4j (use dot notation)
-        get_result = await ku_service.get("ps.main-topic")
+        get_result = await production_backends["ps_backend"].get("ps.main-topic")
         assert get_result.is_ok, (
             f"Get failed: {get_result.error if not get_result.is_ok else 'Unknown'}"
         )
-        ku_dto = get_result.value
+        path_step = get_result.value
 
         # Step 6: Verify core metadata preserved
-        assert ku_dto.uid == "ps.main-topic"
-        assert ku_dto.title == "Main Topic"
-        domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
+        assert path_step.uid == "ps.main-topic"
+        assert path_step.title == "Main Topic"
+        domain_val = getattr(path_step.domain, "value", path_step.domain)
         assert domain_val == "tech"
 
         # Note: For relationship verification, we would need to query the graph directly
         # or use a backend method to get related nodes. This is a simplified test.
 
     async def test_roundtrip_full_cycle(
-        self, clean_neo4j, ku_service, ingestion_service, temp_yaml_dir
+        self, clean_neo4j, production_backends, ingestion_service, temp_yaml_dir
     ):
         """
         Test complete round-trip: import → export → re-import → re-export.
@@ -235,23 +227,23 @@ Content for testing full round-trip.
         assert import1.is_ok
 
         # Step 2: First retrieval (use dot notation)
-        get1_result = await ku_service.get("ps.cycle-test")
+        get1_result = await production_backends["ps_backend"].get("ps.cycle-test")
         assert get1_result.is_ok
-        ku_dto_1 = get1_result.value
+        path_step_1 = get1_result.value
 
         # Step 3: Verify initial data
-        assert ku_dto_1.uid == "ps.cycle-test"
-        assert ku_dto_1.title == "Cycle Test"
-        domain_val = getattr(ku_dto_1.domain, "value", ku_dto_1.domain)
+        assert path_step_1.uid == "ps.cycle-test"
+        assert path_step_1.title == "Cycle Test"
+        domain_val = getattr(path_step_1.domain, "value", path_step_1.domain)
         assert domain_val == "tech"
-        assert ku_dto_1.quality_score == 0.85
+        assert path_step_1.quality_score == 0.85
 
         # Note: Full round-trip testing (delete + re-import + verify) would require
         # more complex test setup with proper YAML serialization. This simplified
         # test verifies that import → retrieval works correctly.
 
     async def test_roundtrip_all_relationship_types(
-        self, clean_neo4j, ku_service, ingestion_service, temp_yaml_dir
+        self, clean_neo4j, production_backends, ingestion_service, temp_yaml_dir
     ):
         """
         Test round-trip with all 5 relationship types.
@@ -301,17 +293,17 @@ Content with all relationship types.
         assert import_result.is_ok
 
         # Retrieve from Neo4j (use dot notation)
-        get_result = await ku_service.get("ps.comprehensive")
+        get_result = await production_backends["ps_backend"].get("ps.comprehensive")
         assert get_result.is_ok
-        ku_dto = get_result.value
+        path_step = get_result.value
 
         # Verify core data
-        assert ku_dto.uid == "ps.comprehensive"
-        assert ku_dto.title == "Comprehensive Test"
-        domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
+        assert path_step.uid == "ps.comprehensive"
+        assert path_step.title == "Comprehensive Test"
+        domain_val = getattr(path_step.domain, "value", path_step.domain)
         assert domain_val == "tech"
-        assert ku_dto.quality_score == 0.9
-        assert ku_dto.complexity == "advanced"
+        assert path_step.quality_score == 0.9
+        assert path_step.complexity == "advanced"
 
         # Note: Relationship verification would require querying the graph directly
 

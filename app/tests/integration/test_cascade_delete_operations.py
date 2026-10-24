@@ -12,13 +12,12 @@ Date: January 2026
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.curriculum import Curriculum
 from core.models.enums import Domain, EntityStatus, Priority, SELCategory
-from core.models.enums.neo_labels import NeoLabel
+from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -34,23 +33,12 @@ class TestCascadeDeleteTrue:
         REQUIRES_KNOWLEDGE edges, which the relationship registry defines on
         PathStep, not Ku.
         """
-        return UniversalNeo4jBackend[Curriculum](
-            neo4j_driver, "PathStep", Curriculum, base_label="Entity"
-        )
+        return build_production_backends(neo4j_driver)["ps_backend"]
 
     @pytest_asyncio.fixture
     async def task_backend(self, neo4j_driver, clean_neo4j):
-        """Create Task backend with clean database.
-
-        Parameterized on ``Task``, not ``Curriculum``: this backend is handed to
-        ``TasksCoreService``, whose ``create(entity: Task) -> Result[Task]`` now reads
-        the returned entity to build the TaskCreated payload. A Curriculum-typed backend
-        deserializes the created node into a Curriculum, which has no ``user_uid`` — the
-        mismatch was invisible only while nothing touched the return value.
-        """
-        return UniversalNeo4jBackend[Task](
-            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-        )
+        """The composition root's Task backend — ``TasksCoreService`` reads its Task rows."""
+        return build_production_backends(neo4j_driver)["tasks_backend"]
 
     @pytest_asyncio.fixture
     async def tasks_service(self, task_backend):
@@ -60,7 +48,7 @@ class TestCascadeDeleteTrue:
     async def test_cascade_delete_removes_entity(self, ku_backend):
         """Test cascade=True successfully deletes entity."""
         # Create entity
-        ku = Curriculum(
+        ku = PathStep(
             uid="ps.cascade-delete-1",
             title="To Delete",
             domain=Domain.TECH,
@@ -82,13 +70,13 @@ class TestCascadeDeleteTrue:
     async def test_cascade_delete_removes_relationships(self, ku_backend):
         """Test cascade=True removes all relationships."""
         # Create two KUs with a relationship
-        ku1 = Curriculum(
+        ku1 = PathStep(
             uid="ps.cascade-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Curriculum(
+        ku2 = PathStep(
             uid="ps.cascade-target",
             title="Target",
             domain=Domain.TECH,
@@ -125,13 +113,13 @@ class TestCascadeDeleteTrue:
     async def test_cascade_delete_preserves_related_entities(self, ku_backend):
         """Test cascade=True does NOT delete connected entities."""
         # Create two KUs with a relationship
-        ku1 = Curriculum(
+        ku1 = PathStep(
             uid="ps.preserve-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Curriculum(
+        ku2 = PathStep(
             uid="ps.preserve-target",
             title="Target",
             domain=Domain.TECH,
@@ -157,7 +145,7 @@ class TestCascadeDeleteTrue:
     async def test_cascade_delete_multiple_relationships(self, ku_backend):
         """Test cascade=True works with multiple relationships."""
         # Create central node and many related nodes
-        center = Curriculum(
+        center = PathStep(
             uid="ps.multi-center",
             title="Center",
             domain=Domain.TECH,
@@ -167,7 +155,7 @@ class TestCascadeDeleteTrue:
 
         # Create 5 related nodes
         for i in range(5):
-            related = Curriculum(
+            related = PathStep(
                 uid=f"ps.multi-related-{i}",
                 title=f"Related {i}",
                 domain=Domain.TECH,
@@ -218,7 +206,7 @@ class TestCascadeDeleteTrue:
         )
         await tasks_service.create(task)
 
-        ku = Curriculum(
+        ku = PathStep(
             uid="ps.cross-domain",
             title="Cross Domain KU",
             domain=Domain.TECH,
@@ -260,14 +248,12 @@ class TestCascadeDeleteFalse:
         REQUIRES_KNOWLEDGE edges, which the relationship registry defines on
         PathStep, not Ku.
         """
-        return UniversalNeo4jBackend[Curriculum](
-            neo4j_driver, "PathStep", Curriculum, base_label="Entity"
-        )
+        return build_production_backends(neo4j_driver)["ps_backend"]
 
     async def test_non_cascade_delete_no_relationships(self, ku_backend):
         """Test cascade=False deletes entity with no relationships."""
         # Create isolated entity
-        ku = Curriculum(
+        ku = PathStep(
             uid="ps.isolated-delete",
             title="Isolated",
             domain=Domain.TECH,
@@ -288,13 +274,13 @@ class TestCascadeDeleteFalse:
     async def test_non_cascade_delete_with_relationships_fails(self, ku_backend):
         """Test cascade=False fails when entity has relationships."""
         # Create two KUs with a relationship
-        ku1 = Curriculum(
+        ku1 = PathStep(
             uid="ps.non-cascade-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Curriculum(
+        ku2 = PathStep(
             uid="ps.non-cascade-target",
             title="Target",
             domain=Domain.TECH,
@@ -315,13 +301,13 @@ class TestCascadeDeleteFalse:
     async def test_non_cascade_delete_error_message(self, ku_backend):
         """Test cascade=False provides descriptive error message."""
         # Create KUs with relationship
-        ku1 = Curriculum(
+        ku1 = PathStep(
             uid="ps.error-msg-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Curriculum(
+        ku2 = PathStep(
             uid="ps.error-msg-target",
             title="Target",
             domain=Domain.TECH,
@@ -347,13 +333,13 @@ class TestCascadeDeleteFalse:
     async def test_non_cascade_delete_preserves_entity(self, ku_backend):
         """Test cascade=False preserves entity after failed delete."""
         # Create KUs with relationship
-        ku1 = Curriculum(
+        ku1 = PathStep(
             uid="ps.preserve-entity",
             title="Preserved",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Curriculum(
+        ku2 = PathStep(
             uid="ps.preserve-target",
             title="Target",
             domain=Domain.TECH,
@@ -378,13 +364,13 @@ class TestCascadeDeleteFalse:
     async def test_non_cascade_delete_preserves_relationships(self, ku_backend):
         """Test cascade=False preserves relationships after failed delete."""
         # Create KUs with relationship
-        ku1 = Curriculum(
+        ku1 = PathStep(
             uid="ps.preserve-rel-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Curriculum(
+        ku2 = PathStep(
             uid="ps.preserve-rel-target",
             title="Target",
             domain=Domain.TECH,
@@ -422,9 +408,7 @@ class TestDeleteEdgeCases:
         REQUIRES_KNOWLEDGE edges, which the relationship registry defines on
         PathStep, not Ku.
         """
-        return UniversalNeo4jBackend[Curriculum](
-            neo4j_driver, "PathStep", Curriculum, base_label="Entity"
-        )
+        return build_production_backends(neo4j_driver)["ps_backend"]
 
     async def test_delete_nonexistent_entity(self, ku_backend):
         """Test deleting non-existent entity returns Ok(False)."""
@@ -435,7 +419,7 @@ class TestDeleteEdgeCases:
     async def test_delete_idempotent(self, ku_backend):
         """Test multiple deletes don't error."""
         # Create entity
-        ku = Curriculum(
+        ku = PathStep(
             uid="ps.idempotent-delete",
             title="Idempotent",
             domain=Domain.TECH,
@@ -457,19 +441,19 @@ class TestDeleteEdgeCases:
         """Test cascade=True cleans up both incoming and outgoing relationships."""
         # Create 3 KUs: A -> B -> C (B has both incoming and outgoing)
         nodes = [
-            Curriculum(
+            PathStep(
                 uid="ps.bidir-a",
                 title="A",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Curriculum(
+            PathStep(
                 uid="ps.bidir-b",
                 title="B",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Curriculum(
+            PathStep(
                 uid="ps.bidir-c",
                 title="C",
                 domain=Domain.TECH,
@@ -509,13 +493,13 @@ class TestDeleteEdgeCases:
     async def test_delete_with_relationship_properties(self, ku_backend):
         """Test cascade=True works when relationships have properties."""
         # Create KUs with relationship that has properties
-        ku1 = Curriculum(
+        ku1 = PathStep(
             uid="ps.props-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Curriculum(
+        ku2 = PathStep(
             uid="ps.props-target",
             title="Target",
             domain=Domain.TECH,

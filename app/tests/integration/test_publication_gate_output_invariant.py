@@ -60,13 +60,9 @@ from neo4j import AsyncDriver
 from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
 from adapters.persistence.neo4j.backends.curriculum_backends import (
     KnowledgeHealthBackend,
-    KuBackend,
     LpBackend,
-    PsBackend,
 )
 from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
-from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
@@ -75,10 +71,10 @@ from core.models.enums import EntityType, PublicationState
 from core.models.enums.metadata_enums import SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.exercise import Exercise
-from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 
 # Sibling-module import: scripts/ has no __init__.py and tests/unit/scripts/
 # shadows the name under pytest, so a package-qualified import is not stable
@@ -498,15 +494,16 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
     one surface twice while leaving the other untested — with the coverage audit
     still green, because that compares tuples (Codex P2, #1012).
     """
-    ku = KuBackend(driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
-    ps = PsBackend(driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    backends = build_production_backends(driver)
+    ku = backends["ku_backend"]
+    ps = backends["ps_backend"]
     lp = LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
     ex = ExerciseBackend(driver, NeoLabel.EXERCISE, Exercise, base_label=NeoLabel.ENTITY)
     xd = CrossDomainBackend(Neo4jQueryExecutor(driver))
     vs = VectorSearchBackend(Neo4jQueryExecutor(driver))
-    cf = ConnectionFetchBackend(Neo4jQueryExecutor(driver))
+    cf = backends["connection_fetch_backend"]
     lateral = LateralRelationshipBackend(Neo4jQueryExecutor(driver))
-    entries = UserEntryBackend(driver)
+    entries = backends["user_entry_backend"]
     hub_params = {"min_confidence": 0.0, "min_connections": 0, "limit": LIMIT}
 
     async def source_step() -> Result[Payload]:
@@ -1024,7 +1021,7 @@ async def test_mixed_surfaces_keep_a_draft_the_learner_already_engaged(
     unconditional here would erase a learner's own progress and every other
     test in this module would still pass (Codex P2, #1012).
     """
-    ps = PsBackend(gate_graph, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    ps = build_production_backends(gate_graph)["ps_backend"]
     lp = LpBackend(gate_graph, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
 
     steps = _payload(await ps.get_prioritized_steps(USER, LIMIT), "get_prioritized_steps")
@@ -1055,7 +1052,7 @@ async def test_by_uid_read_still_returns_a_draft(gate_graph: AsyncDriver) -> Non
     to DISCOVERY: a draft stays unlisted, not forbidden, so an author can still
     open their own by UID.
     """
-    ps = PsBackend(gate_graph, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    ps = build_production_backends(gate_graph)["ps_backend"]
     result = await ps.get(STEP_DRAFT)
     assert not result.is_error, f"by-uid read of a draft failed: {result.expect_error()}"
     assert result.value is not None, (
@@ -1091,7 +1088,7 @@ async def test_audience_scoped_by_uid_read_still_returns_a_draft(
     the method is capable of withholding — without which the first assertion
     says nothing about the carve-out.
     """
-    ps = PsBackend(gate_graph, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    ps = build_production_backends(gate_graph)["ps_backend"]
 
     visible = await ps.get_visible_to_user(STEP_DRAFT, USER, SearchVisibility.PUBLIC)
     assert not visible.is_error, f"audience-scoped by-uid read failed: {visible.expect_error()}"
@@ -1120,7 +1117,7 @@ async def test_null_publication_state_is_never_withheld(gate_graph: AsyncDriver)
     ``= 'published'`` predicate would hide all of it, and every assertion above
     would still pass — withholding everything withholds the drafts too.
     """
-    ps = PsBackend(gate_graph, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    ps = build_production_backends(gate_graph)["ps_backend"]
     result = await ps.list_steps_raw(None, LIMIT, 0, "s.created_at", "ASC")
     steps = _payload(result, "list_steps_raw")
     uids = {step.uid for step in steps}
@@ -1236,7 +1233,8 @@ async def test_writer_does_not_inherit_the_readers_gate(gate_graph: AsyncDriver)
     (Codex P2, #1012). Checking the registry is checking that we did not change
     our minds; this checks what the code does.
     """
-    ps = PsBackend(gate_graph, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    backends = build_production_backends(gate_graph)
+    ps = backends["ps_backend"]
     result = await ps.compute_hub_scores()
     assert not result.is_error, f"compute_hub_scores failed: {result.expect_error()}"
 
@@ -1262,7 +1260,7 @@ async def test_writer_does_not_inherit_the_readers_gate(gate_graph: AsyncDriver)
     # right now; otherwise this passes on a corpus where nothing is withheld
     # from anyone. So pair it with a gated READER over the same KU: the writer
     # must score what the reader refuses to name.
-    ku = KuBackend(gate_graph, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
+    ku = backends["ku_backend"]
     reader = await ku.search_by_alias("gate")
     # Walked with fixture_identities rather than by reading a "uid" key: this
     # surface RETURNs whole nodes, so the row is {"ku": <Node>} and a hand-rolled

@@ -21,15 +21,13 @@ from typing import cast
 
 import pytest
 
-from adapters.persistence.neo4j.backends.activity_backends import HabitsBackend
 from adapters.persistence.neo4j.insight_backend import InsightBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from core.models.enums.neo_labels import NeoLabel
-from core.models.habit.habit import Habit
 from core.models.insight.persisted_insight import ActiveInsightFilter
 from core.models.type_hints import Neo4jProperties
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -92,7 +90,7 @@ class TestTimestampFieldCoercionResidual:
                 done_today=done_today,
                 user_habits=seed_user_uid("habits"),
             )
-        backend = HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
+        backend = build_production_backends(neo4j_driver)["habits_backend"]
 
         result = await backend.get_active_habits_prioritized(
             seed_user_uid("habits"), terminal_statuses=[]

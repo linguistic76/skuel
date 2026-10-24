@@ -25,15 +25,14 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.timestamp_helpers import day_of
 from core.utils.uid_grammar import slugify
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -49,9 +48,7 @@ class TestTasksCoreOperations:
     @pytest_asyncio.fixture
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
         """Create tasks backend with clean database."""
-        return UniversalNeo4jBackend[Task](
-            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-        )
+        return build_production_backends(neo4j_driver)["tasks_backend"]
 
     @pytest_asyncio.fixture
     async def tasks_service(self, tasks_backend, event_bus):

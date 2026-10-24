@@ -523,15 +523,10 @@ async def compose_services(
         # ========================================================================
         # Created here (not in _create_learning_services) to break circular
         # dependency: activity_services needs this, learning_services needs activity_services.
-        from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-        from core.models.entity import Entity
         from core.services.knowledge import ActivityKnowledgeIntelligenceService
 
-        activity_entity_backend = UniversalNeo4jBackend[Entity](
-            driver, NeoLabel.ENTITY, Entity, base_label=NeoLabel.ENTITY
-        )
         activity_knowledge_intelligence = ActivityKnowledgeIntelligenceService(
-            backend=activity_entity_backend,
+            backend=backends["activity_entity_backend"],
             graph_intel=graph_intelligence,
         )
         logger.info("✅ ActivityKnowledgeIntelligenceService created")

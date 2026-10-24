@@ -35,12 +35,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, HabitsBackend
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
 from core.models.enums import RecurrencePattern
-from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
-from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.relationship_registry import GOALS_CONFIG
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -49,6 +46,7 @@ from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 GL = "glctx."  # uid prefix for this module's fixture graph
@@ -73,7 +71,7 @@ GL_PRIN = GL + "principle"  # principle -[SUPPORTS_GOAL]-> goal (supporting_prin
 def rel_backend(neo4j_driver):
     """The real Goals backend, multi-label — registry edge validation requires the
     domain label alongside :Entity, so the single-:Entity form is not used."""
-    return GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+    return build_production_backends(neo4j_driver)["goals_backend"]
 
 
 class _GoalIntelHarness(_AnalyticsMixin, BaseAnalyticsService):
@@ -365,7 +363,8 @@ async def _seed_supporting_habit(
     """A daily habit of ``GL_OWNER``'s, started ``age_days`` ago, supporting the goal at
     ``essentiality``, kept on each of the last ``kept_days`` days through the real
     completion writer (so its completions hang off the owner via ``OWNS``)."""
-    habits_backend = HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
+    backends = build_production_backends(neo4j_driver)
+    habits_backend = backends["habits_backend"]
     created = await habits_backend.create(
         Habit(
             uid=habit_uid,
@@ -387,9 +386,7 @@ async def _seed_supporting_habit(
         )
     completions = HabitsCompletionService(
         habits_backend,
-        UniversalNeo4jBackend[HabitCompletion](
-            neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
-        ),
+        backends["habit_completions_backend"],
     )
     for n in range(kept_days):
         recorded = await completions.record_completion(

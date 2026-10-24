@@ -20,19 +20,16 @@ from datetime import datetime, timedelta
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.activity_backends import HabitsBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.neo_labels import NeoLabel
-from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
 from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from tests.helpers.forced_zone import forced_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
@@ -47,13 +44,10 @@ async def seeded(
     neo4j_driver, clean_neo4j
 ) -> tuple[HabitsCompletionService, CrossDomainQueryService]:
     """One owned habit that embodies one owned principle; no completions yet."""
-    habits_backend = HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
-    principles_backend = UniversalNeo4jBackend[Principle](
-        neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
-    )
-    completions_backend = UniversalNeo4jBackend[HabitCompletion](
-        neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
-    )
+    backends = build_production_backends(neo4j_driver)
+    habits_backend = backends["habits_backend"]
+    principles_backend = backends["principles_backend"]
+    completions_backend = backends["habit_completions_backend"]
 
     habit = await habits_backend.create(
         Habit(uid=HABIT, user_uid=USER, entity_type=EntityType.HABIT, title="Evening walk")

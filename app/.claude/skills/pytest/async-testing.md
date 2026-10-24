@@ -69,16 +69,13 @@ import pytest_asyncio
 
 # CORRECT - async fixture
 @pytest_asyncio.fixture
-async def tasks_backend(neo4j_container):
-    driver = open_async_driver(neo4j_container.get_connection_url(), auth=None)
-    backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-    yield backend
-    await driver.close()
+async def tasks_service(production_backends, event_bus):
+    return TasksCoreService(backend=production_backends["tasks_backend"], event_bus=event_bus)
 
 
 # WRONG - will cause "coroutine never awaited" errors
 @pytest.fixture
-async def tasks_backend(neo4j_container):  # Missing pytest_asyncio!
+async def tasks_service(production_backends, event_bus):  # Missing pytest_asyncio!
     ...
 ```
 

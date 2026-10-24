@@ -19,8 +19,6 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.backends.activity_backends import EventsBackend
-from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
-from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.pathways.path_step import PathStep
@@ -29,6 +27,7 @@ from core.services.events.events_core_service import EventsCoreService
 from core.services.ps.ps_application_discovery_service import PsApplicationDiscoveryService
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
@@ -48,7 +47,7 @@ def _event(uid: str, event_date: date, start: time = time(9, 30)) -> Event:
 
 @pytest_asyncio.fixture
 async def events_backend(neo4j_driver, clean_neo4j) -> EventsBackend:
-    return EventsBackend(neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY)
+    return build_production_backends(neo4j_driver)["events_backend"]
 
 
 async def _create(backend: EventsBackend, *events: Event) -> None:
@@ -97,9 +96,7 @@ class TestUpcomingEventsApplyingKnowledge:
     async def test_events_dated_today_or_later_are_upcoming(
         self, events_backend, neo4j_driver
     ) -> None:
-        ps_backend = PsBackend(
-            neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY
-        )
+        ps_backend = build_production_backends(neo4j_driver)["ps_backend"]
         step = await ps_backend.create(PathStep(uid=PATH_STEP, title="Event days"))
         assert step.is_ok, step
         dated = {
