@@ -35,7 +35,7 @@ class HabitCompletionCreateRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "habit_uid": "habit_001",
+                "habit_uid": "habit_9c4e2b7a1d6f0835",
                 "notes": "Felt great today, extended session",
                 "quality": 5,
                 "duration_actual": 30,
@@ -82,7 +82,7 @@ class HabitCompletionFilterRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "habit_uid": "habit_001",
+                "habit_uid": "habit_9c4e2b7a1d6f0835",
                 "start_date": "2025-09-01T00:00:00Z",
                 "end_date": "2025-09-30T23:59:59Z",
                 "min_quality": 3,

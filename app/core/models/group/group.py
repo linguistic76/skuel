@@ -184,7 +184,7 @@ def create_group(
     Factory function to create a new group.
 
     Args:
-        uid: Unique identifier (e.g., "group_physics-101_abc123")
+        uid: Unique identifier (e.g., "group_6a0e4c8b2f7d1953")
         name: Display name (e.g., "Physics 101 - Spring 2026")
         owner_uid: Teacher who owns this group
         description: Optional description

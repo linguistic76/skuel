@@ -13,7 +13,7 @@ This extends the transient AskesisInsight pattern with:
 Usage:
     insight = PersistedInsight(
         uid=PersistedInsight.generate_uid(),
-        user_uid="user_mike",
+        user_uid="user_5f2c8e1a9b3d7046",
         insight_type=InsightType.DIFFICULTY_PATTERN,
         domain="habits",
         title="Habit Difficulty Detected",

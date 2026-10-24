@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-16
+updated: 2026-10-24
 ---
 
 # Service Architecture: File Organization & Topology
@@ -498,7 +498,7 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
    ▼
 6. Neo4j Database
    CREATE (t:Entity:Task {uid: "task_learn-baseservice_abc123", ...})
-   CREATE (u:User {uid: "user_mike"})-[:OWNS]->(t)
+   CREATE (u:User {uid: "user_5f2c8e1a9b3d7046"})-[:OWNS]->(t)
    │
    ▼
 7. Response

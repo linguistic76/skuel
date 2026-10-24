@@ -28,6 +28,7 @@ import pytest_asyncio
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task
 from core.models.update_contracts import StatusWriteGuard
 from core.services.completion_stamp import is_completion_transition, status_transition_guard
@@ -47,7 +48,7 @@ class TestStatusGuardedUpdate:
     @pytest_asyncio.fixture
     async def backend(self, neo4j_driver, clean_neo4j):
         return UniversalNeo4jBackend[Task](
-            neo4j_driver, "Entity", Task, default_filters={"entity_type": "task"}
+            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
         )
 
     @pytest_asyncio.fixture
@@ -369,7 +370,7 @@ class TestRecomputeWithStatusGuard:
     @pytest_asyncio.fixture
     async def backend(self, neo4j_driver, clean_neo4j):
         return UniversalNeo4jBackend[Task](
-            neo4j_driver, "Entity", Task, default_filters={"entity_type": "task"}
+            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
         )
 
     async def _seed(self, backend, uid: str, status: EntityStatus = EntityStatus.ACTIVE) -> str:

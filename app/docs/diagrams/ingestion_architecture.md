@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-10-24
 ---
 
 # Ingestion System Architecture Diagrams
@@ -110,7 +110,7 @@ How ingestion operations are tracked as Neo4j nodes for audit trail.
 
 ```mermaid
 graph LR
-    Admin["(:User)<br/>user_admin"] -->|"triggers"| SH
+    Admin["(:User)<br/>an admin"] -->|"triggers"| SH
 
     SH["(:IngestionHistory)<br/>operation_id: uuid<br/>operation_type: directory<br/>started_at: datetime<br/>completed_at: datetime<br/>status: completed<br/>source_path: /vault/docs<br/>total_files: 1000<br/>successful: 995<br/>failed: 5"]
 
@@ -132,7 +132,7 @@ from core.services.ingestion import IngestionHistoryService
 history = IngestionHistoryService(driver)
 
 # Create entry before ingestion
-op_id = await history.create_entry("directory", "user_admin", "/vault/docs")
+op_id = await history.create_entry("directory", "user_9d3b7f1e5a2c8064", "/vault/docs")
 
 # Update with results
 await history.update_entry(op_id, "completed", stats_dict, error_dicts)

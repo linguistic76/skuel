@@ -186,7 +186,7 @@ class LLMDSLBridgeService:
     result = await bridge.transform(
         text="I need to finish the report by Friday and start exercising daily.",
         reference_date=date(2026, 10, 14),
-        user_uid="user_mike",
+        user_uid="user_5f2c8e1a9b3d7046",
     )
 
     if result.is_ok:

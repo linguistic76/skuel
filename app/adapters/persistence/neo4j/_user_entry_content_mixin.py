@@ -2,10 +2,10 @@
 UserEntry Content Enrichment Mixin
 ===================================
 
-Journal processing context + exercise-instruction enrichment reads.
-Covers journal temporal/thematic/goal linking, exercise-instruction
-set CRUD, path-step entry listings, and the knowledge-notes grounding
-list (entries + their APPLIES_KNOWLEDGE chips).
+Journal processing context + enrichment reads.
+Covers journal temporal/thematic/goal linking, path-step entry listings,
+and the knowledge-notes grounding list (entries + their APPLIES_KNOWLEDGE
+chips).
 
 Consolidated from the legacy ``_SubmissionContentMixin`` into a single
 standalone mixin (ADR-054).
@@ -106,42 +106,6 @@ class _UserEntryContentMixin:
         } as context
         """
         return await self.execute_query(cypher, {"user_uid": user_uid})
-
-    async def load_exercise_instructions(self, uid: str) -> Result[list[Neo4jProperties]]:
-        """Load formatting instructions from an Exercise entity node."""
-        query = """
-        MATCH (i:Entity {uid: $uid, entity_type: 'exercise'})
-        RETURN i.instructions as instructions, i.name as name
-        """
-        return await self.execute_query(query, {"uid": uid})
-
-    async def create_exercise_instruction_set(
-        self, uid: str, name: str, instructions: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create a new Exercise instruction set node."""
-        query = """
-        CREATE (i:Entity:Exercise {
-            uid: $uid,
-            name: $name,
-            entity_type: 'exercise',
-            instructions: $instructions,
-            created_at: datetime(),
-            char_count: size($instructions)
-        })
-        RETURN i
-        """
-        return await self.execute_query(
-            query, {"uid": uid, "name": name, "instructions": instructions}
-        )
-
-    async def list_exercise_instruction_sets(self) -> Result[list[Neo4jProperties]]:
-        """List all available exercise instruction sets."""
-        query = """
-        MATCH (i:Entity {entity_type: 'exercise'})
-        RETURN i.uid as uid, i.name as name, i.char_count as char_count
-        ORDER BY i.name
-        """
-        return await self.execute_query(query)
 
     async def get_vault_notes_for_context(
         self,

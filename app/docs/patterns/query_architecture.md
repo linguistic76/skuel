@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-10-11
+updated: 2026-10-24
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -252,7 +252,7 @@ from adapters.persistence.neo4j.query.cypher import (
 )
 
 # Get distinct categories for a user
-query, params = build_distinct_values_query("Task", "category", user_uid="user:123")
+query, params = build_distinct_values_query("Task", "category", user_uid="user_5f2c8e1a9b3d7046")
 
 # Get parent/child hierarchy — the label must be a NeoLabel value ("Lp" is not one)
 query, params = build_hierarchy_query("LearningPath", "lp.python-basics")

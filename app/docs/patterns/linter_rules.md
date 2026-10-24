@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-10-16
+updated: 2026-10-24
 category: patterns
 related_skills:
 - python
@@ -90,7 +90,7 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL033** | A docstring in `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/` that *opens* with a Cypher clause, or *hosts* a query (≥2 clause-leading lines) | State intent and the guarantee; mechanism belongs in the backend docstring (AST rule, shares SKUEL021's head anchor; `core/utils/` excluded by the same table it enforces) |
 | **SKUEL034** | A string-literal membership test against a *singular* uid (`"tech" in knowledge_uid.lower()`) | Read the field that carries the fact — `entity_type`, the Neo4j label, `sel_category`, or the edge (AST rule, ADR-013 never-sniff; collections, `startswith`, and `split` are out of scope) |
 | **SKUEL035** | `Request` imported into `adapters/inbound/` from anywhere but `adapters.inbound.fasthtml_types` (`fasthtml.common`, `fasthtml.core`, `starlette.requests`) | `from adapters.inbound.fasthtml_types import Request` — the one boundary re-export (AST rule; the re-export module itself is exempt) |
-| **SKUEL036** | `require_authenticated_user(...)` called inside a handler that carries `@require_admin` / `@require_teacher` / `@require_role` | Read the caller the decorator injected — `UserUID(current_user.uid)` — or delete the call (AST rule, AUTH_PATTERNS § Pattern 3 "do not mix"; ungated handlers are Pattern 2 and untouched) |
+| **SKUEL036** | `require_authenticated_user(...)` called inside a handler that carries `@require_admin` / `@require_teacher` / `@require_role` | Read the caller the decorator injected — `UserUID(current_user.uid)` — or delete the call (AST rule, AUTH_PATTERNS § Pattern 3 "do not mix"; ungated handlers are Pattern 1 and untouched) |
 | **SKUEL037** | `Errors.not_found` whose `resource` is an f-string, a call, a built string or a literal containing "found", or whose `identifier` text contains "not found" | Pass the resource NAME and the lookup key — `Errors.not_found("Task", uid)`; the diagnosis goes in `reason=`, which reaches `details` only (AST rule; `core/`, `adapters/`, `ui/`) |
 
 ## Inline Suppression
@@ -823,7 +823,7 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 
 **The singular/plural line is structural, not a list.** `"ku.a.b" in ku_uids` is membership in a *collection* and is correct, ordinary code. The operand is matched by name — exactly `uid`, or a `_uid` suffix — and `_uids` does not end in `_uid`, so the plural is excluded by the shape of the test rather than by an exception list that would need maintaining.
 
-**Deliberately out of scope: prefix and segment reads.** `uid.startswith(prefix)` and `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer, which is flow analysis this linter does not do. All four live sites are sanctioned and say so in their own docstrings — `parse_calendar_item_uid` (parses a wire format the app itself mints), `_extract_label_from_uid` (a fast path whose miss falls back to the DB, so it is never a wrong answer), and `_table_domain` + its caller (hardcoded table literals). Covering them would buy four suppressions and no findings. The rule takes the shape with no legitimate form and leaves the contextual ones to review; the sanctioned-site table lives in `CURRICULUM_GROUPING_PATTERNS.md`.
+**Deliberately out of scope: prefix and segment reads.** `uid.startswith(prefix)` and `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer, which is flow analysis this linter does not do. All three live sites are sanctioned and say so in their own docstrings — `parse_calendar_item_uid` (parses a wire format the app itself mints) and `_table_domain` + its caller (hardcoded table literals). Covering them would buy three suppressions and no findings. The rule takes the shape with no legitimate form and leaves the contextual ones to review; the sanctioned-site table lives in `CURRICULUM_GROUPING_PATTERNS.md`.
 
 **Tests are out of scope, and the corpus says why.** The only two hits anywhere are `assert "user_charlie" not in dto.uid` and `assert "text-embedding-" not in uid` — both pinning what a UID *generator* must not emit. Asserting on uid content is how you test the generator; branching on it in production is the bug.
 
@@ -863,7 +863,7 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 
 **Why it exists:** the role decorator (`adapters/inbound/auth/roles.py`) authenticates the request, fetches the caller and injects it as `current_user`. A second `require_authenticated_user(request)` in the same handler reads the session again and leaves two spellings of "who is calling" in one function, so a reader has to check they agree. [AUTH_PATTERNS.md](AUTH_PATTERNS.md) § Pattern 3 has said "do not mix patterns" since the decorator existed, and the prose did not hold: twelve handlers across three teaching/templates modules carried both (nine assigned the second result to `user_uid`, three called it for nothing). The prose is now this rule.
 
-**Scope:** `adapters/inbound/`. Both names are resolved through the file's `from … import … as …` bindings — `require_role as gated` is still the gate, `require_authenticated_user as authenticate` still the call, and a local name an import bound to something else is not either. A handler with no role decorator is Pattern 2 — `require_authenticated_user` is *its* one path — and is untouched; so is `roles.py`'s own wrapper, which calls it by design and carries no role decorator.
+**Scope:** `adapters/inbound/`. Both names are resolved through the file's `from … import … as …` bindings — `require_role as gated` is still the gate, `require_authenticated_user as authenticate` still the call, and a local name an import bound to something else is not either. A handler with no role decorator is Pattern 1 — `require_authenticated_user` is *its* one path — and is untouched; so is `roles.py`'s own wrapper, which calls it by design and carries no role decorator.
 
 **Fix:** `user_uid = UserUID(current_user.uid)`, or delete the call when its value was unused.
 

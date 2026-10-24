@@ -1883,13 +1883,12 @@ def test_live_ai_route_spec_methods_suppressed_or_absent(live_methods):
 
 
 def test_live_error_label_does_not_shield_dead_method(live_methods):
-    # create_instruction_set's only string occurrence is its own
+    # get_inference_statistics's only string occurrence is its own
     # @with_error_handling label — a label is not dispatch evidence, so the
     # method is still flagged (PLANNED, because it's in PLANNED_METHODS).
-    # (Was get_inference_statistics until campaign 18 moved it to PLANNED.)
     # Delete this sentinel alongside the method when it is removed, or repoint
     # it at another label-only dead/planned method.
-    finding = finding_for(live_methods.findings, "create_instruction_set")
+    finding = finding_for(live_methods.findings, "get_inference_statistics")
     assert finding is not None and finding.severity is BloatSeverity.PLANNED
 
 

@@ -3,14 +3,12 @@ Tests for Session Management.
 
 Tests cover:
 1. get_current_user() - Get user from session
-2. get_current_user_or_default() - Get user or fallback
-3. set_current_user() / clear_current_user() - Session mutation
-4. is_authenticated() - Authentication check
-5. require_authenticated_user() - Get user or raise HTTPException
-6. require_auth() decorator - Route protection with redirect
-7. optional_auth() decorator - Optional auth with injection
-8. get_session_data() / set_session_data() - Arbitrary session data
-9. get_session_middleware_config() - Middleware configuration
+2. set_current_user() / clear_current_user() - Session mutation
+3. is_authenticated() - Authentication check
+4. require_authenticated_user() - Get user or raise HTTPException
+5. require_auth() decorator - Route protection with redirect
+6. get_session_data() / set_session_data() - Arbitrary session data
+7. get_session_middleware_config() - Middleware configuration
 """
 
 from datetime import datetime
@@ -21,14 +19,11 @@ from starlette.exceptions import HTTPException
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth.session import (
-    DEFAULT_DEV_USER,
     clear_current_user,
     get_current_user,
-    get_current_user_or_default,
     get_session_data,
     get_session_middleware_config,
     is_authenticated,
-    optional_auth,
     require_auth,
     require_authenticated_user,
     set_current_user,
@@ -72,28 +67,6 @@ class TestGetCurrentUser:
         request.session.get.side_effect = Exception("Session error")
         result = get_current_user(request)
         assert result is None
-
-
-class TestGetCurrentUserOrDefault:
-    """Tests for get_current_user_or_default()."""
-
-    def test_returns_user_uid_when_authenticated(self):
-        """Test that session user is returned when present."""
-        request = MockRequest(session={"user_uid": "user_mike"})
-        result = get_current_user_or_default(request)
-        assert result == "user_mike"
-
-    def test_returns_default_when_not_authenticated(self):
-        """Test that default user is returned when no session."""
-        request = MockRequest(session={})
-        result = get_current_user_or_default(request)
-        assert result == DEFAULT_DEV_USER
-
-    def test_returns_custom_default(self):
-        """Test that custom default user can be specified."""
-        request = MockRequest(session={})
-        result = get_current_user_or_default(request, default="custom.user")
-        assert result == "custom.user"
 
 
 class TestSetCurrentUser:
@@ -223,46 +196,6 @@ class TestRequireAuthDecorator:
         assert result.headers.get("location") == "/custom-login"
 
 
-class TestOptionalAuthDecorator:
-    """Tests for optional_auth() decorator."""
-
-    @pytest.mark.asyncio
-    async def test_injects_user_from_session(self):
-        """Test that user_uid from session is injected."""
-
-        @optional_auth()
-        async def route(request, user_uid: str):
-            return user_uid
-
-        request = MockRequest(session={"user_uid": "user_from_session"})
-        result = await route(request)
-        assert result == "user_from_session"
-
-    @pytest.mark.asyncio
-    async def test_injects_default_when_no_session(self):
-        """Test that default user is injected when no session."""
-
-        @optional_auth()
-        async def route(request, user_uid: str):
-            return user_uid
-
-        request = MockRequest(session={})
-        result = await route(request)
-        assert result == DEFAULT_DEV_USER
-
-    @pytest.mark.asyncio
-    async def test_custom_default_user(self):
-        """Test that custom default user can be specified."""
-
-        @optional_auth(default_user="custom.default")
-        async def route(request, user_uid: str):
-            return user_uid
-
-        request = MockRequest(session={})
-        result = await route(request)
-        assert result == "custom.default"
-
-
 class TestGetSessionData:
     """Tests for get_session_data()."""
 
@@ -374,11 +307,3 @@ class TestGetSessionMiddlewareConfig:
         """Test that same_site is strict for CSRF protection (January 2026 hardening)."""
         config = get_session_middleware_config()
         assert config["same_site"] == "strict"
-
-
-class TestDefaultDevUser:
-    """Tests for DEFAULT_DEV_USER constant."""
-
-    def test_default_dev_user_is_user_mike(self):
-        """Test that default dev user is user.mike."""
-        assert DEFAULT_DEV_USER == "user_mike"

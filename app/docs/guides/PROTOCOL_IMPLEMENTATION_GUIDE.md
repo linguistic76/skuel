@@ -1,7 +1,7 @@
 ---
 title: Protocol Implementation Guide
 created: 2026-01-03
-updated: 2026-10-10
+updated: 2026-10-24
 status: active
 audience: developers
 tags: [guide, protocols, implementation]
@@ -443,7 +443,7 @@ async def test_notify_user():
     service = AlertService(backend=mock_backend)
 
     # Call service method
-    result = await service.notify_user("user_alice", "Hello!")
+    result = await service.notify_user("user_2b8e4d0a6c1f9573", "Hello!")
 
     # Assert
     assert result.is_ok

@@ -44,9 +44,7 @@ class UserOwnedEntity(Entity):
     # =========================================================================
     # USER OWNERSHIP
     # =========================================================================
-    user_uid: (
-        UserUID  # Owner user UID (e.g. "user_john") — required on every persisted UserOwnedEntity
-    )
+    user_uid: UserUID  # Owner user UID (e.g. "user_5f2c8e1a9b3d7046") — required on every persisted UserOwnedEntity
     priority: str | None = None  # Priority enum value (LOW/MEDIUM/HIGH)
 
     # =========================================================================

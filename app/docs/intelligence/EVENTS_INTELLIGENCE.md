@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-08
+updated: 2026-10-24
 ---
 
 # EventsIntelligenceService - Cross-Domain Impact Analysis & Schedule Optimization
@@ -114,7 +114,7 @@ async def get_performance_analytics(
 **Returns:**
 ```python
 {
-    "user_uid": "user.mike",
+    "user_uid": "user_5f2c8e1a9b3d7046",
     "period_days": 30,
     "start_date": "2025-12-20",
     "end_date": "2026-01-19",
@@ -136,7 +136,7 @@ async def get_performance_analytics(
 **Example:**
 ```python
 result = await events_service.intelligence.get_performance_analytics(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     period_days=30
 )
 
@@ -269,7 +269,7 @@ async def analyze_upcoming_events(
 ```python
 # Analyze next week
 result = await events_service.intelligence.analyze_upcoming_events(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     days_ahead=7
 )
 
@@ -326,7 +326,7 @@ async def assess_engagement_dual_track(
 **Returns:**
 ```python
 DualTrackResult[EngagementLevel](
-    entity_uid="user.mike",
+    entity_uid="user_5f2c8e1a9b3d7046",
     entity_type="engagement_assessment",
 
     # USER-DECLARED (Vision)
@@ -378,7 +378,7 @@ class EngagementLevel(str, Enum):
 **Example:**
 ```python
 result = await events_service.intelligence.assess_engagement_dual_track(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     user_engagement_level=EngagementLevel.HIGHLY_ENGAGED,
     user_evidence="I attend all my scheduled events",
     user_reflection="I'm very active in my commitments",
@@ -445,7 +445,7 @@ events_service = EventsService(
 
 # Access via .intelligence attribute
 result = await events_service.intelligence.analyze_upcoming_events(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     days_ahead=14
 )
 ```

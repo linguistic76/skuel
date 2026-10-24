@@ -642,7 +642,7 @@ class AnalyticsService:
         Returns:
             Result containing comprehensive alignment analysis:
             {
-                "life_path_uid": "lp:...",
+                "life_path_uid": "lifepath_4c8e2a6f0d9b1357",
                 "life_path_title": "...",
                 "alignment_score": 0.73, # 0.0-1.0
                 "knowledge_count": 15,

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-16
+updated: 2026-10-24
 ---
 
 # BaseService Quick Start Guide
@@ -98,7 +98,7 @@ request = TaskCreateRequest(
     description="Read quick start guide",
     priority="high",
 )
-result = await tasks_service.create_task(request, user_uid="user.mike")
+result = await tasks_service.create_task(request, user_uid="user_5f2c8e1a9b3d7046")
 
 if result.is_ok:
     task = result.value
@@ -171,7 +171,7 @@ while setting one to `None` is an explicit clear.
 result = await tasks_service.update_for_user(
     "task.learn-baseservice",
     TaskUpdateIntent(priority="urgent"),
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
 )
 # Returns 404 if user doesn't own the task
 ```
@@ -230,13 +230,13 @@ result = await tasks_service.relationships.find_by_semantic_filter(
 ```python
 # Learning patterns (generic 5-pattern engine — also available for Goals/Habits/Events/Choices/Principles)
 patterns_result = await tasks_service.analyze_learning_patterns(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     timeframe_days=30,
 )
 
 # Knowledge-aware priorities (Tasks-only — requires task.knowledge_mastery_check field)
 priorities_result = await tasks_service.calculate_knowledge_aware_priorities(
-    user_uid="user.mike"
+    user_uid="user_5f2c8e1a9b3d7046"
 )
 ```
 
@@ -358,14 +358,14 @@ Activity Domains (Tasks, Goals, Habits, etc.) require ownership checks:
 # Verify ownership before retrieving
 task_result = await tasks_service.verify_ownership(
     uid="task.learn-baseservice",
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
 )
 # Returns Task if owned, NotFound error if not owned
 
 # Or use get_for_user (same as verify_ownership)
 task_result = await tasks_service.get_for_user(
     uid="task.learn-baseservice",
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
 )
 ```
 
@@ -673,7 +673,7 @@ uv run mypy core/services/mixins/*.py
 # 1. Create a goal
 goal_result = await goals_service.create_goal(
     GoalCreateRequest(title="Learn SKUEL Architecture", target_date=today_in(current_zone()) + timedelta(days=30)),
-    user_uid="user.you",
+    user_uid="user_5f2c8e1a9b3d7046",
 )
 goal = goal_result.value
 
@@ -691,7 +691,7 @@ await goals_service.complete_goal_with_cascade(
 )
 
 # 4. Analyze
-metrics_result = await goals_service.analyze_goal_metrics(user_uid="user.you")
+metrics_result = await goals_service.analyze_goal_metrics(user_uid="user_5f2c8e1a9b3d7046")
 print(metrics_result.value)
 ```
 

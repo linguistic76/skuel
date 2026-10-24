@@ -759,7 +759,7 @@ def build_relationship_traversal_query(
     Example:
         # Get all tasks that fulfill a specific goal (incoming to goal)
         query, params = build_relationship_traversal_query(
-            source_uid="goal:health-2025",
+            source_uid="goal_5d7e1a9c3b2f8064",
             relationship_type="CONTRIBUTES_TO_GOAL",
             target_label="Task",
             direction="incoming"
@@ -860,7 +860,7 @@ def build_graph_aware_search_query(
         query, params = build_graph_aware_search_query(
             Task,
             query="review",
-            source_uid="goal:health-2025",
+            source_uid="goal_5d7e1a9c3b2f8064",
             relationship_type="CONTRIBUTES_TO_GOAL",
             direction="incoming", # Tasks that fulfill this goal
         )
@@ -1351,7 +1351,7 @@ def build_distinct_values_query(
 
     Example:
         # Get all categories for a user
-        query, params = build_distinct_values_query("Task", "category", user_uid="user:123")
+        query, params = build_distinct_values_query("Task", "category", user_uid="user_5f2c8e1a9b3d7046")
 
         # Get all categories globally (admin only)
         query, params = build_distinct_values_query("Task", "category")
@@ -1503,12 +1503,12 @@ def build_prerequisite_traversal_query(
     Example:
         # Get prerequisites
         query, params = build_prerequisite_traversal_query(
-            "Entity", "ku:python-advanced", ["REQUIRES_KNOWLEDGE"], direction="outgoing"
+            "Entity", "ku.python-advanced", ["REQUIRES_KNOWLEDGE"], direction="outgoing"
         )
 
         # Get what this enables
         query, params = build_prerequisite_traversal_query(
-            "Entity", "ku:python-basics", ["REQUIRES_KNOWLEDGE"], direction="incoming"
+            "Entity", "ku.python-basics", ["REQUIRES_KNOWLEDGE"], direction="incoming"
         )
     """
     rel_pattern = "|".join(relationship_types)

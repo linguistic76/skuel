@@ -1,6 +1,6 @@
 ---
 title: UID Boundary Conversion Pattern
-updated: '2026-10-23'
+updated: '2026-10-24'
 category: patterns
 related_skills: []
 related_docs: []
@@ -57,10 +57,11 @@ is_valid_uid("resource.tao-te-ching")  # True
 # Generated: {prefix}_{16 hex}
 is_valid_uid("task_3f9a0c41d2e87b65")  # True
 
-# Exempt: a username's uid
-is_valid_uid("user_admin")  # True
+# Exempt: an invoice's uid (UID_EXEMPTIONS)
+is_valid_uid("invoice:3f9a0c41-d2e8-4b65-9a1c-0e7f5d2b8c46")  # True
 
 # Invalid
+is_valid_uid("user_admin")  # False - a username is a title, never a uid
 is_valid_uid("task_abc123")  # False - not the generated shape
 is_valid_uid("ku:yoga")  # False - ':' is in no uid
 is_valid_uid("invalid")  # False - no separator

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-24
 ---
 
 # PrinciplesIntelligenceService - Cross-Domain Principle Alignment & Conflict Detection
@@ -294,7 +294,7 @@ async def get_principle_conflict_analysis(
 **Returns:**
 ```python
 {
-    "user_uid": "user.mike",
+    "user_uid": "user_5f2c8e1a9b3d7046",
     "total_principles": 5,
     "conflicts_detected": 2,
     "conflicts": [
@@ -344,7 +344,7 @@ async def get_principle_conflict_analysis(
 **Example:**
 ```python
 result = await principles_service.intelligence.get_principle_conflict_analysis(
-    user_uid="user.mike"
+    user_uid="user_5f2c8e1a9b3d7046"
 )
 
 if result.is_ok:
@@ -639,7 +639,7 @@ class AlignmentLevel(StrEnum):
 ```python
 result = await principles_service.intelligence.assess_alignment_dual_track(
     principle_uid="principle.integrity",
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     user_alignment_level=AlignmentLevel.ALIGNED,
     user_evidence="I always act with integrity",
     user_reflection="This is my core value",

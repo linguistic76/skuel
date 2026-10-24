@@ -61,7 +61,7 @@ bridge = create_llm_dsl_bridge()  # Uses OPENAI_API_KEY from env
 result = await bridge.transform(
     text="I need to finish the report by Friday and start exercising daily.",
     reference_date=date(2026, 10, 14),  # the writer's local day (a Wednesday)
-    user_uid="user_mike",
+    user_uid="user_5f2c8e1a9b3d7046",
 )
 if result.is_ok:
     dsl_text = result.value.transformed_text

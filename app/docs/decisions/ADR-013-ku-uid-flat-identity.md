@@ -444,7 +444,7 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
   and a `:Content` node has no uid — it is reached through its entity's `HAS_CONTENT` edge, so
   no node shares an entity's uid. A periodic note's uid is `ue_{hash(kind, owner, period)}`
   (`periodic_note_uid`), with its kind and period in its metadata. A uid derived from its
-  parts — a habit completion, a personal-vault file, the default group, an instruction set, and
+  parts — a habit completion, a personal-vault file, the default group, and
   the staged progress, embedding and mastery records — is `hashed_uid(prefix, *parts)`, so the same parts land on the same node; every other
   generated uid is random (`UIDGenerator.generate_random_uid`). The default group is
   recognised by its `is_default` property, never by its uid. Invoices leave with the local

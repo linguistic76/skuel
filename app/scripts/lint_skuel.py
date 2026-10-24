@@ -1281,13 +1281,11 @@ three outcomes for the same reason — named conversions narrow to those keys, a
 
 DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
 `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
-which is flow analysis this linter does not do. All four live sites of those shapes are
+which is flow analysis this linter does not do. All three live sites of those shapes are
 sanctioned and say so in their own docstrings: `parse_calendar_item_uid` (parses a wire
-format the app itself mints, not an entity uid), `_extract_label_from_uid` (a fast path
-whose miss falls back to the DB, so it is never a wrong answer), and
-`_table_domain` + its caller in `entity_inference_service.py` (the keys are hardcoded
-table literals, authored beside the keywords). Covering them would buy four suppressions
-and no findings. The boundary here is deliberate: this rule takes the shape that has no
+format the app itself mints, not an entity uid), and `_table_domain` + its caller in
+`entity_inference_service.py` (the keys are hardcoded table literals, authored beside the
+keywords). Covering them would buy three suppressions and no findings. The boundary here is deliberate: this rule takes the shape that has no
 legitimate form, and leaves the shapes whose legitimacy is contextual to review.
 
 MEASURED AT INTRODUCTION: ONE hit — the serialized one above, fixed in the same
@@ -1362,7 +1360,7 @@ mix patterns").
 Scope: `adapters/inbound/`. Flags every `require_authenticated_user(...)` call whose
 enclosing function carries a role decorator, at the call line. Both names are resolved
 through the file's `from … import … as …` bindings, so an alias neither hides the gate nor
-the call. A handler with no role decorator is Pattern 2 and untouched.
+the call. A handler with no role decorator is Pattern 1 and untouched.
 
 Fix: `user_uid = UserUID(current_user.uid)`; or delete the call when its value was unused.
 
@@ -7062,7 +7060,7 @@ class SkuelLinter:
         the operand names a SINGULAR uid, including through a `.lower()`-style
         unwrap. Deliberately does NOT cover `uid.startswith(...)` or
         `uid.split(...)[i]` — judging those needs to know what the branch does
-        with the answer, and all four live sites of those shapes are sanctioned
+        with the answer, and all three live sites of those shapes are sanctioned
         (see RULE_DOCS["SKUEL034"]).
 
         Suppressible: `# skuel-lint: disable=SKUEL034 -- <reason>`.

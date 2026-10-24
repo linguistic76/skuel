@@ -155,11 +155,11 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
         Example:
             # Get all user's tasks
-            result = await tasks_backend.get_user_entities("user_123")
+            result = await tasks_backend.get_user_entities("user_5f2c8e1a9b3d7046")
 
             # Get only active tasks, sorted by due date
             result = await tasks_backend.get_user_entities(
-                "user_123",
+                "user_5f2c8e1a9b3d7046",
                 filters={"status": "active"},
                 sort_by="due_date",
                 sort_order="asc"
@@ -167,7 +167,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
             # Get user's high-priority goals
             result = await goals_backend.get_user_entities(
-                "user_123",
+                "user_5f2c8e1a9b3d7046",
                 filters={"priority": "high"}, limit=QueryLimit.PREVIEW
             )
         """
@@ -262,11 +262,11 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
         Example:
             # Count all user's tasks
-            count_result = await tasks_backend.count_user_entities("user_123")
+            count_result = await tasks_backend.count_user_entities("user_5f2c8e1a9b3d7046")
 
             # Count completed tasks
             count_result = await tasks_backend.count_user_entities(
-                "user_123",
+                "user_5f2c8e1a9b3d7046",
                 filters={"status": "completed"}
             )
         """
@@ -313,8 +313,8 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         Example:
             # Track when user views a task
             await backend.update_relationship_access(
-                user_uid="user_123",
-                entity_uid="task_456"
+                user_uid="user_5f2c8e1a9b3d7046",
+                entity_uid="task_8b21d4e6a0f7c359"
             )
         """
         # Default relationship type: OWNS; the RelationshipName type is the

@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
+from adapters.persistence.neo4j.endpoint_queries import build_uid_anchor
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.utils.error_boundary import safe_backend_operation
@@ -48,6 +49,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
+        label: NeoLabel
 
         # Session-run chokepoint (Neo4jSessionRunner)
         async def _run_single(
@@ -146,11 +148,11 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         Returns:
             Result[bool] indicating success
         """
-        merge_clause = f"MERGE (from){direction_clause(direction, 'r', str(relationship_type))}(to)"
+        merge_clause = f"MERGE (a){direction_clause(direction, 'r', str(relationship_type))}(b)"
 
         query = f"""
-        MATCH (from {{uid: $from_uid}})
-        MATCH (to {{uid: $to_uid}})
+        {build_uid_anchor("a", "$from_uid", self.label)}
+        {build_uid_anchor("b", "$to_uid", self.label)}
         {merge_clause}
         SET r += $properties
         RETURN r IS NOT NULL AS success

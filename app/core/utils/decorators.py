@@ -203,7 +203,7 @@ def with_error_handling(
         @with_error_handling("get_task", error_type="database", uid_param="uid")
         async def get(self, uid: str) -> Result[Task]:
             return await self.backend.get(uid)
-            # On error: {"uid": "task:123"} included in error details
+            # On error: {"uid": "task_3f9a0c41d2e87b65"} included in error details
 
     Error Handling (when error_type="auto"):
         - ValueError → Errors.validation()

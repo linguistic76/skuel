@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-24
 ---
 
 # TasksIntelligenceService - Behavioral & Performance Intelligence
@@ -89,7 +89,7 @@ async def get_behavioral_insights(
     ],
     "metadata": {
         "generated_at": "2026-01-08T10:00:00",
-        "user_uid": "user.mike",
+        "user_uid": "user_5f2c8e1a9b3d7046",
         "period_days": 90,
         "tasks_analyzed": 67
     }
@@ -100,7 +100,7 @@ async def get_behavioral_insights(
 ```python
 # Analyze last 90 days
 result = await tasks_service.intelligence.get_behavioral_insights(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     period_days=90
 )
 
@@ -162,7 +162,7 @@ async def get_performance_analytics(
     ],
     "metadata": {
         "generated_at": "2026-01-08T10:00:00",
-        "user_uid": "user.mike",
+        "user_uid": "user_5f2c8e1a9b3d7046",
         "period_days": 30
     }
 }
@@ -171,7 +171,7 @@ async def get_performance_analytics(
 **Example:**
 ```python
 result = await tasks_service.intelligence.get_performance_analytics(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     period_days=30
 )
 
@@ -283,7 +283,7 @@ async def assess_productivity_dual_track(
 **Returns:**
 ```python
 DualTrackResult[ProductivityLevel](
-    entity_uid="user.mike",
+    entity_uid="user_5f2c8e1a9b3d7046",
     entity_type="productivity_assessment",
 
     # USER-DECLARED (Vision)
@@ -335,7 +335,7 @@ class ProductivityLevel(str, Enum):
 **Example:**
 ```python
 result = await tasks_service.intelligence.assess_productivity_dual_track(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     user_productivity_level=ProductivityLevel.HIGHLY_PRODUCTIVE,
     user_evidence="I complete all my tasks on time",
     user_reflection="I feel very productive lately",
@@ -410,7 +410,7 @@ tasks_service = TasksService(
 
 # Access via .intelligence attribute
 result = await tasks_service.intelligence.get_behavioral_insights(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     period_days=90
 )
 ```

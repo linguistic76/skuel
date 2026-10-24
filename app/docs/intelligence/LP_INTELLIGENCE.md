@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-24
 ---
 
 # LpIntelligenceService - Learning State & Content Intelligence
@@ -58,7 +58,7 @@ async def analyze_learning_state(
 **Returns:**
 ```python
 LearningAnalysis(
-    user_uid="user.mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     timestamp=datetime(2026, 1, 8, 10, 0, 0),
 
     # Current state

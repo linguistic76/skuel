@@ -11,7 +11,7 @@ Graph Model:
         started_at: datetime(),
         completed_at: datetime() | null,
         status: "in_progress" | "completed" | "failed",
-        user_uid: "user_admin",
+        user_uid: "user_9d3b7f1e5a2c8064",
         source_path: "/vault/docs",
         total_files: 100,
         successful: 98,
@@ -27,7 +27,7 @@ Graph Model:
 
 Usage:
     service = IngestionHistoryService(backend)
-    operation_id = await service.create_entry("directory", "user_admin", "/vault/docs")
+    operation_id = await service.create_entry("directory", "user_9d3b7f1e5a2c8064", "/vault/docs")
     # ... perform ingestion ...
     await service.update_entry(operation_id, "completed", stats, errors)
 """

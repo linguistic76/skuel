@@ -157,14 +157,17 @@ class TestBuildRelationshipCreateQuery:
         assert "MATCH (a:Entity {uid: rel.from_uid})" in query
         assert "MATCH (b:Entity {uid: rel.to_uid})" in query
 
-    def test_unlabeled_endpoints_for_mixed_label_batches(self):
-        """endpoint_label=None (mixed User/Group batches) keeps endpoints unlabeled."""
+    def test_mixed_label_endpoints_seek_each_uid_label(self):
+        """endpoint_label=None (mixed User/Group batches) binds each endpoint by an
+        index seek under :Entity, :User and :Group — never a label-less match."""
         query = BatchCypherBuilder.build_relationship_create_query(
             "PURSUING_GOAL", endpoint_label=None
         )
 
-        assert "MATCH (a {uid: rel.from_uid})" in query
-        assert "MATCH (b {uid: rel.to_uid})" in query
+        for alias, uid in (("a", "from_uid"), ("b", "to_uid")):
+            for label in ("Entity", "User", "Group"):
+                assert f"MATCH ({alias}:{label} {{uid: {uid}}})" in query
+        assert "{uid: rel." not in query
         assert "MERGE (a)-[r:PURSUING_GOAL]->(b)" in query
 
     def test_uses_literal_relationship_type(self):

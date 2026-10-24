@@ -133,12 +133,6 @@ def _default_group() -> str:
     return default_group_uid("user_admin")
 
 
-def _instruction_set() -> str:
-    from core.services.content_enrichment_service import instruction_set_uid
-
-    return instruction_set_uid("Reflective Journal")
-
-
 def _personal_file() -> str:
     from core.services.ingestion.vault_policy import personal_file_uid
 
@@ -178,7 +172,6 @@ def _mastery() -> str:
 _DERIVED: dict[str, tuple[str, Callable[[], str]]] = {
     "habit_completion": ("hc", _habit_completion),
     "default_group": ("group", _default_group),
-    "instruction_set": ("instructions", _instruction_set),
     "personal_file": ("task", _personal_file),
     "periodic_note": ("ue", _periodic_note),
     "chunk": ("chunk", _chunk),
@@ -210,24 +203,4 @@ def test_two_owners_derive_two_personal_file_uids():
     path = Path("/vault/plan.md")
     assert personal_file_uid(EntityType.TASK, path, "user_a", None) != personal_file_uid(
         EntityType.TASK, path, "user_b", None
-    )
-
-
-async def test_the_default_instruction_set_is_read_at_the_uid_its_writer_derives():
-    """The reader and the writer of the default set name it the same way."""
-    from unittest.mock import AsyncMock, MagicMock
-
-    from core.services.content_enrichment_service import (
-        DEFAULT_INSTRUCTION_SET_NAME,
-        ContentEnrichmentService,
-        instruction_set_uid,
-    )
-    from core.utils.result_simplified import Result
-
-    backend = MagicMock()
-    backend.load_exercise_instructions = AsyncMock(return_value=Result.ok([]))
-    await ContentEnrichmentService(backend=backend)._load_instructions(None)
-
-    backend.load_exercise_instructions.assert_awaited_once_with(
-        instruction_set_uid(DEFAULT_INSTRUCTION_SET_NAME)
     )

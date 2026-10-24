@@ -97,7 +97,7 @@ class _BehavioralSignalsMixin:
 
         Example:
             ```python
-            result = await habits_intel.analyze_habit_performance("habit_1")
+            result = await habits_intel.analyze_habit_performance("habit_9c4e2b7a1d6f0835")
             analysis = result.value
 
             perf = analysis["performance"]
@@ -217,7 +217,9 @@ class _BehavioralSignalsMixin:
 
         Example:
             ```python
-            result = await habits_intel.get_habit_knowledge_reinforcement("habit_1")
+            result = await habits_intel.get_habit_knowledge_reinforcement(
+                "habit_9c4e2b7a1d6f0835"
+            )
             analysis = result.value
 
             kr = analysis["knowledge_reinforcement"]
@@ -336,7 +338,7 @@ class _BehavioralSignalsMixin:
 
         Example:
             ```python
-            result = await habits_intel.get_habit_goal_support("habit_1")
+            result = await habits_intel.get_habit_goal_support("habit_9c4e2b7a1d6f0835")
             analysis = result.value
 
             gs = analysis["goal_support"]

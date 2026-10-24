@@ -11,6 +11,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task as Task
 
 
@@ -22,7 +23,7 @@ class TestRelationshipBatchOperations:
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
         """Create tasks backend with clean database."""
         return UniversalNeo4jBackend[Task](
-            neo4j_driver, "Entity", Task, default_filters={"entity_type": "task"}
+            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
         )
 
     async def test_get_relationships_batch_empty(self, tasks_backend):

@@ -288,7 +288,8 @@ Where an endpoint may be a User or a Group (outside `:Entity`), bind the uid wit
 `build_uid_anchor` (`adapters/persistence/neo4j/endpoint_queries.py`): a `CALL` `UNION`
 of one index seek per label a uid can name (`:Entity`, `:User`, `:Group`, plus the
 backend's own label), which sees a User or a Group and binds no node of any other
-label. An unlabeled `MATCH (n {uid: $uid})` binds the same node, by a scan.
+label. An unlabeled `MATCH (n {uid: $uid})` binds the same node, by a scan — and
+`tests/unit/adapters/test_uid_anchor_census.py` refuses one anywhere under `adapters/persistence`.
 
 A `MERGE` on a uid CREATES a bare node for a uid that names nothing — `MATCH` the
 endpoints, then `MERGE` only the edge (`build_semantic_merge`).

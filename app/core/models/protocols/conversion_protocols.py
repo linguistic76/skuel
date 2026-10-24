@@ -136,7 +136,7 @@ class DomainModelConvertible(Protocol):
 
         Example:
             # PathStep.from_dto()
-            step_dto = PathStepDTO(uid="ps:...", title="...", ...)
+            step_dto = PathStepDTO(uid="ps.python.functions", title="...", ...)
             step = PathStep.from_dto(step_dto)
             # → PathStep(frozen=True, with business logic methods)
         """
@@ -161,7 +161,7 @@ class DomainModelConvertible(Protocol):
 
         Example:
             # PathStep.to_dto()
-            step = PathStep(uid="ps:...", ...)
+            step = PathStep(uid="ps.python.functions", ...)
             dto = step.to_dto()  # Returns PathStepDTO (mutable)
             dto.title = "Updated"  # ✅ Can modify
             # step.title = "Updated"  # ❌ FrozenInstanceError

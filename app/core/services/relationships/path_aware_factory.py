@@ -95,7 +95,7 @@ def create_path_aware_entity(
         Path-aware entity instance (PathAwareTask, PathAwareGoal, etc.)
 
     Example:
-        >>> raw = {"uid": "task:123", "title": "Fix bug", "status": "pending"}
+        >>> raw = {"uid": "task_3f9a0c41d2e87b65", "title": "Fix bug", "status": "pending"}
         >>> entity = create_path_aware_entity(Domain.TASKS, raw, distance=1)
         >>> isinstance(entity, PathAwareTask)
         True
@@ -171,16 +171,18 @@ def create_cross_context(
 
     Example:
         >>> categorized = {
-        ...     "prerequisites": [{"uid": "task:1", "title": "Setup"}],
-        ...     "dependents": [{"uid": "task:2", "title": "Deploy"}],
-        ...     "required_knowledge": [{"uid": "ku:py", "title": "Python"}],
+        ...     "prerequisites": [{"uid": "task_3f9a0c41d2e87b65", "title": "Setup"}],
+        ...     "dependents": [{"uid": "task_8b21d4e6a0f7c359", "title": "Deploy"}],
+        ...     "required_knowledge": [{"uid": "ku.py", "title": "Python"}],
         ... }
         >>> category_map = {
         ...     "prerequisites": Domain.TASKS,
         ...     "dependents": Domain.TASKS,
         ...     "required_knowledge": Domain.KNOWLEDGE,
         ... }
-        >>> ctx = create_cross_context(Domain.TASKS, "task:123", categorized, category_map)
+        >>> ctx = create_cross_context(
+        ...     Domain.TASKS, "task_3f9a0c41d2e87b65", categorized, category_map
+        ... )
         >>> isinstance(ctx, TaskCrossContext)
         True
     """

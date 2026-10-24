@@ -394,7 +394,7 @@ def build_user_activity_query(
     Examples:
         # Get user's active tasks in date range
         query, params = build_user_activity_query(
-            user_uid="user.mike",
+            user_uid="user_5f2c8e1a9b3d7046",
             node_label="Task",
             date_field="due_date",
             start_date=date(2025, 10, 1),
@@ -404,7 +404,7 @@ def build_user_activity_query(
 
         # Get user's active habits (no date filter)
         query, params = build_user_activity_query(
-            user_uid="user.mike",
+            user_uid="user_5f2c8e1a9b3d7046",
             node_label="Habit",
             exclude_statuses=["archived"]
         )
@@ -515,7 +515,7 @@ def build_due_soon_query(
         ...     date_field="due_date",
         ...     days_ahead=7,
         ...     exclude_statuses=["completed"],
-        ...     user_uid="user.mike",
+        ...     user_uid="user_5f2c8e1a9b3d7046",
         ... )
     """
     from datetime import timedelta
@@ -615,7 +615,7 @@ def build_overdue_query(
         ...     node_label="Task",
         ...     date_field="due_date",
         ...     exclude_statuses=["completed"],
-        ...     user_uid="user.mike",
+        ...     user_uid="user_5f2c8e1a9b3d7046",
         ...     limit=50,
         ... )
     """

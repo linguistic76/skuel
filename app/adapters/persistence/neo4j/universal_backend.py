@@ -215,9 +215,11 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
 
         # CRUD operations
         result = await tasks_backend.create(task)
-        result = await tasks_backend.get("task:123")
-        result = await tasks_backend.update("task:123", {"status": "completed"})
-        result = await tasks_backend.delete("task:123", cascade=True)
+        result = await tasks_backend.get("task_3f9a0c41d2e87b65")
+        result = await tasks_backend.update(
+            "task_3f9a0c41d2e87b65", {"status": "completed"}
+        )
+        result = await tasks_backend.delete("task_3f9a0c41d2e87b65", cascade=True)
 
         # Dynamic querying (any field!)
         result = await tasks_backend.find_by(priority="high", status="active")
@@ -225,7 +227,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
 
         # Graph relationships
         await tasks_backend.create_relationship(
-            from_uid="task:123",
+            from_uid="task_3f9a0c41d2e87b65",
             to_uid="ku.python-basics",
             relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )

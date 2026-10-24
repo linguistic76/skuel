@@ -447,10 +447,10 @@ class HabitSystemUpdateRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "essential_habit_uids": ["habit:daily-practice"],
-                "critical_habit_uids": ["habit:weekly-review"],
-                "supporting_habit_uids": ["habit:morning-routine", "habit:evening-reflection"],
-                "optional_habit_uids": ["habit:monthly-assessment"],
+                "essential_habit_uids": ["habit_9c4e2b7a1d6f0835"],
+                "critical_habit_uids": ["habit_2a7f5c0e8d4b1963"],
+                "supporting_habit_uids": ["habit_c3e81f4a6b2d9075", "habit_7b0d3e9c5a1f8264"],
+                "optional_habit_uids": ["habit_e4a9c62f0b7d1358"],
             }
         }
     )
@@ -535,7 +535,7 @@ class HabitEssentialityChangeRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "habit_uid": "habit:daily-practice",
+                "habit_uid": "habit_9c4e2b7a1d6f0835",
                 "new_essentiality": "essential",
                 "reason": "Realized this habit is absolutely critical for goal achievement",
             }

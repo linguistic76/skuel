@@ -4,8 +4,8 @@ Migrate: Legacy ``username`` Property -> ``title``
 
 One-shot migration companion to the ``get_user_by_username`` fix
 (PR #301). The User model stores the username in ``title``
-(``create_user``: ``uid=f"user_{username}", title=username``; the profile
-DTO maps ``username=user.title``) — a separate ``username`` node property
+(``create_user`` writes ``title=username`` beside a generated uid; the
+profile DTO maps ``username=user.title``) — a separate ``username`` node property
 was only ever written by retired creation paths. The backend lookup now
 matches ``title`` exclusively, so any environment whose graph still
 carries ``:User.username`` must move that value into ``title`` or those

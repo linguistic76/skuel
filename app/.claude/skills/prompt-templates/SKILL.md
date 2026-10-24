@@ -60,6 +60,7 @@ core/prompts/
     ├── dsl_domain_recognition_compact.md
     ├── prereq_edge_judge.md
     ├── entry_ku_grounding_judge.md
+    ├── transcript_formatting.md
     ├── askesis_stance.md
     ├── askesis_tool_selection.md
     ├── askesis_guided_redirect.md
@@ -104,6 +105,7 @@ with a warning — it replaces the words, never the placeholders.
 | `journal_exploration` | `InstructionResolver` via `EnrichmentMode.CRITICAL_THINKING` | `{content}` |
 | `prereq_edge_judge` | `PrereqSuggestionService._judge_batch()` (admin prereq-edge queue, batch pair classification) | `{pairs_block}` |
 | `entry_ku_grounding_judge` | `EntryGroundingService._judge_entry()` (entry→Ku grounding engagement filter) | `{entry_title}`, `{entry_excerpt}`, `{candidates_block}` |
+| `transcript_formatting` | `ContentEnrichmentService.process_transcript()` — the formatting instructions for a raw transcript (reached from the staged `process_audio`) | none |
 | `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}`, `{user_context}`, `{reference_date}` |
 | `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}`, `{user_context}`, `{reference_date}` |
 | `askesis_stance` | `ResponseGenerator.build_guided_system_prompt()` + `LLMService._build_context_aware_system_prompt()` — heads BOTH Askesis answer branches (ADR-082 D1/D3) | none |

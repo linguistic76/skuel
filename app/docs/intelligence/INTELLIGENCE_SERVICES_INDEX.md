@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-10-23
+updated: 2026-10-24
 category: intelligence
 status: current
 related_skills:
@@ -379,7 +379,7 @@ class ProductivityLevel(StrEnum):
 ```python
 # User provides self-assessment (user-level dim — accessed via .intelligence)
 result = await tasks_service.intelligence.assess_productivity_dual_track(
-    user_uid="user_mike",
+    user_uid="user_5f2c8e1a9b3d7046",
     user_productivity_level=ProductivityLevel.HIGHLY_PRODUCTIVE,
     user_evidence="I complete all my tasks on time",
     store_callback=store_callback,  # optional: persists the snapshot

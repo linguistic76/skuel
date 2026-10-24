@@ -25,6 +25,7 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import TaskUpdated
 from core.models.enums import EntityStatus, Priority
+from core.models.enums.neo_labels import NeoLabel
 from core.models.sentinels import UNSET
 from core.models.task.task import Task
 from core.models.task.task_request import TaskUpdateRequest
@@ -43,7 +44,7 @@ class TestTaskUpdateIntentPipeline:
     @pytest_asyncio.fixture
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
         return UniversalNeo4jBackend[Task](
-            neo4j_driver, "Entity", Task, default_filters={"entity_type": "task"}
+            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
         )
 
     @pytest_asyncio.fixture

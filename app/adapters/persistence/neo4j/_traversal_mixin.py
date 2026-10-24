@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
+from adapters.persistence.neo4j.endpoint_queries import build_uid_anchor
 from core.models.enums import SearchVisibility
 from core.models.relationship_names import RelationshipName
 from core.utils.error_boundary import safe_backend_operation
@@ -57,6 +58,7 @@ class _TraversalMixin:
         ) -> list[dict[str, Any]]: ...
 
         logger: logging.Logger
+        label: NeoLabel
 
         async def create_relationship(
             self,
@@ -139,7 +141,8 @@ class _TraversalMixin:
             else f"'{direction}'"
         )
         cypher = f"""
-        MATCH (n {{uid: $uid}}){direction_clause(direction)}(other)
+        {build_uid_anchor("n", "$uid", self.label)}
+        MATCH (n){direction_clause(direction)}(other)
         WHERE $rel_type IS NULL OR type(r) = $rel_type
         RETURN type(r) as type, other.uid as target_uid,
                {dir_expr} as direction, properties(r) as properties

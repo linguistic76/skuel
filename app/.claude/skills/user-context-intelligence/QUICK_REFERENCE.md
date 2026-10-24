@@ -328,7 +328,7 @@ In a test, construct one directly:
 
 ```python
 context = RichUserContext(
-    user_uid="user_alice",
+    user_uid="user_2b8e4d0a6c1f9573",
     available_minutes_daily=120,
     active_task_uids=["task_abc"],
     entities_rich={

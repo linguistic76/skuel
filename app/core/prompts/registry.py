@@ -43,6 +43,7 @@ Available templates (core/prompts/templates/):
     askesis_socratic_turn         — Askesis Socratic turn (staged — PLANNED, ADR-082 D4)
     prereq_edge_judge             — Ku-pair prerequisite classification (PrereqSuggestionService)
     entry_ku_grounding_judge      — Entry→Ku engagement filter (EntryGroundingService)
+    transcript_formatting         — Formatting instructions for a raw transcript (ContentEnrichmentService)
 """
 
 import string

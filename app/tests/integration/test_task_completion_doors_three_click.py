@@ -24,6 +24,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.base import BaseEvent
 from core.events.task_events import TaskCompleted, TaskReopened
 from core.models.enums import EntityStatus
+from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -57,7 +58,7 @@ class TestThreeClickSequence:
     ) -> tuple[TasksCoreService, UniversalNeo4jBackend[Task], _CapturingBus]:
         """The one door over one real backend, publishing to one bus."""
         backend = UniversalNeo4jBackend[Task](
-            neo4j_driver, "Entity", Task, default_filters={"entity_type": "task"}
+            neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
         )
         bus = _CapturingBus()
         return TasksCoreService(backend=backend, event_bus=bus), backend, bus

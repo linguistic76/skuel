@@ -1088,17 +1088,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         "through the UserEntry pipeline (ADR-054)",
         since=date(2026, 6, 17),
     ),
-    "core/services/content_enrichment_service.py::create_instruction_set": PlannedEntry(
-        Readiness.DELAYED,
-        "instruction-set management write path — pair with list_instruction_sets "
-        "and wire an admin UI/API once the instruction-set editing surface lands",
-        since=date(2026, 6, 17),
-    ),
-    "core/services/content_enrichment_service.py::list_instruction_sets": PlannedEntry(
-        Readiness.DELAYED,
-        "instruction-set management read path — see create_instruction_set",
-        since=date(2026, 6, 17),
-    ),
     "core/services/embeddings_service.py::calculate_similarity": PlannedEntry(
         Readiness.DELAYED,
         "cosine similarity utility with test coverage; no production caller yet — "

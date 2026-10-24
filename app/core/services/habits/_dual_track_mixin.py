@@ -78,7 +78,7 @@ class _DualTrackMixin:
             >>> from core.models.enums.activity_enums import ConsistencyLevel
             >>> result = await service.assess_consistency_dual_track(
             ...     habit_uid="habit.morning-meditation",
-            ...     user_uid="user_mike",
+            ...     user_uid="user_5f2c8e1a9b3d7046",
             ...     user_consistency_level=ConsistencyLevel.CONSISTENT,
             ...     user_evidence="I meditate most mornings",
             ...     user_reflection="Sometimes skip on weekends",

@@ -1,7 +1,7 @@
 ---
 related_skills:
 - skuel-search-architecture
-updated: 2026-10-10
+updated: 2026-10-24
 ---
 # Search Service Method Reference
 
@@ -58,7 +58,7 @@ All search services inherit these methods from `BaseService[Backend, Model]`. Co
 Text search across configured `_search_fields`. Orders by `_search_order_by`.
 
 ```python
-result = await tasks_search.search("urgent deadline", user_uid="user.123")
+result = await tasks_search.search("urgent deadline", user_uid="user_5f2c8e1a9b3d7046")
 ```
 
 #### `graph_aware_faceted_search(request: SearchRequest) -> Result[SearchResponse]`
@@ -70,9 +70,9 @@ request = SearchRequest(
     domain=Domain.KNOWLEDGE,
     ready_to_learn=True,   # relationship filters are first-class bool fields
     supports_goals=True,
-    user_uid="user.123",
+    user_uid="user_5f2c8e1a9b3d7046",
 )
-result = await ku_search.graph_aware_faceted_search(request, user_uid="user.123")
+result = await ku_search.graph_aware_faceted_search(request, user_uid="user_5f2c8e1a9b3d7046")
 ```
 
 > Relationship filters are boolean fields on `SearchRequest` (not a `graph_patterns` list). The service captures the active set via `request.to_relationship_filters()` and the backend authors the Cypher below the boundary (ADR-044).
@@ -94,7 +94,7 @@ result = await ku_search.search_by_tags(["python", "ml"], match_all=True)
 Filter by status field. Activity domains use `EntityStatus` enum.
 
 ```python
-result = await tasks_search.get_by_status("active", user_uid="user.123")
+result = await tasks_search.get_by_status("active", user_uid="user_5f2c8e1a9b3d7046")
 ```
 
 #### `get_all_for_user(user_uid: UserUID) -> Result[list[Model]]`
@@ -105,21 +105,21 @@ a read fills that cap. A status filter is the caller's: `get_by_status`, or the 
 `_{DOMAIN}_FILTER_CONFIG` applied to the returned list.
 
 ```python
-result = await tasks_core.get_all_for_user("user.123")
+result = await tasks_core.get_all_for_user("user_5f2c8e1a9b3d7046")
 ```
 
 #### `get_by_category(category: str, user_uid: UserUID | None = None) -> Result[list[Model]]`
 Filter by the DomainConfig `category_field` (varies by domain — e.g. Goals `domain`, Habits `habit_category`).
 
 ```python
-result = await principles_search.get_by_category("core_values", user_uid="user.123")
+result = await principles_search.get_by_category("core_values", user_uid="user_5f2c8e1a9b3d7046")
 ```
 
 #### `list_categories(user_uid: UserUID | None = None) -> Result[list[str]]`
 Get distinct values of the DomainConfig `category_field`.
 
 ```python
-result = await habits_search.list_categories(user_uid="user.123")
+result = await habits_search.list_categories(user_uid="user_5f2c8e1a9b3d7046")
 # Returns: ["morning", "evening", "weekly", ...]
 ```
 
@@ -492,10 +492,10 @@ content_field = "description"
 
 ```python
 # Get all tasks for a goal, then find blockers
-tasks_result = await tasks_search.get_tasks_for_goal("goal.learn-python", "user.123")
+tasks_result = await tasks_search.get_tasks_for_goal("goal.learn-python", "user_5f2c8e1a9b3d7046")
 if tasks_result.is_ok:
     for task in tasks_result.value:
-        blockers = await tasks_search.get_blocking_tasks(task.uid, "user.123")
+        blockers = await tasks_search.get_blocking_tasks(task.uid, "user_5f2c8e1a9b3d7046")
 ```
 
 ### Find knowledge gaps for a learning path
@@ -506,7 +506,7 @@ steps_result = await lp_service.get_path_steps("lp.tech.python-mastery")
 if steps_result.is_ok:
     for step in steps_result.value:
         for ku_uid in step.knowledge_uids:
-            progress = await ku_search.get_user_progress(ku_uid, "user_mike")
+            progress = await ku_search.get_user_progress(ku_uid, "user_5f2c8e1a9b3d7046")
             if progress.is_ok and progress.value["mastery_level"] < 0.8:
                 print(f"Gap: {ku_uid}")
 ```
@@ -541,9 +541,9 @@ result = await services.search_router.faceted_search(
 request = SearchRequest(
     query_text="advanced",
     ready_to_learn=True,  # boolean relationship-filter field
-    user_uid="user.123",
+    user_uid="user_5f2c8e1a9b3d7046",
 )
-result = await ku_search.graph_aware_faceted_search(request, user_uid="user.123")
+result = await ku_search.graph_aware_faceted_search(request, user_uid="user_5f2c8e1a9b3d7046")
 ```
 
 ---

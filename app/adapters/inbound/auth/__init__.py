@@ -24,17 +24,14 @@ from adapters.inbound.auth.roles import (
     require_teacher,
 )
 from adapters.inbound.auth.session import (
-    DEFAULT_DEV_USER,
     UserUID,
     clear_current_user,
     get_current_user,
-    get_current_user_or_default,
     get_is_admin,
     get_is_teacher,
     get_session_data,
     get_session_middleware_config,
     is_authenticated,
-    optional_auth,
     require_auth,
     require_authenticated_user,
     set_current_user,
@@ -46,18 +43,14 @@ __all__ = [
     "UserUID",
     # Middleware
     "AuthContextMiddleware",
-    # Constants
-    "DEFAULT_DEV_USER",
     # Session management
     "clear_current_user",
     "get_current_user",
-    "get_current_user_or_default",
     "get_is_admin",
     "get_is_teacher",
     "get_session_data",
     "get_session_middleware_config",
     "is_authenticated",
-    "optional_auth",
     "require_auth",
     "require_authenticated_user",
     "set_current_user",
