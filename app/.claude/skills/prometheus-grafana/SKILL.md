@@ -55,7 +55,7 @@ open http://localhost:3000
 # Default credentials: admin/admin
 ```
 
-Scrape interval 15s, TSDB retention 7 days, 14 alerting rules (incl. the AuraDB Free cap alerts) — see [ALERTING.md](ALERTING.md).
+Scrape interval 15s, TSDB retention 7 days, 16 alerting rules (incl. the AuraDB Free cap and uid grammar alerts) — see [ALERTING.md](ALERTING.md).
 
 ---
 
@@ -521,7 +521,7 @@ rate(skuel_context_invalidations_total[5m]) > 10
 | `/core/infrastructure/monitoring/http_instrumentation.py` | HTTP request instrumentation |
 | `/adapters/inbound/metrics_routes.py` | `/metrics` endpoint for Prometheus scraper |
 | `/monitoring/prometheus/prometheus.yml` | Prometheus scrape configuration (15s interval; `prometheus.dev.yml` variant for a host-run app) |
-| `/monitoring/prometheus/alerts.yml` | 14 alerting rules (ground truth for ALERTING.md) |
+| `/monitoring/prometheus/alerts.yml` | 16 alerting rules (ground truth for ALERTING.md) |
 | `/monitoring/grafana/dashboards/*.json` | 4 production dashboards |
 | `/docker-compose.yml` | Development stack — Prometheus + Grafana behind the `monitoring` profile |
 

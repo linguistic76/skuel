@@ -8,7 +8,13 @@ from pathlib import Path
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
-from uid_census import exit_code, label_of, render, take_census  # type: ignore[import-not-found]
+from uid_census import (  # type: ignore[import-not-found]
+    exit_code,
+    failures,
+    label_of,
+    render,
+    take_census,
+)
 
 
 def test_label_drops_entity() -> None:
@@ -62,10 +68,32 @@ def test_no_shared_uid_renders_none() -> None:
     assert "Uids held by more than one node:\n  (none)" in render(census, {})
 
 
-def test_a_shared_uid_fails_the_census_and_a_misfit_does_not() -> None:
-    assert exit_code(take_census([(["Entity", "Ku"], "ku.a.b"), (["Group"], "ku.a.b")])) == 1
-    # Outside the charset and in no exemption: reported, never failed.
-    assert exit_code(take_census([(["Entity", "Ku"], "ku.Bad")])) == 0
+def test_a_census_that_fits_passes() -> None:
+    census = take_census(
+        [(["Entity", "Ku"], "ku.a.b"), (["Entity", "Task"], "task_3f9a0c41d2e87b65")]
+    )
+    assert failures(census) == []
+    assert exit_code(census) == 0
+
+
+def test_a_shared_uid_fails_the_census() -> None:
+    census = take_census([(["Entity", "Ku"], "ku.a.b"), (["Group"], "ku.a.b")])
+    assert failures(census) == ["1 uid(s) held by more than one node"]
+    assert exit_code(census) == 1
+
+
+def test_a_uid_outside_the_grammar_fails_the_census() -> None:
+    census = take_census([(["Entity", "Ku"], "ku.Bad"), (["Group"], "group.x.y.z.w")])
+    assert failures(census) == ["2 uid(s) outside the grammar (0 in a shape an exemption names)"]
+    assert exit_code(census) == 1
+
+
+def test_an_exempt_uid_fails_the_census_too() -> None:
+    """An exemption names the writer that mints a shape; it never admits the uid."""
+    census = take_census([(["Invoice"], "invoice:01234567-89ab-cdef-0123-456789abcdef")])
+    assert census.by_exemption == {("Invoice", "invoice"): 1}
+    assert failures(census) == ["1 uid(s) outside the grammar (1 in a shape an exemption names)"]
+    assert exit_code(census) == 1
 
 
 def test_render_names_what_retires_an_exemption_and_flags_the_unregistered() -> None:

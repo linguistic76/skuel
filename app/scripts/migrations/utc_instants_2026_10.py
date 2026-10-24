@@ -14,8 +14,8 @@ Shape alone cannot tell a migrated stamp from an unmigrated one, so the
 migration's state lives outside the values — an immutable manifest, one
 transaction, and a durable record on the graph (``:MigrationRecord``, named
 ``utc_instants_2026_10``), which the graph driver's guard reads
-(adapters/persistence/neo4j/graph_driver.py). This script is the one opener
-exempt from that guard.
+(adapters/persistence/neo4j/graph_driver.py). This script opens requiring no
+record: it writes its own, and runs before the uid grammar's.
 
 **Census** (the default, read-only). Reads every node and relationship property
 holding a temporal or an ISO-datetime string, and every stamp nested in a JSON
@@ -1749,7 +1749,7 @@ async def main(argv: list[str] | None = None) -> int:
 
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
-    connection = Neo4jConnection(utc_instants_guard=False)
+    connection = Neo4jConnection(requires=())
     driver = await connection.connect()
     try:
         if args.verify:

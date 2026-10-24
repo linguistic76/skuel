@@ -448,7 +448,8 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
   the staged progress, embedding and mastery records — is `hashed_uid(prefix, *parts)`, so the same parts land on the same node; every other
   generated uid is random (`UIDGenerator.generate_random_uid`). The default group is
   recognised by its `is_default` property, never by its uid. Invoices leave with the local
-  invoice module (ADR-052 Phase 5). `./dev uid-census` reads every live uid against the grammar, per label.
+  invoice module (ADR-052 Phase 5). `./dev uid-census` reads every live uid against the grammar,
+  per label, naming each uid outside it by the exemption whose shape it has.
 - **A user uid is generated too** (ruled 2026-10-23): `user_{16 hex}`, random at sign-up; the
   username is the account's `title` and login handle only — folded to lowercase, 3–30 of
   `[a-z0-9_-]`, refused otherwise (`fold_username`, `username_problem`) — and never reaches a
@@ -464,3 +465,16 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
   place by `scripts/migrations/generated_uids_2026_10.py` (random-born ones to
   `hashed_uid(prefix, old uid)`), every value naming one rewritten with them. Each uid-bearing
   label outside `:Entity` and `:User` carries its own uid uniqueness constraint.
+- **The live graph is held to the grammar** (ruled 2026-10-23). `./dev uid-census` exits 1 on
+  any uid outside the grammar — a shape `UID_EXEMPTIONS` names included: an exemption names the
+  writer that mints a shape, it never admits the uid — and on any uid two nodes hold. The graph
+  carries a `:MigrationRecord` named `uid_grammar_2026_10`, written by
+  `scripts/migrations/uid_grammar_2026_10.py` only when that census passes, and
+  `Neo4jConnection.connect` refuses a graph holding data without it (an empty graph is stamped):
+  code that reads one grammar never boots on a graph holding another — a snapshot from before the
+  uid migrations, restored, is brought forward by them in the order they ran, then stamped. The
+  census, the stamp and the uid migrations open without requiring the record
+  (`Neo4jConnection(requires=…)`), and each migration ends its run with the census's verdict. The
+  5-min graph-health poller reads the census's breaches with the grammar as a server-side filter
+  (`uid_grammar.UID_PATTERN`): two gauges (`skuel_uids_outside_grammar_count`,
+  `skuel_uids_shared_count`), their dev alerts, and an ERROR log every cycle in production.

@@ -73,6 +73,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.ps_content.content_chunks import ChunkStore, chunk_uid
 from core.models.relationship_names import RelationshipName
 from core.utils.uid_grammar import UidVerdict, classify
+from scripts.uid_census import closing_census
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
@@ -387,9 +388,11 @@ async def main() -> int:
     )
     args = parser.parse_args()
 
+    from adapters.persistence.neo4j.graph_driver import UTC_INSTANTS
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
-    driver = await Neo4jConnection().connect()
+    # The uid grammar's record is stamped only after the uid migrations.
+    driver = await Neo4jConnection(requires=(UTC_INSTANTS,)).connect()
     try:
         print("=== BEFORE ===")
         plan = await census(driver)
@@ -422,6 +425,7 @@ async def main() -> int:
             "\nOK: every chunk uid is in the grammar, no :Content carries a uid, "
             "no uid is on two nodes, every embedding kept."
         )
+        print(await closing_census(driver))
         return 0
     finally:
         await driver.close()

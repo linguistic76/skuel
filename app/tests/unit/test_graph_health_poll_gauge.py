@@ -5,7 +5,7 @@ Graph-Health Poller Self-Observability Gauge Tests
 Tests for RelationshipMetrics.poll_last_success — the timestamp gauge the
 graph-health background task (scripts/dev/bootstrap.py) baselines at task start
 and refreshes after each error-free pass, so GraphHealthPollerStale can
-fire when the 16 relationship/knowledge gauges freeze at stale values.
+fire when the 18 relationship/knowledge/uid gauges freeze at stale values.
 
 The poller itself is a closure inside bootstrap and not importable; these tests
 guard the metric surface the poller writes to.

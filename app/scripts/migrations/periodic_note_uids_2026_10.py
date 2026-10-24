@@ -81,6 +81,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import PERIODIC_NOTE_KINDS, periodic_note_uid
 from core.utils.uid_grammar import AUTHORED_UID, UidVerdict, classify
+from scripts.uid_census import closing_census
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
@@ -485,9 +486,11 @@ async def main() -> int:
     )
     args = parser.parse_args()
 
+    from adapters.persistence.neo4j.graph_driver import UTC_INSTANTS
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
-    driver = await Neo4jConnection().connect()
+    # The uid grammar's record is stamped only after the uid migrations.
+    driver = await Neo4jConnection(requires=(UTC_INSTANTS,)).connect()
     try:
         print("=== BEFORE ===")
         plan = await census(driver)
@@ -517,6 +520,7 @@ async def main() -> int:
                 print(f"  {failure}")
             return 1
         print("Read-back holds: every periodic note at its uid, every tracker row on it.")
+        print(await closing_census(driver))
         return 0
     finally:
         await driver.close()

@@ -477,8 +477,8 @@ logger.info("Incrementing entities_created for task")
 
 ### Gauge Shows Stale Data
 
-**Problem**: The relationship/knowledge gauges (`skuel_graph_density`,
-`skuel_orphaned_entities_count`, `skuel_knowledge_*`) don't update in real-time
+**Problem**: The relationship/knowledge/uid gauges (`skuel_graph_density`,
+`skuel_orphaned_entities_count`, `skuel_knowledge_*`, `skuel_uids_*`) don't update in real-time
 
 **Expected behavior**: These gauges are set by the graph-health poller
 (`update_graph_health_metrics()` in `scripts/dev/bootstrap.py`) — the first pass runs at

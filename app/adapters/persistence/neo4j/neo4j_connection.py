@@ -10,9 +10,11 @@ and ``Neo4jConnection`` is also instantiated directly by migration / index scrip
 ``open_async_driver`` (``graph_driver.py`` — refused unless the process clock is
 pinned to UTC), the server is probed until it answers (``connect_with_retry`` — a
 paused AuraDB Free instance wakes), and the graph's data version is checked
-(``require_utc_instants`` — a graph holding data the UTC instants migration has
-not been applied to is refused; an empty one is stamped). Only the migration
-script opens without the last step (``utc_instants_guard=False``).
+(``require_migration_records`` — a graph holding data that a migration in
+``DATA_MIGRATIONS`` has not been applied to is refused; an empty one is stamped).
+A script that brings a graph forward opens requiring only the records of the
+migrations before its own (``requires=``): the UTC instants migration none; the
+uid migrations, the uid census and the uid grammar's stamp the UTC one.
 
 Driver-level timeouts and pool sizing come from ``DatabaseConfig`` and are applied
 where the driver is built. These bound connection establishment,
@@ -37,7 +39,12 @@ from typing import Any
 
 from neo4j import AsyncDriver, Record
 
-from adapters.persistence.neo4j.graph_driver import open_async_driver, require_utc_instants
+from adapters.persistence.neo4j.graph_driver import (
+    DATA_MIGRATIONS,
+    DataMigration,
+    open_async_driver,
+    require_migration_records,
+)
 from core.config.settings import get_settings
 from core.constants import Neo4jConnectRetry
 
@@ -65,7 +72,7 @@ class Neo4jConnection:
         username: str | None = None,
         password: str | None = None,
         *,
-        utc_instants_guard: bool = True,
+        requires: tuple[DataMigration, ...] = DATA_MIGRATIONS,
     ) -> None:
         """
         Initialize Neo4j connection.
@@ -74,9 +81,9 @@ class Neo4jConnection:
             uri: Neo4j URI (defaults to env/settings)
             username: Neo4j username (defaults to env/settings)
             password: Neo4j password (defaults to encrypted credential store)
-            utc_instants_guard: check the graph's data version on connect —
-                False only for the UTC instants migration script, which
-                writes the record the check reads
+            requires: the migration records a graph that holds data must
+                carry, applied, to open — every one by default; a script that
+                writes a record passes those of the migrations before it
         """
         from core.config.credential_store import get_credential
 
@@ -117,7 +124,7 @@ class Neo4jConnection:
         }
 
         self.driver: AsyncDriver | None = None
-        self._utc_instants_guard = utc_instants_guard
+        self._requires = requires
         self._opened = False
 
     def _build_driver(self) -> AsyncDriver:
@@ -133,7 +140,7 @@ class Neo4jConnection:
 
         Builds the driver, probes the server until it answers (bounded retry — a
         paused AuraDB Free instance takes a few seconds to wake), then checks the
-        graph's data version unless this connection is the migration script's.
+        graph carries the migration records this connection requires.
         A failure closes the driver, so the next call starts over.
         """
         if self._opened and self.driver is not None:
@@ -146,8 +153,7 @@ class Neo4jConnection:
                 base_delay_seconds=Neo4jConnectRetry.BASE_DELAY_SECONDS,
                 max_delay_seconds=Neo4jConnectRetry.MAX_DELAY_SECONDS,
             )
-            if self._utc_instants_guard:
-                await require_utc_instants(driver)
+            await require_migration_records(driver, self._requires)
             self._opened = True
         finally:
             if not self._opened:

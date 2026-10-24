@@ -20,6 +20,7 @@ from core.utils.uid_grammar import (
     GENERATED_UID,
     OPAQUE_HEX,
     UID_EXEMPTIONS,
+    UID_PATTERN,
     UidVerdict,
     authored_uid_problem,
     classify,
@@ -32,62 +33,70 @@ from core.utils.uid_grammar import (
 
 HEX16 = "3f9a0c41d2e87b65"
 
+FITTING = [
+    "ku.mindfulness.attention",
+    "resource.tao-te-ching",
+    "lp.mindfulness-101",
+    "ex.sel.self-awareness",
+    f"task_{HEX16}",
+    f"chunk_{HEX16}",
+    f"ue_{HEX16}",
+    f"user_{HEX16}",
+]
+
+OUTSIDE = [
+    "ue:daily:user_admin:2026-10-18",
+    "ps.a.b:chunk:0",
+    "ku.Attention",
+    "ku.it's",
+    "ku.café",
+    "ku.with space",
+    f"task_{HEX16.upper()}",
+    "",
+]
+
+SHAPE_ONLY = [
+    "task_van-on-monday_5873a134",  # a uid segment inside a generated uid
+    "group_default_user_admin",  # another uid inside it
+    "hc.user_admin.habit_a1b2c3d4.1760000000",
+    "insight.principle_alignment.task_x.20261018120000",
+    "ku.a.b.c",  # four segments
+    "ku.",
+    "ku.a--b",
+    "ku.-a",
+    "5f348e63-fe54-45b9-a6b5-d4205be31270",  # no prefix
+    "task_",
+    "task_a1b2c3d4",  # 8 hex: not the one width
+    "msg_0123456789ab",  # 12 hex
+    "auth_7119a485a92751a3ea752747b8b7d50c",  # 32 hex
+    "task_0123456789abcdeg",  # 16, not all hex
+    "user_admin",  # a username's uid: retired, never the shape
+]
+
 
 class TestClassify:
-    @pytest.mark.parametrize(
-        "uid",
-        [
-            "ku.mindfulness.attention",
-            "resource.tao-te-ching",
-            "lp.mindfulness-101",
-            "ex.sel.self-awareness",
-            f"task_{HEX16}",
-            f"chunk_{HEX16}",
-            f"ue_{HEX16}",
-            f"user_{HEX16}",
-        ],
-    )
+    @pytest.mark.parametrize("uid", FITTING)
     def test_fits(self, uid: str) -> None:
         assert classify(uid) is UidVerdict.FITS
 
-    @pytest.mark.parametrize(
-        "uid",
-        [
-            "ue:daily:user_admin:2026-10-18",
-            "ps.a.b:chunk:0",
-            "ku.Attention",
-            "ku.it's",
-            "ku.café",
-            "ku.with space",
-            f"task_{HEX16.upper()}",
-            "",
-        ],
-    )
+    @pytest.mark.parametrize("uid", OUTSIDE)
     def test_outside(self, uid: str) -> None:
         assert classify(uid) is UidVerdict.OUTSIDE
 
-    @pytest.mark.parametrize(
-        "uid",
-        [
-            "task_van-on-monday_5873a134",  # a uid segment inside a generated uid
-            "group_default_user_admin",  # another uid inside it
-            "hc.user_admin.habit_a1b2c3d4.1760000000",
-            "insight.principle_alignment.task_x.20261018120000",
-            "ku.a.b.c",  # four segments
-            "ku.",
-            "ku.a--b",
-            "ku.-a",
-            "5f348e63-fe54-45b9-a6b5-d4205be31270",  # no prefix
-            "task_",
-            "task_a1b2c3d4",  # 8 hex: not the one width
-            "msg_0123456789ab",  # 12 hex
-            "auth_7119a485a92751a3ea752747b8b7d50c",  # 32 hex
-            "task_0123456789abcdeg",  # 16, not all hex
-            "user_admin",  # a username's uid: exempt, never the shape
-        ],
-    )
+    @pytest.mark.parametrize("uid", SHAPE_ONLY)
     def test_shape(self, uid: str) -> None:
         assert classify(uid) is UidVerdict.SHAPE
+
+
+@pytest.mark.parametrize("uid", [*FITTING, *OUTSIDE, *SHAPE_ONLY])
+def test_uid_pattern_matches_exactly_the_uids_that_fit(uid: str) -> None:
+    """The server-side filter's pattern and ``classify`` read every sample alike."""
+    assert (re.fullmatch(UID_PATTERN, uid) is not None) is (classify(uid) is UidVerdict.FITS)
+
+
+def test_uid_pattern_has_no_named_group() -> None:
+    """Java's regex spells a named group ``(?<name>…)``, Python's ``(?P<name>…)``."""
+    assert "(?P<" not in UID_PATTERN
 
 
 class TestAuthoredUidProblem:

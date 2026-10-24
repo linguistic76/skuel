@@ -6,23 +6,27 @@ Every Neo4j driver in the tree is built by ``open_async_driver``: the app's
 connection (``Neo4jConnection``), every script, every test fixture. A test
 (``tests/unit/test_graph_driver_construction_sites.py``) holds it that way — no
 other file constructs ``AsyncGraphDatabase.driver`` or ``GraphDatabase.driver``.
-Two checks live on this one path (ADR-089; the UTC Instants arc's cutover):
+Two checks live on this one path:
 
-- **The process clock.** ``open_async_driver`` refuses a process whose clock is
-  not pinned to UTC (``core/utils/process_clock.py``): a naive writer in an
-  unpinned process stamps the host's wall clock, which a UTC corpus cannot tell
-  from its own stamps.
-- **The data version.** ``require_utc_instants`` refuses a graph that holds data
-  unless the UTC instants migration's record (``:MigrationRecord``, named
-  ``UTC_INSTANTS_MIGRATION``) is in state ``applied``: a graph never migrated —
-  a restored snapshot, a reverted migration — holds laptop-clock stamps that the
-  pinned code would read as UTC and mix with its own. A graph that holds nothing
-  (a fresh install, a test database) never held the old clock, so it is stamped
-  with the record at once and opens. ``Neo4jConnection.connect`` runs the check
-  on every connection it opens; the migration script is the one opener exempt
-  from it, since it is what writes the record.
+- **The process clock** (ADR-089). ``open_async_driver`` refuses a process whose
+  clock is not pinned to UTC (``core/utils/process_clock.py``): a naive writer in
+  an unpinned process stamps the host's wall clock, which a UTC corpus cannot
+  tell from its own stamps.
+- **The data version.** ``require_migration_records`` refuses a graph that holds
+  data unless each whole-corpus migration the code reads it through has its
+  record (``:MigrationRecord``) in state ``applied``. ``DATA_MIGRATIONS`` names
+  them: the UTC instants migration (``UTC_INSTANTS``) — an un-migrated graph holds
+  laptop-clock stamps the pinned code would read as UTC; and the uid grammar
+  (``UID_GRAMMAR``) — an un-migrated graph holds uids in retired shapes, which
+  the code reads as other nodes or as none (a default group no longer read as
+  default, a periodic note minted twice). A graph that holds nothing (a fresh
+  install, a test database) never held the old values, so it is stamped with
+  every record it lacks at once and opens. ``Neo4jConnection.connect`` runs the
+  check on every connection it opens; a script that brings a graph forward opens
+  requiring only the records of the migrations before its own.
 
 See: /docs/roadmap/utc-instants-arc.md § Migration contract (PR 4)
+See: /docs/decisions/ADR-013-ku-uid-flat-identity.md § Amendment (2026-10-18)
 """
 
 from __future__ import annotations
@@ -42,17 +46,57 @@ if TYPE_CHECKING:
 #: The name the UTC instants migration's record carries.
 UTC_INSTANTS_MIGRATION = "utc_instants_2026_10"
 
-#: Why an empty graph carries the record: it was stamped when first opened.
+#: The name the uid grammar's record carries.
+UID_GRAMMAR_MIGRATION = "uid_grammar_2026_10"
+
+#: Why an empty graph carries a record: it was stamped when first opened.
 STAMPED_EMPTY = "empty graph"
 
 _RECORD = NeoLabel.MIGRATION_RECORD.value
 
+
+@dataclass(frozen=True)
+class DataMigration:
+    """A whole-corpus migration a graph must carry the applied record of to open.
+
+    ``remedy`` tells an operator what the un-migrated graph holds and how to
+    bring it forward.
+    """
+
+    name: str
+    remedy: str
+
+
+UTC_INSTANTS = DataMigration(
+    name=UTC_INSTANTS_MIGRATION,
+    remedy=(
+        "The graph holds instants on the laptop's old clock, which this code reads as UTC. "
+        "Migrate it in the deploy sitting (scripts/migrations/utc_instants_2026_10.py; "
+        "docs/roadmap/utc-instants-arc.md § Migration contract), or run the code that "
+        "predates the cutover against it."
+    ),
+)
+
+UID_GRAMMAR = DataMigration(
+    name=UID_GRAMMAR_MIGRATION,
+    remedy=(
+        "The graph may hold uids in shapes this code no longer mints or reads. Read it with "
+        "./dev uid-census, move what it names with the uid migrations in order "
+        "(scripts/migrations/chunk_and_content_uids_2026_10.py, periodic_note_uids_2026_10.py, "
+        "generated_uids_2026_10.py, user_uids_2026_10.py), then stamp it: "
+        "uv run scripts/migrations/uid_grammar_2026_10.py --confirm."
+    ),
+)
+
+#: Every record a graph must carry to open, in the order the migrations ran.
+DATA_MIGRATIONS: tuple[DataMigration, ...] = (UTC_INSTANTS, UID_GRAMMAR)
+
 # One entry per record, a missing state kept as null: collect(r.state) would drop
 # it, and a record with no state beside one that is applied would read as one.
-_READ_RECORD = f"""
-OPTIONAL MATCH (r:{_RECORD} {{name: $name}})
+_READ_RECORDS = f"""
+OPTIONAL MATCH (r:{_RECORD}) WHERE r.name IN $names
 WITH collect(r) AS records
-RETURN [r IN records | r.state] AS states,
+RETURN [r IN records | {{name: r.name, state: r.state}}] AS records,
        EXISTS {{ MATCH (n) WHERE NOT n:{_RECORD} }} AS holds_data
 """
 
@@ -63,10 +107,12 @@ CREATE CONSTRAINT {_RECORD}_name_unique IF NOT EXISTS
 FOR (r:{_RECORD}) REQUIRE r.name IS UNIQUE
 """
 
+# A record already there is left as it is: an empty graph with a reverted record
+# stays refused.
 _STAMP_EMPTY = f"""
-MERGE (r:{_RECORD} {{name: $name}})
+UNWIND $names AS name
+MERGE (r:{_RECORD} {{name: name}})
 ON CREATE SET r.state = $applied, r.stamped = $stamped, r.applied_at = datetime()
-RETURN r.state AS state
 """
 
 
@@ -75,7 +121,7 @@ class ProcessClockNotPinnedError(RuntimeError):
 
 
 class GraphNotMigratedError(RuntimeError):
-    """The graph holds data and the UTC instants migration is not applied to it."""
+    """The graph holds data and a migration the code requires is not applied to it."""
 
 
 def open_async_driver(
@@ -88,7 +134,7 @@ def open_async_driver(
 
     ``config`` passes through to ``AsyncGraphDatabase.driver`` (timeouts, pool
     size). The driver opens no connection here; the data-version check is
-    ``require_utc_instants``, which needs the server.
+    ``require_migration_records``, which needs the server.
     """
     if not process_clock_is_pinned():
         raise ProcessClockNotPinnedError(
@@ -118,71 +164,95 @@ async def ensure_record_name_is_unique(driver: AsyncDriver) -> None:
 
 @dataclass(frozen=True)
 class _RecordRead:
-    states: list[str | None]  # one per record; None where a record has no state
+    # record name -> the state of each record carrying it; None where one has no state
+    states: dict[str, list[str | None]]
     holds_data: bool
-    stamped: bool
 
 
-async def _read(tx: AsyncManagedTransaction) -> _RecordRead:
-    result = await tx.run(_READ_RECORD, name=UTC_INSTANTS_MIGRATION)
+async def _read(tx: AsyncManagedTransaction, names: list[str]) -> _RecordRead:
+    result = await tx.run(_READ_RECORDS, names=names)
     record = await result.single()
-    states = [
-        None if state is None else str(state) for state in (record["states"] if record else [])
-    ]
+    states: dict[str, list[str | None]] = {}
+    for entry in record["records"] if record else []:
+        state = entry["state"]
+        states.setdefault(str(entry["name"]), []).append(None if state is None else str(state))
     holds_data = bool(record["holds_data"]) if record else False
-    return _RecordRead(states, holds_data, stamped=False)
+    return _RecordRead(states, holds_data)
 
 
-async def _read_or_stamp(tx: AsyncManagedTransaction) -> _RecordRead:
-    read = await _read(tx)
-    if read.states or read.holds_data:
+async def _read_or_stamp(tx: AsyncManagedTransaction, names: list[str]) -> _RecordRead:
+    read = await _read(tx, names)
+    if read.holds_data:
         return read
     stamp = await tx.run(
         _STAMP_EMPTY,
-        name=UTC_INSTANTS_MIGRATION,
+        names=names,
         applied=MigrationState.APPLIED.value,
         stamped=STAMPED_EMPTY,
     )
-    stamped = await stamp.single()
-    return _RecordRead([str(stamped["state"])] if stamped else [], False, stamped=True)
+    await stamp.consume()
+    return await _read(tx, names)
 
 
-async def require_utc_instants(driver: AsyncDriver) -> None:
-    """Refuse a graph that holds data unless the UTC instants migration is applied to it.
+def _refusal(migration: DataMigration, states: list[str | None]) -> str | None:
+    """Why the graph's record of ``migration`` refuses it, or None when it is applied once."""
+    if [MigrationState.from_stored(state) for state in states] == [MigrationState.APPLIED]:
+        return None
+    if not states:
+        return f"Refusing a graph with no {_RECORD} named {migration.name!r}. {migration.remedy}"
+    if len(states) > 1:
+        return (
+            f"Refusing a graph with {len(states)} {_RECORD} nodes named "
+            f"{migration.name!r} (states {states}); there must be one."
+        )
+    return (
+        f"Refusing a graph whose {_RECORD} {migration.name!r} is in state "
+        f"{states[0]!r}, not {MigrationState.APPLIED.value!r}. {migration.remedy}"
+    )
 
-    An empty graph is stamped with the record (state ``applied``) in the same
-    transaction that found it empty, and opens; the record's name is made unique
-    first, so two processes opening one empty graph at once write one record.
+
+async def require_migration_records(
+    driver: AsyncDriver, migrations: tuple[DataMigration, ...]
+) -> None:
+    """Refuse a graph that holds data unless each of ``migrations`` is applied to it.
+
+    An empty graph is stamped with every record of ``migrations`` it lacks (state
+    ``applied``) in the same transaction that found it empty, and opens; the
+    records' name is made unique first, so two processes opening one empty graph
+    at once write one record of each. An empty graph whose records already
+    refuse it (a reverted one, one recorded twice) is refused unstamped. No
+    migrations, no check.
 
     Raises:
-        GraphNotMigratedError: the graph holds data and the record is missing,
-            reverted, in another state, or recorded more than once.
+        GraphNotMigratedError: the graph holds data and a record is missing,
+            reverted, in another state, or recorded more than once — every such
+            record named in the one message.
     """
+    if not migrations:
+        return
+    names = [migration.name for migration in migrations]
     async with driver.session() as session:
-        read = await session.execute_read(_read)
-    if not read.states and not read.holds_data:
+        read = await session.execute_read(_read, names)
+    if (
+        not read.holds_data
+        and any(name not in read.states for name in names)
+        and not _refusals(migrations, read, recorded_only=True)
+    ):
         await ensure_record_name_is_unique(driver)
         async with driver.session() as session:
-            read = await session.execute_write(_read_or_stamp)
-    states = [MigrationState.from_stored(state) for state in read.states]
-    if states == [MigrationState.APPLIED]:
-        return
-    remedy = (
-        "The graph holds instants on the laptop's old clock, which this code reads as UTC. "
-        "Migrate it in the deploy sitting (scripts/migrations/utc_instants_2026_10.py; "
-        "docs/roadmap/utc-instants-arc.md § Migration contract), or run the code that "
-        "predates the cutover against it."
-    )
-    if not read.states:
-        raise GraphNotMigratedError(
-            f"Refusing a graph with no {_RECORD} named {UTC_INSTANTS_MIGRATION!r}. {remedy}"
-        )
-    if len(read.states) > 1:
-        raise GraphNotMigratedError(
-            f"Refusing a graph with {len(read.states)} {_RECORD} nodes named "
-            f"{UTC_INSTANTS_MIGRATION!r} (states {read.states}); there must be one."
-        )
-    raise GraphNotMigratedError(
-        f"Refusing a graph whose {_RECORD} {UTC_INSTANTS_MIGRATION!r} is in state "
-        f"{read.states[0]!r}, not {MigrationState.APPLIED.value!r}. {remedy}"
-    )
+            read = await session.execute_write(_read_or_stamp, names)
+    refusals = _refusals(migrations, read, recorded_only=False)
+    if refusals:
+        raise GraphNotMigratedError("\n".join(refusals))
+
+
+def _refusals(
+    migrations: tuple[DataMigration, ...], read: _RecordRead, *, recorded_only: bool
+) -> list[str]:
+    """Each refusal ``read`` gives, in ``migrations`` order — of the recorded ones only, if asked."""
+    return [
+        refusal
+        for migration in migrations
+        if not (recorded_only and migration.name not in read.states)
+        if (refusal := _refusal(migration, read.states.get(migration.name, [])))
+    ]

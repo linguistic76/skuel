@@ -23,12 +23,15 @@ part is a hash of the parts that identify the node, so the same parts always
 name the same node; ``UIDGenerator.generate_random_uid`` builds a random one.
 ``is_known_uid`` is the read-side check: a uid that fits, or has a shape an
 exemption names. ``slugify`` folds text to the segment alphabet.
+``UID_PATTERN`` is the two shapes as one regular expression that Cypher's ``=~``
+reads as Python does, for a check the server runs.
 
 ``UID_EXEMPTIONS`` names each shape live code mints outside the grammar, the
 functions that mint it, and what retires the entry (``retired_by``); the census
-(``./dev uid-census``) reports each live uid against them, and
-``tests/unit/utils/test_uid_grammar.py`` fails when an exemption's writer no
-longer mints its shape.
+(``./dev uid-census``) names each live uid outside the grammar by the exemption
+that mints its shape — and fails on it all the same: an exemption explains a uid,
+it never admits one to the graph. ``tests/unit/utils/test_uid_grammar.py`` fails
+when an exemption's writer no longer mints its shape.
 
 See: /docs/decisions/ADR-013-ku-uid-flat-identity.md § Amendment (2026-10-18)
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md § Separator Grammar
@@ -53,8 +56,16 @@ _SEGMENT: Final = r"[a-z0-9]+(?:-[a-z0-9]+)*"
 #: 3e-8 at a million.
 OPAQUE_HEX: Final = 16
 
-AUTHORED_UID: Final = re.compile(rf"(?P<prefix>{_PREFIX})(?:\.{_SEGMENT}){{1,2}}")
-GENERATED_UID: Final = re.compile(rf"(?P<prefix>{_PREFIX})_[0-9a-f]{{{OPAQUE_HEX}}}")
+_AUTHORED: Final = rf"(?:\.{_SEGMENT}){{1,2}}"
+_GENERATED: Final = rf"_[0-9a-f]{{{OPAQUE_HEX}}}"
+
+AUTHORED_UID: Final = re.compile(rf"(?P<prefix>{_PREFIX}){_AUTHORED}")
+GENERATED_UID: Final = re.compile(rf"(?P<prefix>{_PREFIX}){_GENERATED}")
+
+#: Both shapes as one pattern with no named group, which Java's regex — Cypher's
+#: ``n.uid =~ $pattern``, a whole-string match — reads as Python's does. A uid
+#: matches it exactly when ``classify`` reads it ``FITS``.
+UID_PATTERN: Final = rf"{_PREFIX}(?:{_AUTHORED}|{_GENERATED})"
 UID_PREFIX: Final = re.compile(_PREFIX)
 OPAQUE_PART: Final = re.compile(rf"[0-9a-f]{{{OPAQUE_HEX}}}")
 
@@ -211,6 +222,7 @@ __all__ = [
     "OPAQUE_HEX",
     "UID_CHARSET",
     "UID_EXEMPTIONS",
+    "UID_PATTERN",
     "UidExemption",
     "UidVerdict",
     "authored_uid_problem",

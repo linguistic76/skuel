@@ -4,8 +4,10 @@ UID Census Backend — every node's uid, read for the uid grammar census
 
 Read-only. Returns each node's labels and uid so ``scripts/uid_census.py``
 (``./dev uid-census``) can read every uid in the graph against
-``core/utils/uid_grammar.py``, and counts the nodes that carry no uid. Nothing is
-written.
+``core/utils/uid_grammar.py``, and counts the nodes that carry no uid. For the
+graph-health poller, ``read_breaches`` reads only the census's breaches — the
+server filters by ``UID_PATTERN``, so a graph that fits sends back two zeros.
+Nothing is written.
 
 Like the telemetry-retention backend, it spans every label, so it takes a
 ``Neo4jQueryExecutor`` directly rather than extending ``UniversalNeo4jBackend``.
@@ -15,10 +17,33 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.infrastructure.monitoring.uid_grammar_check import UidBreaches
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Result
+from core.utils.uid_grammar import UID_PATTERN
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+# A uid that is not a string matches no pattern: `=~` gives null, read as outside.
+_BREACHES = """
+CALL () {
+    MATCH (n) WHERE n.uid IS NOT NULL AND NOT coalesce(n.uid =~ $pattern, false)
+    RETURN count(n) AS outside, collect({labels: labels(n), uid: n.uid})[..$sample] AS outside_sample
+}
+CALL () {
+    MATCH (n) WHERE n.uid IS NOT NULL
+    WITH n.uid AS uid, count(*) AS holders
+    WHERE holders > 1
+    RETURN count(uid) AS shared, collect(uid)[..$sample] AS shared_sample
+}
+RETURN outside, outside_sample, shared, shared_sample
+"""
+
+
+def _labelled(labels: list[str], uid: object) -> str:
+    named = sorted(label for label in labels if label != NeoLabel.ENTITY.value)
+    return f"{':'.join(named) or NeoLabel.ENTITY.value} {uid}"
 
 
 class UidCensusBackend:
@@ -48,3 +73,22 @@ class UidCensusBackend:
             key = tuple(sorted(row["labels"]))
             counts[key] = counts.get(key, 0) + int(row["n"])
         return Result.ok(counts)
+
+    async def read_breaches(self, sample: int) -> Result[UidBreaches]:
+        """How many uids are outside the grammar and how many two nodes hold, ``sample`` of each."""
+        result = await self._executor.execute_query(
+            _BREACHES, {"pattern": UID_PATTERN, "sample": sample}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        row = result.value[0]
+        return Result.ok(
+            UidBreaches(
+                outside=int(row["outside"]),
+                shared=int(row["shared"]),
+                outside_sample=tuple(
+                    _labelled(entry["labels"], entry["uid"]) for entry in row["outside_sample"]
+                ),
+                shared_sample=tuple(str(uid) for uid in row["shared_sample"]),
+            )
+        )

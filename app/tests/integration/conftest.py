@@ -19,7 +19,11 @@ from unittest.mock import AsyncMock
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.graph_driver import open_async_driver, require_utc_instants
+from adapters.persistence.neo4j.graph_driver import (
+    DATA_MIGRATIONS,
+    open_async_driver,
+    require_migration_records,
+)
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 from tests.integration._container_lifecycle import bounded_neo4j_container
@@ -82,9 +86,9 @@ async def neo4j_driver(neo4j_uri):
     """Create Neo4j driver connected to test container.
 
     Built through the one driver factory, and opened like the app opens a graph:
-    the container starts empty, so the data-version check stamps it with the UTC
-    instants migration's record (``graph_driver.py``). Every fixture that clears
-    the graph keeps that record (``clean_neo4j``).
+    the container starts empty, so the data-version check stamps it with every
+    migration record (``graph_driver.DATA_MIGRATIONS``). Every fixture that clears
+    the graph keeps the records (``clean_neo4j``).
     """
     driver = open_async_driver(neo4j_uri, auth=("neo4j", "testpassword"))
 
@@ -93,7 +97,7 @@ async def neo4j_driver(neo4j_uri):
         result = await session.run("RETURN 1 as test")
         record = await result.single()
         assert record["test"] == 1
-    await require_utc_instants(driver)
+    await require_migration_records(driver, DATA_MIGRATIONS)
 
     yield driver
 

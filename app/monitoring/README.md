@@ -67,7 +67,7 @@ cap alerts are evaluated in-app instead (poller check, WARNING 80% / ERROR 95% â
 ## What's Inside
 
 **Metrics**: 40 across 7 categories (HTTP, DB, Events, Domains, Graph incl. knowledge health, Queries, AI)
-**Alerts**: 14 alerting rules with runbooks (incl. AuraDB Free cap alerts)
+**Alerts**: 16 alerting rules with runbooks (incl. AuraDB Free cap and uid grammar alerts)
 **Dashboards**: 4 Grafana dashboards (System Health, Domain Activity, Graph Health, Event Bus)
 
 **See**: `/.claude/skills/prometheus-grafana/SKILL.md` for complete reference
@@ -78,7 +78,7 @@ cap alerts are evaluated in-app instead (poller check, WARNING 80% / ERROR 95% â
 
 - `prometheus.yml` - Scrape config (Docker deployment)
 - `prometheus.dev.yml` - Development config (host-run app)
-- `alerts.yml` - 14 alerting rules (+1 commented-out SLO rule)
+- `alerts.yml` - 16 alerting rules (+1 commented-out SLO rule)
 - `grafana/dashboards/` - 4 pre-built dashboards
 
 ---

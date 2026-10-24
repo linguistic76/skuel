@@ -9,12 +9,16 @@ what retires that entry — or listed as UNREGISTERED with a sample. Every uid m
 than one node holds is listed with their labels. Nodes with no uid are counted by
 label. Nothing is written.
 
-Exits 1 when a uid is held by more than one node: a uid names one node, in every
-label at once, and no constraint can say so across labels. A uid outside the
-grammar is reported, not failed.
+Exits 1 when a uid is outside the grammar — an exemption explains the writer
+that minted it, never admits it — or is held by more than one node: a uid names
+one node, in every label at once, and no constraint can say so across labels.
+The uid grammar's record is written only when this census passes
+(``scripts/migrations/uid_grammar_2026_10.py``), so the census opens the graph
+without requiring that record (``Neo4jConnection(requires=…)``).
 
 A node is counted under its labels other than ``Entity`` (``Task``,
-``Content``, ``ContentChunk``).
+``Content``, ``ContentChunk``). ``read_census`` takes the census over an open
+driver — the stamp script and each uid migration's read-back read it too.
 
 Usage:
     uv run scripts/uid_census.py
@@ -27,17 +31,22 @@ import sys
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from core.utils.process_clock import pin_process_clock_to_utc
 
 pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
 
+from core.utils.result_simplified import Result
 from core.utils.uid_grammar import (
     UID_EXEMPTIONS,
     UidVerdict,
     classify,
     exemptions_for,
 )
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
 
 _UNREGISTERED = "UNREGISTERED"
 
@@ -97,9 +106,25 @@ def take_census(rows: Iterable[tuple[Iterable[str], str]]) -> Census:
     return census
 
 
+def failures(census: Census) -> list[str]:
+    """Why the census fails — one line per kind of breach; empty when it passes."""
+    lines: list[str] = []
+    outside = sum(census.by_exemption.values())
+    if outside:
+        exempt = sum(
+            count for (_, name), count in census.by_exemption.items() if name != _UNREGISTERED
+        )
+        lines.append(
+            f"{outside} uid(s) outside the grammar ({exempt} in a shape an exemption names)"
+        )
+    if census.shared:
+        lines.append(f"{len(census.shared)} uid(s) held by more than one node")
+    return lines
+
+
 def exit_code(census: Census) -> int:
-    """1 when a uid is held by more than one node, else 0."""
-    return 1 if census.shared else 0
+    """1 when a uid is outside the grammar or held by more than one node, else 0."""
+    return 1 if failures(census) else 0
 
 
 def render(census: Census, uidless: dict[str, int]) -> str:
@@ -145,34 +170,67 @@ def render(census: Census, uidless: dict[str, int]) -> str:
     return "\n".join(lines)
 
 
-async def run() -> int:
-    """Connect, read every uid, print the census, return the exit code."""
+async def read_census(driver: AsyncDriver) -> Result[tuple[Census, dict[str, int]]]:
+    """The census of every uid on the graph, and the uid-less nodes counted by label."""
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
-    from adapters.persistence.neo4j_adapter import Neo4jAdapter
 
-    print("Connecting to Neo4j...", file=sys.stderr)
-    adapter = Neo4jAdapter()
-    await adapter.connect()
-    try:
-        backend = UidCensusBackend(Neo4jQueryExecutor(adapter.get_driver()))
-        rows = await backend.read_uids()
-        if rows.is_error:
-            print(f"ERROR reading uids: {rows.expect_error()}", file=sys.stderr)
-            return 1
-        uidless = await backend.count_uidless()
-        if uidless.is_error:
-            print(f"ERROR counting uid-less nodes: {uidless.expect_error()}", file=sys.stderr)
-            return 1
-    finally:
-        await adapter.close()
-
+    backend = UidCensusBackend(Neo4jQueryExecutor(driver))
+    rows = await backend.read_uids()
+    if rows.is_error:
+        return Result.fail(rows)
+    uidless = await backend.count_uidless()
+    if uidless.is_error:
+        return Result.fail(uidless)
     by_label: Counter[str] = Counter()
     for labels, count in uidless.value.items():
         by_label[label_of(labels)] += count
-    census = take_census(rows.value)
+    return Result.ok((take_census(rows.value), dict(by_label)))
+
+
+#: The command that writes the uid grammar's record once the census passes.
+STAMP_COMMAND = "uv run scripts/migrations/uid_grammar_2026_10.py --confirm"
+
+
+async def closing_census(driver: AsyncDriver) -> str:
+    """The census verdict a uid migration ends its run with, and the next step — one line.
+
+    A migration's read-back holds what that run wrote to the grammar; this reads
+    the whole graph, which passes only once every uid migration has run.
+    """
+    read = await read_census(driver)
+    if read.is_error:
+        return f"uid census: unreadable ({read.expect_error()}) — run ./dev uid-census"
+    reasons = failures(read.value[0])
+    if not reasons:
+        return f"uid census: passes — stamp the graph: {STAMP_COMMAND}"
+    return (
+        "uid census: " + "; ".join(reasons) + " — the stamp refuses until they move "
+        "(./dev uid-census names each)"
+    )
+
+
+async def run() -> int:
+    """Connect, read every uid, print the census, return the exit code."""
+    from adapters.persistence.neo4j.graph_driver import UTC_INSTANTS
+    from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
+
+    print("Connecting to Neo4j...", file=sys.stderr)
+    # The uid grammar's record is what this census gates — never required to read it.
+    connection = Neo4jConnection(requires=(UTC_INSTANTS,))
+    driver = await connection.connect()
+    try:
+        read = await read_census(driver)
+    finally:
+        await connection.close()
+    if read.is_error:
+        print(f"ERROR reading the census: {read.expect_error()}", file=sys.stderr)
+        return 1
+    census, uidless = read.value
     print("\n=== UID census (read-only) ===\n")
-    print(render(census, dict(by_label)))
+    print(render(census, uidless))
+    reasons = failures(census)
+    print("\nVerdict: " + ("; ".join(reasons) if reasons else "passes"))
     return exit_code(census)
 
 

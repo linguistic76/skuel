@@ -5,9 +5,10 @@ Clear Neo4j Database
 Safely removes all nodes and relationships from Neo4j.
 Use before re-ingesting the content vault (``./dev vault-sync --vault content``).
 
-The one node kept is the graph's migration record (``:MigrationRecord``): the
-graph stays migrated to UTC instants, which is what lets the app open it again
-once it holds data (adapters/persistence/neo4j/graph_driver.py).
+The nodes kept are the graph's migration records (``:MigrationRecord``): the
+graph stays migrated to UTC instants and to the uid grammar — what the code
+writes into it is both — which is what lets the app open it again once it holds
+data (adapters/persistence/neo4j/graph_driver.py).
 
 CAUTION: This will delete ALL data in the database!
 """
