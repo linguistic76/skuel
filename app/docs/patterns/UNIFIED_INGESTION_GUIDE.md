@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-10-23
+updated: 2026-10-24
 category: patterns
 related_skills: []
 related_docs:
@@ -228,9 +228,10 @@ The door does not silently drop authored frontmatter it understands:
 - **`description:`** — flows onto the node's `description` field.
 - **`ownership:`** (alias: `user_uid:`) — a *consistency check*, not a
   transfer: ownership is always stamped from the syncing user. The declared
-  value (`linguistic76` or canonical `user_linguistic76`) must match the
-  syncing user; a mismatch fails the file honestly instead of the entry
-  being claimed by whoever ran the sync. Omitted → no check.
+  value is the syncing user's uid (`user_3f9a0c41d2e87b65` — a username is
+  not a uid and never becomes one); a mismatch fails the file honestly
+  instead of the entry being claimed by whoever ran the sync. Omitted → no
+  check.
 
 ### Optional field: `private` (companion-retrieval opt-out — canon P3)
 
@@ -945,15 +946,16 @@ if stats.is_ok:
 The owner a user-owned file that names none is stamped with, when no vault governs
 its path. It is required: the composition root passes `SKUEL_DEFAULT_USER_UID` to
 `make_unified_ingestion_service(driver, default_user_uid=...)`, and boot refuses an
-unset or non-canonical value (`VaultConfig.validate_owners`, ADR-091 S9). No account
-stands in for a missing one; a test names its own (`tests/helpers/ingestion_owner.py`).
+unset value, or one that is not a user uid (`VaultConfig.validate_owners`, ADR-091 S9).
+No account stands in for a missing one; a test names its own
+(`tests/helpers/ingestion_owner.py`).
 
 ```bash
-export SKUEL_DEFAULT_USER_UID="user_mike"
+export SKUEL_DEFAULT_USER_UID="user_3f9a0c41d2e87b65"
 ```
 
-User UIDs are always underscore form (`user_{username}` — `TypeConverter.to_user_uid`
-rejects `user:...` / `user....`).
+A user uid is generated — `user_{16 hex}`; the username is the account's `title`,
+never part of its uid (ADR-013 § Amendment (2026-10-18)).
 
 ---
 

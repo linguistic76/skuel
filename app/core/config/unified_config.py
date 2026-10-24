@@ -26,6 +26,7 @@ from typing import Any
 
 from core.models.enums import EntityType
 from core.utils.logging import get_logger
+from core.utils.uid_grammar import is_generated_uid
 from core.utils.zone_context import DEFAULT_TIMEZONE, configured_zone_name
 
 logger = get_logger("skuel.config")
@@ -603,6 +604,11 @@ def _default_user_uid_from_env() -> str:
     return os.getenv("SKUEL_DEFAULT_USER_UID", "")
 
 
+def _content_owner_uid_from_env() -> str:
+    """``SKUEL_CONTENT_VAULT_OWNER``, read when the config is built — after ``.env`` loads."""
+    return os.getenv("SKUEL_CONTENT_VAULT_OWNER", "")
+
+
 def _personal_vault_owner_from_env() -> str:
     """``SKUEL_PERSONAL_VAULT_OWNER``, else ``SKUEL_DEFAULT_USER_UID``, read when the config is built."""
     return os.getenv("SKUEL_PERSONAL_VAULT_OWNER", _default_user_uid_from_env())
@@ -624,8 +630,9 @@ class VaultConfig:
 
     # The account the content vault (INGESTION_PATH) *acts as* (ADR-070). For the
     # canonical acts-as ownership model see the module docstring of
-    # core/services/vault/vault_descriptor.py (resolve_by_path).
-    content_owner_uid: str = os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin")
+    # core/services/vault/vault_descriptor.py (resolve_by_path). No account stands
+    # in for it: compose refuses to boot without one (validate_owners).
+    content_owner_uid: str = field(default_factory=_content_owner_uid_from_env)
 
     # The ingestion service's default owner: the account a user-owned file that
     # names no owner is stamped with when no vault governs its path. No account
@@ -664,11 +671,12 @@ class VaultConfig:
     def validate_owners(self) -> None:
         """Refuse an owner the configuration does not name (compose calls this).
 
-        ``SKUEL_DEFAULT_USER_UID`` and the personal-vault owner
-        (``SKUEL_PERSONAL_VAULT_OWNER``, else ``SKUEL_DEFAULT_USER_UID``) must each
-        name an account in the canonical ``user_<name>`` form. No account stands in
-        for a missing one (ADR-091 S9): a missing owner is a configuration error at
-        boot, not a silent fallback.
+        ``SKUEL_DEFAULT_USER_UID``, the personal-vault owner
+        (``SKUEL_PERSONAL_VAULT_OWNER``, else ``SKUEL_DEFAULT_USER_UID``) and the
+        content-vault owner (``SKUEL_CONTENT_VAULT_OWNER``) must each name an
+        account by its uid, ``user_{16 hex}`` — a username is not a uid. No account
+        stands in for a missing one (ADR-091 S9): a missing owner is a configuration
+        error at boot, not a silent fallback.
         """
         for name, uid in (
             ("SKUEL_DEFAULT_USER_UID", self.default_user_uid),
@@ -676,13 +684,14 @@ class VaultConfig:
                 "SKUEL_PERSONAL_VAULT_OWNER (or SKUEL_DEFAULT_USER_UID)",
                 self.personal_vault_owner_uid,
             ),
+            ("SKUEL_CONTENT_VAULT_OWNER", self.content_owner_uid),
         ):
             if not uid.strip():
                 raise ValueError(f"{name} is not set — name the account it stands for")
-            if not uid.startswith("user_"):
+            if not is_generated_uid(uid, "user"):
                 raise ValueError(
-                    f"{name} ({uid!r}) is not a canonical user uid — "
-                    "user identifiers use the 'user_<name>' form"
+                    f"{name} ({uid!r}) is not a user uid — an account is named by its "
+                    "uid, 'user_' and 16 hex digits, never by its username"
                 )
 
     def validate_roots(self) -> None:
@@ -735,7 +744,7 @@ class VaultConfig:
             vault_enabled=os.getenv("VAULT_ENABLED", "true").lower() == "true",
             ingestion_root=os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"),
             user_vaults_root=os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults"),
-            content_owner_uid=os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin"),
+            content_owner_uid=_content_owner_uid_from_env(),
             default_user_uid=_default_user_uid_from_env(),
             personal_vault_owner_uid=_personal_vault_owner_from_env(),
             vault_transport=os.getenv("VAULT_TRANSPORT", "filesystem"),

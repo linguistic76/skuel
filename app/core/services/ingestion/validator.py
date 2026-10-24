@@ -601,7 +601,7 @@ async def validate_file(  # skuel-lint: disable=SKUEL029 -- public validation AP
             warnings.append("No title or name - will use filename as fallback")
 
         # Fail-fast: a user-owned entity may omit user_uid (it takes the default owner),
-        # but an explicit user_uid must be canonical (`user_<name>`). Colon/dot/bare forms
+        # but an explicit user_uid must be a user uid (`user_…`). Colon/dot/bare forms
         # are rejected here rather than silently persisted as unreachable owners.
         explicit_user_uid = entity_data.get("user_uid")
         if (
@@ -610,9 +610,9 @@ async def validate_file(  # skuel-lint: disable=SKUEL029 -- public validation AP
             and not str(explicit_user_uid).startswith("user_")
         ):
             errors.append(
-                f"Non-canonical user_uid '{explicit_user_uid}': user identifiers must use the "
-                "'user_<name>' format (e.g. user_mike). Omit user_uid to take the "
-                "default owner."
+                f"Non-canonical user_uid '{explicit_user_uid}': a user uid starts with "
+                "'user_' (an account's uid, e.g. user_3f9a0c41d2e87b65 — never a username). "
+                "Omit user_uid to take the default owner."
             )
 
         return Result.ok(

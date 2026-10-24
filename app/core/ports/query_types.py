@@ -3216,13 +3216,15 @@ class ExchangeThread(TypedDict):
     The exchange is keyed by the entries' turn-in snapshot, so it outlives
     its exercise: ``exercise_removed`` is True when no Exercise node carries
     ``exercise_uid`` any more, and ``exercise_title`` then comes from the
-    snapshot (Submit & Share arc R12).
+    snapshot (Submit & Share arc R12). ``student_name`` is the student's
+    display name, else username — empty when the student has neither.
     """
 
     exercise_uid: str
     exercise_title: str
     exercise_removed: bool
     student_uid: str
+    student_name: str
     entries: list[ExchangeThreadEntry]
     reports: list[ExchangeThreadReport]
     revisions: list[ExchangeThreadRevision]

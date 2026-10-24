@@ -178,20 +178,22 @@ class _UserEntryReportQueryMixin:
         and a mixed-type emission would push the sort problem to every reader.
 
         Returns a single row: ``exercise`` (NULL when no live Exercise
-        carries the uid), ``exercise_removed``, ``snapshot_title``,
+        carries the uid), ``exercise_removed``, ``student_name`` (the
+        student's display name, else username), ``snapshot_title``,
         ``entries``, ``reports``, ``revisions``.
         """
         query = f"""
         OPTIONAL MATCH (ex:Entity:Exercise {{uid: $exercise_uid}})
         OPTIONAL MATCH (viewer:User {{uid: $viewer_uid}})
-        OPTIONAL MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity:UserEntry)
+        OPTIONAL MATCH (student:User {{uid: $student_uid}})
+        OPTIONAL MATCH (student)-[:{RelationshipName.OWNS.value}]->(e:Entity:UserEntry)
         WHERE e.turn_in_exercise_uid = $exercise_uid
           AND ($viewer_uid IS NULL OR {asks_teacher("e", "viewer")})
         OPTIONAL MATCH (e)-[f:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
         OPTIONAL MATCH (e)-[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(rex:Entity:RevisedExercise)
-        WITH ex, e, f, rex
+        WITH ex, student, e, f, rex
         ORDER BY datetime(e.created_at) DESC, e.uid
-        WITH ex,
+        WITH ex, coalesce(student.display_name, student.title) AS student_name,
              collect(DISTINCT e {{.uid, .title, .status, created_at: toString(e.created_at),
                                   revision: coalesce(f.revision, e.turn_in_revision),
                                   via_revised_uid: rex.uid}}) AS entry_rows,
@@ -200,7 +202,7 @@ class _UserEntryReportQueryMixin:
         OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
         WHERE entry IN entry_nodes
           AND report.assessment_outcome IS NOT NULL
-        WITH ex, entry_rows, snapshot_title,
+        WITH ex, student_name, entry_rows, snapshot_title,
              collect(DISTINCT report {{.uid, .title, .content, .processed_content, .processor_type,
                                        .report_file_path, created_at: toString(report.created_at),
                                        entry_uid: entry.uid}}) AS report_rows,
@@ -209,6 +211,7 @@ class _UserEntryReportQueryMixin:
         WHERE rep IN report_nodes
         RETURN ex {{.uid, .title, .status, .entity_type}} AS exercise,
                ex IS NULL AS exercise_removed,
+               student_name,
                snapshot_title,
                entry_rows AS entries,
                report_rows AS reports,

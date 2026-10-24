@@ -159,8 +159,8 @@ class AuthComponents:
                     autofocus=True,
                     minlength="3",
                     maxlength="30",
-                    pattern="[a-zA-Z0-9_]+",
-                    help_text="3-30 characters, letters, numbers, and underscores only",
+                    pattern="[a-zA-Z0-9_-]+",
+                    help_text="3-30 characters: letters, numbers, '_' and '-' (kept in lowercase)",
                 ),
                 LabelInput(
                     "Email address",

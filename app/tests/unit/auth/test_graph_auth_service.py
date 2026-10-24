@@ -22,6 +22,7 @@ from core.models.auth.auth_event import AuthEventType
 from core.models.auth.password_reset_token import PasswordResetClaim
 from core.models.user import create_user
 from core.utils.result_simplified import ErrorCategory, Errors, Result
+from core.utils.uid_grammar import is_generated_uid
 
 _PASSWORD = "unit-Correct-1234"
 _NEW_PASSWORD = "unit-Rotated-5678"
@@ -74,6 +75,10 @@ def _logged_events(session_backend: AsyncMock) -> list:
         ("", _PASSWORD, "alice", "email"),
         ("alice@example.com", "short", "alice", "password"),
         ("alice@example.com", _PASSWORD, "al", "username"),
+        ("alice@example.com", _PASSWORD, "jane doe", "username"),
+        ("alice@example.com", _PASSWORD, "o'brien", "username"),
+        ("alice@example.com", _PASSWORD, "café", "username"),
+        ("alice@example.com", _PASSWORD, "a" * 31, "username"),
     ],
 )
 async def test_sign_up_rejects_bad_input_before_any_lookup(email, password, username, field):
@@ -120,6 +125,23 @@ async def test_sign_up_stores_a_hash_not_the_password():
     assert result.is_ok
     stored = user_backend.create_user.await_args.args[0]
     assert stored.password_hash and stored.password_hash != _PASSWORD
+
+
+async def test_sign_up_folds_the_username_and_never_puts_it_in_the_uid():
+    """``Alice`` and ``alice`` are one name; the uid is generated, the username its title."""
+    service, user_backend, _ = _service()
+    user_backend.find_by.return_value = Result.ok([])
+    user_backend.get_user_by_username.return_value = Result.ok(None)
+    user_backend.create_user.side_effect = _echo_created
+
+    result = await service.sign_up(email="new@example.com", password=_PASSWORD, username=" Alice ")
+
+    assert result.is_ok
+    user_backend.get_user_by_username.assert_awaited_once_with("alice")
+    stored = user_backend.create_user.await_args.args[0]
+    assert stored.title == "alice"
+    assert is_generated_uid(stored.uid, "user")
+    assert "alice" not in stored.uid
 
 
 # ============================================================================
@@ -450,14 +472,15 @@ async def test_reset_email_sends_link_carrying_the_stored_token():
     email_service = AsyncMock()
     email_service.send_password_reset.return_value = Result.ok(None)
     service, user_backend, session_backend = _service(email_service=email_service)
-    user_backend.get_user_by_email.return_value = Result.ok(_user())
+    alice = _user()
+    user_backend.get_user_by_email.return_value = Result.ok(alice)
     session_backend.create_reset_token.return_value = Result.ok(None)
 
     result = await service.reset_password_email("alice@example.com")
 
     assert result.is_ok
     stored = session_backend.create_reset_token.await_args.args[0]
-    assert stored.user_uid == "user_alice"
+    assert stored.user_uid == alice.uid
     assert stored.created_by_admin_uid is None
     sent = email_service.send_password_reset.await_args.kwargs
     assert sent["to_email"] == "alice@example.com"

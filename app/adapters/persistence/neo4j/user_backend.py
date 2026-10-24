@@ -206,7 +206,7 @@ class UserBackend(Neo4jSessionRunner):
         Get user by username.
 
         The User model stores the username in ``title`` (``create_user``:
-        ``uid=f"user_{username}", title=username``; the profile DTO maps
+        a generated uid, ``title=username``; the profile DTO maps
         ``username=user.title``). Matching a ``username`` node property here
         found nothing for any sign-up-created account — that property never
         existed outside one legacy admin node (migrated 2026-06-12).

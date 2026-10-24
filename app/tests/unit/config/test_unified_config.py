@@ -268,6 +268,14 @@ class TestVaultConfig:
         monkeypatch.setenv("SKUEL_PERSONAL_VAULT_OWNER", "user_built_personal")
         assert VaultConfig().personal_vault_owner_uid == "user_built_personal"
 
+    def test_the_content_vault_owner_is_read_when_the_config_is_built(self, monkeypatch):
+        """No account stands in for it — it used to default to ``user_admin``."""
+        monkeypatch.delenv("SKUEL_CONTENT_VAULT_OWNER", raising=False)
+        assert VaultConfig().content_owner_uid == ""
+        monkeypatch.setenv("SKUEL_CONTENT_VAULT_OWNER", "user_819f725e53621059")
+        assert VaultConfig().content_owner_uid == "user_819f725e53621059"
+        assert VaultConfig.from_env().content_owner_uid == "user_819f725e53621059"
+
     def test_unset_owners_are_blank_and_refused(self, monkeypatch):
         monkeypatch.delenv("SKUEL_DEFAULT_USER_UID", raising=False)
         monkeypatch.delenv("SKUEL_PERSONAL_VAULT_OWNER", raising=False)

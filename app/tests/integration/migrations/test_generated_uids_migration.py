@@ -289,7 +289,8 @@ class TestTheRename:
         again = await migration.census(neo4j_driver)
 
         assert again.stops == [] and again.writes == 0
-        assert again.left_exempt["user_from_username"] >= 2
+        # User uids were not this run's to move (scripts/migrations/user_uids_2026_10.py).
+        assert {OWNER, TEACHER} <= set(again.users_outside)
         assert await migration._read_back(neo4j_driver, again) == []
 
     async def test_a_graph_changed_after_the_census_rolls_the_whole_run_back(

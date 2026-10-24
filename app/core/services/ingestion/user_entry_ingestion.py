@@ -205,17 +205,16 @@ def _verify_declared_ownership(data: dict[str, Any], user_uid: UserUID) -> Resul
 
     Ownership is ALWAYS stamped from the syncing user (the file cannot
     transfer it — that would let YAML smuggle entries into another account).
-    The declared field is a consistency check: ``ownership: linguistic76``
-    (or canonical ``user_linguistic76``) must match the syncing user;
-    a mismatch fails honestly instead of the entry being silently claimed
-    by whoever happened to run the sync.
+    The declared field is a consistency check: it names the syncing user's
+    uid exactly (``user_uid: user_3f9a0c41d2e87b65``) — a username is not a
+    uid and never becomes one. A mismatch fails honestly instead of the entry
+    being silently claimed by whoever happened to run the sync.
     """
     raw = data.get("ownership") or data.get("user_uid")
     if raw is None or not str(raw).strip():
         return Result.ok(None)
     declared = str(raw).strip()
-    canonical = declared if declared.startswith("user_") else f"user_{declared}"
-    if canonical != user_uid:
+    if declared != user_uid:
         return Result.fail(
             Errors.forbidden(
                 action="ingest user entry with declared ownership",

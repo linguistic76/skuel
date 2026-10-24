@@ -311,7 +311,7 @@ def render_class_member_row(item: ClassMember) -> Div:
     return CardGenerator.from_dataclass(
         {"title": item.user_name},
         display_fields=[],
-        subtitle=P(f"{item.role} · {item.user_uid}", cls="text-xs text-foreground/40 mb-0"),
+        subtitle=P(item.role, cls="text-xs text-foreground/40 mb-0"),
         header_badges=[
             Badge(f"{item.pending_count} pending", variant=pending_variant),
             Badge(f"{item.reviewed_count}/{item.submission_count} reviewed", variant=BadgeT.ghost),

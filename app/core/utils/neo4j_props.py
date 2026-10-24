@@ -69,8 +69,8 @@ def neo4j_user_uid(props: Neo4jProperties, key: str) -> UserUID:
     """Narrow a Neo4j property to a validated ``UserUID``.
 
     Raises ``TypeError`` if the value is missing/None/non-string, and
-    ``ValueError`` (via ``TypeConverter.to_user_uid``) if it is not the
-    canonical ``user_<name>`` form.
+    ``ValueError`` (via ``TypeConverter.to_user_uid``) if it does not start with
+    ``user_``.
     """
     return TypeConverter.to_user_uid(neo4j_str(props, key))
 

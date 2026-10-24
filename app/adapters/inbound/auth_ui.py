@@ -47,6 +47,7 @@ from core.models.auth import (
     RegistrationRequest,
     ResetPasswordRequest,
 )
+from core.models.user.user import fold_username
 from core.utils.logging import get_logger
 
 # Import auth components
@@ -315,8 +316,8 @@ def create_auth_ui_routes(
             if "@" in login.username:
                 email = login.username
             else:
-                # Look up email by username from Neo4j
-                user_result = await user_service.get_user_by_username(login.username)
+                # Look up email by username from Neo4j — folded as sign-up stored it
+                user_result = await user_service.get_user_by_username(fold_username(login.username))
                 if user_result.is_error or not user_result.value:
                     return AuthPage(
                         AuthComponents.render_login_page(

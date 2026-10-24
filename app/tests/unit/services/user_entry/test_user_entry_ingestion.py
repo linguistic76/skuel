@@ -450,22 +450,25 @@ class TestAuthoredStatusDescriptionOwnership:
         assert result.value.description is None
 
     @pytest.mark.asyncio
-    async def test_ownership_short_form_matches(self):
+    @pytest.mark.parametrize("key", ["ownership", "user_uid"])
+    async def test_a_declared_owner_naming_the_syncing_users_uid_matches(self, key: str):
         result = build_user_entry_request(
-            data={"pipeline": "none", "ownership": "linguistic76"},
+            data={"pipeline": "none", key: "user_bf2a1c0e8d7f6a51"},
             file_path=Path("x.yaml"),
-            user_uid="user_linguistic76",
+            user_uid="user_bf2a1c0e8d7f6a51",
         )
         assert result.is_ok
 
     @pytest.mark.asyncio
-    async def test_ownership_canonical_form_matches(self):
+    @pytest.mark.parametrize("declared", ["linguistic76", "user_linguistic76"])
+    async def test_a_username_is_not_a_declared_owner(self, declared: str):
+        """A username never becomes a uid — the bare name and its old uid shape both fail."""
         result = build_user_entry_request(
-            data={"pipeline": "none", "user_uid": "user_linguistic76"},
+            data={"pipeline": "none", "ownership": declared},
             file_path=Path("x.yaml"),
-            user_uid="user_linguistic76",
+            user_uid="user_bf2a1c0e8d7f6a51",
         )
-        assert result.is_ok
+        assert result.is_error
 
     @pytest.mark.asyncio
     async def test_ownership_mismatch_rejected(self):

@@ -118,7 +118,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (t:User {uid: $teacher})
             MERGE (st:User {uid: $second_teacher})
             MERGE (ot:User {uid: $other_teacher})
-            MERGE (s:User {uid: $student})
+            MERGE (s:User {uid: $student}) SET s.display_name = 'Sam Student'
             MERGE (os:User {uid: $other_student})
             MERGE (g:Group {uid: $group}) SET g.is_active = true
             MERGE (sg:Group {uid: $second_group}) SET sg.is_active = true
@@ -253,6 +253,8 @@ class TestExchangeChainRead:
         assert thread["exercise_uid"] == EX
         assert thread["exercise_title"] == "Root exercise"
         assert thread["exercise_removed"] is False
+        # The teacher view's label: the student's name, never their uid.
+        assert thread["student_name"] == "Sam Student"
         assert {e["uid"] for e in thread["entries"]} == {E1, E2, E3, E_SECOND}, (
             "the self view spans ALL the student's classes"
         )

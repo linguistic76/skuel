@@ -228,7 +228,7 @@ def is_valid_uid(value: Any) -> TypeGuard[EntityUID]:
 
     A uid fits the uid grammar (authored ``ku.yoga.meditation``, generated
     ``task_3f9a0c41d2e87b65``) or has a shape ``UID_EXEMPTIONS`` names
-    (``user_{username}``) — ``uid_grammar.is_known_uid``.
+    (``invoice:{uuid}``) — ``uid_grammar.is_known_uid``.
 
     Args:
         value: Value to check

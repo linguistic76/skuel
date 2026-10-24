@@ -32,6 +32,7 @@ from core.models.enums.user_enums import UserRole
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import FilterParams, UserUID
 from core.models.user import User, create_user
+from core.models.user.user import fold_username, username_problem
 from core.ports.infrastructure_protocols import EventBusOperations, UserCrudOperations
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -99,7 +100,8 @@ class UserCoreService:
         Create a new user with default preferences.
 
         Args:
-            username: Unique username
+            username: Unique username, folded to lowercase and checked
+                (``fold_username``, ``username_problem``)
             email: Optional email address
             display_name: Display name (defaults to username)
             **kwargs: Additional user properties (e.g., password_hash, role, preferences)
@@ -108,9 +110,15 @@ class UserCoreService:
             Result[User]: Created user or error
 
         Error cases:
+            - Username outside the username rule → VALIDATION
             - Username already exists → VALIDATION
             - Database operation fails → DATABASE
         """
+        username = fold_username(username)
+        problem = username_problem(username)
+        if problem:
+            return Result.fail(Errors.validation(message=problem, field="username"))
+
         # Check if username already exists
         existing_result = await self.repo.get_user_by_username(username)
         if existing_result.is_ok and existing_result.value:

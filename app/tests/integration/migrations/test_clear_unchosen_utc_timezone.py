@@ -27,6 +27,7 @@ from typing import Any
 import pytest
 
 from adapters.persistence.neo4j.user_backend import UserBackend
+from core.models.type_hints import UserUID
 from core.models.user import create_user
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
@@ -60,11 +61,17 @@ migration = _load()
 
 
 async def _seed(neo4j_driver, uid: str, timezone: str | None) -> None:
-    """One user, written by the real writer, holding ``timezone``."""
+    """One user, written by the real writer at ``uid``, holding ``timezone``.
+
+    The migration names its accounts by the ``user_{username}`` uids they held then,
+    so the seed puts each at that uid rather than the one the writer generates.
+    """
     username = uid.removeprefix("user_")
     user = create_user(username=username, email=f"{username}@example.com")
     user = dataclasses.replace(
-        user, preferences=dataclasses.replace(user.preferences, timezone=timezone, theme="dark")
+        user,
+        uid=UserUID(uid),
+        preferences=dataclasses.replace(user.preferences, timezone=timezone, theme="dark"),
     )
     created = await UserBackend(neo4j_driver).create_user(user)
     assert created.is_ok, f"create_user failed: {created.error}"

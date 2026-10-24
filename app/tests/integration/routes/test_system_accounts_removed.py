@@ -39,7 +39,7 @@ pytestmark = [
 
 MARK = "zzzsysacct"
 ADMIN = f"user_{MARK}a"
-REAL_USERNAME = f"{MARK}real"  # the create door makes its uid user_{username}
+REAL_USERNAME = f"{MARK}real"  # its uid is generated — cleanup finds it by username
 REAL_EMAIL = f"{REAL_USERNAME}@example.com"
 SYSTEM_UID = "user_system"
 SYSTEM_EMAIL = "system@skuel.local"
@@ -137,7 +137,9 @@ async def test_boot_creates_no_system_account(skuel_app: Any) -> None:  # bounda
     finally:
         async with driver.session() as session:
             await session.run(
-                "MATCH (u:User) WHERE u.uid CONTAINS $mark DETACH DELETE u", mark=MARK
+                "MATCH (u:User) WHERE u.uid CONTAINS $mark OR u.title CONTAINS $mark "
+                "DETACH DELETE u",
+                mark=MARK,
             )
 
 
@@ -176,5 +178,7 @@ async def test_admin_cannot_activate_a_system_account(
         await _forget_auth_records(driver)
         async with driver.session() as session:
             await session.run(
-                "MATCH (u:User) WHERE u.uid CONTAINS $mark DETACH DELETE u", mark=MARK
+                "MATCH (u:User) WHERE u.uid CONTAINS $mark OR u.title CONTAINS $mark "
+                "DETACH DELETE u",
+                mark=MARK,
             )

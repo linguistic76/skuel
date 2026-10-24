@@ -315,7 +315,7 @@ class _FakeConnection:
 # ---------------------------------------------------------------------------
 
 
-COMPOSE_DEFAULT_OWNER = "user_compose_default_owner"
+COMPOSE_DEFAULT_OWNER = "user_c0b05e0000000001"
 
 
 @pytest.fixture
@@ -347,6 +347,7 @@ def compose_config(tmp_path, hermetic_credentials) -> UnifiedConfig:
     # The owners a run names (ADR-091 S9): boot supplies no account in their place.
     config.vault.default_user_uid = COMPOSE_DEFAULT_OWNER
     config.vault.personal_vault_owner_uid = COMPOSE_DEFAULT_OWNER
+    config.vault.content_owner_uid = COMPOSE_DEFAULT_OWNER
 
     # No background schema poll in a unit test.
     config.database.schema_monitoring_enabled = False
@@ -650,8 +651,9 @@ async def _compose_result(config: UnifiedConfig) -> Result[Services]:
 class TestBootNamesItsOwners:
     """Boot refuses an owner the configuration does not name (ADR-091 S9).
 
-    No account stands in for a missing ``SKUEL_DEFAULT_USER_UID`` or personal-vault
-    owner: an unset or non-canonical one is a configuration error at boot.
+    No account stands in for a missing ``SKUEL_DEFAULT_USER_UID``, personal-vault or
+    content-vault owner: an unset one, or one that is not a user uid, is a
+    configuration error at boot.
     """
 
     @pytest.fixture(autouse=True)
@@ -688,8 +690,22 @@ class TestBootNamesItsOwners:
         assert result.is_error
         assert "SKUEL_PERSONAL_VAULT_OWNER" in result.expect_error().message
 
-    async def test_a_non_canonical_owner_fails_boot(self, compose_config, startup_calls) -> None:
-        compose_config.vault.default_user_uid = "system"
+    async def test_an_unset_content_vault_owner_fails_boot(
+        self, compose_config, startup_calls
+    ) -> None:
+        compose_config.vault.content_owner_uid = ""
+
+        result = await _compose_result(compose_config)
+
+        assert result.is_error
+        assert "SKUEL_CONTENT_VAULT_OWNER" in result.expect_error().message
+
+    @pytest.mark.parametrize("owner", ["system", "user_linguistic76", "user_c0b05e00"])
+    async def test_an_owner_that_is_not_a_user_uid_fails_boot(
+        self, compose_config, startup_calls, owner: str
+    ) -> None:
+        """A username-shaped uid (``user_{username}``) is not a user uid any more."""
+        compose_config.vault.default_user_uid = owner
 
         result = await _compose_result(compose_config)
 
