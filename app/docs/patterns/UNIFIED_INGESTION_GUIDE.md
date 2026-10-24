@@ -189,8 +189,8 @@ valid in YAML-ingested UserEntry files.
 **On a vault note it does nothing until `status: submitted`** — the note is a draft, never
 submitted or shared, and the audience is the frozen copy's (§ Vault notes are drafts; a draft
 that declares one syncs with a warning saying so). When omitted, the copy goes to `teachers`.
-Keywords are case-insensitive; the part after the colon is kept verbatim (a username matches
-`User.title` exactly). Accepted values:
+Keywords are case-insensitive; the part after the colon is kept verbatim, except a username,
+folded to lowercase as sign-up stores it (it matches `User.title`). Accepted values:
 
 | Value | Meaning |
 |-------|---------|
