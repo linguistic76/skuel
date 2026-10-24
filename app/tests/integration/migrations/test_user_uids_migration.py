@@ -293,6 +293,20 @@ class TestTheStops:
         with pytest.raises(migration.CountMismatchError):
             await migration.migrate(graph, plan)
 
+    async def test_a_member_vault_is_read_too(
+        self, graph: Any, vaults: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        member = tmp_path / "user_vaults" / STUDENT_NEW / "knowledge"
+        member.mkdir(parents=True)
+        (member / "note.md").write_text("---\ntype: user_entry\nownership: zzustudent\n---\n")
+
+        plan = await _census(graph, vaults, tmp_path)
+
+        assert plan.stops == [], plan.stops
+        assert tmp_path / "user_vaults" / STUDENT_NEW / "knowledge" / "note.md" in {
+            edit.path for edit in plan.files
+        }
+
     async def test_a_per_user_vault_named_by_a_renamed_user_stops_the_run(
         self, graph: Any, vaults: tuple[Path, Path], tmp_path: Path
     ) -> None:

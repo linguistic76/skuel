@@ -499,12 +499,14 @@ def plan_vaults(
 ) -> None:
     """Plan each vault file edit that moves a renamed user's old uid to its new one.
 
-    A frontmatter owner line is edited when the uid it names (``_named_uid``) is
+    Every file under ``roots`` and under ``user_vaults_root`` (each member's
+    personal vault) is read. A frontmatter owner line is edited when the uid it
+    names (``_named_uid``) is
     one the plan renames, or — on a re-run after the graph moved — one whose hash
     is a live user's uid. Any other mention of a retired uid stops the run.
     """
     texts: dict[Path, str] = {}
-    for root in roots:
+    for root in [*roots, *([user_vaults_root] if user_vaults_root is not None else [])]:
         if not root.is_dir():
             continue
         for path in _vault_files(root):
