@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-12
+updated: 2026-10-24
 ---
 
 # Development Setup Guide
@@ -36,8 +36,8 @@ SKUEL requires Neo4j as its primary database. All dependencies are REQUIRED — 
 
 Development and production use the same authentication code path and the same account door — there is no seed script and no dev auto-login:
 
-- **Accounts** are created through the registration form at `/register` (UID `user_{username}`, role REGISTERED); an admin changes a role via `POST /api/admin/users/role?uid=<uid>`.
-- **No service account exists.** Boot creates no account; it refuses to start unless `SKUEL_DEFAULT_USER_UID` (and the personal-vault owner, `SKUEL_PERSONAL_VAULT_OWNER`, else the same) names a `user_<name>` account (`VaultConfig.validate_owners`, ADR-091 S9).
+- **Accounts** are created through the registration form at `/register` (a generated UID `user_{16 hex}`; the username — folded to lowercase, 3–30 of `[a-z0-9_-]` — is the login handle, never part of the UID; role REGISTERED); an admin changes a role via `POST /api/admin/users/role?uid=<uid>`.
+- **No service account exists.** Boot creates no account; it refuses to start unless `SKUEL_DEFAULT_USER_UID`, the personal-vault owner (`SKUEL_PERSONAL_VAULT_OWNER`, else the same) and the content-vault owner (`SKUEL_CONTENT_VAULT_OWNER`) each name an account by its uid, `user_{16 hex}` (`VaultConfig.validate_owners`, ADR-091 S9).
 - **A request without a session is refused** — page and API handlers read the session through `require_authenticated_user()` (`adapters/inbound/auth/session.py`), which raises 401 "Authentication required"; log in with an account you registered.
 
 ## Authentication in Development

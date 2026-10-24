@@ -27,6 +27,7 @@ from core.models.auth.password_reset_token import create_password_reset_token
 from core.models.auth.session import create_session
 from core.models.type_hints import UserUID
 from core.models.user import User, create_user
+from core.models.user.user import fold_username, username_problem
 from core.ports.email_protocols import EmailOperations
 from core.ports.infrastructure_protocols import UserCrudOperations
 from core.ports.query_types import SessionIdentity, SignInResult, SignUpResult
@@ -86,7 +87,8 @@ class GraphAuthService:
         Args:
             email: User's email address
             password: User's password (will be hashed)
-            username: Unique username
+            username: Unique username, folded to lowercase and checked
+                (``fold_username``, ``username_problem``) before it is looked up
             display_name: Display name (defaults to username)
             user_metadata: Additional user data
 
@@ -104,12 +106,10 @@ class GraphAuthService:
             if password_error:
                 return Result.fail(Errors.validation(message=password_error, field="password"))
 
-            if not username or len(username) < 3:
-                return Result.fail(
-                    Errors.validation(
-                        message="Username must be at least 3 characters", field="username"
-                    )
-                )
+            username = fold_username(username)
+            problem = username_problem(username)
+            if problem:
+                return Result.fail(Errors.validation(message=problem, field="username"))
 
             # Check if email already exists
             existing_result = await self.user_backend.find_by(email=email)

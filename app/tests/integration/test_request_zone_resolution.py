@@ -41,6 +41,8 @@ pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration
 
 _RUN_ID = uuid.uuid4().hex[:8]
 _PASSWORD = "zone-Correct-1234"
+# username → the uid sign-up generated for it (a user uid never spells its username)
+_UID: dict[str, str] = {}
 
 
 @pytest.fixture
@@ -66,7 +68,7 @@ async def auth(neo4j_driver) -> AsyncIterator[tuple[GraphAuthService, list[str]]
                 OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
                 DETACH DELETE s, u
                 """,
-                uid=f"user_{username}",
+                uid=_UID.get(username, ""),
             )
             await session.run(
                 "MATCH (e:AuthEvent) WHERE e.email = $email DETACH DELETE e",
@@ -82,6 +84,7 @@ async def _register(auth: tuple[GraphAuthService, list[str]], tag: str) -> str:
         email=f"{username}@example.com", password=_PASSWORD, username=username
     )
     assert signup.is_ok, f"sign_up failed: {signup.error}"
+    _UID[username] = signup.value["user_uid"]
     return username
 
 
@@ -97,7 +100,7 @@ async def _stored_choice(neo4j_driver, username: str) -> Any:
         record = await (
             await session.run(
                 "MATCH (u:User {uid: $uid}) RETURN u.preferences AS preferences",
-                uid=f"user_{username}",
+                uid=_UID[username],
             )
         ).single()
     assert record is not None
@@ -117,7 +120,7 @@ def _client(service: GraphAuthService, username: str, token: str) -> httpx.Async
 
     @rt("/sign-in")
     def sign_in(request):
-        set_current_user(request, user_uid=f"user_{username}", session_token=token)
+        set_current_user(request, user_uid=_UID[username], session_token=token)
         return PlainTextResponse("ok")
 
     @rt("/zone")
@@ -131,7 +134,7 @@ async def test_a_bangkok_users_request_resolves_to_asia_bangkok(
     neo4j_driver, auth, user_service, default_zone
 ) -> None:
     username = await _register(auth, "bkk")
-    chosen = await user_service.update_preferences(f"user_{username}", {"timezone": "Asia/Bangkok"})
+    chosen = await user_service.update_preferences(_UID[username], {"timezone": "Asia/Bangkok"})
     assert chosen.is_ok, f"update_preferences failed: {chosen.error}"
     assert await _stored_choice(neo4j_driver, username) == "Asia/Bangkok"
     token = await _sign_in(auth, username)
@@ -146,14 +149,14 @@ async def test_a_change_in_settings_reaches_the_next_request(
     neo4j_driver, auth, user_service, default_zone
 ) -> None:
     username = await _register(auth, "change")
-    await user_service.update_preferences(f"user_{username}", {"timezone": "Asia/Bangkok"})
+    await user_service.update_preferences(_UID[username], {"timezone": "Asia/Bangkok"})
     token = await _sign_in(auth, username)
 
     async with _client(auth[0], username, token) as client:
         await client.get("/sign-in")
         assert (await client.get("/zone")).text == "Asia/Bangkok"
 
-        cleared = await user_service.update_preferences(f"user_{username}", {"timezone": None})
+        cleared = await user_service.update_preferences(_UID[username], {"timezone": None})
         assert cleared.is_ok
         assert await _stored_choice(neo4j_driver, username) is None
         assert (await client.get("/zone")).text == "America/Vancouver", "no new login needed"
@@ -178,12 +181,12 @@ async def test_the_validation_round_trip_carries_the_choice(neo4j_driver, auth, 
     token = await _sign_in(auth, username)
 
     before = await auth[0].validate_session_identity(token)
-    assert before.is_ok and before.value == {"user_uid": f"user_{username}", "timezone": None}
+    assert before.is_ok and before.value == {"user_uid": _UID[username], "timezone": None}
 
-    await user_service.update_preferences(f"user_{username}", {"timezone": "Asia/Bangkok"})
+    await user_service.update_preferences(_UID[username], {"timezone": "Asia/Bangkok"})
     after = await auth[0].validate_session_identity(token)
     assert after.is_ok and after.value == {
-        "user_uid": f"user_{username}",
+        "user_uid": _UID[username],
         "timezone": "Asia/Bangkok",
     }
 
@@ -193,11 +196,11 @@ async def test_a_named_users_zone_outside_a_request(
 ) -> None:
     chooser = await _register(auth, "named")
     fresh = await _register(auth, "named_fresh")
-    await user_service.update_preferences(f"user_{chooser}", {"timezone": "Asia/Bangkok"})
+    await user_service.update_preferences(_UID[chooser], {"timezone": "Asia/Bangkok"})
 
-    chosen = await user_service.get_user_zone(f"user_{chooser}")
+    chosen = await user_service.get_user_zone(_UID[chooser])
     assert chosen.is_ok and chosen.value == ZoneInfo("Asia/Bangkok")
-    default = await user_service.get_user_zone(f"user_{fresh}")
+    default = await user_service.get_user_zone(_UID[fresh])
     assert default.is_ok and default.value == ZoneInfo("America/Vancouver")
 
     missing = await user_service.get_user_zone(f"user_no_such_{_RUN_ID}")

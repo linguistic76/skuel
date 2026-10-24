@@ -60,12 +60,15 @@ class TestCaseAndWhitespace:
             teachers=True, public=True
         )
 
-    def test_the_payload_keeps_its_case(self):
-        """A username matches ``User.title`` exactly — never lowercased."""
+    def test_a_username_is_folded_and_a_uid_keeps_its_case(self):
+        """A username is folded as sign-up stores it; a uid payload is kept verbatim."""
         spec = AudienceSpec.parse(["User:Alice", "Group:G_Class", "TEACHER:G_Math"]).value
-        assert spec.share_users == ("Alice",)
+        assert spec.share_users == ("alice",)
         assert spec.share_groups == ("G_Class",)
         assert spec.teacher_groups == ("G_Math",)
+
+    def test_two_spellings_of_one_username_are_one_target(self):
+        assert AudienceSpec.parse(["user:Alice", "user:alice"]).value.share_users == ("alice",)
 
     def test_whitespace_is_stripped(self):
         spec = AudienceSpec.parse(["  teachers ", " user: alice "]).value

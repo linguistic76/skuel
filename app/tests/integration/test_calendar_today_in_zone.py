@@ -115,7 +115,9 @@ async def users(neo4j_driver, clean_neo4j, user_service) -> AsyncIterator[UserSe
     yield user_service
     async with neo4j_driver.session() as session:
         await session.run(
-            "MATCH (u:User) WHERE u.uid ENDS WITH $run_id DETACH DELETE u", run_id=_RUN_ID
+            # A user uid is generated, so the run's users are found by username.
+            "MATCH (u:User) WHERE u.title ENDS WITH $run_id DETACH DELETE u",
+            run_id=_RUN_ID,
         )
 
 

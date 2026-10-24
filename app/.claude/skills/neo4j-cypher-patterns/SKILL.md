@@ -37,7 +37,7 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | **Destination** | | | |
 | Life Path | `LifePath` | `lifepath.{slug}` (authored; no API mint) — but a *designated* path is an ordinary `LearningPath` reached through `ULTIMATE_PATH` (below) | |
 | **Not EntityTypes** | | | |
-| Users | `User` | `user_{name}` | `user_mike` |
+| Users | `User` | `user_{16 hex}` (generated; the username is `title`) | `user_819f725e53621059` |
 | Groups | `Group` | `NonKuDomain.GROUP`; ownership in `owner_uid`, not `user_uid` | |
 
 Finance is a Firefly III sidecar — there is no `:Expense` label.

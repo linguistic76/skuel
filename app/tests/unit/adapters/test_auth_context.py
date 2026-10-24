@@ -214,6 +214,23 @@ class TestGraphSessionEnforcement:
         assert seen[0].is_admin is False
 
     @pytest.mark.asyncio
+    async def test_a_session_of_another_user_than_the_cookie_names_is_cleared(self):
+        """The graph says whose session it is — a renamed account's cookie names its old uid."""
+        stub = _StubGraphAuth(Result.ok(_identity("user_renamed")))
+        session = _valid_session(is_admin=True)
+        request = _make_request(session)
+        seen: list[AuthState] = []
+
+        async def call_next(_req):
+            seen.append(current_auth_state())
+            return "response"
+
+        await _middleware(stub).dispatch(request, call_next)
+        assert session == {}  # forced re-login
+        assert seen[0].is_authenticated is False
+        assert seen[0].is_admin is False
+
+    @pytest.mark.asyncio
     async def test_validation_error_denies_without_clearing(self):
         stub = _StubGraphAuth(Result.fail(Errors.database(operation="validate", message="down")))
         session = _valid_session()

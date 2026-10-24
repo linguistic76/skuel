@@ -13,9 +13,10 @@ instance.
 ``load_dotenv()`` runs here for everything else ``.env`` carries into the
 process — the credential-backend selector, the intelligence tier, vault paths —
 so an integration test sees the same non-database configuration the developer
-runs the app with. It does not override a variable that is already set. The one
-exception is ``SKUEL_DEFAULT_USER_UID``: the run names it
-(``tests/helpers/ingestion_owner.py``), so the owner never differs by machine.
+runs the app with. It does not override a variable that is already set. The two
+exceptions are ``SKUEL_DEFAULT_USER_UID`` and ``SKUEL_CONTENT_VAULT_OWNER``: the run
+names them (``tests/helpers/ingestion_owner.py``), so the owner never differs by
+machine.
 
 The process clock is pinned to UTC before anything else runs, as every entry
 point pins it (``core/utils/process_clock.py``): the graph driver factory refuses
@@ -43,6 +44,7 @@ import os  # noqa: E402
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER  # noqa: E402
 
 os.environ["SKUEL_DEFAULT_USER_UID"] = INGESTION_TEST_OWNER
+os.environ["SKUEL_CONTENT_VAULT_OWNER"] = INGESTION_TEST_OWNER
 
 from collections.abc import Iterator  # noqa: E402
 

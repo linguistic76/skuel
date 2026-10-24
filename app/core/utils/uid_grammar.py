@@ -13,7 +13,7 @@ A prefix is a lowercase word (``ku``, ``ps``, ``task``, ``ue``); a segment is
 lowercase words joined by ``-``; a generated uid's opaque part is
 ``OPAQUE_HEX`` lowercase hex digits, whether random or a hash. No segment holds a
 ``_`` or a ``:``, so no generated uid fits inside another uid, and composites
-like ``hc.user_admin.habit_…`` are outside the shapes. ``:`` is in no node uid.
+like ``hc.{user}.{habit}.{ts}`` are outside the shapes. ``:`` is in no node uid.
 
 ``classify`` reads any uid against the grammar. ``authored_uid_problem`` is the
 ingestion check for a uid a file supplies — its ``uid:`` line, or the one its
@@ -95,6 +95,12 @@ def authored_uid_problem(uid: str, expected_prefix: str) -> str | None:
             "joined by single hyphens"
         )
     return None
+
+
+def is_generated_uid(uid: str, prefix: str) -> bool:
+    """Whether ``uid`` is a generated uid of ``prefix`` — ``{prefix}_{16 hex}``."""
+    match = GENERATED_UID.fullmatch(uid)
+    return match is not None and match["prefix"] == prefix
 
 
 def generated_uid(prefix: str, opaque: str) -> str:
@@ -182,14 +188,6 @@ UID_EXEMPTIONS: Final[tuple[UidExemption, ...]] = (
         ),
         retired_by="the local invoice module's deletion (ADR-052 Phase 5; invoicing is ChargeKeep)",
     ),
-    UidExemption(
-        name="user_from_username",
-        # ``user_{username}``: a readable username, never the generated shape —
-        # the lookahead leaves a ``user_`` + 16-hex uid, which fits, outside it.
-        pattern=re.compile(rf"user_(?![0-9a-f]{{{OPAQUE_HEX}}}\Z).+"),
-        writers=("core.models.user.user:create_user",),
-        retired_by="a username rule at registration, or a generated user uid (unruled)",
-    ),
 )
 
 
@@ -220,6 +218,7 @@ __all__ = [
     "exemptions_for",
     "generated_uid",
     "hashed_uid",
+    "is_generated_uid",
     "is_known_uid",
     "slugify",
 ]

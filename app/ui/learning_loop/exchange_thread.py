@@ -200,9 +200,9 @@ def render_exchange_thread(thread: ExchangeThread, viewer_uid: str) -> Div:
     items.sort(key=operator.itemgetter(0))
 
     student_note: FT | str = ""
-    if viewer_is_teacher:
+    if viewer_is_teacher and thread["student_name"]:
         student_note = Span(
-            f"with {student_uid.removeprefix('user_')}",
+            f"with {thread['student_name']}",
             cls="text-sm text-muted-foreground",
         )
 

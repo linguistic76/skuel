@@ -33,15 +33,16 @@ def test_newtype_definitions():
 
 def test_type_guards():
     """Test type guard functions"""
-    # Valid UIDs: the grammar's shapes, and an exempt one (a username's)
+    # Valid UIDs: the grammar's shapes
     assert is_valid_uid("task_3f9a0c41d2e87b65")
     assert is_valid_uid("ku.mindfulness.attention")
-    assert is_valid_uid("user_123")
+    assert is_valid_uid("user_819f725e53621059")
 
     # Invalid UIDs
     assert not is_valid_uid("task_abc123")  # not the one generated shape
     assert not is_valid_uid("invalid-uid")
     assert not is_valid_uid("123_user")
+    assert not is_valid_uid("user_123")  # a username-shaped user uid is retired
     assert not is_valid_uid("")
     assert not is_valid_uid(None)
 

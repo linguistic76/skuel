@@ -23,6 +23,7 @@ import pytest_asyncio
 from adapters.persistence.neo4j.session_backend import SessionBackend
 from adapters.persistence.neo4j.user_backend import UserBackend
 from core.auth.graph_auth import GraphAuthService
+from core.utils.uid_grammar import is_generated_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -50,16 +51,24 @@ async def auth_env(neo4j_driver):
         user_backend=UserBackend(neo4j_driver),
         session_backend=SessionBackend(neo4j_driver),
     )
-    created: list[tuple[str, str]] = []  # (user_uid, email)
+    created: list[tuple[str, str]] = []  # (username, email)
 
     def track(username: str, email: str) -> tuple[str, str]:
-        created.append((f"user_{username}", email))
+        created.append((username, email))
         return username, email
 
     yield auth, track
 
     async with neo4j_driver.session() as session:
-        for user_uid, email in created:
+        # A user uid is generated, so each user is found by its username (its title,
+        # which soft delete keeps).
+        owners: list[tuple[str, str]] = []
+        for username, email in created:
+            result = await session.run(
+                "MATCH (u:User {title: $username}) RETURN u.uid AS uid", username=username
+            )
+            owners += [(str(record["uid"]), email) async for record in result] or [("", email)]
+        for user_uid, email in owners:
             # Sessions hang off the user; AuthEvents may be standalone
             # (failed login before the user was resolved) — sweep both.
             await session.run(
@@ -103,7 +112,8 @@ async def test_signup_then_signin_email_roundtrip(neo4j_driver, auth_env):
 
     signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
     assert signup.is_ok, f"sign_up failed: {signup.error}"
-    assert signup.value["user_uid"] == f"user_{username}"
+    user_uid = signup.value["user_uid"]
+    assert is_generated_uid(user_uid, "user"), "a user uid is generated, never the username"
     assert signup.value["email"] == email
 
     signin = await auth.sign_in(email=email, password=_PASSWORD)
@@ -111,12 +121,12 @@ async def test_signup_then_signin_email_roundtrip(neo4j_driver, auth_env):
 
     data = signin.value
     assert data["session_token"], "sign_in must return a session token"
-    assert data["user_uid"] == f"user_{username}"
+    assert data["user_uid"] == user_uid
     assert data["user"] is not None and data["user"].email == email
 
     # The session must actually exist in the graph — a token with no
     # (:Session) node is the graph-side regression class this suite pins.
-    assert await _count_sessions(neo4j_driver, f"user_{username}") == 1
+    assert await _count_sessions(neo4j_driver, user_uid) == 1
 
 
 async def test_signin_via_username_lookup(neo4j_driver, auth_env):
@@ -147,7 +157,7 @@ async def test_signin_via_username_lookup(neo4j_driver, auth_env):
 
     signin = await auth.sign_in(email=lookup.value.email, password=_PASSWORD)
     assert signin.is_ok, f"sign_in via resolved email failed: {signin.error}"
-    assert signin.value["user_uid"] == f"user_{username}"
+    assert signin.value["user_uid"] == signup.value["user_uid"]
 
 
 async def test_wrong_password_rejected_and_no_session(neo4j_driver, auth_env):
@@ -160,7 +170,7 @@ async def test_wrong_password_rejected_and_no_session(neo4j_driver, auth_env):
 
     signin = await auth.sign_in(email=email, password="definitely-not-the-Password-1")
     assert signin.is_error, "Wrong password must fail, not silently sign in"
-    assert await _count_sessions(neo4j_driver, f"user_{username}") == 0, (
+    assert await _count_sessions(neo4j_driver, signup.value["user_uid"]) == 0, (
         "A failed login must not create a Session node"
     )
 
@@ -178,10 +188,10 @@ async def test_role_change_atomically_revokes_live_sessions(neo4j_driver, auth_e
 
     auth, track = auth_env
     username, email = track(*_credentials("rolerev"))
-    user_uid = f"user_{username}"
 
     signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
     assert signup.is_ok, f"sign_up failed: {signup.error}"
+    user_uid = signup.value["user_uid"]
 
     signin = await auth.sign_in(email=email, password=_PASSWORD)
     assert signin.is_ok, f"sign_in failed: {signin.error}"
@@ -218,10 +228,10 @@ async def test_deactivation_atomically_revokes_live_sessions(neo4j_driver, auth_
     """
     auth, track = auth_env
     username, email = track(*_credentials("atomic"))
-    user_uid = f"user_{username}"
 
     signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
     assert signup.is_ok, f"sign_up failed: {signup.error}"
+    user_uid = signup.value["user_uid"]
 
     signin = await auth.sign_in(email=email, password=_PASSWORD)
     assert signin.is_ok, f"sign_in failed: {signin.error}"
@@ -262,10 +272,10 @@ async def test_deactivated_user_cannot_mint_session(neo4j_driver, auth_env):
 
     auth, track = auth_env
     username, email = track(*_credentials("inactive"))
-    user_uid = f"user_{username}"
 
     signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
     assert signup.is_ok, f"sign_up failed: {signup.error}"
+    user_uid = signup.value["user_uid"]
 
     async with neo4j_driver.session() as session:
         await session.run("MATCH (u:User {uid: $uid}) SET u.is_active = false", uid=user_uid)
@@ -289,10 +299,10 @@ async def test_soft_deleted_user_sessions_stop_validating(neo4j_driver, auth_env
     """
     auth, track = auth_env
     username, email = track(*_credentials("softdel"))
-    user_uid = f"user_{username}"
 
     signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
     assert signup.is_ok, f"sign_up failed: {signup.error}"
+    user_uid = signup.value["user_uid"]
     signin = await auth.sign_in(email=email, password=_PASSWORD)
     assert signin.is_ok, f"sign_in failed: {signin.error}"
     token = signin.value["session_token"]
@@ -314,10 +324,10 @@ async def test_hard_deleted_user_sessions_are_erased(neo4j_driver, auth_env):
     """
     auth, track = auth_env
     username, email = track(*_credentials("harddel"))
-    user_uid = f"user_{username}"
 
     signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
     assert signup.is_ok, f"sign_up failed: {signup.error}"
+    user_uid = signup.value["user_uid"]
     signin = await auth.sign_in(email=email, password=_PASSWORD)
     assert signin.is_ok, f"sign_in failed: {signin.error}"
     token = signin.value["session_token"]
@@ -353,7 +363,7 @@ async def test_role_stored_lowercase_on_signup(neo4j_driver, auth_env):
     async with neo4j_driver.session() as session:
         result = await session.run(
             "MATCH (u:User {uid: $uid}) RETURN u.role AS role",
-            uid=f"user_{username}",
+            uid=signup.value["user_uid"],
         )
         record = await result.single()
 
@@ -378,7 +388,7 @@ async def _signed_up_and_in(auth, track, tag: str) -> tuple[str, str, str]:
     assert signup.is_ok, f"sign_up failed: {signup.error}"
     signin = await auth.sign_in(email=email, password=_PASSWORD)
     assert signin.is_ok, f"sign_in failed: {signin.error}"
-    return f"user_{username}", email, signin.value["session_token"]
+    return signup.value["user_uid"], email, signin.value["session_token"]
 
 
 async def _count_auth_events(neo4j_driver, user_uid: str, event_type: str) -> int:

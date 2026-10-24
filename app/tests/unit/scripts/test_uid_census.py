@@ -34,7 +34,7 @@ def test_each_uid_lands_in_one_verdict_per_label() -> None:
     assert (task.fits, task.outside, task.shape) == (1, 0, 1)
     assert census.by_label["ContentChunk"].fits == 1
     assert census.by_exemption[("Task", "UNREGISTERED")] == 1
-    assert census.by_exemption[("User", "user_from_username")] == 1
+    assert census.by_exemption[("User", "UNREGISTERED")] == 1
     assert census.by_exemption[("Ku", "UNREGISTERED")] == 1
     assert census.by_exemption[("ReferenceChunk", "UNREGISTERED")] == 1
     assert census.by_exemption[("Group", "UNREGISTERED")] == 1

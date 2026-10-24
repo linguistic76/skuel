@@ -179,25 +179,6 @@ class UserPreferencesFormRequest(BaseModel):
 # ============================================================================
 
 
-class UserCreateSchema(BaseModel):
-    """Schema for creating a new user"""
-
-    username: str = Field(
-        min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$", description="Unique username"
-    )
-    email: str = Field(pattern=r"^[^@]+@[^@]+\.[^@]+$", description="User email address")
-    display_name: str = Field(default="", max_length=100, description="Display name")
-
-    # Initial preferences
-    preferences: UserPreferencesSchema | None = None
-
-    # Initial interests and goals
-    interests: list[str] = Field(default_factory=list, max_length=20, description="User interests")
-    current_goals: list[str] = Field(
-        default_factory=list, max_length=10, description="Current goals"
-    )
-
-
 class UserUpdateSchema(BaseModel):
     """Schema for updating a user"""
 

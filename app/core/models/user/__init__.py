@@ -12,7 +12,6 @@ See ADR-030 for details.
 from .user import User, UserPreferences, UserServiceContext, UserStatistics, create_user
 from .user_dto import UserDTO, UserPreferencesDTO
 from .user_request import (
-    UserCreateSchema,
     UserSummaryView,
     UserUpdateSchema,
     UserView,
@@ -20,7 +19,6 @@ from .user_request import (
 
 __all__ = [
     "User",
-    "UserCreateSchema",
     "UserDTO",
     "UserPreferences",
     "UserPreferencesDTO",

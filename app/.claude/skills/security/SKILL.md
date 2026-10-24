@@ -180,7 +180,7 @@ Pinned by `tests/unit/models/test_secret_fields_unprintable.py`, which asserts t
 - Session tokens are 256-bit `secrets.token_urlsafe`; only the SHA-256 hash is stored
 - Cookies: `HttpOnly=True`, `SameSite=strict`, `Secure=True` in production
 - Session data stored in Neo4j (graph-native, no separate session store)
-- **Validated once per request** — `AuthContextMiddleware` checks the token against its `:Session` node before any route runs: a revoked or expired session is cleared (forced re-login); a validation *error* (graph unreachable) answers 503 without clearing. Route helpers then read the cookie.
+- **Validated once per request** — `AuthContextMiddleware` checks the token against its `:Session` node before any route runs: a revoked or expired session, or one whose user is not the cookie's `user_uid`, is cleared (forced re-login); a validation *error* (graph unreachable) answers 503 without clearing. Route helpers then read the cookie.
 - **Revocation is atomic** — each revoking write commits its credential/privilege change AND the session sweep in one transaction on `SessionBackend` (`change_password_and_revoke_sessions`, `reset_password_and_revoke_sessions`, `update_role_and_revoke_sessions`, `deactivate_user_and_revoke_sessions`), so the target's very next request is refused.
 
 ### CSRF Protection (Double-Submit Token + SameSite)

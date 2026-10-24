@@ -244,17 +244,10 @@ def _invoice_factory() -> str:
     ).uid
 
 
-def _user_from_username() -> str:
-    from core.models.user.user import create_user
-
-    return create_user("Jane-Doe", "jane@example.com").uid
-
-
 # writer path → a call of that writer
 _DRIVERS: dict[str, Callable[[], str]] = {
     "core.models.finance.invoice:invoice_create_request_to_dto": _invoice_from_request,
     "core.models.finance.invoice:create_invoice": _invoice_factory,
-    "core.models.user.user:create_user": _user_from_username,
 }
 
 _WRITERS = [(exemption, writer) for exemption in UID_EXEMPTIONS for writer in exemption.writers]
@@ -291,18 +284,32 @@ def test_no_exemption_admits_a_uid_that_fits() -> None:
         assert exemptions_for(uid) == (), uid
 
 
-@pytest.mark.parametrize(
-    "uid", ["user_admin", "user_linguistic76", "user_Jane-Doe", "user_a1b2c3d4"]
-)
-def test_every_username_uid_is_exempt(uid: str) -> None:
-    """A user uid is ``user_{username}`` until the username ruling — exempt, never renamed."""
-    assert [exemption.name for exemption in exemptions_for(uid)] == ["user_from_username"]
+def test_a_new_user_uid_fits_the_generated_shape() -> None:
+    """A user uid is generated — the username never reaches it."""
+    from core.models.user.user import create_user
+
+    uid = create_user("jane-doe", "jane@example.com").uid
+    assert classify(uid) is UidVerdict.FITS
+    assert uid.startswith("user_")
+    assert "jane" not in uid
+
+
+@pytest.mark.parametrize("uid", ["user_admin", "user_linguistic76", "user_a1b2c3d4"])
+def test_a_username_shaped_user_uid_is_unknown(uid: str) -> None:
+    """``user_{username}`` is retired: no exemption names it."""
+    assert exemptions_for(uid) == ()
+    assert not is_known_uid(uid)
 
 
 class TestIsKnownUid:
     @pytest.mark.parametrize(
         "uid",
-        ["ku.a.b", f"task_{HEX16}", "user_admin", "invoice:5f348e63-fe54-45b9-a6b5-d4205be31270"],
+        [
+            "ku.a.b",
+            f"task_{HEX16}",
+            f"user_{HEX16}",
+            "invoice:5f348e63-fe54-45b9-a6b5-d4205be31270",
+        ],
     )
     def test_a_fitting_or_exempt_uid_is_known(self, uid: str) -> None:
         assert is_known_uid(uid)

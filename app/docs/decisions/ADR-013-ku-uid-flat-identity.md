@@ -1,6 +1,6 @@
 ---
 title: "ADR-013: KU UID Flat Identity Design"
-updated: 2026-10-23
+updated: 2026-10-24
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum]
@@ -448,9 +448,17 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
   the staged progress, embedding and mastery records — is `hashed_uid(prefix, *parts)`, so the same parts land on the same node; every other
   generated uid is random (`UIDGenerator.generate_random_uid`). The default group is
   recognised by its `is_default` property, never by its uid. Invoices leave with the local
-  invoice module (ADR-052 Phase 5). A user uid is `user_{username}` and registration admits any username, so
-  `create_user` can mint outside the grammar (`user_Jane-Doe`); a username rule at registration
-  or a generated user uid is unruled. `./dev uid-census` reads every live uid against the grammar, per label.
+  invoice module (ADR-052 Phase 5). `./dev uid-census` reads every live uid against the grammar, per label.
+- **A user uid is generated too** (ruled 2026-10-23): `user_{16 hex}`, random at sign-up; the
+  username is the account's `title` and login handle only — folded to lowercase, 3–30 of
+  `[a-z0-9_-]`, refused otherwise (`fold_username`, `username_problem`) — and never reaches a
+  uid. A username names one account: `User.title` carries a uniqueness constraint, since no uid
+  collision refuses a second sign-up on a taken name. The `user_{username}` uids were renamed in place to `hashed_uid("user", old uid)` by
+  `scripts/migrations/user_uids_2026_10.py`, with the uids derived from them (periodic notes,
+  default groups), every value naming one, and the vault frontmatter lines (`teacher:`,
+  `user_uid:`, `ownership:`) that name one; every stored username was folded to the rule. A configured owner (`SKUEL_DEFAULT_USER_UID`,
+  `SKUEL_PERSONAL_VAULT_OWNER`, `SKUEL_CONTENT_VAULT_OWNER`, now required) is refused at boot
+  unless it is a user uid.
 - **Every generated uid has one shape**, `{prefix}_{16 hex}` — 64 bits, random or hashed; no
   uid carries its entity's title. Existing uids of the older widths and shapes were renamed in
   place by `scripts/migrations/generated_uids_2026_10.py` (random-born ones to

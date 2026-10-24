@@ -248,6 +248,7 @@ class ReportRelationshipService:
                 exercise_title=str(title),
                 exercise_removed=bool(record.get("exercise_removed")),
                 student_uid=student_uid,
+                student_name=str(record.get("student_name") or ""),
                 entries=cast("list[ExchangeThreadEntry]", entries),
                 reports=cast("list[ExchangeThreadReport]", reports),
                 revisions=cast("list[ExchangeThreadRevision]", revisions),

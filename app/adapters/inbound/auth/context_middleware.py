@@ -35,6 +35,9 @@ Enforcement semantics:
 - ``user_uid`` without ``session_token`` is cleared: graph-native auth has no
   cookie-only sessions (fail-fast, no legacy path), and a session that has no
   server-side node cannot be revoked.
+- A cookie whose ``user_uid`` is not its graph session's user is cleared: the
+  graph says whose session it is, and every reader downstream takes the uid from
+  the cookie (an account whose uid was renamed keeps a cookie naming the old one).
 - A validation *error* (Neo4j unreachable) responds 503 WITHOUT clearing the
   cookie — deny the request, keep the session; it recovers with the database.
 - Static/health/PWA paths are exempt: browsers send the session cookie on
@@ -142,8 +145,9 @@ class AuthContextMiddleware(BaseHTTPMiddleware):
         carrying the live session's identity — its user and their zone choice
         — or None when there is no live session. Clears the session (→ the
         request proceeds unauthenticated, routes send the user to login) when
-        the graph says it is revoked or expired; denies with a 503 without
-        touching the cookie when validation itself fails.
+        the graph says it is revoked or expired, or belongs to another user
+        than the cookie names; denies with a 503 without touching the cookie
+        when validation itself fails.
         """
         path = request.url.path
         if path in _ENFORCE_EXEMPT_PATHS or path.startswith(_ENFORCE_EXEMPT_PREFIXES):
@@ -175,14 +179,26 @@ class AuthContextMiddleware(BaseHTTPMiddleware):
             )
             return denial, None
 
-        if result.value is None:
+        identity = result.value
+        if identity is None:
             logger.info(
                 "Revoked/expired graph session for user_uid=%s — forcing re-login",
                 session.get("user_uid"),
             )
             session.clear()
+            return None, None
 
-        return None, result.value
+        if identity["user_uid"] != session.get("user_uid"):
+            logger.warning(
+                "Cookie session names user_uid=%s but its graph session belongs to %s "
+                "— forcing re-login",
+                session.get("user_uid"),
+                identity["user_uid"],
+            )
+            session.clear()
+            return None, None
+
+        return None, identity
 
 
 __all__ = ["AuthContextMiddleware"]

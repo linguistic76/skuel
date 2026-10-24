@@ -1,6 +1,6 @@
 ---
 title: "ADR-088: Submit and Share"
-updated: 2026-10-23
+updated: 2026-10-24
 status: implemented
 category: decisions
 tags: [adr, decisions, sharing, submissions, user-entry, groups, visibility, access-control, gradebook]
@@ -301,7 +301,8 @@ One parser and applier, used by the web form, the JSON API and the vault:
 | `public` | `visibility = public` (TEACHER-gated) |
 | `private` | no links — exclusive: it combines with no other value |
 
-Lists are accepted; case is preserved (usernames match exactly). `private` is exclusive: a list that
+Lists are accepted; case is preserved, except a username's — folded to lowercase as sign-up stores it
+(amended 2026-10-23, ADR-013 § Amendment (2026-10-18)). `private` is exclusive: a list that
 combines it with any other value (say `[private, user:bob]`) is a parse error, never a silent
 choice of which wins.
 

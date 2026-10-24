@@ -19,14 +19,16 @@ Three-tier position:
 __version__ = "2.1"
 
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Final
 from zoneinfo import ZoneInfo
 
 from core.models.enums import EnergyLevel, JournalTier, LearningLevel, TimeOfDay, UserRole
 from core.models.query_types import QueryIntent
 from core.models.type_hints import EntityUID, UserUID
+from core.utils.uid_generator import UIDGenerator
 from core.utils.zone_context import zone_for
 
 #: The display themes a user may choose (``UserPreferences.theme``).
@@ -477,6 +479,26 @@ class UserStatistics:
 # ============================================================================
 
 
+#: A username — the account's login handle and display name, never part of its
+#: uid: 3-30 lowercase letters, digits, ``_`` and ``-``.
+USERNAME: Final = re.compile(r"[a-z0-9_-]{3,30}")
+
+
+def fold_username(raw: str) -> str:
+    """``raw`` as a username is stored and compared: trimmed and lowercase.
+
+    Folding first is what makes ``Mike`` and ``mike`` one name.
+    """
+    return raw.strip().lower()
+
+
+def username_problem(username: str) -> str | None:
+    """Why ``username`` (already folded) is not a username, or ``None``."""
+    if USERNAME.fullmatch(username):
+        return None
+    return "A username is 3-30 characters: lowercase letters, digits, '_' and '-'"
+
+
 def create_user(
     username: str,
     email: str,
@@ -488,13 +510,14 @@ def create_user(
     """
     Create a new user with defaults.
 
-    Uses username as the UID for human-readable identifiers.
-    Example: username 'mfan0110' becomes UID 'user_mfan0110'
+    The uid is generated — ``user_{16 hex}``, random — and the username is
+    stored as ``title``, never in the uid. The caller folds and checks the
+    username first (``fold_username``, ``username_problem``).
 
     New users default to REGISTERED (free trial) role.
 
     Args:
-        username: Unique username
+        username: Unique username, folded and checked
         email: User email address
         display_name: Display name (defaults to username)
         learning_level: Initial learning level
@@ -505,7 +528,7 @@ def create_user(
         New User instance
     """
     return User(
-        uid=UserUID(f"user_{username}"),  # Use username as UID for human-readable identifiers
+        uid=UserUID(UIDGenerator.generate_random_uid("user")),
         title=username,  # Username stored as title (from BaseEntity)
         description=f"User account for {display_name or username}",
         email=email,
@@ -513,16 +536,4 @@ def create_user(
         preferences=UserPreferences(learning_level=learning_level),
         role=role,
         **kwargs,  # Pass through additional fields (password_hash, is_verified, etc.)
-    )
-
-
-def create_guest_user(session_id: str) -> User:
-    """Create a temporary guest user"""
-    return User(
-        uid=UserUID(f"guest_{session_id}"),
-        title=f"guest_{session_id[:8]}",  # Username as title
-        description="Temporary guest user account",
-        email="guest@example.com",
-        display_name="Guest User",
-        is_verified=False,
     )

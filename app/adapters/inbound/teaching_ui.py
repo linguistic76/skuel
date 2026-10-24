@@ -392,9 +392,9 @@ def create_teaching_ui_routes(
             students_content = Div(
                 *[
                     render_student_name_row(
-                        student_name=_display_student_name(
-                            item.get("student_name") or item.get("student_uid") or "Unknown"
-                        ),
+                        student_name=item.get("student_name")
+                        or item.get("student_uid")
+                        or "Unknown",
                         student_uid=item.get("student_uid", ""),
                     )
                     for item in result.value
@@ -435,8 +435,7 @@ def create_teaching_ui_routes(
                 if raw_name:
                     student_name = str(raw_name)
                     break
-        display_name = _display_student_name(student_name)
-        return StudentHub(student_name=display_name, student_uid=uid)
+        return StudentHub(student_name=student_name, student_uid=uid)
 
     # ------------------------------------------------------------------
     # STUDENT SUBMISSIONS — Alpine section switching (moved from student detail)
@@ -479,8 +478,6 @@ def create_teaching_ui_routes(
         else:
             default_section = "completed"
 
-        display_name = _display_student_name(student_name)
-
         sidebar_items = student_detail_sidebar_items(
             pending_count=len(pending),
             revision_count=len(revision_requested),
@@ -499,7 +496,7 @@ def create_teaching_ui_routes(
         mobile_back = Div(
             A(
                 Icon("arrow-left", size=14, cls="inline mr-1"),
-                display_name,
+                student_name,
                 href=f"/teaching/students/{uid}",
                 cls="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1",
             ),
@@ -510,9 +507,9 @@ def create_teaching_ui_routes(
             content=Div(section_content),
             items=sidebar_items,
             active=default_section,
-            page_title=display_name,
+            page_title=student_name,
             request=request,
-            title=display_name,
+            title=student_name,
             subtitle="Student submissions",
             storage_key="student-detail-sidebar",
             active_page="teaching",
@@ -721,13 +718,6 @@ def create_teaching_ui_routes(
         return HubPreviewGrid(cards)
 
     logger.info("Teaching UI routes registered")
-
-
-def _display_student_name(name: str) -> str:
-    """Strip the 'user_' prefix from student names for display."""
-    if name.startswith("user_"):
-        return name[5:]
-    return name
 
 
 # _fetch_ku_detail removed — absorbed into TeacherOrchestrator.get_student_ku_detail()
