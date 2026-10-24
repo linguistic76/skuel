@@ -267,7 +267,7 @@ def build_user_entry_request(
     ``audience:`` is parsed by ``AudienceSpec.parse`` — one value or a list,
     in the one vocabulary (``teachers``, ``teacher:<group_uid>``,
     ``group:<uid>``, ``user:<username>``, ``public``, ``private``); case is
-    preserved after the colon (a username matches ``User.title`` exactly).
+    preserved after the colon, except a username's, folded as sign-up stores it.
     On a vault note it is the audience of the frozen copy
     ``status: submitted`` files — ``ingest_user_entry`` never applies it to
     the note itself (R9). Nothing is looked up here — ``create_entry``

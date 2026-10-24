@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-10-12'
+updated: '2026-10-24'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -391,7 +391,8 @@ One navbar for every role (`ui/layouts/navbar.py`); what changes by auth state i
    ↓
 4. On each request:
    - AuthContextMiddleware validates session_token against the :Session node
-     (revoked/expired → cookie session cleared → forced re-login); the same
+     (revoked/expired, or another user's than the cookie's user_uid → cookie
+     session cleared → forced re-login); the same
      statement returns the user's zone choice, which becomes the request's
      zone (`current_zone()`)
    - Route helpers (get_current_user() etc.) then read the cookie — the graph
@@ -483,7 +484,8 @@ if result.is_ok:
 ### Session Validation
 
 Graph validation happens ONCE per request in `AuthContextMiddleware` (revoked/expired
-sessions are cleared before any route runs). Route code just reads the cookie:
+sessions, and a session whose user is not the cookie's `user_uid`, are cleared before
+any route runs). Route code just reads the cookie:
 
 ```python
 # Optional auth: read from cookie (no DB call — middleware already validated)

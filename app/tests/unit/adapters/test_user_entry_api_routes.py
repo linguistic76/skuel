@@ -224,7 +224,7 @@ class TestUploadGuards:
 
         assert response.status_code == 201
         req = harness.entries.create_entry.await_args.kwargs["request"]
-        assert req.audience == AudienceSpec(teachers=True, share_users=("Alice",))
+        assert req.audience == AudienceSpec(teachers=True, share_users=("alice",))
 
     def test_private_beside_another_value_refuses_before_service(
         self, monkeypatch: pytest.MonkeyPatch

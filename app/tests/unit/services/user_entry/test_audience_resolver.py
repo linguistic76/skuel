@@ -162,14 +162,14 @@ class TestValidate:
 class TestValidateReferencesAudience:
     @pytest.mark.asyncio
     async def test_a_co_member_username_resolves_to_its_uid(self):
-        sharing = _make_sharing_service(co_members={"Alice": "user_alice"})
+        sharing = _make_sharing_service(co_members={"alice": "user_alice"})
         resolver = AudienceResolver(sharing_service=sharing, group_service=None)
 
         result = await resolver.validate_references(USER, _req(audience="user:Alice"))
 
         assert result.is_ok
-        assert result.value.share_users == (("Alice", "user_alice"),)
-        sharing.resolve_co_member.assert_awaited_once_with(USER, "Alice")
+        assert result.value.share_users == (("alice", "user_alice"),)
+        sharing.resolve_co_member.assert_awaited_once_with(USER, "alice")
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("username", ["nobody", "stranger"])
@@ -701,4 +701,4 @@ class TestResolvedAudience:
 
     def test_the_request_model_parses_the_vocabulary(self):
         req = _req(audience=["teachers", "user:Alice"])
-        assert req.audience == AudienceSpec(teachers=True, share_users=("Alice",))
+        assert req.audience == AudienceSpec(teachers=True, share_users=("alice",))

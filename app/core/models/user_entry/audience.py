@@ -16,8 +16,9 @@ nothing else. ``AudienceSpec.parse`` is the one parser; ``AudienceResolver``
 | ``private``           | no links — exclusive: it combines with no other value         |
 
 Lists are accepted. Keyword tokens are matched case-insensitively; the
-payload after the colon is preserved verbatim, because a username matches
-``User.title`` exactly.
+payload after the colon is preserved verbatim, except a username, which is
+folded as sign-up folds it (``fold_username``) — a username matches
+``User.title``, where it is stored folded.
 
 See: /docs/decisions/ADR-088-submit-and-share.md § The one audience vocabulary
 """
@@ -26,6 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from core.models.user.user import fold_username
 from core.utils.result_simplified import Errors, Result
 
 TEACHERS = "teachers"
@@ -172,7 +174,7 @@ class AudienceSpec:
                 payload = _payload(value, USER_PREFIX)
                 if payload.is_error:
                     return Result.fail(payload)
-                share_users.setdefault(payload.value, None)
+                share_users.setdefault(fold_username(payload.value), None)
             else:
                 return Result.fail(
                     Errors.validation(
