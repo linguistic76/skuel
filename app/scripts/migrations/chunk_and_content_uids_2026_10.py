@@ -425,7 +425,7 @@ async def main() -> int:
             "\nOK: every chunk uid is in the grammar, no :Content carries a uid, "
             "no uid is on two nodes, every embedding kept."
         )
-        print(await closing_census(driver))
+        print((await closing_census(driver)).line)
         return 0
     finally:
         await driver.close()

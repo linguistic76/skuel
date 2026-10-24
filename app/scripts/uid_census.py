@@ -192,21 +192,34 @@ async def read_census(driver: AsyncDriver) -> Result[tuple[Census, dict[str, int
 STAMP_COMMAND = "uv run scripts/migrations/uid_grammar_2026_10.py --confirm"
 
 
-async def closing_census(driver: AsyncDriver) -> str:
-    """The census verdict a uid migration ends its run with, and the next step — one line.
+@dataclass(frozen=True)
+class ClosingVerdict:
+    """Whether the whole-graph census passes at the end of a uid migration's run, and why."""
+
+    passes: bool
+    line: str  # the verdict and the next step, to print
+
+
+async def closing_census(driver: AsyncDriver) -> ClosingVerdict:
+    """The census verdict a uid migration ends its run with, and the next step.
 
     A migration's read-back holds what that run wrote to the grammar; this reads
-    the whole graph, which passes only once every uid migration has run.
+    the whole graph, which passes only once every uid migration has run. The
+    earlier migrations print it; the last, the user uid migration, fails on it.
+    An unreadable census does not pass.
     """
     read = await read_census(driver)
     if read.is_error:
-        return f"uid census: unreadable ({read.expect_error()}) — run ./dev uid-census"
+        return ClosingVerdict(
+            False, f"uid census: unreadable ({read.expect_error()}) — run ./dev uid-census"
+        )
     reasons = failures(read.value[0])
     if not reasons:
-        return f"uid census: passes — stamp the graph: {STAMP_COMMAND}"
-    return (
+        return ClosingVerdict(True, f"uid census: passes — stamp the graph: {STAMP_COMMAND}")
+    return ClosingVerdict(
+        False,
         "uid census: " + "; ".join(reasons) + " — the stamp refuses until they move "
-        "(./dev uid-census names each)"
+        "(./dev uid-census names each)",
     )
 
 

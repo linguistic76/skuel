@@ -674,7 +674,7 @@ async def main() -> int:
                 print(f"  {failure}")
             return 1
         print("Read-back holds: every uid in the grammar, every value on its new uid.")
-        print(await closing_census(driver))
+        print((await closing_census(driver)).line)
         return 0
     finally:
         await driver.close()
