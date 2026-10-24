@@ -330,14 +330,21 @@ class BulkUpsertBackend:
                     return Result.fail(result)
 
                 stats = result.value
+                prior_status_by_uid = _prior_statuses(stats.get("rows", []))
+                nodes_created = int(stats.get("nodes_created", 0))
                 return Result.ok(
                     IngestionResult(
                         total_processed=len(entities),
-                        nodes_created=stats.get("nodes_created", 0),
-                        nodes_updated=0,  # Calculated from properties_set when needed
+                        nodes_created=nodes_created,
+                        # Every node the statement wrote was either created by
+                        # its MERGE or already there. The written nodes are the
+                        # keys of the prior-status map — a refused row wrote
+                        # nothing, and a uid named twice is one node — so the
+                        # ones that already existed are the rest.
+                        nodes_updated=len(prior_status_by_uid) - nodes_created,
                         relationships_created=0,
                         errors=[],
-                        prior_status_by_uid=_prior_statuses(stats.get("rows", [])),
+                        prior_status_by_uid=prior_status_by_uid,
                         refused_uids=_refused_uids(stats.get("rows", [])),
                     )
                 )
