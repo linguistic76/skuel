@@ -147,7 +147,7 @@ class TestBuildUserEntryRequest:
             assert result.is_ok, pipeline
             assert result.value.audience == AudienceSpec(), pipeline
 
-    def test_the_vocabulary_parses_as_a_list_preserving_case(self):
+    def test_the_vocabulary_parses_as_a_list_folding_only_a_username(self):
         result = build_user_entry_request(
             data={
                 "pipeline": "teacher_review",
@@ -161,7 +161,7 @@ class TestBuildUserEntryRequest:
             teachers=True,
             teacher_groups=("G_math",),
             share_groups=("g_class",),
-            share_users=("Alice",),
+            share_users=("alice",),
         )
 
     def test_a_single_value_parses_too(self):
@@ -734,7 +734,7 @@ class TestVaultNotesAreDrafts:
         copy_request, _ = self._copy_call(service)
         assert copy_request.pipeline == Pipeline.NONE
         assert copy_request.status == EntityStatus.SUBMITTED
-        assert copy_request.audience.share_users == ("Bob",)
+        assert copy_request.audience.share_users == ("bob",)
 
     @pytest.mark.asyncio
     async def test_an_idle_resync_while_submitted_files_nothing(self):

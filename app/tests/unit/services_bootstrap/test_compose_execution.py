@@ -704,7 +704,7 @@ class TestBootNamesItsOwners:
     async def test_an_owner_that_is_not_a_user_uid_fails_boot(
         self, compose_config, startup_calls, owner: str
     ) -> None:
-        """A username-shaped uid (``user_{username}``) is not a user uid any more."""
+        """A username-shaped uid (``user_{username}``) is not a user uid."""
         compose_config.vault.default_user_uid = owner
 
         result = await _compose_result(compose_config)

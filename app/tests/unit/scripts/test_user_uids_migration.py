@@ -98,17 +98,37 @@ class TestHowAValueMoves:
 
 class TestOwnerLines:
     @pytest.mark.parametrize(
-        "line",
-        [f"teacher: {OLD}", f'user_uid: "{OLD}"', f"ownership: '{OLD}'", f"teacher:{OLD}  \r"],
+        ("line", "key", "value"),
+        [
+            (f"teacher: {OLD}", "teacher", OLD),
+            (f'user_uid: "{OLD}"', "user_uid", OLD),
+            ("ownership: 'linguistic76'", "ownership", "linguistic76"),
+            (f"teacher:{OLD}  \r", "teacher", OLD),
+        ],
     )
-    def test_an_owner_key_naming_the_uid(self, line: str) -> None:
-        assert migration._owner_line(line, OLD)
+    def test_an_owner_key_and_its_value(self, line: str, key: str, value: str) -> None:
+        match = migration._owner_value(line)
+        assert match is not None and (match["key"], match["value"]) == (key, value)
 
     @pytest.mark.parametrize(
         "line", [f"author: {OLD}", f"teacher: {OLD} and more", f"- {OLD}", f"teacher: [{OLD}]"]
     )
     def test_anything_else(self, line: str) -> None:
-        assert not migration._owner_line(line, OLD)
+        assert migration._owner_value(line) is None
+
+    @pytest.mark.parametrize(
+        ("key", "value", "uid"),
+        [
+            ("ownership", "linguistic76", "user_linguistic76"),
+            ("user_uid", "linguistic76", "user_linguistic76"),
+            ("ownership", "user_linguistic76", "user_linguistic76"),
+            ("teacher", "admin", "admin"),
+        ],
+    )
+    def test_a_bare_username_names_its_old_uid_only_where_ingestion_read_one(
+        self, key: str, value: str, uid: str
+    ) -> None:
+        assert migration._named_uid(key, value) == uid
 
 
 class TestOwnerSettings:

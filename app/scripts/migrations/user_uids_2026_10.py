@@ -3,11 +3,12 @@
 User uids into the generated shape
 ==================================
 
-Renames every :User whose uid is not ``user_{16 hex}`` — the ``user_{username}``
-uid registration used to mint — in place, and moves everything that names one or
-is derived from one:
+Renames every :User whose uid is not ``user_{16 hex}`` (a ``user_{username}``
+uid) in place, folds every username to the username rule, and moves everything
+that names a renamed uid or is derived from one:
 
     a user                       (user_admin)                 →  hashed_uid("user", old uid)
+    a username                   (Mike)                       →  fold_username(it) (mike)
     a periodic note it owns      (periodic_note_uid(kind,
                                   old owner, period))         →  periodic_note_uid(kind,
                                                                    new owner, period)
@@ -16,7 +17,9 @@ is derived from one:
     element, a string in a JSON map, a ``|``-joined token of
     a tracker row's authored-edge key                         →  the new uid
     a vault file's ``teacher:`` / ``user_uid:`` /
-    ``ownership:`` frontmatter line naming a renamed user     →  the new uid
+    ``ownership:`` frontmatter line naming a renamed user —
+    by its uid, or on ``user_uid:`` / ``ownership:`` by its
+    bare username                                             →  the new uid
 
 A user's new uid is a hash of its old one, so every run of the census plans the
 same names. A periodic note's and a default group's are the uids their writers
@@ -27,7 +30,8 @@ old uid (``AuthContextMiddleware`` clears a cookie that disagrees with its
 session).
 
 What the run establishes, and reads on every run: every :User uid is a generated
-user uid; every periodic note sits at ``periodic_note_uid`` of its one owner, and
+user uid, and every username is folded and inside the username rule; every
+periodic note sits at ``periodic_note_uid`` of its one owner, and
 every default group at ``default_group_uid`` of its one owner with
 ``is_default``; no node or edge property names a retired uid, except the text
 that quotes one (``QUOTING_PROPERTIES``, left as written); no vault file names a
@@ -36,6 +40,7 @@ retired user uid.
 The run STOPS (exit 2) before any write while the graph or a vault holds
 something the rename cannot account for:
 
+- a username that folds outside the username rule, or two that fold to one;
 - a periodic note not at ``periodic_note_uid`` of its one owner, a group with
   ``is_default`` not at ``default_group_uid`` of its one owner, or a group there
   without it;
@@ -89,6 +94,7 @@ pin_process_clock_to_utc()  # before any clock read (ADR-089)
 from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import default_group_uid
 from core.models.relationship_names import RelationshipName
+from core.models.user.user import fold_username, username_problem
 from core.models.user_entry.user_entry import periodic_note_uid
 from core.utils.uid_grammar import hashed_uid, is_generated_uid
 
@@ -125,6 +131,11 @@ QUOTING_PROPERTIES: frozenset[tuple[str, str]] = frozenset(
 
 #: The frontmatter keys a vault file names an account with.
 VAULT_OWNER_KEYS: tuple[str, ...] = ("teacher", "user_uid", "ownership")
+#: The owner keys a bare username may fill (``_named_uid``).
+BARE_OWNER_KEYS: tuple[str, ...] = ("user_uid", "ownership")
+_OWNER_LINE = re.compile(
+    rf"(?P<key>{'|'.join(VAULT_OWNER_KEYS)}):[ \t]*(?P<q>[\"']?)(?P<value>[A-Za-z0-9._-]+)(?P=q)[ \t]*\r?"
+)
 
 #: The settings that name an account by uid (``VaultConfig.validate_owners``).
 OWNER_SETTINGS: tuple[str, ...] = (
@@ -132,7 +143,7 @@ OWNER_SETTINGS: tuple[str, ...] = (
     "SKUEL_PERSONAL_VAULT_OWNER",
     "SKUEL_CONTENT_VAULT_OWNER",
 )
-#: The account the content-vault owner setting defaulted to before it was required.
+#: The account an unset content-vault owner names in a graph this run migrates.
 FORMER_CONTENT_OWNER_DEFAULT = "user_admin"
 
 _VAULT_SUFFIXES = frozenset({".md", ".yaml", ".yml"})
@@ -141,7 +152,7 @@ _UID_ROWS = f"""
 MATCH (n) WHERE n.uid IS NOT NULL
 OPTIONAL MATCH (o:{_USER})-[:{_OWNS}]->(n)
 WITH n, collect(o.uid) AS owners
-RETURN elementId(n) AS id, n.uid AS uid, labels(n) AS labels, owners,
+RETURN elementId(n) AS id, n.uid AS uid, labels(n) AS labels, owners, n.title AS title,
        n.metadata AS metadata, n.is_default AS is_default,
        n.embedding IS NOT NULL AS embedded,
        EXISTS {{ (n)-[:{_HAS_CONTENT}]->()-[:{_HAS_CHUNK}]->() }}
@@ -297,6 +308,30 @@ def plan_renames(rows: list[Row], plan: Plan) -> None:
                 _rename(row, default_group_uid(moves[owners[0]]), plan)
 
 
+def plan_usernames(rows: list[Row], plan: Plan) -> None:
+    """Fold every username (a user's ``title``) to the username rule.
+
+    Sign-up stores a username folded and every lookup folds what it is given, so
+    a stored name that is not folded is one no lookup finds. Stops on a name that
+    folds outside the rule (``username_problem``) and on two that fold to one.
+    """
+    holders: dict[str, list[str]] = {}
+    for row in rows:
+        title = row["title"]
+        if _USER not in row["labels"] or not isinstance(title, str):
+            continue
+        uid, name = str(row["uid"]), fold_username(title)
+        holders.setdefault(name, []).append(uid)
+        problem = username_problem(name)
+        if problem:
+            plan.stops.append(f"user {uid}: username {title!r} folds outside the rule — {problem}")
+        elif name != title:
+            plan.rewrites.append(Rewrite("node", str(row["id"]), _USER, "title", title, name))
+    for name, uids in sorted(holders.items()):
+        if len(uids) > 1:
+            plan.stops.append(f"users {sorted(uids)}: their usernames all fold to {name!r}")
+
+
 def _rename(row: Row, new: str, plan: Plan) -> None:
     label, uid = _label_of(row["labels"]), str(row["uid"])
     if row["chunked"]:
@@ -435,23 +470,25 @@ def _frontmatter_end(text: str) -> int:
     return end if end != -1 else 0
 
 
-def _owner_line(line: str, retired: str) -> bool:
-    """Whether ``line`` is a ``VAULT_OWNER_KEYS`` frontmatter line whose value is ``retired``."""
-    keys = "|".join(VAULT_OWNER_KEYS)
-    quoted = re.escape(retired)
-    return (
-        re.fullmatch(rf"(?:{keys}):[ \t]*(?:{quoted}|\"{quoted}\"|'{quoted}')[ \t]*\r?", line)
-        is not None
-    )
+def _owner_value(line: str) -> re.Match[str] | None:
+    """A ``VAULT_OWNER_KEYS`` line's match — ``key``, ``value`` — or ``None``.
+
+    The value may be quoted; the quotes, the gap after the colon and any
+    trailing blank or ``\r`` are kept by an edit.
+    """
+    return _OWNER_LINE.fullmatch(line)
 
 
-def _frontmatter_values(text: str) -> Iterable[str]:
-    """Every value a ``VAULT_OWNER_KEYS`` frontmatter line of ``text`` names."""
-    keys = "|".join(VAULT_OWNER_KEYS)
-    for line in text[: _frontmatter_end(text)].split("\n"):
-        match = re.fullmatch(rf"(?:{keys}):[ \t]*[\"']?([^\"'\s]+)[\"']?[ \t]*\r?", line)
-        if match:
-            yield match.group(1)
+def _named_uid(key: str, value: str) -> str:
+    """The user uid an owner line names: its value, or ``user_{value}`` for a bare username.
+
+    In a vault this run migrates, a bare ``ownership:`` / ``user_uid:`` value names
+    the uid ``user_{value}`` (``ownership: linguistic76`` names ``user_linguistic76``);
+    ``teacher:`` names a uid and nothing else.
+    """
+    if key in BARE_OWNER_KEYS and not value.startswith(f"{USER_PREFIX}_"):
+        return f"{USER_PREFIX}_{value}"
+    return value
 
 
 def plan_vaults(
@@ -459,8 +496,9 @@ def plan_vaults(
 ) -> None:
     """Plan each vault file edit that moves a renamed user's old uid to its new one.
 
-    A retired uid is one the plan renames, or — on a re-run after the graph moved —
-    a frontmatter value whose hash is a live user's uid.
+    A frontmatter owner line is edited when the uid it names (``_named_uid``) is
+    one the plan renames, or — on a re-run after the graph moved — one whose hash
+    is a live user's uid. Any other mention of a retired uid stops the run.
     """
     texts: dict[Path, str] = {}
     for root in roots:
@@ -473,10 +511,28 @@ def plan_vaults(
             except UnicodeDecodeError:
                 plan.stops.append(f"vault file {path}: not UTF-8 — the run cannot read it")
     moves = plan.user_moves()
-    for text in texts.values():
-        for value in _frontmatter_values(text):
-            if value not in live_users and hashed_uid(USER_PREFIX, value) in live_users:
-                moves.setdefault(value, hashed_uid(USER_PREFIX, value))
+
+    def new_uid(named: str) -> str | None:
+        if named in moves:
+            return moves[named]
+        derived = hashed_uid(USER_PREFIX, named)
+        if named not in live_users and derived in live_users:
+            moves[named] = derived
+            return derived
+        return None
+
+    edits: dict[Path, dict[int, str]] = {}
+    for path, text in sorted(texts.items()):
+        end, offset = _frontmatter_end(text), 0
+        for number, line in enumerate(text.split("\n"), start=1):
+            match = _owner_value(line) if offset < end else None
+            offset += len(line) + 1
+            if match is None:
+                continue
+            new = new_uid(_named_uid(match["key"], match["value"]))
+            if new is not None:
+                start, stop = match.span("value")
+                edits.setdefault(path, {})[number] = line[:start] + new + line[stop:]
     if not moves:
         return
     if user_vaults_root is not None:
@@ -487,31 +543,25 @@ def plan_vaults(
                 )
     names = uid_pattern(moves)
     for path, text in sorted(texts.items()):
-        if not names.search(text):
-            continue
-        end = _frontmatter_end(text)
+        edited = edits.get(path, {})
         lines = text.split("\n")
-        edited, at, offset = list(lines), [], 0
         for number, line in enumerate(lines, start=1):
-            match = names.search(line)
-            if match and offset < end and _owner_line(line, match.group(0)):
-                edited[number - 1] = names.sub(lambda m: moves[m.group(0)], line)
-                at.append(number)
-            elif match:
+            match = names.search(line) if number not in edited else None
+            if match:
                 plan.stops.append(
                     f"vault file {path}:{number} names {match.group(0)} outside its "
                     f"{'/'.join(VAULT_OWNER_KEYS)} frontmatter — edit it to {moves[match.group(0)]}"
                 )
-            offset += len(line) + 1
-        if at:
-            plan.files.append(FileEdit(path, text, "\n".join(edited), tuple(at)))
+        if edited:
+            after = [edited.get(number, line) for number, line in enumerate(lines, start=1)]
+            plan.files.append(FileEdit(path, text, "\n".join(after), tuple(sorted(edited))))
 
 
 def owner_settings(moves: Mapping[str, str], environ: Mapping[str, str]) -> list[str]:
     """The ``.env`` lines to set — every owner setting that names a renamed user.
 
-    An unset content-vault owner stood for ``FORMER_CONTENT_OWNER_DEFAULT``; it is
-    required now, so the line is printed when that account was renamed.
+    The content-vault owner is required; when it is unset, the line is printed for
+    the new uid of ``FORMER_CONTENT_OWNER_DEFAULT``, the account it names here.
     """
     lines = []
     for name in OWNER_SETTINGS:
@@ -541,6 +591,7 @@ async def census(
     plan = Plan()
     uid_rows = await _fetch(driver, _UID_ROWS)
     plan_renames(uid_rows, plan)
+    plan_usernames(uid_rows, plan)
     plan_rewrites("node", await _fetch(driver, _NODE_VALUES), plan)
     plan_rewrites("edge", await _fetch(driver, _EDGE_VALUES), plan)
     plan_collisions(plan, Counter(str(row["uid"]) for row in uid_rows))

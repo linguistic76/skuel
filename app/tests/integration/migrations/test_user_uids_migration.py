@@ -66,7 +66,7 @@ EXERCISE_FILE = "/vault/Exer/one_exer.md"
 _SEED = """
 CREATE (t:User {uid: $teacher, title: 'teach'})
 CREATE (s:User {uid: $student, title: 'student'})
-CREATE (:User {uid: $fitting, title: 'fits'})
+CREATE (:User {uid: $fitting, title: 'Fits'})
 CREATE (s)-[:OWNS]->(note:Entity:UserEntry {uid: $note, user_uid: $student,
                                             metadata: $note_md, embedding: $vector})
 CREATE (:IngestionMetadata {file_path: '/vault/daily/2026-10-01.md', entity_uid: $note})
@@ -125,6 +125,10 @@ def vaults(tmp_path: Path) -> tuple[Path, Path]:
     (content / "Ku").mkdir()
     (content / "Ku" / "plain.md").write_text("---\ntype: ku\n---\nNo account here.\n")
     (personal / "knowledge").mkdir(parents=True)
+    # The bare name also appears in prose: only the ownership line names an account.
+    (personal / "knowledge" / "bare.md").write_text(
+        "---\ntype: user_entry\nownership: zzustudent\n---\nMention zzustudent here.\n"
+    )
     (personal / "knowledge" / "list.md").write_bytes(
         f'---\r\ntype: user_entry\r\nuser_uid: "{STUDENT}"\r\n---\r\nBody\r\n'.encode()
     )
@@ -163,11 +167,16 @@ class TestTheRename:
             ("node", "IngestionMetadata", "entity_uid"),
             ("node", "Session", "user_uid"),
             ("node", "Task", "user_uid"),
+            ("node", "User", "title"),
             ("node", "UserEntry", "user_uid"),
             ("node", "UserEntry", "user_uid"),
         ]
         assert dict(plan.quoted) == {"EntryReport.report_file_path": 1, "UserEntry.content": 1}
-        assert sorted(edit.path.name for edit in plan.files) == ["list.md", "one_exer.md"]
+        assert sorted(edit.path.name for edit in plan.files) == [
+            "bare.md",
+            "list.md",
+            "one_exer.md",
+        ]
         assert plan.embedded == 1
 
     async def test_confirm_renames_in_place_and_moves_every_reference(
@@ -178,14 +187,16 @@ class TestTheRename:
         written = await migration.migrate(graph, plan)
         assert written == {
             "renamed": 4,
-            "node values rewritten": 10,
+            "node values rewritten": 11,
             "edge values rewritten": 1,
         }
-        assert migration.edit_vaults(plan) == 2
+        assert migration.edit_vaults(plan) == 3
         assert await migration.read_back(graph, plan, list(vaults), tmp_path / "user_vaults") == []
 
-        users = await _rows(graph, "MATCH (u:User) RETURN u.uid AS uid ORDER BY uid")
-        assert [row["uid"] for row in users] == sorted([TEACHER_NEW, STUDENT_NEW, FITTING])
+        users = await _rows(graph, "MATCH (u:User) RETURN u.uid AS uid, u.title AS name")
+        assert sorted((row["uid"], row["name"]) for row in users) == sorted(
+            [(TEACHER_NEW, "teach"), (STUDENT_NEW, "student"), (FITTING, "fits")]
+        )
         # The periodic note: at the uid its writer derives from the new owner, vector kept.
         note = await _rows(
             graph,
@@ -235,6 +246,10 @@ class TestTheRename:
         assert (personal / "knowledge" / "list.md").read_bytes() == (
             f'---\r\ntype: user_entry\r\nuser_uid: "{STUDENT_NEW}"\r\n---\r\nBody\r\n'.encode()
         )
+        # A bare username on an ownership line named its user_{name} uid: it names the new one.
+        assert (personal / "knowledge" / "bare.md").read_text() == (
+            f"---\ntype: user_entry\nownership: {STUDENT_NEW}\n---\nMention zzustudent here.\n"
+        )
 
     async def test_a_second_run_finds_nothing_to_move(
         self, graph: Any, vaults: tuple[Path, Path], tmp_path: Path
@@ -255,7 +270,11 @@ class TestTheRename:
 
         again = await _census(graph, vaults, tmp_path)
         assert again.renames == [] and again.stops == []
-        assert sorted(edit.path.name for edit in again.files) == ["list.md", "one_exer.md"]
+        assert sorted(edit.path.name for edit in again.files) == [
+            "bare.md",
+            "list.md",
+            "one_exer.md",
+        ]
         migration.edit_vaults(again)
         content, _ = vaults
         assert f"teacher: {TEACHER_NEW}\n" in (content / "Exer" / "one_exer.md").read_text()
@@ -321,6 +340,24 @@ class TestTheStops:
         plan = await _census(graph, vaults, tmp_path)
 
         assert any("holds chunks" in stop for stop in plan.stops), plan.stops
+
+    @pytest.mark.parametrize(
+        ("titles", "stop"),
+        [(["jane doe"], "outside"), (["Sam", "sam"], "fold to")],
+        ids=["outside-the-rule", "two-fold-to-one"],
+    )
+    async def test_a_username_the_rule_cannot_hold_stops_the_run(
+        self, graph: Any, vaults: tuple[Path, Path], tmp_path: Path, titles: list[str], stop: str
+    ) -> None:
+        for number, title in enumerate(titles):
+            await graph.execute_query(
+                "CREATE (:User {uid: $uid, title: $title})",
+                {"uid": f"user_7e5700000000{number:04x}", "title": title},
+            )
+
+        plan = await _census(graph, vaults, tmp_path)
+
+        assert any(stop in item for item in plan.stops), plan.stops
 
     async def test_a_value_quoting_a_user_in_other_text_stops_the_run(
         self, graph: Any, vaults: tuple[Path, Path], tmp_path: Path

@@ -180,8 +180,7 @@ the vault will speak one vocabulary from PR 6a.
 > the one applier is `AudienceResolver`): `teachers` and `teacher:<group_uid>` file a feedback
 > request (`SUBMITTED_TO_GROUP`, TEACHER_REVIEW only), `group:<uid>` and `user:<username>` share,
 > `public` publishes, `private` names no one and combines with nothing. Lists are accepted; case is
-> preserved after the colon (a username matches `User.title` exactly — since 2026-10-23 folded to
-> lowercase first, as sign-up stores it; ADR-013 § Amendment (2026-10-18)). `group:<uid>` is always a
+> preserved after the colon, except a username's — folded as sign-up stores it (2026-10-23). `group:<uid>` is always a
 > share — a TEACHER_REVIEW request whose explicit audience names no teacher is refused with
 > guidance naming `teacher:<group_uid>`. An absent audience on TEACHER_REVIEW means `teachers`;
 > on every other pipeline it names nobody, so the 2026-09-02 vault-note default below is now the

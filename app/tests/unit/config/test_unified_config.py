@@ -269,7 +269,7 @@ class TestVaultConfig:
         assert VaultConfig().personal_vault_owner_uid == "user_built_personal"
 
     def test_the_content_vault_owner_is_read_when_the_config_is_built(self, monkeypatch):
-        """No account stands in for it — it used to default to ``user_admin``."""
+        """No account stands in for it: unset, it is blank, and boot refuses a blank owner."""
         monkeypatch.delenv("SKUEL_CONTENT_VAULT_OWNER", raising=False)
         assert VaultConfig().content_owner_uid == ""
         monkeypatch.setenv("SKUEL_CONTENT_VAULT_OWNER", "user_819f725e53621059")
