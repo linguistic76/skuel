@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
@@ -37,6 +37,10 @@ from adapters.persistence.neo4j.graph_driver import (
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.models.enums.migration_enums import MigrationState
 
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+    from testcontainers.community.neo4j import Neo4jContainer  # type: ignore[import-untyped]
+
 pytestmark = [
     pytest.mark.asyncio(loop_scope="session"),
     pytest.mark.integration,
@@ -45,12 +49,12 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module")
-def guard_container(scratch_neo4j_container: Any) -> Any:
+def guard_container(scratch_neo4j_container: Neo4jContainer) -> Neo4jContainer:
     return scratch_neo4j_container
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def raw(guard_container: Any) -> AsyncIterator[Any]:
+async def raw(guard_container: Neo4jContainer) -> AsyncIterator[AsyncDriver]:
     """An unguarded driver onto the guard container, emptied before each test."""
     driver = open_async_driver(guard_container.get_connection_url(), auth=("neo4j", "unused"))
     await driver.execute_query("MATCH (n) DETACH DELETE n")
@@ -60,7 +64,7 @@ async def raw(guard_container: Any) -> AsyncIterator[Any]:
 
 
 async def _open(
-    guard_container: Any, *, requires: tuple[DataMigration, ...] = DATA_MIGRATIONS
+    guard_container: Neo4jContainer, *, requires: tuple[DataMigration, ...] = DATA_MIGRATIONS
 ) -> Neo4jConnection:
     connection = Neo4jConnection(
         uri=guard_container.get_connection_url(),
@@ -72,7 +76,7 @@ async def _open(
     return connection
 
 
-async def _records(raw: Any) -> list[dict[str, Any]]:
+async def _records(raw: AsyncDriver) -> list[dict[str, object]]:
     result = await raw.execute_query(
         "MATCH (r:MigrationRecord) RETURN r.name AS name, r.state AS state, r.stamped AS stamped "
         "ORDER BY name"
@@ -80,14 +84,14 @@ async def _records(raw: Any) -> list[dict[str, Any]]:
     return [dict(record) for record in result.records]
 
 
-def _stamped(*names: str) -> list[dict[str, Any]]:
+def _stamped(*names: str) -> list[dict[str, object]]:
     return [
         {"name": name, "state": MigrationState.APPLIED, "stamped": STAMPED_EMPTY}
         for name in sorted(names)
     ]
 
 
-async def _applied(raw: Any, *names: str) -> None:
+async def _applied(raw: AsyncDriver, *names: str) -> None:
     await raw.execute_query(
         "UNWIND $names AS name CREATE (:MigrationRecord {name: name, state: $state})",
         names=list(names),
@@ -96,7 +100,7 @@ async def _applied(raw: Any, *names: str) -> None:
 
 
 async def test_an_empty_graph_is_stamped_and_opens_again_after_a_restart(
-    raw: Any, guard_container: Any
+    raw: AsyncDriver, guard_container: Neo4jContainer
 ) -> None:
     first = await _open(guard_container)
     await first.close()
@@ -111,7 +115,7 @@ async def test_an_empty_graph_is_stamped_and_opens_again_after_a_restart(
 
 
 async def test_an_empty_graph_a_uid_script_opened_is_stamped_with_the_rest_by_the_app(
-    raw: Any, guard_container: Any
+    raw: AsyncDriver, guard_container: Neo4jContainer
 ) -> None:
     """A script that requires only the UTC record stamps only it; the app's open stamps the uid
     grammar's, the graph still holding nothing."""
@@ -124,7 +128,7 @@ async def test_an_empty_graph_a_uid_script_opened_is_stamped_with_the_rest_by_th
 
 
 async def test_two_openers_of_one_empty_graph_write_one_record(
-    raw: Any, guard_container: Any
+    raw: AsyncDriver, guard_container: Neo4jContainer
 ) -> None:
     """Separate processes open a fresh graph at once: the record's name is unique, so one
     record is written and both open."""
@@ -143,7 +147,7 @@ async def test_two_openers_of_one_empty_graph_write_one_record(
 
 
 async def test_a_graph_holding_data_with_no_record_is_refused(
-    raw: Any, guard_container: Any
+    raw: AsyncDriver, guard_container: Neo4jContainer
 ) -> None:
     await raw.execute_query("CREATE (:Entity:Task {uid: 'task.unmigrated'})")
     with pytest.raises(GraphNotMigratedError) as refused:
@@ -154,7 +158,7 @@ async def test_a_graph_holding_data_with_no_record_is_refused(
 
 
 async def test_a_graph_holding_data_without_the_uid_record_is_refused_with_its_remedy(
-    raw: Any, guard_container: Any
+    raw: AsyncDriver, guard_container: Neo4jContainer
 ) -> None:
     """A graph from before the uid grammar's close — the UTC record applied, no uid record."""
     await raw.execute_query("CREATE (:Entity:Group {uid: 'group_default_user_admin'})")
@@ -168,7 +172,7 @@ async def test_a_graph_holding_data_without_the_uid_record_is_refused_with_its_r
 
 
 async def test_a_uid_script_opens_a_graph_without_the_uid_record(
-    raw: Any, guard_container: Any
+    raw: AsyncDriver, guard_container: Neo4jContainer
 ) -> None:
     """The census, the stamp and the uid migrations open before the record exists."""
     await raw.execute_query("CREATE (:Entity:Group {uid: 'group_default_user_admin'})")
@@ -178,7 +182,9 @@ async def test_a_uid_script_opens_a_graph_without_the_uid_record(
     assert [record["name"] for record in await _records(raw)] == [UTC_INSTANTS_MIGRATION]
 
 
-async def test_a_reverted_graph_is_refused(raw: Any, guard_container: Any) -> None:
+async def test_a_reverted_graph_is_refused(
+    raw: AsyncDriver, guard_container: Neo4jContainer
+) -> None:
     await raw.execute_query(
         "CREATE (:Entity:Task {uid: 'task.reverted'}) "
         "CREATE (:MigrationRecord {name: $name, state: $state})",
@@ -189,7 +195,9 @@ async def test_a_reverted_graph_is_refused(raw: Any, guard_container: Any) -> No
         await _open(guard_container)
 
 
-async def test_a_graph_recorded_twice_is_refused(raw: Any, guard_container: Any) -> None:
+async def test_a_graph_recorded_twice_is_refused(
+    raw: AsyncDriver, guard_container: Neo4jContainer
+) -> None:
     # Two records can only predate the uniqueness constraint; drop it to build that graph.
     await raw.execute_query("DROP CONSTRAINT MigrationRecord_name_unique IF EXISTS")
     await raw.execute_query(
@@ -203,7 +211,7 @@ async def test_a_graph_recorded_twice_is_refused(raw: Any, guard_container: Any)
 
 
 async def test_a_stateless_record_beside_an_applied_one_is_refused(
-    raw: Any, guard_container: Any
+    raw: AsyncDriver, guard_container: Neo4jContainer
 ) -> None:
     """A record with no state still counts: two records, not one applied."""
     await raw.execute_query("DROP CONSTRAINT MigrationRecord_name_unique IF EXISTS")
@@ -218,7 +226,9 @@ async def test_a_stateless_record_beside_an_applied_one_is_refused(
         await _open(guard_container)
 
 
-async def test_applied_records_open_a_graph_that_holds_data(raw: Any, guard_container: Any) -> None:
+async def test_applied_records_open_a_graph_that_holds_data(
+    raw: AsyncDriver, guard_container: Neo4jContainer
+) -> None:
     await raw.execute_query("CREATE (:Entity:Task {uid: 'task.migrated'})")
     await _applied(raw, UTC_INSTANTS_MIGRATION, UID_GRAMMAR_MIGRATION)
     connection = await _open(guard_container)
@@ -226,7 +236,7 @@ async def test_applied_records_open_a_graph_that_holds_data(raw: Any, guard_cont
 
 
 async def test_the_utc_migration_script_opens_an_unmigrated_graph(
-    raw: Any, guard_container: Any
+    raw: AsyncDriver, guard_container: Neo4jContainer
 ) -> None:
     """The opener that requires no record: the UTC migration, the first of them, must reach
     the graph before any record exists."""
@@ -236,7 +246,7 @@ async def test_the_utc_migration_script_opens_an_unmigrated_graph(
     assert await _records(raw) == [], "an opener requiring nothing neither checks nor stamps"
 
 
-async def test_clean_neo4j_keeps_the_records(clean_neo4j: None, neo4j_driver: Any) -> None:
+async def test_clean_neo4j_keeps_the_records(clean_neo4j: None, neo4j_driver: AsyncDriver) -> None:
     """The shared graph is cleared between tests; a driver opened after it still opens."""
     result = await neo4j_driver.execute_query(
         "MATCH (r:MigrationRecord) RETURN r.name AS name, r.state AS state ORDER BY name"

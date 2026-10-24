@@ -19,7 +19,7 @@ import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
@@ -35,6 +35,10 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
 from core.models.enums.migration_enums import MigrationState
 from tests.unit.utils.test_uid_grammar import FITTING, OUTSIDE, SHAPE_ONLY
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+    from testcontainers.community.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
 pytestmark = [
     pytest.mark.asyncio(loop_scope="session"),
@@ -59,7 +63,7 @@ stamp = _load()
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def graph(scratch_neo4j_container: Any) -> AsyncIterator[Any]:
+async def graph(scratch_neo4j_container: Neo4jContainer) -> AsyncIterator[AsyncDriver]:
     """A driver onto the scratch container, emptied but for an applied UTC record."""
     driver = open_async_driver(
         scratch_neo4j_container.get_connection_url(), auth=("neo4j", "unused")
@@ -76,7 +80,9 @@ async def graph(scratch_neo4j_container: Any) -> AsyncIterator[Any]:
 
 
 @pytest.fixture
-def to_the_scratch_graph(scratch_neo4j_container: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+def to_the_scratch_graph(
+    scratch_neo4j_container: Neo4jContainer, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """``main()``'s ``Neo4jConnection`` opens the scratch container."""
     import adapters.persistence.neo4j.neo4j_connection as connection
 
@@ -88,7 +94,7 @@ def to_the_scratch_graph(scratch_neo4j_container: Any, monkeypatch: pytest.Monke
     monkeypatch.setattr(connection, "Neo4jConnection", opener)
 
 
-async def _uid_record(graph: Any) -> list[dict[str, Any]]:
+async def _uid_record(graph: AsyncDriver) -> list[dict[str, object]]:
     result = await graph.execute_query(
         "MATCH (r:MigrationRecord {name: $name}) "
         "RETURN r.state AS state, r.stamped AS stamped, r.uids AS uids",
@@ -102,7 +108,7 @@ async def _run(capsys: pytest.CaptureFixture[str], *args: str) -> tuple[int, str
     return code, capsys.readouterr().out
 
 
-async def test_the_server_filter_reads_every_sample_as_classify_does(graph: Any) -> None:
+async def test_the_server_filter_reads_every_sample_as_classify_does(graph: AsyncDriver) -> None:
     misfits = [*OUTSIDE, *SHAPE_ONLY]
     await graph.execute_query(
         "UNWIND $uids AS uid CREATE (:Probe {uid: uid})", uids=[*FITTING, *misfits]
@@ -121,7 +127,7 @@ async def test_the_server_filter_reads_every_sample_as_classify_does(graph: Any)
     assert (breaches.shared, breaches.shared_sample) == (1, ("task.shared",))
 
 
-async def test_a_graph_that_fits_reads_no_breach(graph: Any) -> None:
+async def test_a_graph_that_fits_reads_no_breach(graph: AsyncDriver) -> None:
     await graph.execute_query("UNWIND $uids AS uid CREATE (:Probe {uid: uid})", uids=FITTING)
     backend = UidCensusBackend(Neo4jQueryExecutor(graph))
     breaches = (await backend.read_breaches(sample=5)).value
@@ -130,7 +136,7 @@ async def test_a_graph_that_fits_reads_no_breach(graph: Any) -> None:
 
 @pytest.mark.usefixtures("to_the_scratch_graph")
 async def test_the_stamp_waits_on_a_census_that_passes(
-    graph: Any, capsys: pytest.CaptureFixture[str]
+    graph: AsyncDriver, capsys: pytest.CaptureFixture[str]
 ) -> None:
     await graph.execute_query(
         "CREATE (:Entity:Task {uid: 'task_3f9a0c41d2e87b65'}) "
@@ -158,7 +164,7 @@ async def test_the_stamp_waits_on_a_census_that_passes(
 
 @pytest.mark.usefixtures("to_the_scratch_graph")
 async def test_the_app_opens_the_graph_once_it_is_stamped(
-    graph: Any, scratch_neo4j_container: Any, capsys: pytest.CaptureFixture[str]
+    graph: AsyncDriver, scratch_neo4j_container: Neo4jContainer, capsys: pytest.CaptureFixture[str]
 ) -> None:
     await graph.execute_query("CREATE (:Entity:Task {uid: 'task_3f9a0c41d2e87b65'})")
     assert (await _run(capsys, "--confirm"))[0] == 0
@@ -171,7 +177,7 @@ async def test_the_app_opens_the_graph_once_it_is_stamped(
 
 @pytest.mark.usefixtures("to_the_scratch_graph")
 async def test_a_record_in_another_state_stops_the_stamp(
-    graph: Any, capsys: pytest.CaptureFixture[str]
+    graph: AsyncDriver, capsys: pytest.CaptureFixture[str]
 ) -> None:
     await graph.execute_query(
         "CREATE (:Entity:Task {uid: 'task_3f9a0c41d2e87b65'}) "
