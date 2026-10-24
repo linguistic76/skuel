@@ -455,7 +455,7 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
   uid. The `user_{username}` uids were renamed in place to `hashed_uid("user", old uid)` by
   `scripts/migrations/user_uids_2026_10.py`, with the uids derived from them (periodic notes,
   default groups), every value naming one, and the vault frontmatter lines (`teacher:`,
-  `user_uid:`, `ownership:`) that name one. A configured owner (`SKUEL_DEFAULT_USER_UID`,
+  `user_uid:`, `ownership:`) that name one; every stored username was folded to the rule. A configured owner (`SKUEL_DEFAULT_USER_UID`,
   `SKUEL_PERSONAL_VAULT_OWNER`, `SKUEL_CONTENT_VAULT_OWNER`, now required) is refused at boot
   unless it is a user uid.
 - **Every generated uid has one shape**, `{prefix}_{16 hex}` — 64 bits, random or hashed; no
