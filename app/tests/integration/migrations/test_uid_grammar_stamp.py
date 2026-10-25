@@ -134,6 +134,9 @@ async def test_a_graph_that_fits_reads_no_breach(graph: AsyncDriver) -> None:
 
 
 @pytest.mark.usefixtures("to_the_scratch_graph")
+@pytest.mark.outside_uid_grammar(
+    "seeds a group uid outside the grammar on a scratch container", static_only=True
+)
 async def test_the_stamp_waits_on_a_census_that_passes(
     graph: AsyncDriver, capsys: pytest.CaptureFixture[str]
 ) -> None:

@@ -61,20 +61,20 @@ class TestUnifiedUserContextBasics:
             email="test@example.com",
             display_name="Test User",
             # Task awareness
-            active_task_uids=["task:1", "task:2"],
-            current_task_focus="task:1",
-            task_priorities={"task:1": 0.9, "task:2": 0.5},
-            completed_task_uids={"task:100", "task:101"},
-            overdue_task_uids=["task:3"],
-            today_task_uids=["task:1"],
+            active_task_uids=["task.1", "task.2"],
+            current_task_focus="task.1",
+            task_priorities={"task.1": 0.9, "task.2": 0.5},
+            completed_task_uids={"task.100", "task.101"},
+            overdue_task_uids=["task.3"],
+            today_task_uids=["task.1"],
             # Goal awareness
-            active_goal_uids=["goal:1"],
-            primary_goal_focus="goal:1",
-            goal_progress={"goal:1": 0.6},
+            active_goal_uids=["goal.1"],
+            primary_goal_focus="goal.1",
+            goal_progress={"goal.1": 0.6},
             # Habit awareness
-            active_habit_uids=["habit:1", "habit:2"],
-            habit_streaks={"habit:1": 30, "habit:2": 7},
-            habit_completion_rates={"habit:1": 0.95, "habit:2": 0.75},
+            active_habit_uids=["habit.1", "habit.2"],
+            habit_streaks={"habit.1": 30, "habit.2": 7},
+            habit_completion_rates={"habit.1": 0.95, "habit.2": 0.75},
             # Knowledge awareness
             knowledge_mastery={"ku.python": 0.8, "ku.testing": 0.6},
             mastered_knowledge_uids={"ku.python"},
@@ -93,9 +93,9 @@ class TestUnifiedUserContextBasics:
         # Verify all fields set correctly
         assert context.user_uid == seed_user_uid("test")
         assert len(context.active_task_uids) == 2
-        assert context.task_priorities["task:1"] == 0.9
-        assert context.goal_progress["goal:1"] == 0.6
-        assert context.habit_streaks["habit:1"] == 30
+        assert context.task_priorities["task.1"] == 0.9
+        assert context.goal_progress["goal.1"] == 0.6
+        assert context.habit_streaks["habit.1"] == 30
         assert context.knowledge_mastery["ku.python"] == 0.8
         assert context.life_path_uid == "lp.engineer"
         assert context.learning_level == LearningLevel.ADVANCED
@@ -179,10 +179,10 @@ class TestIntelligenceMethods:
         context = UserContext(
             user_uid=seed_user_uid("test"),
             username="testuser",
-            ready_to_learn_uids={"ku.web_dev", "ku.advanced-python"},
+            ready_to_learn_uids={"ku.web-dev", "ku.advanced-python"},
         )
 
-        assert context.get_ready_to_learn() == ["ku.advanced-python", "ku.web_dev"]
+        assert context.get_ready_to_learn() == ["ku.advanced-python", "ku.web-dev"]
 
     def test_unmet_prerequisites_are_the_prerequisites_not_mastered(self):
         """A Ku is blocked while one of its prerequisites is unmastered."""
@@ -191,33 +191,33 @@ class TestIntelligenceMethods:
             username="testuser",
             ku_prerequisites={
                 "ku.advanced-python": {"ku.python"},
-                "ku.web_dev": {"ku.python", "ku.html"},
+                "ku.web-dev": {"ku.python", "ku.html"},
                 "ku.python": set(),
             },
             mastered_knowledge_uids={"ku.python"},
         )
 
-        assert context.unmet_prerequisites("ku.web_dev") == {"ku.html"}
+        assert context.unmet_prerequisites("ku.web-dev") == {"ku.html"}
         assert context.unmet_prerequisites("ku.advanced-python") == set()
         assert context.unmet_prerequisites("ku.unknown") == set()
-        assert context.unmet_prerequisites_by_ku() == {"ku.web_dev": {"ku.html"}}
-        assert context.blocked_knowledge_uids == {"ku.web_dev"}
+        assert context.unmet_prerequisites_by_ku() == {"ku.web-dev": {"ku.html"}}
+        assert context.blocked_knowledge_uids == {"ku.web-dev"}
 
     def test_active_goals_requiring_reads_goal_knowledge_required(self):
         """Only active goals that require the Ku answer, in active-goal order."""
         context = UserContext(
             user_uid=seed_user_uid("test"),
             username="testuser",
-            active_goal_uids=["goal_b", "goal_a"],
+            active_goal_uids=["goal.b", "goal.a"],
             goal_knowledge_required={
-                "goal_a": ["ku.python"],
-                "goal_b": ["ku.python", "ku.html"],
+                "goal.a": ["ku.python"],
+                "goal.b": ["ku.python", "ku.html"],
                 "goal_done": ["ku.python"],
             },
         )
 
-        assert context.active_goals_requiring("ku.python") == ["goal_b", "goal_a"]
-        assert context.active_goals_requiring("ku.html") == ["goal_b"]
+        assert context.active_goals_requiring("ku.python") == ["goal.b", "goal.a"]
+        assert context.active_goals_requiring("ku.html") == ["goal.b"]
 
     def test_estimated_minutes_reads_an_in_progress_step_else_the_default(self):
         """A step the user has in progress answers its own minutes; a Ku the default."""
@@ -288,7 +288,7 @@ class TestPropertyCalculations:
             knowledge_mastery={
                 "ku.python": 0.8,
                 "ku.testing": 0.6,
-                "ku:docker": 0.9,
+                "ku.docker": 0.9,
             },
         )
 
@@ -301,20 +301,20 @@ class TestPropertyCalculations:
             user_uid=seed_user_uid("test"),
             username="testuser",
             knowledge_mastery={
-                "ku:mastered": 0.9,  # Above review range
-                "ku:needs_review_1": 0.6,  # In review range
-                "ku:needs_review_2": 0.5,  # In review range
-                "ku:forgotten": 0.2,  # Below review range
+                "ku.mastered": 0.9,  # Above review range
+                "ku.needs-review-1": 0.6,  # In review range
+                "ku.needs-review-2": 0.5,  # In review range
+                "ku.forgotten": 0.2,  # Below review range
             },
         )
 
         needs_review = context.concepts_needing_review
 
         assert len(needs_review) == 2
-        assert "ku:needs_review_1" in needs_review
-        assert "ku:needs_review_2" in needs_review
-        assert "ku:mastered" not in needs_review
-        assert "ku:forgotten" not in needs_review
+        assert "ku.needs-review-1" in needs_review
+        assert "ku.needs-review-2" in needs_review
+        assert "ku.mastered" not in needs_review
+        assert "ku.forgotten" not in needs_review
 
 
 class TestCrossDomainRelationships:
@@ -326,15 +326,15 @@ class TestCrossDomainRelationships:
             user_uid=seed_user_uid("test"),
             username="testuser",
             tasks_by_goal={
-                "goal:1": ["task:1", "task:2"],
-                "goal:2": ["task:3"],
+                "goal.1": ["task.1", "task.2"],
+                "goal.2": ["task.3"],
             },
         )
 
         assert context.tasks_by_goal is not None
-        assert len(context.tasks_by_goal["goal:1"]) == 2
-        assert "task:1" in context.tasks_by_goal["goal:1"]
-        assert len(context.tasks_by_goal["goal:2"]) == 1
+        assert len(context.tasks_by_goal["goal.1"]) == 2
+        assert "task.1" in context.tasks_by_goal["goal.1"]
+        assert len(context.tasks_by_goal["goal.2"]) == 1
 
     def test_habits_by_goal_relationship(self):
         """Should maintain habit-goal relationships"""
@@ -342,14 +342,14 @@ class TestCrossDomainRelationships:
             user_uid=seed_user_uid("test"),
             username="testuser",
             habits_by_goal={
-                "goal:fitness": ["habit:run", "habit:yoga"],
-                "goal:learning": ["habit:read"],
+                "goal.fitness": ["habit.run", "habit.yoga"],
+                "goal.learning": ["habit.read"],
             },
         )
 
         assert context.habits_by_goal is not None
-        assert len(context.habits_by_goal["goal:fitness"]) == 2
-        assert "habit:run" in context.habits_by_goal["goal:fitness"]
+        assert len(context.habits_by_goal["goal.fitness"]) == 2
+        assert "habit.run" in context.habits_by_goal["goal.fitness"]
 
     def test_events_by_habit_relationship(self):
         """Should maintain event-habit relationships"""
@@ -357,11 +357,11 @@ class TestCrossDomainRelationships:
             user_uid=seed_user_uid("test"),
             username="testuser",
             events_by_habit={
-                "habit:meditation": ["event:1", "event:2", "event:3"],
+                "habit.meditation": ["event.1", "event.2", "event.3"],
             },
         )
 
-        assert len(context.events_by_habit["habit:meditation"]) == 3
+        assert len(context.events_by_habit["habit.meditation"]) == 3
 
 
 class TestWorkloadAndCapacity:

@@ -26,7 +26,7 @@ from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("temporal_split")
-HABIT = "habit.temporal_split"
+HABIT = "habit.temporal-split"
 
 NOW = datetime.now()
 LOW = datetime.combine((NOW - timedelta(days=29)).date(), time.min)

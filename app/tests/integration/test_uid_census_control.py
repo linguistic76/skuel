@@ -6,6 +6,8 @@ one uid two nodes hold — and carries ``outside_uid_grammar``. A marked test th
 wrote no breach the census saw fails as a stale marker (``_uid_census.py``), so
 each of these fails the day the census stops reading its graph or stops
 recognising the breach. The nodes are deleted after the census has read them.
+The last control's ``static_only`` marker excuses nothing the census sees, so it
+fails — an expected failure, held strict.
 """
 
 from collections.abc import AsyncIterator
@@ -69,3 +71,15 @@ async def test_the_census_reads_a_uid_two_nodes_hold(shared_graph: AsyncDriver) 
 )
 async def test_the_census_reads_the_apps_graph(app_graph: AsyncDriver) -> None:
     await _write(app_graph, "CREATE (:Entity:Task {uid: $outside})")
+
+
+@pytest.mark.xfail(
+    strict=True, reason="a static_only marker is held as no marker: a breach it sees fails"
+)
+@pytest.mark.outside_uid_grammar(
+    "the census's control: static_only, on a uid the census does see", static_only=True
+)
+async def test_a_static_only_marker_does_not_excuse_a_breach_the_census_sees(
+    shared_graph: AsyncDriver,
+) -> None:
+    await _write(shared_graph, "CREATE (:Entity:Task {uid: 'task_zzzuidcensuscontrol'})")

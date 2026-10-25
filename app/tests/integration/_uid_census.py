@@ -23,6 +23,12 @@ migration reads, a refusal path — carries
 leaves behind is never laid on the next test, and a marked test that wrote no
 breach — or reached no graph the census reads — fails: the marker is stale.
 ``test_uid_census_control.py`` holds one such test per breach and graph.
+
+A uid this census never sees — written to a scratch container, or named and never
+written — is held by the static census instead
+(``tests/unit/test_integration_seed_uids.py``), which reads every uid literal in
+``tests/integration`` at the edit. Its test's marker says ``static_only=True``, and
+this census holds that test as unmarked: a breach it does see fails it.
 """
 
 from __future__ import annotations
@@ -94,9 +100,13 @@ def census_call(item: pytest.Item) -> Generator[None, object, object]:
     """Wrap a test's call: read its graphs before and after the body, fail on its breaches."""
     global _runner
     drivers = _drivers(item)
+    marker = item.get_closest_marker(MARKER)
+    static_only = marker is not None and marker.kwargs.get("static_only") is True
     if not drivers:
         outcome = yield
-        if item.get_closest_marker(MARKER) is not None:
+        if static_only:
+            _require_reason(marker)
+        elif marker is not None:
             pytest.fail(
                 f"@pytest.mark.{MARKER} is on a test that reaches no graph the census reads — "
                 "delete the marker",
@@ -131,12 +141,11 @@ def census_call(item: pytest.Item) -> Generator[None, object, object]:
         raise
     settle()
     breaches = {name: sorted(found) for name, found in written.items() if found}
-    marker = item.get_closest_marker(MARKER)
-    if marker is None:
+    if marker is not None:
+        _require_reason(marker)
+    if marker is None or static_only:
         if breaches:
-            pytest.fail(_message(breaches), pytrace=False)
-    elif not marker.args or not str(marker.args[0]).strip():
-        pytest.fail(f"@pytest.mark.{MARKER} takes the reason as its argument", pytrace=False)
+            pytest.fail(_message(breaches, static_only=static_only), pytrace=False)
     elif not breaches:
         pytest.fail(
             f"@pytest.mark.{MARKER} is on a test that wrote every uid in the grammar — "
@@ -146,7 +155,12 @@ def census_call(item: pytest.Item) -> Generator[None, object, object]:
     return outcome
 
 
-def _message(breaches: dict[str, list[str]]) -> str:
+def _require_reason(marker: pytest.Mark) -> None:
+    if not marker.args or not str(marker.args[0]).strip():
+        pytest.fail(f"@pytest.mark.{MARKER} takes the reason as its argument", pytrace=False)
+
+
+def _message(breaches: dict[str, list[str]], *, static_only: bool = False) -> str:
     lines = ["the test wrote uids the uid grammar refuses (core/utils/uid_grammar.py):"]
     for name, found in breaches.items():
         lines.append(f"  {name}:")
@@ -157,4 +171,9 @@ def _message(breaches: dict[str, list[str]]) -> str:
         "Seed authored uids ({prefix}.{slug}) or the user uids tests/helpers/seed_uids.py "
         f"mints; a test that writes one on purpose carries @pytest.mark.{MARKER}(reason)."
     )
+    if static_only:
+        lines.append(
+            "Its marker says static_only=True — a uid this census never sees — but it saw "
+            "these: drop static_only."
+        )
     return "\n".join(lines)

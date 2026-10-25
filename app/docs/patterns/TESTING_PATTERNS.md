@@ -1,6 +1,6 @@
 ---
 title: Testing Patterns
-updated: 2026-10-24
+updated: 2026-10-25
 category: patterns
 related_skills:
 - pytest
@@ -325,7 +325,11 @@ Task(uid="task.001", title="t", user_uid=seed_user_uid("alice"))
 After each integration test the census reads its graph against the uid grammar
 (`tests/integration/_uid_census.py`) and fails the test on a uid it wrote outside it, or
 one two nodes hold. A test that writes one on purpose carries
-`@pytest.mark.outside_uid_grammar("why")`.
+`@pytest.mark.outside_uid_grammar("why")`. What that read cannot see — a uid created and
+deleted inside one body, one on a scratch container, one a property names — the static
+census (`tests/unit/test_integration_seed_uids.py`) reads from the source, every uid
+literal in `tests/integration`; a uid only it sees is marked
+`outside_uid_grammar("why", static_only=True)`.
 
 ### ❌ Don't Assume Mock Methods
 

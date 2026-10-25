@@ -427,7 +427,7 @@ class TestGoalsForTasksBatch:
         assert {g.uid for g in goals_by_task["task.review-xdq"]} == {"goal.ship-xdq"}
 
     async def test_missing_task_absent_from_map(self, service, graph):
-        result = await service.get_goals_for_tasks_batch(task_uids=["task_nonexistent"])
+        result = await service.get_goals_for_tasks_batch(task_uids=["task.nonexistent"])
 
         assert result.is_ok
         assert result.value == {}

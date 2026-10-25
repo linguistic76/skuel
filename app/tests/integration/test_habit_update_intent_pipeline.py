@@ -188,10 +188,10 @@ class TestHabitUpdateIntentPipeline:
         """The four edge-UID request fields are graph edges, never node properties."""
         request = HabitUpdateRequest(
             title="Edges plus a prop",
-            linked_knowledge_uids=["ku_y"],
-            linked_goal_uids=["goal_x"],
-            linked_principle_uids=["principle_z"],
-            prerequisite_habit_uids=["habit_w"],
+            linked_knowledge_uids=["ku.y"],
+            linked_goal_uids=["goal.x"],
+            linked_principle_uids=["principle.z"],
+            prerequisite_habit_uids=["habit.w"],
         )
         intent = request.to_intent()
 

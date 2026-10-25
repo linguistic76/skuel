@@ -140,9 +140,9 @@ class TestGoalUpdateIntentPipeline:
         """Edge-UID request fields are graph edges, never carried as node properties."""
         request = GoalUpdateRequest(
             title="Edges plus a prop",
-            supporting_habit_uids=["habit_x"],
-            required_knowledge_uids=["ku_y"],
-            supporting_principle_uids=["principle_z"],
+            supporting_habit_uids=["habit.x"],
+            required_knowledge_uids=["ku.y"],
+            supporting_principle_uids=["principle.z"],
         )
         intent = request.to_intent()
 

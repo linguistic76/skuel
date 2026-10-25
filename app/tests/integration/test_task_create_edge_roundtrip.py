@@ -596,7 +596,7 @@ class TestGoalEdgeRoundTrip:
     ) -> None:
         """Not an attack — a goal deleted since the form rendered, or a DSL ``@link`` typo."""
         task = await tasks_service.create_task(
-            task_request(contributes_to_goal_uids=["goal:gone"]), test_user_uid
+            task_request(contributes_to_goal_uids=["goal.gone"]), test_user_uid
         )
         assert task.is_ok
 

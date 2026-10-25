@@ -65,8 +65,8 @@ class TestChoiceUpdateIntentPipeline:
             priority=Priority.MEDIUM,
             status=EntityStatus.DRAFT,
             options=(
-                ChoiceOption(uid="option_a", title="Option A"),
-                ChoiceOption(uid="option_b", title="Option B"),
+                ChoiceOption(uid="option.a", title="Option A"),
+                ChoiceOption(uid="option.b", title="Option B"),
             ),
         )
         result = await core_service.create(choice)

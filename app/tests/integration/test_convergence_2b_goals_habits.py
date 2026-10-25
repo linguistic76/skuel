@@ -34,8 +34,10 @@ from core.services.infrastructure.graph_intelligence_service import GraphIntelli
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.seed_uids import seed_user_uid
 
 P = "conv2b."  # uid prefix for this module's fixture graph
+OWNER = seed_user_uid("conv2b")  # the origin's owner — no User node
 
 # --- Goals fixture graph ---
 GOAL = P + "goal"
@@ -145,8 +147,9 @@ async def test_goals_registry_sourced_through_get_with_context(
             # user-owned and requires a user_uid (the neighbours are returned as raw nodes).
             await s.run(
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
-                f"status:'active', user_uid:'conv2b_user', created_at:datetime()}})",
+                f"status:'active', user_uid:$owner, created_at:datetime()}})",
                 u=uid,
+                owner=OWNER,
                 t=etype,
             )
         await s.run(
@@ -208,8 +211,9 @@ async def test_habits_registry_sourced_through_get_with_context(
             # user-owned and requires a user_uid (the neighbours are returned as raw nodes).
             await s.run(
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
-                f"status:'active', user_uid:'conv2b_user', created_at:datetime()}})",
+                f"status:'active', user_uid:$owner, created_at:datetime()}})",
                 u=uid,
+                owner=OWNER,
                 t=etype,
             )
         await s.run(

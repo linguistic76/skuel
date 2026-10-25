@@ -138,7 +138,7 @@ class TestChoiceKnowledgeEdgeRoundTrip:
             priority=Priority.HIGH,
             informed_by_knowledge_uids=[
                 "ku.decision-theory-abc",
-                "ku_does_not_exist_000",
+                "ku.does-not-exist",
                 "task.compare-vendors-xyz",
             ],
         )
