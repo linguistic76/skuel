@@ -25,7 +25,7 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
                 cls=ButtonT.primary,
                 size="lg",
             ),
-            cls="container mx-auto px-4 py-8 text-center",
+            cls="container mx-auto py-8 text-center",
         )
 
     # Has vision - show summary
@@ -88,7 +88,7 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
         ),
         # Daily focus
         render_daily_focus(status.get("daily_focus")),
-        cls="container mx-auto px-4 py-8",
+        cls="container mx-auto py-8",
     )
 
 

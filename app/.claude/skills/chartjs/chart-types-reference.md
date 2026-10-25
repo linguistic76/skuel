@@ -217,7 +217,7 @@ at `ChartColor.AREA_ALPHA` for the fill and full alpha for the line and points:
 {
     "type": "radar",
     "data": {
-        "labels": ["Knowledge", "Activity", "Goals", "Principles", "Momentum"],
+        "labels": ["Knowledge", "Activity", "Goal", "Principle", "Momentum"],
         "datasets": [{
             "label": "Your Alignment",
             "data": [0.8, 0.6, 0.7, 0.5, 0.4],       # dimension scores, 0.0–1.0
@@ -229,11 +229,17 @@ at `ChartColor.AREA_ALPHA` for the fill and full alpha for the line and points:
         }],
     },
     "options": {
-        "scales": {"r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2}}},
+        "scales": {"r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2, "display": False}}},
         "plugins": {"legend": {"display": False}},
     },
 }
 ```
+
+The axis labels are the names the score rows under the radar print
+(`render_alignment_dashboard`). The scale draws no tick numbers: Chart.js draws a radar's
+ticks along its first axis, where a point covers them, and the rows print every score.
+`tests/unit/adapters/test_lifepath_alignment_chart_route.py` pins the config byte for byte
+and the labels against the rows.
 
 Without a designation the alignment carries no dimensions, and the radar draws its
 frame at zero. A failed alignment read is an error status, which the
@@ -259,7 +265,7 @@ options = {
         "x": {"stacked": True, "title": {"display": True, "text": "X"}},
         "y": {"stacked": True, "beginAtZero": True, "max": 100,
               "ticks": {"stepSize": 1}},
-        # radar: "r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2}}
+        # radar: "r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2, "display": False}}
     },
     "interaction": {"intersect": False, "mode": "index"},
     "animation": {"duration": 750},

@@ -296,7 +296,7 @@ Chart.js draws on a canvas, so the theme's CSS never reaches a chart. `SKUEL.cha
 |------------------|-------|-----------------------------------|
 | `Chart.defaults.color` (legend, title, ticks, radar point labels) | `--muted-foreground` | 4.75:1 / 7.80:1 |
 | `Chart.defaults.borderColor` (grid, axis lines, radar web) | `--border` | 1.23:1 / 1.37:1 |
-| `Chart.defaults.scale.ticks.backdropColor` (the radar's tick boxes) | `--card` at 0.75 | the surface |
+| `Chart.defaults.scale.ticks.backdropColor` (a radial scale's tick boxes; the radar hides its ticks) | `--card` at 0.75 | the surface |
 | `Chart.defaults.elements.arc.borderColor` (doughnut separators) | `--card` | the surface |
 
 Grid lines stay under 3:1 on purpose: no chart needs them to be read (ticks and tooltips
