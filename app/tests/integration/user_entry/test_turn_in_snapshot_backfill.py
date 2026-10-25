@@ -53,7 +53,7 @@ migration = _load_migration()
 STUDENT = seed_user_uid("bf_student")
 EX_LIVE = "ex.bf-live"
 EX_ROOT_OF_RE = "ex.bf-root-of-re"
-EX_GONE_ORIG = "ex_bf_gone_original"  # named by a revision's property, no node
+EX_GONE_ORIG = "ex.bf-gone-original"  # named by a revision's property, no node
 RE_ORPHAN = "re.bf-orphan"  # revision whose original is gone
 RE_LIVE = "re.bf-live"  # revision with a live REVISES_EXERCISE original
 RE_BY_PROP = "re.bf-by-prop"  # live revision a property names; original gone
@@ -93,7 +93,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 user_uid: $student, fulfills_exercise_uid: $re_by_prop})
             CREATE (pg:Entity:UserEntry {uid: $e_prop_gone, entity_type: 'user_entry',
                 title: 'property names nothing live', pipeline: 'llm_summary',
-                user_uid: $student, fulfills_exercise_uid: 'ex_bf_vanished'})
+                user_uid: $student, fulfills_exercise_uid: 'ex.bf-vanished'})
             CREATE (io:Entity:UserEntry {uid: $e_intent_only, entity_type: 'user_entry',
                 title: 'living vault note', pipeline: 'none',
                 user_uid: $student, fulfills_exercise_uid: $ex_live})
@@ -177,7 +177,7 @@ class TestBackfill:
         assert snaps[E_PROP_RE] == (EX_GONE_ORIG, "Named revision"), (
             "the property resolves through the live revision's original_exercise_uid"
         )
-        assert snaps[E_PROP_GONE] == ("ex_bf_vanished", EXERCISE_REMOVED_TITLE)
+        assert snaps[E_PROP_GONE] == ("ex.bf-vanished", EXERCISE_REMOVED_TITLE)
         assert snaps[E_INTENT_ONLY] == (None, None), "a living vault note is not a turn-in"
         assert snaps[E_STAMPED] == (EX_LIVE, "Live (as submitted)"), (
             "an existing snapshot is never rewritten"

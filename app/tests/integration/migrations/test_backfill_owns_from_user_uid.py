@@ -38,6 +38,10 @@ import pytest
 
 from tests.helpers.seed_uids import seed_user_uid
 
+pytestmark = pytest.mark.outside_uid_grammar(
+    "seeds the retired user_system account, which the 2026-07 backfill excludes by its literal uid"
+)
+
 MIGRATION_PATH = (
     Path(__file__).resolve().parents[3]
     / "scripts"
@@ -138,9 +142,6 @@ async def _count(neo4j_driver, query: str, **params) -> int:
 
 
 @pytest.mark.asyncio
-@pytest.mark.outside_uid_grammar(
-    "seeds the retired user_system account, which the 2026-07 backfill excludes by its literal uid"
-)
 async def test_backfill_creates_owns_edges_from_user_uid(
     clean_neo4j,
     neo4j_driver,

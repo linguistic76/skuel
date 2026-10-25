@@ -547,7 +547,7 @@ markers = [
     "integration: Integration tests",
     "slow: Slow running tests",
     "asyncio: Async tests",
-    "outside_uid_grammar(reason): writes a uid outside the uid grammar on purpose — the integration uid census does not fail it (tests/integration/_uid_census.py)"
+    "outside_uid_grammar(reason, static_only=False): writes a uid outside the uid grammar on purpose — the integration uid census does not fail it (tests/integration/_uid_census.py); static_only=True when that census never sees the uid, which the static census then holds (tests/unit/test_integration_seed_uids.py)"
 ]
 
 # Async test configuration

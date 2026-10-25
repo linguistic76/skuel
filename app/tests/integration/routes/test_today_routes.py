@@ -697,7 +697,7 @@ class TestCsrfProtection:
         self, handlers: dict[str, Any], path: str
     ) -> None:
         request = _make_request(csrf=False)  # authenticated, but no CSRF cookie/token
-        response = await handlers[path](request=request, uid="x_001")
+        response = await handlers[path](request=request, uid="task.001")
         assert response.status_code == 403
 
     async def test_quick_add_without_csrf_token_is_forbidden(

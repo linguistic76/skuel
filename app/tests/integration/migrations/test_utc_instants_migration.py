@@ -82,7 +82,7 @@ pytestmark = [
 TEACHER = seed_user_uid("utcmig_teacher")
 STUDENT = seed_user_uid("utcmig_student")
 ADMIN = seed_user_uid("utcmig_admin")
-CLASS = "group.utcmig_class"
+CLASS = "group.utcmig-class"
 
 
 def _at(stamp: str) -> float:

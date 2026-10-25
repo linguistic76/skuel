@@ -157,6 +157,9 @@ async def test_a_graph_holding_data_with_no_record_is_refused(
     assert await _records(raw) == [], "a refused graph is not stamped"
 
 
+@pytest.mark.outside_uid_grammar(
+    "seeds a pre-grammar group uid on a scratch container", static_only=True
+)
 async def test_a_graph_holding_data_without_the_uid_record_is_refused_with_its_remedy(
     raw: AsyncDriver, guard_container: Neo4jContainer
 ) -> None:
@@ -171,6 +174,9 @@ async def test_a_graph_holding_data_without_the_uid_record_is_refused_with_its_r
     assert "uid_grammar_2026_10.py --confirm" in message
 
 
+@pytest.mark.outside_uid_grammar(
+    "seeds a pre-grammar group uid on a scratch container", static_only=True
+)
 async def test_a_uid_script_opens_a_graph_without_the_uid_record(
     raw: AsyncDriver, guard_container: Neo4jContainer
 ) -> None:

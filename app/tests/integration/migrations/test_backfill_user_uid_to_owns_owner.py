@@ -28,6 +28,12 @@ import pytest
 
 from tests.helpers.seed_uids import seed_user_uid
 
+pytestmark = pytest.mark.outside_uid_grammar(
+    "seeds the retired user_system stamp as a user_uid property, which the runtime census "
+    "does not read",
+    static_only=True,
+)
+
 MIGRATION_PATH = (
     Path(__file__).resolve().parents[3]
     / "scripts"

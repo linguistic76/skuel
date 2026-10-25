@@ -194,7 +194,7 @@ class TestEventUpdateIntentPipeline:
         real edge fields and the node property survive."""
         request = EventUpdateRequest(
             title="Edges plus junk",
-            practices_knowledge_uids=["ku_x"],
+            practices_knowledge_uids=["ku.x"],
             executes_tasks=["task:y"],
             milestone_celebration_for_goal="goal:z",
             reinforces_habit_uid="habit.w",

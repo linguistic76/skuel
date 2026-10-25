@@ -30,9 +30,9 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 OWNER = seed_user_uid("rsr_owner")
 OTHER = seed_user_uid("rsr_other")
-EX = "ex_rsr_main"
-EX_TRAP = "ex_rsr_trap"
-EX_CROSS = "ex_rsr_cross"
+EX = "ex.rsr-main"
+EX_TRAP = "ex.rsr-trap"
+EX_CROSS = "ex.rsr-cross"
 
 
 @pytest.fixture

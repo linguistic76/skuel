@@ -32,19 +32,19 @@ class TestTaskQueryMethods:
             user_uid=seed_user_uid("test"),
             username="testuser",
             tasks_by_goal={
-                "goal:launch_app": ["task:1", "task:2", "task:3"],
-                "goal.learn-python": ["task:4"],
+                "goal.launch-app": ["task.1", "task.2", "task.3"],
+                "goal.learn-python": ["task.4"],
             },
         )
 
-        launch_tasks = context.get_tasks_for_goal("goal:launch_app")
+        launch_tasks = context.get_tasks_for_goal("goal.launch-app")
         python_tasks = context.get_tasks_for_goal("goal.learn-python")
-        nonexistent_tasks = context.get_tasks_for_goal("goal:nonexistent")
+        nonexistent_tasks = context.get_tasks_for_goal("goal.nonexistent")
 
         assert len(launch_tasks) == 3
-        assert "task:1" in launch_tasks
+        assert "task.1" in launch_tasks
         assert len(python_tasks) == 1
-        assert "task:4" in python_tasks
+        assert "task.4" in python_tasks
         assert len(nonexistent_tasks) == 0  # Returns empty list for missing goal
 
     def test_get_blocked_tasks(self):
@@ -52,14 +52,14 @@ class TestTaskQueryMethods:
         context = RichUserContext(
             user_uid=seed_user_uid("test"),
             username="testuser",
-            blocked_task_uids={"task:blocked_1", "task:blocked_2"},
+            blocked_task_uids={"task.blocked-1", "task.blocked-2"},
         )
 
         blocked = context.get_blocked_tasks()
 
         assert len(blocked) == 2
-        assert "task:blocked_1" in blocked
-        assert "task:blocked_2" in blocked
+        assert "task.blocked-1" in blocked
+        assert "task.blocked-2" in blocked
 
 
 class TestEventQueryMethods:
@@ -71,17 +71,17 @@ class TestEventQueryMethods:
             user_uid=seed_user_uid("test"),
             username="testuser",
             events_by_habit={
-                "habit:meditation": ["event:1", "event:2", "event:3"],
-                "habit:exercise": ["event:4"],
+                "habit.meditation": ["event.1", "event.2", "event.3"],
+                "habit.exercise": ["event.4"],
             },
         )
 
-        meditation_events = context.get_events_for_habit("habit:meditation")
-        exercise_events = context.get_events_for_habit("habit:exercise")
-        nonexistent_events = context.get_events_for_habit("habit:nonexistent")
+        meditation_events = context.get_events_for_habit("habit.meditation")
+        exercise_events = context.get_events_for_habit("habit.exercise")
+        nonexistent_events = context.get_events_for_habit("habit.nonexistent")
 
         assert len(meditation_events) == 3
-        assert "event:1" in meditation_events
+        assert "event.1" in meditation_events
         assert len(exercise_events) == 1
         assert len(nonexistent_events) == 0
 
@@ -96,39 +96,39 @@ class TestGoalQueryMethods:
             user_uid=seed_user_uid("test"),
             username="testuser",
             goal_deadlines={
-                "goal:soon": today + timedelta(days=10),  # Within 30 days
-                "goal:urgent": today + timedelta(days=5),  # Within 30 days
-                "goal:later": today + timedelta(days=60),  # Outside 30 days
-                "goal:past": today - timedelta(days=5),  # Past deadline
+                "goal.soon": today + timedelta(days=10),  # Within 30 days
+                "goal.urgent": today + timedelta(days=5),  # Within 30 days
+                "goal.later": today + timedelta(days=60),  # Outside 30 days
+                "goal.past": today - timedelta(days=5),  # Past deadline
             },
-            completed_goal_uids={"goal:finished"},
+            completed_goal_uids={"goal.finished"},
         )
 
         # Default 30-day window
         near_deadline = context.get_goals_nearing_deadline()
         assert len(near_deadline) == 3  # soon, urgent, past
-        assert "goal:soon" in near_deadline
-        assert "goal:urgent" in near_deadline
-        assert "goal:past" in near_deadline  # Overdue counts as near deadline
-        assert "goal:later" not in near_deadline
+        assert "goal.soon" in near_deadline
+        assert "goal.urgent" in near_deadline
+        assert "goal.past" in near_deadline  # Overdue counts as near deadline
+        assert "goal.later" not in near_deadline
 
         # Custom 7-day window
         very_near = context.get_goals_nearing_deadline(days=7)
         assert len(very_near) == 2  # urgent, past
-        assert "goal:urgent" in very_near
-        assert "goal:soon" not in very_near  # 10 days away
+        assert "goal.urgent" in very_near
+        assert "goal.soon" not in very_near  # 10 days away
 
     def test_get_stalled_goals(self):
         """Should return goals with minimal progress"""
         context = UserContext(
             user_uid=seed_user_uid("test"),
             username="testuser",
-            active_goal_uids=["goal:1", "goal:2", "goal:3", "goal:4"],
+            active_goal_uids=["goal.1", "goal.2", "goal.3", "goal.4"],
             goal_progress={
-                "goal:1": 0.05,  # Stalled (5%)
-                "goal:2": 0.09,  # Stalled (9%)
-                "goal:3": 0.50,  # Making progress
-                "goal:4": 0.0,  # Not started / stalled
+                "goal.1": 0.05,  # Stalled (5%)
+                "goal.2": 0.09,  # Stalled (9%)
+                "goal.3": 0.50,  # Making progress
+                "goal.4": 0.0,  # Not started / stalled
             },
         )
 
@@ -136,10 +136,10 @@ class TestGoalQueryMethods:
 
         # Should return goals with <10% progress
         assert len(stalled) == 3
-        assert "goal:1" in stalled
-        assert "goal:2" in stalled
-        assert "goal:4" in stalled
-        assert "goal:3" not in stalled  # Has 50% progress
+        assert "goal.1" in stalled
+        assert "goal.2" in stalled
+        assert "goal.4" in stalled
+        assert "goal.3" not in stalled  # Has 50% progress
 
 
 class TestHabitQueryMethods:
@@ -150,14 +150,14 @@ class TestHabitQueryMethods:
         context = RichUserContext(
             user_uid=seed_user_uid("test"),
             username="testuser",
-            at_risk_habits=["habit:meditation", "habit:exercise"],
+            at_risk_habits=["habit.meditation", "habit.exercise"],
         )
 
         at_risk = context.get_habits_needing_reinforcement()
 
         assert len(at_risk) == 2
-        assert "habit:meditation" in at_risk
-        assert "habit:exercise" in at_risk
+        assert "habit.meditation" in at_risk
+        assert "habit.exercise" in at_risk
 
     def test_get_habits_for_goal(self):
         """Should return habits supporting a specific goal"""
@@ -165,17 +165,17 @@ class TestHabitQueryMethods:
             user_uid=seed_user_uid("test"),
             username="testuser",
             habits_by_goal={
-                "goal:fitness": ["habit:run", "habit:yoga", "habit:diet"],
-                "goal:mindfulness": ["habit:meditation"],
+                "goal.fitness": ["habit.run", "habit.yoga", "habit.diet"],
+                "goal.mindfulness": ["habit.meditation"],
             },
         )
 
-        fitness_habits = context.get_habits_for_goal("goal:fitness")
-        mindfulness_habits = context.get_habits_for_goal("goal:mindfulness")
-        nonexistent_habits = context.get_habits_for_goal("goal:nonexistent")
+        fitness_habits = context.get_habits_for_goal("goal.fitness")
+        mindfulness_habits = context.get_habits_for_goal("goal.mindfulness")
+        nonexistent_habits = context.get_habits_for_goal("goal.nonexistent")
 
         assert len(fitness_habits) == 3
-        assert "habit:run" in fitness_habits
+        assert "habit.run" in fitness_habits
         assert len(mindfulness_habits) == 1
         assert len(nonexistent_habits) == 0
 
@@ -237,9 +237,9 @@ class TestWorkloadQueryMethods:
         context = UserContext(
             user_uid=seed_user_uid("test"),
             username="testuser",
-            active_task_uids=["task:1", "task:2", "task:3"],  # 3 tasks
-            today_event_uids=["event:1", "event:2"],  # 2 events
-            daily_habits=["habit:1"],  # 1 habit
+            active_task_uids=["task.1", "task.2", "task.3"],  # 3 tasks
+            today_event_uids=["event.1", "event.2"],  # 2 events
+            daily_habits=["habit.1"],  # 1 habit
             available_minutes_daily=300,  # 5 hours = 20 items @ 15min each
         )
 
@@ -253,9 +253,9 @@ class TestWorkloadQueryMethods:
         context = UserContext(
             user_uid=seed_user_uid("test"),
             username="testuser",
-            active_task_uids=["task:1", "task:2", "task:3", "task:4", "task:5"],
-            today_event_uids=["event:1", "event:2", "event:3"],
-            daily_habits=["habit:1", "habit:2"],
+            active_task_uids=["task.1", "task.2", "task.3", "task.4", "task.5"],
+            today_event_uids=["event.1", "event.2", "event.3"],
+            daily_habits=["habit.1", "habit.2"],
             available_minutes_daily=60,  # 1 hour = 4 items @ 15min each
         )
 

@@ -431,7 +431,7 @@ class TestGoalHierarchyEdgeRoundTrip:
         goal = await goals_service.create_goal(
             goal_request(
                 title="Goal with one stale link",
-                required_knowledge_uids=["ku_deleted_long_ago", "ku.still-here"],
+                required_knowledge_uids=["ku.deleted-long-ago", "ku.still-here"],
             ),
             test_user_uid,
         )

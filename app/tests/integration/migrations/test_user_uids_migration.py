@@ -38,7 +38,14 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
     from testcontainers.community.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
-pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
+pytestmark = [
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.integration,
+    pytest.mark.outside_uid_grammar(
+        "seeds the old user uid shapes this migration renames, on a scratch container",
+        static_only=True,
+    ),
+]
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts/migrations/user_uids_2026_10.py"
 

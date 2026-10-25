@@ -42,7 +42,7 @@ EX_A = "ex.sum-a"  # one waiting turn-in
 EX_B = "ex.sum-b"  # feedback received (+ excluded outcome-less reflection)
 EX_C = "ex.sum-c"  # revision requested (report exists but revision wins)
 EX_D = "ex.sum-d"  # resubmit via revised edge only → waiting again
-EX_GONE = "ex_sum_gone"  # deleted exercise: snapshot only, no node
+EX_GONE = "ex.sum-gone"  # deleted exercise: snapshot only, no node
 EX_E = "ex.sum-e"  # post-feedback revision, already shared → no nudge
 EX_F = "ex.sum-f"  # the stamp trap: the prior's report is NEWER than the latest entry
 

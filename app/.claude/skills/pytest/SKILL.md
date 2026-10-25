@@ -222,12 +222,13 @@ A backend `create_all_backends` builds (`services_bootstrap/_backends.py`) is ta
 
 ### Seed uids fit the uid grammar
 
-After each integration test, its graph is read against the uid grammar (`core/utils/uid_grammar.py`) — the shared container's and the bootstrapped app's — and the test fails on a uid it wrote outside the grammar or one two nodes hold (`tests/integration/_uid_census.py`). So:
+After each integration test, its graph is read against the uid grammar (`core/utils/uid_grammar.py`) — the shared container's and the bootstrapped app's — and the test fails on a uid it wrote outside the grammar or one two nodes hold (`tests/integration/_uid_census.py`). It cannot see a uid created and deleted inside one body, one on a scratch container, or one a property names (`turn_in_exercise_uid`); `tests/unit/test_integration_seed_uids.py` reads every uid literal in `tests/integration` statically instead — a uid-named keyword, dict key or assignment, a Cypher `uid: '…'` / `n.user_uid = '…'`, a parameter the module's Cypher reads in a uid position, a module constant named in one — and fails at the edit. So:
 
 - **An entity seed is authored:** `{prefix}.{slug}` or `{prefix}.{ns}.{slug}` — `task.test-create`, `ku.seed.python`. No `_` or `:` in a slug, at most three segments; fold an enum value or free text with `uid_grammar.slugify`.
 - **A user seed is generated:** `seed_user_uid("test")` (`tests/helpers/seed_uids.py`) — the hash of the name, the same uid every run. `TypeConverter.to_user_uid` and the ingestion validator refuse any other shape, a username included.
 - **A user uid is no spelling to clean by:** `n.uid CONTAINS $mark` misses a hashed user; delete users by `n.uid IN $users`.
-- **A test that writes an outside uid on purpose** (an old-shape graph a migration reads, a refusal path) carries `@pytest.mark.outside_uid_grammar("why")`. A marked test that writes no breach fails — the marker is stale.
+- **A test that writes an outside uid on purpose** (an old-shape graph a migration reads, a refusal path) carries `@pytest.mark.outside_uid_grammar("why")` — on the test, its class or its module (`pytestmark`; a literal in a module-level helper needs the module's). A marked test that writes no breach fails — the marker is stale.
+- **When the runtime census never sees the uid** (a scratch container, a uid named and never written, a property): `outside_uid_grammar("why", static_only=True)`. The runtime census holds the test as unmarked — a breach it does see fails it — and the static census fails a `static_only` scope that names no uid outside the grammar.
 
 ### Guard tests: where mocks are blind
 
