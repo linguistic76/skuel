@@ -286,8 +286,8 @@ def test_the_dashboard_actions_wrap_rather_than_squeeze() -> None:
 
 def test_the_periodic_note_editor_takes_the_full_width_below_lg() -> None:
     """Stacked (below ``lg``) the editor and navigator stretch across the column;
-    side by side they align to the top. A bare ``items-start`` on the stacked
-    column shrank the editor to its content — 240px of a 343px column at 375."""
+    side by side they align to the top. A stacked column that aligns its children
+    to the start sizes the editor to its content rather than to the column."""
     created = datetime(2026, 10, 25, 8, 0, tzinfo=UTC)
     entry = UserEntry(
         uid=periodic_note_uid("daily", "user_learner", "2026-10-25"),
