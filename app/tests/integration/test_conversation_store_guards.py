@@ -43,11 +43,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.conversation_backend import ConversationBackend
 from core.models.conversation import CONVERSATION_KIND_DISCUSSION, ROLE_ASSISTANT, ROLE_USER
 from core.services.conversation import ConversationService
 from core.utils.result_simplified import ErrorCategory, Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 # Two distinct owners — the whole point of guard 1 is cross-owner isolation.
@@ -88,7 +88,7 @@ class TestConversationStoreGuards:
     @pytest_asyncio.fixture
     async def conversation_service(self, neo4j_driver, clean_neo4j) -> ConversationService:
         """Real service over the real thin backend on the test driver."""
-        return ConversationService(ConversationBackend(neo4j_driver))
+        return ConversationService(build_production_backends(neo4j_driver)["conversation_backend"])
 
     @pytest_asyncio.fixture
     async def owners(self, neo4j_driver, clean_neo4j):
@@ -366,7 +366,9 @@ class TestOptInPersistenceGuard:
         services.user_entry_processor = None
         services.user_entry = MagicMock()
         # The one real collaborator — proves what actually lands in Neo4j.
-        services.conversation = ConversationService(ConversationBackend(neo4j_driver))
+        services.conversation = ConversationService(
+            build_production_backends(neo4j_driver)["conversation_backend"]
+        )
 
         registered: dict[str, Any] = {}
 

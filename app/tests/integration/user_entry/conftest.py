@@ -24,10 +24,7 @@ from tests.helpers.seed_uids import seed_user_uid
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
 
-from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
-from core.models.entity import Entity
-from core.models.enums.neo_labels import NeoLabel
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
 from core.services.user_entry.user_entry_service import UserEntryService
 
@@ -41,7 +38,7 @@ async def user_entry_backend(neo4j_driver) -> AsyncIterator[UserEntryBackend]:
 @pytest_asyncio.fixture
 async def sharing_service(neo4j_driver) -> AsyncIterator[UnifiedSharingService]:
     """Real ``UnifiedSharingService`` over a real ``SharingBackend``."""
-    backend = SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity)
+    backend = build_production_backends(neo4j_driver)["sharing_backend"]
     yield UnifiedSharingService(backend=backend)
 
 

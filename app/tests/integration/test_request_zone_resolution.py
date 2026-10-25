@@ -31,7 +31,6 @@ from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.context_middleware import AuthContextMiddleware
 from adapters.inbound.auth.session import set_current_user
-from adapters.persistence.neo4j.session_backend import SessionBackend
 from core.auth.graph_auth import GraphAuthService
 from core.utils.result_simplified import ErrorCategory
 from core.utils.zone_context import current_zone
@@ -56,9 +55,10 @@ def default_zone(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
 @pytest_asyncio.fixture(loop_scope="session")
 async def auth(neo4j_driver) -> AsyncIterator[tuple[GraphAuthService, list[str]]]:
     """Real GraphAuthService; tears down the users, sessions and auth events it made."""
+    backends = build_production_backends(neo4j_driver)
     service = GraphAuthService(
-        user_backend=build_production_backends(neo4j_driver)["users_backend"],
-        session_backend=SessionBackend(neo4j_driver),
+        user_backend=backends["users_backend"],
+        session_backend=backends["session_backend"],
     )
     made: list[str] = []
     yield service, made

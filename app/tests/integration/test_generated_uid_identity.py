@@ -18,13 +18,11 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from neo4j.exceptions import ConstraintError
 
-from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
-from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.neo4j_schema_manager import UID_UNIQUE_LABELS
 from core.models.enums.neo_labels import NeoLabel
-from core.models.group.group import Group, default_group_uid
+from core.models.group.group import default_group_uid
 from core.models.user_entry.user_entry import periodic_note_uid
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -85,7 +83,7 @@ class TestDefaultGroup:
         self, neo4j_driver: AsyncDriver, clean_neo4j: None
     ) -> None:
         await _rows(neo4j_driver, "MERGE (:User {uid: $t})", t=TEACHER)
-        groups = GroupBackend(driver=neo4j_driver, label=NeoLabel.GROUP, entity_class=Group)
+        groups = build_production_backends(neo4j_driver)["group_backend"]
         try:
             first = await groups.get_or_create_default_group(TEACHER, "2026-10-23T12:00:00+00:00")
             again = await groups.get_or_create_default_group(TEACHER, "2026-10-23T13:00:00+00:00")
@@ -120,7 +118,7 @@ class TestSimilaritySourceContents:
             broken=BROKEN,
             task=TASK,
         )
-        backend = IngestionBackend(Neo4jQueryExecutor(neo4j_driver))
+        backend = build_production_backends(neo4j_driver)["ingestion_backend"]
 
         result = await backend.get_entity_contents([MINTED, PERIODIC, BROKEN, TASK, "ue_gone"])
 

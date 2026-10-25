@@ -33,17 +33,11 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
-from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
-from adapters.persistence.neo4j.backends.misc_backends import InteractionBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.exercises.exercise import Exercise
-from core.models.group.group import Group
-from core.models.interaction.interaction import Interaction
 from core.services.groups.group_service import GroupService
 from core.services.ingestion.user_entry_ingestion import ingest_user_entry
 from core.services.interaction import InteractionService
 from core.services.user_entry.user_entry_service import UserEntryService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -59,13 +53,9 @@ async def channel_service(
     """UserEntryService wired like production for the channel: real backend,
     real sharing (the audience writes), real groups (``teachers`` without an
     exercise), real InteractionService (audit record)."""
-    interaction_backend = InteractionBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.INTERACTION,
-        entity_class=Interaction,
-        base_label=NeoLabel.ENTITY,
-    )
-    group_backend = GroupBackend(driver=neo4j_driver, label=NeoLabel.GROUP, entity_class=Group)
+    backends = build_production_backends(neo4j_driver)
+    interaction_backend = backends["interaction_backend"]
+    group_backend = backends["group_backend"]
     yield UserEntryService(
         backend=user_entry_backend,  # type: ignore[arg-type]
         sharing_service=sharing_service,
@@ -611,12 +601,7 @@ async def test_stop_sharing_a_copy_stays_durable_until_the_note_changes(
 
 async def _student_status_rows(neo4j_driver, student_uid: str) -> list[dict[str, Any]]:
     """Rows from the chip-feeding backend query (the steps the student is on)."""
-    backend = ExerciseBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.EXERCISE,
-        entity_class=Exercise,
-        base_label=NeoLabel.ENTITY,
-    )
+    backend = build_production_backends(neo4j_driver)["exercise_backend"]
     result = await backend.get_enrolled_ps_exercises_with_status(student_uid)
     assert result.is_ok, result.expect_error()
     return [dict(r) for r in (result.value or [])]

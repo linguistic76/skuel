@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-25
 ---
 
 # Graceful Degradation Architecture
@@ -95,13 +95,13 @@ Requires `OPENAI_API_KEY` (covers both embeddings and LLM chat — ADR-068) and 
 The bootstrap creates AI services conditionally. When `INTELLIGENCE_TIER=core`, they remain `None`. Downstream code checks before using:
 
 ```python
-# Bootstrap (services_bootstrap/compose.py)
+# Bootstrap (services_bootstrap/_learning_services.py)
 embeddings_service = None
 if tier.ai_enabled:
     from adapters.external.embeddings import create_embedding_client
     from core.services.embeddings_service import EmbeddingsService
     embeddings_service = EmbeddingsService(
-        backend=EmbeddingsBackend(executor=query_executor),
+        backend=backends["embeddings_backend"],  # built in every tier; the gate is here
         embedding_client=create_embedding_client(),
     )
 

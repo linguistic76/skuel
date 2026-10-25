@@ -20,17 +20,16 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
 from core.events.search_events import SearchExecuted
 from core.services.search_event_recorder import SearchEventRecorder
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def search_event_backend(neo4j_driver):
     """Backend over the test container, with per-test :SearchEvent cleanup."""
-    backend = SearchEventBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["search_event_backend"]
 
     async def _wipe() -> None:
         async with neo4j_driver.session() as session:

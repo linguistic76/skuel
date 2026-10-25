@@ -1,6 +1,6 @@
 ---
 title: Configuration-Driven Service Architecture
-updated: 2026-10-11
+updated: 2026-10-25
 category: patterns
 related_skills:
 - base-analytics-service
@@ -247,26 +247,27 @@ results = await service.graph_aware_faceted_search(
 
 ## Facade Pattern with Shared Backend
 
-Facades create one backend, share with sub-services:
+Facades receive one backend — built in `create_all_backends`
+(`services_bootstrap/_backends.py`), never by the facade — and share it with their
+sub-services:
 
 ```python
-class PsService(BaseService[PsOperations, Ls]):
-    """Path Step facade - uses UniversalNeo4jBackend directly."""
+class PsService:
+    """Path Step facade - receives the composition root's PsBackend."""
 
-    def __init__(self, driver: Neo4jDriver, event_bus: EventBus | None = None):
-        # ONE backend instance
-        ps_backend = UniversalNeo4jBackend[Ls](driver, NeoLabel.PS, Ls)
+    def __init__(self, backend: PsOperations | None = None, ..., event_bus=None):
+        # ONE backend instance, injected (backends["ps_backend"]), shared by
+        # every sub-service the factory builds
+        subs: PsSubServices = create_ps_sub_services(backend=backend, event_bus=event_bus, ...)
+        self.core = subs.core
+        self.search = subs.search
 
-        # Shared across sub-services
-        self.core = PsCoreService(backend=ps_backend, event_bus=event_bus)
-        self.search = PsSearchService(backend=ps_backend)
+    # Explicit delegation methods
+    async def get_step(self, step_uid: str) -> Result[PathStep | None]:
+        return await self.core.get_step(step_uid)
 
-    # Explicit delegation methods (February 2026)
-    async def create_ls(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.core.create_ls(*args, **kwargs)
-
-    async def search(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.search.search(*args, **kwargs)
+    async def search_steps(self, query: str, limit: int = 50) -> Result[list[Any]]:
+        return await self.search.search(query=query, limit=limit)
 ```
 
 ---

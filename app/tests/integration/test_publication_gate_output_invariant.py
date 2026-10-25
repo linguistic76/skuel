@@ -57,21 +57,10 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
-from adapters.persistence.neo4j.backends.curriculum_backends import (
-    KnowledgeHealthBackend,
-    LpBackend,
-)
-from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
-from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.models.enums import EntityType, PublicationState
 from core.models.enums.metadata_enums import SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
-from core.models.exercises.exercise import Exercise
-from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.utils.result_simplified import Result
 from tests.helpers.production_backends import build_production_backends
@@ -497,12 +486,12 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
     backends = build_production_backends(driver)
     ku = backends["ku_backend"]
     ps = backends["ps_backend"]
-    lp = LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
-    ex = ExerciseBackend(driver, NeoLabel.EXERCISE, Exercise, base_label=NeoLabel.ENTITY)
-    xd = CrossDomainBackend(Neo4jQueryExecutor(driver))
-    vs = VectorSearchBackend(Neo4jQueryExecutor(driver))
+    lp = build_production_backends(driver)["lp_backend"]
+    ex = build_production_backends(driver)["exercise_backend"]
+    xd = build_production_backends(driver)["cross_domain_backend"]
+    vs = build_production_backends(driver)["vector_search_backend"]
     cf = backends["connection_fetch_backend"]
-    lateral = LateralRelationshipBackend(Neo4jQueryExecutor(driver))
+    lateral = build_production_backends(driver)["lateral_relationship_backend"]
     entries = backends["user_entry_backend"]
     hub_params = {"min_confidence": 0.0, "min_connections": 0, "limit": LIMIT}
 
@@ -1021,8 +1010,9 @@ async def test_mixed_surfaces_keep_a_draft_the_learner_already_engaged(
     unconditional here would erase a learner's own progress and every other
     test in this module would still pass (Codex P2, #1012).
     """
-    ps = build_production_backends(gate_graph)["ps_backend"]
-    lp = LpBackend(gate_graph, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
+    backends = build_production_backends(gate_graph)
+    ps = backends["ps_backend"]
+    lp = backends["lp_backend"]
 
     steps = _payload(await ps.get_prioritized_steps(USER, LIMIT), "get_prioritized_steps")
     step_uids = fixture_identities(steps)
@@ -1151,9 +1141,9 @@ async def test_authoring_gauge_reports_drafts_instead_of_subtracting_them(
     all-inclusive count cannot distinguish COUNTING drafts from there being no
     draft to subtract.
     """
-    raw_result = await KnowledgeHealthBackend(
-        Neo4jQueryExecutor(gate_graph)
-    ).measure_knowledge_subgraph()
+    raw_result = await build_production_backends(gate_graph)[
+        "knowledge_health_backend"
+    ].measure_knowledge_subgraph()
     assert not raw_result.is_error, f"gauge failed: {raw_result.expect_error()}"
     raw = raw_result.value
     assert raw is not None

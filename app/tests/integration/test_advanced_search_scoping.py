@@ -23,17 +23,15 @@ from __future__ import annotations
 
 import pytest
 
-from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
 from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.neo_labels import NeoLabel
-from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
 from core.models.search_request import SearchRequest
 from core.models.task.task import Task
 from core.orchestrator.search_router import SearchRouter
 from core.services.exercises.exercise_service import ExerciseService
 from core.utils.uid_grammar import slugify
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 OWNER = seed_user_uid("scope_owner")
@@ -44,12 +42,7 @@ GROUP_UID = "group.scope-test"
 
 @pytest.fixture
 def exercise_service(neo4j_driver) -> ExerciseService:
-    backend = ExerciseBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.EXERCISE,
-        entity_class=Exercise,
-        base_label=NeoLabel.ENTITY,
-    )
+    backend = build_production_backends(neo4j_driver)["exercise_backend"]
     return ExerciseService(backend=backend)
 
 

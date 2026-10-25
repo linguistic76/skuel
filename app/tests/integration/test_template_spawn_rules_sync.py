@@ -21,15 +21,13 @@ from unittest.mock import Mock
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.entity_enums import EntityType
 from core.ports.vault_bridge_protocol import VaultBridgePort
 from core.services.ingestion.config import ENTITY_CONFIGS, build_sync_allowlist
 from core.services.ps_engagement._spawn_orchestrator import copied_text_caps
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.services.vault.vault_reconciler import VaultReconciler, VaultSyncStats
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import touch_forward
 
@@ -86,10 +84,10 @@ class Vault:
 async def vault(neo4j_driver: AsyncDriver, tmp_path: Path) -> AsyncIterator[Vault]:
     root = tmp_path / "content"
     root.mkdir()
-    service = make_unified_ingestion_service(
+    service = build_ingestion_service(
         driver=neo4j_driver,
         default_user_uid=OWNER,
-        ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
+        ingestion_backend=build_production_backends(neo4j_driver)["ingestion_backend"],
     )
     descriptor = VaultDescriptor(
         kind=VaultKind.CONTENT,

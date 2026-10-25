@@ -37,8 +37,6 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.backends.activity_backends import TasksBackend
-from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.entity_enums import EntityType
 from core.models.habit.habit import Habit
 from core.models.task.task_request import TaskCreateRequest
@@ -278,7 +276,9 @@ class TestADefaultUserInTheVancouverEvening:
             """,
             lp=LIFE_PATH,
         )
-        lifepath = LifePathCoreService(backend=LifePathBackend(Neo4jQueryExecutor(neo4j_driver)))
+        lifepath = LifePathCoreService(
+            backend=build_production_backends(neo4j_driver)["lifepath_backend"]
+        )
         designated = await lifepath.designate_life_path(uid, LIFE_PATH)
         assert designated.is_ok, designated
 

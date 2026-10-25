@@ -36,9 +36,7 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.forms_backends import FormSubmissionBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.forms.form_submission import FormSubmission
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -115,12 +113,7 @@ _CLEANUP_PARAMS = {"mark": PREFIX, "users": [TEACHER_A, TEACHER_B, TEACHER_C, ST
 @pytest_asyncio.fixture
 async def gate_backend(neo4j_driver: Any):
     """Seed the multi-classroom graph and yield a real FormSubmissionBackend."""
-    backend = FormSubmissionBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.FORM_SUBMISSION,
-        entity_class=FormSubmission,
-        base_label=NeoLabel.ENTITY,
-    )
+    backend = build_production_backends(neo4j_driver)["form_submission_backend"]
     await backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
     await backend.execute_query(
         _SEED,
@@ -321,15 +314,8 @@ class TestTeacherScopedSubmissionCount:
 
     @pytest_asyncio.fixture
     async def template_backend(self, neo4j_driver: Any, gate_backend: Any):
-        from adapters.persistence.neo4j.backends.forms_backends import FormTemplateBackend
-        from core.models.forms.form_template import FormTemplate
 
-        return FormTemplateBackend(
-            driver=neo4j_driver,
-            label=NeoLabel.FORM_TEMPLATE,
-            entity_class=FormTemplate,
-            base_label=NeoLabel.ENTITY,
-        )
+        return build_production_backends(neo4j_driver)["form_template_backend"]
 
     async def _count(self, backend: Any, teacher_uid: str) -> int:
         result = await backend.count_submissions(TEMPLATE, teacher_uid)
@@ -710,10 +696,8 @@ class TestShareWithDefaultAudience:
         from the audience — the teacher would silently lose access to a
         response they were entitled to read.
         """
-        from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
-        from core.models.group.group import Group
 
-        groups = GroupBackend(driver=neo4j_driver, label=NeoLabel.GROUP, entity_class=Group)
+        groups = build_production_backends(neo4j_driver)["group_backend"]
         # Student 1 joined X in 2025; the submission is from 2026.
         await groups.add_member(
             group_uid=GROUP_X,
@@ -738,12 +722,10 @@ class TestShareWithDefaultAudience:
         default audience would come back empty — a failure that reads exactly
         like "this student has no classrooms".
         """
-        from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
         from core.models.enums.entity_enums import EntityStatus, EntityType
         from core.models.forms.form_submission import FormSubmission
-        from core.models.group.group import Group
 
-        groups = GroupBackend(driver=neo4j_driver, label=NeoLabel.GROUP, entity_class=Group)
+        groups = build_production_backends(neo4j_driver)["group_backend"]
         await groups.add_member(
             group_uid=GROUP_Z,
             user_uid=STUDENT_1,

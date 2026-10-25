@@ -15,19 +15,17 @@ These tests use the actual service implementation with real Neo4j driver.
 
 import pytest
 
-from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from core.models.entity import Entity
 from core.models.enums.metadata_enums import Visibility
-from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import default_group_uid
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
 @pytest.fixture
 async def sharing_service(neo4j_driver):
     """Create UnifiedSharingService with real SharingBackend."""
-    backend = SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity)
+    backend = build_production_backends(neo4j_driver)["sharing_backend"]
     return UnifiedSharingService(backend=backend)
 
 

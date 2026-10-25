@@ -15,7 +15,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.constants import EmbeddingGeometry
 from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.neo_labels import NeoLabel
@@ -93,7 +92,9 @@ def _ps_ai(neo4j_driver, query_embedding: AsyncMock | None = None) -> PsAIServic
         query_embedding
         or AsyncMock(side_effect=AssertionError("a source with a stored vector is never embedded"))
     )
-    vector_search = Neo4jVectorSearchService(VectorSearchBackend(executor=executor), embeddings)
+    vector_search = Neo4jVectorSearchService(
+        build_production_backends(neo4j_driver, executor)["vector_search_backend"], embeddings
+    )
     backend = build_production_backends(neo4j_driver)["ps_backend"]
     return PsAIService(
         backend=backend,

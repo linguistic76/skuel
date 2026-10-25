@@ -20,7 +20,6 @@ import uuid
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.session_backend import SessionBackend
 from core.auth.graph_auth import GraphAuthService
 from core.utils.uid_grammar import is_generated_uid
 from tests.helpers.production_backends import build_production_backends
@@ -47,9 +46,10 @@ async def auth_env(neo4j_driver):
     just the email otherwise); the reset flows create (:PasswordResetToken)
     nodes (via HAS_RESET_TOKEN) — teardown removes all of them by test uid/email.
     """
+    backends = build_production_backends(neo4j_driver)
     auth = GraphAuthService(
-        user_backend=build_production_backends(neo4j_driver)["users_backend"],
-        session_backend=SessionBackend(neo4j_driver),
+        user_backend=backends["users_backend"],
+        session_backend=backends["session_backend"],
     )
     created: list[tuple[str, str]] = []  # (username, email)
 

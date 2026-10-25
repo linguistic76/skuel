@@ -57,24 +57,20 @@ class TestPathsCompleted:
 
     @pytest_asyncio.fixture
     async def doors(self, neo4j_driver):
-        from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
-        from core.models.enums.neo_labels import NeoLabel
-        from core.models.pathways.learning_path import LearningPath
 
+        backends = build_production_backends(neo4j_driver)
         return (
-            build_production_backends(neo4j_driver)["users_backend"],
-            LpBackend(
-                neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
-            ),
+            backends["users_backend"],
+            backends["lp_backend"],
         )
 
     @pytest_asyncio.fixture
     async def service(self, neo4j_driver):
-        from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-        from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
         from core.services.cross_domain_analytics_service import CrossDomainAnalyticsService
 
-        return CrossDomainAnalyticsService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
+        return CrossDomainAnalyticsService(
+            build_production_backends(neo4j_driver)["cross_domain_backend"]
+        )
 
     async def _enroll_and_recount(self, doors, user_uid: str, lp_uid: str) -> None:
         users, paths = doors

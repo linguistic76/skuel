@@ -21,14 +21,13 @@ from unittest.mock import Mock
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
-from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.ps_content.content_chunks import ChunkStore, chunk_uid
 from core.services.ingestion.batch import ingest_directory
 from core.services.ingestion.ingestion_history import IngestionHistoryService
 from core.services.ingestion.types import IncrementalStats, IngestionStats
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 _E2E_CHUNK_UID = chunk_uid(ChunkStore.CONTENT, "ku.e2e-test-02", 0)
@@ -41,12 +40,11 @@ _E2E_CHUNK_UID = chunk_uid(ChunkStore.CONTENT, "ku.e2e-test-02", 0)
 @pytest_asyncio.fixture
 async def ingestion_service(neo4j_driver):
     """Override conftest ingestion_service to include backend for incremental mode."""
-    from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 
     executor = Neo4jQueryExecutor(neo4j_driver)
-    ingestion_backend = IngestionBackend(executor=executor)
+    ingestion_backend = build_production_backends(neo4j_driver, executor)["ingestion_backend"]
 
-    service = make_unified_ingestion_service(
+    service = build_ingestion_service(
         driver=neo4j_driver,
         ingestion_backend=ingestion_backend,
         default_user_uid=INGESTION_TEST_OWNER,
@@ -58,10 +56,9 @@ async def ingestion_service(neo4j_driver):
 @pytest_asyncio.fixture
 async def ingestion_history_service(neo4j_driver):
     """Create a real IngestionHistoryService connected to test Neo4j."""
-    from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 
     executor = Neo4jQueryExecutor(neo4j_driver)
-    ingestion_backend = IngestionBackend(executor=executor)
+    ingestion_backend = build_production_backends(neo4j_driver, executor)["ingestion_backend"]
     service = IngestionHistoryService(backend=ingestion_backend)
     await service.ensure_constraints()
     return service
@@ -304,7 +301,7 @@ async def test_error_handling_invalid_directory(neo4j_driver):
     result = await ingest_directory(
         default_user_uid=INGESTION_TEST_OWNER,
         directory=Path("/nonexistent/path/to/nowhere"),
-        write_backend=IngestionWriteBackend(neo4j_driver),
+        write_backend=build_production_backends(neo4j_driver)["ingestion_write_backend"],
         bulk_backend=Mock(),
         pattern="*.md",
     )

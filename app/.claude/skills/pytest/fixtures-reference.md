@@ -72,10 +72,13 @@ Fixtures that seed data for the app (`populated_test_data`, `enrolled_user_with_
 ## Domain Backend and Service Fixtures
 
 Every backend the composition root builds comes from its one constructor, `create_all_backends`
-(`services_bootstrap/_backends.py`) — never from a copy of its arguments. `production_backends`
-(function scope) is that dict over the shared session driver; `build_production_backends(driver)`
-(`tests/helpers/production_backends.py`) builds it over any other driver — a test's own graph, a
-mock with a fake executor. A copy runs a backend production never runs the moment the two drift: a
+(`services_bootstrap/_backends.py`) — the domain backends and every purpose-built one (cross-domain,
+vector search, ingestion, sharing, groups, ...) — never from a copy of its arguments.
+`production_backends` (function scope) is that dict over the shared session driver;
+`build_production_backends(driver)` (`tests/helpers/production_backends.py`) builds it over any
+other driver — a test's own graph, a mock — and `build_production_backends(Mock(), executor)` over a
+fake executor. `build_ingestion_service(driver, default_user_uid=..., ...)` is the
+`UnifiedIngestionService` over the dict's two ingestion backends, as the composition root builds it. A copy runs a backend production never runs the moment the two drift: a
 generic `UniversalNeo4jBackend[Task]` lacks every read `TasksBackend` adds, and an `"Entity"`-labelled
 one writes nodes no production writer makes. `tests/unit/test_production_backend_census.py` fails a
 test that builds one by hand; it reads the set from `create_all_backends` itself.
@@ -100,7 +103,7 @@ async def tasks_service(tasks_backend, event_bus):
 
 ## `services` — the composed container
 
-`services(neo4j_driver, production_backends)` builds a `TestServices` dataclass of **facades** over the composition root's backends (LP's, which `create_all_backends` does not build, by hand): `choices`, `principles`, `lp`, `ps` (+ the aliases `knowledge`, `path_steps` → ps and `learning_paths` → lp, kept for older tests), `tasks`, `goals`, `events`, `users`. The Activity backends are wrapped in a local `TestBackendWrapper` so `create()` accepts a dict as well as a dataclass (it filters the dict to the model's fields and delegates everything else via `__getattr__`).
+`services(neo4j_driver, production_backends)` builds a `TestServices` dataclass of **facades** over the composition root's backends: `choices`, `principles`, `lp`, `ps` (+ the aliases `knowledge`, `path_steps` → ps and `learning_paths` → lp, kept for older tests), `tasks`, `goals`, `events`, `users`. The Activity backends are wrapped in a local `TestBackendWrapper` so `create()` accepts a dict as well as a dataclass (it filters the dict to the model's fields and delegates everything else via `__getattr__`).
 
 ```python
 async def test_cross_domain_flow(services, clean_neo4j):

@@ -39,9 +39,6 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
 from core.ports.vault_bridge_protocol import VaultBridgePort
@@ -52,7 +49,7 @@ from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, Vau
 from core.services.vault.vault_reconciler import VaultReconciler
 from core.utils.result_simplified import Result
 from core.utils.zone_context import default_zone
-from tests.helpers.production_backends import build_production_backends
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -148,10 +145,10 @@ async def env(neo4j_driver, clean_neo4j, tmp_path: Path) -> VaultEnv:
         user_vaults_root=family,
         personal_descriptor_factory=personal,
     )
-    service = make_unified_ingestion_service(
+    service = build_ingestion_service(
         driver=neo4j_driver,
         default_user_uid=seed_user_uid("default"),
-        ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
+        ingestion_backend=build_production_backends(neo4j_driver)["ingestion_backend"],
     )
     service.vault_registry = registry
     service.sync_allowlist = registry.resolve(VaultKind.PERSONAL, ALICE).value.allowlist

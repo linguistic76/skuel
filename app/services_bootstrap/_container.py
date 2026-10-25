@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
+    from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.config.intelligence_tier import IntelligenceTier
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
@@ -315,6 +316,9 @@ class Services:
     # Cross-domain connection fetcher for Activity Domain list/detail pages.
     # Below-the-boundary backend behind ConnectionFetchOperations (ADR-044).
     connection_fetch_backend: ConnectionFetchOperations | None = None
+
+    # The uid grammar's live read — the graph-health poller's census (bootstrap).
+    uid_census_backend: UidCensusBackend | None = None
 
     # Embedding + vector search services (ADR-068)
     embeddings_service: EmbeddingsService | None = None

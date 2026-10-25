@@ -30,25 +30,18 @@ from tests.helpers.seed_uids import seed_user_uid
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-from adapters.persistence.neo4j.backends.misc_backends import InteractionBackend
-from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.pipeline import Pipeline
 from core.models.interaction.interaction import Interaction
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.interaction.interaction_service import InteractionService
 from core.services.user_entry.user_entry_service import UserEntryService
+from tests.helpers.production_backends import build_production_backends
 
 
 @pytest_asyncio.fixture
 async def interaction_service(neo4j_driver) -> AsyncIterator[InteractionService]:
     """Real ``InteractionService`` over a real ``InteractionBackend``."""
-    backend = InteractionBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.INTERACTION,
-        entity_class=Interaction,
-        prometheus_metrics=None,
-        base_label=NeoLabel.ENTITY,
-    )
+    backend = build_production_backends(neo4j_driver)["interaction_backend"]
     yield InteractionService(backend=backend)
 
 

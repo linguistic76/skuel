@@ -29,13 +29,13 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
 from core.events.goal_events import GoalContributionsChanged
 from core.models.enums.entity_enums import EntityStatus
 from core.models.pathways.path_step import PathStep
@@ -109,7 +109,7 @@ async def engagement_service(
     event_bus: InMemoryEventBus,
 ) -> PsEngagementService:
     return PsEngagementService(
-        backend=PsEngagementBackend(executor),
+        backend=build_production_backends(Mock(), executor)["ps_engagement_backend"],
         task_template_backend=template_backends["task"],
         goal_template_backend=template_backends["goal"],
         habit_template_backend=template_backends["habit"],
@@ -799,9 +799,9 @@ class TestEngagementInstanceScope:
         assert [item.instance_uid for item in review.value] == [b_habit]
 
         # The sibling read anchors on B's instance and must stay inside B.
-        siblings = await PsEngagementBackend(executor).fetch_auto_complete_siblings(
-            test_user, b_habit
-        )
+        siblings = await build_production_backends(Mock(), executor)[
+            "ps_engagement_backend"
+        ].fetch_auto_complete_siblings(test_user, b_habit)
         assert siblings.is_ok
         assert [(row["ps_uid"], len(row["siblings"])) for row in siblings.value] == [(other_ps, 1)]
 

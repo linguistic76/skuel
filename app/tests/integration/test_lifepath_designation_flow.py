@@ -19,11 +19,10 @@ from datetime import datetime
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.principle_enums import AlignmentLevel
 from core.services.lifepath.lifepath_core_service import LifePathCoreService
 from core.utils.result_simplified import ErrorCategory
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -36,7 +35,7 @@ _LP_B = "lp.test.designation-beta"
 @pytest_asyncio.fixture(loop_scope="session")
 async def core_service(neo4j_driver) -> LifePathCoreService:
     """Real backend, no LP-service validation (backend behavior under test)."""
-    backend = LifePathBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["lifepath_backend"]
     return LifePathCoreService(backend=backend, lp_service=None)
 
 

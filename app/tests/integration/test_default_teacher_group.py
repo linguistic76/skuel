@@ -24,8 +24,6 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from core.models.entity import Entity
-from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import default_group_uid
 from core.services.ps.ps_mastery_service import PsMasteryService
 from tests.helpers.production_backends import build_production_backends
@@ -249,7 +247,7 @@ async def test_get_admin_uid_picks_the_oldest_admin(neo4j_driver, admin_pick_gra
 
 def _sharing_backend(neo4j_driver) -> SharingBackend:
     # Same construction as services_bootstrap/compose.py.
-    return SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity)
+    return build_production_backends(neo4j_driver)["sharing_backend"]
 
 
 async def _teachers(neo4j_driver, exercise_uid: str, user_uid: str) -> list[str]:

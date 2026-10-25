@@ -1,6 +1,6 @@
 ---
 title: Embeddings Setup
-updated: 2026-09-05
+updated: 2026-10-25
 ---
 # Embeddings Setup (OpenAI Embeddings API)
 
@@ -132,12 +132,12 @@ uv run pytest tests/integration/test_vector_search.py -v
 
 ```python
 from adapters.external.embeddings import create_embedding_client
-from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
 from core.services.embeddings_service import EmbeddingsService
 
-# Composition root (bootstrap does this at FULL tier)
+# Composition root (bootstrap does this at FULL tier); the backend is
+# create_all_backends' entry (services_bootstrap/_backends.py)
 service = EmbeddingsService(
-    backend=EmbeddingsBackend(executor=query_executor),
+    backend=backends["embeddings_backend"],
     embedding_client=create_embedding_client(),
 )
 

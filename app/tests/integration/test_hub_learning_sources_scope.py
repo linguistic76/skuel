@@ -26,8 +26,6 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec
 
 import pytest
 
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.config.unified_config import VectorSearchConfig
 from core.models.enums.neo_labels import NeoLabel
 from core.services.choices_service import ChoicesService
@@ -97,7 +95,7 @@ async def _seed(driver: AsyncDriver) -> None:
 
 def _vector_search(driver: AsyncDriver, embeddings: Any) -> Neo4jVectorSearchService:
     return Neo4jVectorSearchService(
-        backend=VectorSearchBackend(executor=Neo4jQueryExecutor(driver)),
+        backend=build_production_backends(driver)["vector_search_backend"],
         embeddings_service=embeddings,
         config=VectorSearchConfig(ku_min_score=0.0),
     )

@@ -19,8 +19,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain
 from core.models.relationship_registry import (
@@ -85,7 +83,7 @@ def backend(neo4j_driver: AsyncDriver) -> UniversalNeo4jBackend[Task]:
 
 @pytest.fixture
 def graph_intel(neo4j_driver: AsyncDriver) -> GraphIntelligenceService:
-    return GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
+    return GraphIntelligenceService(build_production_backends(neo4j_driver)["cross_domain_backend"])
 
 
 async def _create_owned(

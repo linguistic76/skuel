@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-10-24
+updated: 2026-10-25
 category: patterns
 related_skills:
 - python
@@ -637,7 +637,7 @@ if TYPE_CHECKING:
 
 **Scope:** all of `core/` (not just `core/services/`). `adapters/`, `services_bootstrap/` (the composition root — it SHOULD import adapters), and `routes/` are not checked; `ui/` gets the same enforcement from SKUEL027. Test files are skipped.
 
-**How to fix a violation:** move the adapter construction to the composition root (`services_bootstrap/`) or a factory below the boundary, and inject the result behind a `core/ports` protocol. See the PsEngagement (port injection), UnifiedIngestion (`adapters/persistence/neo4j/ingestion_service_factory.py`), and finance-renderer (`InvoiceRenderer` port) inversions for the patterns.
+**How to fix a violation:** move the adapter construction to the composition root (`services_bootstrap/`) or a factory below the boundary, and inject the result behind a `core/ports` protocol. See the PsEngagement (port injection), UnifiedIngestion (`IngestionWriteOperations` / `BulkUpsertOperations` ports, backends from `create_all_backends`), and finance-renderer (`InvoiceRenderer` port) inversions for the patterns.
 
 **Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL022` covers module-level, plain `import`, function-local, both `TYPE_CHECKING` forms, relative imports, adapter/composition-root/test-file exemptions, and suppression. The real `core/` tree is held clean by `./dev quality` (which runs `lint_skuel.py`) in CI.
 

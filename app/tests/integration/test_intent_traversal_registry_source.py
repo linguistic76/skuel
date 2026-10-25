@@ -23,10 +23,9 @@ from __future__ import annotations
 
 import pytest
 
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.relationship_registry import EVENTS_CONFIG, TASKS_CONFIG
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+from tests.helpers.production_backends import build_production_backends
 
 P = "intsrc."  # uid prefix for this module's fixture graph
 
@@ -56,7 +55,7 @@ def _uids(graph_context) -> set[str]:
 @pytest.fixture
 def graph_intel(neo4j_driver):
     """A real GraphIntelligenceService over a real CrossDomainBackend (the engine path)."""
-    backend = CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["cross_domain_backend"]
     return GraphIntelligenceService(backend)
 
 

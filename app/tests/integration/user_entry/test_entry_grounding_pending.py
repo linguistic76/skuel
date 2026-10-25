@@ -21,9 +21,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
-from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.constants import EmbeddingGeometry
 from core.events.knowledge_substance_events import KnowledgeReflectedInEntry
 from core.models.enums.entity_enums import EntityType
@@ -35,6 +32,7 @@ from core.services.embeddings_service import EmbeddingsService
 from core.services.entry_grounding_service import EntryGroundingService
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration.user_entry.test_extract_activities_pipeline import _seed_ku
 
@@ -63,7 +61,7 @@ def _embeddings_service(neo4j_driver: AsyncDriver) -> EmbeddingsService:
     client.dimension = EmbeddingGeometry.DIMENSION
     client.max_input_chars = 20000
     return EmbeddingsService(
-        EmbeddingsBackend(Neo4jQueryExecutor(neo4j_driver)), embedding_client=client
+        build_production_backends(neo4j_driver)["embeddings_backend"], embedding_client=client
     )
 
 
@@ -166,7 +164,7 @@ class TestGroundingPending:
     async def test_pending_is_the_non_private_knowledge_and_activity_notes(
         self, seeded: str, neo4j_driver: AsyncDriver
     ) -> None:
-        backend = EntryGroundingBackend(Neo4jQueryExecutor(neo4j_driver))
+        backend = build_production_backends(neo4j_driver)["entry_grounding_backend"]
 
         pending = await backend.get_pending_entries(user_uid=seeded)
 
@@ -177,7 +175,7 @@ class TestGroundingPending:
     async def test_force_still_excludes_private_and_other_pipelines(
         self, seeded: str, neo4j_driver: AsyncDriver
     ) -> None:
-        backend = EntryGroundingBackend(Neo4jQueryExecutor(neo4j_driver))
+        backend = build_production_backends(neo4j_driver)["entry_grounding_backend"]
 
         pending = await backend.get_pending_entries(user_uid=seeded, force=True)
 
@@ -190,7 +188,7 @@ class TestGroundingPending:
     ) -> None:
         bus = _CapturingBus()
         service = EntryGroundingService(
-            backend=EntryGroundingBackend(Neo4jQueryExecutor(neo4j_driver)),
+            backend=build_production_backends(neo4j_driver)["entry_grounding_backend"],
             vector_search=_EveryEntryMatchesTheKu(),  # type: ignore[arg-type]
             event_bus=bus,  # type: ignore[arg-type]
         )

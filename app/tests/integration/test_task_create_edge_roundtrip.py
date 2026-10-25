@@ -40,8 +40,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums import EntityStatus, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.task.task_request import TaskCreateRequest
@@ -496,7 +494,9 @@ class TestGoalEdgeRoundTrip:
 
     @pytest_asyncio.fixture
     async def cross_domain(self, neo4j_driver):
-        return CrossDomainQueryService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
+        return CrossDomainQueryService(
+            build_production_backends(neo4j_driver)["cross_domain_backend"]
+        )
 
     async def test_one_edge_per_goal_and_no_property(
         self, tasks_service, neo4j_driver, test_user_uid

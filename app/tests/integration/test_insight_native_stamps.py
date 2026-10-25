@@ -29,10 +29,9 @@ import pytest_asyncio
 from fasthtml.common import to_xml
 
 from adapters.inbound.insights_api import create_insights_api_routes
-from adapters.persistence.neo4j.insight_backend import InsightBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.services.insight.insight_store import InsightStore
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from ui.insights.insight_card import InsightCard
 
@@ -98,7 +97,7 @@ async def _value_types(neo4j_driver: Any, prop: str) -> dict[str, str]:
 
 @pytest_asyncio.fixture
 async def store(neo4j_driver, clean_neo4j) -> InsightStore:
-    return InsightStore(InsightBackend(Neo4jQueryExecutor(neo4j_driver)))
+    return InsightStore(build_production_backends(neo4j_driver)["insight_backend"])
 
 
 class TestActiveRouteOverNativeStamps:

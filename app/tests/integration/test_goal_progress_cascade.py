@@ -31,7 +31,6 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern
@@ -51,6 +50,7 @@ from core.services.tasks_service import TasksService
 from core.services.user.unified_user_context import UserContext
 from core.utils.uid_grammar import slugify
 from services_bootstrap._container import Services
+from tests.helpers.production_backends import build_ingestion_service
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.skipif(
@@ -404,7 +404,7 @@ async def test_reopening_the_only_task_in_the_vault_unachieves_its_goal(
     resolves a file's owner from the vault it sits in, and a temp directory is in none.
     """
     goal = await _create_goal(services, "reopen_vault", MeasurementType.TASK_BASED)
-    door = make_unified_ingestion_service(
+    door = build_ingestion_service(
         services.neo4j_driver, event_bus=services.event_bus, default_user_uid=_USER_UID
     )
 

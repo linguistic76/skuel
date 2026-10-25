@@ -33,16 +33,9 @@ import pytest
 import time_machine
 from fasthtml.common import Div, to_xml
 
-from adapters.persistence.neo4j.backends.collab_backends import NotificationBackend
-from adapters.persistence.neo4j.backends.exercise_backends import EntryReportBackend
-from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.notification_enums import NotificationType
 from core.models.enums.pipeline import Pipeline
-from core.models.report.entry_report import EntryReport
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
@@ -139,14 +132,11 @@ def _render(node: Any, names: dict[str, str]) -> str:
 async def test_every_stored_instant_renders_as_it_did(clean_neo4j, neo4j_driver) -> None:
     backends = build_production_backends(neo4j_driver)
     user_entry_backend = backends["user_entry_backend"]
-    sharing = UnifiedSharingService(backend=SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity))
-    entries = UserEntryService(backend=user_entry_backend, sharing_service=sharing)  # type: ignore[arg-type]
-    report_backend = EntryReportBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.ENTRY_REPORT,
-        entity_class=EntryReport,
-        base_label=NeoLabel.ENTITY,
+    sharing = UnifiedSharingService(
+        backend=build_production_backends(neo4j_driver)["sharing_backend"]
     )
+    entries = UserEntryService(backend=user_entry_backend, sharing_service=sharing)  # type: ignore[arg-type]
+    report_backend = build_production_backends(neo4j_driver)["entry_report_backend"]
     review = TeacherReviewService(
         user_entry_backend=user_entry_backend,
         report_backend=report_backend,
@@ -157,7 +147,7 @@ async def test_every_stored_instant_renders_as_it_did(clean_neo4j, neo4j_driver)
         event_bus=None,  # type: ignore[arg-type]
     )
     notifications = NotificationService(
-        backend=NotificationBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+        backend=build_production_backends(neo4j_driver)["notification_backend"]
     )
     activity_reports = ActivityReportService(
         backend=backends["activity_report_backend"],

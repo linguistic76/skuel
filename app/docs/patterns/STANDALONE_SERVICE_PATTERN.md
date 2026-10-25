@@ -1,6 +1,6 @@
 ---
 title: Standalone Service Pattern
-updated: 2026-09-21
+updated: 2026-10-25
 category: patterns
 related_skills:
 - base-analytics-service
@@ -151,11 +151,12 @@ async def process(self, uid: str) -> Result[Transcription]:
 Even standalone services use `BackendOperations[T]`:
 
 ```python
-# In services_bootstrap/compose.py
+# In services_bootstrap/_backends.py — create_all_backends builds every backend
 transcription_backend = UniversalNeo4jBackend[Transcription](
-    driver, "Transcription", Transcription
+    driver, NeoLabel.TRANSCRIPTION, Transcription, prometheus_metrics=prometheus_metrics
 )
 
+# In services_bootstrap/_core_services.py — the service reads its entry
 transcription_service = TranscriptionService(
     backend=transcription_backend,
     deepgram_adapter=deepgram_adapter,
@@ -247,17 +248,16 @@ uid):
 ## Bootstrap Wiring
 
 ```python
-# In services_bootstrap/compose.py
+# In services_bootstrap/_core_services.py
 from core.config.deepgram_config import load_deepgram_config
 
 # 1. Load config and create external adapter
 deepgram_config = load_deepgram_config()  # reads config/deepgram.toml
 deepgram_adapter = DeepgramAdapter(api_key, config=deepgram_config)
 
-# 2. Create backend with standard UniversalNeo4jBackend
-transcription_backend = UniversalNeo4jBackend[Transcription](
-    driver, "Transcription", Transcription
-)
+# 2. The backend — a standard UniversalNeo4jBackend[Transcription], built in
+#    create_all_backends (services_bootstrap/_backends.py) and passed in
+transcription_backend = backends["transcription_backend"]
 
 # 3. Create service
 transcription_service = TranscriptionService(

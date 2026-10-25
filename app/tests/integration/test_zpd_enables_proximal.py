@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.zpd_backend import ZPDBackend
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER_UID = seed_user_uid("test_zpd_enables")
@@ -160,7 +160,7 @@ async def zpd_graph(neo4j_driver, clean_neo4j):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_enables_expands_proximal_zone(neo4j_driver, zpd_graph) -> None:
     """Engaged A, A-ENABLES->B → B is proximal (alongside the prereq path)."""
-    backend = ZPDBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["zpd_backend"]
 
     result = await backend.get_zone_data(USER_UID)
 
@@ -192,7 +192,7 @@ async def test_unengaged_enabler_is_never_a_blocking_gap(neo4j_driver, zpd_graph
     ENABLES treated like a prerequisite, it would surface as a blocking gap
     and depress readiness. It must do neither.
     """
-    backend = ZPDBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["zpd_backend"]
 
     result = await backend.get_zone_data(USER_UID)
 

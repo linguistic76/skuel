@@ -2,7 +2,6 @@
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -13,7 +12,7 @@ logger = get_logger("skuel.bootstrap")
 
 
 def _create_learning_services(
-    driver: Any,
+    backends: dict[str, Any],  # boundary: create_all_backends' named heterogeneous backends
     progress_backend: Any,
     knowledge_backend: Any,
     atomic_ku_backend: Any,  # KuBackend for atomic Ku entities
@@ -28,7 +27,6 @@ def _create_learning_services(
     activity_knowledge_intelligence: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
-    from core.models.pathways.learning_path import LearningPath
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ps_service import PsService
     from core.services.user_progress_service import UserProgressService
@@ -43,7 +41,6 @@ def _create_learning_services(
     else:
         try:
             from adapters.external.embeddings import create_embedding_client
-            from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
             from core.services.embeddings_service import EmbeddingsService
             from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
@@ -52,9 +49,8 @@ def _create_learning_services(
             # Missing key → adapter raises ValueError, wrapped below with tier guidance.
             embedding_client = create_embedding_client()
 
-            embeddings_backend = EmbeddingsBackend(executor=query_executor)
             embeddings_service = EmbeddingsService(
-                backend=embeddings_backend,
+                backend=backends["embeddings_backend"],
                 embedding_client=embedding_client,
                 prometheus_metrics=prometheus_metrics,
             )
@@ -63,12 +59,8 @@ def _create_learning_services(
                 f"{embedding_client.dimension}d)"
             )
 
-            # Create vector search backend + service
-            from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
-
-            vector_search_backend = VectorSearchBackend(executor=query_executor)
             vector_search_service = Neo4jVectorSearchService(
-                vector_search_backend, embeddings_service
+                backends["vector_search_backend"], embeddings_service
             )
             logger.info("✅ Neo4j vector search service created")
 
@@ -97,17 +89,12 @@ def _create_learning_services(
     )
 
     # Create progress services
-    from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
-
-    user_progress_backend = UserProgressBackend(query_executor)
-    user_progress = UserProgressService(user_progress_backend)
+    user_progress = UserProgressService(backends["user_progress_backend"])
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
 
     # Create path step service (PS operations)
-    # PsBackend passed in from _backends.py with all 5 domain mixins.
-    # PsIntelligenceBackend built here (composition root) and injected — the PS
-    # intelligence service never imports the adapter (ADR-044 / SKUEL022).
-    from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
+    # PsBackend and PsIntelligenceBackend come from create_all_backends and are
+    # injected — the PS intelligence service never imports the adapter (ADR-044 / SKUEL022).
 
     ps_service = PsService(
         backend=knowledge_backend,
@@ -120,17 +107,14 @@ def _create_learning_services(
         user_service=user_service,  # KU-Activity Integration
         vector_search_service=vector_search_service,  # GenAI vector search
         embeddings_service=embeddings_service,  # EmbeddingClientOperations-backed (ADR-068)
-        ps_intelligence_backend=PsIntelligenceBackend(query_executor),
+        ps_intelligence_backend=backends["ps_intelligence_backend"],
     )
 
     # Create path service (LP operations - delegates PS operations to PsService)
     # January 2026: Intelligence created internally (unified with other domains)
-    # Backend created here (composition root) — core services never import adapters
-    from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
-
-    lp_backend = LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
+    # Backend from create_all_backends — core services never import adapters
     learning_paths = LpService(
-        backend=lp_backend,
+        backend=backends["lp_backend"],
         ps_service=ps_service,  # Delegate PS operations to PsService
         ku_service=ps_service,  # PsService handles curriculum content
         progress_service=user_progress,

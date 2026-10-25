@@ -12,12 +12,12 @@ These tests assert:
 - empty-records path: ``result.is_error is True`` with a NotFound error
 """
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from adapters.persistence.neo4j.user_relationship_backend import UserRelationshipBackend
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 
 
 def _executor_returning(records: list[dict[str, object]]) -> AsyncMock:
@@ -43,7 +43,7 @@ def _executor_returning(records: list[dict[str, object]]) -> AsyncMock:
 async def test_pin_entity_success_returns_plain_bool() -> None:
     """A successful pin returns ``Result.ok(True)`` — value is a bare bool."""
     executor = _executor_returning([{"success": True}])
-    backend = UserRelationshipBackend(executor)
+    backend = build_production_backends(Mock(), executor)["user_relationship_backend"]
 
     result = await backend.pin_entity("user_alice", "task_1")
 
@@ -56,7 +56,7 @@ async def test_pin_entity_success_returns_plain_bool() -> None:
 async def test_unpin_entity_empty_records_is_error() -> None:
     """Unpinning a non-existent pin surfaces a NotFound error, not a false ok."""
     executor = _executor_returning([])
-    backend = UserRelationshipBackend(executor)
+    backend = build_production_backends(Mock(), executor)["user_relationship_backend"]
 
     result = await backend.unpin_entity("user_alice", "task_missing")
 
@@ -69,7 +69,7 @@ async def test_unpin_entity_empty_records_is_error() -> None:
 async def test_unpin_entity_success_returns_plain_bool() -> None:
     """A successful unpin returns ``Result.ok(True)`` — value is a bare bool."""
     executor = _executor_returning([{"success": True}])
-    backend = UserRelationshipBackend(executor)
+    backend = build_production_backends(Mock(), executor)["user_relationship_backend"]
 
     result = await backend.unpin_entity("user_alice", "task_1")
 

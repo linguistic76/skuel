@@ -15,10 +15,10 @@ from uuid import uuid4
 
 import pytest
 
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from core.services.entity_chunking_service import EntityChunkingService
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.production_backends import build_ingestion_service
 
 
 class _DriverConnection:
@@ -82,7 +82,7 @@ Python is easy to learn and powerful.
         # so chunks persist to Neo4j (Stage 1 of the chunk-retrieval pipeline).
         chunking_service = EntityChunkingService()
         content_adapter = Neo4jContentAdapter(_DriverConnection(neo4j_driver))
-        ingestion_service = make_unified_ingestion_service(
+        ingestion_service = build_ingestion_service(
             driver=neo4j_driver,
             chunking_service=chunking_service,
             content_adapter=content_adapter,
@@ -177,7 +177,7 @@ One shared chunk step, two doors.
     bus = _CapturingBus()
     chunking_service = EntityChunkingService()
     content_adapter = Neo4jContentAdapter(_DriverConnection(neo4j_driver))
-    ingestion_service = make_unified_ingestion_service(
+    ingestion_service = build_ingestion_service(
         driver=neo4j_driver,
         chunking_service=chunking_service,
         content_adapter=content_adapter,
@@ -235,7 +235,7 @@ async def test_empty_body_reingest_clears_content_subtree(neo4j_driver, tmp_path
 
     chunking_service = EntityChunkingService()
     content_adapter = Neo4jContentAdapter(_DriverConnection(neo4j_driver))
-    ingestion_service = make_unified_ingestion_service(
+    ingestion_service = build_ingestion_service(
         driver=neo4j_driver,
         chunking_service=chunking_service,
         content_adapter=content_adapter,
@@ -294,7 +294,7 @@ Just a short piece of content.
 
     try:
         # Given: UnifiedIngestionService WITHOUT chunking service (None)
-        ingestion_service = make_unified_ingestion_service(
+        ingestion_service = build_ingestion_service(
             driver=neo4j_driver,
             chunking_service=None,  # No chunking service,
             default_user_uid=INGESTION_TEST_OWNER,
@@ -342,7 +342,7 @@ This is a task description.
     try:
         # Given: UnifiedIngestionService with chunking enabled
         chunking_service = EntityChunkingService()
-        ingestion_service = make_unified_ingestion_service(
+        ingestion_service = build_ingestion_service(
             driver=neo4j_driver,
             chunking_service=chunking_service,
             default_user_uid=INGESTION_TEST_OWNER,
@@ -384,7 +384,7 @@ Python is a programming language.
     try:
         # Given: UnifiedIngestionService with chunking enabled
         chunking_service = EntityChunkingService()
-        ingestion_service = make_unified_ingestion_service(
+        ingestion_service = build_ingestion_service(
             driver=neo4j_driver,
             chunking_service=chunking_service,
             default_user_uid=INGESTION_TEST_OWNER,

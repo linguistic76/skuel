@@ -28,16 +28,10 @@ from fasthtml.common import FT, FtResponse, to_xml
 
 from adapters.inbound.entry_reports_ui import create_entry_reports_ui_routes
 from adapters.inbound.fasthtml_types import RouteDecorator
-from adapters.persistence.neo4j.backends.exercise_backends import (
-    EntryReportBackend,
-    RevisedExerciseBackend,
-)
-from core.models.enums.neo_labels import NeoLabel
-from core.models.exercises.revised_exercise import RevisedExercise
-from core.models.report.entry_report import EntryReport
 from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 from core.services.report.entry_report_service import EntryReportService
 from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 STUDENT = seed_user_uid("erd_student")
@@ -83,18 +77,9 @@ def _collector() -> tuple[tuple[SimpleNamespace, RouteDecorator], dict[str, Hand
 @pytest.fixture
 def orchestrator(neo4j_driver) -> UserEntryOrchestrator:
     """The real report read over the real backends — only Neo4j is a container."""
-    report_backend = EntryReportBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.ENTRY_REPORT,
-        entity_class=EntryReport,
-        base_label=NeoLabel.ENTITY,
-    )
-    revised_backend = RevisedExerciseBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.REVISED_EXERCISE,
-        entity_class=RevisedExercise,
-        base_label=NeoLabel.ENTITY,
-    )
+    backends = build_production_backends(neo4j_driver)
+    report_backend = backends["entry_report_backend"]
+    revised_backend = backends["revised_exercise_backend"]
     return UserEntryOrchestrator(
         user_entry_service=None,  # type: ignore[arg-type]
         exercises_service=None,  # type: ignore[arg-type]

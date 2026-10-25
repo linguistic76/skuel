@@ -31,12 +31,11 @@ import pytest_asyncio
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
-from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -92,7 +91,7 @@ def handlers(neo4j_driver, owner_only_service: Any) -> dict[tuple[str, str], Any
     ``/lateral/alternatives`` path, so a path-only collector would silently
     keep whichever registered last.
     """
-    backend = LateralRelationshipBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["lateral_relationship_backend"]
     service = LateralRelationshipService(backend=backend)
 
     registered: dict[tuple[str, str], Any] = {}

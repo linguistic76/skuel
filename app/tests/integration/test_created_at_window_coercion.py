@@ -25,8 +25,6 @@ from typing import cast
 
 import pytest
 
-from adapters.persistence.neo4j.backends.misc_backends import ActivityReportGeneratorBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
@@ -101,7 +99,7 @@ class TestCreatedAtWindowCoercion:
                 c=recent_iso,
                 user=_COOLDOWN,
             )
-        backend = ActivityReportGeneratorBackend(Neo4jQueryExecutor(neo4j_driver))
+        backend = build_production_backends(neo4j_driver)["activity_report_generator_backend"]
         result = await backend.check_cooldown(_COOLDOWN, cooldown_minutes=60, time_period="7d")
         assert result.is_ok, f"check_cooldown failed: {result}"
         # str + datetime are both in-window; the old string one and the

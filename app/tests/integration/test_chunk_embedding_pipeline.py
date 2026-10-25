@@ -23,13 +23,13 @@ from uuid import uuid4
 import pytest
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from core.events import ChunkEmbeddingRequested
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 from core.services.entity_chunking_service import EntityChunkingService
 from core.utils.result_simplified import Result
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.production_backends import build_ingestion_service
 
 
 class _DriverConnection:
@@ -103,7 +103,7 @@ Ingestion publishes ChunkEmbeddingRequested and the worker drains the queue.
         )
         event_bus.subscribe(ChunkEmbeddingRequested, worker._queue_chunk_request)
 
-        ingestion = make_unified_ingestion_service(
+        ingestion = build_ingestion_service(
             driver=neo4j_driver,
             chunking_service=EntityChunkingService(),
             content_adapter=content_adapter,

@@ -24,11 +24,8 @@ from neo4j import AsyncDriver, Record
 from neo4j.exceptions import ConstraintError
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
-from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.constants import EmbeddingGeometry
 from core.events import ChunkEmbeddingRequested
 from core.models.enums.neo_labels import NeoLabel
@@ -39,6 +36,7 @@ from core.services.chunks.batch_chunking_service import BatchChunkingService
 from core.services.entity_chunking_service import EntityChunkingService
 from core.utils.result_simplified import Result
 from core.utils.uid_grammar import UidVerdict, classify
+from tests.helpers.production_backends import build_production_backends
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
@@ -226,7 +224,7 @@ class TestReadersStartAtTheEntity:
             uid=STEP,
         )
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(neo4j_driver),
+            backend=build_production_backends(neo4j_driver)["batch_chunking_backend"],
             chunking_service=EntityChunkingService(),
             content_adapter=steps,
             event_bus=None,
@@ -275,7 +273,7 @@ class TestReadersStartAtTheEntity:
             embedding=_EMBEDDING,
         )
         await _rows(neo4j_driver, "CALL db.awaitIndexes(120)")
-        backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+        backend = build_production_backends(neo4j_driver)["vector_search_backend"]
 
         async def parents(parent_uid: str | None) -> set[str]:
             found = await backend.semantic_search_chunks(

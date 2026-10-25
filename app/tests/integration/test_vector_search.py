@@ -17,6 +17,7 @@ import pytest
 
 from core.services.embeddings_service import EmbeddingsService
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+from tests.helpers.production_backends import build_production_backends
 
 # Dimension for bge-m3
 DIM = 1024
@@ -240,10 +241,8 @@ async def test_vector_search_service_initialization(neo4j_driver, mock_embedding
     and took a VectorSearchBackend (wrapping a Neo4jQueryExecutor) instead of the
     raw driver.
     """
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 
-    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    vector_backend = build_production_backends(neo4j_driver)["vector_search_backend"]
     vector_search = Neo4jVectorSearchService(
         backend=vector_backend, embeddings_service=mock_embeddings_service
     )
@@ -437,13 +436,11 @@ async def test_embedding_service_initialization(neo4j_driver):
     (EmbeddingClientOperations); the vendor SDK lives in the adapter.
     """
     from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
-    from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
     # `your-`-prefixed so `_is_placeholder` refuses it: a fixture credential that
     # reaches the environment must not migrate into a real keychain.
     embedding_client = HuggingFaceEmbeddingAdapter(api_key="your-hf-token")
-    embeddings_backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    embeddings_backend = build_production_backends(neo4j_driver)["embeddings_backend"]
     embeddings_service = EmbeddingsService(
         backend=embeddings_backend, embedding_client=embedding_client
     )

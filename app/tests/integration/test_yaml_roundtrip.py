@@ -16,7 +16,7 @@ Run with: uv run pytest tests/integration/test_yaml_roundtrip.py -v
 import pytest
 
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
-from tests.helpers.production_backends import build_production_backends
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 
 
 @pytest.mark.integration
@@ -34,9 +34,6 @@ class TestYAMLRoundTrip:
         3. Export from Neo4j
         4. Verify data matches
         """
-        from adapters.persistence.neo4j.ingestion_service_factory import (
-            make_unified_ingestion_service,
-        )
 
         # Verify connection and clean database
         async with neo4j_driver.session() as session:
@@ -48,7 +45,7 @@ class TestYAMLRoundTrip:
             )
 
         # Create services with shared driver
-        ingestion_service = make_unified_ingestion_service(
+        ingestion_service = build_ingestion_service(
             driver=neo4j_driver, default_user_uid=INGESTION_TEST_OWNER
         )
         path_steps = build_production_backends(neo4j_driver)["ps_backend"]

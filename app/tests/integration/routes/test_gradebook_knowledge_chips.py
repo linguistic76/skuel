@@ -22,10 +22,6 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
-from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
@@ -33,6 +29,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import periodic_note_uid
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     edges_between,
@@ -193,10 +190,10 @@ async def world(
             await _seed(driver)
             vault = tmp_path_factory.mktemp("personal_vault")
             _write_vault(vault)
-            ingestion = make_unified_ingestion_service(
+            ingestion = build_ingestion_service(
                 driver=driver,
                 default_user_uid=UserUID(LEARNER),
-                ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(driver)),
+                ingestion_backend=build_production_backends(driver)["ingestion_backend"],
                 user_entry_service=skuel_app.state.services.user_entry,
             )
             synced = await ingestion.ingest_directory(vault, ingestion_mode="smart")
@@ -207,7 +204,7 @@ async def world(
             )
             assert processed.status_code == 200, processed.text
 
-            grounding = EntryGroundingBackend(Neo4jQueryExecutor(driver))
+            grounding = build_production_backends(driver)["entry_grounding_backend"]
             for entry_uid, ku_uid in (
                 (ACTIVITY_NOTE, KU_INFERRED),
                 (KNOWLEDGE_NOTE, KU_KNOWLEDGE),

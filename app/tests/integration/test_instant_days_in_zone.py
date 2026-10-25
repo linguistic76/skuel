@@ -46,7 +46,7 @@ from core.utils.timestamp_helpers import as_stored_clock
 from core.utils.zone_context import zone_scope
 from tests.helpers.forced_zone import forced_zone
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
-from tests.helpers.production_backends import build_production_backends
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
@@ -80,15 +80,10 @@ async def _raw(neo4j_driver, query: str, **params: object) -> list[dict[str, obj
 @pytest.fixture
 def door(neo4j_driver):
     """The real ingestion service (CORE-tier shape: no bus, nothing to publish)."""
-    from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-    from adapters.persistence.neo4j.ingestion_service_factory import (
-        make_unified_ingestion_service,
-    )
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-    return make_unified_ingestion_service(
+    return build_ingestion_service(
         driver=neo4j_driver,
-        ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
+        ingestion_backend=build_production_backends(neo4j_driver)["ingestion_backend"],
         default_user_uid=INGESTION_TEST_OWNER,
     )
 

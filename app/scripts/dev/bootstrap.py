@@ -20,7 +20,7 @@ __version__ = "1.0"
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import StaticFiles, fast_app
 from starlette.middleware import Middleware
@@ -35,6 +35,7 @@ from adapters.inbound.middleware import (
     RequestTimingMiddleware,
     StaticCacheHeadersMiddleware,
 )
+from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
 from core.config import UnifiedConfig
 from core.events.embedding_publisher import EMBEDDING_EVENT_TYPES
 from core.ports.infrastructure_protocols import DrainableEventBusOperations, EventBusOperations
@@ -43,6 +44,10 @@ from core.utils.logging import get_logger
 from core.utils.zone_context import default_zone
 from services_bootstrap import Services, compose_services, initialize_system_service
 from ui.theme import chartjs_headers, skuel_headers
+
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j_adapter import Neo4jAdapter
+    from core.infrastructure.monitoring import PrometheusMetrics
 
 try:
     from starlette.applications import ASGIApp
@@ -103,6 +108,9 @@ async def bootstrap_skuel() -> AppContainer:
         services = await _compose_services(
             neo4j_adapter, event_bus, config, prometheus_metrics, metrics_cache
         )
+        if services.uid_census_backend is None:
+            raise RuntimeError("Service composition produced no uid census backend")
+        _start_graph_health_poller(neo4j_adapter, prometheus_metrics, services.uid_census_backend)
 
         # Step 4: Wire routes
         static_dir = getattr(config.application, "static_directory", None)
@@ -155,16 +163,11 @@ def _load_config() -> UnifiedConfig:
 async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, Any]:
     """Step 2: Build core infrastructure (database, event bus, metrics)"""
     from adapters.infrastructure.event_bus import InMemoryEventBus
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.infrastructure.monitoring import (
-        UID_BREACH_SAMPLE,
         MetricsCache,
         PrometheusMetrics,
         QueryMetricsCache,
-        check_aura_cap_headroom,
-        check_uid_grammar,
     )
 
     # Import MetricsEventHandler here to avoid circular dependency
@@ -203,7 +206,21 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
     _metrics_handler = MetricsEventHandler(event_bus, prometheus_metrics)
     logger.info("✅ MetricsEventHandler initialized and subscribed to domain events")
 
-    # Start background task to periodically update graph health metrics
+    return neo4j_adapter, event_bus, prometheus_metrics, metrics_cache, query_metrics_cache
+
+
+def _start_graph_health_poller(
+    neo4j_adapter: Neo4jAdapter,
+    prometheus_metrics: PrometheusMetrics,
+    uid_census: UidCensusBackend,
+) -> None:
+    """Start the background task that refreshes the graph-health gauges every 5 minutes."""
+    from core.infrastructure.monitoring import (
+        UID_BREACH_SAMPLE,
+        check_aura_cap_headroom,
+        check_uid_grammar,
+    )
+
     async def update_graph_health_metrics() -> None:
         """
         Background task to query Neo4j for graph health statistics.
@@ -219,7 +236,6 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
         - The uid census's breaches: uids outside the uid grammar, uids two
           nodes hold (logged ERROR while either holds — production's alert)
         """
-        uid_census = UidCensusBackend(Neo4jQueryExecutor(neo4j_adapter.driver))
         # Staleness baseline: without it the gauge exports 0 and the alert fires
         # at boot; refreshed only after an error-free pass (inside the try)
         # so a failed poll leaves it stale and GraphHealthPollerStale can fire.
@@ -432,8 +448,6 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
     global _graph_health_task
     _graph_health_task = asyncio.create_task(update_graph_health_metrics())
     logger.info("✅ Graph health metrics update task started (5 min interval)")
-
-    return neo4j_adapter, event_bus, prometheus_metrics, metrics_cache, query_metrics_cache
 
 
 async def _compose_services(

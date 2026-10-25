@@ -161,13 +161,11 @@ async def test_enrollment_lifecycle_visible_to_readers(neo4j_driver, enrollment_
     forever and the completed readers were permanently empty. All four
     readers now read r.status on the ENROLLED_IN edge the writer maintains.
     """
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
 
     backends = build_production_backends(neo4j_driver)
     user_backend = backends["users_backend"]
     adaptive = backends["ps_backend"]
-    progress = UserProgressBackend(Neo4jQueryExecutor(neo4j_driver))
+    progress = build_production_backends(neo4j_driver)["user_progress_backend"]
 
     async def active_uids() -> tuple[list[str], list[str]]:
         adaptive_res = await adaptive.query_active_learning_paths(_USER_UID)

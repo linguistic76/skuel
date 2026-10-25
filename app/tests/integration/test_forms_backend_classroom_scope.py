@@ -37,9 +37,7 @@ from adapters.persistence.neo4j.backends.forms_backends import (
     FormSubmissionBackend,
     FormTemplateBackend,
 )
-from core.models.enums.neo_labels import NeoLabel
-from core.models.forms.form_submission import FormSubmission
-from core.models.forms.form_template import FormTemplate
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -139,16 +137,12 @@ async def forms_graph(neo4j_driver: Any) -> Any:
 
 @pytest.fixture
 def submissions(forms_graph: Any) -> FormSubmissionBackend:
-    return FormSubmissionBackend(
-        forms_graph, NeoLabel.ENTITY, FormSubmission, base_label=NeoLabel.ENTITY
-    )
+    return build_production_backends(forms_graph)["form_submission_backend"]
 
 
 @pytest.fixture
 def templates(forms_graph: Any) -> FormTemplateBackend:
-    return FormTemplateBackend(
-        forms_graph, NeoLabel.ENTITY, FormTemplate, base_label=NeoLabel.ENTITY
-    )
+    return build_production_backends(forms_graph)["form_template_backend"]
 
 
 async def _uids(backend: FormSubmissionBackend, teacher: str | None) -> list[str]:

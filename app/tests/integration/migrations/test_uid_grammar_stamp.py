@@ -31,9 +31,8 @@ from adapters.persistence.neo4j.graph_driver import (
     open_async_driver,
 )
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
 from core.models.enums.migration_enums import MigrationState
+from tests.helpers.production_backends import build_production_backends
 from tests.unit.utils.test_uid_grammar import FITTING, OUTSIDE, SHAPE_ONLY
 
 if TYPE_CHECKING:
@@ -118,7 +117,7 @@ async def test_the_server_filter_reads_every_sample_as_classify_does(graph: Asyn
         "CREATE (:Probe {uid: 7}) CREATE (:Entity:Task {uid: 'task.shared'}) "
         "CREATE (:Group {uid: 'task.shared'})"
     )
-    backend = UidCensusBackend(Neo4jQueryExecutor(graph))
+    backend = build_production_backends(graph)["uid_census_backend"]
     breaches = (await backend.read_breaches(sample=100)).value
     assert breaches.outside == len(misfits) + 1
     assert sorted(breaches.outside_sample) == sorted(
@@ -129,7 +128,7 @@ async def test_the_server_filter_reads_every_sample_as_classify_does(graph: Asyn
 
 async def test_a_graph_that_fits_reads_no_breach(graph: AsyncDriver) -> None:
     await graph.execute_query("UNWIND $uids AS uid CREATE (:Probe {uid: uid})", uids=FITTING)
-    backend = UidCensusBackend(Neo4jQueryExecutor(graph))
+    backend = build_production_backends(graph)["uid_census_backend"]
     breaches = (await backend.read_breaches(sample=5)).value
     assert (breaches.outside, breaches.shared) == (0, 0)
 

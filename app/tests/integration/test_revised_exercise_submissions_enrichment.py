@@ -12,11 +12,9 @@ both kinds land in ``_graph_context["submissions"]``.
 import pytest
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.backends.exercise_backends import RevisedExerciseBackend
-from core.models.enums.neo_labels import NeoLabel
-from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.search_request import SearchRequest
 from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 _TEACHER_UID = seed_user_uid("test")
@@ -66,12 +64,7 @@ async def answered_revision(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
 
 @pytest.fixture
 def revised_service(neo4j_driver: AsyncDriver) -> RevisedExerciseService:
-    backend = RevisedExerciseBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.REVISED_EXERCISE,
-        entity_class=RevisedExercise,
-        base_label=NeoLabel.ENTITY,
-    )
+    backend = build_production_backends(neo4j_driver)["revised_exercise_backend"]
     return RevisedExerciseService(backend=backend)
 
 

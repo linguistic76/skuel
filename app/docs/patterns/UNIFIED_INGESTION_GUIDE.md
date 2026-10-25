@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-10-24
+updated: 2026-10-25
 category: patterns
 related_skills: []
 related_docs:
@@ -945,7 +945,7 @@ if stats.is_ok:
 
 The owner a user-owned file that names none is stamped with, when no vault governs
 its path. It is required: the composition root passes `SKUEL_DEFAULT_USER_UID` to
-`make_unified_ingestion_service(driver, default_user_uid=...)`, and boot refuses an
+`UnifiedIngestionService(..., default_user_uid=...)`, and boot refuses an
 unset value, or one that is not a user uid (`VaultConfig.validate_owners`, ADR-091 S9).
 No account stands in for a missing one; a test names its own
 (`tests/helpers/ingestion_owner.py`).

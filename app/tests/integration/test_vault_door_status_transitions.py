@@ -42,6 +42,7 @@ import pytest
 from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted, TaskReopened
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 from tests.helpers.laptop_clock import laptop_wall
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 OWNER_UID = seed_user_uid("test_integration")  # seeded by the ensure_test_users fixture
@@ -81,16 +82,11 @@ def door(neo4j_driver, bus: _CapturingBus):
     The tracker is wired because the tracked ingestion modes — and ``force``,
     which only has meaning under tracking — are where the re-ingest pins live.
     """
-    from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-    from adapters.persistence.neo4j.ingestion_service_factory import (
-        make_unified_ingestion_service,
-    )
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-    return make_unified_ingestion_service(
+    return build_ingestion_service(
         driver=neo4j_driver,
         event_bus=bus,
-        ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
+        ingestion_backend=build_production_backends(neo4j_driver)["ingestion_backend"],
         default_user_uid=INGESTION_TEST_OWNER,
     )
 
@@ -529,14 +525,13 @@ async def test_the_clear_spares_an_entity_an_app_writer_re_completed(
     Driven at the backend, because the race is by definition not reachable
     through a single-threaded pass over the door.
     """
-    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
 
     _write(tmp_path, "vault-status-raced", "status: completed\ncompletion_date: 2026-03-04\n")
     assert (await door.ingest_file(tmp_path / "vault-status-raced.md")).is_ok
 
     # The entity is currently completed with a stamp — the shape an app writer
     # would leave behind after re-completing it mid-sync.
-    backend = IngestionWriteBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["ingestion_write_backend"]
     cleared = await backend.clear_completion_stamps("completion_date", ["task.vault-status-raced"])
 
     assert cleared == 0
@@ -553,7 +548,6 @@ async def test_the_clear_still_reaches_an_entity_with_no_status_at_all(
     property was deleted — filtering out exactly the row that most needs
     clearing. The guard coalesces for that reason.
     """
-    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
 
     _write(tmp_path, "vault-status-nostatus", "status: completed\ncompletion_date: 2026-03-04\n")
     path = tmp_path / "vault-status-nostatus.md"
@@ -562,7 +556,7 @@ async def test_the_clear_still_reaches_an_entity_with_no_status_at_all(
     async with neo4j_driver.session() as session:
         await session.run("MATCH (n:Entity {uid: 'task.vault-status-nostatus'}) REMOVE n.status")
 
-    backend = IngestionWriteBackend(neo4j_driver)
+    backend = build_production_backends(neo4j_driver)["ingestion_write_backend"]
     cleared = await backend.clear_completion_stamps(
         "completion_date", ["task.vault-status-nostatus"]
     )

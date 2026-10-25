@@ -29,6 +29,7 @@ pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-0
 from adapters.persistence.neo4j.graph_driver import open_async_driver  # noqa: E402
 from core.config.unified_config import VectorSearchConfig  # noqa: E402
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService  # noqa: E402
+from tests.helpers.production_backends import build_production_backends  # noqa: E402
 
 
 @dataclass
@@ -208,10 +209,7 @@ async def run_benchmarks():
     embeddings_service = MockEmbeddingsService()
     config = VectorSearchConfig(ku_min_score=0.0)
 
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
-
-    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(driver))
+    vector_backend = build_production_backends(driver)["vector_search_backend"]
     vector_search = Neo4jVectorSearchService(
         backend=vector_backend, embeddings_service=embeddings_service, config=config
     )

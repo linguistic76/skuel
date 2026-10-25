@@ -49,8 +49,6 @@ from adapters.inbound.teaching_api import create_teaching_api_routes
 from adapters.inbound.teaching_ui import create_teaching_ui_routes
 from adapters.persistence.neo4j.backends.exercise_backends import EntryReportBackend
 from core.models.enums import UserRole
-from core.models.enums.neo_labels import NeoLabel
-from core.models.report.entry_report import EntryReport
 from core.models.user.user import User
 from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 from core.services.report.entry_report_service import EntryReportService
@@ -145,12 +143,7 @@ def review_service(neo4j_driver) -> TeacherReviewService:
 
 @pytest.fixture
 def entry_report_service(neo4j_driver) -> EntryReportService:
-    backend = EntryReportBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.ENTRY_REPORT,
-        entity_class=EntryReport,
-        base_label=NeoLabel.ENTITY,
-    )
+    backend = build_production_backends(neo4j_driver)["entry_report_backend"]
     return EntryReportService(llm_caller=None, backend=backend)
 
 
@@ -396,12 +389,7 @@ class TestReviewShowsTheStudentsWork:
 
 
 def _report_backend(neo4j_driver) -> EntryReportBackend:
-    return EntryReportBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.ENTRY_REPORT,
-        entity_class=EntryReport,
-        base_label=NeoLabel.ENTITY,
-    )
+    return build_production_backends(neo4j_driver)["entry_report_backend"]
 
 
 def _report_params(submission_uid: str, report_uid: str, **extra: object) -> dict[str, object]:

@@ -13,7 +13,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from tests.helpers.production_backends import build_production_backends
 
 ENTRY = "ue.grounding-publication"
 KU_PUBLISHED = "ku.grounding.published"
@@ -39,7 +39,7 @@ async def backend(neo4j_driver, clean_neo4j) -> EntryGroundingBackend:
             legacy=KU_LEGACY,
             draft=KU_DRAFT,
         )
-    return EntryGroundingBackend(Neo4jQueryExecutor(neo4j_driver))
+    return build_production_backends(neo4j_driver)["entry_grounding_backend"]
 
 
 async def _linked(neo4j_driver, ku_uid: str) -> bool:

@@ -43,7 +43,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.ports.query_types import AlignmentDimensions
@@ -52,6 +51,7 @@ from core.services.lifepath.lifepath_alignment_service import LifePathAlignmentS
 from core.services.lifepath.lifepath_service import LifePathService
 from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 # One learner per scenario; each gets its own LearningPath because
@@ -179,7 +179,7 @@ async def graph(neo4j_driver, clean_neo4j):
             )
 
     # The REAL designation writer, not a hand-seeded promoted state.
-    backend = LifePathBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["lifepath_backend"]
     for user_uid, lp_uid in DESIGNATED.items():
         designated = await backend.designate_life_path(
             user_uid, lp_uid, datetime.now(UTC).isoformat()
@@ -193,10 +193,10 @@ def _service(driver, *, cross_domain=None) -> LifePathAlignmentService:
     """The service wired the way the composition root wires it."""
     executor = Neo4jQueryExecutor(driver)
     return LifePathAlignmentService(
-        backend=LifePathBackend(executor),
+        backend=build_production_backends(driver, executor)["lifepath_backend"],
         cross_domain_backend=cross_domain
         if cross_domain is not None
-        else CrossDomainBackend(executor),
+        else build_production_backends(driver, executor)["cross_domain_backend"],
     )
 
 
@@ -354,7 +354,7 @@ class TestAlignmentRefusesRatherThanScoringAConfidentZero:
         """Without the channel source the knowledge dimension would be mastery
         alone reported under a substance-weighted heading."""
         service = LifePathAlignmentService(
-            backend=LifePathBackend(Neo4jQueryExecutor(graph)),
+            backend=build_production_backends(graph)["lifepath_backend"],
         )
 
         result = await service.calculate_alignment(UserContext(user_uid=USER_SIX))
@@ -388,7 +388,7 @@ class TestAlignmentRefusesRatherThanScoringAConfidentZero:
         executor = Neo4jQueryExecutor(graph)
         service = LifePathAlignmentService(
             backend=_FailingDesignationLookup(executor),
-            cross_domain_backend=CrossDomainBackend(executor),
+            cross_domain_backend=build_production_backends(graph, executor)["cross_domain_backend"],
         )
 
         result = await service.calculate_alignment(UserContext(user_uid=USER_SIX))
@@ -410,7 +410,7 @@ class TestAlignmentRefusesRatherThanScoringAConfidentZero:
         executor = Neo4jQueryExecutor(graph)
         facade = LifePathService(
             backend=_FailingScoreWrite(executor),
-            cross_domain_backend=CrossDomainBackend(executor),
+            cross_domain_backend=build_production_backends(graph, executor)["cross_domain_backend"],
         )
 
         # A path nobody has designated yet, so step 1 can succeed.
@@ -440,7 +440,7 @@ class TestAlignmentRefusesRatherThanScoringAConfidentZero:
 
         executor = Neo4jQueryExecutor(graph)
         facade = LifePathService(
-            backend=LifePathBackend(executor),
+            backend=build_production_backends(graph, executor)["lifepath_backend"],
             cross_domain_backend=_FailingChannels(),
         )
 
