@@ -2,7 +2,7 @@
 related_skills:
 - chartjs
 - ui-browser
-updated: 2026-10-18
+updated: 2026-10-25
 ---
 # Alpine.js Architecture
 ## Related Skills
@@ -213,17 +213,28 @@ Fetches JSON and renders a Chart.js chart. The reference pattern for a component
 that **owns an async load**: it models the request's three outcomes explicitly
 rather than leaving the template to guess.
 
+The chart takes the theme's colours: before each draw, `SKUEL.chartTheme.apply()` sets
+Chart.js's text, grid, tick-backdrop and arc-border defaults from the theme tokens, and
+one shared `MutationObserver` on `<html>`'s `class` redraws every live chart when the
+theme switches (chartjs skill § Dark mode).
+
 **State:**
 - `chart`: object | null - The Chart.js instance
 - `loading`: boolean - Request in flight
 - `error`: string | null - Failure message, rendered in place of the chart
+- `config`: object | null - The config as fetched; each draw hands Chart.js a copy
 
 **Methods:**
 - `init()` - Kicks off `loadChart(dataUrl)`
-- `loadChart(url)` - Fetch, destroy any prior chart, render into `x-ref="canvas"`. The
-  fetched JSON is the whole Chart.js config, so its own `type` picks the chart kind
+- `loadChart(url)` - Fetch, then `draw()` and watch the theme. The fetched JSON is the
+  whole Chart.js config, so its own `type` picks the chart kind. A card removed before
+  the config arrives draws nothing
+- `draw()` - Destroy any prior chart, apply the theme's defaults, render into `x-ref="canvas"`
+- `redraw()` - `draw()` on a theme switch; a failure shows in the card
 - `refresh(newUrl)` - Re-run `loadChart` against `newUrl`, or the original `dataUrl`
-- `destroy()` - Tear down the Chart.js instance; Alpine calls it when the element is removed
+- `destroy()` - Stop watching the theme and tear down the Chart.js instance; Alpine calls
+  it when the element is removed. The theme key and the removed flag live in the
+  factory's closure, because Alpine calls `destroy()` through another proxy than `init()`
 
 ### collapsibleSidebar(storageKey, defaultCollapsed)
 

@@ -181,8 +181,8 @@ which is the insight-impact scale, not `Priority`) and its legend at the bottom.
 `get_type_distribution_chart` has one slice per insight type, sorted by count (a tie by
 name), with its legend on the right. All three count the learner's whole active set
 through one grouped count (`InsightStore.count_active_insights_by`). Both fill at `ChartColor.FILL_ALPHA` (0.8): impact from
-`ChartColor.IMPACT_*`, type from the `ChartColor.CATEGORIES` list, which Chart.js
-repeats past its sixth colour.
+`ChartColor.IMPACT_*`, type from `InsightType.get_color()`, one colour per type, so a
+type keeps its colour whatever its count.
 
 ### Half doughnut: gauge (`InsightStore.get_action_rate_chart`)
 

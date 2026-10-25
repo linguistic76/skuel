@@ -813,6 +813,99 @@
     };
 
     // =========================================================================
+    // Chart.js theme
+    // =========================================================================
+    /**
+     * Chart.js draws on a canvas, so the theme's CSS never reaches a chart. Its
+     * defaults for text, grid lines, the radial scale's tick backdrop and arc
+     * borders come from the theme tokens instead (static/css/input.css): text
+     * `--muted-foreground`, lines `--border`, backdrop and arc borders `--card`.
+     * Series colours come from the server's config and stay as they are.
+     *
+     * The theme changes by the `.dark` class on <html>, through several doors,
+     * none of which announces itself; one MutationObserver on that class sees
+     * them all. It is connected while a chart is live, and on a switch redraws
+     * every live chart. A redraw re-creates the chart: Chart.js keeps a scale's
+     * colours from creation, so `update()` would leave the axes in the old theme.
+     */
+    window.SKUEL.chartTheme = (function() {
+        var live = [];
+        var observer = null;
+        var drawnDark = null;
+
+        function isDark() {
+            return document.documentElement.classList.contains('dark');
+        }
+
+        // A token holds an HSL triplet ("215.4 16.3% 46.9%"). Chart.js's colour
+        // parser reads it space-separated, but not with a "/ alpha" after it,
+        // so every colour is spelled in the comma form: hsl(h, s%, l%) and
+        // hsla(h, s%, l%, a).
+        function tokenColour(name, alpha) {
+            var raw = getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
+            if (!raw) {
+                throw new Error('Theme token --' + name + ' is not defined');
+            }
+            var parts = raw.split(/\s+/).join(', ');
+            return alpha === undefined ? 'hsl(' + parts + ')' : 'hsla(' + parts + ', ' + alpha + ')';
+        }
+
+        function onClassChange() {
+            if (isDark() === drawnDark) return;
+            live.slice().forEach(function(entry) {
+                entry.redraw();
+            });
+        }
+
+        function indexOf(key) {
+            for (var i = 0; i < live.length; i++) {
+                if (live[i].key === key) return i;
+            }
+            return -1;
+        }
+
+        return {
+            /** Set Chart.js's defaults from the current theme's tokens. */
+            apply: function() {
+                Chart.defaults.color = tokenColour('muted-foreground');
+                Chart.defaults.borderColor = tokenColour('border');
+                Chart.defaults.scale.ticks.backdropColor = tokenColour('card', 0.75);
+                Chart.defaults.elements.arc.borderColor = tokenColour('card');
+                drawnDark = isDark();
+            },
+
+            /**
+             * Call `redraw` on every theme switch until `unwatch(key)`. The key
+             * is the caller's own object: Alpine calls a component's methods
+             * through different proxies, so the component itself is no key.
+             */
+            watch: function(key, redraw) {
+                if (indexOf(key) === -1) {
+                    live.push({ key: key, redraw: redraw });
+                }
+                if (!observer) {
+                    observer = new MutationObserver(onClassChange);
+                    observer.observe(document.documentElement, {
+                        attributes: true,
+                        attributeFilter: ['class']
+                    });
+                }
+            },
+
+            unwatch: function(key) {
+                var index = indexOf(key);
+                if (index !== -1) {
+                    live.splice(index, 1);
+                }
+                if (observer && live.length === 0) {
+                    observer.disconnect();
+                    observer = null;
+                }
+            }
+        };
+    })();
+
+    // =========================================================================
     // Alpine.js Component Definitions
     // =========================================================================
 
@@ -1260,12 +1353,22 @@
         // Chart.js Visualization Component
         // ---------------------------------------------------------------------
         // Renders a Chart.js chart from a JSON route. The route answers the whole
-        // Chart.js config, so the config's own `type` picks the chart kind.
+        // Chart.js config, so the config's own `type` picks the chart kind. The
+        // chart takes the theme's colours (SKUEL.chartTheme) and is redrawn in
+        // the new ones on a theme switch.
         Alpine.data('chartVis', function(dataUrl) {
+            // This card's own: Alpine calls destroy() through another proxy
+            // than init(), so neither the key nor the flag can live on `this`.
+            var themeKey = {};
+            var removed = false;
+
             return {
                 chart: null,
                 loading: true,
                 error: null,
+                // The config as fetched: Chart.js changes the object it is
+                // given, so each draw takes a copy.
+                config: null,
 
                 init: function() {
                     this.loadChart(dataUrl);
@@ -1278,26 +1381,45 @@
 
                     window.SKUEL.getJson(url)
                         .then(function(config) {
-                            var canvas = self.$refs.canvas;
-                            if (!canvas) {
-                                throw new Error('Canvas element not found');
-                            }
-
-                            // Destroy existing chart if any
-                            if (self.chart) {
-                                self.chart.destroy();
-                            }
-
-                            // Create new chart
-                            var ctx = canvas.getContext('2d');
-                            self.chart = new Chart(ctx, config);
+                            if (removed) return;
+                            self.config = config;
+                            self.draw();
+                            window.SKUEL.chartTheme.watch(themeKey, function() {
+                                self.redraw();
+                            });
                             self.loading = false;
                         })
                         .catch(function(error) {
-                            console.error('Chart error:', error);
-                            self.error = error.message;
-                            self.loading = false;
+                            self.fail(error);
                         });
+                },
+
+                draw: function() {
+                    var canvas = this.$refs.canvas;
+                    if (!canvas) {
+                        throw new Error('Canvas element not found');
+                    }
+                    if (this.chart) {
+                        this.chart.destroy();
+                        this.chart = null;
+                    }
+                    window.SKUEL.chartTheme.apply();
+                    this.chart = new Chart(canvas.getContext('2d'), JSON.parse(JSON.stringify(this.config)));
+                },
+
+                // A theme switch: the same config, drawn in the new colours.
+                redraw: function() {
+                    try {
+                        this.draw();
+                    } catch (error) {
+                        this.fail(error);
+                    }
+                },
+
+                fail: function(error) {
+                    console.error('Chart error:', error);
+                    this.error = error.message;
+                    this.loading = false;
                 },
 
                 refresh: function(newUrl) {
@@ -1305,6 +1427,8 @@
                 },
 
                 destroy: function() {
+                    removed = true;
+                    window.SKUEL.chartTheme.unwatch(themeKey);
                     if (this.chart) {
                         this.chart.destroy();
                         this.chart = null;

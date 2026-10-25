@@ -98,6 +98,35 @@ class InsightType(StrEnum):
     COVERAGE_ANALYSIS = "coverage_analysis"
     BRIDGE_OPPORTUNITY = "bridge_opportunity"
 
+    def get_color(self) -> str:
+        """The type's own colour on the type doughnut, whatever the slice's place.
+
+        One hue family per group above: learning blue, activity teal to green,
+        cross-domain olive to orange, content red, decision violet to pink. Each colour is at least 3:1
+        against the chart surface in both themes, and no two are close
+        (``tests/unit/models/test_insight_type_colours.py``).
+        """
+        return _INSIGHT_TYPE_COLORS[self]
+
+
+_INSIGHT_TYPE_COLORS: dict[InsightType, str] = {
+    InsightType.LEARNING_PROGRESS: "#137CE4",
+    InsightType.MASTERY_ACHIEVED: "#4E6AFD",
+    InsightType.KNOWLEDGE_GAP: "#1384B7",
+    InsightType.DIFFICULTY_PATTERN: "#24887F",
+    InsightType.STREAK_PATTERN: "#0E8E4F",
+    InsightType.COMPLETION_PATTERN: "#129104",
+    InsightType.DECISION_PATTERN: "#9541FF",
+    InsightType.OUTCOME_ANALYSIS: "#EC06F7",
+    InsightType.PRINCIPLE_ALIGNMENT: "#FA07BB",
+    InsightType.PRINCIPLE_CONFLICT: "#FD2083",
+    InsightType.CROSS_DOMAIN_CONNECTION: "#6B8316",
+    InsightType.SYNERGY_OPPORTUNITY: "#9F7100",
+    InsightType.IMBALANCE_DETECTED: "#CA5A15",
+    InsightType.COVERAGE_ANALYSIS: "#F83B00",
+    InsightType.BRIDGE_OPPORTUNITY: "#FD0E3C",
+}
+
 
 class InsightImpact(StrEnum):
     """Impact level of an insight for prioritization."""

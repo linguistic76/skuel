@@ -145,7 +145,7 @@ SKUEL's CSS is compiled by the **Tailwind CLI** (`./dev css-build`) into `static
 - `BasePage()` — authenticated pages (navbar + chrome)
 - `AuthPage()` — unauthenticated pages (login, register — no navbar)
 
-**Dark mode is class-based** — `@custom-variant dark (&:where(.dark, .dark *))` in `input.css` with a `.dark` class toggled on the root element (not DaisyUI `data-theme`).
+**Dark mode is class-based** — `@custom-variant dark (&:where(.dark, .dark *))` in `input.css` with a `.dark` class toggled on the root element (not DaisyUI `data-theme`). A Chart.js canvas is the one surface CSS cannot reach: `SKUEL.chartTheme` (`static/js/skuel.js`) reads the tokens into Chart.js's defaults and redraws on a switch (chartjs skill § Dark mode).
 
 `output.css` is the production CSS asset, loaded by `skuel_headers()` / `build_head()`. Run `./dev css-prod` after changing component class strings so newly-used utilities are present in the committed compiled output — CI's `css_freshness` job recompiles and **fails on drift** whenever `input.css` or any scanned class-bearing tree changes (ADR-084). `./dev css-build` (unminified) is for local inspection only; the committed artifact is the `css-prod` build.
 

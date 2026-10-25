@@ -37,14 +37,15 @@ Every Chart.js chart SKUEL draws today:
 ```
 page route ── BasePage/SidebarPage(extra_scripts=[chart.umd.js])
    └─ card: Div(x-data="chartVis(url)") ⊃ Canvas(x-ref="canvas") + loading + error
-         └─ chartVis.init → SKUEL.getJson(url) → destroy old chart → new Chart(ctx, config)
+         └─ chartVis.init → SKUEL.getJson(url) → destroy old chart
+               → SKUEL.chartTheme.apply() → new Chart(ctx, copy of config)
                                    │
 route ── @boundary_handler → Result[ChartJsConfig] → JSON body (the config itself, unwrapped)
 ```
 
 **`chartVis(dataUrl)`** is registered in `static/js/skuel.js` (inside the
-`alpine:init` listener). State: `chart`, `loading`, `error`. Methods: `loadChart(url)`,
-`refresh(newUrl)`, `destroy()`.
+`alpine:init` listener). State: `chart`, `loading`, `error`, `config` (the config as
+fetched). Methods: `loadChart(url)`, `draw()`, `redraw()`, `refresh(newUrl)`, `destroy()`.
 
 - **The payload's `"type"` decides the chart.** The route answers the whole Chart.js
   config, so the card passes only its URL. `ChartJsConfig` declares `type` as
@@ -271,7 +272,6 @@ SemanticColor.ALL       # the six, for cycling (format_distribution_chart uses i
 
 ChartColor.IMPACT_CRITICAL, .IMPACT_HIGH, .IMPACT_MEDIUM, .IMPACT_LOW  # the impact doughnut
 ChartColor.ACTIONED, .NOT_ACTIONED   # the action-rate gauge
-ChartColor.CATEGORIES                # one colour per category (the type doughnut)
 ChartColor.POINT_BORDER              # "#fff", the radar's point outline
 ChartColor.FILL_ALPHA, .MUTED_ALPHA, .AREA_ALPHA   # 0.8, 0.3, 0.2
 
@@ -281,11 +281,40 @@ rgba(SemanticColor.PRIMARY, ChartColor.FILL_ALPHA)   # "rgba(59, 130, 246, 0.8)"
 `SemanticColor` serves the `VisualizationService` formatters; `ChartColor` holds the
 Tailwind shades the `/insights` charts and the radar draw with, through `rgba()`.
 For slices keyed by a domain enum, use the enum's own color: `Priority.get_color()`,
-`EntityStatus.get_color()`.
+`EntityStatus.get_color()`, `InsightType.get_color()` (the type doughnut — one colour per
+type, so a type looks the same whatever its place). `InsightType`'s fifteen are pinned by
+`tests/unit/models/test_insight_type_colours.py`: each at least 3:1 against the chart
+surface in both themes, as drawn at `FILL_ALPHA`, and no two closer than ΔE 20. A new
+member needs a colour that passes both.
 
-Chart.js draws on a canvas, so the theme's CSS tokens do not reach it. The series
-colours read in both themes, but Chart.js's own text and grid defaults are tuned for a
-light background — nothing in SKUEL overrides them for dark mode yet.
+### Dark mode
+
+Chart.js draws on a canvas, so the theme's CSS never reaches a chart. `SKUEL.chartTheme`
+(`static/js/skuel.js`) sets Chart.js's defaults from the theme tokens before every draw:
+
+| Chart.js default | Token | Light / dark contrast on the card |
+|------------------|-------|-----------------------------------|
+| `Chart.defaults.color` (legend, title, ticks, radar point labels) | `--muted-foreground` | 4.75:1 / 7.80:1 |
+| `Chart.defaults.borderColor` (grid, axis lines, radar web) | `--border` | 1.23:1 / 1.37:1 |
+| `Chart.defaults.scale.ticks.backdropColor` (the radar's tick boxes) | `--card` at 0.75 | the surface |
+| `Chart.defaults.elements.arc.borderColor` (doughnut separators) | `--card` | the surface |
+
+Grid lines stay under 3:1 on purpose: no chart needs them to be read (ticks and tooltips
+carry every value, and the radar's five scores are printed below it). The series colours
+come from the config and do not change with the theme; tooltips keep Chart.js's dark box.
+
+- **Spell a colour in the comma form.** A token is an HSL triplet (`215.4 16.3% 46.9%`);
+  Chart.js's colour parser reads `hsl(215.4, 16.3%, 46.9%)` and
+  `hsla(…, 0.75)`, but not `hsl(215.4 16.3% 46.9% / 0.75)`, for which it derives no
+  hover colour. `chartTheme` builds every colour in the comma form.
+- **A theme switch re-creates each chart.** The theme is the `.dark` class on `<html>`,
+  set by several doors (the restore script, the system preference listener,
+  `toggleTheme`, the Settings select and the save that follows it), none of which
+  announces itself. One `MutationObserver` on that class redraws every live chart
+  when the theme actually changes. It re-creates the chart from the config it fetched:
+  `chart.update()` re-resolves text and arc colours, but a scale keeps its colours from
+  creation. The observer is connected while a chart is live and disconnected with the
+  last one. `tests/js/chart-theme.test.js` holds all of it, with the real Chart.js.
 
 ## Anti-Patterns
 
