@@ -8406,7 +8406,7 @@ class TestTestFileScopeIsTheTestsTree:
     """``_is_test_file`` is exactly ``testpaths = ["tests"]``: a module is a test
     iff it lives under a ``tests`` directory. A filename SHAPE would be wrong in
     both directions — ``scripts/`` holds CLI diagnostics named ``test_*.py`` and
-    ``*_test.py`` and seeders whose names merely contain ``test_``, none of
+    ``*_test.py`` and a runner whose name merely contains ``test``, none of
     which any runner collects. Asserted through the production dispatch, not the
     ``lint_content`` mirror (which reads the same predicate)."""
 
@@ -8418,7 +8418,7 @@ class TestTestFileScopeIsTheTestsTree:
         [
             "scripts/test_metrics_endpoint.py",
             "scripts/smoke_test.py",
-            "scripts/seed_search_test_data.py",
+            "scripts/run_tests.py",
             "core/services/test_shaped_module.py",
         ],
     )

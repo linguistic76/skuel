@@ -208,9 +208,11 @@ class TasksService:
 ### Backend Implementation (Structural Typing)
 
 Every backend is built in one place, `create_all_backends`
-(`services_bootstrap/_backends.py`). The composition root and every test take
-their backend from the dict it returns; nothing else constructs one
-(`tests/unit/test_production_backend_census.py` fails a test that does).
+(`services_bootstrap/_backends.py`). The composition root, every test and every
+script take their backend from the dict it returns; nothing else constructs one
+(`tests/unit/test_production_backend_census.py` fails a test or script that does).
+A script opens its own driver and reads one entry:
+`create_all_backends(driver, Neo4jQueryExecutor(driver))["uid_census_backend"]`.
 
 ```python
 # services_bootstrap/_backends.py — inside create_all_backends

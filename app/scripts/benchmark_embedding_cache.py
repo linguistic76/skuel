@@ -427,8 +427,8 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
         # The factory is the provider chokepoint (ADR-068); a missing API key
         # raises ValueError = the "not available" signal.
         from adapters.external.embeddings import create_embedding_client
-        from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
         from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+        from services_bootstrap._backends import create_all_backends
 
         try:
             embedding_client = create_embedding_client()
@@ -437,7 +437,7 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
             return 1
 
         service = EmbeddingsService(
-            backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(driver)),
+            backend=create_all_backends(driver, Neo4jQueryExecutor(driver))["embeddings_backend"],
             embedding_client=embedding_client,
         )
 

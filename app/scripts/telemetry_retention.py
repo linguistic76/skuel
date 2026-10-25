@@ -44,10 +44,10 @@ pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-0
 async def run_retention(*, days_override: int | None, batch_size: int, dry_run: bool) -> int:
     """Connect, prune (or count) each telemetry type, print a report, return exit code."""
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from adapters.persistence.neo4j.session_backend import SessionBackend
     from adapters.persistence.neo4j.telemetry_retention_backend import TelemetryRetentionBackend
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.constants import TelemetryRetention
+    from services_bootstrap._backends import create_all_backends
 
     def _window(default_days: int) -> int:
         return days_override if days_override is not None else default_days
@@ -57,8 +57,9 @@ async def run_retention(*, days_override: int | None, batch_size: int, dry_run: 
     await adapter.connect()
     try:
         driver = adapter.get_driver()
-        backend = TelemetryRetentionBackend(Neo4jQueryExecutor(driver))
-        session_backend = SessionBackend(driver)
+        executor = Neo4jQueryExecutor(driver)
+        backend = TelemetryRetentionBackend(executor)
+        session_backend = create_all_backends(driver, executor)["session_backend"]
 
         # (label, coroutine, window_days | None). None window = expiry-based.
         age_targets = [

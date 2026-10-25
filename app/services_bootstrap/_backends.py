@@ -22,8 +22,9 @@ def create_all_backends(
     Returns a dict of named backends: the domain backends for the entity types,
     then the purpose-built backends each service family reads through. Every
     consumer in the composition root takes its backend from this dict, and so
-    does every test (``tests/unit/test_production_backend_census.py``), so the
-    class, label, base label and entity class a backend runs with are stated once.
+    do every test and every script (``tests/unit/test_production_backend_census.py``),
+    so the class, label, base label and entity class a backend runs with are
+    stated once.
 
     ``query_executor`` is the single raw-Cypher port (created once in compose);
     backends that take an executor rather than a driver (e.g.

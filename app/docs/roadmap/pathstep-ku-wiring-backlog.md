@@ -1,6 +1,6 @@
 ---
 title: "PathStep → Ku Wiring Backlog — Ku-less PathSteps, PathStep-less Kus"
-updated: 2026-09-05
+updated: 2026-10-25
 status: "content backlog"
 registered: 2026-08-28
 ruled: 2026-08-28
@@ -17,8 +17,7 @@ Askesis grounds a PathStep through its COMPOSITION edges — `USES_KU`, `TRAINS_
 `core/services/askesis/context_retriever.py:693`); a step with none renders `kus=0` and the
 companion has no atomic knowledge to cite for it. Measured 2026-08-28 (AuraDB, all three edges:
 `USES_KU` 73, `TRAINS_KU` 5, `CONTAINS_KNOWLEDGE` 0): **1 of 25 PathSteps has no composition
-edge — `ps.meditation.basics`** (`0vault/Ps/Ps_dev/`, also in the seed set of
-`scripts/seed_search_test_data.py`) — and **67 of 121 Kus are composed by no PathStep**.
+edge — `ps.meditation.basics`** (`0vault/Ps/Ps_dev/`) — and **67 of 121 Kus are composed by no PathStep**.
 ⚠️ A `USES_KU`-only census says 5 steps, not 1: the four mindfulness/self-reflection steps
 declare `trains_ku_uids:` in their frontmatter and Askesis grounds them correctly — test all three
 edges or the backlog is overstated five-fold (Codex, #1179). `./dev knowledge-health` reports
