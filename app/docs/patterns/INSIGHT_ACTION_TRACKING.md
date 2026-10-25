@@ -1,6 +1,6 @@
 ---
 title: Insight Action Tracking Pattern
-updated: '2026-10-24'
+updated: '2026-10-25'
 category: patterns
 related_skills:
 - chartjs
@@ -356,17 +356,16 @@ ORDER BY coalesce(i.dismissed_at, i.actioned_at) DESC
 The doors are tested against a real graph: `tests/integration/test_insight_native_stamps.py`
 (dismiss → history, the stamps' native types, the active route) and
 `tests/integration/test_insights_page_truthful_reads.py` (the history and stats pages' counts
-and filters). Their shape — the real store over a testcontainer, an owner seeded with
+and filters). Their shape — the real store over the composition root's backend on a testcontainer, an owner seeded with
 `seed_user_uid` (`tests/helpers/seed_uids.py`) and an insight uid in the uid grammar:
 
 ```python
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.insight_backend import InsightBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.services.insight.insight_store import InsightStore
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -377,7 +376,7 @@ USER = seed_user_uid("insight_history")
 @pytest_asyncio.fixture
 async def store(neo4j_driver, clean_neo4j) -> InsightStore:
     await neo4j_driver.execute_query("MERGE (:User {uid: $uid})", uid=USER)
-    return InsightStore(InsightBackend(Neo4jQueryExecutor(neo4j_driver)))
+    return InsightStore(build_production_backends(neo4j_driver)["insight_backend"])
 
 
 async def test_a_dismissal_keeps_its_notes_in_the_history(store) -> None:
