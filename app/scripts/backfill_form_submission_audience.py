@@ -81,21 +81,18 @@ MAX_BATCHES = 10_000
 
 async def run_backfill(*, batch_size: int, dry_run: bool, after_uid: str) -> int:
     """Walk every audience-less submission and give it its default audience."""
-    from adapters.persistence.neo4j.backends.forms_backends import FormSubmissionBackend
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
-    from core.models.enums.neo_labels import NeoLabel
-    from core.models.forms.form_submission import FormSubmission
+    from services_bootstrap._backends import create_all_backends
 
     print("Connecting to Neo4j...", file=sys.stderr)
     adapter = Neo4jAdapter()
     await adapter.connect()
     try:
-        submissions = FormSubmissionBackend(
-            driver=adapter.get_driver(),
-            label=NeoLabel.FORM_SUBMISSION,
-            entity_class=FormSubmission,
-            base_label=NeoLabel.ENTITY,
-        )
+        driver = adapter.get_driver()
+        submissions = create_all_backends(driver, Neo4jQueryExecutor(driver))[
+            "form_submission_backend"
+        ]
 
         cursor = after_uid
         examined = 0

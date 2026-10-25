@@ -173,9 +173,9 @@ def render(census: Census, uidless: dict[str, int]) -> str:
 async def read_census(driver: AsyncDriver) -> Result[tuple[Census, dict[str, int]]]:
     """The census of every uid on the graph, and the uid-less nodes counted by label."""
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
+    from services_bootstrap._backends import create_all_backends
 
-    backend = UidCensusBackend(Neo4jQueryExecutor(driver))
+    backend = create_all_backends(driver, Neo4jQueryExecutor(driver))["uid_census_backend"]
     rows = await backend.read_uids()
     if rows.is_error:
         return Result.fail(rows)

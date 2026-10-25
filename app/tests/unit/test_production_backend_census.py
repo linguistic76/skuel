@@ -1,14 +1,16 @@
-"""No test builds a backend the composition root builds, except through it.
+"""No test or script builds a backend the composition root builds, except through it.
 
 ``create_all_backends`` (``services_bootstrap/_backends.py``) is the one constructor
 of every backend the application runs: which class serves a domain or a service
 family, under which label, over which base label and entity class, over the driver
-or the shared executor. A test that copies those arguments tests a backend
+or the shared executor. A test or script that copies those arguments runs a backend
 production never runs the moment the two drift — a generic
 ``UniversalNeo4jBackend[Task]`` lacks every read ``TasksBackend`` adds, and an
 ``"Entity"``-labelled one writes nodes no production writer makes. So a test gets
 its backend from ``build_production_backends(driver)`` (``tests/helpers``) or the
-``production_backends`` fixture, both of which call ``create_all_backends``.
+``production_backends`` fixture, both of which call ``create_all_backends``; a
+script opens its own driver and takes its backend from
+``create_all_backends(driver, Neo4jQueryExecutor(driver))["<key>"]``.
 
 The set this census refuses is read from ``create_all_backends`` itself, called over
 a mock driver — a backend added there is covered here without an edit:
@@ -20,7 +22,8 @@ a mock driver — a backend added there is covered here without an edit:
   serves (``UniversalNeo4jBackend[HabitCompletion](driver, ..., HabitCompletion)``).
 
 A generic backend over a test's own model and label (``SampleTask``) is not refused:
-it tests the generic class, not a domain.
+it tests the generic class, not a domain. Nor is a backend only a script builds
+(``TelemetryRetentionBackend``): ``create_all_backends`` does not return it.
 """
 
 from __future__ import annotations
@@ -35,6 +38,8 @@ from core.models.enums.neo_labels import NeoLabel
 from services_bootstrap._backends import create_all_backends
 
 TESTS_ROOT = Path(__file__).resolve().parents[1]
+APP_ROOT = TESTS_ROOT.parent
+SCRIPTS_ROOT = APP_ROOT / "scripts"
 
 _GENERIC = UniversalNeo4jBackend.__name__
 
@@ -142,17 +147,39 @@ def test_create_all_backends_is_read() -> None:
     )
 
 
-def test_no_test_builds_a_production_backend_by_hand() -> None:
-    offenders = [
-        f"{path.relative_to(TESTS_ROOT.parent)}:{call.lineno}"
-        for path in sorted(TESTS_ROOT.rglob("*.py"))
-        if "__pycache__" not in path.parts
+def _python_files(root: Path) -> list[Path]:
+    return sorted(path for path in root.rglob("*.py") if "__pycache__" not in path.parts)
+
+
+def _offenders(root: Path) -> list[str]:
+    return [
+        f"{path.relative_to(APP_ROOT)}:{call.lineno}"
+        for path in _python_files(root)
         for call in production_copies(path.read_text(encoding="utf-8"))
     ]
+
+
+def test_each_root_is_walked() -> None:
+    """A walk over the wrong directory finds no copy and passes; each root must hold its files."""
+    assert Path(__file__).resolve() in _python_files(TESTS_ROOT)
+    assert SCRIPTS_ROOT / "uid_census.py" in _python_files(SCRIPTS_ROOT)
+
+
+def test_no_test_builds_a_production_backend_by_hand() -> None:
+    offenders = _offenders(TESTS_ROOT)
     assert not offenders, (
         "These build a backend the composition root builds, by hand. Take it from "
         'build_production_backends(driver)["<key>"] (tests/helpers/production_backends.py) '
         "or the production_backends fixture:\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_no_script_builds_a_production_backend_by_hand() -> None:
+    offenders = _offenders(SCRIPTS_ROOT)
+    assert not offenders, (
+        "These build a backend the composition root builds, by hand. Take it from "
+        'create_all_backends(driver, Neo4jQueryExecutor(driver))["<key>"] '
+        "(services_bootstrap/_backends.py):\n  " + "\n  ".join(offenders)
     )
 
 
@@ -165,6 +192,8 @@ def test_the_census_refuses_each_copy() -> None:
         "ConnectionFetchBackend(executor)",
         "CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver))",
         "VectorSearchBackend(executor=executor)",
+        "EmbeddingsBackend(executor=Neo4jQueryExecutor(driver))",
+        "SessionBackend(driver)",
         "BulkUpsertBackend(neo4j_driver)",
         "SharingBackend(driver, NeoLabel.ENTITY, Entity, base_label=NeoLabel.ENTITY)",
         "UniversalNeo4jBackend[Group](driver, NeoLabel.GROUP, Group)",
@@ -184,6 +213,8 @@ def test_the_census_passes_a_generic_backend_over_a_test_model() -> None:
         "UniversalNeo4jBackend[SampleTask](driver=d, label='SampleTask', entity_class=SampleTask)",
         "UniversalNeo4jBackend[Example](driver, 'Example', Example, validate_label=False)",
         'build_production_backends(neo4j_driver)["tasks_backend"]',
+        'create_all_backends(driver, Neo4jQueryExecutor(driver))["uid_census_backend"]',
+        "TelemetryRetentionBackend(executor)",
         "MagicMock(spec=TasksBackend)",
     ]
     for sample in passed:
