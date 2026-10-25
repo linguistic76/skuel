@@ -230,7 +230,12 @@ def create_lifepath_ui_routes(
 
 
 def _alignment_radar_config(dimensions: AlignmentDimensions | None) -> ChartJsConfig:
-    """The radar's Chart.js config: one axis from 0 to 1 per alignment dimension."""
+    """The radar's Chart.js config: one axis from 0 to 1 per alignment dimension.
+
+    The axes carry the names the score rows below the radar print, and the
+    scale draws no tick numbers: Chart.js puts them along the first axis, under
+    its point, and the rows print every score.
+    """
     scores = (
         [
             dimensions["knowledge"],
@@ -245,7 +250,7 @@ def _alignment_radar_config(dimensions: AlignmentDimensions | None) -> ChartJsCo
     return {
         "type": "radar",
         "data": {
-            "labels": ["Knowledge", "Activity", "Goals", "Principles", "Momentum"],
+            "labels": ["Knowledge", "Activity", "Goal", "Principle", "Momentum"],
             "datasets": [
                 {
                     "label": "Your Alignment",
@@ -259,7 +264,7 @@ def _alignment_radar_config(dimensions: AlignmentDimensions | None) -> ChartJsCo
             ],
         },
         "options": {
-            "scales": {"r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2}}},
+            "scales": {"r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2, "display": False}}},
             "plugins": {"legend": {"display": False}},
         },
     }

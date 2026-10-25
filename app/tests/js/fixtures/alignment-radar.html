@@ -1,5 +1,5 @@
-<div x-data="chartVis('/api/lifepath/alignment/chart')" class="mb-6">
-<canvas x-ref="canvas" width="360" height="360" class="max-w-full mx-auto"></canvas>  <div x-show="loading" class="text-center text-muted-foreground py-8">Loading chart...</div>
+<div x-data="chartVis('/api/lifepath/alignment/chart')" class="mb-6 max-w-lg mx-auto">
+<canvas x-ref="canvas" width="360" height="360" class="max-w-full"></canvas>  <div x-show="loading" class="text-center text-muted-foreground py-8">Loading chart...</div>
   <div x-show="error" class="text-error text-center py-8">
 <span class="font-bold">Error: </span><span x-text="error"></span>  </div>
 </div>

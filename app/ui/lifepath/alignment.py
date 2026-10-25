@@ -86,19 +86,24 @@ def render_alignment_dashboard(status: dict, user_uid: UserUID) -> Any:
             cls="mb-8",
         ),
         ButtonLink("Back to Dashboard", href="/lifepath", cls=ButtonT.secondary),
-        cls=f"container mx-auto px-4 py-8 {Container.NARROW}",
+        cls=f"container mx-auto py-8 {Container.NARROW}",
     )
 
 
 def _alignment_radar() -> FT:
-    """Radar chart of the 5 alignment dimensions (chartVis Alpine component)."""
+    """Radar chart of the 5 alignment dimensions (chartVis Alpine component).
+
+    The canvas fills its parent, which caps and centres it. Chart.js sizes the
+    canvas to the parent's width minus the canvas's own margins, so a margin on
+    the canvas (``mx-auto``) would hold it at its starting width.
+    """
     return Div(
         Canvas(
             **{
                 "x-ref": "canvas",
                 "width": "360",
                 "height": "360",
-                "class": "max-w-full mx-auto",
+                "class": "max-w-full",
             }
         ),
         Div(
@@ -112,6 +117,6 @@ def _alignment_radar() -> FT:
             cls="text-error text-center py-8",
             **{"x-show": "error"},
         ),
-        cls="mb-6",
+        cls="mb-6 max-w-lg mx-auto",
         **{"x-data": "chartVis('/api/lifepath/alignment/chart')"},
     )

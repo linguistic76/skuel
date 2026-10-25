@@ -48,8 +48,16 @@ What each part does:
   states. `error` holds the server's client-safe message.
 - `"class"` goes in the attribute dict because the `x-data` key already forces the dict form.
 
-`ui/lifepath/alignment.py::_alignment_radar()` is the same shape with a fixed URL, a
-360×360 canvas and `cls="mb-6"` instead of the card styling.
+`ui/lifepath/alignment.py::_alignment_radar()` is the same shape with a fixed URL and
+`cls="mb-6 max-w-lg mx-auto"` instead of the card styling: the canvas fills its
+parent, and the parent caps the radar at 512px and centres it.
+
+**Never put a margin class on the canvas.** Chart.js sizes a responsive canvas to its
+parent's width minus the canvas's own computed margins. `mx-auto` computes to the space
+the canvas leaves, so the canvas measures exactly the width it started at (its `width`
+attribute) and never grows: a `width="360"` canvas stays 360px in an 814px card. Cap and centre the
+parent instead. `tests/unit/ui/test_chart_cards.py` refuses a margin on every chart card's
+canvas.
 
 ## Pattern 2: A Chart Section Gated on Data
 

@@ -55,7 +55,7 @@ def render_vision_form(existing_vision: str = "") -> Any:
             ),
             cls=Container.NARROW,
         ),
-        cls="container mx-auto px-4 py-8",
+        cls="container mx-auto py-8",
     )
 
 
@@ -119,5 +119,5 @@ def render_recommendations_page(data: dict, user_uid: UserUID) -> Any:
                 action_href="/learning-paths",
             )
         ],
-        cls=f"container mx-auto px-4 py-8 {Container.NARROW}",
+        cls=f"container mx-auto py-8 {Container.NARROW}",
     )
