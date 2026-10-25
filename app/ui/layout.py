@@ -126,7 +126,7 @@ def Grid(
 
 def Container(*c: Any, cls: str = "", size: str = "7xl", **kwargs: Any) -> Any:
     """
-    Centered container with max-width.
+    Centered container with max-width. It pads nothing: the page shell it sits in owns the gutter.
 
     Args:
         *c: Container content
@@ -134,7 +134,7 @@ def Container(*c: Any, cls: str = "", size: str = "7xl", **kwargs: Any) -> Any:
         size: Max width size (sm, md, lg, xl, 2xl, 3xl, 4xl, 5xl, 6xl, 7xl)
         **kwargs: Additional HTML attributes
     """
-    classes = ["container", "mx-auto", "px-4", f"max-w-{size}"]
+    classes = ["container", "mx-auto", f"max-w-{size}"]
     if cls:
         classes.append(cls)
     return Div(*c, cls=" ".join(classes), **kwargs)

@@ -32,7 +32,7 @@ def dashboard_shell() -> Any:
             subtitle="Track your learning journey and discover new knowledge",
         ),
         content_loading_placeholder("/pathways/content", "pathways-dashboard-content"),
-        cls="container mx-auto px-4 py-6",
+        cls="container mx-auto",
     )
 
 
@@ -166,7 +166,7 @@ def browse_shell() -> Any:
             subtitle="Discover structured learning paths to achieve your goals",
         ),
         content_loading_placeholder("/pathways/browse/content", "pathways-browse-content"),
-        cls="container mx-auto px-4 py-6",
+        cls="container mx-auto",
     )
 
 
@@ -226,7 +226,7 @@ def steps_browser_page(steps: list[Any]) -> Any:
             id="path-steps-grid",
             cls="mb-8",
         ),
-        cls="container mx-auto px-4 py-6",
+        cls="container mx-auto",
     )
 
 
@@ -235,7 +235,7 @@ def analytics_shell() -> Any:
     return Div(
         PageHeader("Learning Analytics", subtitle="Insights into your learning journey"),
         content_loading_placeholder("/pathways/analytics/content", "pathways-analytics-content"),
-        cls="container mx-auto px-4 py-6",
+        cls="container mx-auto",
     )
 
 

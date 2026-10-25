@@ -1172,48 +1172,35 @@ Unified sidebar component for all sidebar pages (Activity Domains, Explore, Grad
 
 ## Tokens
 
-**Location:** `/ui/tokens.py`
+**Location:** `/ui/tokens.py` — three classes of class-string constants.
 
-Design tokens (spacing, sizing, colors).
-
-### Spacing Tokens
-
-```python
-SPACING = {
-    "section_gap": "gap-8",      # Between major sections
-    "card_gap": "gap-4",         # Between cards
-    "element_gap": "gap-2",      # Between small elements
-}
-```
-
-### Container Tokens
+**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and centres it at
+`Container.STANDARD`; `SidebarPage` pads its own. A body handed to either pads none of its sides, top or
+bottom — only a `PageType.CUSTOM` body pads itself (`tests/unit/ui/test_page_gutters.py`, where each
+exception is a written ruling).
 
 ```python
-CONTAINERS = {
-    "standard": "max-w-6xl mx-auto px-4",
-    "wide": "max-w-7xl mx-auto px-4",
-    "narrow": "max-w-4xl mx-auto px-4",
-}
-```
+from ui.tokens import Card, Container, Spacing
 
-### Card Tokens
+Spacing.PAGE           # "p-4 sm:p-6 lg:p-8" — the STANDARD shell's own padding, never a body's
+Spacing.SECTION        # "space-y-8"
+Spacing.CONTENT        # "space-y-4"
+Spacing.CONTENT_GAP    # "gap-4"
+Spacing.SECTION_GAP    # "gap-8"
 
-```python
-CARD = {
-    "base": "bg-background border border-border rounded-lg shadow-sm",
-    "padding": "p-4",
-    "gap": "gap-3",
-}
+Container.STANDARD     # "max-w-6xl mx-auto" — the STANDARD shell's own width
+Container.NARROW       # "max-w-4xl mx-auto"
+Container.WIDE         # "max-w-7xl mx-auto"
+Container.FULL         # "w-full"
+
+Card.BASE              # "bg-background border border-border rounded-lg"
+Card.INTERACTIVE       # BASE + "hover:shadow-md transition-shadow"
+Card.PADDING           # "p-6" (PADDING_COMPACT "p-4", PADDING_SPACIOUS "p-8")
 ```
 
 **Usage:**
 ```python
-from ui.tokens import SPACING, CONTAINERS
-
-Div(
-    # ... content
-    cls=f"{CONTAINERS['standard']} {SPACING['section_gap']}",
-)
+Div(*sections, cls=f"{Container.NARROW} {Spacing.SECTION}")
 ```
 
 ---
@@ -1407,14 +1394,14 @@ CardGenerator.from_dataclass(
 
 **Before:**
 ```python
-Div(cls="max-w-6xl mx-auto px-4 gap-8")
+Div(cls="max-w-4xl mx-auto px-4 space-y-8")
 ```
 
 **After:**
 ```python
-from ui.tokens import CONTAINERS, SPACING
+from ui.tokens import Container, Spacing
 
-Div(cls=f"{CONTAINERS['standard']} {SPACING['section_gap']}")
+Div(cls=f"{Container.NARROW} {Spacing.SECTION}")  # no px-4: the page shell owns the gutter
 ```
 
 ---

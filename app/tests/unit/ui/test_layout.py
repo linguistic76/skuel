@@ -133,6 +133,11 @@ class TestContainer:
         result = Container("content", size="3xl")
         assert "max-w-3xl" in str(result)
 
+    def test_pads_nothing(self) -> None:
+        """Its consumers sit inside a page shell, which owns the gutter."""
+        classes = str(Container("content").attrs["class"]).split()
+        assert [c for c in classes if c.startswith(("p-", "px-", "py-"))] == []
+
 
 # ============================================================================
 # Stack

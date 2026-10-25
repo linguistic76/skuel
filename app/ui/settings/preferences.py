@@ -111,7 +111,7 @@ class UserPreferencesComponents:
                 hx_target="#settings-content",
                 hx_swap="innerHTML",
             ),
-            cls="container mx-auto p-6 max-w-4xl",
+            cls="container mx-auto max-w-4xl",
         )
 
     @staticmethod

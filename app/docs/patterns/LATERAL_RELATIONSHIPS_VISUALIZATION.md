@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-10-17'
+updated: '2026-10-25'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -442,7 +442,7 @@ async def task_detail_page(request: Any, uid: str) -> Any:
             entity_type="tasks",
         ),
 
-        cls=f"{Container.NARROW} {Spacing.PAGE}",
+        cls=Container.NARROW,  # the page shell owns the gutter
     )
 
     return BasePage(content=content, ...)

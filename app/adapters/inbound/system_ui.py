@@ -7,6 +7,7 @@ System UI routes for the root landing and error pages.
 
 from typing import Any
 
+from fasthtml.common import FT
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import is_authenticated
@@ -48,9 +49,9 @@ def create_system_ui_routes(
         return render_login_landing_page()
 
     @rt("/404")
-    def not_found() -> Any:
+    def not_found(request: Request) -> FT:
         """404 Not Found page."""
-        return render_404_page()
+        return render_404_page(request)
 
     logger.info("System UI routes registered")
 
