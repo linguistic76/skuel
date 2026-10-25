@@ -6,8 +6,8 @@ Use these for consistent spacing across all UI components.
 Usage:
     from ui.tokens import Spacing, Container, Card
 
-    # Page content wrapper
-    Div(content, cls=f"{Container.STANDARD} {Spacing.PAGE}")
+    # A column narrower than the page; the page shell pads it
+    Div(content, cls=Container.NARROW)
 
     # Section with standard gap
     Div(*sections, cls=Spacing.SECTION)
@@ -23,7 +23,8 @@ class Spacing:
     Maps to CSS variables --space-* in input.css.
     """
 
-    # Page-level padding
+    # The STANDARD page shell's own padding (PAGE_CONFIG). The shell owns the
+    # gutter: a body inside BasePage or SidebarPage never adds it again.
     PAGE = "p-4 sm:p-6 lg:p-8"  # 16px mobile, 24px tablet, 32px desktop
 
     # Between major sections
@@ -43,7 +44,7 @@ class Container:
     Standard width is max-w-6xl (1152px) for all pages.
     """
 
-    # Standard page container (most pages)
+    # The STANDARD page shell's own width (PAGE_CONFIG)
     STANDARD = "max-w-6xl mx-auto"
 
     # Narrow container (forms, focused content)

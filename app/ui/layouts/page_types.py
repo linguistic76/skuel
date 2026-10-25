@@ -14,6 +14,8 @@ Usage:
 from enum import StrEnum
 from typing import TypedDict
 
+from ui.tokens import Container, Spacing
+
 
 class PageType(StrEnum):
     """Page layout types for consistent UX."""
@@ -31,8 +33,8 @@ class PageConfig(TypedDict):
 
 PAGE_CONFIG: dict[PageType, PageConfig] = {
     PageType.STANDARD: {
-        "container": "max-w-6xl mx-auto",
-        "content_padding": "p-4 sm:p-6 lg:p-8",
+        "container": Container.STANDARD,
+        "content_padding": Spacing.PAGE,
     },
     PageType.CUSTOM: {
         "container": "",

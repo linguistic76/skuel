@@ -13,7 +13,6 @@ from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
-from ui.tokens import Container, Spacing
 from ui.user_entry.forms import submit_page_href
 
 
@@ -125,5 +124,4 @@ def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
             href="/library",
             cls=ButtonT.ghost,
         ),
-        cls=f"{Container.STANDARD} {Spacing.PAGE}",
     )

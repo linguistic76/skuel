@@ -940,7 +940,7 @@ def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
                 hx_target="#note-save-status",
                 hx_swap="outerHTML",
             ),
-            cls="max-w-[760px] mx-auto w-full px-6 py-8",
+            cls="max-w-[760px] mx-auto w-full",
         ),
         id="journal-workspace",
         cls="flex-1",

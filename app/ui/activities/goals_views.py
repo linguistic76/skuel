@@ -315,7 +315,7 @@ def GoalDetailView(
         conn_section,
         dual_track_section,
         relationships,
-        cls="max-w-3xl mx-auto px-4",
+        cls="max-w-3xl mx-auto",
     )
 
 

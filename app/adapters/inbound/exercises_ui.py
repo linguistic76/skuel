@@ -23,7 +23,6 @@ from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
-from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.exercises.ui")
 
@@ -52,7 +51,6 @@ def create_exercises_ui_routes(app, rt, exercises_service) -> None:
                         href="/library",
                         cls=ButtonT.ghost,
                     ),
-                    cls=f"{Container.STANDARD} {Spacing.PAGE}",
                 ),
                 title="Exercise Not Found",
                 request=request,

@@ -76,7 +76,7 @@ def _filter_tabs() -> FT:
                 },
             )
         )
-    return Div(*tabs, cls="flex gap-1.5 px-2 py-2")
+    return Div(*tabs, cls="flex gap-1.5 mt-2")
 
 
 def ExploreGraphView(
@@ -162,9 +162,13 @@ def ExploreGraphView(
         style=f"height: {height}",
     )
 
-    wrapper_attrs: dict[str, str] = {"cls": "px-2 pt-2"}
+    # In the Explore sidebar the graph sits inset in its list row; on its own page
+    # the page shell owns the gutter.
+    wrapper_attrs: dict[str, str] = {}
     if standalone:
         wrapper_attrs["x_data"] = alpine_call("exploreGraph", mode, entity_uid, entity_type)
+    else:
+        wrapper_attrs["cls"] = "px-2 pt-2"
 
     return Div(
         graph_wrapper,

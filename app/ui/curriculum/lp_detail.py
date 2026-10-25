@@ -39,7 +39,7 @@ def lp_detail_shell(uid: str) -> FT:
     """/lp/{uid} shell — the body loads via HTMX."""
     return Div(
         content_loading_placeholder(f"/lp/{uid}/content", _CONTENT_ID),
-        cls="container mx-auto px-4 py-6 max-w-4xl",
+        cls="container mx-auto max-w-4xl",
     )
 
 

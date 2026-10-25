@@ -111,7 +111,7 @@ def PeriodicNotePage(
     return Div(
         Div(initial_workspace, knowledge_chips, cls="flex-1 min-w-0 flex flex-col"),
         _period_navigator(entry),
-        cls="flex flex-col lg:flex-row items-start gap-6",
+        cls="flex flex-col lg:flex-row items-stretch lg:items-start gap-6",
     )
 
 

@@ -86,7 +86,7 @@ def render_alignment_dashboard(status: dict, user_uid: UserUID) -> Any:
             cls="mb-8",
         ),
         ButtonLink("Back to Dashboard", href="/lifepath", cls=ButtonT.secondary),
-        cls=f"container mx-auto py-8 {Container.NARROW}",
+        cls=f"container mx-auto {Container.NARROW}",
     )
 
 

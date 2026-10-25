@@ -71,18 +71,20 @@ For the full code reference — SKUEL components (buttons, form controls, cards,
 
 ## SKUEL Design Tokens
 
-Use tokens from `/ui/tokens.py` instead of hardcoded classes:
+Use tokens from `/ui/tokens.py` instead of hardcoded classes.
+
+**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and `SidebarPage` pads its own; a body handed to either pads none of its sides, top or bottom — a second `px-4` puts 32px of gutter before the first card at 375px. Only a `PageType.CUSTOM` body pads itself. `tests/unit/ui/test_page_gutters.py` holds every shelled body to this; each exception is a written ruling there.
 
 ```python
 from ui.tokens import Container, Spacing, Card
 
 # Containers
-Container.STANDARD  # "max-w-6xl mx-auto"  — use for all standard pages
-Container.NARROW    # "max-w-4xl mx-auto"
+Container.STANDARD  # "max-w-6xl mx-auto"  — the STANDARD shell's own width
+Container.NARROW    # "max-w-4xl mx-auto"  — a narrower column inside a page
 Container.WIDE      # "max-w-7xl mx-auto"
 
 # Spacing
-Spacing.PAGE        # "p-4 sm:p-6 lg:p-8"  — page-level padding
+Spacing.PAGE        # "p-4 sm:p-6 lg:p-8"  — the STANDARD shell's own padding, never a body's
 Spacing.SECTION     # "space-y-8"    — between sections
 Spacing.CONTENT     # "space-y-4"    — between items
 
@@ -127,7 +129,7 @@ Theme selection is available on `/settings` (Display & Appearance section). The 
 1. **Semantic HTML first** — use `<article>`, `<section>`, `<nav>`, not divs for everything
 2. **Mobile-first** — apply base classes for mobile, add `md:` / `lg:` prefixes for larger screens
 3. **Semantic tokens over the Tailwind palette** — `text-foreground` / `text-muted-foreground` not `text-gray-900` / `text-gray-600`
-4. **Design tokens over magic numbers** — `Container.STANDARD` not `max-w-6xl mx-auto` repeated
+4. **Design tokens over magic numbers** — `Container.NARROW` not `max-w-4xl mx-auto` repeated; and inside `BasePage` / `SidebarPage` a body adds no padding — the shell owns the gutter
 5. **`cls` parameter for extensibility** — components accept extra classes via `cls` parameter
 
 ## CSS Loading Architecture
@@ -196,7 +198,12 @@ Div("Error", cls="bg-red-100 text-red-800 p-3 rounded")  # Use Alert(variant=Ale
 P("Text", cls="text-gray-600")  # Use text-muted-foreground
 
 # ❌ Hardcoded container widths
-Div(cls="max-w-6xl mx-auto")  # Use Container.STANDARD
+Div(cls="max-w-4xl mx-auto")  # Use Container.NARROW
+
+# ❌ Padding a body the shell already pads (a doubled gutter)
+BasePage(Div(content, cls=f"{Container.STANDARD} {Spacing.PAGE}"), request=request)
+# ✅ The shell pads; the body adds nothing
+BasePage(Div(content), request=request)
 
 # ❌ Inconsistent spacing
 Div(cls="p-5")  # Use p-4 or p-6 (standard scale)

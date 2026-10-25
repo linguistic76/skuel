@@ -126,18 +126,20 @@ Need a sidebar?
 
 ### Design Tokens
 
-Use tokens from `/ui/tokens.py` for consistent spacing — never hardcode:
+Use tokens from `/ui/tokens.py` for consistent spacing — never hardcode.
+
+**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and `SidebarPage` pads its own; a body handed to either pads none of its sides, top or bottom — a second `px-4` puts 32px of gutter before the first card at 375px. Only a `PageType.CUSTOM` body pads itself. `tests/unit/ui/test_page_gutters.py` holds every shelled body to this; each exception is a written ruling there.
 
 ```python
 from ui.tokens import Container, Spacing, Card
 
 # Containers
-Container.STANDARD  # "max-w-6xl mx-auto"   — standard pages
-Container.NARROW    # "max-w-4xl mx-auto"   — narrow content
+Container.STANDARD  # "max-w-6xl mx-auto"   — the STANDARD shell's own width
+Container.NARROW    # "max-w-4xl mx-auto"   — a narrower column inside a page
 Container.WIDE      # "max-w-7xl mx-auto"   — wide dashboards
 
 # Spacing
-Spacing.PAGE        # "p-4 sm:p-6 lg:p-8"  — page-level padding
+Spacing.PAGE        # "p-4 sm:p-6 lg:p-8"  — the STANDARD shell's own padding, never a body's
 Spacing.SECTION     # "space-y-8"           — between sections
 Spacing.CONTENT     # "space-y-4"           — between items
 
@@ -327,10 +329,10 @@ BasePage(content, page_type=PageType.CUSTOM, sidebar=Div(...))
 # ✅ SidebarPage() for sidebar with collapsible + state persistence
 SidebarPage(content=content, items=items, ...)
 
-# ❌ Magic container widths
-Div(cls="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8")
-# ✅ Design tokens
-Div(cls=f"{Container.STANDARD} {Spacing.PAGE}")
+# ❌ A body that pads itself inside a shell — the shell already pads it (a doubled gutter)
+BasePage(Div(content, cls="container mx-auto px-4 py-6"), request=request)
+# ✅ The shell owns the gutter; a body only narrows itself, with a token
+BasePage(Div(content, cls=Container.NARROW), request=request)
 
 # ❌ Raw drawer HTML for sidebar (conflicts with BasePage padding)
 Div(cls="drawer lg:drawer-open", ...)
@@ -403,7 +405,7 @@ When building a new SKUEL page or feature, verify:
 - [ ] Uses `BasePage` (not custom HTML)
 - [ ] Passes `request` parameter (auto auth detection)
 - [ ] Includes `active_page` (navbar highlighting)
-- [ ] Uses `Container.STANDARD` and `Spacing.PAGE` design tokens
+- [ ] The body pads none of its sides, top or bottom — the shell owns the gutter (`test_page_gutters.py`)
 
 **Navigation:**
 - [ ] `<nav>` has `aria-label`

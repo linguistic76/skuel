@@ -97,7 +97,7 @@ def KnowledgeLinkChip(entry_uid: str, chip: KnowledgeChip) -> Any:
 def EntryKnowledgeChips(
     entry_uid: str,
     chips: list[KnowledgeChip] | None,
-    cls: str = "max-w-[760px] mx-auto w-full px-6 pb-8",
+    cls: str = "max-w-[760px] mx-auto w-full mt-6",
 ) -> Any:
     """The knowledge an entry is linked to, as a titled row of chips.
 
