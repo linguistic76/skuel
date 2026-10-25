@@ -78,13 +78,9 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
         ),
         # Quick actions
         Div(
-            ButtonLink(
-                "View Alignment Details",
-                href="/lifepath/alignment",
-                cls=(ButtonT.secondary, "mr-4"),
-            ),
+            ButtonLink("View Alignment Details", href="/lifepath/alignment", cls=ButtonT.secondary),
             ButtonLink("Update Vision", href="/lifepath/vision", cls=ButtonT.secondary),
-            cls="flex gap-4",
+            cls="flex flex-wrap gap-4",
         ),
         # Daily focus
         render_daily_focus(status.get("daily_focus")),

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-17
+updated: 2026-10-25
 ---
 
 # SKUEL UI Component Catalog
@@ -102,12 +102,12 @@ Primary action button. Pass style via `cls=ButtonT.X` (not `variant=`).
 
 **Parameters:**
 - `*c` - Button label / content
-- `cls: ButtonT | tuple[ButtonT, ...]` - Style variant. Use a tuple to combine variant + size.
+- `cls: ButtonT | tuple` - Style variant. A tuple composes the variant with extra style classes (`(ButtonT.primary, "w-full")`); geometry goes in `size`, never in `cls`.
   - `ButtonT.primary` - Blue accent background
   - `ButtonT.secondary` - Gray background with border
   - `ButtonT.ghost` - Transparent with hover
   - `ButtonT.destructive` - Red for destructive actions
-- `size` - Geometry as a string: `"xs"` / `"sm"` / `"md"` (default) / `"lg"` / `"xl"` / `"field"`. `"field"` is the field heights (`h-11 md:h-10` — 44px on phones, 40px from `md`) for a button beside an `Input` or `Select`. Style (`cls`) and geometry (`size`) are separate kwargs and never collide.
+- `size` - Geometry as a string: `"xs"` / `"sm"` / `"md"` (default) / `"lg"` / `"xl"` / `"field"`. Each size is a minimum height (`min-h-*` + `py-*`), never a fixed one, so a label that wraps grows the button. `"field"` is the field heights as its minimum (`min-h-11 md:min-h-10` — 44px on phones, 40px from `md`) for a button beside an `Input` or `Select`. Style (`cls`) and geometry (`size`) are separate kwargs and never collide.
 - `**kwargs` - Additional attributes (type, disabled, hx_post, etc.)
 
 **Examples:**

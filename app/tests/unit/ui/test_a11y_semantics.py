@@ -277,13 +277,15 @@ def test_the_conflict_check_sees_a_restated_property() -> None:
 
 @pytest.mark.parametrize("tag", ["input", "button"])
 def test_today_quick_add_row_is_44px_on_phones_and_40px_from_md(tag: str) -> None:
-    """The quick-add title field is the component ``Input``; its button matches
-    the field's heights so the row stays aligned."""
+    """The quick-add title field is the component ``Input``; its button takes the
+    field's heights as its minimum, so the row stays aligned and a wrapped label
+    grows the button instead of spilling out of it."""
     xml = to_xml(_quick_add(date(2026, 10, 17)))
     controls = [el for el in re.findall(rf"<{tag}\b[^>]*>", xml) if 'type="hidden"' not in el]
     assert len(controls) == 1
     classes = re.search(r'class="([^"]*)"', controls[0])
     assert classes
     tokens = classes.group(1).split()
-    assert "h-11" in tokens and "md:h-10" in tokens
-    assert "h-10" not in tokens
+    height = "h" if tag == "input" else "min-h"
+    assert f"{height}-11" in tokens and f"md:{height}-10" in tokens
+    assert f"{height}-10" not in tokens

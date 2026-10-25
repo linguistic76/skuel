@@ -151,7 +151,7 @@ In FT, the Tailwind utilities are `focus-visible:ring-2 focus-visible:ring-ring 
 | Sidebar nav items (desktop rows and the section nav) | `min-h-[44px]` | 44px minimum height |
 | Form inputs (`Input`, `Select`) | `h-11 md:h-10` | 44px on phones, 40px from `md` up (desktop density) |
 | Compact chat-chrome fields (`Input` / `Select` with `compact=True`) | `h-11 md:h-8` | 44px on phones, 32px from `md` up |
-| Buttons beside fields (`Button(size="field")`) | `h-11 md:h-10` | 44px on phones, 40px from `md` up |
+| Buttons beside fields (`Button(size="field")`) | `min-h-11 md:min-h-10` | 44px minimum on phones, 40px from `md` up (a wrapped label grows it) |
 
 **SKUEL Convention:** Outer interactive element gets `size-11` (44px); inner decorative element (e.g., avatar circle) stays `size-8` (32px). The touch target is the outer element.
 

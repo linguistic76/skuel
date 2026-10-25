@@ -24,7 +24,7 @@ SKUEL uses a **two-layer CSS architecture**:
 from ui.components import Button, ButtonT
 Button("Save", cls=ButtonT.primary)
 Button("Save", cls=ButtonT.primary, size="sm")   # size kwarg controls geometry
-Button("More filters", cls=ButtonT.ghost, size="field")  # beside fields: h-11 md:h-10
+Button("More filters", cls=ButtonT.ghost, size="field")  # beside fields: min-h-11 md:min-h-10
 Button("Save", cls=(ButtonT.primary, "w-full mt-4"))           # tuple to compose with extra classes
 
 # ✅ SKUEL form wrappers

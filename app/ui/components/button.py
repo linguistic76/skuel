@@ -9,22 +9,26 @@ __all__ = ["Button", "ButtonT"]
 
 # Universal base classes applied to every button regardless of variant or size.
 _BTN_BASE = (
-    "inline-flex items-center justify-center font-medium transition-colors "
+    "inline-flex items-center justify-center text-center font-medium transition-colors "
     "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring "
     "disabled:pointer-events-none disabled:opacity-50"
 )
 
 # Named size tokens. Injected via the size= kwarg so they never conflict with
 # style-variant classes in the cls tuple (Tailwind has no runtime class override).
+# A size sets a MINIMUM height, never a height: a label that wraps grows its button
+# instead of spilling out of it. Each size's vertical padding is the largest half-step
+# at which one line of its own text, inside a 1px border, still fits that minimum — so
+# a one-line button keeps its height, bordered or not, and a wrapped one is padded.
 _BTN_SIZES: dict[str, str] = {
-    "xs": "h-7 px-2 text-xs rounded-sm",
-    "sm": "h-8 px-3 text-sm rounded-md",
-    "md": "h-9 px-4 py-2 rounded-md text-sm",
-    "lg": "h-11 px-8 rounded-md",
-    "xl": "h-12 px-10 text-base rounded-md",
-    # A button standing in a row of fields takes the field heights: 44px on
-    # phones, 40px from ``md`` (``ui.components.form``'s field size).
-    "field": "h-11 md:h-10 px-4 rounded-md text-sm",
+    "xs": "min-h-7 px-2 py-1 text-xs rounded-sm",
+    "sm": "min-h-8 px-3 py-1 text-sm rounded-md",
+    "md": "min-h-9 px-4 py-1.5 rounded-md text-sm",
+    "lg": "min-h-11 px-8 py-2 rounded-md",
+    "xl": "min-h-12 px-10 py-2.5 text-base rounded-md",
+    # A button standing in a row of fields takes the field heights as its minimum:
+    # 44px on phones, 40px from ``md`` (``ui.components.form``'s field size).
+    "field": "min-h-11 md:min-h-10 px-4 py-2.5 md:py-2 rounded-md text-sm",
 }
 
 
@@ -32,9 +36,9 @@ class ButtonT(StrEnum):
     """Button style-variant tokens. Values ARE the Tailwind class strings.
 
     Use cls= for style (colour/border/hover), size= kwarg for geometry (height/padding).
-    Composing style and size via cls tuple works but size= is preferred because
-    Tailwind cannot reliably resolve conflicting height/padding classes from the
-    class attribute alone (cascade order is CSS-file order, not HTML-class order).
+    Geometry never goes in cls: Tailwind cannot resolve two height or padding classes
+    on one element by their order in the class attribute (cascade order is CSS-file
+    order, not HTML-class order).
 
     Example::
 
@@ -49,12 +53,6 @@ class ButtonT(StrEnum):
     ghost = "hover:bg-accent hover:text-accent-foreground"
     destructive = "bg-destructive text-destructive-foreground hover:bg-destructive/90"
     link = "text-primary underline-offset-4 hover:underline"
-
-    # Size convenience constants — prefer size= kwarg over composing these in cls.
-    xs = "h-7 px-2 text-xs rounded-sm"
-    sm = "h-8 px-3 text-sm rounded-md"
-    lg = "h-11 px-8 rounded-md"
-    xl = "h-12 px-10 text-base rounded-md"
 
 
 def Button(

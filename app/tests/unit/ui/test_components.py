@@ -7,12 +7,16 @@ not as exact string equality, so minor whitespace differences don't break tests.
 
 from __future__ import annotations
 
+import ast
+import re
+from pathlib import Path
+
 import pytest
 from fasthtml.common import Div, to_xml
 
 from ui.components._util import _cls
 from ui.components.accordion import Accordion, AccordionItem
-from ui.components.button import _BTN_SIZES, Button, ButtonT
+from ui.components.button import _BTN_BASE, _BTN_SIZES, Button, ButtonT
 from ui.components.card import Card, CardBody, CardFooter, CardHeader, CardTitle
 from ui.components.divider import Divider, DividerLine, DividerSplit, DividerT
 from ui.components.feedback import Alert, AlertT, Loading
@@ -79,9 +83,9 @@ class TestCls:
         assert "bg-primary" in result
 
     def test_tuple_of_enums(self) -> None:
-        result = _cls((ButtonT.primary, ButtonT.sm))
+        result = _cls((ButtonT.primary, ButtonT.ghost))
         assert "bg-primary" in result
-        assert "h-8" in result
+        assert "hover:bg-accent" in result
 
 
 # ============================================================================
@@ -102,12 +106,6 @@ class TestButtonT:
 
     def test_ghost_no_background(self) -> None:
         assert "bg-" not in ButtonT.ghost or "hover:bg-" in ButtonT.ghost
-
-    def test_size_sm_has_h8(self) -> None:
-        assert "h-8" in ButtonT.sm
-
-    def test_size_lg_has_h11(self) -> None:
-        assert "h-11" in ButtonT.lg
 
     def test_all_variants_are_strings(self) -> None:
         for variant in ButtonT:
@@ -149,9 +147,9 @@ class TestButton:
         assert "bg-primary" in xml
 
     def test_tuple_cls_composition(self) -> None:
-        xml = to_xml(Button("x", cls=(ButtonT.primary, ButtonT.sm)))
+        xml = to_xml(Button("x", cls=(ButtonT.primary, "w-full")))
         assert "bg-primary" in xml
-        assert "h-8" in xml
+        assert "w-full" in xml
 
     def test_base_always_present(self) -> None:
         for variant in ButtonT:
@@ -173,25 +171,123 @@ class TestButton:
 
     def test_default_size_md_applied(self) -> None:
         xml = to_xml(Button("x", cls=ButtonT.primary))
-        assert "h-9" in xml
+        assert "min-h-9" in xml
 
     def test_size_sm(self) -> None:
         xml = to_xml(Button("x", size="sm"))
-        assert "h-8" in xml
+        assert "min-h-8" in xml
 
     def test_size_lg(self) -> None:
         xml = to_xml(Button("x", size="lg"))
-        assert "h-11" in xml
+        assert "min-h-11" in xml
 
     def test_size_kwarg_and_style_cls_coexist(self) -> None:
         xml = to_xml(Button("x", cls=ButtonT.primary, size="sm"))
         assert "bg-primary" in xml
-        assert "h-8" in xml
+        assert "min-h-8" in xml
 
     def test_all_sizes_defined(self) -> None:
         for size_name in ("xs", "sm", "md", "lg", "xl"):
             assert size_name in _BTN_SIZES
             assert _BTN_SIZES[size_name]
+
+
+# A label that wraps must grow its button, not spill out of it: a size names a
+# minimum height and never a height. Its padding is the largest half-step at which one
+# line of its own text inside a 1px border still fits that minimum, so a one-line
+# button keeps its height whether its style draws a border or not. Line heights are
+# Tailwind's for each text size; a size with none inherits the body's 16px / 1.5.
+_LINE_HEIGHT_PX = {"text-xs": 16, "text-sm": 20, "text-base": 24, None: 24}
+_BORDER_PX = 1
+_HALF_STEP_PX = 2
+_SPACING_PX = 4  # one Tailwind spacing step
+
+
+def _size_tokens(size: str) -> dict[str, list[str]]:
+    """The size's classes grouped by breakpoint prefix ('' for the base)."""
+    by_prefix: dict[str, list[str]] = {}
+    for token in _BTN_SIZES[size].split():
+        prefix, _, utility = token.rpartition(":")
+        by_prefix.setdefault(prefix, []).append(utility)
+    return by_prefix
+
+
+@pytest.mark.parametrize("size", sorted(_BTN_SIZES))
+def test_a_button_size_fixes_no_height(size: str) -> None:
+    fixed = [
+        t for t in _BTN_SIZES[size].split() if t.rpartition(":")[2].startswith(("h-", "max-h-"))
+    ]
+    assert not fixed, f"size {size!r} fixes a height {fixed}: a wrapped label spills out"
+
+
+@pytest.mark.parametrize("size", sorted(_BTN_SIZES))
+def test_one_line_of_a_sizes_text_fits_its_minimum_height(size: str) -> None:
+    by_prefix = _size_tokens(size)
+    text = next((u for u in by_prefix[""] if u in _LINE_HEIGHT_PX), None)
+    for prefix, utilities in by_prefix.items():
+        if prefix and not any(u.startswith(("min-h-", "py-")) for u in utilities):
+            continue
+        min_h = [u for u in utilities if u.startswith("min-h-")]
+        py = [u for u in utilities if u.startswith("py-")]
+        assert len(min_h) == 1 and len(py) == 1, f"{size} {prefix or 'base'}: {utilities}"
+        min_h_px = float(min_h[0].removeprefix("min-h-")) * _SPACING_PX
+        py_px = float(py[0].removeprefix("py-")) * _SPACING_PX
+        one_line = 2 * py_px + _LINE_HEIGHT_PX[text] + 2 * _BORDER_PX
+        assert one_line <= min_h_px < one_line + 2 * _HALF_STEP_PX, (size, prefix, min_h, py, text)
+
+
+_HEIGHT_CLASS = re.compile(r"^(?:[a-z0-9]+:)*(?:h|min-h|max-h)-")
+_COMPONENT_BUTTON_MODULES = {"ui.components", "ui.components.button", "ui.primitives"}
+_APP_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _component_button_calls() -> list[tuple[str, ast.Call]]:
+    """Every call of the component ``Button`` / ``ButtonLink`` under ui/ and adapters/,
+    under whatever name the module imported it as."""
+    calls: list[tuple[str, ast.Call]] = []
+    for path in sorted(
+        [*(_APP_ROOT / "ui").rglob("*.py"), *(_APP_ROOT / "adapters").rglob("*.py")]
+    ):
+        tree = ast.parse(path.read_text())
+        names = {
+            alias.asname or alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module in _COMPONENT_BUTTON_MODULES
+            for alias in node.names
+            if alias.name in ("Button", "ButtonLink")
+        }
+        calls.extend(
+            (f"{path.relative_to(_APP_ROOT)}:{node.lineno}", node)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in names
+        )
+    return calls
+
+
+def test_no_button_call_names_a_height_in_cls() -> None:
+    """The size owns the height; a height in ``cls`` fights it in CSS-file order and,
+    where it wins, brings back a fixed box a wrapped label spills out of."""
+    calls = _component_button_calls()
+    # The walk reaches the call sites: one known ButtonLink and the bulk of the tree.
+    assert any(site.startswith("ui/lifepath/dashboard.py:") for site, _ in calls)
+    assert len(calls) > 200
+    offenders = [
+        f"{site} {token}"
+        for site, call in calls
+        for kw in call.keywords
+        if kw.arg == "cls"
+        for const in ast.walk(kw.value)
+        if isinstance(const, ast.Constant) and isinstance(const.value, str)
+        for token in const.value.split()
+        if _HEIGHT_CLASS.match(token)
+    ]
+    assert offenders == []
+
+
+def test_a_wrapped_button_label_is_centred() -> None:
+    assert "text-center" in _BTN_BASE.split()
 
 
 # ============================================================================

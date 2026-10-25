@@ -172,7 +172,7 @@ def _render_tree_node(
             **{  # fasthtml dynamic-attr splat
                 "x-on:click.stop": alpine_call("toggleExpand", uid),
             },
-            cls=(ButtonT.ghost, "p-0 min-h-0 h-6 w-6 text-muted-foreground hover:text-foreground"),
+            cls=(ButtonT.ghost, "w-6 text-muted-foreground hover:text-foreground"),
             size="xs",
             type="button",
         )
