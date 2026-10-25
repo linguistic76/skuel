@@ -50,7 +50,6 @@ import pytest
 import pytest_asyncio
 from neo4j.time import DateTime as Neo4jDateTime
 
-from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.goal.goal import Goal
 from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS
@@ -90,8 +89,9 @@ def _goal(uid: str, title: str, updated_at: datetime) -> Goal:
 
 async def _seed(neo4j_driver) -> None:
     """Seed three goals, each through the writer whose storage shape it represents."""
+    backends = build_production_backends(neo4j_driver)
     now = datetime.now()
-    backend = build_production_backends(neo4j_driver)["goals_backend"]
+    backend = backends["goals_backend"]
 
     async with neo4j_driver.session() as session:
         await session.run("MERGE (u:User {uid: $u})", u=USER)
@@ -110,7 +110,7 @@ async def _seed(neo4j_driver) -> None:
 
     # Shape 2: the vault re-ingest path. The node already exists, so ON MATCH fires and
     # overwrites updated_at with a native temporal. Production config, production labels.
-    bulk = BulkUpsertBackend(neo4j_driver)
+    bulk = backends["bulk_upsert_backend"]
     reingested = await bulk.upsert_nodes(
         entity_label=GOAL_CONFIG.entity_label,
         base_label=GOAL_CONFIG.base_label,

@@ -1,6 +1,6 @@
 ---
 title: "ADR-064: Neo4j Per-Query Server-Side Timeout via Driver Wrapper"
-updated: 2026-09-21
+updated: 2026-10-25
 status: current
 category: decisions
 tags: [adr, decisions, architecture, neo4j, persistence, performance, hexagonal]
@@ -59,7 +59,7 @@ driver = TimedDriver(raw_driver, default_timeout=config.database.transaction_tim
 # Every downstream consumer reads `driver` and gets the wrapped instance:
 query_executor = Neo4jQueryExecutor(driver)
 schema_manager = Neo4jSchemaManager(raw_driver)   # ← intentional raw-driver carve-out
-# create_all_backends(driver, ...), make_unified_ingestion_service(driver=driver, ...)
+# create_all_backends(driver, query_executor, ...) — every backend, ingestion's included
 ```
 
 **Per-operation policy:**

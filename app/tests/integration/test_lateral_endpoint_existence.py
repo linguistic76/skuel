@@ -18,7 +18,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.services.lateral_relationships.lateral_relationship_service import (
@@ -26,6 +25,7 @@ from core.services.lateral_relationships.lateral_relationship_service import (
 )
 from core.utils.result_simplified import ErrorCategory
 from tests.helpers.lateral_verifiers import CALLER, AdmitsAllBut
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -41,7 +41,7 @@ VERIFIER = AdmitsAllBut(PRIVATE_UID)
 def service(neo4j_driver) -> LateralRelationshipService:
     """The real service over the real backend — nothing stubbed."""
     return LateralRelationshipService(
-        backend=LateralRelationshipBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+        backend=build_production_backends(neo4j_driver)["lateral_relationship_backend"]
     )
 
 
@@ -150,7 +150,7 @@ class TestAnchorIsCounted:
 
     @pytest.fixture
     def backend(self, neo4j_driver) -> LateralRelationshipBackend:
-        return LateralRelationshipBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+        return build_production_backends(neo4j_driver)["lateral_relationship_backend"]
 
     async def test_a_curriculum_anchor_counts_one(
         self, backend: LateralRelationshipBackend

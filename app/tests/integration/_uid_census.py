@@ -33,8 +33,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
+from tests.helpers.production_backends import build_production_backends
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -108,7 +108,7 @@ def census_call(item: pytest.Item) -> Generator[None, object, object]:
     runner = _runner
     for name, driver in drivers.items():
         if name not in _graphs:
-            _graphs[name] = _Graph(UidCensusBackend(Neo4jQueryExecutor(driver)))
+            _graphs[name] = _Graph(build_production_backends(driver)["uid_census_backend"])
 
     written: dict[str, set[str]] = {}
     for name in drivers:

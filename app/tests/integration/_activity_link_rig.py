@@ -23,10 +23,8 @@ from starlette.responses import PlainTextResponse
 from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.fasthtml_types import Request
-from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
@@ -347,9 +345,9 @@ async def sync_vault(
     bus the door publishes on — the composed app's, so its subscribers (goal progress
     among them) hear the sync; with none the door publishes nothing.
     """
-    service = make_unified_ingestion_service(
+    service = build_ingestion_service(
         driver=driver,
-        ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(driver)),
+        ingestion_backend=build_production_backends(driver)["ingestion_backend"],
         event_bus=event_bus,
         default_user_uid=INGESTION_TEST_OWNER,
     )

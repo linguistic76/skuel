@@ -33,14 +33,9 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
-from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task_request import TaskUpdateRequest
 from core.models.user.user import User, UserPreferences
 from core.services.dsl.activity_extractor import ActivityExtractorService
@@ -51,7 +46,7 @@ from core.services.user_entry.user_entry_service import UserEntryService
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.services.vault.vault_reconciler import VaultReconciler, VaultSyncStats
 from core.utils.result_simplified import Result
-from tests.helpers.production_backends import build_production_backends
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -184,6 +179,7 @@ class Rig:
 @pytest_asyncio.fixture
 async def rig(neo4j_driver, clean_neo4j, tasks_service, tmp_path: Path) -> Rig:
     """The production wiring of the personal-vault sync, over a temp vault."""
+    backends = build_production_backends(neo4j_driver)
     vault = tmp_path / "vault"
     (vault / "periodic_notes").mkdir(parents=True)
     content_root = tmp_path / "content"  # distinct → the doorway-folder wall applies
@@ -191,10 +187,10 @@ async def rig(neo4j_driver, clean_neo4j, tasks_service, tmp_path: Path) -> Rig:
 
     executor = Neo4jQueryExecutor(neo4j_driver)
     sharing = UnifiedSharingService(
-        backend=SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity),
+        backend=backends["sharing_backend"],
     )
     user_entry_service = UserEntryService(
-        backend=build_production_backends(neo4j_driver)["user_entry_backend"],
+        backend=backends["user_entry_backend"],
         sharing_service=sharing,
     )
 
@@ -209,10 +205,10 @@ async def rig(neo4j_driver, clean_neo4j, tasks_service, tmp_path: Path) -> Rig:
         entry_service=user_entry_service,
         activity_extractor=ActivityExtractorService(tasks_service=tasks_service),
     )
-    ingestion = make_unified_ingestion_service(
+    ingestion = build_ingestion_service(
         driver=neo4j_driver,
         default_user_uid=OWNER,
-        ingestion_backend=IngestionBackend(executor=executor),
+        ingestion_backend=build_production_backends(neo4j_driver, executor)["ingestion_backend"],
         user_entry_service=user_entry_service,
         user_entry_processor=processor,
     )

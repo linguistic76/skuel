@@ -25,7 +25,6 @@ from uuid import uuid4
 import pytest
 
 from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.events.knowledge_substance_events import KnowledgeReflectedInEntry
 from core.models.enums.pipeline import Pipeline
 from core.models.type_hints import UserUID
@@ -34,6 +33,7 @@ from core.services.dsl.activity_extractor import ActivityExtractorService
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration.user_entry.test_extract_activities_pipeline import (
     _GraphTasksStub,
@@ -101,7 +101,7 @@ async def _edges(neo4j_driver: AsyncDriver, entry_uid: str, ku_uid: str) -> list
 
 @pytest.fixture
 def grounding(neo4j_driver: AsyncDriver) -> EntryGroundingBackend:
-    return EntryGroundingBackend(Neo4jQueryExecutor(neo4j_driver))
+    return build_production_backends(neo4j_driver)["entry_grounding_backend"]
 
 
 @pytest.mark.integration

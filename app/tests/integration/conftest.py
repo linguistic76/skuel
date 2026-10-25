@@ -25,7 +25,7 @@ from adapters.persistence.neo4j.graph_driver import (
     require_migration_records,
 )
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
-from tests.helpers.production_backends import build_production_backends
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration import _uid_census
 from tests.integration._container_lifecycle import bounded_neo4j_container
@@ -442,11 +442,8 @@ def ku_backend(production_backends):
 @pytest_asyncio.fixture
 async def ingestion_service(neo4j_driver):
     """Create real UnifiedIngestionService."""
-    from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 
-    service = make_unified_ingestion_service(
-        driver=neo4j_driver, default_user_uid=INGESTION_TEST_OWNER
-    )
+    service = build_ingestion_service(driver=neo4j_driver, default_user_uid=INGESTION_TEST_OWNER)
 
     yield service
 
@@ -454,7 +451,6 @@ async def ingestion_service(neo4j_driver):
 @pytest_asyncio.fixture
 async def user_service(neo4j_driver, production_backends):
     """Create UserService for user-entity tracking tests."""
-    from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
     from core.services.user_service import UserService
@@ -463,14 +459,14 @@ async def user_service(neo4j_driver, production_backends):
 
     # UserService takes an injected UserContextQueryExecutor for context building
     # (built at the composition root in production). Mirror that here.
+    # The cross-domain backend initializes the stats aggregator (used by
+    # get_profile_hub_data) — mirrors services_bootstrap.
     query_executor = Neo4jQueryExecutor(neo4j_driver)
     service = UserService(
-        user_repo=user_backend, query_executor=UserContextQueryExecutor(query_executor)
+        user_repo=user_backend,
+        query_executor=UserContextQueryExecutor(query_executor),
+        cross_domain_backend=production_backends["cross_domain_backend"],
     )
-
-    # Wire the cross-domain backend so the stats aggregator (used by
-    # get_profile_hub_data) is initialized — mirrors services_bootstrap.
-    service.wire_cross_domain_backend(CrossDomainBackend(query_executor))
 
     yield service
 
@@ -665,7 +661,6 @@ async def services(neo4j_driver, production_backends):
             return getattr(self.backend, name)
 
     # Create backends with test wrappers
-    from core.models.enums.neo_labels import NeoLabel
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.principle.principle import Principle
@@ -683,12 +678,9 @@ async def services(neo4j_driver, production_backends):
     raw_ps_backend = production_backends["ps_backend"]
     ps_backend = TestBackendWrapper(raw_ps_backend, PathStep)
 
-    from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
     from core.models.pathways.learning_path import LearningPath
 
-    raw_lp_backend = LpBackend(
-        neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
-    )
+    raw_lp_backend = production_backends["lp_backend"]
     lp_backend = TestBackendWrapper(raw_lp_backend, LearningPath)
 
     raw_principles_backend = production_backends["principles_backend"]
@@ -707,11 +699,9 @@ async def services(neo4j_driver, production_backends):
     query_executor = Neo4jQueryExecutor(neo4j_driver)
 
     # Cross-domain query service (graph-direct cross-domain reads)
-    from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
     from core.services.cross_domain import CrossDomainQueryService
 
-    cross_domain_backend = CrossDomainBackend(query_executor)
-    cross_domain_query = CrossDomainQueryService(cross_domain_backend)
+    cross_domain_query = CrossDomainQueryService(production_backends["cross_domain_backend"])
 
     # Create Choices service (requires graph_intel + cross_domain_query)
     choices_service = ChoicesService(
@@ -732,13 +722,12 @@ async def services(neo4j_driver, production_backends):
     # ps_intelligence_backend mirrors the production composition root (built here,
     # injected — the service never imports the adapter, ADR-044 / SKUEL022) so
     # ps.intelligence practice/readiness reads work against the testcontainer.
-    from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
 
     ps_service = PsService(
         backend=ps_backend,
         executor=query_executor,
         graph_intel=mock_graph_intel,
-        ps_intelligence_backend=PsIntelligenceBackend(query_executor),
+        ps_intelligence_backend=production_backends["ps_intelligence_backend"],
     )
 
     # Create LP service (January 2026: intelligence created internally)

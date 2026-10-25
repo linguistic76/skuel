@@ -1,6 +1,6 @@
 ---
 title: Secondary Entity Pattern
-updated: 2026-08-22
+updated: 2026-10-25
 category: patterns
 related_skills: []
 related_docs:
@@ -166,24 +166,33 @@ HabitCompletionBulk          # Batch completion
 
 ## Bootstrap Wiring
 
-Secondary entity backends are created alongside primary backends:
+Secondary entity backends are created alongside primary backends, in
+`create_all_backends` (`services_bootstrap/_backends.py`) — the one constructor of
+every backend:
 
 ```python
-# services_bootstrap/compose.py
+# services_bootstrap/_backends.py — create_all_backends
 
 # Primary backend
-principle_backend = UniversalNeo4jBackend[Principle](
-    driver, NeoLabel.PRINCIPLE, Principle
+principles_backend = PrinciplesBackend(
+    driver,
+    NeoLabel.PRINCIPLE,
+    Principle,
+    prometheus_metrics=prometheus_metrics,
+    base_label=NeoLabel.ENTITY,
 )
 
-# Secondary backend
-principle_reflection_backend = UniversalNeo4jBackend[PrincipleReflection](
-    driver, NeoLabel.PRINCIPLE_REFLECTION, PrincipleReflection
+# Secondary backend — single label
+reflection_backend = UniversalNeo4jBackend[PrincipleReflection](
+    driver,
+    NeoLabel.PRINCIPLE_REFLECTION,
+    PrincipleReflection,
+    prometheus_metrics=prometheus_metrics,
 )
 
-# Service receives secondary backend
+# services_bootstrap/compose.py — the service receives the secondary backend
 principles_reflection_service = PrinciplesReflectionService(
-    backend=principle_reflection_backend,
+    backend=backends["reflection_backend"],
     event_bus=event_bus,
 )
 ```

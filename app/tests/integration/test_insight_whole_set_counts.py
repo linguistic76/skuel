@@ -24,10 +24,9 @@ import pytest
 import pytest_asyncio
 
 from adapters.inbound.insights_api import create_insights_api_routes
-from adapters.persistence.neo4j.insight_backend import InsightBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.services.insight.insight_store import InsightStore
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
@@ -71,7 +70,7 @@ async def store(neo4j_driver, clean_neo4j) -> InsightStore:
     async with neo4j_driver.session() as session:
         # User nodes survive `clean_neo4j`; MERGE keeps the learner single.
         await session.run("MERGE (:User {uid: $uid})", uid=USER)
-    store = InsightStore(InsightBackend(Neo4jQueryExecutor(neo4j_driver)))
+    store = InsightStore(build_production_backends(neo4j_driver)["insight_backend"])
 
     seeds = [_insight(f"insight.whole-set.{n}", n) for n in range(ACTIVE_COUNT)]
     seeds += [

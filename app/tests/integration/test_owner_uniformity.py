@@ -19,8 +19,6 @@ from unittest.mock import Mock
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.ports.vault_bridge_protocol import VaultBridgePort
 from core.services.ingestion.config import build_sync_allowlist
@@ -30,6 +28,7 @@ from core.services.vault.vault_descriptor import (
     VaultRegistry,
 )
 from core.services.vault.vault_reconciler import VaultReconciler
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio
@@ -75,10 +74,10 @@ async def owner_env(neo4j_driver, tmp_path: Path):
             await session.run("MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid", uid=uid)
 
     executor = Neo4jQueryExecutor(neo4j_driver)
-    service = make_unified_ingestion_service(
+    service = build_ingestion_service(
         driver=neo4j_driver,
         default_user_uid=seed_user_uid("default"),
-        ingestion_backend=IngestionBackend(executor=executor),
+        ingestion_backend=build_production_backends(neo4j_driver, executor)["ingestion_backend"],
     )
 
     content_desc = VaultDescriptor(

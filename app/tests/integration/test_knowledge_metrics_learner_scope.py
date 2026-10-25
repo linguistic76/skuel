@@ -76,9 +76,6 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
 from core.services.ps.ps_intelligence_service import PsIntelligenceService
 from core.utils.result_simplified import Errors, Result
@@ -126,7 +123,9 @@ class _StubPsService:
         self._backend = backend
         self._intelligence = PsIntelligenceService(
             backend=backend,
-            intelligence_backend=PsIntelligenceBackend(Neo4jQueryExecutor(backend.driver)),
+            intelligence_backend=build_production_backends(backend.driver)[
+                "ps_intelligence_backend"
+            ],
         )
 
     async def find_engaged_steps_in_window(self, user_uid, start_date, end_date, limit=None):
@@ -151,7 +150,7 @@ def _metrics_service(backend: PsBackend):
     """
     return AnalyticsMetricsService(
         ku_service=_StubPsService(backend),
-        cross_domain_backend=CrossDomainBackend(Neo4jQueryExecutor(backend.driver)),
+        cross_domain_backend=build_production_backends(backend.driver)["cross_domain_backend"],
     )
 
 
@@ -612,7 +611,7 @@ class TestKnowledgeMetricsLearnerScope:
         start, end = self._window()
         service = AnalyticsMetricsService(
             ku_service=_FailingPsService(),
-            cross_domain_backend=CrossDomainBackend(Neo4jQueryExecutor(backend.driver)),
+            cross_domain_backend=build_production_backends(backend.driver)["cross_domain_backend"],
         )
 
         result = await service.calculate_knowledge_metrics(USER, start, end)

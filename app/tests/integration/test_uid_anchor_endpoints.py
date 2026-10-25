@@ -19,10 +19,9 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.neo_labels import NeoLabel
-from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
+from tests.helpers.production_backends import build_production_backends
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
@@ -60,7 +59,7 @@ async def seeded(neo4j_driver: AsyncDriver, clean_neo4j: None) -> AsyncIterator[
 
 @pytest.mark.asyncio
 async def test_an_exercise_to_teacher_edge_binds_the_user_endpoint(seeded: AsyncDriver) -> None:
-    backend = UniversalNeo4jBackend[Exercise](seeded, NeoLabel.EXERCISE, Exercise)
+    backend = build_production_backends(seeded)["exercise_backend"]
     reviewed_by = RelationshipName.REVIEWED_BY
 
     created = await backend.create_relationship(EXERCISE_UID, TEACHER_UID, reviewed_by)
@@ -113,7 +112,7 @@ async def test_a_mixed_label_batch_binds_user_and_group_endpoints(seeded: AsyncD
 
 @pytest.mark.asyncio
 async def test_the_batch_delete_keeps_the_edge_running_the_other_way(seeded: AsyncDriver) -> None:
-    backend = UniversalNeo4jBackend[Exercise](seeded, NeoLabel.EXERCISE, Exercise)
+    backend = build_production_backends(seeded)["exercise_backend"]
     organizes = RelationshipName.ORGANIZES.value
     async with seeded.session() as session:
         await session.run(

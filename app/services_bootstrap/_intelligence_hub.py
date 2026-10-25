@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.ports import EventBusOperations, ZPDOperations
 from core.ports.filtered_context_protocols import FilteredContextProvider
+from core.ports.zpd_protocols import ZPDBackendOperations, ZPDSnapshotOperations
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -57,7 +58,8 @@ def _create_intelligence_hub(
     user_entry_backend: Any,
     calendar_service: Any,
     vector_search_service: Any,
-    driver: Any,
+    zpd_backend: ZPDBackendOperations,
+    zpd_snapshot_backend: ZPDSnapshotOperations,
     event_bus: EventBusOperations,
     tier: IntelligenceTier,
     context_builder: Any,
@@ -98,12 +100,10 @@ def _create_intelligence_hub(
     # Gated by INTELLIGENCE_TIER=FULL — requires behavioral signals from
     # choices + habits intelligence services.
     # Returns empty assessment (not an error) when curriculum graph < 3 KUs.
-    from adapters.persistence.neo4j.zpd_backend import ZPDBackend
     from core.services.zpd import ZPDService
 
     zpd_service: ZPDOperations | None = None
     if tier.ai_enabled:
-        zpd_backend = ZPDBackend(driver)
         zpd_service = ZPDService(
             backend=zpd_backend,
             choices_intelligence=activity_services["choices"].intelligence,
@@ -116,10 +116,8 @@ def _create_intelligence_hub(
         )
 
         # ZPD snapshot event subscriptions
-        from adapters.persistence.neo4j.zpd_snapshot_backend import ZPDSnapshotBackend
         from core.services.zpd.zpd_event_handler import ZPDSnapshotHandler
 
-        zpd_snapshot_backend = ZPDSnapshotBackend(driver)
         zpd_handler = ZPDSnapshotHandler(zpd_service, zpd_snapshot_backend)
 
         from core.events.curriculum_events import PathStepCompleted as ZPDPSCompleted

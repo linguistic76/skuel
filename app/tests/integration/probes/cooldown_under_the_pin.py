@@ -19,11 +19,7 @@ import json  # noqa: E402
 import sys  # noqa: E402
 from datetime import datetime, timedelta  # noqa: E402
 
-from adapters.persistence.neo4j.backends.misc_backends import (  # noqa: E402
-    ActivityReportGeneratorBackend,
-)
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection  # noqa: E402
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor  # noqa: E402
 from core.constants import ReportTimePeriod  # noqa: E402
 from core.models.enums.pipeline import ReportSource  # noqa: E402
 from core.models.report.activity_report import ActivityReport  # noqa: E402
@@ -55,9 +51,9 @@ async def probe(uri: str, user_uid: str) -> dict[str, object]:
         persisted = await service.persist(report)
         if persisted.is_error:
             raise RuntimeError(persisted.expect_error().message)
-        cooldown = await ActivityReportGeneratorBackend(Neo4jQueryExecutor(driver)).check_cooldown(
-            user_uid, ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES, "7d"
-        )
+        cooldown = await build_production_backends(driver)[
+            "activity_report_generator_backend"
+        ].check_cooldown(user_uid, ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES, "7d")
         if cooldown.is_error:
             raise RuntimeError(cooldown.expect_error().message)
         stored = await driver.execute_query(

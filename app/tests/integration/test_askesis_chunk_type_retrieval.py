@@ -25,9 +25,7 @@ import pytest_asyncio
 from neo4j import AsyncDriver, Record
 
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
-from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.constants import EmbeddingGeometry
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ps_content.content import CurriculumContent
@@ -35,6 +33,7 @@ from core.models.ps_content.content_chunks import ContentChunk, ContentChunkType
 from core.models.query_types import QueryIntent
 from core.ports.query_types import SemanticSearchChunkResult
 from core.services.askesis.context_retriever import _intent_to_chunk_types
+from tests.helpers.production_backends import build_production_backends
 
 _PARENT_UID = "ps.test.chunk-type-retrieval"
 
@@ -143,7 +142,7 @@ async def seeded_chunks(neo4j_driver):
 async def _search(
     neo4j_driver: AsyncDriver, chunk_types: list[str] | None
 ) -> list[SemanticSearchChunkResult]:
-    backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["vector_search_backend"]
     result = await backend.semantic_search_chunks(
         query_embedding=_EMBEDDING,
         limit=10,

@@ -34,10 +34,8 @@ import time_machine
 
 from adapters.persistence.neo4j.backends import collab_backends
 from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, TasksBackend
-from adapters.persistence.neo4j.backends.collab_backends import GroupBackend, NotificationBackend
+from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
 from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
-from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
 from adapters.persistence.neo4j.graph_driver import (
     UTC_INSTANTS,
     UTC_INSTANTS_MIGRATION,
@@ -49,13 +47,10 @@ from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.events import PathStepEnrolled
 from core.events.handlers.path_step_enrollment_handler import handle_path_step_enrolled
-from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.migration_enums import MigrationState
-from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.notification_enums import NotificationType
 from core.models.goal.goal import Goal
-from core.models.group.group import Group
 from core.models.ku.ku import Ku
 from core.models.task.task import Task
 from core.models.type_hints import UserUID
@@ -166,10 +161,12 @@ async def _seed(driver: Any) -> Corpus:
     goals = backends["goals_backend"]
     kus = backends["ku_backend"]
     executor = Neo4jQueryExecutor(driver)
-    groups = GroupBackend(driver, NeoLabel.GROUP, Group)
-    sharing = UnifiedSharingService(backend=SharingBackend(driver, NeoLabel.ENTITY, Entity))
+    groups = build_production_backends(driver)["group_backend"]
+    sharing = UnifiedSharingService(backend=build_production_backends(driver)["sharing_backend"])
     entries = UserEntryService(backend=backends["user_entry_backend"], sharing_service=sharing)
-    notifications = NotificationService(backend=NotificationBackend(executor=executor))
+    notifications = NotificationService(
+        backend=build_production_backends(driver, executor)["notification_backend"]
+    )
     reports = ActivityReportService(
         backend=backends["activity_report_backend"],
         context_builder=None,  # type: ignore[arg-type]
@@ -181,7 +178,9 @@ async def _seed(driver: Any) -> Corpus:
         await _seed_on_the_old_clocks(
             driver, tasks, goals, kus, groups, sharing, entries, notifications, reports
         )
-    touched = await EmbeddingsBackend(executor).touch_embedding_updated_at(["task.utcmig-pair"])
+    touched = await build_production_backends(driver, executor)[
+        "embeddings_backend"
+    ].touch_embedding_updated_at(["task.utcmig-pair"])
     assert touched.is_ok
 
     # The enrollment handler's default group and membership: aware, one moment.
@@ -638,6 +637,7 @@ async def test_compare_and_set_on_a_native_is_typed(
 async def test_the_census_stops_on_what_no_rule_settles(
     graph: Any, scratch_neo4j_container: Any, case: str, reason: str
 ) -> None:
+    backends = build_production_backends(graph)
     await graph.execute_query(
         "MERGE (:User {uid: $student}) MERGE (:User {uid: $teacher}) "
         "MERGE (:User {uid: $admin})-[:OWNS]->(:Group {uid: $default, name: 'Default'})",
@@ -646,7 +646,7 @@ async def test_the_census_stops_on_what_no_rule_settles(
         admin=ADMIN,
         default=f"group_default_{ADMIN}",
     )
-    tasks = build_production_backends(graph)["tasks_backend"]
+    tasks = backends["tasks_backend"]
     if case == "zone_change_day":
         with (
             _the_old_code(),
@@ -664,7 +664,7 @@ async def test_the_census_stops_on_what_no_rule_settles(
             "CREATE (:Entity:Task {uid: 'task.odd', odd_at: '2026-09-01T10:00:00.000001'})"
         )
     elif case == "unpaired_default_group":
-        groups = GroupBackend(graph, NeoLabel.GROUP, Group)
+        groups = backends["group_backend"]
         with _the_old_code(), forced_zone("America/Vancouver"):
             added = await groups.add_member(
                 f"group_default_{ADMIN}", UserUID(STUDENT), joined_at=datetime.now().isoformat()

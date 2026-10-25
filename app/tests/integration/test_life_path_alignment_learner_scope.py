@@ -68,10 +68,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
 from core.services.analytics.analytics_life_path_service import AnalyticsLifePathService
 from core.services.lifepath.lifepath_core_service import LifePathCoreService
 from core.services.ps.ps_intelligence_service import PsIntelligenceService
@@ -149,7 +146,9 @@ class _StubPsService:
     def __init__(self, backend: PsBackend) -> None:
         self._intelligence = PsIntelligenceService(
             backend=backend,
-            intelligence_backend=PsIntelligenceBackend(Neo4jQueryExecutor(backend.driver)),
+            intelligence_backend=build_production_backends(backend.driver)[
+                "ps_intelligence_backend"
+            ],
         )
 
     async def get_user_substance_breakdowns(self, ps_uids, channels):
@@ -187,6 +186,7 @@ class TestLifePathAlignmentLearnerScope:
     @pytest_asyncio.fixture
     async def backend(self, neo4j_driver, clean_neo4j):
         """Seed the designated path, its steps, and the learner's own activity."""
+        backends = build_production_backends(neo4j_driver)
         now = datetime.now(UTC)
         stale = (now - timedelta(days=200)).isoformat()
 
@@ -323,12 +323,12 @@ class TestLifePathAlignmentLearnerScope:
             )
 
         # The REAL designation writer, not a hand-seeded ULTIMATE_PATH edge.
-        designated = await LifePathBackend(Neo4jQueryExecutor(neo4j_driver)).designate_life_path(
+        designated = await backends["lifepath_backend"].designate_life_path(
             USER, LIFE_PATH, datetime.now(UTC).isoformat()
         )
         assert designated.is_ok, f"designation failed: {designated}"
 
-        return build_production_backends(neo4j_driver)["ps_backend"]
+        return backends["ps_backend"]
 
     @staticmethod
     def _service(backend: PsBackend) -> AnalyticsLifePathService:
@@ -341,8 +341,12 @@ class TestLifePathAlignmentLearnerScope:
         executor = Neo4jQueryExecutor(backend.driver)
         return AnalyticsLifePathService(
             ku_service=_StubPsService(backend),
-            lifepath_service=_LifePathFacadeShim(backend=LifePathBackend(executor)),
-            cross_domain_backend=CrossDomainBackend(executor),
+            lifepath_service=_LifePathFacadeShim(
+                backend=build_production_backends(backend.driver, executor)["lifepath_backend"]
+            ),
+            cross_domain_backend=build_production_backends(backend.driver, executor)[
+                "cross_domain_backend"
+            ],
         )
 
     async def test_the_designated_path_is_found_at_all(self, backend, neo4j_driver):
@@ -353,9 +357,9 @@ class TestLifePathAlignmentLearnerScope:
                 ``LpService`` tripped that model's G6 guard. This asserts the composition
                 read returns the path and its steps whatever the writer does to the node.
         """
-        composition = await LifePathBackend(
-            Neo4jQueryExecutor(neo4j_driver)
-        ).get_life_path_composition(LIFE_PATH)
+        composition = await build_production_backends(neo4j_driver)[
+            "lifepath_backend"
+        ].get_life_path_composition(LIFE_PATH)
         assert composition.is_ok, f"composition read failed: {composition}"
         assert composition.value is not None, (
             "the designated path was not found — the composition read no "
@@ -518,9 +522,9 @@ class TestLifePathAlignmentLearnerScope:
             channel_maps_from_rows,
         )
 
-        rows = await CrossDomainBackend(
-            Neo4jQueryExecutor(backend.driver)
-        ).get_user_knowledge_channels(USER, list(SUBSTANCE_ACTIVITY_TYPES))
+        rows = await build_production_backends(backend.driver)[
+            "cross_domain_backend"
+        ].get_user_knowledge_channels(USER, list(SUBSTANCE_ACTIVITY_TYPES))
         assert rows.is_ok, f"channel read failed: {rows}"
         return channel_maps_from_rows(rows.value or [])
 
@@ -599,7 +603,7 @@ class TestLifePathAlignmentLearnerScope:
                 ps=PS_EMBODIED,
             )
         assert (
-            await LifePathBackend(Neo4jQueryExecutor(neo4j_driver)).designate_life_path(
+            await build_production_backends(neo4j_driver)["lifepath_backend"].designate_life_path(
                 bare_user, "lp.bare", datetime.now(UTC).isoformat()
             )
         ).is_ok
@@ -684,7 +688,7 @@ class TestLifePathAlignmentLearnerScope:
                 """
             )
         assert (
-            await LifePathBackend(Neo4jQueryExecutor(neo4j_driver)).designate_life_path(
+            await build_production_backends(neo4j_driver)["lifepath_backend"].designate_life_path(
                 empty_user, "lp.stepless", datetime.now(UTC).isoformat()
             )
         ).is_ok
@@ -713,7 +717,9 @@ class TestLifePathAlignmentLearnerScope:
         executor = Neo4jQueryExecutor(backend.driver)
         service = AnalyticsLifePathService(
             ku_service=_StubPsService(backend),
-            lifepath_service=_LifePathFacadeShim(backend=LifePathBackend(executor)),
+            lifepath_service=_LifePathFacadeShim(
+                backend=build_production_backends(backend.driver, executor)["lifepath_backend"]
+            ),
             cross_domain_backend=_FailingChannelBackend(),
         )
 
@@ -731,7 +737,9 @@ class TestLifePathAlignmentLearnerScope:
         executor = Neo4jQueryExecutor(backend.driver)
         service = AnalyticsLifePathService(
             ku_service=_StubPsService(backend),
-            lifepath_service=_LifePathFacadeShim(backend=LifePathBackend(executor)),
+            lifepath_service=_LifePathFacadeShim(
+                backend=build_production_backends(backend.driver, executor)["lifepath_backend"]
+            ),
         )
 
         result = await service.calculate_life_path_alignment(USER)

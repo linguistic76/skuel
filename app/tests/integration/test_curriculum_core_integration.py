@@ -25,8 +25,6 @@ from adapters.persistence.neo4j.user_context_queries import UserContextQueryExec
 from core.models.enums import Domain, SELCategory
 
 # Backend
-from core.models.enums.neo_labels import NeoLabel
-
 # Domain models - use domain-specific types
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
@@ -49,7 +47,7 @@ def ku_backend(neo4j_driver) -> KuBackend:
 @pytest.fixture
 def lp_backend(neo4j_driver) -> LpBackend:
     """Create LP backend with real Neo4j."""
-    return LpBackend(neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
+    return build_production_backends(neo4j_driver)["lp_backend"]
 
 
 @pytest.fixture

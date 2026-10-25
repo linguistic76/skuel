@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-23
+updated: 2026-10-25
 ---
 
 # Type Safety Architecture Overview
@@ -235,8 +235,9 @@ class DomainModelProtocol(Protocol):
     @classmethod
     def from_dto(cls, dto: Any) -> "DomainModelProtocol": ...
 
-# UniversalNeo4jBackend[T] — one backend, all entity types
-backend = UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+# UniversalNeo4jBackend[T] — one generic backend; domain backends subclass it
+# (TasksBackend(UniversalNeo4jBackend[Task]) ...), all built in create_all_backends
+backend = UniversalNeo4jBackend[HabitCompletion](driver, NeoLabel.HABIT_COMPLETION, HabitCompletion)
 
 # BaseService[B, T] — all 6 activity domains use this
 class GoalsCoreService(BaseService[GoalsOperations, Goal]):

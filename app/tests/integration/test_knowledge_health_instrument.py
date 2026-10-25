@@ -15,9 +15,8 @@ from __future__ import annotations
 
 import pytest
 
-from adapters.persistence.neo4j.backends.curriculum_backends import KnowledgeHealthBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.analytics.knowledge_health_service import KnowledgeHealthService
+from tests.helpers.production_backends import build_production_backends
 
 P = "khtest."  # uid prefix for this module's fixture graph
 
@@ -89,7 +88,7 @@ async def _build_graph(neo4j_driver) -> None:
 async def test_measures_constructed_subgraph(neo4j_driver, clean_neo4j) -> None:
     """The backend reproduces the planted graph's structural facts exactly."""
     await _build_graph(neo4j_driver)
-    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["knowledge_health_backend"]
 
     result = await backend.measure_knowledge_subgraph()
     assert result.is_ok, result
@@ -128,7 +127,7 @@ async def test_scoping_excludes_activity_edges(neo4j_driver, clean_neo4j) -> Non
     same relationship type are excluded.
     """
     await _build_graph(neo4j_driver)
-    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["knowledge_health_backend"]
 
     raw = (await backend.measure_knowledge_subgraph()).value
 
@@ -143,7 +142,7 @@ async def test_service_derives_report(neo4j_driver, clean_neo4j) -> None:
     """The service fold produces coverage ratios, a bounded score, and flags."""
     await _build_graph(neo4j_driver)
     service = KnowledgeHealthService(
-        backend=KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+        backend=build_production_backends(neo4j_driver)["knowledge_health_backend"]
     )
 
     result = await service.analyze_knowledge_subgraph_health()
@@ -188,7 +187,7 @@ async def test_depth_ignores_inverse_prerequisite_cycle(neo4j_driver, clean_neo4
             a=P + "d1",
             b=P + "d2",
         )
-    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["knowledge_health_backend"]
 
     raw = (await backend.measure_knowledge_subgraph()).value
     # Both edges are counted broadly, but depth is the true chain length, not the cap.
@@ -227,7 +226,7 @@ async def test_learner_telemetry_excluded_from_degree(neo4j_driver, clean_neo4j)
             a=P + "t-a",
             b=P + "t-b",
         )
-    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["knowledge_health_backend"]
 
     raw = (await backend.measure_knowledge_subgraph()).value
     assert raw["total_kus"] == 3
@@ -263,7 +262,7 @@ async def test_requires_step_counts_in_prerequisite_dag(neo4j_driver, clean_neo4
             a=P + "rs2",
             b=P + "rs3",
         )
-    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["knowledge_health_backend"]
 
     raw = (await backend.measure_knowledge_subgraph()).value
     assert raw["prerequisite_edge_count"] == 2  # both REQUIRES_STEP edges counted
@@ -289,7 +288,7 @@ async def test_label_less_pathstep_counted_by_entity_type(neo4j_driver, clean_ne
             "status:'active', created_at:datetime()})",
             u=P + "ll-labelled",
         )
-    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["knowledge_health_backend"]
 
     raw = (await backend.measure_knowledge_subgraph()).value
     # Both count — label-only matching would have found just the labelled one.
@@ -299,7 +298,7 @@ async def test_label_less_pathstep_counted_by_entity_type(neo4j_driver, clean_ne
 @pytest.mark.asyncio
 async def test_empty_subgraph_is_all_zeros(neo4j_driver, clean_neo4j) -> None:
     """An empty knowledge subgraph measures to zeros, not an error."""
-    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["knowledge_health_backend"]
 
     result = await backend.measure_knowledge_subgraph()
     assert result.is_ok, result
@@ -323,9 +322,6 @@ async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo
     rest, so they must count as neither total nor missing) and remedy
     assignment (ReferenceChunk has no backfill path).
     """
-    from adapters.persistence.neo4j.backends.curriculum_backends import (
-        EmbeddingCoverageBackend,
-    )
     from core.services.embeddings.retrievability import BACKFILL_COMMAND
 
     async with neo4j_driver.session() as s:
@@ -359,7 +355,7 @@ async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo
             u5=P + "ec-ue5",
             u6=P + "ec-ue6",
         )
-    backend = EmbeddingCoverageBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["embedding_coverage_backend"]
 
     result = await backend.measure_embedding_coverage()
     assert result.is_ok, result
@@ -385,11 +381,8 @@ async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo
 @pytest.mark.asyncio
 async def test_embedding_coverage_empty_graph_is_complete(neo4j_driver, clean_neo4j) -> None:
     """An empty graph measures as complete (all-zero coverage), not an error."""
-    from adapters.persistence.neo4j.backends.curriculum_backends import (
-        EmbeddingCoverageBackend,
-    )
 
-    backend = EmbeddingCoverageBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["embedding_coverage_backend"]
     result = await backend.measure_embedding_coverage()
     assert result.is_ok, result
     assert result.value.total == 0

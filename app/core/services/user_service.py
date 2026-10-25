@@ -36,6 +36,7 @@ from core.ports.infrastructure_protocols import (
 from core.ports.query_types import MasteredWriteRow
 
 if TYPE_CHECKING:
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
     from core.ports.service_protocols import SessionInvalidationOperations
     from core.ports.user_context_protocols import UserContextQueryOperations
 from core.models.auth.device import Device, PairingCodeIssued
@@ -82,6 +83,7 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         metrics_cache=None,
         device_service: DeviceService | None = None,
         session_invalidator: SessionInvalidationOperations | None = None,
+        cross_domain_backend: CrossDomainBackendOperations | None = None,
     ) -> None:
         """
         Initialize facade with all sub-services.
@@ -104,6 +106,9 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
                 cookie outlives its privileges. Built at the composition root
                 (driver-backed SessionBackend); None only in tests that never
                 change privileges.
+            cross_domain_backend: The cross-domain reads the stats aggregator
+                (``get_profile_hub_data``) counts through. None only in tests
+                that never read stats.
 
         Raises:
             ValueError: If user_repo is None
@@ -138,8 +143,14 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
             )
 
         # Stats aggregator requires context_builder + cross_domain_backend
-        # cross_domain_backend is wired post-construction via wire_cross_domain_backend()
         self.stats: UserStatsAggregator | None = None
+        if cross_domain_backend is not None:
+            if self.context_builder is not None:
+                self.stats = UserStatsAggregator(
+                    self.core, self.context_builder, cross_domain_backend
+                )
+            else:
+                logger.warning("Cannot wire stats — context_builder not available")
 
         # Vault-agent devices (ADR-075) — auth infrastructure behind this facade
         self.devices: DeviceService | None = device_service
@@ -155,18 +166,6 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
 
         # Keep repo reference for backward compatibility
         self.repo = user_repo
-
-    def wire_cross_domain_backend(self, cross_domain_backend: Any) -> None:
-        """
-        Post-construction wiring for cross-domain backend.
-
-        Called from services_bootstrap after CrossDomainBackend is created
-        (CrossDomainBackend is created after UserService in the bootstrap sequence).
-        """
-        if self.context_builder:
-            self.stats = UserStatsAggregator(self.core, self.context_builder, cross_domain_backend)
-        else:
-            logger.warning("Cannot wire stats — context_builder not available")
 
     # ========================================================================
     # CRUD OPERATIONS (Delegate to UserCoreService)
@@ -478,6 +477,7 @@ def create_user_service(
     metrics_cache=None,
     device_service: DeviceService | None = None,
     session_invalidator: SessionInvalidationOperations | None = None,
+    cross_domain_backend: CrossDomainBackendOperations | None = None,
 ) -> UserService:
     """
     Factory function to create a UserService instance.
@@ -495,6 +495,7 @@ def create_user_service(
         metrics_cache: MetricsCache for performance tracking (optional)
         device_service: Vault-agent device enrollment/revocation (ADR-075)
         session_invalidator: Session revocation on privilege change (SessionBackend)
+        cross_domain_backend: Cross-domain reads for the stats aggregator
 
     Returns:
         UserService: Configured user service instance (facade pattern)
@@ -507,4 +508,5 @@ def create_user_service(
         metrics_cache,
         device_service=device_service,
         session_invalidator=session_invalidator,
+        cross_domain_backend=cross_domain_backend,
     )

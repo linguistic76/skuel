@@ -29,6 +29,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 from core.utils.embedding_text_builder import build_embedding_text
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -572,11 +573,12 @@ class TestEndToEndEmbeddingIntegration:
             return_value=Mock(is_ok=True, is_error=False, value=mock_embedding)
         )
         # 2. Give the embeddings_service a real backend if it doesn't have one
-        from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
         from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
         executor = Neo4jQueryExecutor(neo4j_driver)
-        embeddings_service.backend = EmbeddingsBackend(executor)
+        embeddings_service.backend = build_production_backends(neo4j_driver, executor)[
+            "embeddings_backend"
+        ]
 
         # 3. Create background worker
         worker = EmbeddingBackgroundWorker(

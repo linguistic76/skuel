@@ -1,7 +1,7 @@
 ---
 title: Protocol Implementation Guide
 created: 2026-01-03
-updated: 2026-10-24
+updated: 2026-10-25
 status: active
 audience: developers
 tags: [guide, protocols, implementation]
@@ -205,26 +205,41 @@ class TasksService:
         return task_result
 ```
 
-### Backend Implementation (Duck Typing)
+### Backend Implementation (Structural Typing)
+
+Every backend is built in one place, `create_all_backends`
+(`services_bootstrap/_backends.py`). The composition root and every test take
+their backend from the dict it returns; nothing else constructs one
+(`tests/unit/test_production_backend_census.py` fails a test that does).
 
 ```python
-from core.models.query import UniversalNeo4jBackend
+# services_bootstrap/_backends.py — inside create_all_backends
+from adapters.persistence.neo4j.backends.activity_backends import TasksBackend
 
-# ✅ Backend automatically satisfies TasksOperations through duck typing
-tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
+tasks_backend = TasksBackend(
+    driver,
+    NeoLabel.TASK,
+    Task,
+    prometheus_metrics=prometheus_metrics,
+    base_label=NeoLabel.ENTITY,
+)
+# TasksBackend never names TasksOperations: it satisfies the protocol
+# structurally — UniversalNeo4jBackend[Task] supplies BackendOperations[Task]
+# (create(task) -> Result[Task], get(uid) -> Result[Task | None], ...) and its
+# mixins the relationship and hierarchy operations.
 
-# No explicit inheritance needed - backend has matching methods:
-# - async def create(self, data: Metadata) -> Result[EntityUID]
-# - async def get(self, uid: str) -> Result[Optional[Task]]
-# - async def update(self, uid: str, updates: Metadata) -> Result[Task]
-# - async def delete(self, uid: str) -> Result[None]
-# - async def list(...) -> Result[list[Task]]
-
-# Service initialization
-tasks_service = TasksService(backend=tasks_backend)  # Type-safe!
+# services_bootstrap/compose.py — each facade reads its entry from the dict
+backends = create_all_backends(driver, query_executor, prometheus_metrics=prometheus_metrics)
+tasks_service = TasksService(backend=backends["tasks_backend"], ...)  # checked against TasksOperations
 ```
 
 ## Breaking Circular Dependencies with Protocols
+
+> The `UserContextService` / `context_service` names below are illustrative — the
+> walkthrough shows the shape, not real services. For a real protocol-typed
+> dependency wired after construction, read `FormSubmissionService.sharing_service`
+> (`SharingOperations | None`, set in `services_bootstrap/compose.py` once
+> `UnifiedSharingService` exists).
 
 ### The Problem
 
@@ -297,15 +312,12 @@ class TasksService:
 **Step 3**: Wire concrete implementation during bootstrap
 
 ```python
-# File: services_bootstrap/compose.py
-async def compose_services(driver) -> Services:
-    """Bootstrap all services."""
-
-    # Create backends
-    tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
+# File: services_bootstrap/compose.py — inside compose_services
+    # Every backend, built once (services_bootstrap/_backends.py)
+    backends = create_all_backends(driver, query_executor, prometheus_metrics=prometheus_metrics)
 
     # Create services (no context yet - avoids circular dependency)
-    tasks_service = TasksService(backend=tasks_backend, context_service=None)
+    tasks_service = TasksService(backend=backends["tasks_backend"], context_service=None)
 
     # Create context service (depends on tasks)
     user_context_service = UserContextService(tasks=tasks_service, ...)

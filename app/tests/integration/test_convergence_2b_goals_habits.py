@@ -25,8 +25,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from adapters.persistence.neo4j.cross_domain_backend import _INTENT_EDGE_SETS, CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.cross_domain_backend import _INTENT_EDGE_SETS
 from core.models.habit.habit import Habit
 from core.models.relationship_registry import GOALS_CONFIG, HABITS_CONFIG
 from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
@@ -113,16 +112,18 @@ async def test_delegation_fails_cleanly_without_relationship_service():
 @pytest.fixture
 def goals_rel(neo4j_driver):
     """Goals UnifiedRelationshipService wired to a real graph_intel — mechanism B."""
-    graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = build_production_backends(neo4j_driver)["goals_backend"]
+    backends = build_production_backends(neo4j_driver)
+    graph_intel = GraphIntelligenceService(backends["cross_domain_backend"])
+    backend = backends["goals_backend"]
     return UnifiedRelationshipService(backend=backend, config=GOALS_CONFIG, graph_intel=graph_intel)
 
 
 @pytest.fixture
 def habits_rel(neo4j_driver):
     """Habits UnifiedRelationshipService wired to a real graph_intel — mechanism B."""
-    graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = build_production_backends(neo4j_driver)["habits_backend"]
+    backends = build_production_backends(neo4j_driver)
+    graph_intel = GraphIntelligenceService(backends["cross_domain_backend"])
+    backend = backends["habits_backend"]
     return UnifiedRelationshipService(
         backend=backend, config=HABITS_CONFIG, graph_intel=graph_intel
     )

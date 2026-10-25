@@ -21,8 +21,6 @@ from typing import cast
 
 import pytest
 
-from adapters.persistence.neo4j.insight_backend import InsightBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.insight.persisted_insight import ActiveInsightFilter
 from core.models.type_hints import Neo4jProperties
 from core.utils.timestamp_helpers import today_in
@@ -54,7 +52,7 @@ class TestTimestampFieldCoercionResidual:
                 future=future,
                 user_insight=seed_user_uid("insight"),
             )
-        backend = InsightBackend(Neo4jQueryExecutor(neo4j_driver))
+        backend = build_production_backends(neo4j_driver)["insight_backend"]
 
         result = await backend.get_active_insights(
             seed_user_uid("insight"), ActiveInsightFilter(), 10, 0

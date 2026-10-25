@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-10-16
+updated: 2026-10-25
 category: patterns
 related_skills:
 - python
@@ -611,20 +611,21 @@ User is **NOT an activity domain** and does NOT implement DomainModelProtocol. U
 ### Backend Pattern
 
 ```python
+# services_bootstrap/_backends.py — create_all_backends, the one constructor of every backend
 # Domain backends use multi-label CREATE with base_label=NeoLabel.ENTITY
 # Creates nodes with dual labels: (n:Entity:Task)
-from adapters.persistence.neo4j.neo_label import NeoLabel
+from core.models.enums.neo_labels import NeoLabel
 
-tasks_backend = UniversalNeo4jBackend[Task](
-    driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
+tasks_backend = TasksBackend(
+    driver, NeoLabel.TASK, Task, prometheus_metrics=prometheus_metrics, base_label=NeoLabel.ENTITY
 )
-goals_backend = UniversalNeo4jBackend[Goal](
-    driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
+goals_backend = GoalsBackend(
+    driver, NeoLabel.GOAL, Goal, prometheus_metrics=prometheus_metrics, base_label=NeoLabel.ENTITY
 )
 
-# Non-Ku backends — single label, no base_label
+# Non-Entity backends — single label, no base_label
 invoice_backend = UniversalNeo4jBackend[InvoicePure](
-    driver, NeoLabel.INVOICE, InvoicePure
+    driver, NeoLabel.INVOICE, InvoicePure, prometheus_metrics=prometheus_metrics
 )
 
 # User - Use dedicated UserBackend (identity operations, no DTO lifecycle)

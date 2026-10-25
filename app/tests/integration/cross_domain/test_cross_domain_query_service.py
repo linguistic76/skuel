@@ -48,9 +48,9 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.principle_enums import AlignmentLevel
 from core.services.cross_domain import CrossDomainQueryService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER_UID = seed_user_uid("xdq")
@@ -317,9 +317,8 @@ async def graph(neo4j_driver, clean_neo4j):
 @pytest.fixture
 def service(neo4j_driver):
     """CrossDomainQueryService wired to a real Neo4j backend."""
-    from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 
-    return CrossDomainQueryService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
+    return CrossDomainQueryService(build_production_backends(neo4j_driver)["cross_domain_backend"])
 
 
 # ---------------------------------------------------------------------------

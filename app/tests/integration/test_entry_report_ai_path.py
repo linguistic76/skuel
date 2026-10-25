@@ -20,16 +20,15 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.exercise_backends import EntryReportBackend
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import AssessmentOutcome
-from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.pipeline import ReportSource
 from core.models.exercises.exercise import Exercise
 from core.models.report.entry_report import EntryReport
 from core.models.user_entry.user_entry import UserEntry
 from core.services.report.entry_report_service import AdmittedReport, EntryReportService
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 STUDENT_UID = seed_user_uid("ai_report_student")
@@ -93,12 +92,7 @@ async def seeded_submission(neo4j_driver, clean_neo4j):
 
 @pytest_asyncio.fixture
 async def entry_report_backend(neo4j_driver):
-    return EntryReportBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.ENTRY_REPORT,
-        entity_class=EntryReport,
-        base_label=NeoLabel.ENTITY,
-    )
+    return build_production_backends(neo4j_driver)["entry_report_backend"]
 
 
 def _make_llm_caller(text: str = "AI-generated feedback body.") -> MagicMock:

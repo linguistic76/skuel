@@ -1,8 +1,9 @@
 """No test builds a backend the composition root builds, except through it.
 
 ``create_all_backends`` (``services_bootstrap/_backends.py``) is the one constructor
-of the domain backends: which class serves a domain, under which label, over which
-base label and entity class. A test that copies those arguments tests a backend
+of every backend the application runs: which class serves a domain or a service
+family, under which label, over which base label and entity class, over the driver
+or the shared executor. A test that copies those arguments tests a backend
 production never runs the moment the two drift — a generic
 ``UniversalNeo4jBackend[Task]`` lacks every read ``TasksBackend`` adds, and an
 ``"Entity"``-labelled one writes nodes no production writer makes. So a test gets
@@ -13,7 +14,7 @@ The set this census refuses is read from ``create_all_backends`` itself, called 
 a mock driver — a backend added there is covered here without an edit:
 
 - a call to any class it returns other than ``UniversalNeo4jBackend``
-  (``TasksBackend(...)``, ``UserBackend(...)``, ``ConnectionFetchBackend(...)``);
+  (``TasksBackend(...)``, ``UserBackend(...)``, ``CrossDomainBackend(executor)``);
 - a ``UniversalNeo4jBackend`` call whose label is one a production backend carries,
   primary or base (``"Entity"``), or whose entity class is one a production backend
   serves (``UniversalNeo4jBackend[HabitCompletion](driver, ..., HabitCompletion)``).
@@ -125,9 +126,20 @@ def production_copies(source: str) -> list[ast.Call]:
 
 def test_create_all_backends_is_read() -> None:
     """A census over an empty set refuses nothing; the set must hold what it claims."""
-    assert {"TasksBackend", "UserBackend", "ConnectionFetchBackend"} <= PRODUCTION_CLASSES
-    assert {"Task", "Entity", "HabitCompletion", "User"} <= PRODUCTION_LABELS
-    assert {"Task", "HabitCompletion", "PathStep"} <= PRODUCTION_ENTITY_CLASSES
+    assert {
+        "TasksBackend",
+        "UserBackend",
+        "ConnectionFetchBackend",
+        "CrossDomainBackend",
+        "VectorSearchBackend",
+        "BulkUpsertBackend",
+        "LpBackend",
+        "SharingBackend",
+    } <= PRODUCTION_CLASSES
+    assert {"Task", "Entity", "HabitCompletion", "User", "Group", "Exercise"} <= PRODUCTION_LABELS
+    assert {"Task", "HabitCompletion", "PathStep", "LearningPath", "FormTemplate"} <= (
+        PRODUCTION_ENTITY_CLASSES
+    )
 
 
 def test_no_test_builds_a_production_backend_by_hand() -> None:
@@ -151,6 +163,11 @@ def test_the_census_refuses_each_copy() -> None:
         "backends.KuBackend(driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)",
         "UserBackend(neo4j_driver)",
         "ConnectionFetchBackend(executor)",
+        "CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver))",
+        "VectorSearchBackend(executor=executor)",
+        "BulkUpsertBackend(neo4j_driver)",
+        "SharingBackend(driver, NeoLabel.ENTITY, Entity, base_label=NeoLabel.ENTITY)",
+        "UniversalNeo4jBackend[Group](driver, NeoLabel.GROUP, Group)",
         "UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)",
         "UniversalNeo4jBackend(driver, NeoLabel.TASK, Task)",
         'UniversalNeo4jBackend[GoalDTO](driver, "Entity", GoalDTO)',

@@ -20,8 +20,6 @@ from datetime import datetime, timedelta
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.entity_enums import EntityType
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
@@ -63,7 +61,9 @@ async def seeded(
     assert edge.is_ok, edge
 
     completions = HabitsCompletionService(habits_backend, completions_backend)
-    queries = CrossDomainQueryService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
+    queries = CrossDomainQueryService(
+        build_production_backends(neo4j_driver)["cross_domain_backend"]
+    )
     return completions, queries
 
 

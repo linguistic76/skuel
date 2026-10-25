@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-10-23
+updated: 2026-10-25
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -715,8 +715,8 @@ class TasksService:
 ### How Everything Gets Wired Together
 
 **Philosophy Change (January 2026):**
-- **REQUIRED**: Neo4j (graph database), Deepgram (audio transcription) - fail fast if missing
-- **OPTIONAL**: HuggingFace API (AI features) - graceful degradation with basic features if missing
+- **REQUIRED**: Neo4j (graph database), always - fail fast if missing
+- **FULL tier only** (`INTELLIGENCE_TIER=full`): OpenAI (LLM + embeddings) and Deepgram (audio transcription) - not read in CORE
 - Embeddings via `EmbeddingsService` (OpenAI `text-embedding-3-small`, 1024d — ADR-068) + vector search via `Neo4jVectorSearchService`
 
 ```python
@@ -726,7 +726,7 @@ async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> R
     """
     Bootstrap delegates to helper functions for readability:
     1. Validate Neo4j + API keys (fail-fast)
-    2. Create domain backends (UniversalNeo4jBackend[T])
+    2. Create every backend (create_all_backends — services_bootstrap/_backends.py)
     3. _create_activity_services() — 6 Activity Domain facades
     4. _create_core_services() — Finance, Transcription, User passthrough
     5. _create_learning_services() — Curriculum (KU, PS, LP)
@@ -739,17 +739,16 @@ async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> R
 
     # 1. Validate required infrastructure
     driver = neo4j_adapter.get_driver()  # Fail-fast if unavailable
-    # Required: DEEPGRAM_API_KEY — fail-fast
-    # Optional: OPENAI_API_KEY — warn only
+    # OPENAI_API_KEY — warn only here; the FULL-tier blocks enforce it
 
-    # 2. Create domain backends (15 backend instances)
-    tasks_backend = TasksBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
-    # ... all entity types use domain-specific Backend subclasses
+    # 2. Create every backend — the one constructor; each consumer reads its entry
+    backends = create_all_backends(driver, query_executor, prometheus_metrics=prometheus_metrics)
+    tasks_backend = backends["tasks_backend"]  # TasksBackend, :Entity:Task
 
     # 3-5. Delegate to helper functions
     activity_services = _create_activity_services(tasks_backend=..., ...)  # 6 facades
     core_services = _create_core_services(finance_backend=..., ...)  # Finance + Transcription
-    learning_services = _create_learning_services(driver=..., ...)  # KU, PS, LP
+    learning_services = _create_learning_services(backends=backends, ...)  # KU, PS, LP
 
     # 6. Wire AI (FULL tier: 8 services — 6 Activity + 2 Curriculum, each onto its facade's .ai)
     _wire_ai_services(llm_service=..., activity_services=activity_services, ...)
@@ -758,7 +757,7 @@ async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> R
     _wire_event_subscribers(event_bus=event_bus, ...)
 
     # 8. Intelligence hub (UserContextIntelligence factory + ZPD + Askesis)
-    await _create_intelligence_hub(services=services, ...)
+    _create_intelligence_hub(services=services, ...)
 
     # 9. Validate post-construction wiring (10 attributes checked)
     # Fails immediately if any post-wired dependency is None
@@ -940,16 +939,15 @@ def test_tasks_service_validation():
 #### Testing Backends (Slow, Needs DB)
 
 ```python
-async def test_tasks_backend_integration():
-    # Real Neo4j connection (test database)
-    driver = get_test_driver()
-    backend = TasksBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+async def test_tasks_backend_integration(production_backends):
+    # The composition root's TasksBackend over the test container
+    # (tests/integration/conftest.py — every test backend comes from create_all_backends)
+    backend = production_backends["tasks_backend"]
 
     # Test real database operation
-    dto = TaskDTO(uid="test", title="Test Task")
-    result = await backend.create(dto)
+    result = await backend.create(task)  # a Task domain model
 
-    assert result.is_success()
+    assert result.is_ok
     assert result.value.title == "Test Task"
 
     # Cleanup

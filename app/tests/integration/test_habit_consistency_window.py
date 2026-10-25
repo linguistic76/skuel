@@ -128,10 +128,8 @@ class TestHabitConsistencyWindow:
 
     @pytest_asyncio.fixture
     async def backend(self, neo4j_driver, clean_neo4j):
-        from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-        from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-        return CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver))
+        return build_production_backends(neo4j_driver)["cross_domain_backend"]
 
     @pytest_asyncio.fixture
     async def service(self, backend):

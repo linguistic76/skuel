@@ -8,7 +8,7 @@ Tests the three new service methods:
 These methods provide data for the Enhanced UX components.
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
@@ -17,6 +17,7 @@ from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
 from core.utils.result_simplified import ErrorCategory, Errors, Result
+from tests.helpers.production_backends import build_production_backends
 
 
 @pytest.fixture
@@ -554,14 +555,11 @@ class TestLateralTargetAudience:
         caller as the owner — one composition point (build_far_node_clause), not a
         hand-rolled predicate — and threads the caller and the publication param.
         """
-        from adapters.persistence.neo4j.backends.collab_backends import (
-            LateralRelationshipBackend,
-        )
         from adapters.persistence.neo4j.query.cypher import build_far_node_clause
 
         executor = MagicMock()
         executor.execute_query = AsyncMock(return_value=Result.ok([]))
-        backend = LateralRelationshipBackend(executor=executor)
+        backend = build_production_backends(Mock(), executor)["lateral_relationship_backend"]
 
         result = await backend.get_relationships("task_1", "BLOCKS", "both", user_uid="user_a")
 
@@ -578,14 +576,11 @@ class TestLateralTargetAudience:
         """Null $user_uid: the same predicate is emitted and the caller owns nothing,
         so only published shared targets survive — an anonymous read never leaks
         anyone's entity, and the rule has no second, user-less shape."""
-        from adapters.persistence.neo4j.backends.collab_backends import (
-            LateralRelationshipBackend,
-        )
         from adapters.persistence.neo4j.query.cypher import build_far_node_clause
 
         executor = MagicMock()
         executor.execute_query = AsyncMock(return_value=Result.ok([]))
-        backend = LateralRelationshipBackend(executor=executor)
+        backend = build_production_backends(Mock(), executor)["lateral_relationship_backend"]
 
         result = await backend.get_relationships("task_1", "BLOCKS", "both")
 

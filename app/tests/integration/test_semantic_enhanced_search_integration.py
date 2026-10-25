@@ -15,10 +15,9 @@ import time
 
 import pytest
 
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.config.unified_config import VectorSearchConfig
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -79,7 +78,7 @@ async def test_semantic_enhanced_search_with_relationships(
         semantic_boost_weight=0.3,
         ku_min_score=0.0,  # Accept all for testing
     )
-    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    vector_backend = build_production_backends(neo4j_driver)["vector_search_backend"]
     vector_search = Neo4jVectorSearchService(
         backend=vector_backend, embeddings_service=mock_embeddings_service, config=config
     )
@@ -179,7 +178,7 @@ async def test_learning_aware_search_with_states(
         await result.consume()  # Ensure transaction commits
 
     # Create vector search service
-    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    vector_backend = build_production_backends(neo4j_driver)["vector_search_backend"]
     vector_search = Neo4jVectorSearchService(
         backend=vector_backend,
         embeddings_service=mock_embeddings_service,
@@ -280,7 +279,7 @@ async def test_semantic_boost_multiple_relationships(
         """)
         await result.consume()  # Ensure transaction commits
 
-    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    vector_backend = build_production_backends(neo4j_driver)["vector_search_backend"]
     vector_search = Neo4jVectorSearchService(
         backend=vector_backend,
         embeddings_service=mock_embeddings_service,
@@ -343,7 +342,7 @@ async def test_performance_semantic_enhanced_search(
             """)
             await result.consume()  # Ensure transaction commits
 
-    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    vector_backend = build_production_backends(neo4j_driver)["vector_search_backend"]
     vector_search = Neo4jVectorSearchService(
         backend=vector_backend,
         embeddings_service=mock_embeddings_service,
@@ -423,7 +422,7 @@ async def test_performance_learning_aware_search(
             )
             await result.consume()  # Ensure transaction commits
 
-    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    vector_backend = build_production_backends(neo4j_driver)["vector_search_backend"]
     vector_search = Neo4jVectorSearchService(
         backend=vector_backend,
         embeddings_service=mock_embeddings_service,
@@ -466,7 +465,7 @@ async def test_graceful_degradation_no_vector_index(
         """)
         await result.consume()
 
-    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    vector_backend = build_production_backends(neo4j_driver)["vector_search_backend"]
     vector_search = Neo4jVectorSearchService(
         backend=vector_backend,
         embeddings_service=mock_embeddings_service,
@@ -558,7 +557,7 @@ async def test_end_to_end_semantic_discovery_workflow(
         )
         await result.consume()  # Ensure transaction commits
 
-    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    vector_backend = build_production_backends(neo4j_driver)["vector_search_backend"]
     vector_search = Neo4jVectorSearchService(
         backend=vector_backend,
         embeddings_service=mock_embeddings_service,

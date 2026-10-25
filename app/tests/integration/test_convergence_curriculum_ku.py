@@ -32,8 +32,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.ku.ku import Ku
 from core.models.relationship_registry import KU_CONFIG
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -95,8 +93,9 @@ def ku_intel(neo4j_driver):
     Mirrors the production Ku wiring (``create_curriculum_sub_services``): a live
     ``UnifiedRelationshipService(config=KU_CONFIG)`` passed as ``relationship_service``.
     """
-    graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = build_production_backends(neo4j_driver)["ku_backend"]
+    backends = build_production_backends(neo4j_driver)
+    graph_intel = GraphIntelligenceService(backends["cross_domain_backend"])
+    backend = backends["ku_backend"]
     relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=backend, config=KU_CONFIG, graph_intel=graph_intel
     )

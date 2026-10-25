@@ -41,13 +41,11 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.learning_path import LearningPath
 from core.services.lifepath.lifepath_alignment_service import LifePathAlignmentService
 from core.services.user.unified_user_context import UserContext
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 USER = seed_user_uid("lp_designation_edge")
@@ -79,19 +77,19 @@ async def graph(neo4j_driver, clean_neo4j):
 
 
 def _backend(driver) -> LifePathBackend:
-    return LifePathBackend(Neo4jQueryExecutor(driver))
+    return build_production_backends(driver)["lifepath_backend"]
 
 
 def _lp_backend(driver) -> LpBackend:
-    return LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
+    return build_production_backends(driver)["lp_backend"]
 
 
 def _alignment(driver) -> LifePathAlignmentService:
     executor = Neo4jQueryExecutor(driver)
     return LifePathAlignmentService(
-        backend=LifePathBackend(executor),
+        backend=build_production_backends(driver, executor)["lifepath_backend"],
         lp_service=_LpServiceShim(_lp_backend(driver)),
-        cross_domain_backend=CrossDomainBackend(executor),
+        cross_domain_backend=build_production_backends(driver, executor)["cross_domain_backend"],
     )
 
 

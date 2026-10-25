@@ -33,11 +33,10 @@ from starlette.responses import Response
 
 from adapters.inbound.insights_api import create_insights_api_routes
 from adapters.inbound.insights_ui import create_insights_ui_routes
-from adapters.persistence.neo4j.insight_backend import InsightBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.constants import QueryLimit
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.services.insight.insight_store import InsightStore
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
@@ -151,7 +150,7 @@ async def store(neo4j_driver, clean_neo4j) -> InsightStore:
         # MERGE: clean_neo4j keeps User nodes, and a second learner node would fan
         # every HAS_INSIGHT edge out twice.
         await session.run("MERGE (:User {uid: $a}) MERGE (:User {uid: $b})", a=USER, b=OTHER)
-    store = InsightStore(InsightBackend(Neo4jQueryExecutor(neo4j_driver)))
+    store = InsightStore(build_production_backends(neo4j_driver)["insight_backend"])
 
     # Written last-first, so a read that leaves ties to storage order is not in uid order.
     insights = [_persisted(seed) for seed in reversed(ACTIVE)]

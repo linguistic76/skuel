@@ -44,7 +44,6 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 from core.config.credential_store import get_credential
@@ -54,6 +53,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.services.choices.choice_relationships import ChoiceRelationships
 from core.services.principles.principle_relationships import PrincipleRelationships
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import (
     create,
@@ -388,7 +388,7 @@ async def test_the_decision_patterns_name_the_principle_most_common(
 
 
 async def test_the_adherence_query_reads_the_principle_only(env: Env, informed: Informed) -> None:
-    backend = CrossDomainBackend(Neo4jQueryExecutor(env.driver))
+    backend = build_production_backends(env.driver)["cross_domain_backend"]
 
     adherence = await backend.get_choice_principle_adherence(CALLER, 30)
 
@@ -422,7 +422,7 @@ async def test_the_adherence_query_reads_no_other_users_principle(env: Env) -> N
     )
     await write_edge(env.driver, own, INFORMS_CHOICE, choice)
     await write_edge(env.driver, foreign, INFORMS_CHOICE, choice)
-    backend = CrossDomainBackend(Neo4jQueryExecutor(env.driver))
+    backend = build_production_backends(env.driver)["cross_domain_backend"]
 
     adherence = await backend.get_choice_principle_adherence(CALLER, 30)
 
@@ -455,7 +455,7 @@ async def test_the_adherence_query_withholds_a_draft_shared_principle(env: Env) 
     )
     await write_edge(env.driver, published, INFORMS_CHOICE, choice)
     await write_edge(env.driver, draft, INFORMS_CHOICE, choice)
-    backend = CrossDomainBackend(Neo4jQueryExecutor(env.driver))
+    backend = build_production_backends(env.driver)["cross_domain_backend"]
 
     adherence = await backend.get_choice_principle_adherence(CALLER, 30)
 

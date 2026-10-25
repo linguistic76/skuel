@@ -24,8 +24,6 @@ from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.lateral_routes import create_lateral_routes
-from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.orchestrator.lateral_relationships_orchestrator import (
     LateralRelationshipsOrchestrator,
 )
@@ -33,6 +31,7 @@ from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.production_backends import build_production_backends
 
 
 @dataclass(frozen=True)
@@ -69,7 +68,7 @@ def lateral_client(
 
     app, rt = fast_app(pico=False, default_hdrs=False, secret_key=secret_key)
     lateral = LateralRelationshipService(
-        LateralRelationshipBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+        build_production_backends(neo4j_driver)["lateral_relationship_backend"]
     )
     tasks = TaskVerifier(task_owners)
     orchestrator = LateralRelationshipsOrchestrator(

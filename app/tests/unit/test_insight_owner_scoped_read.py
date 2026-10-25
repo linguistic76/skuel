@@ -14,13 +14,13 @@ Two pins, one per layer:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
-from adapters.persistence.neo4j.insight_backend import InsightBackend
 from core.services.insight.insight_store import InsightStore
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 
 
 class TestStoreForwardsTheRequestingUser:
@@ -42,7 +42,7 @@ class TestBackendMatchIsOwnerScoped:
     async def test_get_cypher_matches_uid_and_owner(self) -> None:
         executor = MagicMock()
         executor.execute_query = AsyncMock(return_value=Result.ok([]))
-        backend = InsightBackend(executor=executor)
+        backend = build_production_backends(Mock(), executor)["insight_backend"]
 
         await backend.get("insight_1", "user_owner")
 

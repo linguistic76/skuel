@@ -1,4 +1,4 @@
-"""Backend instantiation — creates all UniversalNeo4jBackend[T] instances."""
+"""Backend instantiation — the one constructor of every backend the application runs."""
 
 from typing import TYPE_CHECKING, Any
 
@@ -6,23 +6,27 @@ from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
-    from core.ports import QueryExecutor
 
 logger = get_logger("skuel.bootstrap")
 
 
 def create_all_backends(
     driver: Any,
-    query_executor: QueryExecutor,
+    query_executor: Neo4jQueryExecutor,
     prometheus_metrics: PrometheusMetrics | None = None,
 ) -> dict[str, Any]:
-    """Create all domain backends (100% dynamic pattern — direct instantiation).
+    """Create every backend the application runs — the one place each is built.
 
-    Returns dict with named backends for all entity types.
+    Returns a dict of named backends: the domain backends for the entity types,
+    then the purpose-built backends each service family reads through. Every
+    consumer in the composition root takes its backend from this dict, and so
+    does every test (``tests/unit/test_production_backend_census.py``), so the
+    class, label, base label and entity class a backend runs with are stated once.
 
     ``query_executor`` is the single raw-Cypher port (created once in compose);
-    standalone backends that take an executor rather than a driver (e.g.
+    backends that take an executor rather than a driver (e.g.
     ``ConnectionFetchBackend``) are built from it here.
     """
     from adapters.persistence.neo4j.backends.activity_backends import (
@@ -238,9 +242,174 @@ def create_all_backends(
 
     connection_fetch_backend = ConnectionFetchBackend(query_executor)
 
-    logger.info("✅ Domain backends created (100% dynamic pattern - direct instantiation)")
+    # PURPOSE-BUILT BACKENDS - each serves one service family, over the driver or
+    # the shared executor. Built in every tier: a backend holds only its handle and
+    # runs nothing until called, so the tier gates the services, not these.
+    from adapters.persistence.neo4j.backends.collab_backends import (
+        GroupBackend,
+        LateralRelationshipBackend,
+        NotificationBackend,
+        ReviewQueueBackend,
+    )
+    from adapters.persistence.neo4j.backends.conversation_backend import ConversationBackend
+    from adapters.persistence.neo4j.backends.curriculum_backends import (
+        EmbeddingCoverageBackend,
+        KnowledgeHealthBackend,
+        LpBackend,
+    )
+    from adapters.persistence.neo4j.backends.exercise_backends import (
+        EntryReportBackend,
+        ExerciseBackend,
+        RevisedExerciseBackend,
+    )
+    from adapters.persistence.neo4j.backends.forms_backends import (
+        FormSubmissionBackend,
+        FormTemplateBackend,
+    )
+    from adapters.persistence.neo4j.backends.misc_backends import (
+        ActivityReportGeneratorBackend,
+        InteractionBackend,
+        ResourceBackend,
+    )
+    from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
+    from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
+    from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
+    from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
+    from adapters.persistence.neo4j.device_backend import DeviceBackend
+    from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+    from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
+    from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
+    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
+    from adapters.persistence.neo4j.insight_backend import InsightBackend
+    from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
+    from adapters.persistence.neo4j.prereq_candidate_backend import PrereqCandidateBackend
+    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
+    from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
+    from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
+    from adapters.persistence.neo4j.session_backend import SessionBackend
+    from adapters.persistence.neo4j.template_attachment_backend import TemplateAttachmentBackend
+    from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
+    from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
+    from adapters.persistence.neo4j.user_relationship_backend import UserRelationshipBackend
+    from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
+    from adapters.persistence.neo4j.zpd_backend import ZPDBackend
+    from adapters.persistence.neo4j.zpd_snapshot_backend import ZPDSnapshotBackend
+    from core.models.exercises.exercise import Exercise
+    from core.models.exercises.revised_exercise import RevisedExercise
+    from core.models.forms.form_submission import FormSubmission
+    from core.models.forms.form_template import FormTemplate
+    from core.models.group.group import Group
+    from core.models.interaction.interaction import Interaction
+    from core.models.pathways.learning_path import LearningPath
+    from core.models.report.entry_report import EntryReport
+    from core.models.resource.resource import Resource
+
+    purpose_built = {
+        # Identity, sessions, devices, social graph
+        "session_backend": SessionBackend(driver),
+        "device_backend": DeviceBackend(driver),
+        "user_relationship_backend": UserRelationshipBackend(executor=query_executor),
+        "conversation_backend": ConversationBackend(driver),
+        # Cross-domain reads, analytics, insights, telemetry
+        "cross_domain_backend": CrossDomainBackend(query_executor),
+        "knowledge_health_backend": KnowledgeHealthBackend(query_executor),
+        "embedding_coverage_backend": EmbeddingCoverageBackend(query_executor),
+        "insight_backend": InsightBackend(query_executor),
+        "search_event_backend": SearchEventBackend(query_executor),
+        "uid_census_backend": UidCensusBackend(query_executor),
+        # Ingestion and chunking
+        "ingestion_backend": IngestionBackend(executor=query_executor),
+        "ingestion_write_backend": IngestionWriteBackend(driver),
+        "bulk_upsert_backend": BulkUpsertBackend(driver),
+        "batch_chunking_backend": BatchChunkingBackend(driver),
+        # Curriculum, progress, engagement
+        "lp_backend": LpBackend(
+            driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
+        ),
+        "user_progress_backend": UserProgressBackend(query_executor),
+        "ps_intelligence_backend": PsIntelligenceBackend(query_executor),
+        "template_attachment_backend": TemplateAttachmentBackend(query_executor),
+        "ps_engagement_backend": PsEngagementBackend(query_executor),
+        "prereq_candidate_backend": PrereqCandidateBackend(query_executor),
+        "lateral_relationship_backend": LateralRelationshipBackend(executor=query_executor),
+        # Embeddings, vector search, grounding, ZPD
+        "embeddings_backend": EmbeddingsBackend(executor=query_executor),
+        "vector_search_backend": VectorSearchBackend(executor=query_executor),
+        "entry_grounding_backend": EntryGroundingBackend(query_executor),
+        "zpd_backend": ZPDBackend(driver),
+        "zpd_snapshot_backend": ZPDSnapshotBackend(driver),
+        # Learning loop: exercises, reports, revisions, interactions
+        "exercise_backend": ExerciseBackend(
+            driver=driver,
+            label=NeoLabel.EXERCISE,
+            entity_class=Exercise,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        ),
+        "entry_report_backend": EntryReportBackend(
+            driver=driver,
+            label=NeoLabel.ENTRY_REPORT,
+            entity_class=EntryReport,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        ),
+        "revised_exercise_backend": RevisedExerciseBackend(
+            driver=driver,
+            label=NeoLabel.REVISED_EXERCISE,
+            entity_class=RevisedExercise,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        ),
+        "interaction_backend": InteractionBackend(
+            driver=driver,
+            label=NeoLabel.INTERACTION,
+            entity_class=Interaction,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        ),
+        "review_queue_backend": ReviewQueueBackend(executor=query_executor),
+        "activity_report_generator_backend": ActivityReportGeneratorBackend(
+            executor=query_executor
+        ),
+        # Resources, forms, groups, sharing, notifications, life path
+        "resource_backend": ResourceBackend(
+            driver=driver,
+            label=NeoLabel.RESOURCE,
+            entity_class=Resource,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        ),
+        "form_template_backend": FormTemplateBackend(
+            driver=driver,
+            label=NeoLabel.FORM_TEMPLATE,
+            entity_class=FormTemplate,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        ),
+        "form_submission_backend": FormSubmissionBackend(
+            driver=driver,
+            label=NeoLabel.FORM_SUBMISSION,
+            entity_class=FormSubmission,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        ),
+        "group_backend": GroupBackend(
+            driver=driver,
+            label=NeoLabel.GROUP,
+            entity_class=Group,
+            prometheus_metrics=prometheus_metrics,
+        ),
+        "sharing_backend": SharingBackend(
+            driver, NeoLabel.ENTITY, Entity, prometheus_metrics=prometheus_metrics
+        ),
+        "notification_backend": NotificationBackend(executor=query_executor),
+        "lifepath_backend": LifePathBackend(query_executor),
+    }
+
+    logger.info("✅ Backends created (100% dynamic pattern - direct instantiation)")
 
     return {
+        **purpose_built,
         "connection_fetch_backend": connection_fetch_backend,
         "activity_entity_backend": activity_entity_backend,
         "tasks_backend": tasks_backend,

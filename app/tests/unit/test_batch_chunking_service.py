@@ -13,13 +13,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
 from core.models.ps_content.content_chunks import ChunkStore, chunk_uid
 from core.services.chunks.batch_chunking_service import (
     BatchChunkingService,
     RegenerationStats,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.production_backends import build_production_backends
 
 
 def _make_driver_returning(rows: list[dict[str, Any]]) -> MagicMock:
@@ -91,7 +91,9 @@ class TestRegenerateChunks:
             {"uid": "ps:test:2", "body": "content two", "format": "markdown"},
         ]
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=_make_chunking_service(success=True),
             content_adapter=_make_adapter(success=True),
         )
@@ -114,7 +116,9 @@ class TestRegenerateChunks:
             {"uid": "ps:test:2", "body": "   ", "format": "markdown"},  # whitespace only
         ]
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=_make_chunking_service(success=True),
             content_adapter=_make_adapter(success=True),
         )
@@ -132,7 +136,9 @@ class TestRegenerateChunks:
     async def test_chunking_failure_recorded_per_uid_not_raised(self) -> None:
         rows = [{"uid": "ps:test:1", "body": "broken content", "format": "markdown"}]
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=_make_chunking_service(success=False),
             content_adapter=_make_adapter(success=True),
         )
@@ -149,7 +155,9 @@ class TestRegenerateChunks:
     async def test_store_failure_recorded_per_uid(self) -> None:
         rows = [{"uid": "ps:test:1", "body": "content", "format": "markdown"}]
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=_make_chunking_service(success=True),
             content_adapter=_make_adapter(success=False),  # store returns False
         )
@@ -178,7 +186,9 @@ class TestRegenerateChunks:
         )
 
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=chunking_service,
             content_adapter=_make_adapter(success=True),
         )
@@ -199,7 +209,9 @@ class TestRegenerateChunks:
         event_bus.publish_async = AsyncMock()
 
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=_make_chunking_service(success=True),
             content_adapter=_make_adapter(success=True),
             event_bus=event_bus,
@@ -214,7 +226,9 @@ class TestRegenerateChunks:
     async def test_no_event_published_when_event_bus_none(self) -> None:
         rows = [{"uid": "ps:test:1", "body": "content", "format": "markdown"}]
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=_make_chunking_service(success=True),
             content_adapter=_make_adapter(success=True),
             event_bus=None,
@@ -238,7 +252,9 @@ class TestBatchDoorHonorsPerDomainParams:
         rows = [{"uid": "ps:test:1", "body": "content", "format": "markdown"}]
         chunking_service = _make_chunking_service(success=True)
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=chunking_service,
             content_adapter=_make_adapter(success=True),
         )
@@ -275,7 +291,9 @@ class TestBatchDoorHonorsPerDomainParams:
         ]
         chunking_service = _make_chunking_service(success=True)
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=chunking_service,
             content_adapter=_make_adapter(success=True),
         )
@@ -298,7 +316,9 @@ class TestBatchDoorInlineBodyOwnership:
         rows = [{"uid": "ku:test:1", "body": "content", "format": "markdown", "entity_label": "Ku"}]
         adapter = _make_adapter(success=True)
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=_make_chunking_service(success=True),
             content_adapter=adapter,
         )
@@ -319,7 +339,9 @@ class TestBatchDoorInlineBodyOwnership:
         ]
         adapter = _make_adapter(success=True)
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=_make_chunking_service(success=True),
             content_adapter=adapter,
         )
@@ -334,7 +356,9 @@ class TestBatchDoorInlineBodyOwnership:
         rows = [{"uid": "x:1", "body": "content", "format": "markdown"}]
         adapter = _make_adapter(success=True)
         service = BatchChunkingService(
-            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            backend=build_production_backends(_make_driver_returning(rows))[
+                "batch_chunking_backend"
+            ],
             chunking_service=_make_chunking_service(success=True),
             content_adapter=adapter,
         )

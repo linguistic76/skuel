@@ -1,6 +1,6 @@
 ---
 title: "Neo4j Per-Query Server-Side Timeout"
-updated: 2026-08-29
+updated: 2026-10-25
 status: current
 category: patterns
 tags: [neo4j, persistence, performance, timeout, adapters]
@@ -25,13 +25,12 @@ Every `session.run(...)`, `driver.execute_query(...)`, and `session.begin_transa
 There is no global "default tx timeout" knob on the neo4j 5.x driver, and the ~124 `session.run` sites across `adapters/persistence/neo4j/` each open their own `self.driver.session()`. The wrapper creates the chokepoint that doesn't exist by proxying the **one** shared `AsyncDriver` at the composition root.
 
 ```text
-services_bootstrap/compose.py:117   (right after driver validation)
+services_bootstrap/compose.py — compose_services   (right after driver validation)
     raw_driver = driver
     driver = TimedDriver(raw_driver, default_timeout=cfg.transaction_timeout or None)
     │
     ├── Neo4jQueryExecutor(driver)          # MEGA-QUERY + analytics
-    ├── create_all_backends(driver, ...)    # all 11 UniversalNeo4jBackend mixin bases
-    ├── make_unified_ingestion_service(driver=driver, ...)  # ingestion
+    ├── create_all_backends(driver, ...)    # every backend, ingestion's write + bulk-upsert included
     └── Neo4jSchemaManager(raw_driver)      # startup DDL: untimed by design
 ```
 

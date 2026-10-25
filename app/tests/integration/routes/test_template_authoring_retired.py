@@ -260,14 +260,12 @@ async def test_the_spawn_loader_never_reads_a_stray_edges_far_node(world: World)
     user's Task posing as the step, are neither a template of this step nor a step at
     all: the loader returns the real template alone, and nothing for the Task.
     """
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
     from core.services.ps_engagement._template_loader import _TemplateLoader
 
     driver = world.driver
     backends = build_production_backends(driver)
     loader = _TemplateLoader(
-        PsEngagementBackend(Neo4jQueryExecutor(driver)),
+        build_production_backends(driver)["ps_engagement_backend"],
         backends["task_template_backend"],
         backends["goal_template_backend"],
         backends["habit_template_backend"],

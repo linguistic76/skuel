@@ -27,12 +27,10 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from core.models.entity import Entity
-from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import default_group_uid
 from core.models.type_hints import EntityUID, UserUID
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -110,12 +108,7 @@ _PARAMS = {
 
 @pytest_asyncio.fixture
 async def graph(neo4j_driver: Any) -> Any:
-    backend = SharingBackend(
-        driver=neo4j_driver,
-        label=NeoLabel.ENTITY,
-        entity_class=Entity,
-        base_label=NeoLabel.ENTITY,
-    )
+    backend = build_production_backends(neo4j_driver)["sharing_backend"]
     await backend.execute_query(_CLEANUP, {"uids": _SEEDED})
     seeded = await backend.execute_query(_SEED + " RETURN count(e) AS n", _PARAMS)
     assert seeded.is_ok and seeded.value and seeded.value[0]["n"] == 1, seeded

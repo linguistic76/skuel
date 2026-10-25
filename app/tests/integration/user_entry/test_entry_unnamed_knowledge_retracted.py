@@ -25,9 +25,9 @@ from uuid import uuid4
 import pytest
 
 from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryUpdateRequest
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration.user_entry.test_entry_knowledge_credit_once import (
     _edges,
@@ -73,7 +73,7 @@ _NAMED = {"inferred": None, "confidence": None, "grounded_at": None}
 
 @pytest.fixture
 def grounding(neo4j_driver: AsyncDriver) -> EntryGroundingBackend:
-    return EntryGroundingBackend(Neo4jQueryExecutor(neo4j_driver))
+    return build_production_backends(neo4j_driver)["entry_grounding_backend"]
 
 
 @pytest.mark.integration

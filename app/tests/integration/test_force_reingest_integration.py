@@ -24,12 +24,12 @@ from typing import Any, cast
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.entity_chunking_service import EntityChunkingService
 from core.services.ingestion.types import IncrementalStats
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 
 _PS_UID = "ps.test.force-reingest"
 
@@ -69,12 +69,11 @@ class _DriverConnection:
 @pytest_asyncio.fixture
 async def force_ingestion_service(neo4j_driver):
     """UnifiedIngestionService with tracker + chunking wired (smart/force modes)."""
-    from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 
     executor = Neo4jQueryExecutor(neo4j_driver)
-    service = make_unified_ingestion_service(
+    service = build_ingestion_service(
         driver=neo4j_driver,
-        ingestion_backend=IngestionBackend(executor=executor),
+        ingestion_backend=build_production_backends(neo4j_driver, executor)["ingestion_backend"],
         chunking_service=EntityChunkingService(),
         content_adapter=Neo4jContentAdapter(_DriverConnection(neo4j_driver)),
         default_user_uid=INGESTION_TEST_OWNER,

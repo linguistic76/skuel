@@ -9,11 +9,13 @@ re-sync contract and the module map are stated once, in the
 ``docs/patterns/UNIFIED_INGESTION_GUIDE.md``.
 
 Usage:
-    from adapters.persistence.neo4j.ingestion_service_factory import (
-        make_unified_ingestion_service,
+    # The composition root builds the service over its two backends
+    # (services_bootstrap/_backends.py: create_all_backends).
+    service = UnifiedIngestionService(
+        write_backend=backends["ingestion_write_backend"],
+        bulk_backend=backends["bulk_upsert_backend"],
+        default_user_uid=owner,
     )
-
-    service = make_unified_ingestion_service(driver, default_user_uid=owner)
 
     # Full ingestion (default, processes all files)
     result = await service.ingest_directory(Path("/vault"))

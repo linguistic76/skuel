@@ -35,8 +35,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 
 pytestmark = pytest.mark.anyio
 
@@ -76,7 +76,7 @@ def _items(*owners: str | None) -> list[dict[str, Any]]:
 class TestBulkOwnerPreflight:
     async def test_refuses_when_an_owner_has_no_user_node(self) -> None:
         session = _FakeSession(missing=["user_ghost"])
-        backend = BulkUpsertBackend(driver=MagicMock())
+        backend = build_production_backends(MagicMock())["bulk_upsert_backend"]
 
         refusal = await backend._refuse_unknown_owners(
             session, "Entity", _items("user_ghost", "user_real")
@@ -91,7 +91,7 @@ class TestBulkOwnerPreflight:
 
     async def test_proceeds_when_every_owner_exists(self) -> None:
         session = _FakeSession(missing=[])
-        backend = BulkUpsertBackend(driver=MagicMock())
+        backend = build_production_backends(MagicMock())["bulk_upsert_backend"]
 
         refusal = await backend._refuse_unknown_owners(
             session, "Entity", _items("user_real", "user_real")
@@ -105,7 +105,7 @@ class TestBulkOwnerPreflight:
     async def test_ownerless_batches_never_query(self) -> None:
         """Shared curriculum names no owner — the door owes nothing, so it asks nothing."""
         session = _FakeSession(missing=[])
-        backend = BulkUpsertBackend(driver=MagicMock())
+        backend = build_production_backends(MagicMock())["bulk_upsert_backend"]
 
         refusal = await backend._refuse_unknown_owners(session, "Entity", _items(None, None))
 
@@ -121,7 +121,7 @@ class TestBulkOwnerPreflight:
         a batch whose template writes no owner edge at all.
         """
         session = _FakeSession(missing=["user_ghost"])
-        backend = BulkUpsertBackend(driver=MagicMock())
+        backend = build_production_backends(MagicMock())["bulk_upsert_backend"]
 
         refusal = await backend._refuse_unknown_owners(session, None, _items("user_ghost"))
 
@@ -147,7 +147,7 @@ class TestBulkOwnerPreflight:
             async def run(self, query: str, params: dict[str, Any] | None = None) -> _FakeResult:
                 raise ServiceUnavailable("connection lost")
 
-        backend = BulkUpsertBackend(driver=MagicMock())
+        backend = build_production_backends(MagicMock())["bulk_upsert_backend"]
 
         refusal = await backend._refuse_unknown_owners(
             _FailingSession(missing=[]), "Entity", _items("user_real")
@@ -163,7 +163,7 @@ class TestBulkOwnerPreflight:
         orphans it had already created.
         """
         session = _FakeSession(missing=["user_ghost"])
-        backend = BulkUpsertBackend(driver=MagicMock())
+        backend = build_production_backends(MagicMock())["bulk_upsert_backend"]
         backend._driver.session = MagicMock(return_value=_AsyncCtx(session))
         executed: list[str] = []
 

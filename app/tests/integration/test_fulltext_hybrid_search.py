@@ -20,9 +20,7 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
-from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.config.unified_config import VectorSearchConfig
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
@@ -85,7 +83,7 @@ async def fulltext_graph(neo4j_driver: AsyncDriver) -> AsyncGenerator[AsyncDrive
 @pytest.fixture
 def search_service(fulltext_graph: AsyncDriver) -> Neo4jVectorSearchService:
     """The real service over the real backend — no embeddings (fulltext half only)."""
-    backend = VectorSearchBackend(Neo4jQueryExecutor(fulltext_graph))
+    backend = build_production_backends(fulltext_graph)["vector_search_backend"]
     return Neo4jVectorSearchService(backend=backend, config=VectorSearchConfig())
 
 
@@ -261,9 +259,10 @@ async def test_router_rung_reaches_the_index_end_to_end(fulltext_graph: AsyncDri
     own caller) rather than a public entry, so the assertion is about the rung
     and not about `advanced_search`'s domain fan-out.
     """
-    backend = VectorSearchBackend(Neo4jQueryExecutor(fulltext_graph))
+    backends = build_production_backends(fulltext_graph)
+    backend = backends["vector_search_backend"]
     vector_search = Neo4jVectorSearchService(backend=backend, config=VectorSearchConfig())
-    ps_search = PsSearchService(backend=build_production_backends(fulltext_graph)["ps_backend"])
+    ps_search = PsSearchService(backend=backends["ps_backend"])
     router = SearchRouter(vector_search_service=vector_search)
 
     items = await router._execute_advanced_search(

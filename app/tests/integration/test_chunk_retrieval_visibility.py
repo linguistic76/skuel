@@ -22,15 +22,14 @@ import pytest_asyncio
 from neo4j import AsyncDriver, Record
 
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
-from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.constants import EmbeddingGeometry
 from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ps_content.content import CurriculumContent
 from core.models.ps_content.content_chunks import ContentChunk, ContentChunkType
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 # A scalar property every seeded parent carries, used as a facet so the
@@ -141,7 +140,7 @@ async def seeded_audiences(neo4j_driver):
 
 
 async def _visible_parents(neo4j_driver: AsyncDriver, viewer_uid: str | None) -> set[str]:
-    backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["vector_search_backend"]
     result = await backend.semantic_search_chunks(
         query_embedding=_EMBEDDING,
         limit=10,

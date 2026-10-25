@@ -16,6 +16,8 @@ One name, one thing.
 
 import pytest
 
+from tests.helpers.production_backends import build_production_backends
+
 
 @pytest.fixture
 def graph_backed_embeddings_service(neo4j_driver):
@@ -29,8 +31,6 @@ def graph_backed_embeddings_service(neo4j_driver):
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.services.embeddings_service import EmbeddingsService
     from core.utils.result_simplified import Result
 
@@ -41,7 +41,7 @@ def graph_backed_embeddings_service(neo4j_driver):
     mock_client.embed = AsyncMock(return_value=Result.ok([0.1] * 1024))
 
     return EmbeddingsService(
-        backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
+        backend=build_production_backends(neo4j_driver)["embeddings_backend"],
         embedding_client=mock_client,
     )
 

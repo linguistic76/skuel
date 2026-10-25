@@ -1,6 +1,6 @@
 ---
 title: Event-Driven Architecture
-updated: 2026-10-10
+updated: 2026-10-25
 category: patterns
 related_skills:
 - python
@@ -186,24 +186,22 @@ live answer, and there is no grouping layer to keep in sync.
 
 ```python
 # Bootstrap in services_bootstrap/compose.py
-async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
+async def compose_services(neo4j_adapter, event_bus=None, ...) -> Result[Services]:
     # 1. Create event bus
     if event_bus is None:
-        event_bus = InMemoryEventBus(capture_history=True)
+        event_bus = InMemoryEventBus()
 
-    # 2. Create backends (no dependencies)
-    tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-    habits_backend = UniversalNeo4jBackend[Habit](driver, "Habit", Habit)
-    # ... more backends ...
+    # 2. Create backends (no dependencies) — every one, in create_all_backends
+    backends = create_all_backends(driver, query_executor, prometheus_metrics=prometheus_metrics)
 
-    # 3. Create services (event_bus only)
-    tasks_service = TasksService(backend=tasks_backend, event_bus=event_bus)
-    habits_service = HabitsService(backend=habits_backend, event_bus=event_bus)
+    # 3. Create services (event_bus, no service-to-service references)
+    tasks_service = TasksService(backend=backends["tasks_backend"], event_bus=event_bus, ...)
+    habits_service = HabitsService(backend=backends["habits_backend"], event_bus=event_bus, ...)
     # ... more services ...
 
-    # 4. Wire event subscriptions
+    # 4. Wire event subscriptions (services_bootstrap/_event_wiring.py)
     event_bus.subscribe(HabitStreakMilestone, habits_service.event_handler.handle_habit_streak_milestone)
-    event_bus.subscribe(GoalAchieved, lp_intelligence.handle_goal_achieved)
+    event_bus.subscribe(GoalAchieved, goals_service.event_handler.handle_goal_achieved)
     # ... more subscriptions ...
 
     return Result.ok(Services(...))

@@ -32,13 +32,12 @@ from typing import Any, cast
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.templates.offset_helpers import jsonable_to_offset
 from core.models.templates.relative_offset import RelativeOffset
 from core.services.ingestion.types import IncrementalStats
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 
 _MARK = "zzztmpl"
 _PS = f"ps.{_MARK}.host"
@@ -147,9 +146,9 @@ async def _sync(service, vault: Path, **kwargs: Any) -> IncrementalStats:
 @pytest_asyncio.fixture
 async def template_service(neo4j_driver):
     executor = Neo4jQueryExecutor(neo4j_driver)
-    service = make_unified_ingestion_service(
+    service = build_ingestion_service(
         driver=neo4j_driver,
-        ingestion_backend=IngestionBackend(executor=executor),
+        ingestion_backend=build_production_backends(neo4j_driver, executor)["ingestion_backend"],
         default_user_uid=INGESTION_TEST_OWNER,
     )
     # The Event INSTANCE in the vault is user-owned, and the ingest door refuses

@@ -18,12 +18,13 @@ missing viewer yields the curriculum half alone (fail-closed), never everything.
 """
 
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 
-from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.models.enums.entity_enums import EntityType
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 
 _CURRICULUM_HALF = "NOT parent.entity_type IN $user_owned_types"
 _PUBLISHED = "parent.publication_state IS NULL OR parent.publication_state <> $publication_draft"
@@ -55,7 +56,7 @@ async def test_viewerless_query_is_curriculum_only_and_published() -> None:
     # predicate, no $user_uid. This is the shape /search's body-chunk fold
     # emits, and what any caller that forgets the viewer gets (fail-closed).
     executor = _FakeExecutor(rows=5)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(query_embedding=[0.1, 0.2], limit=5, threshold=0.6)
 
     assert len(executor.queries) == 1  # filled on the first tier
@@ -76,7 +77,7 @@ async def test_viewer_scope_adds_the_owned_half() -> None:
     # the OWNER_ONLY predicate every entity strategy composes, plus the
     # private gate. Curriculum stays in through the published half.
     executor = _FakeExecutor(rows=5)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(
         query_embedding=[0.1], limit=5, threshold=0.6, viewer_uid="user_1"
     )
@@ -99,7 +100,7 @@ async def test_viewer_scope_never_follows_the_share_links() -> None:
     # retrieval composes OWNER_ONLY, so a note shared with the viewer never
     # reaches an Askesis answer (ADR-088 §5).
     executor = _FakeExecutor(rows=5)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(
         query_embedding=[0.1], limit=5, threshold=0.6, viewer_uid="user_1"
     )
@@ -117,7 +118,7 @@ async def test_user_owned_types_are_read_off_the_entity_type_authority() -> None
     # never a hand-kept list — so a newly chunked user-owned type is scoped by
     # construction and a curriculum type never needs registering.
     executor = _FakeExecutor(rows=5)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(query_embedding=[0.1], limit=5, threshold=0.6)
 
     _, params = executor.queries[-1]
@@ -132,7 +133,7 @@ async def test_user_owned_types_are_read_off_the_entity_type_authority() -> None
 async def test_visibility_composes_with_facet_and_vault_scopes_in_one_where() -> None:
     # Audience + facet + vault all land in the ONE parent WHERE, ANDed.
     executor = _FakeExecutor(rows=5)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(
         query_embedding=[0.1],
         limit=5,
@@ -156,7 +157,7 @@ async def test_visibility_composes_with_facet_and_vault_scopes_in_one_where() ->
 async def test_nous_facet_scopes_parent_with_membership() -> None:
     # Facet well-populated (executor yields >= limit) → early exit on first pass.
     executor = _FakeExecutor(rows=5)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(
         query_embedding=[0.1], limit=5, threshold=0.6, parent_filters={"nous": "body"}
     )
@@ -174,7 +175,7 @@ async def test_nous_facet_scopes_parent_with_membership() -> None:
 async def test_underfilled_scope_escalates_candidate_pool() -> None:
     # Narrow facet (executor yields nothing) → widen through the full schedule.
     executor = _FakeExecutor(rows=0)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(
         query_embedding=[0.1], limit=5, threshold=0.6, parent_filters={"nous": "obscure"}
     )
@@ -187,7 +188,7 @@ async def test_underfilled_scope_escalates_candidate_pool() -> None:
 @pytest.mark.asyncio
 async def test_list_valued_filter_uses_whole_value_equality() -> None:
     executor = _FakeExecutor(rows=5)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(
         query_embedding=[0.1], limit=3, threshold=0.6, parent_filters={"tags": ["a", "b"]}
     )
@@ -203,7 +204,7 @@ async def test_viewerless_query_never_names_owner_or_vault_scope() -> None:
     # Without a viewer neither the owned half nor the canon-P3 vault branch
     # may appear: no OWNS clause, no private gate, no parent_metadata.
     executor = _FakeExecutor(rows=0)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(query_embedding=[0.1, 0.2], limit=5, threshold=0.6)
 
     cypher, params = executor.queries[-1]
@@ -218,7 +219,7 @@ async def test_owner_scope_adds_owns_and_private_clauses() -> None:
     # Canon P3 vault branch: OWNS edge on the parent + hard private exclusion,
     # scoped candidate schedule, parent_metadata in the RETURN.
     executor = _FakeExecutor(rows=5)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(
         query_embedding=[0.1], limit=5, threshold=0.6, owner_uid="user_1", viewer_uid="user_1"
     )
@@ -237,7 +238,7 @@ async def test_owner_scope_composes_with_pipeline_filter() -> None:
     # retrieve_vault's exact call shape: owner + {"pipeline": "knowledge"} —
     # both clauses land in the ONE parent WHERE, joined by AND.
     executor = _FakeExecutor(rows=5)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(
         query_embedding=[0.1],
         limit=4,
@@ -261,7 +262,7 @@ async def test_owner_scope_composes_with_pipeline_filter() -> None:
 async def test_underfilled_owner_scope_escalates_candidate_pool() -> None:
     # A sparse vault behaves like a narrow facet: widen through the schedule.
     executor = _FakeExecutor(rows=0)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(
         query_embedding=[0.1], limit=4, threshold=0.3, owner_uid="user_1"
     )
@@ -273,7 +274,7 @@ async def test_underfilled_owner_scope_escalates_candidate_pool() -> None:
 @pytest.mark.asyncio
 async def test_multiple_facets_are_anded() -> None:
     executor = _FakeExecutor(rows=5)
-    backend = VectorSearchBackend(executor)
+    backend = build_production_backends(Mock(), executor)["vector_search_backend"]
     await backend.semantic_search_chunks(
         query_embedding=[0.1],
         limit=5,

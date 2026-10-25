@@ -29,9 +29,9 @@ from uuid import uuid4
 import pytest
 
 from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration.user_entry.test_entry_grounding_pending import _embed
 from tests.integration.user_entry.test_extract_activities_pipeline import _seed_ku
@@ -82,7 +82,7 @@ async def _links(neo4j_driver: AsyncDriver, uid: str) -> dict[str, bool]:
 
 @pytest.fixture
 def grounding(neo4j_driver: AsyncDriver) -> EntryGroundingBackend:
-    return EntryGroundingBackend(Neo4jQueryExecutor(neo4j_driver))
+    return build_production_backends(neo4j_driver)["entry_grounding_backend"]
 
 
 async def _grounded_note(

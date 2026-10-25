@@ -27,13 +27,12 @@ from datetime import datetime, timedelta
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.knowledge.user_substance import USER_SUBSTANCE_CHANNELS
 from core.services.lifepath.lifepath_alignment_service import LifePathAlignmentService
 from core.services.lifepath.lifepath_service import LifePathService
 from core.services.user.unified_user_context import UserContext
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 _W = {channel.name: channel.weight for channel in USER_SUBSTANCE_CHANNELS}
@@ -260,10 +259,12 @@ async def alignment_service(neo4j_driver) -> LifePathAlignmentService:
     """
     executor = Neo4jQueryExecutor(neo4j_driver)
     return LifePathAlignmentService(
-        backend=LifePathBackend(executor),
+        backend=build_production_backends(neo4j_driver, executor)["lifepath_backend"],
         lp_service=None,
         ku_service=None,
-        cross_domain_backend=CrossDomainBackend(executor),
+        cross_domain_backend=build_production_backends(neo4j_driver, executor)[
+            "cross_domain_backend"
+        ],
     )
 
 
@@ -272,12 +273,14 @@ async def lifepath_facade(neo4j_driver) -> LifePathService:
     """Facade with real backends; peer services None (CORE-tier shape)."""
     executor = Neo4jQueryExecutor(neo4j_driver)
     return LifePathService(
-        backend=LifePathBackend(executor),
+        backend=build_production_backends(neo4j_driver, executor)["lifepath_backend"],
         lp_service=None,
         ku_service=None,
         user_service=None,
         llm_service=None,
-        cross_domain_backend=CrossDomainBackend(executor),
+        cross_domain_backend=build_production_backends(neo4j_driver, executor)[
+            "cross_domain_backend"
+        ],
     )
 
 

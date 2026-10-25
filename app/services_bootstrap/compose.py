@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import EmbeddingGeometry
 from core.events.embedding_publisher import EMBEDDING_EVENT_TYPES
-from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import UserUID
 from core.ports import EventBusOperations
 from core.utils.logging import get_logger
@@ -287,11 +286,16 @@ async def compose_services(
         else:
             logger.info("⏭️  Schema-change monitoring disabled (NEO4J_SCHEMA_MONITORING off)")
 
+        # ========================================================================
+        # CREATE BACKENDS (100% Dynamic Pattern) — every backend, built once
+        # ========================================================================
+        backends = create_all_backends(
+            driver, query_executor, prometheus_metrics=prometheus_metrics
+        )
+
         # THE app-wide SessionBackend: startup cleanup here, session revocation
         # on privilege change (UserService below), and GraphAuthService
-        from adapters.persistence.neo4j.session_backend import SessionBackend
-
-        session_backend = SessionBackend(driver)
+        session_backend = backends["session_backend"]
 
         # Cleanup expired sessions and reset tokens (daily maintenance at startup)
         cleanup_sessions = await session_backend.cleanup_expired_sessions()
@@ -322,13 +326,6 @@ async def compose_services(
             )
         else:
             logger.info("✅ OPENAI_API_KEY validated")
-
-        # ========================================================================
-        # CREATE DOMAIN BACKENDS (100% Dynamic Pattern)
-        # ========================================================================
-        backends = create_all_backends(
-            driver, query_executor, prometheus_metrics=prometheus_metrics
-        )
 
         # Unpack backends for readability
         connection_fetch_backend = backends["connection_fetch_backend"]
@@ -371,10 +368,9 @@ async def compose_services(
 
         # Vault-agent device enrollment (ADR-075) — auth infrastructure, so it
         # rides behind the UserService facade like sessions do.
-        from adapters.persistence.neo4j.device_backend import DeviceBackend
         from core.services.user.device_service import DeviceService
 
-        device_service = DeviceService(DeviceBackend(driver))
+        device_service = DeviceService(backends["device_backend"])
 
         user_service = create_user_service(
             users_backend,
@@ -383,16 +379,12 @@ async def compose_services(
             metrics_cache=metrics_cache,
             device_service=device_service,
             session_invalidator=session_backend,
+            cross_domain_backend=backends["cross_domain_backend"],
         )
         logger.info("✅ UserService created (foundation service)")
 
-        # Create user relationship backend (pinning, following, etc.)
-        from adapters.persistence.neo4j.user_relationship_backend import (
-            UserRelationshipBackend,
-        )
-
-        user_relationships = UserRelationshipBackend(executor=query_executor)
-        logger.info("✅ UserRelationshipBackend created (pinning, following)")
+        # User relationship backend (pinning, following, etc.)
+        user_relationships = backends["user_relationship_backend"]
 
         # Create graph-native authentication service (January 2026)
         # Sessions stored in Neo4j with bcrypt password hashing; reuses the
@@ -463,31 +455,17 @@ async def compose_services(
         logger.info("✅ UserContextService created (context-aware intelligence)")
         logger.info("   - Single UserContextBuilder (owned by UserService) shared app-wide")
 
-        # Create cross-domain backend (shared by graph intelligence, cross-domain query,
+        # Cross-domain backend (shared by graph intelligence, cross-domain query,
         # and cross-domain analytics services)
-        from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-
-        cross_domain_backend = CrossDomainBackend(query_executor)
-        logger.info("✅ CrossDomainBackend created")
+        cross_domain_backend = backends["cross_domain_backend"]
 
         # Knowledge-subgraph structural-health gauge (ADR-080 Horizon-1). Executor-
         # based corpus reader, tier-independent (pure graph analytics, CORE-safe).
-        from adapters.persistence.neo4j.backends.curriculum_backends import (
-            EmbeddingCoverageBackend,
-            KnowledgeHealthBackend,
-        )
-
-        knowledge_health_backend = KnowledgeHealthBackend(query_executor)
-        logger.info("✅ KnowledgeHealthBackend created")
+        knowledge_health_backend = backends["knowledge_health_backend"]
 
         # Embedding-coverage (retrievability) probe — a count query, so it is
         # tier-independent too: it measures the gaps CORE-tier periods leave.
-        embedding_coverage_backend = EmbeddingCoverageBackend(query_executor)
-        logger.info("✅ EmbeddingCoverageBackend created")
-
-        # Wire cross-domain backend to UserService (post-construction — UserService created first)
-        user_service.wire_cross_domain_backend(cross_domain_backend)
-        logger.info("✅ UserService wired with CrossDomainBackend (stats aggregation)")
+        embedding_coverage_backend = backends["embedding_coverage_backend"]
 
         # Create graph intelligence (needed by tasks service)
         from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -502,19 +480,16 @@ async def compose_services(
         logger.info("✅ Inference service created (ku_inference)")
 
         # Create InsightStore
-        from adapters.persistence.neo4j.insight_backend import InsightBackend
         from core.services.insight import InsightStore
 
-        insight_backend = InsightBackend(query_executor)
-        insight_store = InsightStore(insight_backend)
+        insight_store = InsightStore(backends["insight_backend"])
         logger.info("✅ InsightStore created (event-driven insights)")
 
         # Search event recorder (discovery analytics) — persists search.executed
         # events as :SearchEvent nodes. Tier-independent: a plain graph write.
-        from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
         from core.services.search_event_recorder import SearchEventRecorder
 
-        search_event_backend = SearchEventBackend(query_executor)
+        search_event_backend = backends["search_event_backend"]
         search_event_recorder = SearchEventRecorder(backend=search_event_backend)
         logger.info("✅ SearchEventRecorder created (search behavioral log)")
 
@@ -647,17 +622,13 @@ async def compose_services(
         # here holds the real bus at CORE too. Withholding it from ingestion
         # alone would make the vault door the single write path that does not
         # cascade at $0 (Codex #1290).
-        from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-        from adapters.persistence.neo4j.ingestion_service_factory import (
-            make_unified_ingestion_service,
-        )
+        from core.services.ingestion import UnifiedIngestionService
 
-        ingestion_backend = IngestionBackend(executor=query_executor)
-
-        unified_ingestion = make_unified_ingestion_service(
-            driver=driver,
+        unified_ingestion = UnifiedIngestionService(
+            write_backend=backends["ingestion_write_backend"],
+            bulk_backend=backends["bulk_upsert_backend"],
             default_user_uid=UserUID(config.vault.default_user_uid),
-            ingestion_backend=ingestion_backend,
+            ingestion_backend=backends["ingestion_backend"],
             chunking_service=chunking_service,  # Automatic chunk generation for KU entities
             content_adapter=content_adapter,  # Persist :ContentChunk nodes for RAG retrieval
             event_bus=event_bus,
@@ -670,11 +641,10 @@ async def compose_services(
         # isn't running, so publishing ChunkEmbeddingRequested would be a
         # queue-with-no-listener. CORE-tier regen produces fresh chunks; admins
         # sweep embeddings separately via migrate_chunk_embeddings.py.
-        from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
         from core.services.chunks.batch_chunking_service import BatchChunkingService
 
         batch_chunking_service = BatchChunkingService(
-            backend=BatchChunkingBackend(driver),
+            backend=backends["batch_chunking_backend"],
             chunking_service=chunking_service,
             content_adapter=content_adapter,
             event_bus=event_bus if tier.ai_enabled else None,
@@ -727,7 +697,7 @@ async def compose_services(
 
         # Create learning services (graph_intelligence already created above)
         learning_services = _create_learning_services(
-            driver=driver,
+            backends=backends,
             progress_backend=progress_backend,
             knowledge_backend=ps_backend,
             atomic_ku_backend=ku_backend,
@@ -747,7 +717,8 @@ async def compose_services(
         from services_bootstrap._template_services import _create_template_services
 
         template_services = _create_template_services(
-            executor=query_executor,
+            attachment_backend=backends["template_attachment_backend"],
+            ps_engagement_backend=backends["ps_engagement_backend"],
             task_template_backend=task_template_backend,
             goal_template_backend=goal_template_backend,
             habit_template_backend=habit_template_backend,
@@ -802,14 +773,14 @@ async def compose_services(
         # Enables explicit modeling of sibling, cousin, dependency, and semantic relationships
         # across all 8 hierarchical domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP)
 
-        from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
         from core.services.lateral_relationships import LateralRelationshipService
 
-        # Create backend + service for lateral relationships (domain-agnostic)
+        # Service for lateral relationships (domain-agnostic)
         # Routes pass the ownership verifier (domain_service); curriculum routes
         # pass none, are role-gated, and the service holds them to curriculum endpoints
-        lateral_backend = LateralRelationshipBackend(executor=query_executor)
-        lateral_service = LateralRelationshipService(backend=lateral_backend)
+        lateral_service = LateralRelationshipService(
+            backend=backends["lateral_relationship_backend"]
+        )
         logger.info("✅ LateralRelationshipService created (9 domains)")
 
         # Create Askesis core service (CRUD operations for AI assistant instances)
@@ -882,12 +853,6 @@ async def compose_services(
         logger.info("✅ Content enrichment service created")
 
         # Create report and exercise services
-        from adapters.persistence.neo4j.backends.exercise_backends import (
-            EntryReportBackend,
-            ExerciseBackend,
-        )
-        from core.models.exercises.exercise import Exercise
-        from core.models.report.entry_report import EntryReport
         from core.services.exercises import ExerciseService
         from core.services.report.report_mastery_service import ReportMasteryService
 
@@ -903,21 +868,8 @@ async def compose_services(
 
         llm_caller = chat_clients.caller if chat_clients else None
 
-        entry_report_backend = EntryReportBackend(
-            driver=driver,
-            label=NeoLabel.ENTRY_REPORT,
-            entity_class=EntryReport,
-            prometheus_metrics=prometheus_metrics,
-            base_label=NeoLabel.ENTITY,
-        )
-
-        exercise_backend = ExerciseBackend(
-            driver=driver,
-            label=NeoLabel.EXERCISE,
-            entity_class=Exercise,
-            prometheus_metrics=prometheus_metrics,
-            base_label=NeoLabel.ENTITY,
-        )
+        entry_report_backend = backends["entry_report_backend"]
+        exercise_backend = backends["exercise_backend"]
 
         exercise_service = ExerciseService(backend=exercise_backend)
 
@@ -935,48 +887,20 @@ async def compose_services(
         )
 
         # ResourceService: curated content (books, talks, films, podcasts)
-        from adapters.persistence.neo4j.backends.misc_backends import ResourceBackend
-        from core.models.resource.resource import Resource as ResourceModel
         from core.services.resource_service import ResourceService
 
-        resource_backend = ResourceBackend(
-            driver=driver,
-            label=NeoLabel.RESOURCE,
-            entity_class=ResourceModel,
-            prometheus_metrics=prometheus_metrics,
-            base_label=NeoLabel.ENTITY,
-        )
-        resource_service = ResourceService(backend=resource_backend)
+        resource_service = ResourceService(backend=backends["resource_backend"])
 
         logger.info("✅ Report, exercise, and resource services created")
 
         # Create form services (general-purpose form system)
-        from adapters.persistence.neo4j.backends.forms_backends import (
-            FormSubmissionBackend,
-            FormTemplateBackend,
-        )
-        from core.models.forms.form_submission import FormSubmission
-        from core.models.forms.form_template import FormTemplate
         from core.services.forms import FormSubmissionService, FormTemplateService
 
-        form_template_backend = FormTemplateBackend(
-            driver=driver,
-            label=NeoLabel.FORM_TEMPLATE,
-            entity_class=FormTemplate,
-            prometheus_metrics=prometheus_metrics,
-            base_label=NeoLabel.ENTITY,
-        )
+        form_template_backend = backends["form_template_backend"]
         # Create group service (ADR-040: Teacher Exercise Workflow)
-        from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
-        from core.models.group.group import Group
         from core.services.groups import GroupService
 
-        group_backend = GroupBackend(
-            driver=driver,
-            label=NeoLabel.GROUP,
-            entity_class=Group,
-            prometheus_metrics=prometheus_metrics,
-        )
+        group_backend = backends["group_backend"]
 
         group_service = GroupService(backend=group_backend, event_bus=event_bus)
         logger.info("✅ GroupService created (ADR-040)")
@@ -985,34 +909,18 @@ async def compose_services(
             backend=form_template_backend, event_bus=event_bus
         )
 
-        form_submission_backend = FormSubmissionBackend(
-            driver=driver,
-            label=NeoLabel.FORM_SUBMISSION,
-            entity_class=FormSubmission,
-            prometheus_metrics=prometheus_metrics,
-            base_label=NeoLabel.ENTITY,
-        )
         form_submission_service = FormSubmissionService(
-            backend=form_submission_backend,
+            backend=backends["form_submission_backend"],
             event_bus=event_bus,
             form_template_service=form_template_service,
         )
         logger.info("✅ Form services created (FormTemplate + FormSubmission)")
 
         # Create interaction service (User Interaction Contract — EntityType.INTERACTION)
-        from adapters.persistence.neo4j.backends.misc_backends import InteractionBackend
-        from core.models.interaction.interaction import Interaction
         from core.services.interaction import InteractionService
 
-        interaction_backend = InteractionBackend(
-            driver=driver,
-            label=NeoLabel.INTERACTION,
-            entity_class=Interaction,
-            prometheus_metrics=prometheus_metrics,
-            base_label=NeoLabel.ENTITY,
-        )
         interaction_service = InteractionService(
-            backend=interaction_backend,
+            backend=backends["interaction_backend"],
             event_bus=event_bus,
         )
         logger.info("✅ InteractionService created (User Interaction Contract)")
@@ -1032,22 +940,15 @@ async def compose_services(
         logger.info("✅ TeacherReviewService created (ADR-040)")
 
         # Create notification service
-        from adapters.persistence.neo4j.backends.collab_backends import NotificationBackend
         from core.services.notifications.notification_service import NotificationService
 
-        notification_backend = NotificationBackend(executor=query_executor)
-        notification_service = NotificationService(backend=notification_backend)
+        notification_service = NotificationService(backend=backends["notification_backend"])
         logger.info("✅ NotificationService created")
 
-        # Create sharing backend + service (cross-domain, queries :Entity nodes)
-        from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-        from core.models.entity import Entity
+        # Create sharing service (cross-domain, queries :Entity nodes)
         from core.services.sharing import UnifiedSharingService
 
-        sharing_backend = SharingBackend(
-            driver, NeoLabel.ENTITY, Entity, prometheus_metrics=prometheus_metrics
-        )
-        unified_sharing_service = UnifiedSharingService(backend=sharing_backend)
+        unified_sharing_service = UnifiedSharingService(backend=backends["sharing_backend"])
 
         # Wire sharing into FormSubmissionService, created earlier without it.
         form_submission_service.sharing_service = unified_sharing_service
@@ -1056,12 +957,10 @@ async def compose_services(
         # "Everything flows toward the life path"
         # Vision capture → Alignment measurement → Recommendations
         # =====================================================================
-        from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
         from core.services.lifepath import LifePathService
 
-        lifepath_backend = LifePathBackend(query_executor)
         lifepath_service = LifePathService(
-            backend=lifepath_backend,
+            backend=backends["lifepath_backend"],
             lp_service=learning_services["learning_paths"],
             ku_service=learning_services["ps"],
             user_service=user_service,
@@ -1122,18 +1021,11 @@ async def compose_services(
         )
 
         # Create revised exercise service (four-phase learning loop)
-        from adapters.persistence.neo4j.backends.exercise_backends import RevisedExerciseBackend
-        from core.models.exercises.revised_exercise import RevisedExercise
         from core.services.revised_exercises import RevisedExerciseService
 
-        revised_exercise_backend = RevisedExerciseBackend(
-            driver=driver,
-            label=NeoLabel.REVISED_EXERCISE,
-            entity_class=RevisedExercise,
-            prometheus_metrics=prometheus_metrics,
-            base_label=NeoLabel.ENTITY,
+        revised_exercise_service = RevisedExerciseService(
+            backend=backends["revised_exercise_backend"]
         )
-        revised_exercise_service = RevisedExerciseService(backend=revised_exercise_backend)
         logger.info("✅ RevisedExerciseService created (four-phase learning loop)")
 
         # The post-create Share / Stop-sharing door (ADR-088 §6): the create
@@ -1190,23 +1082,19 @@ async def compose_services(
         # both CORE and FULL (unlike JournalService below). Thin standalone
         # backend (mirrors SessionBackend/DeviceBackend), NEVER the universal
         # Entity path — that is the structural understanding wall.
-        from adapters.persistence.neo4j.backends.conversation_backend import ConversationBackend
         from core.services.conversation import ConversationService
 
-        conversation_service = ConversationService(ConversationBackend(driver))
+        conversation_service = ConversationService(backends["conversation_backend"])
         logger.info("✅ ConversationService created (ADR-078 discussion store)")
 
         canon_retrieval_service = None
         if embeddings_service is not None:
-            from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
             from core.services.canon import CanonRetrievalService
 
             canon_retrieval_service = CanonRetrievalService(
                 reference_search=reference_chunk_adapter,
                 embeddings_service=embeddings_service,
-                # Stateless executor wrapper — a second instance is free
-                # (precedented by the semantic-search wiring below).
-                content_chunk_search=VectorSearchBackend(executor=query_executor),
+                content_chunk_search=backends["vector_search_backend"],
             )
             logger.info("✅ CanonRetrievalService created (canon journaling companion)")
 
@@ -1452,17 +1340,11 @@ async def compose_services(
             event_bus=event_bus,
             sharing_service=unified_sharing_service,  # shares_granted = the wall's read
         )
-        from adapters.persistence.neo4j.backends.collab_backends import ReviewQueueBackend
-
-        review_queue_backend = ReviewQueueBackend(executor=query_executor)
-        review_queue_service = ReviewQueueService(backend=review_queue_backend)
+        review_queue_service = ReviewQueueService(backend=backends["review_queue_backend"])
         logger.info("✅ ActivityReportService + ReviewQueueService created")
 
-        from adapters.persistence.neo4j.backends.misc_backends import ActivityReportGeneratorBackend
-
-        report_generator_backend = ActivityReportGeneratorBackend(executor=query_executor)
         progress_generator = ProgressReportGenerator(
-            report_backend=report_generator_backend,
+            report_backend=backends["activity_report_generator_backend"],
             executor=query_executor,
             activity_report_service=activity_report_service,
             context_builder=context_builder,
@@ -1585,11 +1467,10 @@ async def compose_services(
         # admin to copy into the vault, and writes nothing (ADR-091 N3).
         # Tier-independent construction: llm_service is None on CORE, where the
         # queue degrades to undirected pairs the admin classifies himself.
-        from adapters.persistence.neo4j.prereq_candidate_backend import PrereqCandidateBackend
         from core.services.prereq_suggestion_service import PrereqSuggestionService
 
         prereq_suggestions = PrereqSuggestionService(
-            backend=PrereqCandidateBackend(query_executor),
+            backend=backends["prereq_candidate_backend"],
             llm_service=llm_service,
         )
         logger.info("✅ PrereqSuggestionService created (admin edge-suggestion queue)")
@@ -1601,20 +1482,16 @@ async def compose_services(
         # instance; llm_service is None on CORE, where candidates write
         # vector-only. Triggers: post-sync pass in the vault sync doors +
         # scripts/ground_knowledge_entries.py backfill.
-        from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
         from core.services.entry_grounding_service import EntryGroundingService
 
         grounding_vector_search = vector_search_service
         if grounding_vector_search is None:
-            from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
             from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
-            grounding_vector_search = Neo4jVectorSearchService(
-                VectorSearchBackend(executor=query_executor)
-            )
+            grounding_vector_search = Neo4jVectorSearchService(backends["vector_search_backend"])
 
         entry_grounding = EntryGroundingService(
-            backend=EntryGroundingBackend(query_executor),
+            backend=backends["entry_grounding_backend"],
             vector_search=grounding_vector_search,
             event_bus=event_bus,
             llm_service=llm_service,
@@ -1802,6 +1679,7 @@ async def compose_services(
             neo4j_driver=driver,
             query_executor=query_executor,
             connection_fetch_backend=connection_fetch_backend,  # Activity UI connections
+            uid_census_backend=backends["uid_census_backend"],  # graph-health poller
             insight_store=insight_store,  # Event-driven insights
             # GenAI services (Neo4j native - January 2026)
             embeddings_service=embeddings_service,
@@ -1845,7 +1723,8 @@ async def compose_services(
             user_entry_backend=user_entry_backend,
             calendar_service=calendar_service,
             vector_search_service=vector_search_service,
-            driver=driver,
+            zpd_backend=backends["zpd_backend"],
+            zpd_snapshot_backend=backends["zpd_snapshot_backend"],
             event_bus=event_bus,
             tier=tier,
             context_builder=context_builder,

@@ -28,9 +28,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
 from adapters.persistence.neo4j.neo4j_mapper import EMBEDDING_OWNED_PROPERTIES
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.constants import EmbeddingGeometry
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
@@ -38,6 +36,7 @@ from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.embeddings_service import EmbeddingsService
 from core.utils.embedding_text_builder import build_embedding_text
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 _UID = "ue.resync01"  # the tracker's path-keyed prior uid shape for a uid-less note
@@ -51,7 +50,7 @@ def _embeddings_service(neo4j_driver) -> EmbeddingsService:
     client.dimension = EmbeddingGeometry.DIMENSION
     client.max_input_chars = 20000
     return EmbeddingsService(
-        EmbeddingsBackend(Neo4jQueryExecutor(neo4j_driver)), embedding_client=client
+        build_production_backends(neo4j_driver)["embeddings_backend"], embedding_client=client
     )
 
 

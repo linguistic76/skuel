@@ -27,17 +27,10 @@ import pytest
 import time_machine
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
-from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
 from core.events.search_events import SearchExecuted
 from core.models.choice.choice import Choice
-from core.models.entity import Entity
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import Group
 from core.models.ku.ku import Ku
 from core.models.task.task import Task
@@ -143,7 +136,7 @@ async def _seed_classroom(driver: AsyncDriver) -> None:
 @pytest.mark.parametrize("newer_is_native", [True, False])
 async def test_groups_list_newest_first(clean_neo4j, neo4j_driver, newer_is_native) -> None:
     await _seed_classroom(neo4j_driver)
-    groups = GroupBackend(driver=neo4j_driver, label=NeoLabel.GROUP, entity_class=Group)
+    groups = build_production_backends(neo4j_driver)["group_backend"]
     native_at, string_at = _instants(newer_is_native)
 
     default = await groups.get_or_create_default_group(TEACHER, native_at.isoformat())
@@ -178,7 +171,8 @@ async def test_groups_list_newest_first(clean_neo4j, neo4j_driver, newer_is_nati
 
 @pytest.mark.parametrize("newer_is_native", [True, False])
 async def test_recent_tasks_list_by_last_update(clean_neo4j, neo4j_driver, newer_is_native) -> None:
-    tasks = build_production_backends(neo4j_driver)["tasks_backend"]
+    backends = build_production_backends(neo4j_driver)
+    tasks = backends["tasks_backend"]
     user = seed_user_uid("test")
     for uid in ("task.6b-edited", "task.6b-resynced"):
         created = await tasks.create(
@@ -194,7 +188,7 @@ async def test_recent_tasks_list_by_last_update(clean_neo4j, neo4j_driver, newer
             assert (await tasks.update("task.6b-edited", {"title": "edited"})).is_ok
     # A vault re-sync carries the task's owner — the upsert writes nothing to a
     # node someone else owns, and a row naming no owner is not the owner's.
-    resynced = await BulkUpsertBackend(neo4j_driver).upsert_nodes(
+    resynced = await backends["bulk_upsert_backend"].upsert_nodes(
         "Task",
         "Entity",
         [{"uid": "task.6b-resynced", "title": "resynced", "user_uid": str(user)}],
@@ -228,7 +222,8 @@ async def test_recent_tasks_list_by_last_update(clean_neo4j, neo4j_driver, newer
 async def test_curriculum_searches_list_by_last_update(
     clean_neo4j, neo4j_driver, newer_is_native
 ) -> None:
-    kus = build_production_backends(neo4j_driver)["ku_backend"]
+    backends = build_production_backends(neo4j_driver)
+    kus = backends["ku_backend"]
     for uid in ("ku.6b.edited", "ku.6b.resynced"):
         created = await kus.create(Ku(uid=uid, title=f"Breath {uid}", tags=["breath"]))
         assert created.is_ok, created.expect_error()
@@ -237,7 +232,7 @@ async def test_curriculum_searches_list_by_last_update(
     if newer_is_native:
         with _at(edit_at):
             assert (await kus.update("ku.6b.edited", {"description": "edited"})).is_ok
-    resynced = await BulkUpsertBackend(neo4j_driver).upsert_nodes(
+    resynced = await backends["bulk_upsert_backend"].upsert_nodes(
         "Ku", "Entity", [{"uid": "ku.6b.resynced", "description": "resynced"}], {}
     )
     assert resynced.is_ok, resynced.expect_error()
@@ -319,10 +314,11 @@ async def test_pending_choices_order_by_the_deadline_instant(clean_neo4j, neo4j_
 
 
 async def test_shared_lists_order_by_the_share_instant(clean_neo4j, neo4j_driver) -> None:
+    backends = build_production_backends(neo4j_driver)
     await _seed_classroom(neo4j_driver)
-    sharing = UnifiedSharingService(backend=SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity))
+    sharing = UnifiedSharingService(backend=backends["sharing_backend"])
     entries = UserEntryService(
-        backend=build_production_backends(neo4j_driver)["user_entry_backend"],
+        backend=backends["user_entry_backend"],
         sharing_service=sharing,
     )
     second = datetime.now(UTC).replace(microsecond=0) - timedelta(hours=1)
@@ -355,7 +351,7 @@ async def test_shared_lists_order_by_the_share_instant(clean_neo4j, neo4j_driver
 
 
 async def test_search_gaps_break_ties_by_the_last_search_instant(neo4j_driver) -> None:
-    backend = SearchEventBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["search_event_backend"]
     async with neo4j_driver.session() as session:
         await session.run("MATCH (e:SearchEvent) DETACH DELETE e")
     recorder = SearchEventRecorder(backend=backend)

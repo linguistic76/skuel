@@ -64,7 +64,7 @@ async def graph(neo4j_driver, clean_neo4j) -> None:
 
 @pytest.fixture
 def cross_domain(neo4j_driver) -> CrossDomainBackend:
-    return CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver))
+    return build_production_backends(neo4j_driver)["cross_domain_backend"]
 
 
 @pytest.fixture
@@ -74,7 +74,7 @@ def context_executor(neo4j_driver) -> UserContextQueryExecutor:
 
 @pytest.fixture
 def progress(neo4j_driver) -> UserProgressBackend:
-    return UserProgressBackend(Neo4jQueryExecutor(neo4j_driver))
+    return build_production_backends(neo4j_driver)["user_progress_backend"]
 
 
 @pytest.mark.asyncio

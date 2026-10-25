@@ -152,11 +152,12 @@ class UnifiedIngestionService:
     - Creates graph-native relationships
 
     Usage:
-        from adapters.persistence.neo4j.ingestion_service_factory import (
-            make_unified_ingestion_service,
+        # backends = create_all_backends(...) at the composition root
+        service = UnifiedIngestionService(
+            write_backend=backends["ingestion_write_backend"],
+            bulk_backend=backends["bulk_upsert_backend"],
+            default_user_uid=owner,
         )
-
-        service = make_unified_ingestion_service(driver, default_user_uid=owner)
 
         # Single file
         result = await service.ingest_file(Path("ku_machine-learning.md"))
@@ -187,9 +188,8 @@ class UnifiedIngestionService:
         Args:
             write_backend: IngestionWriteOperations port for edge/existence/ownership writes.
             bulk_backend: BulkUpsertOperations port for node upsert + constraints + delete.
-                Both are built at the composition root and injected so this service
-                never imports the adapter (ADR-044 / SKUEL022); use
-                ``make_unified_ingestion_service(driver, ...)`` to build them.
+                Both are built by the composition root's ``create_all_backends`` and
+                injected, so this service never imports the adapter (ADR-044 / SKUEL022).
             default_user_uid: The owner a user-owned file that names none is stamped
                               with when no vault governs its path. The composition root
                               passes ``SKUEL_DEFAULT_USER_UID``; a test names its own.

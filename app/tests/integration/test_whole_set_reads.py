@@ -38,8 +38,6 @@ from adapters.persistence.neo4j.backends.activity_backends import (
     PrinciplesBackend,
     TasksBackend,
 )
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.choice.choice import Choice
 from core.models.enums.habit_enums import HabitCategory
 from core.models.enums.learning_enums import SELCategory
@@ -181,7 +179,7 @@ def _relationships(
 
 
 def _cross_domain(neo4j_driver: AsyncDriver) -> CrossDomainQueryService:
-    return CrossDomainQueryService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
+    return CrossDomainQueryService(build_production_backends(neo4j_driver)["cross_domain_backend"])
 
 
 @pytest_asyncio.fixture

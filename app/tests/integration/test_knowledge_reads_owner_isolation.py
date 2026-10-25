@@ -17,8 +17,6 @@ from __future__ import annotations
 
 import pytest
 
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.constants import GraphDepth
 from core.models.enums import PublicationState
 from core.models.task.task import Task
@@ -29,6 +27,7 @@ from core.services.knowledge.activity_knowledge_intelligence_service import (
 )
 from core.utils.intelligence_queries import get_knowledge_prerequisites
 from core.utils.result_simplified import Result
+from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 P = "koi."  # uid prefix for this module's fixture graph
@@ -41,7 +40,7 @@ DRAFT_KU = P + "ku-draft"
 
 @pytest.fixture
 def graph_intel(neo4j_driver):
-    backend = CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver))
+    backend = build_production_backends(neo4j_driver)["cross_domain_backend"]
     return GraphIntelligenceService(backend)
 
 

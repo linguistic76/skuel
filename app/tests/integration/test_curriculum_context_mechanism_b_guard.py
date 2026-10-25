@@ -31,8 +31,6 @@ from typing import Any
 import pytest
 
 from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend, PsBackend
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.relationship_registry import PS_CONFIG
 from core.ports import query_types
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -104,8 +102,9 @@ def test_dead_facade_and_backend_readers_gone():
 @pytest.fixture
 def ps_intel(neo4j_driver):
     """PsIntelligenceService wired exactly like production (mechanism B)."""
-    graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = build_production_backends(neo4j_driver)["ps_backend"]
+    backends = build_production_backends(neo4j_driver)
+    graph_intel = GraphIntelligenceService(backends["cross_domain_backend"])
+    backend = backends["ps_backend"]
     relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=backend, config=PS_CONFIG, graph_intel=graph_intel
     )

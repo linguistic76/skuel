@@ -9,7 +9,7 @@ different lifecycle, different consumers.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from core.models.choice.choice import Choice
 from core.models.event.event import Event
@@ -23,19 +23,18 @@ from core.models.templates.goal_template import GoalTemplate
 from core.models.templates.habit_template import HabitTemplate
 from core.models.templates.principle_template import PrincipleTemplate
 from core.models.templates.task_template import TaskTemplate
-from core.ports import BackendOperations
+from core.ports import BackendOperations, PsEngagementOperations
 from core.ports.infrastructure_protocols import EventBusOperations
+from core.ports.template_protocols import TemplateAttachmentOperations
 from core.utils.logging import get_logger
-
-if TYPE_CHECKING:
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
 logger = get_logger("skuel.bootstrap")
 
 
 def _create_template_services(
     *,
-    executor: Neo4jQueryExecutor,
+    attachment_backend: TemplateAttachmentOperations,
+    ps_engagement_backend: PsEngagementOperations,
     # Template backends (one per Activity Template entity type), read by the spawn
     task_template_backend: BackendOperations[TaskTemplate],
     goal_template_backend: BackendOperations[GoalTemplate],
@@ -64,8 +63,6 @@ def _create_template_services(
     Builds (Phase 4):
     - ``ps_engagement``: PsEngagementService — 3-transition lifecycle facade.
     """
-    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
-    from adapters.persistence.neo4j.template_attachment_backend import TemplateAttachmentBackend
     from core.services.ps_engagement import PsEngagementService
     from core.services.templates import (
         ChoiceTemplateService,
@@ -77,7 +74,7 @@ def _create_template_services(
     )
 
     # One shared attachment backend — stateless, the edge type is passed per call.
-    attachment = TemplateAttachmentBackend(executor)
+    attachment = attachment_backend
 
     task_templates = TaskTemplateService(attachment)
     goal_templates = GoalTemplateService(attachment)
@@ -87,7 +84,7 @@ def _create_template_services(
     principle_templates = PrincipleTemplateService(attachment)
 
     ps_engagement = PsEngagementService(
-        backend=PsEngagementBackend(executor),
+        backend=ps_engagement_backend,
         task_template_backend=task_template_backend,
         goal_template_backend=goal_template_backend,
         habit_template_backend=habit_template_backend,
