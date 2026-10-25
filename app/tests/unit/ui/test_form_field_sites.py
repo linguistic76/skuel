@@ -228,7 +228,7 @@ _BUTTON_SITES = [
 
 
 def test_the_field_size_is_the_field_heights() -> None:
-    assert {"h-11", "md:h-10"} <= set(_BTN_SIZES["field"].split())
+    assert {"min-h-11", "md:min-h-10"} <= set(_BTN_SIZES["field"].split())
     assert set(_BTN_SIZES["field"].split()) <= set(_classes(to_xml(Button("x", size="field"))))
 
 

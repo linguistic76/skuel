@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-18'
+updated: '2026-10-25'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -384,13 +384,14 @@ SKUEL uses Python enums for type-safe component variants:
 
 `ButtonT` is a `StrEnum` of Tailwind class strings. Style via **`cls=`** (not `variant=`);
 geometry via the **`size=`** string kwarg. Its style members are `default`, `primary`,
-`secondary`, `ghost`, `destructive`, `link` (no `error`/`success`/`warning`/`accent`/`outline`);
-it also carries the size constants `xs`/`sm`/`lg`/`xl`, but prefer `size=` to composing them
-into `cls`. A button that stands in a row of fields takes `size="field"` — the field heights,
-44px on phones and 40px from `md` (`h-11 md:h-10`): the Explore and `/search` "More filters"
-toggles, Today's "Add task", the remove button of a feedback point. As with the fields, a
-caller's `cls` carries style only (colour, border, hover, `gap-*`, `shrink-0`) — never a
-second height, padding or text size.
+`secondary`, `ghost`, `destructive`, `link` (no `error`/`success`/`warning`/`accent`/`outline`).
+A size sets a minimum height (`min-h-*` plus the padding that lets one line of its text fill
+it), never a height, so a label that wraps at a phone width grows its button instead of
+spilling out of it. A button that stands in a row of fields takes `size="field"` — the field
+heights as its minimum, 44px on phones and 40px from `md` (`min-h-11 md:min-h-10`): the
+Explore and `/search` "More filters" toggles, Today's "Add task", the remove button of a
+feedback point. As with the fields, a caller's `cls` carries style only (colour, border, hover,
+`gap-*`, `shrink-0`) — never a second height, padding or text size.
 
 ```python
 # Primary action — cls=, not variant=

@@ -10,7 +10,7 @@ import re
 from collections.abc import Callable
 
 import pytest
-from fasthtml.common import FT
+from fasthtml.common import FT, to_xml
 
 from core.models.type_hints import UserUID
 from ui.lifepath.alignment import render_alignment_dashboard
@@ -53,3 +53,22 @@ def test_a_body_does_not_pad_its_own_sides(name: str) -> None:
     classes = str(BODIES[name]().attrs.get("class", "")).split()
 
     assert [c for c in classes if SIDE_PADDING.match(c)] == []
+
+
+def test_the_dashboard_actions_wrap_rather_than_squeeze() -> None:
+    """At 375px the two action links do not fit on one line; the row wraps them.
+
+    Without ``flex-wrap`` the row shrinks both links until their labels break onto a
+    second line, and a margin on one link (beside the row's ``gap``) widens the squeeze.
+    """
+    xml = to_xml(_dashboard())
+    row = re.search(r'<div class="([^"]*)">\s*<a [^>]*href="/lifepath/alignment"', xml)
+    assert row, "the dashboard's action row was not found"
+    assert {"flex", "flex-wrap"} <= set(row.group(1).split())
+    links = re.findall(r'<a [^>]*href="/lifepath/(?:alignment|vision)"[^>]*>', xml)
+    assert len(links) == 2
+    for link in links:
+        classes = re.search(r'class="([^"]*)"', link)
+        assert classes and not [
+            c for c in classes.group(1).split() if re.match(r"^(?:[a-z0-9]+:)*-?m[trblxyse]?-", c)
+        ]

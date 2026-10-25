@@ -373,10 +373,7 @@ from ui.primitives import ButtonLink
 # ✅ Card family — use ui.components
 from ui.components import Card, CardBody, CardHeader, CardTitle
 
-# ❌ Old tuple cls+size pattern
-Button("Edit", cls=(ButtonT.ghost, ButtonT.sm))
-ButtonLink("View →", href="/tasks", cls=(ButtonT.ghost, ButtonT.xs))
-# ✅ New: style via cls=, geometry via size= kwarg
+# ✅ Style via cls=, geometry via the size= kwarg (never a height in cls)
 Button("Edit", cls=ButtonT.ghost, size="sm")
 ButtonLink("View →", href="/tasks", cls=ButtonT.ghost, size="xs")
 
