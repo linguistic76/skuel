@@ -59,16 +59,6 @@ class ChartColor:
     ACTIONED = "#22C55E"  # green-500
     NOT_ACTIONED = "#9CA3AF"  # gray-400
 
-    # One colour per category, in order; Chart.js repeats the list past its end.
-    CATEGORIES: ClassVar[list[str]] = [
-        SemanticColor.INFO,  # indigo-500
-        "#8B5CF6",  # violet-500
-        "#A855F7",  # purple-500
-        "#EC4899",  # pink-500
-        "#F43F5E",  # rose-500
-        SemanticColor.PRIMARY,  # blue-500
-    ]
-
     POINT_BORDER = "#fff"
 
     FILL_ALPHA = 0.8  # bars and doughnut segments

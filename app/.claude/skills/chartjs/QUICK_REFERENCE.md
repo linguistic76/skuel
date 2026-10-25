@@ -84,7 +84,7 @@ return Result.ok(
 | Vendored Chart.js **v4.6.1** | `static/vendor/chart.js/chart.umd.js` | UMD global `Chart`; held to `package-lock.json` by `tests/js/vendored-chartjs.test.js` — a bump is `npm run vendor:copy` + a `CACHE_VERSION` bump |
 | Date adapter (time scales) | `static/vendor/chart.js/chartjs-adapter-date-fns.3.min.js` | Loaded only by `chartjs_headers()`; no live chart uses it |
 | `chartjs_headers()` | `ui/theme.py` | fast_app `hdrs=` in `scripts/dev/bootstrap.py`; never reaches a BasePage page |
-| `chartVis` Alpine component | `static/js/skuel.js` (`Alpine.data('chartVis', …)`) | `SKUEL.getJson` → destroy old → `new Chart`; `refresh(newUrl)`, `destroy()` |
+| `chartVis` Alpine component | `static/js/skuel.js` (`Alpine.data('chartVis', …)`) | `SKUEL.getJson` → destroy old → `SKUEL.chartTheme.apply()` → `new Chart`; redrawn on a theme switch; `refresh(newUrl)`, `destroy()` |
 | `ChartJsConfig` / `ChartJsData` / `ChartJsDataset` | `core/ports/query_types.py` | The wire contract; construct literals, never `cast()` |
 | `VisualizationService` | `core/services/visualization_service.py` | Pure formatter: Chart.js + Frappe Gantt |
 | `VisualizationAggregationService` | `core/services/analytics/visualization_aggregation_service.py` | Fetches domain data and delegates formatting; wired in `services_bootstrap/compose.py` behind `VisualizationOperations` |
@@ -106,6 +106,7 @@ return Result.ok(
 | Canvas-reuse error on re-render | `chartVis` destroys before recreating, and Alpine calls its `destroy()` when the card leaves the DOM. Don't hand-roll a second `new Chart` on the same canvas |
 | Chart missing after an HTMX swap | Alpine initializes a swapped-in `x-data` tree by itself (measured, Alpine 3.14.8 + htmx 1.9.10). Look at the fragment's markup and the page's scripts, not at init wiring |
 | `Alpine.data` component "not defined" | Registrations run in the `alpine:init` listener: in `skuel.js` if shared, in a page-local bundle if one surface needs it |
+| Chart text or grid unreadable in dark mode | `SKUEL.chartTheme` sets Chart.js's defaults from the theme tokens. Don't set `color` / `borderColor` in a config's `options`: it would hold in both themes |
 | Time axis renders as category labels | Time scales need the date-fns adapter; `extra_scripts` callers must list it |
 | A tick/tooltip `callback` does nothing | The config is JSON; functions can't cross the wire. Use static options |
 | `create_chart_view()` / `ui.goals.visualization` in old notes | Deleted. Use the `_chart_card` shape above |

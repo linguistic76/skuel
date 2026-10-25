@@ -23,6 +23,8 @@ class FakeChart {
   }
   destroy() { this.destroyed = true; }
 }
+// The defaults SKUEL.chartTheme sets before each draw (chart-theme.test.js pins them).
+FakeChart.defaults = { scale: { ticks: {} }, elements: { arc: {} } };
 
 function payloadFor(url) {
   return {
@@ -33,6 +35,9 @@ function payloadFor(url) {
 }
 
 beforeAll(async () => {
+  for (const name of ['muted-foreground', 'border', 'card']) {
+    document.documentElement.style.setProperty('--' + name, '0 0% 50%');
+  }
   HTMLCanvasElement.prototype.getContext = function getContext() {
     return { canvas: this };
   };

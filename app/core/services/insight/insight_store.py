@@ -34,6 +34,7 @@ from core.models.insight.persisted_insight import (
     ActiveInsightFilter,
     InsightField,
     InsightImpact,
+    InsightType,
     PersistedInsight,
 )
 from core.models.type_hints import EntityUID, UserUID
@@ -853,7 +854,9 @@ class InsightStore:
         """Build Chart.js doughnut config for insight type distribution.
 
         Counts the whole active set per type, the largest first, a tie in name
-        order.
+        order. Each slice takes its type's own colour (``InsightType.get_color()``),
+        so a type looks the same whatever its place; a stored type outside the enum
+        is a failed read.
 
         Args:
             user_uid: User identifier
@@ -866,6 +869,14 @@ class InsightStore:
             return Result.fail(result)
 
         sorted_types = sorted(result.value.items(), key=_by_count_then_name)
+        unknown = [t for t, _ in sorted_types if t not in InsightType]
+        if unknown:
+            return Result.fail(
+                Errors.database(
+                    message=f"Stored insight types outside InsightType: {unknown}",
+                    operation="get_type_distribution_chart",
+                )
+            )
         labels = [t.replace("_", " ").title() for t, _ in sorted_types]
 
         return Result.ok(
@@ -878,8 +889,8 @@ class InsightStore:
                             "label": "Insights by Type",
                             "data": [count for _, count in sorted_types],
                             "backgroundColor": [
-                                rgba(colour, ChartColor.FILL_ALPHA)
-                                for colour in ChartColor.CATEGORIES
+                                rgba(InsightType(t).get_color(), ChartColor.FILL_ALPHA)
+                                for t, _ in sorted_types
                             ],
                         }
                     ],

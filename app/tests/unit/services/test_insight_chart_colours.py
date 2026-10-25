@@ -1,7 +1,8 @@
 """The /insights chart configs' colours, pinned to the exact strings Chart.js draws.
 
 ``InsightStore``'s four chart configs take their colours from
-``core/utils/palette.py`` (``ChartColor``, ``SemanticColor``) through ``rgba()``.
+``core/utils/palette.py`` (``ChartColor``, ``SemanticColor``) and, for the type
+doughnut, ``InsightType.get_color()``, through ``rgba()``.
 A palette value that moves moves a colour a learner sees, so each serialized
 string is pinned here.
 """
@@ -10,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from core.models.insight.persisted_insight import InsightField
+from core.models.insight.persisted_insight import InsightField, InsightType
 from core.ports.query_types import ChartJsConfig
 from core.services.insight.insight_store import InsightStore
 from core.utils.palette import rgba
@@ -64,16 +65,23 @@ async def test_domain_bar_colour(store: InsightStore) -> None:
     assert _background(config) == "rgba(59, 130, 246, 0.8)"
 
 
-async def test_type_doughnut_colours(store: InsightStore) -> None:
+async def test_type_doughnut_colours_follow_the_type(store: InsightStore) -> None:
+    """Each slice takes its type's own colour, whatever place its count gives it."""
     config = (await store.get_type_distribution_chart("user_x")).value
     assert _background(config) == [
-        "rgba(99, 102, 241, 0.8)",
-        "rgba(139, 92, 246, 0.8)",
-        "rgba(168, 85, 247, 0.8)",
-        "rgba(236, 72, 153, 0.8)",
-        "rgba(244, 63, 94, 0.8)",
-        "rgba(59, 130, 246, 0.8)",
+        rgba(InsightType.STREAK_PATTERN.get_color(), 0.8),
+        rgba(InsightType.KNOWLEDGE_GAP.get_color(), 0.8),
     ]
+    assert _background(config) == ["rgba(14, 142, 79, 0.8)", "rgba(19, 132, 183, 0.8)"]
+
+
+async def test_type_doughnut_refuses_a_stored_type_outside_the_enum(store: InsightStore) -> None:
+    COUNT_ROWS[InsightField.INSIGHT_TYPE].append({"value": "retired_type", "count": 1})
+    try:
+        result = await store.get_type_distribution_chart("user_x")
+    finally:
+        COUNT_ROWS[InsightField.INSIGHT_TYPE].pop()
+    assert result.is_error
 
 
 async def test_action_rate_gauge_colours(store: InsightStore) -> None:
