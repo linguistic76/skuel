@@ -9,14 +9,6 @@
  * opened by a "Filters" button, keeping the small screen focused on results.
  */
 
-/* Main container - full width, tinted backdrop.
-   Tokens are the shadcn-style hsl vars owned by input.css (ADR-071). */
-.search-container {
-    min-height: calc(100vh - 64px);
-    margin-top: 64px;
-    background: hsl(var(--muted) / 0.4);
-}
-
 /* Shared panel surface — used by .search-input-container (and .search-filters on desktop) */
 .panel-surface {
     background: hsl(var(--card));

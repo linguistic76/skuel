@@ -121,7 +121,7 @@ class TestEmptyStateConsistency:
     ) -> None:
         result = to_xml(list_fn([]))
         assert "text-center" in result, f"{domain} empty list missing text-center"
-        assert "py-12" in result, f"{domain} empty list missing py-12"
+        assert f"No {domain} found" in result, f"{domain} empty list missing its EmptyState"
 
 
 class TestStatsBarConsistency:

@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import EntityConnection
     from ui.page_contexts import TodayPageContext
 
-_CONTAINER_CLS = "mx-auto max-w-[1280px] py-8 pb-24"
+_CONTAINER_CLS = "mx-auto max-w-[1280px]"
 _SECTION_TITLE_CLS = "text-11 font-bold uppercase tracking-[0.09em] text-muted-foreground mb-2"
 _SECTION_KEYS = ("overdue", "tasks", "events", "habits", "milestones", "choices")
 
@@ -173,7 +173,7 @@ def _caught_up() -> FT:
             "offer you more to do. SKUEL suggests you close the laptop.",
             cls="text-13 text-muted-foreground leading-relaxed",
         ),
-        cls="text-center mx-auto max-w-md py-20 px-8",
+        cls="text-center mx-auto max-w-md pt-20",
     )
 
 

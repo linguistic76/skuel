@@ -9,9 +9,8 @@ pads itself.
 
 The census (``_gutter_census.py``) finds every body handed to a padded shell, through
 wrappers, helpers and HTMX fragments, by reading the source; nothing here names the
-pages it checks. The exemptions are rulings, each with its reason, and each must
-still be a finding. The census states its own holes, and their count is pinned: a
-new hole is a body nobody has checked.
+pages it checks, and nothing is exempt. The census states its own holes, and their
+count is pinned: a new hole is a body nobody has checked.
 """
 
 from __future__ import annotations
@@ -34,36 +33,6 @@ from tests.unit.ui import _gutter_census as census
 from ui.journals.chat_page import PeriodicNotePage
 from ui.lifepath.dashboard import render_dashboard_content
 
-# (module, function) -> why its element pads a side inside a padded shell.
-SIDE_RULINGS: dict[tuple[str, str], str] = {
-    ("ui/today/page.py", "_caught_up"): (
-        "Today's caught-up state is a narrow centred note (max-w-md) inset inside "
-        "the column on purpose; it is a message, not the page's content edge."
-    ),
-}
-
-# (module, function) -> why its element pads the body's top or bottom edge.
-VERTICAL_RULINGS: dict[tuple[str, str], str] = {
-    ("ui/today/page.py", "TodayPage"): (
-        "Today keeps py-8 pb-24 from its own layout: not part of the gutter "
-        "ruling, and pb-24 keeps the last section clear of the phone's bottom bar."
-    ),
-    ("ui/today/page.py", "_caught_up"): "The caught-up note's own spacing (see SIDE_RULINGS).",
-    ("ui/patterns/empty_state.py", "EmptyState"): "An empty state spaces its own message.",
-    ("adapters/inbound/form_submissions_ui.py", "my_forms_content"): (
-        "The no-submissions-yet message is an empty state spacing its own line."
-    ),
-    ("adapters/inbound/insights_ui.py", "insights_dashboard"): (
-        "The 'Loading more insights' indicator spaces its own line."
-    ),
-    ("ui/pathways/pages.py", "dashboard_content_error"): (
-        "The dashboard's error message spaces its own line."
-    ),
-    ("ui/calendar/components.py", "create_kind_legend"): (
-        "The calendar legend keeps a pb-1 between its wrapped chips and the grid."
-    ),
-}
-
 # Every hole the census leaves, read by hand: the refusal renderers ``refuse`` is
 # handed (an error banner) and a refusal that is a bare 404 ``Response``; the
 # Activity and exchange cards (each draws its own box); a field's help text; a
@@ -82,26 +51,11 @@ def _where(element: census.Element) -> str:
 
 
 def test_no_shelled_body_pads_its_own_sides(taken: census.Census) -> None:
-    doubled = [_where(e) for e in taken.side if (e.rel, e.function) not in SIDE_RULINGS]
-
-    assert doubled == []
+    assert [_where(e) for e in taken.side] == []
 
 
 def test_no_shelled_body_pads_its_own_top_or_bottom(taken: census.Census) -> None:
-    doubled = [_where(e) for e in taken.vertical if (e.rel, e.function) not in VERTICAL_RULINGS]
-
-    assert doubled == []
-
-
-@pytest.mark.parametrize(
-    ("rulings", "kind"), [(SIDE_RULINGS, "side"), (VERTICAL_RULINGS, "vertical")]
-)
-def test_every_ruling_is_still_a_finding(
-    taken: census.Census, rulings: dict[tuple[str, str], str], kind: str
-) -> None:
-    found = {(e.rel, e.function) for e in getattr(taken, kind)}
-
-    assert sorted(set(rulings) - found) == []
+    assert [_where(e) for e in taken.vertical] == []
 
 
 def test_the_census_holes_are_the_ones_read_by_hand(taken: census.Census) -> None:
@@ -253,6 +207,30 @@ def test_control_a_hand_written_css_class_that_paints_is_a_box() -> None:
     """``.panel-surface`` (search.css) sets a background and a shadow."""
     assert "panel-surface" in census.CSS_BOXES
     assert _one('Div(Div(P("hi"), cls="px-4"), cls="panel-surface")').side == []
+
+
+def test_control_a_css_rule_that_applies_a_box_class_is_a_box() -> None:
+    """``.tree-container`` (hierarchy.css) paints through ``@apply bg-background border``;
+    a rule that applies only padding, or a box only in a state, paints nothing."""
+    sheet = (
+        ".card { @apply bg-card rounded-lg p-4; }\n"
+        ".edged { @apply border border-border; }\n"
+        ".raised {\n  @apply shadow-md;\n}\n"
+        ".inset { @apply p-4; }\n"
+        ".lit { @apply hover:bg-muted focus:ring-2; }\n"
+    )
+
+    assert census.css_boxes([sheet]) == {"card", "edged", "raised"}
+    assert {"tree-container", "indented-list"} <= census.CSS_BOXES
+
+
+def test_search_paints_no_backdrop_of_its_own() -> None:
+    """Search's body sits in the STANDARD shell like any page: its container neither
+    tints a panel behind the page nor pushes it down below the navbar."""
+    rules = re.findall(r"\.search-container\s*\{([^{}]*)\}", census.css_sheets()["search.css"])
+
+    assert "search-container" not in census.CSS_BOXES
+    assert not [r for r in rules if re.search(r"margin|min-height", r)]
 
 
 def test_control_what_cannot_be_resolved_is_a_hole() -> None:

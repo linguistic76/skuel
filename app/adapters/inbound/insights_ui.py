@@ -348,7 +348,7 @@ def create_insights_ui_routes(
                 Div(
                     Div(
                         Span("Loading more insights...", cls="text-muted-foreground text-sm"),
-                        cls="flex justify-center items-center py-8",
+                        cls="flex justify-center items-center pt-8",
                     ),
                     id="loading-indicator",
                     cls="htmx-indicator",
@@ -522,7 +522,7 @@ def create_insights_ui_routes(
 
         new_insights = result.value
         if not new_insights:
-            return EmptyState("No more insights to load", id="load-more-trigger", cls="py-4")
+            return EmptyState("No more insights to load", id="load-more-trigger", cls="pt-4")
 
         next_query = _load_more_query(filters, filters.offset + page_size)
 

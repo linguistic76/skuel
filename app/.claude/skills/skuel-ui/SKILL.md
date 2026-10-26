@@ -128,7 +128,7 @@ Need a sidebar?
 
 Use tokens from `/ui/tokens.py` for consistent spacing — never hardcode.
 
-**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and `SidebarPage` pads its own; a body handed to either pads none of its sides, top or bottom — a second `px-4` puts 32px of gutter before the first card at 375px. Only a `PageType.CUSTOM` body pads itself. `tests/unit/ui/test_page_gutters.py` holds every shelled body to this; each exception is a written ruling there.
+**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and `SidebarPage` pads its own; a body handed to either pads none of its sides, top or bottom — a second `px-4` puts 32px of gutter before the first card at 375px. Only a `PageType.CUSTOM` body pads itself. `tests/unit/ui/test_page_gutters.py` holds every shelled body to this, with no exceptions.
 
 ```python
 from ui.tokens import Container, Spacing, Card

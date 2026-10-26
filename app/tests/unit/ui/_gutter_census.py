@@ -18,7 +18,8 @@ and HTMX placeholders (an element with ``hx_get`` and an ``hx_trigger`` of
 
 The walk descends through an element only while it is transparent: no side
 padding and no visible box (a border, background, shadow or ring class, a
-hand-written CSS class whose rule paints one, or a ``style`` that sets a
+hand-written CSS class whose rule paints one — a background, border or shadow
+property, or an ``@apply`` of a box class — or a ``style`` that sets a
 background or border). An element whose classes pad a side is a hit and stops
 the walk; a box stops it without a hit; a control or a table (``A``,
 ``Button``, ``Table``) is its own box, and so is a bulleted list, whose left
@@ -36,7 +37,7 @@ from __future__ import annotations
 import ast
 import re
 from collections import defaultdict
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -82,24 +83,38 @@ MAX_DEPTH = 18
 EDGES = frozenset({"top", "bottom"})
 
 
-def _css_boxes() -> frozenset[str]:
-    """The hand-written CSS classes whose own rule paints a box (background, border or shadow)."""
+def _paints(body: str) -> bool:
+    """Whether a CSS rule's body paints a box: a background, border or shadow property,
+    or an ``@apply`` of a box class (a state-prefixed one paints only in that state)."""
+    if re.search(r"(?:^|[;\s])(?:background(?:-color)?|border(?:-[a-z]+)?|box-shadow)\s*:", body):
+        return True
+    applied = (t for line in re.findall(r"@apply\s+([^;]+)", body) for t in line.split())
+    return any(BOX.match(t) and not STATE_PREFIX.match(t) for t in applied)
+
+
+def css_boxes(sheets: Iterable[str]) -> frozenset[str]:
+    """The classes whose own rule, in one of the hand-written ``sheets``, paints a box."""
     found: set[str] = set()
-    for sheet in (APP / "static" / "css").glob("*.css"):
-        if sheet.name == "output.css":  # the compiled Tailwind build
-            continue
-        text = re.sub(r"/\*.*?\*/", "", sheet.read_text(), flags=re.DOTALL)
+    for sheet in sheets:
+        text = re.sub(r"/\*.*?\*/", "", sheet, flags=re.DOTALL)
         for selectors, body in re.findall(r"([^{}]+)\{([^{}]*)\}", text):
-            if re.search(
-                r"(?:^|[;\s])(?:background(?:-color)?|border(?:-[a-z]+)?|box-shadow)\s*:", body
-            ):
+            if _paints(body):
                 for selector in selectors.split(","):
                     if bare := re.fullmatch(r"\s*\.([A-Za-z0-9_-]+)\s*", selector):
                         found.add(bare.group(1))
     return frozenset(found)
 
 
-CSS_BOXES = _css_boxes()
+def css_sheets() -> dict[str, str]:
+    """Every hand-written stylesheet, by name — not ``output.css``, the compiled Tailwind build."""
+    return {
+        sheet.name: sheet.read_text()
+        for sheet in sorted((APP / "static" / "css").glob("*.css"))
+        if sheet.name != "output.css"
+    }
+
+
+CSS_BOXES = css_boxes(css_sheets().values())
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 

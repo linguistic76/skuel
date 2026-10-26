@@ -41,7 +41,7 @@ def dashboard_content_error(message: str) -> Any:
     paths" — render the error instead of a fabricated empty state."""
     return Div(
         render_inline_error(f"Could not load your learning overview: {message}"),
-        cls="max-w-xl mx-auto py-8",
+        cls="max-w-xl mx-auto pt-8",
     )
 
 

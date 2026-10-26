@@ -66,7 +66,7 @@ def create_form_submissions_ui_routes(
         if not submissions:
             inner = Div(
                 P("You haven't submitted any forms yet.", cls="text-muted-foreground"),
-                cls="text-center py-12",
+                cls="text-center pt-12",
             )
         else:
             rows = []
