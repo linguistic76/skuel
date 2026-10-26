@@ -165,7 +165,8 @@ Progress(value=88, variant=ProgressT.success)  # success/warning/error/primary/.
 
 - **Primary list views** (main entity list): `EmptyState(title="...", description="...", action_text="Create ...", action_href="/...")`
 - **Secondary sections** (detail panel subsections, sidebar items): `EmptyState(title="...")` — no CTA
-- **Tiny inline indicators** (sidebar `<li>`, analytics cards): Leave as `P()` — `EmptyState` with `py-12` is too heavy
+- **Tiny inline indicators** (sidebar `<li>`, analytics cards): Leave as `P()` — `EmptyState`'s centred title block is too heavy
+- **Spacing:** `EmptyState` pads none of its edges — what holds it spaces it (the page shell at a body's edge, a card's padding inside a card)
 - **Never hand-roll** `Div(P("No ..."))` for empty states — always use `EmptyState()`. Supports `**kwargs` pass-through for `id`, `cls` overrides, etc.
 
 ### StatsGrid Usage Rules

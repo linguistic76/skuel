@@ -171,7 +171,7 @@ def create_kind_legend(kinds: Iterable[CalendarItemType]) -> Div:
         for pair_label, pair_types in _LEGEND_PAIRS
         if any(item_type in admitted for item_type in pair_types)
     ]
-    return Div(*groups, cls="flex items-center gap-4 flex-wrap pb-1")
+    return Div(*groups, cls="flex items-center gap-4 flex-wrap")
 
 
 def create_calendar_header(title: str, view: CalendarView) -> Div:

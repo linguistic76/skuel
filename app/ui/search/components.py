@@ -57,7 +57,6 @@ from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_links import entity_detail_href
 from ui.primitives import ButtonLink
-from ui.tokens import Container
 
 # ============================================================================
 # PAGE LAYOUT COMPONENTS
@@ -149,12 +148,12 @@ def _render_search_layout(
                         "Use the filters above to refine your results",
                         cls="text-sm mt-2 text-muted-foreground",
                     ),
-                    cls="text-center text-muted-foreground py-16",
+                    cls="text-center text-muted-foreground pt-16",
                 ),
                 id="search-results",
                 cls="min-w-0",
             ),
-            cls=f"search-main {Container.WIDE} px-4 py-8",
+            cls="search-main",
         ),
         cls="search-container",
         x_data="searchFilters()",
@@ -1283,7 +1282,7 @@ def render_empty_search_prompt() -> Div:
         description="Type a query, or use the filters above to browse — a filter alone is enough.",
         icon="🔍",
         id="search-results",
-        cls="py-16",
+        cls="pt-16",
     )
 
 

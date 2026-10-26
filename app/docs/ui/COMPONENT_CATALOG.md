@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-25
+updated: 2026-10-26
 ---
 
 # SKUEL UI Component Catalog
@@ -668,7 +668,7 @@ StatCard(label="Completion Rate", value="85%", color="success")
 
 **Location:** `/ui/patterns/empty_state.py`
 
-Friendly empty state for lists with no items. Renders centered content with `py-12` padding.
+Friendly empty state for lists with no items. Renders centered content and pads none of its edges.
 
 **Adoption status:** ~75 usages across ~38 files. All Activity Domain list views, curriculum hub, study/submissions, admin, finance, analytics, lifepath, form submissions, teaching, explore, search, notifications, insights, profile, and other domains. No hand-rolled `Div(P("No ..."))` empty states remain — all use `EmptyState()`.
 
@@ -687,7 +687,8 @@ Empty state component.
 **Usage Rules:**
 - **Primary list views:** `EmptyState(title="...", description="...", action_text="Create ...", action_href="/...")`
 - **Secondary sections:** `EmptyState(title="...")` — no CTA
-- **Tiny inline indicators** (sidebar `<li>`, analytics cards): Leave as `P()` — `EmptyState` with `py-12` is too heavy
+- **Tiny inline indicators** (sidebar `<li>`, analytics cards): Leave as `P()` — `EmptyState`'s centred title block is too heavy
+- **Spacing:** `EmptyState` pads none of its edges — what holds it spaces it (the page shell at a body's edge, a card's padding inside a card)
 
 **Examples:**
 ```python
@@ -1176,8 +1177,8 @@ Unified sidebar component for all sidebar pages (Activity Domains, Explore, Grad
 
 **The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and centres it at
 `Container.STANDARD`; `SidebarPage` pads its own. A body handed to either pads none of its sides, top or
-bottom — only a `PageType.CUSTOM` body pads itself (`tests/unit/ui/test_page_gutters.py`, where each
-exception is a written ruling).
+bottom — only a `PageType.CUSTOM` body pads itself (`tests/unit/ui/test_page_gutters.py`, with no
+exceptions).
 
 ```python
 from ui.tokens import Card, Container, Spacing

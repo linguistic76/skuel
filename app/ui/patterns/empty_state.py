@@ -34,7 +34,9 @@ def EmptyState(
         **kwargs: Additional attributes passed to the container Div
 
     Returns:
-        A centered Div with the empty state content
+        A centered Div with the empty state content. It pads none of its edges:
+        what holds it spaces it — the page shell at a body's edge, a card's own
+        padding inside a card, a margin on what follows it.
 
     Example:
         EmptyState(
@@ -65,6 +67,6 @@ def EmptyState(
 
     return Div(
         Stack(*content, gap=2),
-        cls=f"text-center py-12 {cls}".strip(),
+        cls=f"text-center {cls}".strip(),
         **kwargs,
     )

@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-25'
+updated: '2026-10-26'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -243,7 +243,7 @@ class DomainStatsConfig:
 
 ### Design Tokens
 
-**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and `SidebarPage` pads its own; a body handed to either pads none of its sides, top or bottom — a second `px-4` puts 32px of gutter before the first card at 375px. Only a `PageType.CUSTOM` body pads itself. `tests/unit/ui/test_page_gutters.py` holds every shelled body to this; each exception is a written ruling there.
+**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and `SidebarPage` pads its own; a body handed to either pads none of its sides, top or bottom — a second `px-4` puts 32px of gutter before the first card at 375px. Only a `PageType.CUSTOM` body pads itself. `tests/unit/ui/test_page_gutters.py` holds every shelled body to this, with no exceptions.
 
 ```python
 from ui.tokens import Spacing, Container, Card
@@ -823,7 +823,7 @@ EmptyState(title="No feedback yet")
 EmptyState(title="No habits for today!", icon="🎉")
 ```
 
-**Usage rules:** Primary list views get full CTA. Secondary sections get title only. Tiny inline indicators (sidebar `<li>`, analytics cards) stay as `P()` — `EmptyState` with `py-12` is too heavy for compact contexts.
+**Usage rules:** Primary list views get full CTA. Secondary sections get title only. Tiny inline indicators (sidebar `<li>`, analytics cards) stay as `P()` — `EmptyState`'s centred title block is too heavy for compact contexts. `EmptyState` pads none of its edges: what holds it spaces it (the page shell at a body's edge, a card's padding inside a card).
 
 ### Learning Loop Fragments (PathStep Detail)
 

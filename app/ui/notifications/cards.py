@@ -122,5 +122,5 @@ def render_notification_empty_state() -> Div:
     """Show when there are no notifications."""
     return Card(
         EmptyState("No notifications", description="You're all caught up!", icon="🔔"),
-        cls="bg-background",
+        cls="bg-background p-6",
     )
