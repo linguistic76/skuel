@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -21,6 +20,7 @@ from starlette.testclient import TestClient
 import adapters.inbound.analytics_ui as analytics_ui
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.settings_stub import settings_stub
 
 ALIGNMENT = {
     "life_path_uid": "lp.x.teacher",
@@ -37,12 +37,8 @@ def _client(monkeypatch: pytest.MonkeyPatch, service: MagicMock) -> TestClient:
     def signed_in(_request: object) -> UserUID:
         return UserUID("user_learner")
 
-    def debug_off() -> SimpleNamespace:
-        """Settings stub — get_settings() needs real env config, unavailable in unit tests."""
-        return SimpleNamespace(application=SimpleNamespace(debug=False))
-
     monkeypatch.setattr(analytics_ui, "require_authenticated_user", signed_in)
-    monkeypatch.setattr(analytics_ui, "get_settings", debug_off)
+    monkeypatch.setattr(analytics_ui, "get_settings", settings_stub(debug=False))
     app, rt = fast_app(pico=False, default_hdrs=False)
     analytics_ui.create_analytics_ui_routes(app, rt, service)
     return TestClient(app)

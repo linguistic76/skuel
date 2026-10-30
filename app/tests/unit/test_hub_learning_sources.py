@@ -55,8 +55,6 @@ from core.services.user.unified_user_context import RichUserContext
 from core.services.zpd.zpd_service import ZPDService
 from core.utils.result_simplified import Errors, Result
 
-pytestmark = pytest.mark.asyncio
-
 USER = "user_test"
 READY = ["ku.test.ready_1", "ku.test.ready_2", "ku.test.ready_3", "ku.test.ready_4"]
 GAPS = ["ku.test.gap_1", "ku.test.gap_2", "ku.test.gap_3"]

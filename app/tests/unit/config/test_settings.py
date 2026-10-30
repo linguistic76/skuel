@@ -4,21 +4,14 @@ Tests for SKUEL Configuration Settings.
 Tests cover:
 1. get_settings() - Main settings accessor with caching and validation
 2. reload_config() - Cache clearing
+
+Every test patches ``create_config``, so none reads the real config; the unit
+tier empties the cache around each one (``tests/unit/conftest.py``).
 """
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-
-@pytest.fixture(autouse=True)
-def clear_caches():
-    """Clear all cached configs before and after each test."""
-    from core.config.settings import reload_config
-
-    reload_config()
-    yield
-    reload_config()
 
 
 @pytest.fixture
@@ -52,15 +45,11 @@ def mock_unified_config():
         redis_password=None,
     )
     mock_config.message_queue = MessageQueueConfig()
-    mock_config.search = SearchConfig() if hasattr(SearchConfig, "__init__") else MagicMock()
-    mock_config.askesis = AskesisConfig() if hasattr(AskesisConfig, "__init__") else MagicMock()
-    mock_config.knowledge = (
-        KnowledgeConfig() if hasattr(KnowledgeConfig, "__init__") else MagicMock()
-    )
-    mock_config.vault = VaultConfig() if hasattr(VaultConfig, "__init__") else MagicMock()
-    mock_config.application = (
-        ApplicationConfig() if hasattr(ApplicationConfig, "__init__") else MagicMock()
-    )
+    mock_config.search = SearchConfig()
+    mock_config.askesis = AskesisConfig()
+    mock_config.knowledge = KnowledgeConfig()
+    mock_config.vault = VaultConfig()
+    mock_config.application = ApplicationConfig()
 
     return mock_config
 

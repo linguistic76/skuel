@@ -1,6 +1,6 @@
 ---
 title: Testing Patterns
-updated: 2026-10-25
+updated: 2026-10-30
 category: patterns
 related_skills:
 - pytest
@@ -376,6 +376,7 @@ tests/unit/
 ```
 tests/
 ├── unit/                    # Pure logic tests (no I/O)
+│   ├── conftest.py          # Refuses the real get_settings()
 │   ├── scripts/             # Linter tests
 │   ├── ui/                  # UI helper tests
 │   └── services/            # Service unit tests (mocked backends)
@@ -411,6 +412,7 @@ def test_cascade_delete_removes_relationships():
 | File | Purpose |
 |------|---------|
 | `tests/conftest.py` | Root pytest configuration |
+| `tests/unit/conftest.py` | The unit tier reads no configuration — a real `get_settings()` read fails the test |
 | `tests/integration/conftest.py` | Integration test fixtures |
 | `tests/integration/test_user_entity_tracking.py` | User relationship tests |
 | `tests/integration/test_yaml_roundtrip.py` | Ingestion roundtrip tests |
