@@ -211,7 +211,7 @@ def SkeletonLines(count: int = 3) -> Div:
             Div(cls=f"h-4 bg-muted rounded-sm {widths[i % len(widths)]} animate-pulse")
             for i in range(count)
         ],
-        cls="space-y-2 py-2",
+        cls="space-y-2",
     )
 
 

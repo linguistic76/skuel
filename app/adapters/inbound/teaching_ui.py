@@ -260,7 +260,8 @@ def create_teaching_ui_routes(
             )
         else:
             queue_content = Div(
-                *[render_queue_item(queue_item_from_dict(item)) for item in result.value]
+                *[render_queue_item(queue_item_from_dict(item)) for item in result.value],
+                cls="space-y-2",
             )
 
         content = Div(
@@ -398,7 +399,8 @@ def create_teaching_ui_routes(
                         student_uid=item.get("student_uid", ""),
                     )
                     for item in result.value
-                ]
+                ],
+                cls="space-y-2",
             )
 
         return Div(students_content, id="students-content")

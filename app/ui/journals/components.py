@@ -210,7 +210,6 @@ def _render_batch_results() -> Any:
         ),
         Div(
             Alert(P("", cls="mb-0", **{"x-text": "error"}), variant=AlertT.error),
-            cls="mb-4",
             **{"x-show": "error", "x-cloak": True},
         ),
         # Preview: file list without transcribing
@@ -231,13 +230,12 @@ def _render_batch_results() -> Any:
                 # ancestor x-show, and preview/result start null.
                 **{"x-for": "f in (preview && preview.files) || []", ":key": "f.name"},
             ),
-            cls="mb-4",
             **{"x-show": "preview", "x-cloak": True},
         ),
         # Transcribe: aggregate result + per-file errors
         Div(
-            H5("Transcription Result", cls="font-semibold mb-2"),
-            P("", cls="text-sm mb-2", **{"x-text": "resultSummary()"}),
+            H5("Transcription Result", cls="font-semibold"),
+            P("", cls="text-sm", **{"x-text": "resultSummary()"}),
             Div(
                 H5("Errors", cls="font-semibold text-destructive mb-1 text-sm"),
                 Template(
@@ -254,7 +252,9 @@ def _render_batch_results() -> Any:
                 ),
                 **{"x-show": "result && result.errors && result.errors.length"},
             ),
+            cls="flex flex-col gap-2",
             **{"x-show": "result", "x-cloak": True},
         ),
-        cls="mt-4",
+        # The panels show and hide; a gap spaces only the ones shown.
+        cls="mt-4 flex flex-col gap-4",
     )

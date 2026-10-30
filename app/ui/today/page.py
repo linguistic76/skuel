@@ -43,7 +43,9 @@ if TYPE_CHECKING:
     from core.ports.query_types import EntityConnection
     from ui.page_contexts import TodayPageContext
 
-_CONTAINER_CLS = "mx-auto max-w-[1280px]"
+# The day stacks its blocks with one gap; none of them carries a margin of its own,
+# so a section the legend hides takes no space with it.
+_CONTAINER_CLS = "mx-auto max-w-[1280px] flex flex-col gap-8"
 _SECTION_TITLE_CLS = "text-11 font-bold uppercase tracking-[0.09em] text-muted-foreground mb-2"
 _SECTION_KEYS = ("overdue", "tasks", "events", "habits", "milestones", "choices")
 
@@ -120,7 +122,7 @@ def _header(view_date: date, heading: str, date_label: str) -> FT:
             create_kind_legend(DAY_KINDS),
             cls="flex flex-col items-end gap-4",
         ),
-        cls="flex flex-wrap items-end justify-between gap-5 mb-8",
+        cls="flex flex-wrap items-end justify-between gap-5",
     )
 
 
@@ -154,7 +156,7 @@ def _quick_add(view_date: date) -> FT:
         ),
         hx_post="/today/tasks/quick-add",
         hx_swap="none",
-        cls="mb-6 flex items-center gap-2",
+        cls="flex items-center gap-2",
     )
 
 
@@ -187,7 +189,6 @@ def _section(kind: CalendarItemType, title: str, body: FT) -> FT:
     return Section(
         H2(title, cls=_SECTION_TITLE_CLS),
         body,
-        cls="mb-8",
         data_item_type=kind.value,
         aria_label=title,
     )
@@ -224,7 +225,7 @@ def _defer_form(task: Task, view_date: date, *, source: str) -> FT:
                 " = event.detail.xhr.responseText"
             ),
         },
-        cls="flex items-center gap-1.5 mt-1 pl-1 flex-wrap",
+        cls="flex items-center gap-1.5 mt-2 pl-1 flex-wrap",
     )
 
 

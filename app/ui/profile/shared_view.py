@@ -301,7 +301,7 @@ def wall_content(items: Sequence[SharedByMeItem]) -> FT:
         return Div(*[WallRow(item) for item in items])
     return P(
         "You have not shared anything yet. Share from an entry's page in the GradeBook.",
-        cls="text-sm text-muted-foreground py-4",
+        cls="text-sm text-muted-foreground pt-4",
     )
 
 

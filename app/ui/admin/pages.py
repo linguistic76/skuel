@@ -138,7 +138,6 @@ def users_list_page(
                     cls="flex flex-wrap gap-4",
                 ),
             ),
-            cls="mb-6",
         ),
         users_error_banner,
         Card(
@@ -150,6 +149,7 @@ def users_list_page(
                 ),
             ),
         ),
+        cls="space-y-6",
     )
 
 
@@ -195,60 +195,60 @@ def user_detail_page(
             user_data.display_name or user_data.username,
             actions=AdminUIComponents.render_user_status_badges(user_data),
         ),
-        Card(
-            CardHeader(CardTitle("User Details")),
-            CardBody(
-                Div(
-                    _detail_row("UID", user_data.uid),
-                    _detail_row("Username", f"@{user_data.username}"),
-                    _detail_row("Email", user_data.email),
-                    _detail_row(
-                        "Created",
-                        format_date(user_data.created_at, "%Y-%m-%d %H:%M", empty="Unknown"),
-                    ),
-                    _detail_row(
-                        "Last Login", format_date(user_data.last_login_at, "%Y-%m-%d %H:%M")
-                    ),
-                    _detail_row("Verified", "Yes" if user_data.is_verified else "No"),
-                    cls="space-y-3",
-                ),
-            ),
-            cls="mb-6",
-        ),
-        Card(
-            CardHeader(CardTitle("User Statistics")),
-            CardBody(
-                render_error_banner("User statistics unavailable", severity="warning")
-                if detail_stats_error
-                else AdminUIComponents.render_user_activity_stats(detail_stats, UserUID(uid)),
-            ),
-            cls="mb-6",
-        ),
-        Card(
-            CardHeader(CardTitle("Student Work")),
-            CardBody(
-                Div(
-                    P(
-                        "Submissions, reports, and learning progress are managed in the Teaching section.",
-                        cls="text-muted-foreground text-sm mb-3",
-                    ),
-                    ButtonLink(
-                        "View submissions →",
-                        href=f"/teaching/students/{uid}",
-                        cls=ButtonT.secondary,
-                        size="sm",
-                    ),
-                    ButtonLink(
-                        "KU progress →",
-                        href=f"/teaching/students/{uid}?tab=ku",
-                        cls=(ButtonT.secondary, "ml-2"),
-                        size="sm",
+        Div(
+            Card(
+                CardHeader(CardTitle("User Details")),
+                CardBody(
+                    Div(
+                        _detail_row("UID", user_data.uid),
+                        _detail_row("Username", f"@{user_data.username}"),
+                        _detail_row("Email", user_data.email),
+                        _detail_row(
+                            "Created",
+                            format_date(user_data.created_at, "%Y-%m-%d %H:%M", empty="Unknown"),
+                        ),
+                        _detail_row(
+                            "Last Login", format_date(user_data.last_login_at, "%Y-%m-%d %H:%M")
+                        ),
+                        _detail_row("Verified", "Yes" if user_data.is_verified else "No"),
+                        cls="space-y-3",
                     ),
                 ),
             ),
-            cls="mb-6",
+            Card(
+                CardHeader(CardTitle("User Statistics")),
+                CardBody(
+                    render_error_banner("User statistics unavailable", severity="warning")
+                    if detail_stats_error
+                    else AdminUIComponents.render_user_activity_stats(detail_stats, UserUID(uid)),
+                ),
+            ),
+            Card(
+                CardHeader(CardTitle("Student Work")),
+                CardBody(
+                    Div(
+                        P(
+                            "Submissions, reports, and learning progress are managed in the Teaching section.",
+                            cls="text-muted-foreground text-sm mb-3",
+                        ),
+                        ButtonLink(
+                            "View submissions →",
+                            href=f"/teaching/students/{uid}",
+                            cls=ButtonT.secondary,
+                            size="sm",
+                        ),
+                        ButtonLink(
+                            "KU progress →",
+                            href=f"/teaching/students/{uid}?tab=ku",
+                            cls=(ButtonT.secondary, "ml-2"),
+                            size="sm",
+                        ),
+                    ),
+                ),
+            ),
+            AdminUIComponents.render_account_card(user_data),
+            cls="space-y-6",
         ),
-        AdminUIComponents.render_account_card(user_data),
     )
 
 

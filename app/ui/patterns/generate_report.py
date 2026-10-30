@@ -142,7 +142,7 @@ def render_period_report_prompt(
             if has_started
             else None,
         ),
-        cls="bg-background shadow-xs mb-6",
+        cls="bg-background shadow-xs",
     )
 
 

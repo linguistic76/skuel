@@ -190,7 +190,7 @@ def HabitCard(
     return Card(
         header,
         id=f"habit-{safe_id(habit.uid)}",
-        cls=f"mb-2 p-3 {opacity}",
+        cls=f"p-3 {opacity}",
     )
 
 

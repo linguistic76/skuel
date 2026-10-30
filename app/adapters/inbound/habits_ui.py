@@ -18,7 +18,7 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
@@ -45,7 +45,7 @@ from ui.activities.nav import (
     render_activity_sidebar_page,
 )
 from ui.patterns import PageHeader
-from ui.patterns.error_banner import render_error_banner, render_slot_error
+from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -53,6 +53,11 @@ if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
 
 logger = get_logger("skuel.routes.habits_ui")
+
+
+def _insights_slot(message: str) -> FT:
+    """The refused pattern insights in their slot, spaced as the section they stand in for."""
+    return Div(render_error_banner(message), id="habit-insights", cls="my-4")
 
 
 def create_habits_ui_routes(
@@ -97,7 +102,7 @@ def create_habits_ui_routes(
         """
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
-        slot = partial(render_slot_error, "habit-insights")
+        slot = _insights_slot
         if not uid:
             return refuse_not_found(slot("Missing habit UID"))
 

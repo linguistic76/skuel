@@ -10,11 +10,16 @@ The census reads every module under ``ui/`` and ``adapters/inbound/``. It finds
 every call to a shell and to every function that passes one of its own
 parameters through to one (a wrapper, found to a fixpoint), and resolves each
 call's content to the elements that render at the content column's edge:
-through names, local assignments, called functions (parameters bound to the
-caller's arguments, and to each caller's when the walk starts inside the
-function), conditionals, ``functools.partial``, function-local import aliases,
-and HTMX placeholders (an element with ``hx_get`` and an ``hx_trigger`` of
-``load`` is followed to the route that answers it).
+through names, local assignments, lists a function builds (in order: what it is
+assigned, then each ``append``/``extend``/``insert``), called functions (a name
+a module imports is the function its import names, through re-exports;
+parameters bound to the caller's arguments, a ``**mapping`` to the parameters
+its keys name, and to each caller's when the walk starts inside the function),
+mappings a function builds (``update``, ``m[key] = value`` — not in a branch
+that a parameter bound to a constant rules out), conditionals,
+``functools.partial``, function-local import aliases, and HTMX placeholders (an
+element with ``hx_get`` and an ``hx_trigger`` of ``load`` is followed to the
+route that answers it).
 
 The walk descends through an element only while it is transparent: no side
 padding and no visible box (a border, background, shadow or ring class, a
@@ -24,12 +29,21 @@ background or border). An element whose classes pad a side is a hit and stops
 the walk; a box stops it without a hit; a control or a table (``A``,
 ``Button``, ``Table``) is its own box, and so is a bulleted list, whose left
 padding holds its markers. A text-level element (``P``, ``Span``, a heading) is
-read for its own padding and not descended into: what it holds is its text. The walk also knows which elements sit at the
-body's top or bottom edge (the first or last child, all the way down — a
-child after one that may be absent is still at the edge), and records a block
-there that pads that edge. Whatever the walk cannot
-resolve is kept in ``unresolved`` with where it gave up, so the census states
-its own holes.
+read for its own padding and not descended into: what it holds is its text.
+
+The walk also knows which elements sit at the body's top or bottom edge (the
+first or last child, all the way down — a child after one that may render
+nothing is still at the edge: ``None``, a conditional, a call that may return
+``None``, a spread that may be empty, an element ``x-show``/``x-if`` or a
+``hidden`` class can take out of the layout), and records one that spaces that edge:
+with padding (``vertical``), or with a margin (``margins``) — a margin sits
+outside the element's own box, so a box's or a control's counts too. A zero
+value spaces nothing, ``auto`` aligns, and ``first:``/``last:`` zero takes the
+element's own space back at that edge. A record is keyed by where the element
+is written and the classes that space the edge, so a shared component holds one
+record per spacing its callers hand it, and its chains name the caller. Whatever
+the walk cannot resolve is kept in ``unresolved`` with where it gave up, so the
+census states its own holes.
 """
 
 from __future__ import annotations
@@ -39,6 +53,7 @@ import re
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 
 APP = Path(__file__).resolve().parents[3]
@@ -48,6 +63,10 @@ SHELLS = ("BasePage", "SidebarPage")
 SIDE = re.compile(r"^(?:[a-z0-9-]+:)*(?:p|px|pl|pr|ps|pe)-")
 TOP = re.compile(r"^(?:[a-z0-9-]+:)*(?:p|py|pt)-")
 BOTTOM = re.compile(r"^(?:[a-z0-9-]+:)*(?:p|py|pb)-")
+# A margin that spaces an edge; ``auto`` aligns instead, and a negative one never matches.
+TOP_MARGIN = re.compile(r"^(?:[a-z0-9-]+:)*(?:m|my|mt)-(?!auto$)")
+BOTTOM_MARGIN = re.compile(r"^(?:[a-z0-9-]+:)*(?:m|my|mb)-(?!auto$)")
+HIDDEN = re.compile(r"^(?:[a-z0-9-]+:)*hidden$")
 MARKERS = re.compile(r"^list-(?:disc|decimal|square|roman|alpha)")
 BOX = re.compile(r"^(?:[a-z0-9-]+:)*(?:border(?:-[a-z0-9]|$)|bg-|shadow|ring-)")
 STATE_PREFIX = re.compile(r"^(?:hover|focus|group-hover|active|focus-visible|dark):")
@@ -63,7 +82,6 @@ ELEMENTS = frozenset(
     }
 )  # fmt: skip
 OWN_BOX = frozenset({"A", "Button", "Table", "Thead", "Tbody", "Tr", "Th", "Td"})
-BLOCKS = frozenset({"Div", "Main", "Section", "Article", "Form"})
 # Text-level tags: their own padding is read, what they hold is their text.
 TEXT = frozenset(
     {"P", "Span", "H1", "H2", "H3", "H4", "H5", "H6", "Small", "Strong", "Em", "Code",
@@ -131,6 +149,7 @@ class Element:
     modes: set[str] = field(default_factory=set)
     entries: set[str] = field(default_factory=set)
     chains: set[str] = field(default_factory=set)
+    edges: set[str] = field(default_factory=set)
 
     @property
     def where(self) -> str:
@@ -146,7 +165,8 @@ class Census:
     elements_seen_in: frozenset[str]
     side: list[Element]
     custom_side: list[Element]
-    vertical: list[Element]  # a block at the body's top or bottom edge that pads that edge
+    vertical: list[Element]  # an element at the body's top or bottom edge that pads that edge
+    margins: list[Element]  # an element at the body's top or bottom edge whose margin spaces it
     unresolved: set[tuple[str, str]]
 
 
@@ -175,17 +195,22 @@ def _call_name(call: ast.Call) -> str | None:
     return None
 
 
-def _own_nodes(fn: FunctionNode) -> Iterator[ast.AST]:
-    """The nodes of ``fn``'s body, not those inside a nested def or lambda."""
+@cache
+def _own_nodes(fn: FunctionNode) -> tuple[ast.AST, ...]:
+    """The nodes of ``fn``'s body, not those inside a nested def or lambda, in source order."""
+    found: list[ast.AST] = []
     stack: list[ast.AST] = list(fn.body)
     while stack:
         node = stack.pop()
-        yield node
+        found.append(node)
         stack.extend(
             child
             for child in ast.iter_child_nodes(node)
             if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
         )
+    return tuple(
+        sorted(found, key=lambda n: (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)))
+    )
 
 
 def _assigned(node: ast.AST, name: str) -> ast.expr | None:
@@ -201,6 +226,38 @@ def _assigned(node: ast.AST, name: str) -> ast.expr | None:
     ):
         return node.value
     return None
+
+
+def _added(node: ast.AST, name: str) -> ast.expr | None:
+    """What ``node`` adds to the list ``name``: ``name.append(x)`` / ``name.insert(i, x)``
+    add ``x``, ``name.extend(xs)`` adds what ``xs`` holds."""
+    if not (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == name
+        and node.args
+    ):
+        return None
+    if node.func.attr in ("append", "extend"):
+        return node.args[0]
+    if node.func.attr == "insert" and len(node.args) == 2:
+        return node.args[1]
+    return None
+
+
+def _module_rel(rel: str, node: ast.ImportFrom) -> str | None:
+    """The census path, without its suffix, of the module an import names:
+    ``ui.teaching.cards`` is ``ui/teaching/cards``; a relative import is read from
+    ``rel``'s package. ``None`` when it names no module under the roots."""
+    if node.level:
+        parts = Path(rel).parent.parts[: len(Path(rel).parent.parts) - (node.level - 1)]
+        dotted = ".".join((*parts, *(node.module.split(".") if node.module else ())))
+    else:
+        dotted = node.module or ""
+    if not dotted.startswith(tuple(root.replace("/", ".") for root in ROOTS)):
+        return None
+    return dotted.replace(".", "/")
 
 
 def _maybe_absent(expr: ast.expr) -> bool:
@@ -232,10 +289,13 @@ class _Walker:
         self.consts: dict[str, list[ast.expr]] = defaultdict(list)
         self.kwfuncs: dict[str, set[str]] = defaultdict(set)
         self.import_aliases: dict[str, str] = {}
+        # module -> imported name -> (the module it comes from, unsuffixed; its name there)
+        self.imports: dict[str, dict[str, tuple[str, str]]] = defaultdict(dict)
         self.calls_to: dict[str, list[tuple[str, ast.Call]]] = defaultdict(list)
         self.routes: list[tuple[re.Pattern[str], str, str, FunctionNode]] = []
         self.side: dict[tuple[str, int], Element] = {}
-        self.vertical: dict[tuple[str, int], Element] = {}
+        self.vertical: dict[tuple[str, int, tuple[str, ...]], Element] = {}
+        self.margins: dict[tuple[str, int, tuple[str, ...]], Element] = {}
         self.unresolved: set[tuple[str, str]] = set()
         self.seen_in: set[str] = set()
         for rel, text in sources.items():
@@ -256,9 +316,12 @@ class _Walker:
                     if path is not None:
                         self._add_route(path, rel, node)
             elif isinstance(node, ast.ImportFrom):
+                source = _module_rel(rel, node)
                 for alias in node.names:
                     if alias.asname and alias.asname != alias.name:
                         self.import_aliases[alias.asname] = alias.name
+                    if source is not None:
+                        self.imports[rel][alias.asname or alias.name] = (source, alias.name)
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -353,7 +416,9 @@ class _Walker:
         found: list[tuple[ast.expr, _Env]] = []
         if fn is not None:
             found.extend(
-                (value, env) for n in _own_nodes(fn) if (value := _assigned(n, name)) is not None
+                (value, env)
+                for n in _own_nodes(fn)
+                if (value := _assigned(n, name) or _added(n, name)) is not None
             )
             if not found:  # a closure reads the outer function's names
                 outer = self._enclosing(fn)
@@ -379,26 +444,64 @@ class _Walker:
                     out += self._strings(value, _Env(None, env.rel), depth + 1)
         return out
 
-    def _dict_values(self, expr: ast.expr, env: _Env, keys: tuple[str, ...]) -> list[ast.expr]:
-        """The values a ``**mapping`` passes under ``keys``: a literal, or a name bound to one."""
-        dicts: list[ast.Dict] = []
+    def _dict_values(
+        self, expr: ast.expr, env: _Env, keys: tuple[str, ...], depth: int = 0
+    ) -> list[tuple[ast.expr, _Env]]:
+        """The values a ``**mapping`` passes under ``keys``: a literal, a name bound to
+        one (a parameter through its callers), and what the function that builds the
+        name adds to it (``name.update(other)``, ``name[key] = value``)."""
+        if depth > 6:
+            return []
         if isinstance(expr, ast.Dict):
-            dicts.append(expr)
-        elif isinstance(expr, ast.Name):
-            dicts += [v for v, _ in self._lookup(expr.id, env) if isinstance(v, ast.Dict)]
-        return [
-            value
-            for d in dicts
-            for key, value in zip(d.keys, d.values, strict=True)
-            if isinstance(key, ast.Constant) and key.value in keys
+            return [
+                (value, env)
+                for key, value in zip(expr.keys, expr.values, strict=True)
+                if isinstance(key, ast.Constant) and key.value in keys
+            ]
+        if not isinstance(expr, ast.Name):
+            return []
+        if expr.id.startswith("__UNBOUND_PARAM__"):
+            bound = (
+                self._callers(env.fn, expr.id.removeprefix("__UNBOUND_PARAM__"))
+                if env.fn is not None
+                else []
+            )
+            return [v for b, e in bound for v in self._dict_values(b, e, keys, depth + 1)]
+        found = [
+            v
+            for b, e in self._lookup(expr.id, env)
+            for v in self._dict_values(b, e, keys, depth + 1)
         ]
+        for node in _own_nodes(env.fn) if env.fn is not None else ():
+            if not self._runs(node, env):
+                continue
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "update"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == expr.id
+                and node.args
+            ):
+                found += self._dict_values(node.args[0], env, keys, depth + 1)
+            elif isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if (
+                        isinstance(target, ast.Subscript)
+                        and isinstance(target.value, ast.Name)
+                        and target.value.id == expr.id
+                        and isinstance(target.slice, ast.Constant)
+                        and target.slice.value in keys
+                    ):
+                        found.append((node.value, env))
+        return found
 
     def _classes(self, call: ast.Call, env: _Env) -> list[str]:
-        exprs = [k.value for k in call.keywords if k.arg in ("cls", "class_", "klass")]
+        exprs = [(k.value, env) for k in call.keywords if k.arg in ("cls", "class_", "klass")]
         for k in call.keywords:
             if k.arg is None:
                 exprs += self._dict_values(k.value, env, ("cls", "class", "class_"))
-        return [token for e in exprs for s in self._strings(e, env) for token in s.split()]
+        return [token for e, en in exprs for s in self._strings(e, en) for token in s.split()]
 
     def _styled_box(self, call: ast.Call, env: _Env) -> bool:
         style = _keyword(call, "style")
@@ -428,7 +531,14 @@ class _Walker:
     def _candidates(
         self, name: str, env: _Env, owner: str | None = None
     ) -> list[tuple[str, FunctionNode]]:
-        """The functions a name can call; ``owner`` is the class or module of ``owner.name(...)``."""
+        """The functions a name can call; ``owner`` is the class or module of ``owner.name(...)``.
+
+        A name the module imports is the function its import names (through
+        re-exports); otherwise one defined in the same module, else any of that name.
+        """
+        if owner is None and (imported := self._imported_from(env.rel, name)) is not None:
+            source, original = imported
+            return [(r, fn) for r, fn in self.funcs.get(original, []) if r == source]
         found = self.funcs.get(name) or self.funcs.get(self.import_aliases.get(name, ""), [])
         if owner is not None:
             owned = [
@@ -441,6 +551,17 @@ class _Walker:
                 return owned
         same_file = [c for c in found if c[0] == env.rel]
         return same_file or found
+
+    def _imported_from(self, rel: str, name: str, depth: int = 0) -> tuple[str, str] | None:
+        """The module, and the name there, of the function ``rel`` imports as ``name``,
+        followed through re-exports; ``None`` when no module under the roots defines it."""
+        if depth > 4 or name not in self.imports.get(rel, {}):
+            return None
+        base, original = self.imports[rel][name]
+        source = f"{base}/__init__.py" if f"{base}/__init__.py" in self.files else f"{base}.py"
+        if any(r == source for r, _ in self.funcs.get(original, [])):
+            return source, original
+        return self._imported_from(source, original, depth + 1)
 
     def _bind(
         self,
@@ -460,6 +581,14 @@ class _Walker:
         for k in keywords:
             if k.arg:
                 binds[k.arg] = (k.value, env)
+            else:  # f(**mapping): each key binds the parameter it names
+                for pname in _params(fn):
+                    values = self._dict_values(k.value, env, (pname,))
+                    if values:
+                        value, value_env = values[0]
+                        for other, _ in values[1:]:
+                            value = ast.IfExp(test=ast.Constant(True), body=value, orelse=other)
+                        binds[pname] = (value, value_env)
         if fn.args.vararg:
             binds["*" + fn.args.vararg.arg] = (
                 ast.List(elts=list(args[len(names) :]), ctx=ast.Load()),
@@ -482,13 +611,74 @@ class _Walker:
     def _hole(self, where: str, what: str) -> None:
         self.unresolved.add((where, what))
 
+    def _absent(self, expr: ast.expr, env: _Env, depth: int = 0) -> bool:
+        """A child that may render nothing: one written so (``_maybe_absent``), a name
+        that may hold ``None``, or a call to a function that may return it."""
+        if isinstance(expr, ast.Starred):
+            return not self._never_empty(expr.value, env, depth)
+        if isinstance(expr, ast.IfExp):
+            return self._absent(expr.body, env, depth) or self._absent(expr.orelse, env, depth)
+        if isinstance(expr, ast.Call) and self._tag(expr) is not None and self._hideable(expr, env):
+            return True
+        if _maybe_absent(expr):
+            return True
+        if depth > 4:
+            return False
+        if isinstance(expr, ast.Name):
+            if expr.id.startswith("__UNBOUND_PARAM__"):
+                bound = (
+                    self._callers(env.fn, expr.id.removeprefix("__UNBOUND_PARAM__"))
+                    if env.fn is not None
+                    else []
+                )
+                return any(self._absent(v, e, depth + 1) for v, e in bound)
+            if self._built_list(expr.id, env) is not None:
+                return False  # a list: walked as its items, each judged on its own
+            return any(self._absent(v, e, depth + 1) for v, e in self._lookup(expr.id, env))
+        if (
+            isinstance(expr, ast.Call)
+            and self._tag(expr) is None
+            and _call_name(expr) not in LEAVES
+        ):
+            for rel, fn, args, keywords, arg_env in self._callees(expr, env, depth):
+                call_env = self._bind(fn, args, keywords, arg_env, rel)
+                for n in _own_nodes(fn):
+                    if isinstance(n, ast.Return) and (
+                        n.value is None or self._absent(n.value, call_env, depth + 1)
+                    ):
+                        return True
+        return False
+
+    def _hideable(self, call: ast.Call, env: _Env) -> bool:
+        """An element that can be out of the layout: ``x-show`` / ``x-if`` hide it, and a
+        ``hidden`` class (at any breakpoint) removes it."""
+        if any(_keyword(call, attr) is not None for attr in ("x_show", "x-show", "x_if", "x-if")):
+            return True
+        return any(HIDDEN.match(t) for t in self._classes(call, env))
+
+    def _never_empty(self, expr: ast.expr, env: _Env, depth: int = 0) -> bool:
+        """Whether a sequence a ``*`` spreads always holds a child that renders: a
+        literal with one, a name every binding of which is such a literal, or a list
+        the function builds with one added on every path."""
+        if depth > 4:
+            return False
+        if isinstance(expr, (ast.List, ast.Tuple)):
+            return any(not self._absent(e, env, depth + 1) for e in expr.elts)
+        if isinstance(expr, ast.Name) and not expr.id.startswith("__UNBOUND_PARAM__"):
+            built = self._built_list(expr.id, env)
+            if built is not None:
+                return self._never_empty(built, env, depth + 1)
+            bound = self._lookup(expr.id, env)
+            return bool(bound) and all(self._never_empty(v, e, depth + 1) for v, e in bound)
+        return False
+
     def _siblings(
-        self, items: list[ast.expr], ctx: dict[str, str]
+        self, items: list[ast.expr], env: _Env, ctx: dict[str, str]
     ) -> Iterator[tuple[ast.expr, dict[str, str]]]:
         """Each child with the edges it can sit at: the first one present has the
         parent's top edge, the last one present its bottom edge."""
         edges = set(ctx["edges"].split())
-        present = [not _maybe_absent(item) for item in items]
+        present = [not self._absent(item, env) for item in items]
         for i, item in enumerate(items):
             mine = set()
             if "top" in edges and not any(present[:i]):
@@ -514,7 +704,7 @@ class _Walker:
         if isinstance(expr, ast.Constant):
             return
         if isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
-            for e, child_ctx in self._siblings(list(expr.elts), ctx):
+            for e, child_ctx in self._siblings(list(expr.elts), env, ctx):
                 self.walk(e, env, child_ctx, chain, depth + 1)
             return
         if isinstance(expr, ast.Starred):
@@ -543,6 +733,10 @@ class _Walker:
             return
         if isinstance(expr, ast.Name):
             if expr.id in ("None", "True", "False"):
+                return
+            built = self._built_list(expr.id, env)
+            if built is not None:
+                self.walk(built, env, ctx, chain, depth + 1)
                 return
             hits = self._lookup(expr.id, env)
             if not hits:
@@ -581,6 +775,9 @@ class _Walker:
         tag = self._tag(call)
         if tag in OWN_BOX:
             self.seen_in.add(env.rel)
+            tokens = self._classes(call, env)
+            margins = self._spacing(ctx, tokens, TOP_MARGIN, BOTTOM_MARGIN)
+            self._edge(self.margins, call, env, ctx, chain, tag or "?", margins)
             return
         if tag in ELEMENTS:
             self._element(call, env, ctx, chain, depth)
@@ -607,6 +804,79 @@ class _Walker:
             for n in _own_nodes(fn):
                 if isinstance(n, ast.Return) and n.value is not None:
                     self.walk(n.value, bound, ctx, (*chain, f"{fn.name}()"), depth + 1)
+
+    def _constant(self, test: ast.expr, env: _Env) -> bool | None:
+        """A branch test's truth when it is a name (or ``not`` a name) the call binds to
+        a constant, a parameter's default included; ``None`` when the walk cannot tell."""
+        if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+            inner = self._constant(test.operand, env)
+            return None if inner is None else not inner
+        if not isinstance(test, ast.Name) or env.fn is None or test.id not in _params(env.fn):
+            return None
+        bound = self._lookup(test.id, env)
+        if len(bound) == 1 and isinstance(bound[0][0], ast.Constant):
+            return bool(bound[0][0].value)
+        return None
+
+    def _runs(self, node: ast.AST, env: _Env) -> bool:
+        """Whether ``node`` can run in this call: not inside a branch that a test the
+        call fixes (``_constant``) rules out."""
+        child, parent = node, self.parent.get(node)
+        while parent is not None and parent is not env.fn:
+            if isinstance(parent, ast.If) and child is not parent.test:
+                truth = self._constant(parent.test, env)
+                if truth is not None and truth != (child in parent.body):
+                    return False
+            child, parent = parent, self.parent.get(parent)
+        return True
+
+    def _conditional(self, node: ast.AST, fn: FunctionNode) -> bool:
+        """Whether ``node`` runs only on some paths through ``fn``: under a branch, a loop, a
+        ``try`` or a ``match``."""
+        n = self.parent.get(node)
+        while n is not None and n is not fn:
+            if isinstance(n, (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.Match)):
+                return True
+            n = self.parent.get(n)
+        return False
+
+    def _built_list(self, name: str, env: _Env) -> ast.List | None:
+        """A list the function builds, in order: what it is assigned, then each item
+        added to it in source order. An item added on only some paths may be absent,
+        ``extend`` adds what may be none, and ``insert(0, x)`` puts ``x`` first."""
+        fn = env.fn
+        if fn is None or name in env.binds or name in _params(fn):
+            return None
+        nodes = _own_nodes(fn)
+        added = [(n, item) for n in nodes if (item := _added(n, name)) is not None]
+        if not added:
+            return None
+        first: list[ast.expr] = []
+        elts: list[ast.expr] = []
+        for n in nodes:
+            value = _assigned(n, name)
+            if value is not None:
+                elts += value.elts if isinstance(value, ast.List) else [ast.Starred(value=value)]
+        for call, item in added:
+            assert isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+            if call.func.attr == "extend":
+                item = ast.Starred(value=item)
+            elif self._conditional(call, fn):
+                item = ast.IfExp(test=ast.Constant(True), body=item, orelse=ast.Constant(None))
+            at_front = (
+                call.func.attr == "insert"
+                and isinstance(call.args[0], ast.Constant)
+                and call.args[0].value == 0
+            )
+            if at_front:
+                first.insert(0, item)
+            elif call.func.attr == "insert":
+                elts.append(
+                    ast.IfExp(test=ast.Constant(True), body=item, orelse=ast.Constant(None))
+                )
+            else:
+                elts.append(item)
+        return ast.List(elts=first + elts, ctx=ast.Load())
 
     def _callees(
         self, call: ast.Call, env: _Env, depth: int
@@ -677,6 +947,16 @@ class _Walker:
         self.seen_in.add(env.rel)
         tag = self._tag(call) or "?"
         tokens = self._classes(call, env)
+        # A margin sits outside the element's own box, so a box's is read too.
+        self._edge(
+            self.margins,
+            call,
+            env,
+            ctx,
+            chain,
+            tag,
+            self._spacing(ctx, tokens, TOP_MARGIN, BOTTOM_MARGIN),
+        )
         boxed = [
             t for t in tokens if (BOX.match(t) and not STATE_PREFIX.match(t)) or t in CSS_BOXES
         ]
@@ -686,16 +966,9 @@ class _Walker:
             return  # a bulleted list: its left padding holds the markers
         fn = self._enclosing(call)
         key = (env.rel, call.lineno)
-        edges = ctx["edges"].split()
-        pads_an_edge = ("top" in edges and any(TOP.match(t) for t in tokens)) or (
-            "bottom" in edges and any(BOTTOM.match(t) for t in tokens)
+        self._edge(
+            self.vertical, call, env, ctx, chain, tag, self._spacing(ctx, tokens, TOP, BOTTOM)
         )
-        if pads_an_edge and tag in BLOCKS and ctx["shell"] != "custom":
-            element = self.vertical.setdefault(
-                key,
-                Element(env.rel, call.lineno, tag, fn.name if fn else "<module>", tuple(tokens)),
-            )
-            element.modes.add(ctx["shell"])
         if any(SIDE.match(t) for t in tokens):
             element = self.side.setdefault(
                 key,
@@ -716,8 +989,57 @@ class _Walker:
             return
         if tag in TEXT:
             return
-        for arg, child_ctx in self._siblings(list(call.args), ctx):
+        for arg, child_ctx in self._siblings(list(call.args), env, ctx):
             self.walk(arg, env, child_ctx, (*chain, tag), depth + 1)
+
+    @staticmethod
+    def _spacing(
+        ctx: dict[str, str], tokens: list[str], top: re.Pattern[str], bottom: re.Pattern[str]
+    ) -> tuple[str, ...]:
+        """The classes with which an element spaces an edge of the body it sits at: a
+        ``top`` class at the top edge, a ``bottom`` one at the bottom. A zero value
+        spaces nothing, and a ``first:``/``last:`` zero cancels the element's own space
+        at that edge."""
+
+        def spacing(pattern: re.Pattern[str], reset: str) -> list[str]:
+            if any(t.startswith(reset) and t.endswith("-0") and pattern.match(t) for t in tokens):
+                return []
+            return [
+                t
+                for t in tokens
+                if pattern.match(t) and not t.endswith("-0") and not STATE_PREFIX.match(t)
+            ]
+
+        edges = ctx["edges"].split()
+        found = (spacing(top, "first:") if "top" in edges else []) + (
+            spacing(bottom, "last:") if "bottom" in edges else []
+        )
+        return tuple(sorted(set(found)))
+
+    def _edge(
+        self,
+        found: dict[tuple[str, int, tuple[str, ...]], Element],
+        call: ast.Call,
+        env: _Env,
+        ctx: dict[str, str],
+        chain: tuple[str, ...],
+        tag: str,
+        spacing: tuple[str, ...],
+    ) -> None:
+        """Record an element that spaces the body's top or bottom edge, keyed by the
+        classes that do it: one written in a shared component is recorded once per
+        spacing its callers hand it, and its chains say which caller that is."""
+        if ctx["shell"] == "custom" or not spacing:
+            return
+        fn = self._enclosing(call)
+        element = found.setdefault(
+            (env.rel, call.lineno, spacing),
+            Element(env.rel, call.lineno, tag, fn.name if fn else "<module>", spacing),
+        )
+        element.modes.add(ctx["shell"])
+        element.entries.add(ctx["entry"])
+        element.chains.add(" > ".join(chain[-5:]))
+        element.edges.update(ctx["edges"].split())
 
     def _follow(
         self,
@@ -845,6 +1167,7 @@ class _Walker:
             side=[e for e in side if e.modes - {"custom"}],
             custom_side=[e for e in side if e.modes == {"custom"}],
             vertical=sorted(self.vertical.values(), key=lambda e: (e.rel, e.line)),
+            margins=sorted(self.margins.values(), key=lambda e: (e.rel, e.line)),
             unresolved=self.unresolved,
         )
 

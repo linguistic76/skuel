@@ -49,6 +49,7 @@ def lp_detail_refusal(message: str) -> FT:
         render_error_banner(message),
         ButtonLink("← All learning paths", href="/learning-paths", cls=ButtonT.ghost),
         id=_CONTENT_ID,
+        cls="space-y-4",
     )
 
 

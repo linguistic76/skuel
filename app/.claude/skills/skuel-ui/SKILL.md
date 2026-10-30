@@ -128,7 +128,7 @@ Need a sidebar?
 
 Use tokens from `/ui/tokens.py` for consistent spacing — never hardcode.
 
-**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and `SidebarPage` pads its own; a body handed to either pads none of its sides, top or bottom — a second `px-4` puts 32px of gutter before the first card at 375px. Only a `PageType.CUSTOM` body pads itself. `tests/unit/ui/test_page_gutters.py` holds every shelled body to this, with no exceptions.
+**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and `SidebarPage` pads its own; a body handed to either pads none of its sides, top or bottom, and puts no margin at its top or bottom edge — a second `px-4` puts 32px of gutter before the first card at 375px. Spacing between siblings belongs to their parent (`space-y-*`, or `gap-*` when a child can be hidden), which adds none at its own edges. Only a `PageType.CUSTOM` body pads itself. `tests/unit/ui/test_page_gutters.py` holds every shelled body to this, with no exceptions.
 
 ```python
 from ui.tokens import Container, Spacing, Card
@@ -405,7 +405,7 @@ When building a new SKUEL page or feature, verify:
 - [ ] Uses `BasePage` (not custom HTML)
 - [ ] Passes `request` parameter (auto auth detection)
 - [ ] Includes `active_page` (navbar highlighting)
-- [ ] The body pads none of its sides, top or bottom — the shell owns the gutter (`test_page_gutters.py`)
+- [ ] The body pads none of its sides, top or bottom, and no child spaces its top or bottom edge with a margin — the shell owns the gutter (`test_page_gutters.py`)
 
 **Navigation:**
 - [ ] `<nav>` has `aria-label`

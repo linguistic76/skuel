@@ -20,10 +20,11 @@ if TYPE_CHECKING:
 def render_404_page(request: Request) -> FT:
     """The not-found page, in the page shell."""
     return BasePage(
-        PageHeader(
-            "Page Not Found",
-            subtitle="Sorry, the page you're looking for doesn't exist.",
-            actions=Div(
+        Div(
+            PageHeader(
+                "Page Not Found", subtitle="Sorry, the page you're looking for doesn't exist."
+            ),
+            Div(
                 ButtonLink("Go Home", href="/", cls=ButtonT.primary),
                 ButtonLink("Search", href="/search", cls=ButtonT.secondary),
                 cls="flex flex-wrap gap-2",

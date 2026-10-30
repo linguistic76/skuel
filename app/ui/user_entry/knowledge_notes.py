@@ -153,7 +153,7 @@ def _entry_row(row: KnowledgeEntryGroundingRow) -> Any:
             ),
             chips_section,
         ),
-        cls="bg-background shadow-xs mb-2",
+        cls="bg-background shadow-xs p-4",
         id=f"knowledge-entry-{uid}",
     )
 
@@ -169,7 +169,7 @@ def render_knowledge_notes_list(rows: list[KnowledgeEntryGroundingRow]) -> Any:
                 "concepts they ground to."
             ),
         )
-    return Div(*[_entry_row(r) for r in rows])
+    return Div(*[_entry_row(r) for r in rows], cls="space-y-2")
 
 
 __all__ = ["EntryKnowledgeChips", "KnowledgeLinkChip", "render_knowledge_notes_list"]

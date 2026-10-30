@@ -27,7 +27,7 @@ def personal_header_placeholder() -> Div:
 
 def personal_header(context: UserContext) -> Div:
     """Focus + Velocity compact header."""
-    return Div(_focus_line(context), _velocity_line(context), cls="mb-2")
+    return Div(_focus_line(context), _velocity_line(context))
 
 
 def _focus_line(context: UserContext) -> Div:
@@ -73,5 +73,5 @@ def _velocity_line(context: UserContext) -> Div:
         Span(label, cls=f"text-sm font-medium {color}"),
         Span(" \u00b7 ", cls="text-foreground/30 mx-2"),
         Span(f"{total_time:.1f}h invested", cls="text-sm text-muted-foreground"),
-        cls="flex items-center mb-4",
+        cls="flex items-center",
     )

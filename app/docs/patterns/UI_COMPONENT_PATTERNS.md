@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-26'
+updated: '2026-10-30'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -243,7 +243,7 @@ class DomainStatsConfig:
 
 ### Design Tokens
 
-**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and `SidebarPage` pads its own; a body handed to either pads none of its sides, top or bottom — a second `px-4` puts 32px of gutter before the first card at 375px. Only a `PageType.CUSTOM` body pads itself. `tests/unit/ui/test_page_gutters.py` holds every shelled body to this, with no exceptions.
+**The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and `SidebarPage` pads its own; a body handed to either pads none of its sides, top or bottom, and puts no margin at its top or bottom edge — a second `px-4` puts 32px of gutter before the first card at 375px. Spacing between siblings belongs to their parent (`space-y-*`, or `gap-*` when a child can be hidden), which adds none at its own edges. Only a `PageType.CUSTOM` body pads itself. `tests/unit/ui/test_page_gutters.py` holds every shelled body to this, with no exceptions.
 
 ```python
 from ui.tokens import Spacing, Container, Card
@@ -1120,7 +1120,7 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 2. `service.get_for_user(uid, user_uid)` for ownership-verified fetch
 3. BasePage-wrapped error card on failure (not bare `Div` or `Response`)
 4. HTML construction: trivial layout glue (a `Div` wrapper, `Container`/`Spacing` tokens) may remain inline; non-trivial blocks (forms, multi-section panels, display helpers) **must** go in `ui/{domain}/` — route files must not import `Form`, `Input`, `Label`, `Textarea` to build them inline
-5. No padding on the outer content Div — the page shell owns the gutter (`tests/unit/ui/test_page_gutters.py`)
+5. No padding on the outer content Div, and no margin at its top or bottom edge — the page shell owns the gutter (`tests/unit/ui/test_page_gutters.py`)
 6. `EntityRelationshipsSection(entity_uid=..., entity_type=...)` for lateral relationships
 7. `BasePage(content=content, title=..., page_type=PageType.STANDARD, request=request, active_page="{domain}")`
 
