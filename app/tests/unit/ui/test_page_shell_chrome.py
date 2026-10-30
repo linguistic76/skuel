@@ -3,9 +3,9 @@
 The navbar and the bottom nav come from ``BasePage`` (and ``SidebarPage`` through it),
 which build them from the request a page hands over. A body that builds its own
 navbar is a page without the shell: no bottom nav below ``sm``, no skip link, and a bar
-inside the page's padding instead of across the top — how ``/analytics`` and ``/404``
-rendered. This census reads every call to a chrome builder under ``ui/`` and
-``adapters/inbound/`` and holds each to the shells' module.
+inside the page's padding instead of across the top. This census reads every call to a
+chrome builder under ``ui/`` and ``adapters/inbound/`` and holds each to the shells'
+module.
 
 A call is found by the name it is made through: a builder's own name, an import alias
 of one (``from ui.layouts.navbar import create_navbar as nav``), or an attribute of a

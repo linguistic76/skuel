@@ -4,9 +4,8 @@
 The vision form and each recommendation's "Choose This Path" form are native POSTs
 carrying their CSRF field. A refused vision comes back as the vision form, in the
 shell, with its banner and the learner's text; a validation refusal's banner reads its
-reason. A designation answers a 303 to the alignment page — a navigation, not a page
-swapped into the recommendation card — or its refusal in the shell with the way back
-to the vision. CSRF is enforced for real: cookie plus the form field.
+reason. A designation answers a 303 to the alignment page, or its refusal in the shell
+with the way back to the vision. CSRF is enforced for real: cookie plus the form field.
 """
 
 from __future__ import annotations
