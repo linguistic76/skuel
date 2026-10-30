@@ -175,7 +175,7 @@ def EventCard(
     return Card(
         header,
         id=f"event-{safe_id(event.uid)}",
-        cls=f"mb-2 p-3 {opacity}",
+        cls=f"p-3 {opacity}",
     )
 
 

@@ -214,7 +214,6 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
         header,
         panel,
         id=f"row-{dom_id}",
-        cls="mb-3",
         **{"x-data": "{ open: false }"},
     )
 
@@ -222,23 +221,20 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
 def _render_submission_list(items: list[SubmissionRow], empty_message: str) -> Any:
     """Inline rows for a submission list, or a centered empty-state message."""
     if not items:
-        return P(empty_message, cls="text-center text-muted-foreground py-8 text-sm")
-    return Div(*[render_student_submission_inline_row(item) for item in items])
+        return P(empty_message, cls="text-center text-muted-foreground text-sm")
+    return Div(*[render_student_submission_inline_row(item) for item in items], cls="space-y-3")
 
 
 def _render_ku_progress(ku_detail: dict[str, Any] | None) -> Any:
     """KU progress summary + detail list, or an unavailable message."""
     if ku_detail is None:
-        return P(
-            "KU progress data unavailable.",
-            cls="text-center text-muted-foreground py-8 text-sm",
-        )
+        return P("KU progress data unavailable.", cls="text-center text-muted-foreground text-sm")
     from ui.admin.views import AdminLearningComponents
 
     return Div(
         AdminLearningComponents.render_user_ku_summary(ku_detail),
-        Div(cls="mb-6"),
         AdminLearningComponents.render_user_ku_detail_list(ku_detail),
+        cls="space-y-6",
     )
 
 

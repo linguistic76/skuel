@@ -86,6 +86,7 @@ def create_exercises_ui_routes(app, rt, exercises_service) -> None:
                 render_error_banner(message),
                 ButtonLink("← Back to Library", href="/library", cls=ButtonT.ghost),
                 id="exercise-detail-content",
+                cls="space-y-4",
             )
 
         result = await exercises_service.get_exercise_for_user(uid, user_uid)

@@ -175,7 +175,7 @@ def GoalCard(
     return Div(
         header,
         id=f"goal-{safe_id(goal.uid)}",
-        cls=f"card bg-card text-card-foreground rounded-lg border p-3 mb-2 {completed_cls}",
+        cls=f"card bg-card text-card-foreground rounded-lg border p-3 {completed_cls}",
     )
 
 

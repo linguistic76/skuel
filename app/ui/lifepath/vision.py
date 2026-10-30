@@ -96,7 +96,6 @@ def render_recommendations_page(data: dict, user_uid: UserUID) -> Any:
                 hx_post="/lifepath/designate",
                 hx_vals=json.dumps({"life_path_uid": rec.get("lp_uid", "")}),
             ),
-            cls="mb-4",
         )
         for rec in recommendations
     ]
@@ -109,15 +108,13 @@ def render_recommendations_page(data: dict, user_uid: UserUID) -> Any:
             cls="text-sm text-muted-foreground mb-8",
         ),
         SectionHeader("Recommended Learning Paths"),
-        *rec_cards
+        Div(*rec_cards, cls="space-y-4")
         if rec_cards
-        else [
-            EmptyState(
-                title="No Matching Learning Paths",
-                description="No matching Learning Paths found.",
-                action_text="Create one",
-                action_href="/learning-paths",
-            )
-        ],
+        else EmptyState(
+            title="No Matching Learning Paths",
+            description="No matching Learning Paths found.",
+            action_text="Create one",
+            action_href="/learning-paths",
+        ),
         cls=f"container mx-auto {Container.NARROW}",
     )

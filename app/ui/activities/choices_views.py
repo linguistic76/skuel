@@ -182,7 +182,7 @@ def ChoiceCard(
     return Card(
         header,
         id=f"choice-{safe_id(choice.uid)}",
-        cls=f"mb-2 p-3 {opacity}",
+        cls=f"p-3 {opacity}",
     )
 
 

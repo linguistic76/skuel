@@ -182,11 +182,11 @@ def create_teaching_forms_ui_routes(
                         cls=ButtonT.primary,
                         size="sm",
                     ),
-                    card_attrs={"cls": "bg-background shadow-xs mb-2"},
+                    card_attrs={"cls": "bg-background shadow-xs"},
                 )
             )
 
-        content = Div(PageHeader("Forms"), *template_cards)
+        content = Div(PageHeader("Forms"), Div(*template_cards, cls="space-y-2"))
         return render_teaching_sidebar_page(content, active="forms", request=request)
 
     # ==================================================================
@@ -291,7 +291,7 @@ def create_teaching_forms_ui_routes(
                         cls=ButtonT.ghost,
                         size="sm",
                     ),
-                    card_attrs={"cls": "bg-background shadow-xs mb-2"},
+                    card_attrs={"cls": "bg-background shadow-xs"},
                 )
             )
 
@@ -301,7 +301,7 @@ def create_teaching_forms_ui_routes(
                 template.title,
                 subtitle=f"{len(submissions)} submission{'s' if len(submissions) != 1 else ''}",
             ),
-            *submission_rows,
+            Div(*submission_rows, cls="space-y-2"),
         )
         return render_teaching_sidebar_page(content, active="forms", request=request)
 

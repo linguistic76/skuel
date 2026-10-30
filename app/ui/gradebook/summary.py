@@ -159,7 +159,7 @@ def _share_revised_nudge(row: StudentExchangeSummary) -> FT | str:
         Span(SHARE_REVISED_NUDGE_LABEL, cls="ml-1"),
         Span(" →", aria_hidden="true"),
         href=share_revised_nudge_href(row["latest_entry_uid"]),
-        cls="inline-flex items-center min-h-[36px] px-3 -mt-1 mb-2 text-xs text-primary no-underline hover:underline",
+        cls="inline-flex items-center min-h-[36px] px-3 mt-1 text-xs text-primary no-underline hover:underline",
     )
 
 
@@ -204,7 +204,7 @@ def _exchange_line(row: StudentExchangeSummary) -> FT:
             cls="flex items-center gap-3 p-3 border border-border rounded-lg bg-background hover:border-primary/50 transition-colors",
         ),
         href=f"/exchange?exercise={row['exercise_uid']}",
-        cls="block no-underline text-foreground mb-2",
+        cls="block no-underline text-foreground",
     )
     return Div(line, _share_revised_nudge(row))
 
@@ -227,10 +227,10 @@ def render_exchange_section(rows: list[StudentExchangeSummary], status: str, sou
     elif not visible:
         body = P(
             "No exchanges match this filter.",
-            cls="text-sm text-muted-foreground py-4 text-center",
+            cls="text-sm text-muted-foreground pt-4 text-center",
         )
     else:
-        body = Div(*[_exchange_line(row) for row in visible])
+        body = Div(*[_exchange_line(row) for row in visible], cls="space-y-2")
     return Div(
         _filter_bar(status, source),
         body,
@@ -250,7 +250,7 @@ def _other_feedback_card(row: GradebookOtherReport) -> FT:
             cls="p-3 border border-border rounded-lg bg-background hover:border-primary/50 transition-colors",
         ),
         href=f"/entry-reports/detail?uid={row['uid']}",
-        cls="block no-underline text-foreground mb-2",
+        cls="block no-underline text-foreground",
     )
 
 
@@ -265,13 +265,12 @@ def render_other_feedback_group(rows: list[GradebookOtherReport]) -> FT | None:
     if not rows:
         return None
     return Div(
-        H2("Other feedback", cls="text-lg font-semibold mb-1"),
-        P(
-            OTHER_FEEDBACK_SUBTITLE,
-            cls="text-sm text-muted-foreground mb-3",
+        Div(
+            H2("Other feedback", cls="text-lg font-semibold mb-1"),
+            P(OTHER_FEEDBACK_SUBTITLE, cls="text-sm text-muted-foreground"),
         ),
-        *[_other_feedback_card(row) for row in rows],
-        cls="mt-8",
+        Div(*[_other_feedback_card(row) for row in rows], cls="space-y-2"),
+        cls="mt-8 space-y-3",
     )
 
 
@@ -284,13 +283,15 @@ def render_activity_reports_group(reports_list: FT | None) -> FT | None:
     if reports_list is None:
         return None
     return Div(
-        H2("Activity reports", cls="text-lg font-semibold mb-1"),
-        P(
-            "Holistic reports across your activity patterns.",
-            cls="text-sm text-muted-foreground mb-3",
+        Div(
+            H2("Activity reports", cls="text-lg font-semibold mb-1"),
+            P(
+                "Holistic reports across your activity patterns.",
+                cls="text-sm text-muted-foreground",
+            ),
         ),
         reports_list,
-        cls="mt-8",
+        cls="mt-8 space-y-3",
     )
 
 

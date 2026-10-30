@@ -199,7 +199,7 @@ def PrincipleCard(
     return Card(
         header,
         id=f"principle-{safe_id(principle.uid)}",
-        cls=f"mb-2 p-3 {opacity}",
+        cls=f"p-3 {opacity}",
     )
 
 

@@ -21,6 +21,7 @@ from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import ButtonLink
+from ui.tokens import Spacing
 from ui.ui_types import ActivePathData, LearningStatsData
 
 
@@ -103,7 +104,6 @@ def dashboard_content(active_paths: list[ActivePathData], stats: LearningStatsDa
                     ],
                 ),
             ),
-            cls="mb-8",
         ),
         Card(
             CardHeader(
@@ -128,7 +128,6 @@ def dashboard_content(active_paths: list[ActivePathData], stats: LearningStatsDa
                 ),
             ),
             CardBody(paths_section),
-            cls="mb-8",
         ),
         Card(
             CardHeader(CardTitle("Quick Actions")),
@@ -152,9 +151,9 @@ def dashboard_content(active_paths: list[ActivePathData], stats: LearningStatsDa
                     cls="flex flex-wrap gap-3",
                 ),
             ),
-            cls="mb-8",
         ),
         id="pathways-dashboard-content",
+        cls=Spacing.SECTION,
     )
 
 
@@ -181,10 +180,10 @@ def browse_content(available_paths: list[dict[str, Any]]) -> Any:
                     cls="grid grid-cols-1 md:grid-cols-3 gap-4",
                 ),
             ),
-            cls="mb-8",
         ),
-        Div(paths_grid(available_paths), id="learning-paths-grid", cls="mb-8"),
+        Div(paths_grid(available_paths), id="learning-paths-grid"),
         id="pathways-browse-content",
+        cls=Spacing.SECTION,
     )
 
 
@@ -198,7 +197,7 @@ def paths_grid(
             cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
         )
     return Div(
-        P(empty_message, cls="text-muted-foreground text-center py-8"),
+        P(empty_message, cls="text-muted-foreground text-center pt-8"),
     )
 
 
@@ -213,7 +212,7 @@ def steps_browser_page(steps: list[Any]) -> Any:
         grid_content = Div(
             P(
                 "No path steps available yet.",
-                cls="text-muted-foreground text-center py-8",
+                cls="text-muted-foreground text-center pt-8",
             ),
         )
 
@@ -224,7 +223,6 @@ def steps_browser_page(steps: list[Any]) -> Any:
         Div(
             grid_content,
             id="path-steps-grid",
-            cls="mb-8",
         ),
         cls="container mx-auto",
     )
@@ -273,7 +271,6 @@ def analytics_content(analytics: dict[str, Any]) -> Any:
                     cols=4,
                 ),
             ),
-            cls="mb-8",
         ),
         id="pathways-analytics-content",
     )

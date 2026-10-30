@@ -143,7 +143,7 @@ def render_submission_history_row(item: dict) -> Any:
             # Phone: the title block takes the row, the badges and buttons wrap under it.
             cls="flex flex-wrap items-center gap-3 sm:gap-4",
         ),
-        cls="bg-background shadow-xs mb-2",
+        cls="bg-background shadow-xs p-4",
         id=f"submission-row-{uid}",
     )
 
@@ -158,6 +158,7 @@ def render_yours_list(items: list[dict]) -> Any:
     return Div(
         *[render_submission_history_row(item) for item in items],
         id="submissions-yours-list",
+        cls="space-y-2",
     )
 
 
@@ -348,12 +349,12 @@ def render_activity_report_card(report: Any) -> Any:
         return A(
             Card(
                 card_content,
-                cls="bg-background border border-border mb-2 hover:border-primary/50 transition-colors",
+                cls="bg-background border border-border hover:border-primary/50 transition-colors",
             ),
             href=f"/activity-reports/detail?uid={uid}",
             cls="block no-underline text-foreground",
         )
-    return Card(card_content, cls="bg-background border border-border mb-2")
+    return Card(card_content, cls="bg-background border border-border")
 
 
 def render_activity_report_list(items: list[Any]) -> Any:
@@ -371,6 +372,7 @@ def render_activity_report_list(items: list[Any]) -> Any:
     return Div(
         *[render_activity_report_card(r) for r in items],
         id="activity-feedback-list",
+        cls="space-y-2",
     )
 
 
@@ -1121,7 +1123,7 @@ def render_progress_report_card(report: Any) -> Any:
             content_section,
             cls="p-4",
         ),
-        cls="bg-background shadow-xs mb-3",
+        cls="bg-background shadow-xs",
     )
 
 
@@ -1131,11 +1133,12 @@ def render_progress_report_list(items: list[Any]) -> Any:
         return Div(
             P(
                 "No activity feedback yet. Generate your first one above!",
-                cls="text-center text-muted-foreground py-4",
+                cls="text-center text-muted-foreground pt-4",
             ),
             id="progress-list",
         )
     return Div(
         *[render_progress_report_card(r) for r in items],
         id="progress-list",
+        cls="space-y-3",
     )

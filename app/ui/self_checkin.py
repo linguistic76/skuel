@@ -113,7 +113,6 @@ def render_checkin_history(checkins_by_dimension: dict[str, list[dict[str, Any]]
             Div(
                 H4(label, cls="font-semibold text-sm"),
                 render_checkin_trend(checkins),
-                cls="mb-4",
             )
         )
 
@@ -122,7 +121,7 @@ def render_checkin_history(checkins_by_dimension: dict[str, list[dict[str, Any]]
 
     return Div(
         section_label("Your Check-In History"),
-        *blocks,
+        Div(*blocks, cls="space-y-4"),
         cls="mt-8",
     )
 

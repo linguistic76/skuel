@@ -148,14 +148,10 @@ def create_insights_history_routes(
                 )
 
                 # Wrap card with metadata
-                item = Div(
-                    metadata_header,
-                    InsightCard(insight),
-                    cls="mb-4",
-                )
+                item = Div(metadata_header, InsightCard(insight))
                 insight_items.append(item)
 
-            history_cards = Div(*insight_items)
+            history_cards = Div(*insight_items, cls="space-y-4")
         else:
             # Empty state
             empty_message = {

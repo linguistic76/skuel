@@ -210,6 +210,7 @@ def create_activity_ui_routes(
             PageHeader(title, actions=header_actions),
             content_loading_placeholder(fragment_url, f"{domain}-content"),
             personal_header_placeholder(),
+            cls="space-y-6",
         )
         return render_activity_sidebar_page(content, active=domain, request=request)
 
@@ -241,6 +242,7 @@ def create_activity_ui_routes(
             config.list_component(filtered, connections_map),
             config.stats_component(all_items),
             id=f"{domain}-content",
+            cls="space-y-4",
         )
 
     # ------------------------------------------------------------------

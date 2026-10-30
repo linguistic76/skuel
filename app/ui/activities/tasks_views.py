@@ -165,7 +165,7 @@ def TaskCard(
     return Card(
         header,
         id=f"task-{safe_id(task.uid)}",
-        cls=f"mb-2 p-3 {'opacity-75' if is_completed else ''}",
+        cls=f"p-3 {'opacity-75' if is_completed else ''}",
     )
 
 
@@ -387,6 +387,7 @@ def DependencyListFragment(
         add_form,
         id=container_id,
         hx_swap="outerHTML",
+        cls="space-y-3",
     )
 
 

@@ -172,7 +172,6 @@ class AdminUIComponents:
                 ),
             ),
             id=account_card_id(uid),
-            cls="mb-6",
         )
 
     @staticmethod
@@ -511,13 +510,11 @@ class AdminAnalyticsComponents:
             Card(
                 CardHeader(CardTitle("User Distribution")),
                 CardBody(AdminAnalyticsComponents.render_user_distribution(user_stats)),
-                cls="mb-6",
             ),
             # Activity stats section
             Card(
                 CardHeader(CardTitle("Activity Statistics (30 days)")),
                 CardBody(AdminAnalyticsComponents.render_activity_stats(activity_stats)),
-                cls="mb-6",
             ),
             # Search gaps section — the content authoring queue
             Card(
@@ -525,8 +522,8 @@ class AdminAnalyticsComponents:
                 CardBody(
                     AdminAnalyticsComponents.render_search_gaps(search_gaps, search_event_total)
                 ),
-                cls="mb-6",
             ),
+            cls="space-y-6",
         )
 
     @staticmethod
@@ -844,9 +841,10 @@ def _ku_state_section(title: str, badge_variant: BadgeT, kus: list[dict], date_f
         Div(
             Badge(title, variant=badge_variant, cls="font-semibold"),
             Span(f"({len(kus)})", cls="text-sm text-muted-foreground ml-2"),
-            cls="flex items-center mb-3",
+            cls="flex items-center",
         ),
-        *items,
+        Div(*items),
+        cls="space-y-3",
     )
 
 
@@ -981,10 +979,7 @@ class AdminLearningComponents:
 
         if total == 0:
             return Div(
-                P(
-                    "This user has no KU interactions yet.",
-                    cls="text-muted-foreground py-4",
-                ),
+                P("This user has no KU interactions yet.", cls="text-muted-foreground"),
             )
 
         return StatsGrid(
@@ -1016,7 +1011,7 @@ class AdminLearningComponents:
             return Div(
                 P(
                     "No Knowledge Unit interactions recorded for this user.",
-                    cls="text-muted-foreground py-4",
+                    cls="text-muted-foreground pt-4",
                 ),
             )
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-26
+updated: 2026-10-30
 ---
 
 # SKUEL UI Component Catalog
@@ -1177,8 +1177,9 @@ Unified sidebar component for all sidebar pages (Activity Domains, Explore, Grad
 
 **The shell owns the gutter.** `BasePage(STANDARD)` pads its column with `Spacing.PAGE` and centres it at
 `Container.STANDARD`; `SidebarPage` pads its own. A body handed to either pads none of its sides, top or
-bottom — only a `PageType.CUSTOM` body pads itself (`tests/unit/ui/test_page_gutters.py`, with no
-exceptions).
+bottom, and puts no margin at its top or bottom edge — only a `PageType.CUSTOM` body pads itself
+(`tests/unit/ui/test_page_gutters.py`, with no exceptions). Spacing between siblings belongs to their
+parent (`space-y-*`, or `gap-*` when a child can be hidden), which adds none at its own edges.
 
 ```python
 from ui.tokens import Card, Container, Spacing

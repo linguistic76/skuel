@@ -3,9 +3,10 @@
 ``SidebarPage`` pads its content column (``px-4 sm:px-6 lg:px-8 py-4 lg:py-6``) and
 ``BasePage(STANDARD)`` pads its own (``Spacing.PAGE``). A body that pads its sides
 as well doubles the gutter — at 375px two ``px-4`` put 32px before the first card, a
-quarter of the width gone to margin — and one that pads its top or bottom again
-pushes the page down. ``BasePage(page_type=CUSTOM)`` pads nothing, so a body there
-pads itself.
+quarter of the width gone to margin — and one that pads its top or bottom again, or
+puts a margin there, pushes the page down. Spacing between siblings belongs to their
+parent, which adds none at its own edges. ``BasePage(page_type=CUSTOM)`` pads
+nothing, so a body there pads itself.
 
 The census (``_gutter_census.py``) finds every body handed to a padded shell, through
 wrappers, helpers and HTMX fragments, by reading the source; nothing here names the
@@ -56,6 +57,13 @@ def test_no_shelled_body_pads_its_own_sides(taken: census.Census) -> None:
 
 def test_no_shelled_body_pads_its_own_top_or_bottom(taken: census.Census) -> None:
     assert [_where(e) for e in taken.vertical] == []
+
+
+def test_no_shelled_body_spaces_its_own_top_or_bottom_with_a_margin(taken: census.Census) -> None:
+    """A margin at the body's top or bottom edge sits inside the shell's padding, so it
+    doubles the shell's space as padding there does. Spacing between siblings belongs
+    to their parent (``space-y-*`` / ``gap-*``), which puts none at its own edges."""
+    assert [f"{_where(e)} via {min(e.chains)}" for e in taken.margins] == []
 
 
 def test_the_census_holes_are_the_ones_read_by_hand(taken: census.Census) -> None:
@@ -192,6 +200,232 @@ def test_control_only_the_edges_carry_vertical_padding() -> None:
 
     assert len(top.vertical) == len(bottom.vertical) == len(after_an_optional_child.vertical) == 1
     assert middle.vertical == []
+
+
+def test_control_a_margin_at_an_edge_is_a_finding() -> None:
+    top = _one('Div(Div(P("a"), cls="mt-8"), P("b"))')
+    bottom = _one('Div(P("a"), Div(P("b"), cls="sm:mb-8"))')
+    both = _one('Div(P("a"), cls="my-4")')
+    middle = _one('Div(P("a"), Div(P("b"), cls="my-8"), P("c"))')
+    aligned = _one('Div(Div(P("a"), cls="mt-auto mb-auto mb-0 -mb-2 mx-4"))')
+
+    assert [e.classes for e in top.margins] == [("mt-8",)]
+    assert [e.classes for e in bottom.margins] == [("sm:mb-8",)]
+    assert [e.edges for e in both.margins] == [{"top", "bottom"}]
+    assert middle.margins == aligned.margins == []
+
+
+def test_control_a_box_and_a_control_at_an_edge_are_spaced_by_their_margin() -> None:
+    """A margin sits outside the element's own box, so a card's, a link's or a
+    paragraph's counts where its padding does not."""
+    card = _one('Div(P("a"), Div(P("b"), cls="border rounded-lg p-4 mb-4"))')
+    link = _one('Div(P("a"), A("b", href="/x", cls="block mb-2"))')
+    text = _one('Div(Div(P("a")), P("b", cls="mb-3"))')
+
+    assert [e.tag for e in card.margins + link.margins + text.margins] == ["Div", "A", "P"]
+    assert card.vertical == []
+
+
+def test_control_a_first_or_last_reset_cancels_the_margin_at_that_edge() -> None:
+    """``_HUB_BLOCK_CLS`` (ui/patterns/hub.py): each block spaces the next and the
+    last one takes its own margin back."""
+    reset = _one('Div(P("a"), Div(P("b"), cls="border-b mb-5 last:mb-0 pb-5 last:pb-0"))')
+    first = _one('Div(Div(P("a"), cls="mt-4 first:mt-0"), P("b"))')
+    wrong_edge = _one('Div(Div(P("a"), cls="mt-4 last:mt-0"), P("b"))')
+
+    assert reset.margins == reset.vertical == first.margins == []
+    assert len(wrong_edge.margins) == 1
+
+
+def test_control_text_at_an_edge_pads_it() -> None:
+    """``P("No learning paths available yet.", cls="... py-8")`` at the bottom of the
+    pathways browse body doubles the shell's bottom padding, as a block would."""
+    found = _one('Div(Div(P("a")), P("none yet", cls="text-center py-8"))')
+
+    assert [(e.tag, e.classes) for e in found.vertical] == [("P", ("py-8",))]
+
+
+def test_control_a_mapping_built_up_passes_its_classes() -> None:
+    """``CardGenerator.from_dataclass`` builds ``attrs = {}``, updates it from its
+    ``card_attrs`` parameter and spreads it into ``Card``, whose ``cls`` it binds."""
+    found = census.take(
+        {
+            "ui/sample.py": (
+                "def card(*c, cls='', **kw):\n"
+                "    return Div(*c, cls=f'border {cls}', **kw)\n"
+                "def make(card_attrs=None, extra=''):\n"
+                "    attrs = {}\n"
+                "    if card_attrs:\n"
+                "        attrs.update(card_attrs)\n"
+                "    return card(P('x'), **attrs)\n"
+                "def keyed(pad):\n"
+                "    attrs = {'id': 'k'}\n"
+                "    attrs['cls'] = pad\n"
+                "    return Div(P('y'), **attrs)\n"
+                "def page(request):\n"
+                "    body = Div(keyed('px-4'), P('m'), make(card_attrs={'cls': 'mb-2'}))\n"
+                "    return SidebarPage(body, items=[])\n"
+            ),
+        }
+    )
+
+    assert [(e.function, e.classes) for e in found.margins] == [("card", ("mb-2",))]
+    assert [e.function for e in found.side] == ["keyed"]
+
+
+def test_control_a_list_built_by_appending_is_walked_in_order() -> None:
+    """EmptyState appends its icon first and its action last: the icon's margin is
+    always followed, the action's always follows."""
+
+    def built(lines: str) -> census.Census:
+        return census.take(
+            {
+                "ui/sample.py": (
+                    "def page(request):\n"
+                    "    items = [P('first')]\n"
+                    f"{lines}"
+                    "    return SidebarPage(Div(*items), items=[])\n"
+                ),
+            }
+        )
+
+    followed = built("    items.append(Div(P('a'), cls='mb-4'))\n    items.append(P('b'))\n")
+    last = built("    items.append(P('b'))\n    items.append(Div(P('a'), cls='mb-4'))\n")
+    then_maybe = built(
+        "    items.append(Div(P('a'), cls='mb-4'))\n    if x:\n        items.append(P('b'))\n"
+    )
+    in_front = built("    items.insert(0, Div(P('a'), cls='mt-4'))\n")
+
+    assert followed.margins == []
+    assert len(last.margins) == len(then_maybe.margins) == len(in_front.margins) == 1
+
+
+def test_control_a_child_that_may_render_nothing_does_not_hold_the_edge() -> None:
+    """The GradeBook's last two groups each return ``None`` when they are empty, so
+    the exchange section above them can be the last thing on the page."""
+
+    def page(after: str) -> census.Census:
+        return census.take(
+            {
+                "ui/sample.py": (
+                    "def group(rows):\n"
+                    "    if not rows:\n"
+                    "        return None\n"
+                    "    return Div(P('g'))\n"
+                    "def always(rows):\n"
+                    "    return Div(P('g'))\n"
+                    "def page(request):\n"
+                    "    more = None\n"
+                    f"    body = Div(Div(P('a'), cls='mb-8'), {after})\n"
+                    "    return SidebarPage(body, items=[])\n"
+                ),
+            }
+        )
+
+    assert len(page("group(rows)").margins) == len(page("more").margins) == 1
+    assert len(page("always(rows) if x else group(rows)").margins) == 1
+    assert page("always(rows)").margins == []
+
+
+def test_control_a_spread_that_is_never_empty_holds_the_edge() -> None:
+    """The Obsidian sync page spreads a tuple that holds a panel on either branch."""
+    found = census.take(
+        {
+            "ui/sample.py": (
+                "def page(request):\n"
+                "    if x:\n"
+                "        area = (P('a'), Div(id='r'))\n"
+                "    else:\n"
+                "        area = (Div(P('b')),)\n"
+                "    return SidebarPage(Div(Div(P('h'), cls='mb-6'), *area), items=[])\n"
+                "def other(request):\n"
+                "    rows = [P(r) for r in rs]\n"
+                "    return SidebarPage(Div(Div(P('h'), cls='mb-4'), *rows), items=[])\n"
+            ),
+        }
+    )
+
+    assert [e.classes for e in found.margins] == [("mb-4",)]
+
+
+def test_control_a_shared_component_is_recorded_once_per_spacing_handed_to_it() -> None:
+    """``Card`` writes no margin; its callers hand it one through ``cls``. Each spacing
+    is its own record, and the record's chains name the caller."""
+    found = census.take(
+        {
+            "ui/sample.py": (
+                "def card(*c, cls=''):\n"
+                "    return Div(*c, cls=f'border {cls}')\n"
+                "def first(request):\n"
+                "    return SidebarPage(Div(P('a'), card(P('b'), cls='mb-2')), items=[])\n"
+                "def second(request):\n"
+                "    return SidebarPage(Div(P('a'), card(P('b'), cls='mb-8')), items=[])\n"
+            ),
+        }
+    )
+
+    assert sorted(e.classes for e in found.margins) == [("mb-2",), ("mb-8",)]
+    assert all(e.chains == {"Div > card()"} for e in found.margins)
+
+
+def test_control_an_imported_name_is_the_function_its_import_names() -> None:
+    """Two modules define ``render_queue_item``; the teaching queue imports one.
+    An alias (``from ui.components import Alert as _SKUELAlert``, in a module that
+    defines its own ``Alert``) is the imported function, never the local one, and a
+    package re-export is followed to the module that defines it."""
+    found = census.take(
+        {
+            "ui/a/cards.py": "def row(x):\n    return Div(P(x), cls='border mb-3')\n",
+            "ui/b/cards.py": "def row(x):\n    return Div(P(x), cls='border mb-2')\n",
+            "ui/b/__init__.py": "from .cards import row\n",
+            "ui/wrap.py": ("from ui.b import row as _inner\ndef row(x):\n    return _inner(x)\n"),
+            "ui/page.py": (
+                "from ui.wrap import row\n"
+                "def page(request):\n"
+                "    return SidebarPage(Div(P('h'), row('r')), items=[])\n"
+            ),
+        }
+    )
+
+    assert [(e.rel, e.classes) for e in found.margins] == [("ui/b/cards.py", ("mb-2",))]
+
+
+def test_control_a_sibling_that_can_be_hidden_leaves_the_edge_to_its_neighbour() -> None:
+    """The teaching student page shows one of four ``x-show`` panels at a time, so
+    each is at both edges of the body; a ``hidden`` class takes an element out too."""
+    tabs = _one('Div(Div(P("one", cls="py-8"), x_show="a"), Div(P("two"), **{"x-show": "b"}))')
+    hidden = _one('Div(Div(P("a"), cls="mb-4"), Div(P("b"), cls="hidden lg:block"))')
+    shown = _one('Div(Div(P("a"), cls="mb-4"), Div(P("b"), cls="block"))')
+
+    assert [e.edges for e in tabs.vertical] == [{"top", "bottom"}]
+    assert len(hidden.margins) == 1
+    assert shown.margins == []
+
+
+def test_control_a_branch_a_constant_rules_out_adds_nothing() -> None:
+    """``ExploreGraphView`` insets itself only when it is not standalone; its own
+    page calls it with the default ``standalone=True``."""
+
+    def page(call: str) -> census.Census:
+        return census.take(
+            {
+                "ui/sample.py": (
+                    "def graph(standalone=True):\n"
+                    "    attrs = {}\n"
+                    "    if standalone:\n"
+                    "        attrs['x_data'] = 'g'\n"
+                    "    else:\n"
+                    "        attrs['cls'] = 'px-2 pt-2'\n"
+                    "    return Div(P('g'), **attrs)\n"
+                    "def page(request):\n"
+                    f"    return BasePage(Div({call}), request=request)\n"
+                ),
+            }
+        )
+
+    assert page("graph()").side == page("graph(standalone=True)").side == []
+    assert len(page("graph(standalone=False)").side) == 1
+    assert len(page("graph(not_known)").side) == 1
 
 
 def test_control_a_bulleted_list_and_text_keep_their_own_padding() -> None:
