@@ -28,7 +28,7 @@ from core.ports.query_types import (
     LifePathStatus,
 )
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports import LifePathOperations
@@ -48,9 +48,6 @@ def create_lifepath_api_routes(
         app: FastHTML app instance
         rt: FastHTML route decorator
         lifepath_service: LifePath service facade
-
-    Returns:
-        List of registered route functions
     """
 
     @rt("/api/lifepath/status")
@@ -58,11 +55,6 @@ def create_lifepath_api_routes(
     async def api_get_status(request: Request) -> Result[LifePathStatus]:
         """Get full life path status."""
         user_uid = require_authenticated_user(request)
-
-        if not lifepath_service:
-            return Result.fail(
-                Errors.system("LifePath service unavailable", operation="get_status")
-            )
 
         return await lifepath_service.get_full_status(user_uid)
 
@@ -75,12 +67,7 @@ def create_lifepath_api_routes(
 
         parsed = await parse_json_body(request, CaptureVisionRequest)
         if parsed.is_error:
-            return parsed  # type: ignore[return-value]
-
-        if not lifepath_service:
-            return Result.fail(
-                Errors.system("LifePath service unavailable", operation="capture_vision")
-            )
+            return Result.fail(parsed)
 
         return await lifepath_service.capture_and_recommend(user_uid, parsed.value.vision_statement)
 
@@ -93,10 +80,7 @@ def create_lifepath_api_routes(
 
         parsed = await parse_json_body(request, DesignateLifePathRequest)
         if parsed.is_error:
-            return parsed  # type: ignore[return-value]
-
-        if not lifepath_service:
-            return Result.fail(Errors.system("LifePath service unavailable", operation="designate"))
+            return Result.fail(parsed)
 
         return await lifepath_service.designate_and_calculate(user_uid, parsed.value.life_path_uid)
 
@@ -105,11 +89,6 @@ def create_lifepath_api_routes(
     async def api_get_alignment(request: Request) -> Result[LifePathAlignmentResult]:
         """Get alignment data (JSON API)."""
         user_uid = require_authenticated_user(request)
-
-        if not lifepath_service:
-            return Result.fail(
-                Errors.system("LifePath service unavailable", operation="get_alignment")
-            )
 
         return await lifepath_service.get_alignment(user_uid)
 

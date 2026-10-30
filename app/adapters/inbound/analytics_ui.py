@@ -15,9 +15,14 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
 
+from fasthtml.common import FT
+from starlette.responses import Response
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.route_factories import parse_date_param_strict, refuse_malformed
+from core.config.settings import get_settings
 from core.models.enums import AnalyticsDomain
 from core.utils.logging import get_logger
 from core.utils.timestamp_helpers import today_in
@@ -29,7 +34,8 @@ from ui.analytics import (
     render_period_fields,
     render_weekly_life_summary,
 )
-from ui.patterns.error_banner import render_inline_error
+from ui.layouts.base_page import BasePage
+from ui.patterns.error_banner import render_error_banner, render_inline_error
 
 logger = get_logger("skuel.routes.analytics.ui")
 
@@ -70,7 +76,7 @@ def create_analytics_ui_routes(
     @app.get("/ui/analytics")
     def analytics_dashboard(
         request: Request,
-    ) -> Any:
+    ) -> FT:
         """Analytics dashboard."""
         require_authenticated_user(request)
         return render_analytics_dashboard(request)
@@ -143,39 +149,50 @@ def create_analytics_ui_routes(
 
     @app.get("/ui/analytics/life-path-alignment")
     @ui_boundary_handler("Error loading Life Path alignment")
-    async def life_path_alignment_ui(request: Request) -> Any:
-        """Render Life Path alignment dashboard UI."""
+    async def life_path_alignment_ui(request: Request) -> FT:
+        """Life Path alignment page."""
         user_uid = require_authenticated_user(request)
 
         result = await analytics_service.calculate_life_path_alignment(user_uid)
-        if result.is_error:
-            return render_inline_error(f"Error: {result.expect_error().message}")
-
-        return render_life_path_alignment_dashboard(result.value)
+        content = (
+            render_error_banner(
+                "Could not load your Life Path alignment",
+                technical_details=result.expect_error().message,
+                show_details=get_settings().application.debug,
+            )
+            if result.is_error
+            else render_life_path_alignment_dashboard(result.value)
+        )
+        return BasePage(content, title="Life Path Alignment", request=request)
 
     @app.get("/ui/analytics/weekly-life-summary")
     @ui_boundary_handler("Error loading weekly life summary")
-    async def weekly_life_summary_ui(request: Request) -> Any:
-        """Render weekly life summary UI (ALL layers)."""
+    async def weekly_life_summary_ui(request: Request) -> FT | Response:
+        """Weekly life summary page (ALL layers); ``start_date`` picks the week."""
         user_uid = require_authenticated_user(request)
-        start_date_str = request.query_params.get("start_date")
+        start_date = parse_date_param_strict(
+            request.query_params.get("start_date"), "start_date", default=None
+        )
+        if start_date.is_error:
+            return refuse_malformed(start_date.expect_error())
 
-        if start_date_str:
-            try:
-                start_date = date.fromisoformat(start_date_str)
-            except ValueError:
-                return render_inline_error("Invalid date format. Use YYYY-MM-DD.")
-
+        if start_date.value:
             result = await analytics_service.generate_weekly_life_summary(
-                user_uid, week_start=start_date
+                user_uid, week_start=start_date.value
             )
         else:
             result = await analytics_service.generate_weekly_life_summary(user_uid)
 
-        if result.is_error:
-            return render_inline_error(f"Error: {result.expect_error().message}")
-
-        return render_weekly_life_summary(result.value)
+        content = (
+            render_error_banner(
+                "Could not load your weekly life summary",
+                technical_details=result.expect_error().message,
+                show_details=get_settings().application.debug,
+            )
+            if result.is_error
+            else render_weekly_life_summary(result.value)
+        )
+        return BasePage(content, title="Weekly Life Summary", request=request)
 
     logger.info("Analytics UI routes registered (including Life Path + cross-layer)")
 

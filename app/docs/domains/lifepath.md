@@ -1,7 +1,7 @@
 ---
 title: LifePath Domain
 created: 2025-12-04
-updated: 2026-08-14
+updated: 2026-10-30
 status: current
 category: domains
 tags: [lifepath, destination-domain, domain]
@@ -182,9 +182,9 @@ one.
 ## Routes
 
 **Architecture:** DomainRouteConfig pattern (migrated 2026-02-03)
-- Main file: 32 lines (configuration factory)
-- API routes: 121 lines (4 JSON endpoints)
-- UI routes: 501 lines (5 pages + 7 helper functions)
+- `lifepath_routes.py` — the configuration factory
+- `lifepath_api.py` — 4 JSON endpoints
+- `lifepath_ui.py` — the pages, their HTMX fragments and the alignment radar's chart config
 
 See: [DomainRouteConfig Pattern](../patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
 
@@ -194,8 +194,8 @@ See: [DomainRouteConfig Pattern](../patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
 |-------|--------|---------|
 | `/lifepath` | GET | Main life path dashboard |
 | `/lifepath/vision` | GET | Vision capture page |
-| `/lifepath/vision` | POST | Process vision capture |
-| `/lifepath/designate` | POST | Designate an LP as life path |
+| `/lifepath/vision` | POST | Process vision capture — a refusal re-renders the form with its banner and the learner's text |
+| `/lifepath/designate` | POST | Designate an LP as life path — a native form post: 303 to `/lifepath/alignment`, or the refusal in the Life Path shell |
 | `/lifepath/alignment` | GET | Alignment dashboard |
 
 ### API Routes

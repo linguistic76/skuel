@@ -1096,8 +1096,8 @@ implementation for all six. The live code and its excerpt are in
 | KU | ✅ Complete | Error banner vs empty state distinction |
 | Admin | ✅ Complete | Per-section warning banners via `tuple[data, bool]` helpers |
 | Insights | ✅ Complete | Error state with load-more pagination |
-| Analytics | ✅ Complete | 8 error sites → `render_inline_error()`, PageHeader adopted |
-| LifePath | ✅ Complete | `_error_page`/`_service_unavailable_page` → `render_error_banner`, PageHeader adopted |
+| Analytics | ✅ Complete | the result fragment's refusals → `render_inline_error()`; the alignment and weekly-summary pages' failures → `render_error_banner` in the page shell; PageHeader adopted |
+| LifePath | ✅ Complete | a refused vision re-renders its form with `render_error_banner` and the learner's text; a refused designation renders the banner in the Life Path shell; PageHeader adopted |
 | Calendar | ✅ Complete | Custom `Html(Head, Body)` wrapper → `BasePage`, PageHeader adopted |
 
 **Shared error/fetch handling lives in the factory** (`/adapters/inbound/activity_ui_factory.py`): not-found and fetch-error states render `render_error_banner()` inside the generated fragments.

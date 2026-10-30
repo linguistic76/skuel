@@ -1074,7 +1074,9 @@ Top navigation bar with auth and admin detection.
 
 ### create_navbar_for_request(request)
 
-Generate navbar based on request context.
+Generate navbar based on request context. The page shells (`BasePage`, `SidebarPage`)
+call it with the request a page hands them; a handler never calls it — a page that
+builds its own navbar is a page without the shell.
 
 **Parameters:**
 - `request: Request` - Starlette request (auto-detects auth/admin)
@@ -1085,11 +1087,11 @@ Generate navbar based on request context.
 - Below `sm` the section doors are the bottom nav (`create_bottom_nav_for_request`) — no hamburger, no drawer
 - WCAG 2.1 Level AA: `aria-label` landmarks, `aria-current="page"` on the lit door
 
-**Example:**
+**Example** (`ui/layouts/base_page.py`, the shell's builder):
 ```python
 from ui.layouts.navbar import create_navbar_for_request
 
-navbar = create_navbar_for_request(request)
+navbar = create_navbar_for_request(request, active_page=active_page)
 ```
 
 ---

@@ -29,49 +29,30 @@ from core.config.settings import get_settings
 from core.ports.query_types import AlignmentDimensions, ChartJsConfig
 from core.utils.logging import get_logger
 from core.utils.palette import ChartColor, SemanticColor, rgba
-from core.utils.result_simplified import Errors, Result
-from ui.components import ButtonT
+from core.utils.result_simplified import ErrorCategory, ErrorContext, Result
 from ui.lifepath import (
     lifepath_sidebar_page,
     render_alignment_dashboard,
     render_dashboard_content,
+    render_designation_refused,
     render_recommendations_page,
     render_vision_form,
 )
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
-from ui.primitives import ButtonLink
 
 logger = get_logger("skuel.routes.lifepath.ui")
 
 
-# ============================================================================
-# ERROR HELPERS
-# ============================================================================
-
-
-def _service_unavailable_page() -> FT:
-    """Return page when LifePath service is not available."""
-    return Div(
-        render_error_banner(
-            "Service Unavailable",
-            technical_details="The LifePath service is not available. Please try again later.",
-            show_details=get_settings().application.debug,
-        ),
-        cls="container mx-auto px-4 py-8",
-    )
-
-
-def _error_page(message: str) -> Any:
-    """Return error page."""
-    return Div(
-        render_error_banner(
-            "Error",
-            technical_details=message,
-            show_details=get_settings().application.debug,
-        ),
-        ButtonLink("Go back", href="/lifepath", cls=(ButtonT.primary, "mt-4")),
-        cls="container mx-auto px-4 py-8",
+def _refusal_banner(error: ErrorContext, retry_message: str) -> FT:
+    """The banner a refused Life Path form shows: a validation refusal's own
+    reason, anything else a plain retry message (its detail only in debug)."""
+    if error.category == ErrorCategory.VALIDATION:
+        return render_error_banner(error.message)
+    return render_error_banner(
+        retry_message,
+        technical_details=error.message,
+        show_details=get_settings().application.debug,
     )
 
 
@@ -92,8 +73,6 @@ def create_lifepath_ui_routes(
     def lifepath_dashboard(request: Request) -> Any:
         """Main life path dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
-        if not lifepath_service:
-            return _service_unavailable_page()
         content = content_loading_placeholder("/lifepath/content", "lifepath-dashboard-content")
         return lifepath_sidebar_page("dashboard", content, request)
 
@@ -101,8 +80,6 @@ def create_lifepath_ui_routes(
     async def lifepath_dashboard_content(request: Request) -> Any:
         """HTMX fragment: lifepath dashboard body."""
         user_uid = require_authenticated_user(request)
-        if not lifepath_service:
-            return Div(render_error_banner("Service Unavailable"), id="lifepath-dashboard-content")
         status_result = await lifepath_service.get_full_status(user_uid)
         if status_result.is_error:
             return Div(
@@ -118,9 +95,6 @@ def create_lifepath_ui_routes(
     async def vision_capture_page(request: Request) -> Any:
         """Vision capture page - where user expresses their vision."""
         user_uid = require_authenticated_user(request)
-
-        if not lifepath_service:
-            return _service_unavailable_page()
 
         designation_result = await lifepath_service.core.get_designation(user_uid)
         existing_vision = ""
@@ -139,15 +113,12 @@ def create_lifepath_ui_routes(
         form = await request.form()
         vision_statement = safe_form_string(form.get("vision_statement"))
 
-        if not vision_statement or len(vision_statement) < 10:
-            return _error_page("Please provide a vision statement of at least 10 characters.")
-
-        if not lifepath_service:
-            return _service_unavailable_page()
-
         result = await lifepath_service.capture_and_recommend(user_uid, vision_statement)
         if result.is_error:
-            return _error_page(str(result.expect_error()))
+            refusal = _refusal_banner(result.expect_error(), "Could not read your vision")
+            return lifepath_sidebar_page(
+                "vision", render_vision_form(vision_statement, refusal), request
+            )
 
         content = render_recommendations_page(result.value, user_uid)
         return lifepath_sidebar_page("vision", content, request)
@@ -162,14 +133,13 @@ def create_lifepath_ui_routes(
         life_path_uid = safe_form_string(form.get("life_path_uid"))
 
         if not life_path_uid:
-            return _error_page("Please select a Learning Path.")
-
-        if not lifepath_service:
-            return _service_unavailable_page()
+            refusal = render_error_banner("Please choose a Learning Path.")
+            return lifepath_sidebar_page("vision", render_designation_refused(refusal), request)
 
         result = await lifepath_service.designate_and_calculate(user_uid, life_path_uid)
         if result.is_error:
-            return _error_page(str(result.expect_error()))
+            refusal = _refusal_banner(result.expect_error(), "Could not set your Life Path")
+            return lifepath_sidebar_page("vision", render_designation_refused(refusal), request)
 
         return RedirectResponse(url="/lifepath/alignment", status_code=303)
 
@@ -177,8 +147,6 @@ def create_lifepath_ui_routes(
     def alignment_dashboard(request: Request) -> FT:
         """Alignment dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
-        if not lifepath_service:
-            return _service_unavailable_page()
         content = content_loading_placeholder(
             "/lifepath/alignment/content", "lifepath-alignment-content"
         )
@@ -193,8 +161,6 @@ def create_lifepath_ui_routes(
     async def alignment_dashboard_content(request: Request) -> Any:
         """HTMX fragment: lifepath alignment body."""
         user_uid = require_authenticated_user(request)
-        if not lifepath_service:
-            return Div(render_error_banner("Service Unavailable"), id="lifepath-alignment-content")
         status_result = await lifepath_service.get_full_status(user_uid)
         if status_result.is_error:
             return Div(
@@ -217,10 +183,6 @@ def create_lifepath_ui_routes(
         response, which the card shows.
         """
         user_uid = require_authenticated_user(request)
-        if not lifepath_service:
-            return Result.fail(
-                Errors.system("LifePath service unavailable", operation="alignment_radar_chart")
-            )
         alignment_result = await lifepath_service.get_alignment(user_uid)
         if alignment_result.is_error:
             return Result.fail(alignment_result)

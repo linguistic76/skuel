@@ -1,23 +1,25 @@
 """LifePath vision capture and recommendations pages."""
 
-import json
 from typing import Any
 
-from fasthtml.common import H3, Div, Form, P
+from fasthtml.common import FT, H3, Div, Form, Input, P
 
 from core.models.type_hints import UserUID
 from ui.components import Button, ButtonT, Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label, Textarea
 from ui.layout import Size
+from ui.patterns.csrf import csrf_hidden_input
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader
+from ui.primitives import ButtonLink
 from ui.tokens import Container
 
 
-def render_vision_form(existing_vision: str = "") -> Any:
-    """Build the vision capture form."""
+def render_vision_form(existing_vision: str = "", refusal: FT | None = None) -> Any:
+    """Build the vision capture form; a refused submission comes back with its
+    banner above the field and the learner's text still in it."""
     return Div(
         PageHeader(
             "Express Your Vision",
@@ -26,6 +28,8 @@ def render_vision_form(existing_vision: str = "") -> Any:
         Card(
             Div(
                 Form(
+                    csrf_hidden_input(),
+                    refusal,
                     Div(
                         Label("Your Vision", for_="vision"),
                         Textarea(
@@ -91,10 +95,10 @@ def render_recommendations_page(data: dict, user_uid: UserUID) -> Any:
                     ),
                     cls="p-4 pt-0",
                 ),
+                csrf_hidden_input(),
+                Input(type="hidden", name="life_path_uid", value=rec.get("lp_uid", "")),
                 method="post",
                 action="/lifepath/designate",
-                hx_post="/lifepath/designate",
-                hx_vals=json.dumps({"life_path_uid": rec.get("lp_uid", "")}),
             ),
         )
         for rec in recommendations
@@ -117,4 +121,16 @@ def render_recommendations_page(data: dict, user_uid: UserUID) -> Any:
             action_href="/learning-paths",
         ),
         cls=f"container mx-auto {Container.NARROW}",
+    )
+
+
+def render_designation_refused(refusal: FT) -> FT:
+    """The page a refused designation answers: its banner, and the way back to the
+    vision the recommendations came from."""
+    return Div(
+        refusal,
+        ButtonLink(
+            "Back to your vision", href="/lifepath/vision", cls=(ButtonT.primary, "self-start")
+        ),
+        cls="flex flex-col gap-4",
     )

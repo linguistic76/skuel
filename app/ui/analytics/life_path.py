@@ -42,65 +42,63 @@ def render_life_path_alignment_dashboard(alignment_data: dict[str, Any]) -> Any:
 
     return Div(
         PageHeader(f"Life Path: {life_path_title}"),
-        StatCard(label="Alignment Score", value=f"{score_percentage}%", color=score_color),
-        # Knowledge Breakdown
-        Card(
-            CardHeader(CardTitle("Knowledge Embodiment")),
-            CardBody(
-                StatsGrid(
-                    [
-                        StatItem(label="Total Knowledge", value=str(knowledge_count)),
-                        # Band edges transcribed from the service's own
-                        # thresholds (EMBODIED_THRESHOLD / APPLIED_THRESHOLD) —
-                        # the label used to read "<0.5" over a count the service
-                        # computed at <0.3.
-                        StatItem(label="Embodied (0.8+)", value=str(embodied)),
-                        StatItem(label="Theoretical (<0.3)", value=str(theoretical)),
-                    ],
-                    cols=3,
+        Div(
+            StatCard(label="Alignment Score", value=f"{score_percentage}%", color=score_color),
+            # Knowledge Breakdown
+            Card(
+                CardHeader(CardTitle("Knowledge Embodiment")),
+                CardBody(
+                    StatsGrid(
+                        [
+                            StatItem(label="Total Knowledge", value=str(knowledge_count)),
+                            # Band edges transcribed from the service's own
+                            # thresholds (EMBODIED_THRESHOLD / APPLIED_THRESHOLD).
+                            StatItem(label="Embodied (0.8+)", value=str(embodied)),
+                            StatItem(label="Theoretical (<0.3)", value=str(theoretical)),
+                        ],
+                        cols=3,
+                    ),
                 ),
             ),
-            cls="mb-6",
-        ),
-        # Channel Contributions — where this learner's substance comes from
-        Card(
-            CardHeader(CardTitle("Where Your Alignment Comes From")),
-            CardBody(
-                Div(
-                    *[
-                        _render_domain_contribution_bar(domain, contribution)
-                        for domain, contribution in domain_contributions.items()
-                    ],
-                    cls="space-y-3",
-                )
-                if domain_contributions
-                else EmptyState(title="No domain activity detected"),
+            # Channel Contributions — where this learner's substance comes from
+            Card(
+                CardHeader(CardTitle("Where Your Alignment Comes From")),
+                CardBody(
+                    Div(
+                        *[
+                            _render_domain_contribution_bar(domain, contribution)
+                            for domain, contribution in domain_contributions.items()
+                        ],
+                        cls="space-y-3",
+                    )
+                    if domain_contributions
+                    else EmptyState(title="No domain activity detected"),
+                ),
             ),
-            cls="mb-6",
-        ),
-        # Gaps
-        Card(
-            CardHeader(CardTitle("Knowledge Gaps")),
-            CardBody(
-                Div(
-                    *[_render_gap_item(gap) for gap in gaps[:5]],
-                    cls="space-y-2",
-                )
-                if gaps
-                else P("No gaps detected - excellent embodiment!", cls="text-success"),
+            # Gaps
+            Card(
+                CardHeader(CardTitle("Knowledge Gaps")),
+                CardBody(
+                    Div(
+                        *[_render_gap_item(gap) for gap in gaps[:5]],
+                        cls="space-y-2",
+                    )
+                    if gaps
+                    else P("No gaps detected - excellent embodiment!", cls="text-success"),
+                ),
             ),
-            cls="mb-6",
-        ),
-        # Recommendations
-        Card(
-            CardHeader(CardTitle("Recommendations")),
-            CardBody(
-                Div(*[P(f"• {rec}", cls="mb-2") for rec in recommendations], cls="space-y-1")
-                if recommendations
-                else P("Keep up the great work!", cls="text-success"),
+            # Recommendations
+            Card(
+                CardHeader(CardTitle("Recommendations")),
+                CardBody(
+                    Div(*[P(f"• {rec}") for rec in recommendations], cls="space-y-2")
+                    if recommendations
+                    else P("Keep up the great work!", cls="text-success"),
+                ),
             ),
+            cls="flex flex-col gap-6",
         ),
-        cls=f"{Container.NARROW} p-6",
+        cls=Container.NARROW,
     )
 
 
