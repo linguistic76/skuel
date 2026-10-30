@@ -156,6 +156,11 @@ class Element:
         return f"{self.rel}:{self.line} ({self.function})"
 
 
+def _written_at(element: Element) -> tuple[str, int]:
+    """An element's file and line, the order the census reports in."""
+    return element.rel, element.line
+
+
 @dataclass
 class Census:
     files: tuple[str, ...]
@@ -208,9 +213,12 @@ def _own_nodes(fn: FunctionNode) -> tuple[ast.AST, ...]:
             for child in ast.iter_child_nodes(node)
             if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
         )
-    return tuple(
-        sorted(found, key=lambda n: (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)))
-    )
+    return tuple(sorted(found, key=_source_position))
+
+
+def _source_position(node: ast.AST) -> tuple[int, int]:
+    """Where a node is written: its line, then its column (``0`` for a node with neither)."""
+    return getattr(node, "lineno", 0), getattr(node, "col_offset", 0)
 
 
 def _assigned(node: ast.AST, name: str) -> ast.expr | None:
@@ -1157,7 +1165,7 @@ class _Walker:
                     "edges": "bottom top",
                 }
                 self.walk(content, _Env(enclosing, rel), ctx, (), 0)
-        side = sorted(self.side.values(), key=lambda e: (e.rel, e.line))
+        side = sorted(self.side.values(), key=_written_at)
         return Census(
             files=tuple(sorted(self.files)),
             entry_files=frozenset(entry_files),
@@ -1166,8 +1174,8 @@ class _Walker:
             elements_seen_in=frozenset(self.seen_in),
             side=[e for e in side if e.modes - {"custom"}],
             custom_side=[e for e in side if e.modes == {"custom"}],
-            vertical=sorted(self.vertical.values(), key=lambda e: (e.rel, e.line)),
-            margins=sorted(self.margins.values(), key=lambda e: (e.rel, e.line)),
+            vertical=sorted(self.vertical.values(), key=_written_at),
+            margins=sorted(self.margins.values(), key=_written_at),
             unresolved=self.unresolved,
         )
 
