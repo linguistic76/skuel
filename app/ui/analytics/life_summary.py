@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fasthtml.common import H3, Div, P
+from fasthtml.common import FT, H3, Div, P
 
 from ui.components import Card, CardBody, CardHeader, CardTitle
 from ui.patterns.empty_state import EmptyState
@@ -38,23 +38,26 @@ def render_weekly_life_summary(summary_data: dict[str, Any]) -> Any:
 
     return Div(
         PageHeader("Weekly Life Summary", subtitle=f"{start_date} to {end_date}"),
-        StatCard(label="Overall Activity", value=str(int(total_activity)), color="primary"),
-        Card(
-            SectionHeader("Summary"),
-            P(summary_text, cls="text-muted-foreground"),
-            cls="bg-background shadow-xs mb-6 p-6",
+        Div(
+            StatCard(label="Overall Activity", value=str(int(total_activity)), color="primary"),
+            Card(
+                SectionHeader("Summary"),
+                P(summary_text, cls="text-muted-foreground"),
+                cls="bg-background shadow-xs p-6",
+            ),
+            _render_knowledge_layer_card(layer0_knowledge),
+            _render_reflection_layer_card(layer2_reflection),
+            _render_cross_layer_insights_card(cross_layer_insights),
+            cls="flex flex-col gap-6",
         ),
-        _render_knowledge_layer_card(layer0_knowledge),
-        _render_reflection_layer_card(layer2_reflection),
-        _render_cross_layer_insights_card(cross_layer_insights),
-        cls=f"{Container.NARROW} p-6",
+        cls=Container.NARROW,
     )
 
 
-def _render_knowledge_layer_card(layer0_data: dict[str, Any]) -> Any:
+def _render_knowledge_layer_card(layer0_data: dict[str, Any]) -> FT | None:
     """Render Layer 0 knowledge metrics card."""
     if not layer0_data:
-        return Div()
+        return None
 
     substance_metrics = layer0_data.get("substance_metrics", {})
     curriculum_progress = layer0_data.get("curriculum_progress", {})
@@ -76,14 +79,13 @@ def _render_knowledge_layer_card(layer0_data: dict[str, Any]) -> Any:
                 ]
             ),
         ),
-        cls="mb-6",
     )
 
 
-def _render_reflection_layer_card(layer2_data: dict[str, Any]) -> Any:
+def _render_reflection_layer_card(layer2_data: dict[str, Any]) -> FT | None:
     """Render Layer 2 reflection metrics card."""
     if not layer2_data:
-        return Div()
+        return None
 
     entry_count = layer2_data.get("total_entries", 0)
     reflection_frequency = layer2_data.get("reflection_frequency", 0.0)
@@ -110,14 +112,13 @@ def _render_reflection_layer_card(layer2_data: dict[str, Any]) -> Any:
                 ),
             ),
         ),
-        cls="mb-6",
     )
 
 
-def _render_cross_layer_insights_card(insights: dict[str, Any]) -> Any:
+def _render_cross_layer_insights_card(insights: dict[str, Any]) -> FT | None:
     """Render cross-layer synthesis insights card."""
     if not insights:
-        return Div()
+        return None
 
     knowledge_correlation = insights.get("knowledge_activity_correlation", {})
     journal_impact = insights.get("journal_reflection_impact", {})
@@ -146,5 +147,4 @@ def _render_cross_layer_insights_card(insights: dict[str, Any]) -> Any:
                 P(learning_doing.get("insight", ""), cls="text-sm text-muted-foreground"),
             ),
         ),
-        cls="mb-6",
     )

@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-10-24'
+updated: '2026-10-30'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -304,39 +304,19 @@ consistent across pages, **always pass the `request` object** through to layout 
 Without the request, a layout renders the unauthenticated state — "Login/Sign Up"
 instead of the user's avatar, and no role doors for an admin or teacher.
 
-### The Solution: `create_navbar_for_request()`
+### The Solution: the shell builds the navbar from the request
 
-Use `create_navbar_for_request(request)` for automatic auth detection. Auth
-state comes from the middleware-set auth context (`core/utils/auth_context.py`,
-written per request by `AuthContextMiddleware` from the session) — the navbar
-never imports `adapters.inbound.auth`:
-
-```python
-from ui.layouts.navbar import create_navbar_for_request
-
-# ✅ RECOMMENDED: Auto-detects auth from the request-scoped auth context
-navbar = create_navbar_for_request(request, active_page="tasks")
-
-# create_navbar() is the primitive underneath — BasePage and the request helper call
-# it; a handler calls it directly only where no request-scoped context exists
-navbar = create_navbar(
-    current_user="user_5f2c8e1a9b3d7046",
-    is_authenticated=True,
-    is_admin=False,
-    active_page="tasks",
-)
-```
-
-### Layout Integration
-
-Pages build on `BasePage` (see CLAUDE.md § UI Component Pattern); passing
-`request` makes it delegate to `create_navbar_for_request()` internally:
+A page hands its body and its `request` to the page shell — `BasePage` (CLAUDE.md
+§ UI Component Pattern) or `SidebarPage` — and the shell builds the navbar and the
+bottom nav from the request. Auth state comes from the middleware-set auth context
+(`core/utils/auth_context.py`, written per request by `AuthContextMiddleware` from the
+session) — the navbar never imports `adapters.inbound.auth`:
 
 ```python
 from ui.layouts.base_page import BasePage
 
 @rt("/library")
-async def library_page(request: Request) -> Any:
+async def library_page(request: Request) -> FT:
     return BasePage(
         content=content,
         title="Library",
@@ -344,6 +324,13 @@ async def library_page(request: Request) -> Any:
         active_page="library",
     )
 ```
+
+A handler never builds a navbar itself. `create_navbar_for_request()` and the
+`create_navbar()` primitive under it are the shells' builders: a body returned with a
+hand-built navbar is a page without the shell — no bottom nav below `sm`, no skip link,
+a bar inside the page's padding instead of across the top.
+`tests/unit/ui/test_page_shell_chrome.py` holds every call to a chrome builder to the
+shells' module.
 
 ### What the Navbar Shows
 

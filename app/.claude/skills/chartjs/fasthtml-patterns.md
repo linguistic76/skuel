@@ -116,8 +116,6 @@ placeholder, and the chart arrives in the HTMX fragment that replaces it:
 def alignment_dashboard(request: Request) -> FT:
     """Alignment dashboard — shell only, content loads via HTMX."""
     require_authenticated_user(request)
-    if not lifepath_service:
-        return _service_unavailable_page()
     content = content_loading_placeholder(
         "/lifepath/alignment/content", "lifepath-alignment-content"
     )

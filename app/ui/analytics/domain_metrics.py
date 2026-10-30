@@ -46,6 +46,7 @@ def render_tasks_metrics(metrics: dict) -> Any:
             value=f"{metrics.get('completion_rate', 0)}%",
             change="Tasks completed in period",
             color="success",
+            cls="mb-4",
         ),
         (
             Card(
