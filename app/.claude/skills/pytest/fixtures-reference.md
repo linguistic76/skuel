@@ -28,6 +28,16 @@ Order matters and is deliberate:
 
 No app or database fixture lives here. pytest-asyncio ≥ 1.0 provides the loops itself (`asyncio_default_fixture_loop_scope = "session"`) — there is no `event_loop` fixture to define or request.
 
+## Unit conftest.py (`/tests/unit/conftest.py`)
+
+The unit tier reads no configuration. CI has none — no Neo4j password, no keychain backend — while a laptop has `.env` and the keychain, so a test that reached the real `get_settings()` passed locally and failed only in CI. Here every real read fails the test, on both:
+
+- `refuse_real_settings` (package scope, autouse) — replaces the `create_config` behind `get_settings()` with a refusal that raises `RealConfigReadError`, before any module- or class-scoped fixture can read, and lifts it when the session leaves `tests/unit` (`./dev test` runs both tiers in one session).
+- `no_real_settings` (autouse) — empties the `get_settings()` cache after every test; a test marked `@pytest.mark.reads_real_settings` (a test of `get_settings()` itself, which sets the environment it reads) gets the real `create_config` back.
+- A `pytest_runtest_makereport` wrapper fails a setup/call/teardown phase that passed although a read was refused in it — the code under test caught `RealConfigReadError` — naming the line that read.
+
+A module that reads `get_settings()` is stubbed where it looks the name up: `monkeypatch.setattr(module, "get_settings", settings_stub(debug=False))` (`tests/helpers/settings_stub.py`). The controls are `tests/unit/config/test_unit_tier_reads_no_config.py`.
+
 ## Integration conftest.py (`/tests/integration/conftest.py`)
 
 ### Containers and drivers
@@ -132,7 +142,8 @@ tests/
 ├── integration/
 │   ├── conftest.py                # TestContainers (shared + the app's own), skuel_app, backends, services
 │   └── e2e/conftest.py            # the e2e flows' own fixtures
-└── unit/                          # no conftest of its own — unit tests build their doubles inline
+└── unit/
+    └── conftest.py                # refuses the real get_settings() — unit tests build their doubles inline
 ```
 
 **Rules:**

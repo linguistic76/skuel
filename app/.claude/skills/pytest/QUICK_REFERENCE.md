@@ -149,6 +149,7 @@ service = create_tasks_service_for_testing(backend=backend)
 | Proving a new test fails on the old code | `git stash push -- <tree>`, run a scratch copy, `git stash pop` — never while a background suite runs; `git add` a staged deletion first |
 | `Task(uid="task:x")` / `"task_001"` in a fixture | Outside the uid grammar — the integration census fails the test. Seed `task.x` (authored); a user seed is `seed_user_uid("name")` (`tests/helpers/seed_uids.py`) |
 | `the test wrote uids the uid grammar refuses` | Fix the seed; a test that writes one on purpose carries `@pytest.mark.outside_uid_grammar("why")` (`tests/integration/_uid_census.py`) |
+| `RealConfigReadError: a unit test read the real config` (or `…caught the refusal; read at <file:line>`) | A unit test reached the real `get_settings()` (`tests/unit/conftest.py`) — it would pass on the laptop and fail in CI, which has no config. Stub it in the reading module: `monkeypatch.setattr(module, "get_settings", settings_stub(debug=False))` (`tests/helpers/settings_stub.py`); only a test of `get_settings()` itself is `@pytest.mark.reads_real_settings` |
 | `These uid literals are outside the uid grammar` (unit tier) | The static census (`tests/unit/test_integration_seed_uids.py`) read a literal in `tests/integration`. Fix it; one the runtime census never sees (scratch container, never written, a property) carries `outside_uid_grammar("why", static_only=True)` |
 
 ---

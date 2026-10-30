@@ -24,6 +24,7 @@ from core.utils.error_boundary import (
     safe_backend_operation,
 )
 from core.utils.result_simplified import ErrorCategory, Errors, Result
+from tests.helpers.settings_stub import settings_stub
 
 
 def extract_response(response: JSONResponse) -> tuple[dict, int]:
@@ -759,25 +760,11 @@ async def test_boundary_handler_strips_internal_details():
 # ============================================================================
 
 
-class _FakeApp:
-    def __init__(self, debug: bool) -> None:
-        self.debug = debug
-
-
-class _FakeSettings:
-    def __init__(self, debug: bool) -> None:
-        self.application = _FakeApp(debug)
-
-
 @pytest.fixture
 def debug_off(monkeypatch):
-    """Settings stub — get_settings() needs real env config, unavailable in unit tests."""
     from adapters.inbound import boundary
 
-    def fake_settings() -> _FakeSettings:
-        return _FakeSettings(debug=False)
-
-    monkeypatch.setattr(boundary, "get_settings", fake_settings)
+    monkeypatch.setattr(boundary, "get_settings", settings_stub(debug=False))
 
 
 @pytest.mark.asyncio
@@ -867,19 +854,13 @@ def test_ui_boundary_handler_details_hidden_by_default(monkeypatch):
     def mock_route():
         raise ValueError("secret internals")
 
-    def fake_settings_off() -> _FakeSettings:
-        return _FakeSettings(debug=False)
-
-    def fake_settings_on() -> _FakeSettings:
-        return _FakeSettings(debug=True)
-
-    monkeypatch.setattr(boundary, "get_settings", fake_settings_off)
+    monkeypatch.setattr(boundary, "get_settings", settings_stub(debug=False))
     assert "secret internals" not in to_xml(mock_route())
 
-    monkeypatch.setattr(boundary, "get_settings", fake_settings_on)
+    monkeypatch.setattr(boundary, "get_settings", settings_stub(debug=True))
     assert "secret internals" in to_xml(mock_route())
 
 
 if __name__ == "__main__":
-    # Run with: uv run pytest tests/test_error_boundary.py -v
+    # Run with: uv run pytest tests/unit/test_error_boundary.py -v
     pytest.main([__file__, "-v"])

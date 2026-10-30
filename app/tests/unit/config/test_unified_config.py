@@ -522,6 +522,7 @@ class TestConvenienceFactories:
             assert config.environment == Environment.PRODUCTION
 
 
+@pytest.mark.reads_real_settings
 class TestDefaultTimeZoneBootGuard:
     """SKUEL_TIMEZONE is the app default zone, validated at boot (ADR-089 §3).
 
@@ -544,11 +545,8 @@ class TestDefaultTimeZoneBootGuard:
             else:
                 monkeypatch.setenv("SKUEL_TIMEZONE", zone)
             reload_config()
-            try:
-                with patch("core.config.unified_config._get_neo4j_password", return_value="pw"):
-                    return get_settings()
-            finally:
-                reload_config()
+            with patch("core.config.unified_config._get_neo4j_password", return_value="pw"):
+                return get_settings()
 
         return read
 

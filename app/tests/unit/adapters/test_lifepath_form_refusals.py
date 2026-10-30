@@ -11,7 +11,6 @@ with the way back to the vision. CSRF is enforced for real: cookie plus the form
 from __future__ import annotations
 
 import re
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -23,6 +22,7 @@ from adapters.inbound.csrf import CSRF_COOKIE_NAME, mint_token
 from core.models.type_hints import UserUID
 from core.utils.csrf_token_context import CSRF_FORM_FIELD
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.settings_stub import settings_stub
 from ui.lifepath import render_recommendations_page
 
 RECOMMENDATIONS = {
@@ -42,12 +42,8 @@ def _client(monkeypatch: pytest.MonkeyPatch, service: MagicMock) -> TestClient:
     def signed_in(_request: object) -> UserUID:
         return UserUID("user_learner")
 
-    def debug_off() -> SimpleNamespace:
-        """Settings stub — get_settings() needs real env config, unavailable in unit tests."""
-        return SimpleNamespace(application=SimpleNamespace(debug=False))
-
     monkeypatch.setattr(lifepath_ui, "require_authenticated_user", signed_in)
-    monkeypatch.setattr(lifepath_ui, "get_settings", debug_off)
+    monkeypatch.setattr(lifepath_ui, "get_settings", settings_stub(debug=False))
     app, rt = fast_app(pico=False, default_hdrs=False)
     lifepath_ui.create_lifepath_ui_routes(app, rt, service)
     return TestClient(app)
