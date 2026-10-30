@@ -74,7 +74,7 @@ def test_an_async_page_crashes():
 def test_swallows_the_refusal():
     try:
         get_settings()
-    except Exception:
+    except Exception:  # intentional-broad: stands in for code that swallows the refusal
         pass
 """
 
