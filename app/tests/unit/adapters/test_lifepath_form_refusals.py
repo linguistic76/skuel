@@ -11,6 +11,7 @@ with the way back to the vision. CSRF is enforced for real: cookie plus the form
 from __future__ import annotations
 
 import re
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -41,7 +42,12 @@ def _client(monkeypatch: pytest.MonkeyPatch, service: MagicMock) -> TestClient:
     def signed_in(_request: object) -> UserUID:
         return UserUID("user_learner")
 
+    def debug_off() -> SimpleNamespace:
+        """Settings stub — get_settings() needs real env config, unavailable in unit tests."""
+        return SimpleNamespace(application=SimpleNamespace(debug=False))
+
     monkeypatch.setattr(lifepath_ui, "require_authenticated_user", signed_in)
+    monkeypatch.setattr(lifepath_ui, "get_settings", debug_off)
     app, rt = fast_app(pico=False, default_hdrs=False)
     lifepath_ui.create_lifepath_ui_routes(app, rt, service)
     return TestClient(app)
@@ -101,6 +107,7 @@ def test_a_vision_the_service_cannot_read_offers_a_retry(monkeypatch: pytest.Mon
     assert response.status_code == 200
     _assert_in_the_shell_on_vision(response.text)
     assert _banner_text(response.text) == "❌ Could not read your vision"
+    assert "theme extraction timed out" not in response.text  # the detail renders only in debug
 
 
 def test_a_designation_navigates_to_the_alignment_page(monkeypatch: pytest.MonkeyPatch) -> None:

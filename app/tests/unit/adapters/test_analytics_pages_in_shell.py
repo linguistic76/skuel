@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from datetime import date
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -36,7 +37,12 @@ def _client(monkeypatch: pytest.MonkeyPatch, service: MagicMock) -> TestClient:
     def signed_in(_request: object) -> UserUID:
         return UserUID("user_learner")
 
+    def debug_off() -> SimpleNamespace:
+        """Settings stub — get_settings() needs real env config, unavailable in unit tests."""
+        return SimpleNamespace(application=SimpleNamespace(debug=False))
+
     monkeypatch.setattr(analytics_ui, "require_authenticated_user", signed_in)
+    monkeypatch.setattr(analytics_ui, "get_settings", debug_off)
     app, rt = fast_app(pico=False, default_hdrs=False)
     analytics_ui.create_analytics_ui_routes(app, rt, service)
     return TestClient(app)
@@ -105,6 +111,7 @@ def test_a_failed_read_renders_its_banner_in_the_shell(
     assert response.status_code == 200
     _assert_in_shell(response.text)
     assert message in response.text
+    assert "read failed" not in response.text  # the detail renders only in debug
 
 
 def test_the_result_fragment_stays_a_fragment(monkeypatch: pytest.MonkeyPatch) -> None:
