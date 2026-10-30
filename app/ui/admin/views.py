@@ -29,7 +29,6 @@ from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT, Progress, ProgressT
 from ui.forms import Select
-from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.format_date import format_date
@@ -424,60 +423,6 @@ class AdminUIComponents:
                     cls="mb-3",
                 ),
                 StatsGrid(session_stats),
-            ),
-        )
-
-    @staticmethod
-    def render_user_reports_list(reports: list, _user_uid: UserUID) -> Div:
-        """Render a list of user reports for admin user detail page.
-
-        Args:
-            reports: List of Report domain objects.
-            _user_uid: User UID (reserved for future linking).
-        """
-        if not reports:
-            return EmptyState(title="No reports submitted yet")
-
-        from ui.enum_helpers import get_submission_status_badge_class
-
-        def _report_cell_render(k: str, v: object) -> Any:
-            if k == "Title":
-                return Td(v, cls="font-medium text-sm")
-            if k == "Created":
-                return Td(v, cls="text-sm text-muted-foreground")
-            return Td(v)
-
-        body_data = []
-        for report in reports:
-            report_type = report.entity_type.value if report.entity_type else "unknown"
-            status = report.status.value if report.status else "unknown"
-            title = report.title or getattr(report, "original_filename", None) or report.uid
-            created = format_date(report.created_at, "%Y-%m-%d", empty="Unknown")
-
-            body_data.append(
-                {
-                    "Title": title,
-                    "Type": Badge(report_type.upper(), variant=BadgeT.outline, size=Size.sm),
-                    "Status": Badge(
-                        status.replace("_", " ").upper(),
-                        variant=None,
-                        size=Size.sm,
-                        cls=get_submission_status_badge_class(status),
-                    ),
-                    "Created": created,
-                }
-            )
-
-        return Div(
-            P(f"{len(reports)} report(s)", cls="text-sm text-muted-foreground mb-3"),
-            Div(
-                TableFromDicts(
-                    header_data=["Title", "Type", "Status", "Created"],
-                    body_data=body_data,
-                    body_cell_render=_report_cell_render,
-                    cls=(TableT.striped,),
-                ),
-                cls="overflow-x-auto",
             ),
         )
 
@@ -968,20 +913,11 @@ class AdminLearningComponents:
 
     @staticmethod
     def render_user_ku_summary(detail: dict) -> Div:
-        """Render summary stats for one user's KU progress."""
+        """Render summary stats for one user's KU progress.
+
+        Its one caller (the teaching student page) says "no interactions" itself.
+        """
         summary = detail.get("summary", {})
-        total = (
-            summary.get("viewed_count", 0)
-            + summary.get("in_progress_count", 0)
-            + summary.get("mastered_count", 0)
-            + summary.get("bookmarked_count", 0)
-        )
-
-        if total == 0:
-            return Div(
-                P("This user has no KU interactions yet.", cls="text-muted-foreground"),
-            )
-
         return StatsGrid(
             [
                 StatItem(
@@ -1001,19 +937,14 @@ class AdminLearningComponents:
 
     @staticmethod
     def render_user_ku_detail_list(detail: dict) -> Div:
-        """Render detailed KU list with states for a user."""
+        """Render detailed KU list with states for a user.
+
+        Its one caller (the teaching student page) says "no interactions" itself.
+        """
         viewed = detail.get("viewed", [])
         in_progress = detail.get("in_progress", [])
         mastered = detail.get("mastered", [])
         bookmarked = detail.get("bookmarked", [])
-
-        if not viewed and not in_progress and not mastered and not bookmarked:
-            return Div(
-                P(
-                    "No Knowledge Unit interactions recorded for this user.",
-                    cls="text-muted-foreground pt-4",
-                ),
-            )
 
         sections = []
 
@@ -1034,57 +965,6 @@ class AdminLearningComponents:
             sections.append(_ku_state_section("Viewed", BadgeT.ghost, viewed, "last_viewed_at"))
 
         return Div(*sections, cls="space-y-6")
-
-    @staticmethod
-    def render_user_submissions_list(submissions: list[dict]) -> Div:
-        """Render exercise submissions for the admin learning user detail page."""
-        if not submissions:
-            return EmptyState(title="No exercise submissions yet")
-
-        from ui.enum_helpers import get_submission_status_badge_class
-
-        def _cell_render(k: str, v: object) -> Any:
-            if k == "Title":
-                return Td(v, cls="font-medium text-sm")
-            if k in ("Submitted", "Exercise"):  # skuel-lint: disable=SKUEL014 -- column labels
-                return Td(v, cls="text-sm text-muted-foreground")
-            return Td(v)
-
-        body_data = []
-        for sub in submissions:
-            status = sub.get("status") or "unknown"
-            title = sub.get("title") or sub.get("submission_uid") or "Untitled"
-            exercise_title = sub.get("exercise_title") or "—"
-            submitted_at = format_date(sub.get("submitted_at"), "%Y-%m-%d", empty="Unknown")
-            report_count = sub.get("report_count", 0)
-
-            body_data.append(
-                {
-                    "Title": title,
-                    "Exercise": exercise_title,
-                    "Status": Badge(
-                        status.replace("_", " ").upper(),
-                        variant=None,
-                        size=Size.sm,
-                        cls=get_submission_status_badge_class(status),
-                    ),
-                    "Reports": str(report_count),
-                    "Submitted": submitted_at,
-                }
-            )
-
-        return Div(
-            P(f"{len(submissions)} submission(s)", cls="text-sm text-muted-foreground mb-3"),
-            Div(
-                TableFromDicts(
-                    header_data=["Title", "Exercise", "Status", "Reports", "Submitted"],
-                    body_data=body_data,
-                    body_cell_render=_cell_render,
-                    cls=(TableT.striped,),
-                ),
-                cls="overflow-x-auto",
-            ),
-        )
 
 
 __all__ = [

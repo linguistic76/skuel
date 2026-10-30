@@ -111,7 +111,6 @@ def render_notification_card(notif: Notification) -> Div:
                 ),
                 cls="flex items-start gap-3",
             ),
-            cls="p-4",
         ),
         cls=f"card {bg_cls} shadow-xs {read_cls}",
         id=f"notif-{notif.uid}",

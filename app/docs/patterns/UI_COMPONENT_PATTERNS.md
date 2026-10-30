@@ -484,19 +484,19 @@ Card(
 
 ### Card with Actions
 
-`CardActions` is deleted — use `CardFooter` (add `justify-end` for right-aligned actions):
+`CardActions` is deleted — use `CardFooter`, the body's sibling (add `justify-end` for right-aligned actions):
 
 ```python
 Card(
     CardBody(
         CardTitle("Task Name"),
         P("Task description here", cls="text-muted-foreground"),
-        CardFooter(
-            Button("Edit", cls=ButtonT.ghost, size="sm"),
-            Button("Complete", cls=ButtonT.primary, size="sm"),
-            cls="justify-end gap-2",
-        ),
-    )
+    ),
+    CardFooter(
+        Button("Edit", cls=ButtonT.ghost, size="sm"),
+        Button("Complete", cls=ButtonT.primary, size="sm"),
+        cls="justify-end gap-2",
+    ),
 )
 ```
 
@@ -786,14 +786,14 @@ def TaskCard(task: Task) -> Any:
                 Span(f"Due: {task.due_date}", cls="text-xs text-muted-foreground/50") if task.due_date else None,
                 gap=2
             ),
-            CardFooter(
-                Button("Edit", cls=ButtonT.ghost, size="sm",
-                       hx_get=f"/tasks/edit?uid={task.uid}", hx_target="#modal"),
-                Button("Complete", cls=ButtonT.primary, size="sm",
-                       hx_post=f"/api/tasks/{task.uid}/status", hx_vals='{"status": "completed"}',
-                       hx_target=f"#task-{safe_id(task.uid)}", hx_swap="outerHTML"),
-                cls="justify-end gap-2",
-            ),
+        ),
+        CardFooter(
+            Button("Edit", cls=ButtonT.ghost, size="sm",
+                   hx_get=f"/tasks/edit?uid={task.uid}", hx_target="#modal"),
+            Button("Complete", cls=ButtonT.primary, size="sm",
+                   hx_post=f"/api/tasks/{task.uid}/status", hx_vals='{"status": "completed"}',
+                   hx_target=f"#task-{safe_id(task.uid)}", hx_swap="outerHTML"),
+            cls="justify-end gap-2",
         ),
         cls=f"border-l-4 {_priority_border(task.priority)}"
     )
@@ -876,7 +876,7 @@ Card(
 )
 ```
 
-Import from `ui.components`: `Card, CardBody, CardHeader, CardTitle` (M5 ✅). Base padding and background are built into the component classes — add layout-only classes like `mb-6` to `Card()`.
+Import from `ui.components`: `Card, CardBody, CardHeader, CardTitle` (M5 ✅). Base padding and background are built into the component classes — add layout-only classes like `mb-6` to `Card()`. Each part (`CardHeader`, `CardBody`, `CardFooter`) pads all four sides; a body or footer directly after another part drops its top, because that part's bottom padding already spaces them. A padding class in a part's `cls` that compiles before the part's own `p-6` (`p-4`, `p-5`, …) never applies, and the guard refuses it by reading `output.css`'s order (`tests/unit/ui/test_card_part_padding.py`).
 
 **Adoption status:** All card titles across ~12 files use semantic `CardHeader(CardTitle(...))`. Zero raw H2/H3 inside Card.
 

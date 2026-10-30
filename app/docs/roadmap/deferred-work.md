@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-17
+updated: 2026-10-30
 ---
 
 # Deferred Work
@@ -242,6 +242,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Askesis "Search chats" — a Field With No Behaviour
 
 [Askesis "Search chats" — a Field With No Behaviour](askesis-search-chats.md) — The Askesis sidebar's "Search chats" field has no name, no handler and no results, beside a history pane with nothing in it (Askesis does not persist its conversations); registered 2026-10-17, waiting on the Askesis review.
+
+## Gutter Census Reads No Spacing From Hand-Written CSS
+
+[Gutter Census Reads No Spacing From Hand-Written CSS](gutter-census-css-rule-spacing.md) — The page-gutter census reads padding and margin from class tokens only; a hand-written stylesheet rule that spaced a body's edge would pass it. Nine classes get spacing that way today, none at an edge; waits on the first that lands at one.
 
 ## Review Schedule
 

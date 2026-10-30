@@ -137,7 +137,6 @@ def SharedItemCard(item: SharedWithMeItem) -> Any:
                 if href
                 else ""
             ),
-            cls="p-4",
         ),
         cls="bg-muted shadow-xs hover:shadow-md transition-shadow",
     )

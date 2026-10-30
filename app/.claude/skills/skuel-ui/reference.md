@@ -55,15 +55,15 @@ def TaskCard(
         CardBody(
             H4(task.title, cls="font-semibold"),
             P(task.description, cls="text-sm text-muted-foreground") if show_description else None,
-            CardFooter(   # CardFooter is the action area
-                ButtonLink("Edit", href=f"/tasks/edit?uid={task.uid}", cls=ButtonT.ghost, size="sm"),
-                # POST /api/tasks/{uid}/status answers the updated card, so the card swaps itself
-                Button("Complete", cls=ButtonT.primary, size="sm",
-                       hx_post=f"/api/tasks/{task.uid}/status", hx_vals='{"status": "completed"}',
-                       hx_target=f"#{card_id}", hx_swap="outerHTML"),
-                cls="justify-end gap-2",
-            ) if show_actions else None,
         ),
+        CardFooter(   # the action area: the body's sibling, never inside it
+            ButtonLink("Edit", href=f"/tasks/edit?uid={task.uid}", cls=ButtonT.ghost, size="sm"),
+            # POST /api/tasks/{uid}/status answers the updated card, so the card swaps itself
+            Button("Complete", cls=ButtonT.primary, size="sm",
+                   hx_post=f"/api/tasks/{task.uid}/status", hx_vals='{"status": "completed"}',
+                   hx_target=f"#{card_id}", hx_swap="outerHTML"),
+            cls="justify-end gap-2",
+        ) if show_actions else None,
         cls=("hover:shadow-md transition-shadow", cls),
         id=card_id,
     )
@@ -203,12 +203,11 @@ related-concepts fragments. The Activity lists have no page context — they are
 ```python
 # Strategy 1: Function composition (preferred)
 def GoalCard(goal: Goal, show_actions: bool = True) -> FT:
-    return Card(CardBody(
-        H4(goal.title),
-        StatusBadge(goal.status.value),
+    return Card(
+        CardBody(H4(goal.title), StatusBadge(goal.status.value)),
         CardFooter(ButtonLink("Open", href=f"/goals/detail?uid={goal.uid}", cls=ButtonT.ghost, size="sm"),
                    cls="justify-end") if show_actions else None,
-    ))
+    )
 
 # Strategy 2: Configuration-driven (use when N domains share one layout)
 # Live example: ActivityUIConfig (adapters/inbound/activity_ui_factory.py). Each of the six

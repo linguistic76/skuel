@@ -110,9 +110,9 @@ def _card(question: HubQuestion, *body: FT | None, footer: FT | None = None) -> 
                 cls="text-11 uppercase tracking-wider text-muted-foreground",
             ),
             H3(question.label(), cls="text-base font-semibold leading-tight text-foreground"),
-            cls="p-5 pb-3",
+            cls="pb-3",
         ),
-        CardBody(*body, footer if footer is not None else None, cls="p-5 pt-0 space-y-3"),
+        CardBody(*body, footer if footer is not None else None, cls="space-y-3"),
         id=question.mount_id(),
         cls="h-full",
     )

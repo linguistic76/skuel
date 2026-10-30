@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-10-10
+updated: 2026-10-30
 status: current
 category: architecture
 tags:
@@ -217,7 +217,6 @@ User management UI components:
 | `render_user_stats(stats)` | Stats cards (total, by role) |
 | `render_role_filter(role)` | Role filter dropdown |
 | `render_status_filter(status)` | Status filter dropdown |
-| `render_user_reports_list(reports)` | Per-user reports table (user detail page) |
 
 ### AdminAnalyticsComponents
 
