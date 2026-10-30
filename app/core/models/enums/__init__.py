@@ -6,7 +6,8 @@ This module provides unified access to all SKUEL enumerations.
 
 Module Organization:
 - entity_enums: EntityType, EntityStatus, ContentOrigin,
-                Domain, NonKuDomain, DomainIdentifier, AnalyticsDomain, ContentScope, Context
+                Domain, NonKuDomain, DomainIdentifier, AnalyticsDomain, AnalyticsPeriod,
+                ContentScope, Context
 - activity_enums: Priority, Confidence, ActivityType, dual-track assessment levels
 - goal_enums: GoalType, GoalTimeframe, MeasurementType, HabitEssentiality
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
@@ -62,6 +63,7 @@ from .curriculum_enums import LpType, PublicationState, StepDifficulty
 # Entity enums - core identity, lifecycle, and domain classification
 from .entity_enums import (
     AnalyticsDomain,
+    AnalyticsPeriod,
     ContentOrigin,
     ContentScope,
     Context,
@@ -187,6 +189,7 @@ __all__ = [
     "AlignmentLevel",
     "AssessmentOutcome",
     "AnalyticsDomain",
+    "AnalyticsPeriod",
     "CacheStrategy",
     "ChoiceType",
     "CompletionStatus",

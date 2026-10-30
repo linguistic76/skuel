@@ -1,6 +1,6 @@
 ---
 title: Analytics Architecture - Statistical Aggregation Meta-Service
-updated: 2026-10-12
+updated: 2026-10-30
 status: current
 category: architecture
 tags: [architecture, analytics]
@@ -155,18 +155,22 @@ alignment measures.
 
 ## Analytics Domains Covered
 
-**From `AnalyticsDomain` enum (`core/models/enums/entity_enums.py`):**
+**From `AnalyticsDomain` enum (`core/models/enums/entity_enums.py`)** — the metrics column is a
+sample of each member's `get_metrics()`:
 
 | AnalyticsDomain | Domain Queried | Key Metrics |
 |-----------------|----------------|-------------|
 | `TASKS` | Tasks | completion_rate, overdue_count, priority_distribution |
-| `HABITS` | Habits | current_streaks, consistency_score, completion_rate |
-| `GOALS` | Goals | on_track_count, at_risk_count, progress_percentage |
-| `EVENTS` | Events | total_count, completion_rate, time_distribution |
-| `FINANCE` | Finance | total_expenses, category_breakdown, budget_variance |
-| `CHOICES` | Choices | total_count, domain_distribution, outcome_analysis |
+| `HABITS` | Habits | current_streaks, consistency_rate, completion_rate |
+| `GOALS` | Goals | on_track_count, at_risk_count, avg_progress_percentage |
+| `EVENTS` | Events | upcoming_count, total_hours_scheduled, events_by_type |
+| `CHOICES` | Choices | total_choices, choices_by_domain, decision_quality_avg |
+| `PRINCIPLES` | Principles | total_principles, embodied_count, alignment_score_avg |
 
-**Note:** No `ANALYTICS` or `SUBMISSIONS` enum values. Submissions are used IN analytics (via `AnalyticsMetricsService`) but don't generate standalone analytics. Principles are tracked via life path alignment rather than as a separate analytics domain.
+**Note:** No `ANALYTICS`, `SUBMISSIONS` or `FINANCE` enum values. Submissions are used IN analytics (via `AnalyticsMetricsService`) but don't generate standalone analytics; Finance is the admin-only Firefly III sidecar (ADR-052).
+
+The dashboard (`/ui/analytics`) offers each member in its domain picker and each `AnalyticsPeriod`
+(same file) in its period picker — both lists are derived from the enums.
 
 ---
 
@@ -176,13 +180,9 @@ alignment measures.
 Domain Services (Source of Truth)
     ↓ read
 AnalyticsMetricsService
-    ↓ queries
-TasksService.list_tasks(user_uid, status="completed")
-HabitsService.get_user_habits(user_uid)
-GoalsService.get_user_goals(user_uid)
-EventsService.get_user_events(user_uid, period)
-FinanceService.get_expenses(user_uid, period)
-ChoicesService.get_user_choices(user_uid, period)
+    ↓ queries — one read per domain, the same method on each facade
+{Tasks,Habits,Goals,Events,Choices,Principles}Service
+    .get_user_items_in_range(user_uid, start_date, end_date, include_completed=True)
     ↓ aggregate
 Statistical Metrics Dict
     ↓ format

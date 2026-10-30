@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fasthtml.common import Div, Form, Label, Option, P
 
+from core.models.enums import AnalyticsDomain, AnalyticsPeriod
 from ui.analytics.domain_metrics import render_metrics_cards
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.forms import Input, Select
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
     from fasthtml.common import FT
 
     from adapters.inbound.fasthtml_types import Request
+    from core.models.analytics.analytics import AnalyticsSummary
 
 
 def render_analytics_dashboard(request: Request) -> FT:
@@ -34,12 +36,7 @@ def render_analytics_dashboard(request: Request) -> FT:
                     Div(
                         Label("Domain", cls="label"),
                         Select(
-                            Option("Tasks", value="tasks"),
-                            Option("Habits", value="habits"),
-                            Option("Goals", value="goals"),
-                            Option("Events", value="events"),
-                            Option("Choices", value="choices"),
-                            Option("Principles", value="principles"),
+                            *(Option(d.get_label(), value=d.value) for d in AnalyticsDomain),
                             name="analytics_domain",
                             id="analytics-domain-select",
                         ),
@@ -48,12 +45,7 @@ def render_analytics_dashboard(request: Request) -> FT:
                     Div(
                         Label("Period", cls="label"),
                         Select(
-                            Option("This Week", value="week_current"),
-                            Option("Last Week", value="week_last"),
-                            Option("This Month", value="month_current"),
-                            Option("Last Month", value="month_last"),
-                            Option("This Year", value="year_current"),
-                            Option("Custom Range", value="custom"),
+                            *(Option(p.get_label(), value=p.value) for p in AnalyticsPeriod),
                             name="period",
                             id="period-select",
                             hx_get="/ui/analytics/period-fields",
@@ -81,9 +73,9 @@ def render_analytics_dashboard(request: Request) -> FT:
     return BasePage(body, title="Analytics", request=request)
 
 
-def render_period_fields(period: str) -> Any:
-    """Dynamic period input fields."""
-    if period == "custom":
+def render_period_fields(period: AnalyticsPeriod) -> FT | str:
+    """The date inputs a custom range needs; every other period needs none."""
+    if period is AnalyticsPeriod.CUSTOM:
         return Div(
             Div(
                 Label("Start Date", cls="label"),
@@ -99,7 +91,7 @@ def render_period_fields(period: str) -> Any:
     return ""
 
 
-def render_analytics_result(report: Any) -> Any:
+def render_analytics_result(report: AnalyticsSummary) -> FT:
     """Render generated analytics result."""
     return Div(
         Card(
@@ -126,7 +118,7 @@ def render_analytics_result(report: Any) -> Any:
     )
 
 
-def render_markdown_view(markdown_content: str) -> Any:
+def render_markdown_view(markdown_content: str) -> FT:
     """Render markdown content, toggled by Alpine showMarkdown state."""
     return Card(
         Div(markdown_content, cls="whitespace-pre-wrap leading-relaxed text-foreground"),

@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: '2026-10-22'
+updated: '2026-10-30'
 category: patterns
 related_skills:
 - pydantic
@@ -98,9 +98,11 @@ async def get_context_dashboard_route(request: Request) -> Result[ContextDashboa
 **An HTML route** (a page or an HTMX fragment) cannot return the `Result`: it answers
 `refuse_malformed(error)` — a bare plain-text 400 with no `X-SKUEL-Refusal` header, so
 HTMX leaves its target as it was. The page minted the value (a Load-more sentinel's
-`offset`, a tree row's `parent_depth`, a modal's `date`), so only a crafted or stale
-request carries one that does not read — the same answer `/today/{date_str}/habits` gives a
-date it cannot read.
+`offset`, a tree row's `parent_depth`, a modal's `date`, a `<select>`'s option), so only a
+crafted or stale request carries one that does not read — the same answer
+`/today/{date_str}/habits` gives a date it cannot read. One route can hold both kinds:
+`/ui/analytics/view` refuses its domain and period pickers' words with this 400, and
+answers the custom range's typed dates with the form's banner (200).
 
 ### Request bodies: one door, two encodings — `parse_body(request, Model)`
 
