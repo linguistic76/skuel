@@ -9,7 +9,7 @@ Organized in 5 sections:
 1. Core Identity: EntityType, ContentOrigin (4 tiers)
 2. Processing Lifecycle: EntityStatus
 3. Domain Classification: Domain, NonKuDomain, DomainIdentifier
-4. Analytics: AnalyticsDomain
+4. Analytics: AnalyticsDomain, AnalyticsPeriod
 5. Access Control: ContentScope, Context
 """
 
@@ -1160,6 +1160,10 @@ class AnalyticsDomain(StrEnum):
     CHOICES = "choices"
     PRINCIPLES = "principles"
 
+    def get_label(self) -> str:
+        """The domain's name as the analytics dashboard and report titles show it."""
+        return self.value.title()
+
     def get_metrics(self) -> list[str]:
         """Get available metrics for this analytics domain"""
         metrics = {
@@ -1211,6 +1215,33 @@ class AnalyticsDomain(StrEnum):
             ],
         }
         return metrics.get(self, [])
+
+
+class AnalyticsPeriod(StrEnum):
+    """The reporting periods the analytics dashboard offers.
+
+    Five are closed calendar ranges relative to the learner's today (weeks start
+    Monday); CUSTOM is a range the learner types as a start and an end date.
+    """
+
+    WEEK_CURRENT = "week_current"
+    WEEK_LAST = "week_last"
+    MONTH_CURRENT = "month_current"
+    MONTH_LAST = "month_last"
+    YEAR_CURRENT = "year_current"
+    CUSTOM = "custom"
+
+    def get_label(self) -> str:
+        """The period's name as the dashboard's period picker shows it."""
+        labels = {
+            AnalyticsPeriod.WEEK_CURRENT: "This Week",
+            AnalyticsPeriod.WEEK_LAST: "Last Week",
+            AnalyticsPeriod.MONTH_CURRENT: "This Month",
+            AnalyticsPeriod.MONTH_LAST: "Last Month",
+            AnalyticsPeriod.YEAR_CURRENT: "This Year",
+            AnalyticsPeriod.CUSTOM: "Custom Range",
+        }
+        return labels[self]
 
 
 # =============================================================================

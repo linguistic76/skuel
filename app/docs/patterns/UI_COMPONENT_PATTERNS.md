@@ -1140,7 +1140,7 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **Activity Review UI:** `ui/activity_review/` — `cards.py` (queue items + snapshot domain cards), `forms.py` (snapshot form + feedback form with Script sync), `types.py` (domain choices config), `nav.py` (sidebar). `activity_review_ui.py` is ~266 lines.
 
-**Analytics UI:** `ui/analytics/` — `dashboard.py` (dashboard + period fields + result rendering), `domain_metrics.py` (7 per-domain metric renderers), `life_path.py` (alignment dashboard), `life_summary.py` (weekly cross-layer summary). Dissolved `AnalyticsUIComponents` class. `analytics_ui.py` is ~167 lines.
+**Analytics UI:** `ui/analytics/` — `dashboard.py` (dashboard + period fields + result rendering), `domain_metrics.py` (7 per-domain metric renderers), `life_path.py` (alignment dashboard), `life_summary.py` (weekly cross-layer summary). `adapters/inbound/analytics_ui.py` holds the routes and their query readers.
 
 **Ingestion UI:** `ui/ingestion/` — `dashboard.py` (form groups, ingestion cards, results display + JS handlers). `ingestion_ui.py` is ~59 lines — pure admin auth + delegation.
 

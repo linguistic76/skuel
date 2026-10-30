@@ -605,7 +605,7 @@ class AnalyticsService:
         self, analytics_domain: AnalyticsDomain, start_date: date, end_date: date
     ) -> str:
         """Generate human-readable report title"""
-        domain = analytics_domain.value.title()
+        domain = analytics_domain.get_label()
 
         # Determine period type
         if (end_date - start_date).days == 6:

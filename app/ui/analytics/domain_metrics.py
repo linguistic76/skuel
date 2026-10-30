@@ -1,6 +1,6 @@
 """Per-domain analytics metrics rendering."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, H4, Div, Span
 
@@ -10,8 +10,13 @@ from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT
 from ui.patterns.stats_grid import StatCard, StatItem, StatsGrid
 
+if TYPE_CHECKING:
+    from fasthtml.common import FT
 
-def render_metrics_cards(report: Any) -> Any:
+    from core.models.analytics.analytics import AnalyticsSummary
+
+
+def render_metrics_cards(report: AnalyticsSummary) -> FT:
     """Render metric cards based on analytics domain."""
     metrics = report.metrics
     domain = report.analytics_domain
