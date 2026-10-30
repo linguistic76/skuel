@@ -1,14 +1,12 @@
-"""Journal UI components — status alerts, filters, and grid containers."""
+"""Journal UI components — upload status alerts and the batch transcription panel."""
 
 from typing import Any
 
-from fasthtml.common import H4, H5, Code, Div, Option, P, Span, Template
+from fasthtml.common import H4, H5, Code, Div, P, Span, Template
 
-from core.models.enums.entity_enums import EntityStatus
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Alert, AlertT
-from ui.forms import Input, Label, Select
-from ui.patterns.skeleton import SkeletonList
+from ui.forms import Input, Label
 
 
 def render_upload_status(
@@ -43,54 +41,6 @@ def render_upload_status(
             variant=AlertT.success,
         ),
         id=status_id,
-    )
-
-
-def render_filters_section() -> Any:
-    """Render the status filter controls card."""
-    return Card(
-        CardBody(
-            _build_filter_form(),
-        ),
-        cls="bg-background shadow-xs mb-6",
-    )
-
-
-def _build_filter_form() -> Any:
-    """Build the filter form element."""
-    from fasthtml.common import Form
-
-    return Form(
-        Div(
-            Label("Status"),
-            Select(
-                Option("All Status", value="", selected=True),
-                Option("Submitted", value=EntityStatus.SUBMITTED.value),
-                Option("Queued", value=EntityStatus.QUEUED.value),
-                Option("Processing", value=EntityStatus.PROCESSING.value),
-                Option("Completed", value=EntityStatus.COMPLETED.value),
-                Option("Failed", value=EntityStatus.FAILED.value),
-                name="status",
-            ),
-            cls="mb-2",
-        ),
-        hx_get="/journals/grid",
-        hx_target="#journals-grid-container",
-        hx_swap="outerHTML",
-        hx_trigger="change from:select",
-        id="filter-form",
-    )
-
-
-def render_journals_grid_container() -> Any:
-    """Render the HTMX-loading journals grid container."""
-    return Div(
-        SkeletonList(count=3),
-        id="journals-grid-container",
-        cls="mt-4",
-        hx_get="/journals/grid",
-        hx_trigger="load",
-        hx_swap="outerHTML",
     )
 
 

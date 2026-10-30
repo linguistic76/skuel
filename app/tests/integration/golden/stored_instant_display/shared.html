@@ -17,7 +17,7 @@
 </form>  <div id="shared-with-me-list">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div class="rounded-lg border bg-card text-card-foreground shadow-xs bg-muted shadow-xs hover:shadow-md transition-shadow">
-        <div class="p-6 pt-0 p-4">
+        <div data-slot="card-body" class="p-6 [[data-slot=card-header]+&amp;]:pt-0">
           <h4 class="text-sm font-medium line-clamp-2">Where I grew up</h4>
           <div class="flex flex-wrap items-center gap-1 mt-1">
 <span class="inline-flex items-center rounded-full border font-medium bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-0.5">Reviewed · Teacher</span><span class="inline-flex items-center rounded-full border font-medium bg-transparent text-foreground border-border text-xs px-2 py-0.5">Shared with you</span>          </div>

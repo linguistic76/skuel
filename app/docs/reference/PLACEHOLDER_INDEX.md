@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-16
+updated: 2026-10-30
 ---
 
 # Placeholder Parameter Index
@@ -436,20 +436,7 @@ at 152, which receives it positionally as `data_points` (541) and buckets it at 
 
 ## Group J — UI Placeholder Views
 
-These are FastHTML component functions that accept parameters that are not yet rendered.
-
-| File | Line | Function | Parameter | Notes |
-|------|------|----------|-----------|-------|
-| `ui/admin/views.py` | 526 | `render_user_reports_list()` | `_user_uid` | `@staticmethod` on `AdminUIComponents` (38); UID passed but not used in query |
-
-⚠ **Like Group B, the function has no caller** — the only occurrence of the name in the Python
-tree is its own definition.
-
-> **Settled (2026-08):** this group previously carried `ui/profile/`'s former `curriculum_views.py`
-> (`PathStepsDomainView(_context, _focus_uid)`) with an open abandoned-vs-staged question. The
-> dead-module triage ruled it abandoned — nothing imported the module, all four view functions were
-> unreached — and it was deleted per One Path Forward (the `skuel-ui` skill table was updated
-> with it; `ui/profile/` itself retired with the hub — only the shared-with-me view remains).
+No open rows.
 
 ---
 
@@ -467,7 +454,6 @@ tree is its own definition.
 | Low | F — Goal Task Generation | Tasks are already generated; priority/due-date hardcoded and cross-goal context unread in all three generators |
 | Low | H — Askesis Private Methods | Internal heuristics refinement |
 | Low | I — misc infrastructure | Calendar energy profile, schema optimizer, predictive lookback window (3 sites), `_props` validation, LP recommendation stub |
-| Low | J — UI Views | UX enhancement; not correctness issues |
 
 Every row above resolves to a heading in this document (`## Group X`, or `### X2` for the
 `FUTURE-IMPL` subsections) — keep it that way when editing. A row with no section is how this

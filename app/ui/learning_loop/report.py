@@ -342,7 +342,6 @@ def render_activity_report_card(report: Any) -> Any:
         ),
         Div(*domain_badges, cls="flex flex-wrap gap-1 mt-1") if domain_badges else None,
         P(truncated, cls="text-xs text-muted-foreground mt-1") if truncated else None,
-        cls="p-3",
     )
 
     if uid:
@@ -418,7 +417,6 @@ def render_domain_summary_card(domain_name: str, data: dict[str, Any]) -> Any:
             Ul(*item_rows, cls="list-disc list-inside space-y-1")
             if item_rows
             else P("No items in this period.", cls="text-xs text-muted-foreground"),
-            cls="p-3",
         ),
         cls="bg-muted/30 border border-border",
     )
@@ -1121,7 +1119,6 @@ def render_progress_report_card(report: Any) -> Any:
             Div(*badges, cls="flex flex-wrap gap-1 mb-2") if badges else None,
             Div(*domain_badges, cls="flex flex-wrap gap-1 mb-2") if domain_badges else None,
             content_section,
-            cls="p-4",
         ),
         cls="bg-background shadow-xs",
     )

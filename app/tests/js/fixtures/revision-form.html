@@ -1,5 +1,5 @@
 <div class="rounded-lg border bg-card text-card-foreground shadow-xs bg-background shadow-xs">
-  <div class="p-6 pt-0">
+  <div data-slot="card-body" class="p-6 [[data-slot=card-header]+&amp;]:pt-0">
     <p class="text-sm text-muted-foreground mb-3">Ask the student to revise — they get revised instructions to answer.</p>
 <form enctype="multipart/form-data" hx-post="/api/teaching/review/ue_abc12345/revision" hx-swap="innerHTML" hx-target="#revision-result">      <div class="mb-3">
 <label for="revision_instructions_ue_abc12345" class="text-sm font-medium mb-1 block">Revision instructions</label><textarea name="instructions" placeholder="What should the student do differently?" rows="4" required id="revision_instructions_ue_abc12345" class="flex min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full"></textarea>      </div>

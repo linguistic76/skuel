@@ -89,7 +89,6 @@ def render_submission_content(detail: SubmissionDetail) -> Div:
                 ),
                 Div(EntryBody(work, empty=empty), cls="mt-1"),
             ),
-            cls="p-4",
         ),
         cls="bg-background shadow-xs mb-4",
     )
@@ -226,9 +225,19 @@ def _render_submission_list(items: list[SubmissionRow], empty_message: str) -> A
 
 
 def _render_ku_progress(ku_detail: dict[str, Any] | None) -> Any:
-    """KU progress summary + detail list, or an unavailable message."""
+    """KU progress summary + detail list, or one line saying why there is none.
+
+    The summary counts the four interaction lists, so an empty detail is one fact,
+    said once.
+    """
     if ku_detail is None:
         return P("KU progress data unavailable.", cls="text-center text-muted-foreground text-sm")
+    if not any(
+        ku_detail.get(state) for state in ("viewed", "in_progress", "mastered", "bookmarked")
+    ):
+        return P(
+            "No Knowledge Unit interactions yet.", cls="text-center text-muted-foreground text-sm"
+        )
     from ui.admin.views import AdminLearningComponents
 
     return Div(
