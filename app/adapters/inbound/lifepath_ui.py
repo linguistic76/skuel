@@ -8,7 +8,8 @@ UI Routes:
 - GET /lifepath - Main dashboard
 - GET /lifepath/content - HTMX fragment: dashboard body
 - GET /lifepath/vision - Vision capture page
-- POST /lifepath/vision - Process vision capture
+- POST /lifepath/vision - Capture the vision; 303 to its recommendations
+- GET /lifepath/vision/recommendations - LPs recommended from the saved vision
 - POST /lifepath/designate - Designate an LP as life path
 - GET /lifepath/alignment - Alignment dashboard
 - GET /lifepath/alignment/content - HTMX fragment: alignment dashboard body
@@ -16,7 +17,7 @@ UI Routes:
 """
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fasthtml.common import FT, Div
 from starlette.responses import HTMLResponse, RedirectResponse
@@ -24,7 +25,7 @@ from starlette.responses import HTMLResponse, RedirectResponse
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import safe_form_string
 from core.config.settings import get_settings
 from core.ports.query_types import AlignmentDimensions, ChartJsConfig
@@ -37,6 +38,8 @@ from ui.lifepath import (
     render_dashboard_content,
     render_designation_refused,
     render_lived_cards,
+    render_no_themes,
+    render_recommendation_cards,
     render_recommendations_page,
     render_vision_form,
 )
@@ -44,6 +47,7 @@ from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
 
 if TYPE_CHECKING:
+    from core.ports.service_protocols import LifePathOperations
     from core.services.analytics_service import AnalyticsService
 
 logger = get_logger("skuel.routes.lifepath.ui")
@@ -70,9 +74,9 @@ def _refusal_banner(error: ErrorContext, retry_message: str) -> FT:
 
 
 def create_lifepath_ui_routes(
-    _app: Any,
-    rt: Any,
-    lifepath_service: Any,
+    _app: FastHTMLApp,
+    rt: RouteDecorator,
+    lifepath_service: LifePathOperations,
     analytics_service: AnalyticsService,
 ) -> None:
     """Create LifePath UI routes.
@@ -82,14 +86,14 @@ def create_lifepath_ui_routes(
     """
 
     @rt("/lifepath")
-    def lifepath_dashboard(request: Request) -> Any:
+    def lifepath_dashboard(request: Request) -> FT:
         """Main life path dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         content = content_loading_placeholder("/lifepath/content", "lifepath-dashboard-content")
         return lifepath_sidebar_page("dashboard", content, request)
 
     @rt("/lifepath/content")
-    async def lifepath_dashboard_content(request: Request) -> Any:
+    async def lifepath_dashboard_content(request: Request) -> FT:
         """HTMX fragment: lifepath dashboard body."""
         user_uid = require_authenticated_user(request)
         status_result = await lifepath_service.get_full_status(user_uid)
@@ -99,45 +103,89 @@ def create_lifepath_ui_routes(
                 id="lifepath-dashboard-content",
             )
         return Div(
-            render_dashboard_content(status_result.value, user_uid),
+            render_dashboard_content(status_result.value),
             id="lifepath-dashboard-content",
         )
 
     @rt("/lifepath/vision", methods=["GET"])
-    async def vision_capture_page(request: Request) -> Any:
-        """Vision capture page - where user expresses their vision."""
+    async def vision_capture_page(request: Request) -> FT:
+        """Vision capture page: the saved vision in the form, ready to revise.
+
+        A failed read is its banner and no form — an empty form would invite the
+        learner to replace a vision they cannot see.
+        """
         user_uid = require_authenticated_user(request)
 
-        designation_result = await lifepath_service.core.get_designation(user_uid)
-        existing_vision = ""
-        if designation_result.is_ok and designation_result.value:
-            existing_vision = designation_result.value.vision_statement
+        vision_result = await lifepath_service.get_vision(user_uid)
+        if vision_result.is_error:
+            content = _read_failed_banner(
+                "Could not load your vision", vision_result.expect_error()
+            )
+            return lifepath_sidebar_page("vision", content, request)
 
-        content = render_vision_form(existing_vision)
+        vision = vision_result.value
+        content = render_vision_form(vision.get("statement", "") if vision else "")
         return lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/vision", methods=["POST"])
     @csrf_protected
-    async def process_vision_capture(request: Request) -> Any:
-        """Process vision capture and show recommendations."""
+    async def process_vision_capture(request: Request) -> FT | RedirectResponse:
+        """Capture the vision, then 303 to the recommendations its saved themes
+        rebuild; a refused or unsaved vision is the form again, text kept."""
         user_uid = require_authenticated_user(request)
 
         form = await request.form()
         vision_statement = safe_form_string(form.get("vision_statement"))
 
-        result = await lifepath_service.capture_and_recommend(user_uid, vision_statement)
+        result = await lifepath_service.capture_vision(user_uid, vision_statement)
         if result.is_error:
-            refusal = _refusal_banner(result.expect_error(), "Could not read your vision")
+            refusal = _refusal_banner(result.expect_error(), "Could not save your vision")
             return lifepath_sidebar_page(
                 "vision", render_vision_form(vision_statement, refusal), request
             )
 
-        content = render_recommendations_page(result.value, user_uid)
+        return RedirectResponse(url="/lifepath/vision/recommendations", status_code=303)
+
+    @rt("/lifepath/vision/recommendations", methods=["GET"])
+    async def vision_recommendations_page(request: Request) -> FT | RedirectResponse:
+        """Learning Paths recommended from the saved vision's themes.
+
+        Rebuilt from what was saved, with no theme extraction, so a reload costs
+        a search and nothing more. No saved vision goes back to the form.
+        """
+        user_uid = require_authenticated_user(request)
+
+        vision_result = await lifepath_service.get_vision(user_uid)
+        if vision_result.is_error:
+            content = _read_failed_banner(
+                "Could not load your vision", vision_result.expect_error()
+            )
+            return lifepath_sidebar_page("vision", content, request)
+
+        vision = vision_result.value
+        if vision is None:
+            return RedirectResponse(url="/lifepath/vision", status_code=303)
+
+        themes = vision.get("themes", [])
+        if not themes:
+            recommendations = render_no_themes()
+        else:
+            recommendations_result = await lifepath_service.match_learning_paths(themes)
+            recommendations = (
+                _read_failed_banner(
+                    "Could not load your recommended Learning Paths",
+                    recommendations_result.expect_error(),
+                )
+                if recommendations_result.is_error
+                else render_recommendation_cards(recommendations_result.value)
+            )
+
+        content = render_recommendations_page(vision, recommendations)
         return lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/designate", methods=["POST"])
     @csrf_protected
-    async def designate_life_path(request: Request) -> Any:
+    async def designate_life_path(request: Request) -> FT | RedirectResponse:
         """Designate an LP as the user's life path."""
         user_uid = require_authenticated_user(request)
 

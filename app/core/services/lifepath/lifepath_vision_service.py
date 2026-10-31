@@ -20,6 +20,7 @@ Philosophy:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from itertools import islice
@@ -40,6 +41,7 @@ from .lifepath_types import (
 )
 
 if TYPE_CHECKING:
+    from core.models.pathways.learning_path import LearningPath
     from core.services.llm_service import LLMService
     from core.services.lp_service import LpService
     from core.services.user.unified_user_context import UserContext
@@ -320,12 +322,18 @@ Focus on actionable aspirations, not generic words."""
         """
         Find Learning Paths that match the extracted vision themes.
 
+        Each theme is its own search, and a path any theme finds is a
+        candidate: the LP text search matches its query as one phrase, so the
+        themes joined into one query would find only a path that holds them
+        all, side by side. No themes means no candidates, and no search.
+
         Args:
             themes: List of theme keywords
             limit: Maximum recommendations to return
 
         Returns:
-            Result[list[LpRecommendation]] sorted by match score
+            Result[list[LpRecommendation]] sorted by match score; a failed
+            search fails the whole read
         """
         if not self.lp_service:
             return Result.fail(
@@ -335,24 +343,31 @@ Focus on actionable aspirations, not generic words."""
                 )
             )
 
+        themes = [theme for theme in dict.fromkeys(t.strip() for t in themes) if theme]
+        if not themes:
+            return Result.ok([])
+
         logger.info(f"Recommending LPs for themes: {themes}")
 
-        # Search LPs using theme keywords
-        search_query = " ".join(themes)
-        search_result = await self.lp_service.search.search(query=search_query, limit=limit * 2)
+        lp_search = self.lp_service.search
+        search_results = await asyncio.gather(
+            *(lp_search.search(query=theme, limit=limit * 2) for theme in themes)
+        )
+        lps: dict[str, LearningPath] = {}
+        for search_result in search_results:
+            if search_result.is_error:
+                return Result.fail(search_result)
+            for found in search_result.value:
+                lps.setdefault(found.uid, found)
 
-        if search_result.is_error:
-            return Result.fail(search_result)
-
-        lps = search_result.value
         recommendations = []
 
-        for lp in lps:
+        for lp in lps.values():
             # Calculate match score based on how many themes appear in LP
             lp_description = lp.description or ""
             lp_text = f"{lp.title} {lp_description} {' '.join(lp.outcomes)}".lower()
             matching = [t for t in themes if t.lower() in lp_text]
-            match_score = len(matching) / len(themes) if themes else 0
+            match_score = len(matching) / len(themes)
 
             recommendations.append(
                 LpRecommendation(

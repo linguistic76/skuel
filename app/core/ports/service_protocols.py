@@ -60,10 +60,12 @@ if TYPE_CHECKING:
         LifePathDesignation,
         LifePathRecommendation,
         LifePathStatus,
+        LpMatchResult,
         RelationshipGraphData,
         SessionIdentity,
         SignInResult,
         SignUpResult,
+        VisionData,
     )
     from core.services.cross_domain_analytics_service import LearningVelocityMetrics
     from core.services.performance_types import AlertThresholds
@@ -328,7 +330,7 @@ class LifePathAlignmentOperations(Protocol):
 class LifePathOperations(Protocol):
     """LifePath domain service operations (facade).
 
-    Route consumer: lifepath_api.py (primary), lifepath_ui.py
+    Route consumers: lifepath_api.py, lifepath_ui.py
     Implementation: LifePathService
 
     Sub-service access: .alignment for alignment calculations.
@@ -340,12 +342,24 @@ class LifePathOperations(Protocol):
         """Get full life path status. Returns Result[LifePathStatus]."""
         ...
 
+    async def capture_vision(self, user_uid: UserUID, vision_statement: str) -> Result[VisionData]:
+        """Extract the vision's themes and save both; a failed save fails the capture."""
+        ...
+
+    async def get_vision(self, user_uid: UserUID) -> Result[VisionData | None]:
+        """The saved vision and its themes, or None if the learner has not expressed one."""
+        ...
+
+    async def match_learning_paths(self, themes: list[str]) -> Result[list[LpMatchResult]]:
+        """Learning Paths matching the themes, best match first; no themes, no matches."""
+        ...
+
     async def capture_and_recommend(
         self,
         user_uid: UserUID,
         vision_statement: str,
     ) -> Result[LifePathRecommendation]:
-        """Capture vision and get recommendations. Returns Result[LifePathRecommendation]."""
+        """Capture the vision, then recommend Learning Paths from its saved themes."""
         ...
 
     async def designate_and_calculate(

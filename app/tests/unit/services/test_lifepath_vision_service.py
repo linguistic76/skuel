@@ -5,9 +5,10 @@ Covers the CORE-tier behavior: keyword theme extraction (the fallback that
 runs whenever llm_service is None), vision-statement validation, and the
 word-action alignment computation that bridges vision themes to UserContext.
 
-The LLM extraction path and LP recommendation search are exercised at the
-integration level (real LpService) — not mocked here, per the project's
-"mock-only unit tests hide phantom methods" rule.
+The LP recommendation search runs against a real LpService in
+tests/integration/test_lifepath_vision_recommendations.py — not mocked here, per
+the project's "mock-only unit tests hide phantom methods" rule. The LLM
+extraction path has no test.
 """
 
 from __future__ import annotations

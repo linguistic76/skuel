@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-10-30
+updated: 2026-10-31
 status: current
 category: architecture
 tags:
@@ -329,9 +329,9 @@ Both render as centre links in the navbar at lg+ and as `lg:hidden` rows on `/se
 
 **How `is_admin` is determined:**
 
-- Session flag: `get_is_admin(request)` — set at login, no DB call
-- Full check: `is_current_user_admin(request, user_service)` — DB lookup
-- Admin pages (`/admin/*`): Always pass `is_admin=True` via `@require_admin`
+- **The doors (navbar, `/settings` rows):** the session's `is_admin` flag, written at login from `user.can_manage_users()` (`auth_ui.py`). `AuthContextMiddleware` mirrors it into `auth_state_var` on every request (`get_is_admin(request)`), and the chrome reads it through `current_auth_state()` — no DB call.
+- **The flag can't outlive the role:** a role change goes through `update_role_and_revoke_sessions`, which revokes every live session in the same write, so the next request signs in again and gets a fresh flag.
+- **Access (`/admin/*`):** `@require_admin` decides on its own, looking the user up on every request and injecting `current_user`. A hidden door is not the gate.
 
 ---
 
