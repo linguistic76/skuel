@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING
 
 from core.models.relationship_names import RelationshipName
 from core.prompts import PROMPT_REGISTRY
+from core.utils.llm_json import parse_json_reply
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.vector_math import dot, l2_normalize
@@ -559,14 +560,10 @@ class PrereqSuggestionService:
             return [], 0, len(batch)
 
         try:
-            raw = completion_result.value.text
-            if "```" in raw:
-                raw = raw.split("```")[1]
-                raw = raw.removeprefix("json")
-            items = json.loads(raw.strip())
+            items = parse_json_reply(completion_result.value.text)
             if not isinstance(items, list):
                 raise TypeError("judge output is not a JSON array")
-        except (json.JSONDecodeError, TypeError, IndexError) as e:
+        except (json.JSONDecodeError, TypeError) as e:
             self.logger.warning(f"Prereq judge returned malformed JSON ({len(batch)} pairs): {e}")
             return [], 0, len(batch)
 

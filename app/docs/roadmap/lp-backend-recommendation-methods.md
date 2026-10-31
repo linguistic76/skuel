@@ -102,14 +102,15 @@ ZPD never names a LearningPath:
   and its edge weights are constant defaults: staged, see
   [lp-adaptive-reads.md](lp-adaptive-reads.md).
 - Whole-LP ranking exists, live, on a different key:
-  `LifePathVisionService.recommend_learning_paths(themes)` — reachable via
+  `LifePathVisionService.match_learning_paths(themes)` — reachable via
   `LifePathService.match_learning_paths` (the `GET /lifepath/vision/recommendations`
   page) and `POST /api/lifepath/vision` → `LifePathService.capture_and_recommend` —
   matches vision themes against LP search and returns frozen
   `LpRecommendation` rows. Path *choice* in the product today is
   vision-anchored (capture → recommend → designate), deliberately not
-  state-keyed. ⚠ Same method name, different service, different capability —
-  do not conflate the two.
+  state-keyed. A different capability on a different key from this doc's
+  `recommend_learning_paths`, and named differently so the two are not
+  conflated.
 
 **The gap (what nothing does):** rank whole LearningPaths by *learning state*
 (readiness / mastery). ZPD holds the state; nothing maps it to LP units.
@@ -165,9 +166,9 @@ squarely parked by the phase directive.
 4. **Build a consumer** — a UI surface (e.g. a "recommended paths" section) or
    a real subscriber to `LearningRecommendationGenerated`. Without one the
    build is inert by construction (see the investigation above).
-5. Reconcile the naming collision with
-   `LifePathVisionService.recommend_learning_paths` — two same-named methods
-   answering different questions on different keys is the same-root-word trap.
+5. ~~Reconcile the naming collision~~ — done: the Life Path side is
+   `LifePathVisionService.match_learning_paths`, so `recommend_learning_paths`
+   names only this feature's method. Nothing left to reconcile.
 6. Type the three handles, delete their explanatory comments, and delete this doc.
 7. Re-run the Scope C census — it should reach 0.
 

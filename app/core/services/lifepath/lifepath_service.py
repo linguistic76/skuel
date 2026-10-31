@@ -34,6 +34,7 @@ from core.ports.query_types import (
     LifePathRecommendationItem,
     LifePathStatus,
     LpMatchResult,
+    SavedVision,
     VisionData,
 )
 from core.utils.logging import get_logger
@@ -167,11 +168,12 @@ class LifePathService:
             )
         )
 
-    async def get_vision(self, user_uid: UserUID) -> Result[VisionData | None]:
-        """The learner's saved vision and its themes, or None if they have not
-        expressed one (a designated path alone is not a vision).
+    async def get_vision(self, user_uid: UserUID) -> Result[SavedVision | None]:
+        """The learner's saved vision, its themes and the Learning Path they
+        designated, or None if they have not expressed a vision (a designated
+        path alone is not a vision).
 
-        Carries no ``captured_at``: the designation record cannot tell a stored
+        Carries no capture time: the designation record cannot tell a stored
         capture time from a missing one.
         """
         designation_result = await self.core.get_designation(user_uid)
@@ -181,9 +183,10 @@ class LifePathService:
         if designation is None or not designation.has_vision:
             return Result.ok(None)
         return Result.ok(
-            VisionData(
+            SavedVision(
                 statement=designation.vision_statement,
                 themes=list(designation.vision_themes),
+                life_path_uid=designation.life_path_uid,
             )
         )
 
@@ -192,7 +195,7 @@ class LifePathService:
 
         No themes means no matches; a failed search fails the read.
         """
-        recommendations_result = await self.vision.recommend_learning_paths(themes)
+        recommendations_result = await self.vision.match_learning_paths(themes)
         if recommendations_result.is_error:
             return Result.fail(recommendations_result)
         return Result.ok(

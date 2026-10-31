@@ -68,6 +68,7 @@ from core.events import publish_event
 from core.events.knowledge_substance_events import KnowledgeReflectedInEntry
 from core.models.type_hints import UserUID
 from core.prompts import PROMPT_REGISTRY
+from core.utils.llm_json import parse_json_reply
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -411,14 +412,10 @@ class EntryGroundingService:
             return Result.fail(completion_result)
 
         try:
-            raw = completion_result.value.text
-            if "```" in raw:
-                raw = raw.split("```")[1]
-                raw = raw.removeprefix("json")
-            items = json.loads(raw.strip())
+            items = parse_json_reply(completion_result.value.text)
             if not isinstance(items, list):
                 raise TypeError("judge output is not a JSON array")
-        except (json.JSONDecodeError, TypeError, IndexError) as e:
+        except (json.JSONDecodeError, TypeError) as e:
             return Result.fail(
                 Errors.integration(
                     service="llm",

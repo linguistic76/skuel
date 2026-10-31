@@ -262,9 +262,13 @@ def test_the_dashboard_of_a_learner_with_a_vision_and_no_path_renders(
     assert "Choose a Learning Path for your vision" in _text(response.text)
 
 
-def test_no_designation_redirects_to_the_vision(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_no_designation_redirects_to_where_a_path_is_chosen(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Alignment is measured against a path; the recommendations page is where one
+    is chosen (and sends a learner with no vision on to the form)."""
     undesignated_status: LifePathStatus = {**STATUS, "has_designation": False}
     undesignated = Result.ok(undesignated_status)
     response = _client(monkeypatch, status=undesignated)[0].get(URL)
 
-    assert response.headers["HX-Redirect"] == "/lifepath/vision"
+    assert response.headers["HX-Redirect"] == "/lifepath/vision/recommendations"

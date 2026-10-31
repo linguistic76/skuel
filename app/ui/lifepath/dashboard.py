@@ -1,6 +1,6 @@
 """LifePath dashboard page content."""
 
-from fasthtml.common import FT, H3, Div, P, Span
+from fasthtml.common import FT, H3, A, Div, P, Span
 
 from core.models.enums import AlignmentLevel
 from core.ports.query_types import DailyFocusResult, LifePathStatus
@@ -9,9 +9,16 @@ from ui.feedback import Badge, BadgeT, Progress
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 
+#: The Learning Paths recommended from the saved vision, where a path is chosen.
+RECOMMENDATIONS_HREF = "/lifepath/vision/recommendations"
+
 
 def render_dashboard_content(status: LifePathStatus) -> FT:
-    """Build the main dashboard content."""
+    """Build the main dashboard content.
+
+    With a saved vision, the actions row leads to the recommendations page; while
+    no path is chosen, the alignment card says so and links there too.
+    """
     if not status.get("has_vision"):
         return Div(
             PageHeader(
@@ -52,6 +59,14 @@ def render_dashboard_content(status: LifePathStatus) -> FT:
                 "Choose a Learning Path for your vision, and alignment is measured against it.",
                 cls="text-muted-foreground",
             ),
+            P(
+                A(
+                    "See your recommended Learning Paths",
+                    href=RECOMMENDATIONS_HREF,
+                    cls="font-medium text-primary hover:underline",
+                ),
+                cls="mt-2",
+            ),
         )
     )
 
@@ -89,6 +104,7 @@ def render_dashboard_content(status: LifePathStatus) -> FT:
         Div(
             ButtonLink("View Alignment Details", href="/lifepath/alignment", cls=ButtonT.secondary),
             ButtonLink("Update Vision", href="/lifepath/vision", cls=ButtonT.secondary),
+            ButtonLink("Recommended Paths", href=RECOMMENDATIONS_HREF, cls=ButtonT.secondary),
             cls="flex flex-wrap gap-4",
         ),
         # Daily focus

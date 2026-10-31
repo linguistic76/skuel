@@ -44,6 +44,7 @@ Available templates (core/prompts/templates/):
     prereq_edge_judge             — Ku-pair prerequisite classification (PrereqSuggestionService)
     entry_ku_grounding_judge      — Entry→Ku engagement filter (EntryGroundingService)
     transcript_formatting         — Formatting instructions for a raw transcript (ContentEnrichmentService)
+    lifepath_vision_themes        — Themes of a Life Path vision statement (LifePathVisionService)
 """
 
 import string
