@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-17
+updated: 2026-10-31
 ---
 
 # Route Map
@@ -26,7 +26,7 @@ Admin-only read-only gauge (sidebar: "Knowledge Health"; ADR-080 Horizon-1). One
 
 ## Regular User Navigation
 
-One navigation, one rule (`ui/layouts/nav_config.py`): the chrome carries one door per SECTION, lit by a section key; a section's pages are its sidebar's rows. Section doors (`ICON_NAV_ITEMS` — the desktop centre links at sm+ AND the phone bottom-nav tabs below, the same four for every authenticated role, in order): **Tasks+** (`/today`, lit on every activity-sidebar page — Today, the calendar views, the six domains, the periodic notes, the GradeBook) → **Library** (`/explore/library`, lit on `explore` and `library`) → **PathSteps** (`/path-steps`) → **Submissions** (`/submissions`). An anonymous visitor gets Library + PathSteps. Role doors (`MAIN_NAV_ITEMS`): **Teaching** (`/teaching/students`) and **Admin** (`/admin`) — centre links at lg+, rows on `/settings` below. Right section (icon buttons): **Askesis** (`/askesis`) → **Shared** (`/profile/shared`) → notification bell → avatar (`/settings`, the account page — preferences, devices and, on phones, the sign-out row) → **Sign out** (`/logout`, sm+ only). The SKUEL brand link goes to `/explore` for authenticated users; `/` is a 303 to `/today`.
+One navigation, one rule (`ui/layouts/nav_config.py`): the chrome carries one door per SECTION, lit by a section key; a section's pages are its sidebar's rows. Section doors (`ICON_NAV_ITEMS` — the desktop centre links at sm+ AND the phone bottom-nav tabs below, the same four for every authenticated role, in order): **Tasks+** (`/today`, lit on every activity-sidebar page — Today, the calendar views, the six domains, the periodic notes, the GradeBook) → **Library** (`/explore/library`, lit on `explore` and `library`) → **PathSteps** (`/path-steps`) → **Submissions** (`/submissions`). An anonymous visitor gets Library + PathSteps. Role doors (`MAIN_NAV_ITEMS`): **Teaching** (`/teaching/students`) and **Admin** (`/admin`) — centre links at lg+, rows on `/settings` below. Right section (icon buttons): **Askesis** (`/askesis`) → **Insights** (`/insights`, lit on the Insights section — `/insights`, its stats and history, and the two analytics pages; the bar has no room for it from sm to md, where its row on `/settings` is the door) → **Shared** (`/profile/shared`) → notification bell → avatar (`/settings`, the account page — preferences, devices and, on phones, the sign-out row) → **Sign out** (`/logout`, sm+ only). The SKUEL brand link goes to `/explore` for authenticated users; `/` is a 303 to `/today`.
 
 ### `/groups` — Student-Facing Group-Shares Hub
 
@@ -61,7 +61,7 @@ Reading-column view (`max-w-[720px]` centered, `PageType.CUSTOM`, no sidebar) dr
 
 ### `/insights` — Insights, with the hub methods' cards
 
-The persisted-insight list (filter, stats, load-more) under a **"Your intelligence"** section: one card per hub method, each a lazy HTMX fragment `GET /insights/hub/{question}` (`HubQuestion`: `learn-next` → 1, `unblock-first` → 4, `synergies` → 6, `alignment` → 7, `right-now` → 8, `perception` → 9). A fragment builds `UserContextIntelligence` from the caller's cached rich context (`UserService.get_rich_unified_context`) and renders the method's record (`PathStep`, `CrossDomainSynergy`, `LifePathAlignment`, `ScheduleAwareRecommendation`, `PerceptionAnalysis`); a failed read renders the question's error card (200, never a 500), and a segment naming no question is a 404. The critical path (method 2) has no card until the LP walk lands. Routes in `adapters/inbound/insights_ui.py`; UI in `ui/insights/hub_cards.py`. See `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md`.
+The section's landing: its header row links the history and the two analytics pages — the dashboard (`/ui/analytics`) and the weekly life summary (`/ui/analytics/weekly-life-summary`), which pass `active_page="insights"`. The persisted-insight list (filter, stats, load-more) under a **"Your intelligence"** section: one card per hub method, each a lazy HTMX fragment `GET /insights/hub/{question}` (`HubQuestion`: `learn-next` → 1, `unblock-first` → 4, `synergies` → 6, `alignment` → 7, `right-now` → 8, `perception` → 9). A fragment builds `UserContextIntelligence` from the caller's cached rich context (`UserService.get_rich_unified_context`) and renders the method's record (`PathStep`, `CrossDomainSynergy`, `LifePathAlignment`, `ScheduleAwareRecommendation`, `PerceptionAnalysis`); a failed read renders the question's error card (200, never a 500), and a segment naming no question is a 404. The critical path (method 2) has no card until the LP walk lands. Routes in `adapters/inbound/insights_ui.py`; UI in `ui/insights/hub_cards.py`. See `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md`.
 
 ### `/self-checkin` — Dual-Track Self Check-In
 

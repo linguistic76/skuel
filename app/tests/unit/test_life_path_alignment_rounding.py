@@ -26,6 +26,7 @@ edge.** A value that is rounded and then compared has silently moved.
 
 import pytest
 
+from core.models.enums import SubstanceBand
 from core.ports.query_types import LifePathStepRow, StepSubstance
 from core.services.analytics.analytics_life_path_service import (
     GAP_THRESHOLD,
@@ -104,6 +105,20 @@ class TestGapThresholdUsesTheRawScore:
             "would keep an arbitrary one rather than the one that most needs work"
         )
 
+    def test_a_gap_carries_the_band_its_raw_score_falls_in(self):
+        """0.2967 displays as 0.30, the applied band's edge, and is theoretical."""
+        steps = [_step("ps_under_applied")]
+        substance = {"ps_under_applied": _substance((0.30 + 0.30 + 0.29) / 3)}
+
+        analysis = _service()._analyze_knowledge_substance(steps, substance)
+
+        assert analysis["gaps"][0]["substance"] == pytest.approx(0.3)
+        assert analysis["gaps"][0]["band"] is SubstanceBand.THEORETICAL, (
+            "the row's band was read off the display value, so the page would label "
+            "applied a step the band counts call theoretical"
+        )
+        assert analysis["theoretical_count"] == 1
+
     def test_a_step_at_the_threshold_exactly_is_not_a_gap(self):
         """The boundary is strict — 0.5 is the review threshold, not below it."""
         steps = [_step("ps_exactly_half")]
@@ -159,6 +174,18 @@ class TestChannelPromptsUseTheRawTotals:
         assert tasks_prompt.format(title="your Life Path") not in recommendations, (
             "the prompt fired off the ROUNDED share (0.0) rather than the raw "
             "total — it tells a learner to do what they have already done"
+        )
+
+    def test_a_channel_used_but_rounding_to_zero_is_not_reported_unused(self):
+        """The payload's ``unused_channels`` is what the page reads "not yet" from."""
+        steps, substance = self._path_with_a_tiny_task_share()
+        totals = AnalyticsLifePathService._sum_channel_substance(steps, substance)
+
+        unused = AnalyticsLifePathService._unused_channels(totals)
+
+        assert unused == ["events", "entries", "choices", "principles"], (
+            "tasks rounds to a 0.0 share and was still used — reading the rounded "
+            "proportions would call it unused"
         )
 
     def test_a_channel_genuinely_unused_is_still_prompted(self):

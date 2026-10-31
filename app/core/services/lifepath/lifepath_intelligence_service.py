@@ -98,16 +98,18 @@ class LifePathIntelligenceService:
             if score < 0.5 and dim != lowest[0]:
                 recommendations.append(self._dimension_recommendation(dim, score))
 
-        # Priority 3: Knowledge gaps
+        # Priority 3: Knowledge gaps. The split is MASTERY at Ku grain (the
+        # alignment service's mastery proxy), so the text speaks of mastery — the
+        # page's substance bands are a different measure, over the path's steps.
         knowledge_stats = alignment_data.get("knowledge_stats", {})
         if knowledge_stats.get("theoretical", 0) > knowledge_stats.get("embodied", 0):
             recommendations.append(
                 {
                     "type": "knowledge_gap",
                     "priority": "medium",
-                    "title": "Apply theoretical knowledge",
-                    "description": "You have more theoretical knowledge than applied. Create habits or tasks to practice what you've learned.",
-                    "action": "Create a habit that applies one of your theoretical knowledge units",
+                    "title": "Master what you've studied",
+                    "description": "You've studied more than you've mastered: more of your path's knowledge units are short of mastery than mastered. Create a habit or task that practises one of them.",
+                    "action": "Create a habit that practises a knowledge unit you haven't mastered yet",
                 }
             )
 

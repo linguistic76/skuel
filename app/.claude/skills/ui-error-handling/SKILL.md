@@ -280,7 +280,7 @@ lives on the request model, so it is tested there — the route only renders the
 - `/adapters/inbound/habits_ui.py` - `render_inline_error()` for completion, patterns, goal analytics
 - `/adapters/inbound/admin_dashboard_ui.py` - `render_error_banner()` for user-not-found, warning severity for partial failures
 - `/adapters/inbound/insights_ui.py` - Error state with load-more pagination
-- `/ui/analytics/life_path.py` - `EmptyState` for no Life Path; `/ui/analytics/life_summary.py` - `EmptyState` for no weekly data (delegated from `analytics_ui.py`)
+- `/ui/analytics/life_summary.py` - `EmptyState` for no weekly data (delegated from `analytics_ui.py`)
 - `/adapters/inbound/form_submissions_ui.py` - `render_error_banner()` for full-page, `EmptyState` for empty data
 - `/ui/lifepath/vision.py` - `EmptyState` with CTA for no matching Learning Paths (delegated from `lifepath_ui.py`)
 

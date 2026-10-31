@@ -15,7 +15,8 @@ UI Routes:
 - GET /api/lifepath/alignment/chart - Chart.js radar config (5 dimensions)
 """
 
-from typing import Any
+import asyncio
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import FT, Div
 from starlette.responses import HTMLResponse, RedirectResponse
@@ -35,13 +36,24 @@ from ui.lifepath import (
     render_alignment_dashboard,
     render_dashboard_content,
     render_designation_refused,
+    render_lived_cards,
     render_recommendations_page,
     render_vision_form,
 )
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
 
+if TYPE_CHECKING:
+    from core.services.analytics_service import AnalyticsService
+
 logger = get_logger("skuel.routes.lifepath.ui")
+
+
+def _read_failed_banner(message: str, error: ErrorContext) -> FT:
+    """A failed read's banner: a plain sentence, its detail only in debug."""
+    return render_error_banner(
+        message, technical_details=error.message, show_details=get_settings().application.debug
+    )
 
 
 def _refusal_banner(error: ErrorContext, retry_message: str) -> FT:
@@ -49,11 +61,7 @@ def _refusal_banner(error: ErrorContext, retry_message: str) -> FT:
     reason, anything else a plain retry message (its detail only in debug)."""
     if error.category == ErrorCategory.VALIDATION:
         return render_error_banner(error.message)
-    return render_error_banner(
-        retry_message,
-        technical_details=error.message,
-        show_details=get_settings().application.debug,
-    )
+    return _read_failed_banner(retry_message, error)
 
 
 # ============================================================================
@@ -65,9 +73,13 @@ def create_lifepath_ui_routes(
     _app: Any,
     rt: Any,
     lifepath_service: Any,
-    services: Any = None,
+    analytics_service: AnalyticsService,
 ) -> None:
-    """Create LifePath UI routes."""
+    """Create LifePath UI routes.
+
+    ``analytics_service`` supplies the alignment page's step-level half: the
+    learner's personal substance over every step of the designated path.
+    """
 
     @rt("/lifepath")
     def lifepath_dashboard(request: Request) -> Any:
@@ -83,7 +95,7 @@ def create_lifepath_ui_routes(
         status_result = await lifepath_service.get_full_status(user_uid)
         if status_result.is_error:
             return Div(
-                render_error_banner(str(status_result.expect_error())),
+                _read_failed_banner("Could not load your Life Path", status_result.expect_error()),
                 id="lifepath-dashboard-content",
             )
         return Div(
@@ -158,19 +170,36 @@ def create_lifepath_ui_routes(
         )
 
     @rt("/lifepath/alignment/content")
-    async def alignment_dashboard_content(request: Request) -> Any:
-        """HTMX fragment: lifepath alignment body."""
+    async def alignment_dashboard_content(request: Request) -> FT | HTMLResponse:
+        """HTMX fragment: lifepath alignment body.
+
+        The five-dimension alignment and the steps' personal substance are read
+        together; a failed substance read banners its own cards and leaves the
+        five-dimension half standing.
+        """
         user_uid = require_authenticated_user(request)
-        status_result = await lifepath_service.get_full_status(user_uid)
+        status_result, lived_result = await asyncio.gather(
+            lifepath_service.get_full_status(user_uid),
+            analytics_service.calculate_life_path_alignment(user_uid),
+        )
         if status_result.is_error:
             return Div(
-                render_error_banner(str(status_result.expect_error())),
+                _read_failed_banner(
+                    "Could not load your Life Path alignment", status_result.expect_error()
+                ),
                 id="lifepath-alignment-content",
             )
         status = status_result.value
         if not status.get("has_designation"):
             return HTMLResponse("", status_code=200, headers={"HX-Redirect": "/lifepath/vision"})
-        return Div(render_alignment_dashboard(status, user_uid), id="lifepath-alignment-content")
+        lived = (
+            _read_failed_banner(
+                "Could not load how your path's steps are lived", lived_result.expect_error()
+            )
+            if lived_result.is_error
+            else render_lived_cards(lived_result.value)
+        )
+        return Div(render_alignment_dashboard(status, lived), id="lifepath-alignment-content")
 
     @rt("/api/lifepath/alignment/chart")
     @boundary_handler(success_status=200)

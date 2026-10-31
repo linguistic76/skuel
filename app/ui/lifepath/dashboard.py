@@ -4,6 +4,7 @@ from typing import Any
 
 from fasthtml.common import H3, Div, P, Span
 
+from core.models.enums import AlignmentLevel
 from core.models.type_hints import UserUID
 from ui.components import ButtonT, Card
 from ui.feedback import Badge, BadgeT, Progress
@@ -28,10 +29,32 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
             cls="container mx-auto text-center",
         )
 
-    # Has vision - show summary
-    alignment = status.get("alignment", {})
+    # Has vision - show summary. Alignment is measured against a designated path,
+    # so a learner who has not chosen one yet has none (``alignment`` is None).
+    alignment = status.get("alignment") or {}
     alignment_score = alignment.get("alignment_score", 0)
-    alignment_level = alignment.get("alignment_level", "unknown")
+    alignment_level = AlignmentLevel.from_value(alignment.get("alignment_level"))
+    alignment_body = (
+        (
+            Div(
+                Span(f"{round(alignment_score * 100)}%", cls="text-4xl font-bold"),
+                Span(
+                    f" ({alignment_level.get_label()})",
+                    cls="text-xl text-muted-foreground ml-2",
+                ),
+                cls="mb-4",
+            ),
+            Progress(value=round(alignment_score * 100), max=100, cls="w-full h-4"),
+            P("Are you LIVING what you SAID?", cls="text-sm text-muted-foreground mt-2"),
+        )
+        if status.get("has_designation")
+        else (
+            P(
+                "Choose a Learning Path for your vision, and alignment is measured against it.",
+                cls="text-muted-foreground",
+            ),
+        )
+    )
 
     return Div(
         PageHeader("Your Life Path"),
@@ -58,20 +81,7 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
         Card(
             Div(
                 H3("Alignment Score", cls="font-semibold text-lg mb-2"),
-                Div(
-                    Span(f"{int(alignment_score * 100)}%", cls="text-4xl font-bold"),
-                    Span(f" ({alignment_level})", cls="text-xl text-muted-foreground ml-2"),
-                    cls="mb-4",
-                ),
-                Progress(
-                    value=int(alignment_score * 100),
-                    max=100,
-                    cls="w-full h-4",
-                ),
-                P(
-                    "Are you LIVING what you SAID?",
-                    cls="text-sm text-muted-foreground mt-2",
-                ),
+                *alignment_body,
                 cls="p-4",
             ),
             cls="mb-6",

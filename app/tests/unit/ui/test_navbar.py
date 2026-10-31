@@ -29,7 +29,13 @@ import pytest
 from fasthtml.common import to_xml
 
 from ui.layouts.nav_config import ICON_NAV_ITEMS, MAIN_NAV_ITEMS
-from ui.layouts.navbar import create_bottom_nav, create_navbar, role_nav_rows, signout_row
+from ui.layouts.navbar import (
+    create_bottom_nav,
+    create_navbar,
+    insights_row,
+    role_nav_rows,
+    signout_row,
+)
 
 _UI_ROOT = Path(__file__).resolve().parents[3] / "ui"
 
@@ -256,6 +262,37 @@ def test_signout_is_desktop_only_and_settings_carries_the_phone_door(role: str) 
     assert "hidden sm:inline-flex" in _logout_tag(_navbar(**_ROLES[role]))
     assert "sm:hidden" in _logout_tag(to_xml(signout_row()))
     assert _navbar(**_ROLES[role]).count('href="/logout"') == 1
+
+
+# --- the Insights door: an icon, and a /settings row where the bar is full ------
+
+
+def _insights_tag(html: str) -> str:
+    match = re.search(r'<a[^>]*href="/insights"[^>]*>', html)
+    assert match is not None, "no Insights door rendered"
+    return match.group(0)
+
+
+@pytest.mark.parametrize("role", list(_ROLES))
+def test_the_insights_icon_and_its_settings_row_trade_places_at_the_same_breakpoints(
+    role: str,
+) -> None:
+    """From sm the centre links and sign-out fill the bar (a member's is full at
+    640), so the icon steps out until md and its /settings row covers the band:
+    exactly one Insights door at every width, never two."""
+    icon = _insights_tag(_navbar(**_ROLES[role])).split('class="', 1)[1].split('"', 1)[0].split()
+    row = _insights_tag(to_xml(insights_row())).split('class="', 1)[1].split('"', 1)[0].split()
+
+    assert icon[:3] == ["inline-flex", "sm:hidden", "md:inline-flex"]
+    assert row[:3] == ["hidden", "sm:flex", "md:hidden"]
+    assert _navbar(**_ROLES[role]).count('href="/insights"') == 1
+
+
+def test_the_insights_icon_lights_across_the_insights_section() -> None:
+    assert 'aria-current="page"' in _insights_tag(_navbar("insights"))
+    assert "aria-current" not in _insights_tag(_navbar("activity"))
+    assert _lit(_centre_links(_navbar("insights"))) == []
+    assert _lit(_tabs(_bottom_nav("insights"))) == []
 
 
 # --- the chrome links to no journal -------------------------------------------

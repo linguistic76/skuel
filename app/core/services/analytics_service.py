@@ -34,7 +34,7 @@ from core.utils.zone_context import current_zone
 if TYPE_CHECKING:
     from core.ports.embedding_coverage_protocols import EmbeddingCoverageOperations
     from core.ports.knowledge_health_protocols import KnowledgeHealthOperations
-    from core.ports.query_types import KnowledgeHealthReport
+    from core.ports.query_types import KnowledgeHealthReport, LifePathSubstanceAlignment
     from core.services.lp_service import LpService
     from core.services.ps_service import PsService
     from core.services.user_progress_service import UserProgressService
@@ -58,11 +58,9 @@ class AnalyticsService:
     4. Orchestrates analytics generation, rendering, and storage
     5. Maintains backward compatibility with existing code
 
-    NEW in v3.0.0: Life Path Alignment (Layer 3 Cross-Layer Metric!)
-    - calculate_life_path_alignment()
-    - track_alignment_trends()
-    - identify_knowledge_gaps()
-    - analyze_domain_contributions()
+    Life Path Alignment (Layer 3 Cross-Layer Metric):
+    - calculate_life_path_alignment() — gaps and channel contributions are part
+      of its one payload, not separate calls
 
     Cross-Domain Life Analytics (Layer 1 Synthesis):
     - aggregate_weekly_life_summary()
@@ -627,12 +625,14 @@ class AnalyticsService:
     # LIFE PATH ALIGNMENT TRACKING (Layer 3 Cross-Layer Metric!)
     # ========================================================================
 
-    async def calculate_life_path_alignment(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def calculate_life_path_alignment(
+        self, user_uid: UserUID
+    ) -> Result[LifePathSubstanceAlignment]:
         """
-        Calculate user's alignment with their ultimate life goal.
+        The learner's personal substance over every step of their designated path.
 
-        This is THE most important metric in SKUEL - measures whether
-        user is LIVING their life path or just learning about it.
+        Not the five-dimension alignment: /lifepath/alignment names that one as
+        alignment and shows this as its steps' bands and channel shares.
 
         Delegates to AnalyticsLifePathService.
 
@@ -640,19 +640,8 @@ class AnalyticsService:
             user_uid: User identifier
 
         Returns:
-            Result containing comprehensive alignment analysis:
-            {
-                "life_path_uid": "lifepath_4c8e2a6f0d9b1357",
-                "life_path_title": "...",
-                "alignment_score": 0.73, # 0.0-1.0
-                "knowledge_count": 15,
-                "embodied_knowledge": 8,
-                "theoretical_knowledge": 7,
-                "domain_contributions": {...},
-                "gaps": [...],
-                "trends": {...},
-                "recommendations": [...]
-            }
+            Result containing the step-level analysis — see
+            ``LifePathSubstanceAlignment`` for every key.
         """
         return await self.life_path.calculate_life_path_alignment(user_uid)
 

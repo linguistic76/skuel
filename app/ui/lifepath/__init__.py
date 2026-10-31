@@ -1,6 +1,6 @@
 """SKUEL LifePath UI Components."""
 
-from ui.lifepath.alignment import render_alignment_dashboard
+from ui.lifepath.alignment import render_alignment_dashboard, render_lived_cards
 from ui.lifepath.dashboard import render_daily_focus, render_dashboard_content
 from ui.lifepath.nav import LIFEPATH_SIDEBAR_ITEMS, lifepath_sidebar_page
 from ui.lifepath.vision import (
@@ -16,6 +16,7 @@ __all__ = [
     "render_daily_focus",
     "render_dashboard_content",
     "render_designation_refused",
+    "render_lived_cards",
     "render_recommendations_page",
     "render_vision_form",
 ]

@@ -360,6 +360,13 @@ class TestTitles:
 
 
 class TestThePage:
+    def test_the_page_links_its_section_pages(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Insights is the door to its section: its history and the two analytics pages."""
+        page = _make_harness(monkeypatch).client.get("/insights").text
+
+        for href in ("/insights/history", "/ui/analytics", "/ui/analytics/weekly-life-summary"):
+            assert f'href="{href}"' in page, href
+
     def test_the_page_mounts_the_section(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
         response = harness.client.get("/insights")

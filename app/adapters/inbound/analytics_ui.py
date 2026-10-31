@@ -5,6 +5,9 @@ Analytics Dashboard UI Routes
 UI routes for statistical domain analytics. All HTML construction
 delegated to ui/analytics/.
 
+Both pages belong to the Insights section (``active_page="insights"``): Insights
+links them, and the navbar's Insights icon stays lit on them.
+
 Uses StatCard/StatsGrid from ui/patterns/stats_grid.py for all metric displays.
 """
 
@@ -34,7 +37,6 @@ from core.utils.zone_context import current_zone
 from ui.analytics import (
     render_analytics_dashboard,
     render_analytics_result,
-    render_life_path_alignment_dashboard,
     render_period_fields,
     render_weekly_life_summary,
 )
@@ -174,24 +176,6 @@ def create_analytics_ui_routes(
             )
         return render_analytics_result(result.value)
 
-    @app.get("/ui/analytics/life-path-alignment")
-    @ui_boundary_handler("Error loading Life Path alignment")
-    async def life_path_alignment_ui(request: Request) -> FT:
-        """Life Path alignment page."""
-        user_uid = require_authenticated_user(request)
-
-        result = await analytics_service.calculate_life_path_alignment(user_uid)
-        content = (
-            render_error_banner(
-                "Could not load your Life Path alignment",
-                technical_details=result.expect_error().message,
-                show_details=get_settings().application.debug,
-            )
-            if result.is_error
-            else render_life_path_alignment_dashboard(result.value)
-        )
-        return BasePage(content, title="Life Path Alignment", request=request)
-
     @app.get("/ui/analytics/weekly-life-summary")
     @ui_boundary_handler("Error loading weekly life summary")
     async def weekly_life_summary_ui(request: Request) -> FT | Response:
@@ -219,9 +203,11 @@ def create_analytics_ui_routes(
             if result.is_error
             else render_weekly_life_summary(result.value)
         )
-        return BasePage(content, title="Weekly Life Summary", request=request)
+        return BasePage(
+            content, title="Weekly Life Summary", request=request, active_page="insights"
+        )
 
-    logger.info("Analytics UI routes registered (including Life Path + cross-layer)")
+    logger.info("Analytics UI routes registered (dashboard + weekly life summary)")
 
 
 __all__ = ["create_analytics_ui_routes"]

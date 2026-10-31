@@ -22,7 +22,7 @@ Module Organization:
 - lifepath_enums: ThemeCategory
 - migration_enums: MigrationState
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
-- learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, etc.
+- learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, SubstanceBand, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
 - notification_enums: NotificationType
 - askesis_enums: QueryComplexity, IntegrationSuccess, AggregationPeriod
@@ -100,6 +100,7 @@ from .learning_enums import (
     MasteryImpact,
     MasteryStatus,
     SELCategory,
+    SubstanceBand,
 )
 
 # Life path enums
@@ -273,6 +274,7 @@ __all__ = [
     "SeverityLevel",
     "PublicationState",
     "StepDifficulty",
+    "SubstanceBand",
     "SystemConstants",
     "ThemeCategory",
     "MigrationState",

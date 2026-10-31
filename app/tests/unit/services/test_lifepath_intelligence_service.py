@@ -92,7 +92,11 @@ class TestGetRecommendations:
         result = await intelligence.get_recommendations(_USER, data)
 
         assert result.is_ok
-        assert any(r["type"] == "knowledge_gap" for r in result.value)
+        gap = next(r for r in result.value if r["type"] == "knowledge_gap")
+        # The split it reads is mastery at Ku grain, so it speaks of mastery — the
+        # alignment page bands the path's steps by substance, under the same words.
+        assert "mastered" in gap["description"]
+        assert "theoretical" not in f"{gap['title']} {gap['description']} {gap['action']}"
 
     async def test_low_momentum_adds_high_priority_momentum_recommendation(self, intelligence):
         data = _alignment(

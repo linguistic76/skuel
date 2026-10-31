@@ -56,7 +56,13 @@ def _visible_main_items(*, is_admin: bool, is_teacher: bool) -> list[NavItem]:
 # doors plus the icon cluster fill the bar, and Teaching + Admin do not fit
 # in any font. Below lg they are the ``role_nav_rows`` on /settings.
 _ROLE_LINK_BREAKPOINT_CLS = "hidden lg:block"
-_ROLE_ROW_BREAKPOINT_CLS = "lg:hidden"
+_ROLE_ROW_BREAKPOINT_CLS = "flex lg:hidden"
+
+# The Insights icon does not fit the top bar from sm (where the centre links and
+# sign-out join it, a member's bar is full at 640) to md; across that band its
+# /settings row is the door instead.
+_INSIGHTS_ICON_BREAKPOINT_CLS = "inline-flex sm:hidden md:inline-flex"
+_INSIGHTS_ROW_BREAKPOINT_CLS = "hidden sm:flex md:hidden"
 
 
 def _nav_link(label: str, href: str, *, is_active: bool, extra_cls: str = "") -> A:
@@ -83,10 +89,10 @@ def _signout_button() -> A:
     )
 
 
-# A /settings row is a top-bar item's counterpart below the width that item
-# appears at; each row carries its own item's breakpoint.
+# A /settings row is a top-bar item's counterpart across the widths that item
+# is absent at; each row carries its own item's breakpoint, display included.
 _SETTINGS_ROW_CLS = (
-    "flex items-center justify-center gap-2 mb-4 px-3 py-2 rounded-md"
+    "items-center justify-center gap-2 mb-4 px-3 py-2 rounded-md"
     " border border-border text-sm text-muted-foreground hover:bg-accent"
     " hover:text-foreground"
 )
@@ -104,7 +110,22 @@ def signout_row() -> A:
         Icon("log-out", cls="size-4", aria_hidden="true"),
         Span("Sign out"),
         href="/logout",
-        cls=f"sm:hidden {_SETTINGS_ROW_CLS}",
+        cls=f"flex sm:hidden {_SETTINGS_ROW_CLS}",
+    )
+
+
+def insights_row() -> A:
+    """Insights — the door across the band where the top bar has no room for its icon.
+
+    ``hidden sm:flex md:hidden`` mirrors ``_insights_button``'s
+    ``inline-flex sm:hidden md:inline-flex``: exactly one Insights door at every
+    width, never two.
+    """
+    return A(
+        Icon("lightbulb", cls="size-4", aria_hidden="true"),
+        Span("Insights"),
+        href="/insights",
+        cls=f"{_INSIGHTS_ROW_BREAKPOINT_CLS} {_SETTINGS_ROW_CLS}",
     )
 
 
@@ -203,6 +224,26 @@ def _askesis_button(active_page: str) -> A:
     )
 
 
+def _insights_button(active_page: str) -> A:
+    """Lightbulb icon linking to /insights — the Insights section (its pages and
+    the analytics pages pass ``"insights"``, so the icon stays lit across them).
+
+    Absent from sm to md, where ``insights_row`` on /settings is the door.
+    """
+    is_active = active_page == "insights"
+    color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
+    return A(
+        Span("Insights", cls="sr-only"),
+        Icon("lightbulb", cls="size-6", aria_hidden="true"),
+        href="/insights",
+        cls=(
+            f"{_INSIGHTS_ICON_BREAKPOINT_CLS} items-center justify-center size-11"
+            f" rounded-full hover:bg-accent {color_cls}"
+        ),
+        **({"aria-current": "page"} if is_active else {}),
+    )
+
+
 def _account_button(current_user: str, active_page: str) -> A:
     """Avatar circle linking to /settings — the account page (preferences,
     devices, and on phones the sign-out and role rows)."""
@@ -244,9 +285,10 @@ def create_navbar(
     """
     Create the slim top navigation bar — the same bar for every role.
 
-    Phone: brand + askesis + inbox + bell + avatar (the section doors live
-    in the bottom nav, sign-out and the role doors on /settings).
-    sm+: the same, plus the section-door centre links and sign-out.
+    Phone: brand + askesis + insights + inbox + bell + avatar (the section
+    doors live in the bottom nav, sign-out and the role doors on /settings).
+    sm+: the same, plus the section-door centre links and sign-out, less the
+    insights icon, whose door is a /settings row until md.
     lg+: the role doors join the centre links.
 
     Args:
@@ -282,6 +324,7 @@ def create_navbar(
     if is_authenticated:
         right_section: Any = Div(
             _askesis_button(active_page),
+            _insights_button(active_page),
             _shared_inbox_button(active_page),
             _notification_badge_placeholder(),
             _account_button(current_user or "", active_page),
@@ -412,6 +455,7 @@ __all__ = [
     "create_bottom_nav_for_request",
     "create_navbar",
     "create_navbar_for_request",
+    "insights_row",
     "role_nav_rows",
     "signout_row",
     "_notification_button",

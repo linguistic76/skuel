@@ -23,14 +23,17 @@ Asserts INVARIANTS, never pixels (the font is the host's fallback):
   One navbar, one rule (three personas: member, pure teacher, admin; one page
   per section door, so every ICON_NAV_ITEMS / MAIN_NAV_ITEMS key is exercised):
   - below sm the bottom nav renders for EVERY role with exactly four tabs
-  - exactly one global item is lit on the visible chrome surface (centre links
-    at sm+, bottom tabs below), keyed by section: Tasks+ on every Tasks+ page,
-    nothing doubled (not Today+Tasks+, not Calendar+Monthly)
+  - at most one global item is lit on the visible chrome surface (centre links
+    at sm+, bottom tabs below, the icon cluster), keyed by section: Tasks+ on
+    every Tasks+ page, nothing doubled (not Today+Tasks+, not Calendar+Monthly)
   - no href="#" anywhere in the chrome
-  - the navbar never overflows its row — measured at 640, where an admin's
-    bar carries six centre links plus the icon cluster
-  - the role doors: Admin/Teaching centre links per role at sm+, and the
-    same set as sm:hidden rows on /settings below sm
+  - the navbar never overflows its row — tightest at 640, where the centre
+    links and sign-out join the icon cluster
+  - the role doors: Admin/Teaching centre links per role at lg+, and the
+    same set as lg:hidden rows on /settings below lg
+  - the Insights door exactly once at every width: the lightbulb icon below sm
+    and from md (it lights on an Insights-section page, /ui/analytics here),
+    its /settings row from sm to md, where the bar has no room for the icon
 
 Phone widths render through an <iframe> wrapper because headless Chrome clamps
 its window to 500px wide; the page postMessages its measurements up.
@@ -232,7 +235,16 @@ import adapters.inbound.user_profile_ui as pu
 pu.require_authenticated_user = fake_user
 sharing_services = MagicMock()
 sharing_services.sharing.get_shared_with_me = AsyncMock(return_value=Result.ok([]))
+sharing_services.sharing.get_shared_by_me = AsyncMock(return_value=Result.ok([]))
 pu.setup_user_profile_routes(rt, sharing_services)
+
+# /ui/analytics — a page of the Insights section: it lights the Insights icon
+# and nothing else (Insights has no section door). The dashboard reads no
+# service until its form asks.
+import adapters.inbound.analytics_ui as anu
+
+anu.require_authenticated_user = fake_user
+anu.create_analytics_ui_routes(app, rt, MagicMock())
 
 today = date.today()
 PAGES = {
@@ -250,6 +262,7 @@ PAGES = {
     "teaching": "/teaching/students",
     "admin": "/admin",
     "shared": "/profile/shared",
+    "insights": "/ui/analytics",
 }
 # Which persona renders which page. The member renders every Tasks+ page and
 # one page of each of the other three section doors; the teacher and admin
@@ -269,6 +282,7 @@ PERSONA_PAGES = {
         "submissions",
         "settings",
         "shared",
+        "insights",
     ],
     "teacher": ["today", "settings", "teaching"],
     "admin": ["today", "settings", "teaching", "admin"],
@@ -285,7 +299,7 @@ SECTION_DOOR = {
 }
 # Pages with no sidebar rows: BasePage pages, and Explore (whose sidebar is
 # graph + lists with items=[] — no section nav, no current link).
-NO_SIDEBAR = {"settings", "shared", "path_steps", "explore"}
+NO_SIDEBAR = {"settings", "shared", "insights", "path_steps", "explore"}
 
 GATE_JS = """
 <script>
@@ -317,7 +331,7 @@ window.addEventListener('load', function () {
     navBottom: null, sideTop: null,
     bottomNav: null,
     hashLinks: 0, topOverflow: null, centreVisible: null, centreLinks: [], centreLit: [],
-    tabs: [], tabsLit: [], tabsVisible: null, iconLit: [], tallLinks: 0,
+    tabs: [], tabsLit: [], tabsVisible: null, iconLit: [], insightsIcon: null, tallLinks: 0,
     settingsRows: [],
   };
   var top = document.querySelector('nav[aria-label="Main navigation"]');
@@ -340,7 +354,8 @@ window.addEventListener('load', function () {
       links.forEach(function (a) { if (a.offsetHeight > 40) { r.tallLinks++; } });
     }
     var cluster = top.querySelector('div.flex.items-center.justify-end');
-    r.iconLit = hrefs(cluster.querySelectorAll('a[aria-current="page"]'));
+    r.iconLit = hrefs(Array.prototype.filter.call(cluster.querySelectorAll('a[aria-current="page"]'), visible));
+    r.insightsIcon = visible(cluster.querySelector('a[href="/insights"]'));
   }
   if (bar0) {
     r.tabsVisible = visible(bar0);
@@ -351,7 +366,7 @@ window.addEventListener('load', function () {
   if (mainEl) {
     var rows = Array.prototype.filter.call(mainEl.querySelectorAll('a'), function (a) {
       var h = a.getAttribute('href');
-      return h === '/logout' || h === '/admin' || h === '/teaching/students';
+      return h === '/logout' || h === '/insights' || h === '/admin' || h === '/teaching/students';
     });
     r.settingsRows = hrefs(rows);
     r.settingsRowsVisible = hrefs(rows.filter(visible));
@@ -590,7 +605,16 @@ for name, html_path in rendered.items():
             if page in TASKS_PLUS
             else ([SECTION_DOOR[page]] if page in SECTION_DOOR else [])
         )
-        expected_icon_lit = {"settings": ["/settings"], "shared": ["/profile/shared"]}.get(page, [])
+        # The Insights icon is absent from sm to md (its door is a /settings row
+        # there), so an Insights page lights nothing visible in that band.
+        insights_icon_shown = w < 640 or w >= 768
+        expected_icon_lit = {
+            "settings": ["/settings"],
+            "shared": ["/profile/shared"],
+            "insights": ["/insights"] if insights_icon_shown else [],
+        }.get(page, [])
+        if res["insightsIcon"] != insights_icon_shown:
+            problems.append(f"insights icon visible={res['insightsIcon']} at {w}")
         if w >= 640 and res["centreLit"] != [h for h in expected_lit if h in expected_centre]:
             problems.append(f"centre lit {res['centreLit']} != {expected_lit}")
         if res["tabsLit"] != [h for h in expected_lit if h in ICON_DOORS]:
@@ -615,13 +639,15 @@ for name, html_path in rendered.items():
                 f"{len(lit_visible)} global items lit on the visible surface: {lit_visible}"
             )
         if page == "settings":
-            expected_rows = ["/logout"] + EXPECTED_ROLE_DOORS[persona]
+            expected_rows = ["/logout", "/insights"] + EXPECTED_ROLE_DOORS[persona]
             if res["settingsRows"] != expected_rows:
                 problems.append(f"/settings rows {res['settingsRows']} != {expected_rows}")
-            # Each row is visible exactly below the width its top-bar counterpart
-            # appears at: sign-out below sm, the role doors below lg.
-            expected_visible = (["/logout"] if w < 640 else []) + (
-                EXPECTED_ROLE_DOORS[persona] if w < 1024 else []
+            # Each row is visible exactly where its top-bar counterpart is absent:
+            # sign-out below sm, Insights from sm to md, the role doors below lg.
+            expected_visible = (
+                (["/logout"] if w < 640 else [])
+                + (["/insights"] if not insights_icon_shown else [])
+                + (EXPECTED_ROLE_DOORS[persona] if w < 1024 else [])
             )
             if res["settingsRowsVisible"] != expected_visible:
                 problems.append(

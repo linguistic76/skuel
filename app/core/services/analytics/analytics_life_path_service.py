@@ -26,10 +26,16 @@ Implementation Date: October 24, 2025
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any
 
+from core.models.enums import SubstanceBand
 from core.models.type_hints import UserUID
-from core.ports.query_types import LifePathStepRow, StepSubstance
+from core.ports.query_types import (
+    LifePathStepRow,
+    LifePathStepSubstanceRow,
+    LifePathSubstanceAlignment,
+    StepSubstance,
+)
 from core.services.knowledge.user_substance import (
     SUBSTANCE_ACTIVITY_TYPES,
     USER_SUBSTANCE_CHANNELS,
@@ -46,15 +52,6 @@ _LIFE_PATH_EXCEPTIONS = (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS)
 
 logger = get_logger(__name__)
 
-# Band edges for the personal substance score, shared with
-# AnalyticsMetricsService.calculate_knowledge_metrics. The same learner's same
-# step must not read "embodied" on one analytics surface and "practiced" on the
-# other; the two surfaces score identically, so they band identically. These
-# match the Substance Scale in knowledge_substance_philosophy.md.
-EMBODIED_THRESHOLD = 0.8
-PRACTICED_THRESHOLD = 0.6
-APPLIED_THRESHOLD = 0.3
-
 # A step below this is under-substantiated for this learner — the threshold
 # Curriculum.needs_review() uses, and the one calculate_knowledge_metrics ranks
 # review_recommendations against.
@@ -63,15 +60,7 @@ GAP_THRESHOLD = 0.5
 MAX_GAPS_REPORTED = 10
 
 
-class KnowledgeSubstanceInfo(TypedDict):
-    """Type definition for knowledge substance analysis data."""
-
-    ku_uid: str  # PathStep UID (historical key spelling — see the method docstring)
-    title: str  # PathStep title
-    substance: float  # THIS learner's substance score (0.0-1.0)
-
-
-def _raw_substance_of(scored: tuple[float, KnowledgeSubstanceInfo]) -> float:
+def _raw_substance_of(scored: tuple[float, LifePathStepSubstanceRow]) -> float:
     """Sort key for gap ranking — the RAW score (named, not a lambda — SKUEL012).
 
     Ranks on the unrounded value carried alongside the emitted row, so two steps
@@ -137,7 +126,9 @@ class AnalyticsLifePathService:
         self.lifepath_service = lifepath_service
         self.cross_domain_backend = cross_domain_backend
 
-    async def calculate_life_path_alignment(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def calculate_life_path_alignment(
+        self, user_uid: UserUID
+    ) -> Result[LifePathSubstanceAlignment]:
         """
         Calculate user's alignment with their ultimate life goal.
 
@@ -221,7 +212,7 @@ class AnalyticsLifePathService:
             the values are PathStep uids and counts. A step's personal substance
             already averages its Kus', so scoring the Kus alongside it would
             count the same applications twice. Renaming the keys is an API change
-            for the report templates and the alignment dashboard, so the names
+            for the report templates and the Life Path alignment page, so the names
             stay and this says what they carry.
         """
         if not self.lifepath_service:
@@ -335,6 +326,7 @@ class AnalyticsLifePathService:
                     "applied_knowledge": knowledge_analysis["applied_count"],
                     "theoretical_knowledge": knowledge_analysis["theoretical_count"],
                     "domain_contributions": domain_contributions,
+                    "unused_channels": self._unused_channels(channel_totals),
                     "gaps": gaps,
                     "recommendations": recommendations,
                     "user_uid": user_uid,
@@ -369,12 +361,12 @@ class AnalyticsLifePathService:
         life_path_title: str | None,
         recommendation: str,
         message: str,
-    ) -> dict[str, Any]:
+    ) -> LifePathSubstanceAlignment:
         """The nothing-to-score payload, in the shape consumers already read.
 
         One builder for both empty cases (no designation, designated path with no
         steps) so the two cannot drift into emitting different key sets — the
-        alignment dashboard and the progress report both index this shape.
+        Life Path alignment page and the progress report both index this shape.
         """
         return {
             "life_path_uid": life_path_uid,
@@ -386,6 +378,7 @@ class AnalyticsLifePathService:
             "applied_knowledge": 0,
             "theoretical_knowledge": 0,
             "domain_contributions": {},
+            "unused_channels": [channel.name for channel in USER_SUBSTANCE_CHANNELS],
             "gaps": [],
             "recommendations": [recommendation],
             "message": message,
@@ -417,16 +410,17 @@ class AnalyticsLifePathService:
             Dict with substance analysis
         """
         total_substance = 0.0
-        embodied: list[KnowledgeSubstanceInfo] = []  # >= 0.8
-        practiced: list[KnowledgeSubstanceInfo] = []  # 0.6-0.8
-        applied: list[KnowledgeSubstanceInfo] = []  # 0.3-0.6
-        theoretical: list[KnowledgeSubstanceInfo] = []  # < 0.3
+        banded: dict[SubstanceBand, list[LifePathStepSubstanceRow]] = {
+            band: [] for band in SubstanceBand
+        }
 
         # (raw score, emitted row). The rounding on the row is PRESENTATION; every
         # threshold below is tested against the raw score. A step at 0.4967 rounds
         # to 0.50 and would otherwise fail a `< 0.5` gap test while the bands —
-        # which use the raw value — still call it under-substantiated.
-        gap_candidates: list[tuple[float, KnowledgeSubstanceInfo]] = []
+        # which use the raw value — still call it under-substantiated. The row
+        # carries its band for the same reason: banded from the rounded value, a
+        # step at 0.2967 would be counted theoretical and labelled applied.
+        gap_candidates: list[tuple[float, LifePathStepSubstanceRow]] = []
 
         for step in steps:
             # Indexed, not .get()-ed: the batched scorer returns a row for every
@@ -435,20 +429,14 @@ class AnalyticsLifePathService:
             score = substance[step["ps_uid"]]["score"]
             total_substance += score
 
-            info: KnowledgeSubstanceInfo = {
+            band = SubstanceBand.from_score(score)
+            info: LifePathStepSubstanceRow = {
                 "ku_uid": step["ps_uid"],
                 "title": step["title"],
                 "substance": round(score, 2),
+                "band": band,
             }
-
-            if score >= EMBODIED_THRESHOLD:
-                embodied.append(info)
-            elif score >= PRACTICED_THRESHOLD:
-                practiced.append(info)
-            elif score >= APPLIED_THRESHOLD:
-                applied.append(info)
-            else:
-                theoretical.append(info)
+            banded[band].append(info)
 
             if score < GAP_THRESHOLD:
                 gap_candidates.append((score, info))
@@ -465,14 +453,10 @@ class AnalyticsLifePathService:
         return {
             "total_count": count,
             "avg_substance": avg_substance,
-            "embodied_count": len(embodied),
-            "practiced_count": len(practiced),
-            "applied_count": len(applied),
-            "theoretical_count": len(theoretical),
-            "embodied": embodied,
-            "practiced": practiced,
-            "applied": applied,
-            "theoretical": theoretical,
+            "embodied_count": len(banded[SubstanceBand.EMBODIED]),
+            "practiced_count": len(banded[SubstanceBand.PRACTICED]),
+            "applied_count": len(banded[SubstanceBand.APPLIED]),
+            "theoretical_count": len(banded[SubstanceBand.THEORETICAL]),
             "gaps": gaps,
         }
 
@@ -501,6 +485,22 @@ class AnalyticsLifePathService:
         return totals
 
     @staticmethod
+    def _unused_channels(channel_totals: dict[str, float]) -> list[str]:
+        """The channels this learner has not used AT ALL on the path, in table order.
+
+        Read off the RAW totals: no activity of that kind touches any of the
+        path's knowledge. Deliberately not the rounded proportions — a channel
+        worth under 0.5% of the total displays as 0.0 while having been used, so
+        a reader of those would tell the learner to do what they have already
+        done, or call a channel they practise through unused.
+        """
+        return [
+            channel.name
+            for channel in USER_SUBSTANCE_CHANNELS
+            if channel_totals.get(channel.name, 0.0) <= 0.0
+        ]
+
+    @staticmethod
     def _analyze_domain_contributions(channel_totals: dict[str, float]) -> dict[str, float]:
         """
         Which of the six substance channels this learner's alignment comes from.
@@ -522,7 +522,7 @@ class AnalyticsLifePathService:
 
         Returns all six keys even when the learner has no activity at all, zeroed
         — an absent channel and an empty one are the same fact to every consumer,
-        and the dashboard renders a bar per key.
+        and the Life Path alignment page renders a row per key.
 
         ROUNDED, and therefore for DISPLAY ONLY. A channel contributing under
         0.5% of the total lands on 0.0 here, which no longer means "never used".
@@ -538,7 +538,7 @@ class AnalyticsLifePathService:
     def _generate_recommendations(
         knowledge_analysis: dict[str, Any],
         channel_totals: dict[str, float],
-        gaps: list[KnowledgeSubstanceInfo],
+        gaps: list[LifePathStepSubstanceRow],
     ) -> list[str]:
         """
         Generate actionable recommendations based on alignment analysis.
@@ -567,25 +567,21 @@ class AnalyticsLifePathService:
                 ]
             )
 
-        # A channel the learner has not used AT ALL on this path — 0.0 in the RAW
-        # totals, so no activity of that kind touches any of the path's knowledge.
-        # Deliberately not the rounded proportions: a channel worth under 0.5% of
-        # the total displays as 0.0 while having been used, and this would then
-        # tell the learner to do something they have already done.
+        unused = AnalyticsLifePathService._unused_channels(channel_totals)
         recommendations.extend(
             [
                 channel.recommendation.format(title="your Life Path")
                 for channel in USER_SUBSTANCE_CHANNELS
-                if channel_totals.get(channel.name, 0.0) <= 0.0
+                if channel.name in unused
             ]
         )
 
-        avg_substance = knowledge_analysis["avg_substance"]
-        if avg_substance < APPLIED_THRESHOLD:
+        overall = SubstanceBand.from_score(knowledge_analysis["avg_substance"])
+        if overall is SubstanceBand.THEORETICAL:
             recommendations.append(
                 "Overall alignment is low - focus on applying Life Path knowledge daily"
             )
-        elif avg_substance >= EMBODIED_THRESHOLD:
+        elif overall is SubstanceBand.EMBODIED:
             recommendations.append("Excellent alignment! Life Path knowledge is well-practiced")
 
         if not recommendations:

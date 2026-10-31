@@ -388,6 +388,8 @@ def create_insights_ui_routes(
                 title="💡 Insights",
                 subtitle=subtitle,
             ),
+            # The Insights section's pages: its history and the two analytics pages
+            # (which pass active_page="insights", so this section stays lit there).
             Div(
                 ButtonLink(
                     "📜 View History",
@@ -395,7 +397,14 @@ def create_insights_ui_routes(
                     cls=ButtonT.ghost,
                     size="sm",
                 ),
-                cls="mb-4",
+                ButtonLink("📊 Analytics", href="/ui/analytics", cls=ButtonT.ghost, size="sm"),
+                ButtonLink(
+                    "🗓️ Weekly summary",
+                    href="/ui/analytics/weekly-life-summary",
+                    cls=ButtonT.ghost,
+                    size="sm",
+                ),
+                cls="flex flex-wrap gap-2 mb-4",
             ),
             render_hub_section(),
             filter_form,

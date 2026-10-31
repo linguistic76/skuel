@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-10-16
+updated: 2026-10-31
 category: patterns
 related_skills:
 - fasthtml
@@ -773,6 +773,8 @@ LIFEPATH_CONFIG = DomainRouteConfig(
     api_factory=create_lifepath_api_routes,
     ui_factory=create_lifepath_ui_routes,
     api_related_services={},  # Self-contained facade
+    # The alignment page's step-level half: personal substance over the path.
+    ui_related_services={"analytics_service": "analytics"},
 )
 ```
 
@@ -787,7 +789,7 @@ LIFEPATH_CONFIG = DomainRouteConfig(
 - Self-contained service facade (no api_related_services needed)
 - All dependencies accessed via facade sub-services (.core, .alignment, .vision, .intelligence)
 - Complex drawer layout UI with 7 presentation helper functions
-- Carries a vestigial `services: Any = None` param (left over from the 2026-02-03 pass) — it stays `None` because `ui_related_services` is empty here; the factory needs no injected services (self-contained via the facade)
+- One injected UI service: `ui_related_services={"analytics_service": "analytics"}` → the factory's `analytics_service` parameter, read by the alignment page's step-level half (the learner's personal substance over the path's steps). Everything else comes through the facade
 - Main file reduced from 589 → 32 lines (94.6% reduction)
 - Demonstrates that even complex drawer layouts work with DomainRouteConfig
 

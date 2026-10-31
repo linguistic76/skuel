@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-30'
+updated: '2026-10-31'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -71,7 +71,7 @@ One navbar for every role, one rule: the chrome carries **one door per section**
 
 - **Section doors — `ICON_NAV_ITEMS`, rendered twice from one spec:** the centre text links at `sm+` and the bottom-nav icon tabs below `sm` (`create_bottom_nav`). In order: **Tasks+** (→ `/today`, `page_keys={"activity"}`, `Icon("activity")`) · **Library** (→ `/explore/library`, lit on `{"explore", "library"}`) · **PathSteps** (→ `/path-steps`) · **Submissions** (→ `/submissions`). Identical for every authenticated role; an anonymous visitor gets the two `requires_auth=False` doors. Centre links are `px-2` — with the icon cluster a member's bar is exactly full at 640.
 - **Role doors — `MAIN_NAV_ITEMS`:** Teaching (`/teaching/students`, teachers and admins) and Admin (`/admin`) are centre links at `lg+` (`hidden lg:block` — measured: a teacher's bar needs 758px, an admin's 829px, so they cannot sit in the bar below `lg` in any font) and `lg:hidden` rows on `/settings` (`role_nav_rows()`).
-- **Right icon cluster:** Askesis (`/askesis`, flame) · Shared-inbox (`/profile/shared`) · notification bell (badge lazy-loaded from `/api/navbar/notification-badge`) · avatar → `/settings` (`page_key="settings"`) · Sign out (`hidden sm:inline-flex`). The phone's sign-out is `signout_row()` on `/settings` (`sm:hidden`) — exactly one sign-out door at every width; `signout_row()` and `role_nav_rows()` live beside `_signout_button` in `navbar.py` and render first on `ui/settings/page.py`, outside any HTMX fragment or `x-cloak`.
+- **Right icon cluster:** Askesis (`/askesis`, flame) · Insights (`/insights`, lightbulb — lit on `active_page="insights"`, the Insights pages and `/ui/analytics*`; `inline-flex sm:hidden md:inline-flex`, because from sm the centre links and sign-out fill the bar, and `insights_row()` on `/settings` is its door from sm to md) · Shared-inbox (`/profile/shared`) · notification bell (badge lazy-loaded from `/api/navbar/notification-badge`) · avatar → `/settings` (`page_key="settings"`) · Sign out (`hidden sm:inline-flex`). The phone's sign-out is `signout_row()` on `/settings` (`sm:hidden`) — exactly one sign-out door at every width; `signout_row()` and `role_nav_rows()` live beside `_signout_button` in `navbar.py` and render first on `ui/settings/page.py`, outside any HTMX fragment or `x-cloak`.
 - **Brand:** "SKUEL" → `/explore` (authenticated) or `/` (anonymous). **Landing:** `/` → 303 `/today` for every role; the login/register/reset redirects go there too.
 - **Geometry:** the navbar wrapper is `h-14` border included (the inner row is `h-full`); the desktop sidebar is `top-14` so it meets the bar exactly; the bottom nav is `min-h-16` with `padding-bottom: env(safe-area-inset-bottom)` so the inset grows the bar instead of squeezing its content.
 - **What the chrome does not have:** no dropdown, no hamburger, no drawer, no admin fork, no Calendar icon, no Today tab, no Search button (`/search` stays reachable from the error pages), no `href="#"`. The periodic notes are reached from the Tasks+ sidebar's Journal row and, inside a note, the period rail.
@@ -1134,13 +1134,13 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **Explore UI:** `ui/explore/cards.py` holds `render_explore_card()` and `render_explore_search_panel()`. Filtering and sorting are no longer a UI concern at all — the former `filters.py` module went when `/explore/library` was consolidated onto `SearchRouter.faceted_search`. Sidebar data aggregation moved to `ExploreOrchestrator.get_sidebar_data()`. `render_explore_sidebar_page()` accepts pre-fetched `sidebar_data: dict[str, Any] | None` instead of raw services.
 
-**LifePath UI:** `ui/lifepath/` — `dashboard.py` (dashboard content + daily focus), `vision.py` (vision form + recommendations page), `alignment.py` (5-dimension alignment dashboard), `nav.py` (sidebar items + page wrapper). `lifepath_ui.py` is ~175 lines — pure auth + service call + delegation.
+**LifePath UI:** `ui/lifepath/` — `dashboard.py` (dashboard content + daily focus), `vision.py` (vision form + recommendations page), `alignment.py` (the alignment page: the 5-dimension breakdown, then the path's steps by substance band and where the practice comes from), `nav.py` (sidebar items + page wrapper). `lifepath_ui.py` is ~175 lines — pure auth + service call + delegation.
 
 **Askesis UI:** `ui/askesis/` — `welcome.py` (centered welcome + chat form), `chat.py` (message bubbles), `settings.py` (settings form), `nav.py` (sidebar items + page wrapper). Dissolved `AskesisUI` class. `askesis_ui.py` is ~168 lines.
 
 **Activity Review UI:** `ui/activity_review/` — `cards.py` (queue items + snapshot domain cards), `forms.py` (snapshot form + feedback form with Script sync), `types.py` (domain choices config), `nav.py` (sidebar). `activity_review_ui.py` is ~266 lines.
 
-**Analytics UI:** `ui/analytics/` — `dashboard.py` (dashboard + period fields + result rendering), `domain_metrics.py` (7 per-domain metric renderers), `life_path.py` (alignment dashboard), `life_summary.py` (weekly cross-layer summary). `adapters/inbound/analytics_ui.py` holds the routes and their query readers.
+**Analytics UI:** `ui/analytics/` — `dashboard.py` (dashboard + period fields + result rendering), `domain_metrics.py` (7 per-domain metric renderers), `life_summary.py` (weekly cross-layer summary). `adapters/inbound/analytics_ui.py` holds the routes and their query readers.
 
 **Ingestion UI:** `ui/ingestion/` — `dashboard.py` (form groups, ingestion cards, results display + JS handlers). `ingestion_ui.py` is ~59 lines — pure admin auth + delegation.
 

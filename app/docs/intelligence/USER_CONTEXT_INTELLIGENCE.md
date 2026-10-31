@@ -1,7 +1,7 @@
 ---
 related_skills:
 - user-context-intelligence
-updated: 2026-10-11
+updated: 2026-10-31
 ---
 # UserContextIntelligence — the Hub Methods
 
@@ -184,9 +184,9 @@ attribute surface (`self.context`, `self.tasks`, …). A mixin declares no attri
 and defines no `__init__`; state lives on the context. Per-mixin contracts:
 [MIXIN_ARCHITECTURE.md](../../.claude/skills/user-context-intelligence/MIXIN_ARCHITECTURE.md).
 
-Not the same method: `AnalyticsService.calculate_life_path_alignment(user_uid)` (the analytics
-pages, `analytics_ui.py`, `analytics_summary_api.py`) is a different implementation returning a
-dict. Method 7 is the hub's.
+Not the same method: `AnalyticsService.calculate_life_path_alignment(user_uid)` (the step-level
+half of `/lifepath/alignment` in `lifepath_ui.py`, `analytics_summary_api.py`, the progress
+report) is a different implementation returning a dict. Method 7 is the hub's.
 
 ---
 

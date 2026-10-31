@@ -30,6 +30,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import parse_date_param_strict, parse_int_param_strict
+from core.ports.query_types import LifePathSubstanceAlignment
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -56,21 +57,19 @@ def create_analytics_summary_api_routes(
 
     @rt("/api/analytics/life-path-alignment")
     @boundary_handler()
-    async def get_life_path_alignment_route(request: Request) -> Result[dict[str, Any]]:
+    async def get_life_path_alignment_route(
+        request: Request,
+    ) -> Result[LifePathSubstanceAlignment]:
         """
-        Get user's alignment with their ultimate life goal.
+        The caller's personal substance over every step of their designated path.
 
-        Query params:
-            user_uid: User identifier (required)
-
-        Returns:
-            Result containing comprehensive alignment analysis:
-            - alignment_score: 0.0-1.0
-            - embodied_knowledge: Count of mastered knowledge
-            - theoretical_knowledge: Count of unmastered knowledge
-            - domain_contributions: Which domains drive alignment
-            - gaps: Knowledge units needing practice
-            - recommendations: Actionable next steps
+        The JSON form of /lifepath/alignment's step-level half, the same payload:
+        - alignment_score: the steps' mean substance, 0.0-1.0
+        - knowledge_count and the four *_knowledge counts: the path's steps, by
+          SubstanceBand (embodied, practiced, applied, theoretical)
+        - domain_contributions: each of the six channels' share
+        - gaps: the steps under the 0.5 review threshold, each with its band
+        - recommendations: actionable next steps
         """
         user_uid = require_authenticated_user(request)
 

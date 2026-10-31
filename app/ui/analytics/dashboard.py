@@ -70,7 +70,7 @@ def render_analytics_dashboard(request: Request) -> FT:
         # boundary banner) from the form; while empty it is out of the layout.
         Div(id="analytics-display", cls="mt-6 empty:hidden"),
     )
-    return BasePage(body, title="Analytics", request=request)
+    return BasePage(body, title="Analytics", request=request, active_page="insights")
 
 
 def render_period_fields(period: AnalyticsPeriod) -> FT | str:
