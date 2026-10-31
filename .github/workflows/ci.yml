@@ -277,7 +277,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
@@ -423,7 +423,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
@@ -571,7 +571,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
@@ -795,7 +795,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
@@ -882,7 +882,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
@@ -948,7 +948,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
@@ -987,7 +987,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
@@ -1097,7 +1097,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Content boundary guard
         working-directory: app
