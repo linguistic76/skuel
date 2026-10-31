@@ -190,33 +190,6 @@ async def get_user_role(request: Request, user_service: Any) -> UserRole | None:
     return cast("UserRole | None", result.value.role)
 
 
-async def is_current_user_admin(request: Request, user_service: Any) -> bool:
-    """
-    Check if the current user has admin role.
-
-    Useful for conditional UI rendering (e.g., showing Admin Dashboard in navbar).
-
-    Args:
-        request: Starlette request object
-        user_service: UserService instance
-
-    Returns:
-        True if user is authenticated and has ADMIN role, False otherwise
-
-    Usage:
-        ```python
-        is_admin = await is_current_user_admin(request, services.user)
-        navbar = create_navbar(
-            current_user=user_uid, is_authenticated=True, is_admin=is_admin
-        )
-        ```
-    """
-    role = await get_user_role(request, user_service)
-    if role is None:
-        return False
-    return role.has_permission(UserRole.ADMIN)
-
-
 def check_role_permission(user: Any, required_role: UserRole) -> Result[bool]:
     """
     Service-level role permission check.
@@ -422,7 +395,6 @@ __all__ = [
     # Helpers
     "check_role_permission",
     "get_user_role",
-    "is_current_user_admin",
     # Decorators
     "require_admin",
     "require_role",

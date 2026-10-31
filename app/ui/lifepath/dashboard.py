@@ -1,18 +1,16 @@
 """LifePath dashboard page content."""
 
-from typing import Any
-
-from fasthtml.common import H3, Div, P, Span
+from fasthtml.common import FT, H3, Div, P, Span
 
 from core.models.enums import AlignmentLevel
-from core.models.type_hints import UserUID
+from core.ports.query_types import DailyFocusResult, LifePathStatus
 from ui.components import ButtonT, Card
 from ui.feedback import Badge, BadgeT, Progress
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 
 
-def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
+def render_dashboard_content(status: LifePathStatus) -> FT:
     """Build the main dashboard content."""
     if not status.get("has_vision"):
         return Div(
@@ -31,6 +29,7 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
 
     # Has vision - show summary. Alignment is measured against a designated path,
     # so a learner who has not chosen one yet has none (``alignment`` is None).
+    vision = status.get("vision") or {}
     alignment = status.get("alignment") or {}
     alignment_score = alignment.get("alignment_score", 0)
     alignment_level = AlignmentLevel.from_value(alignment.get("alignment_level"))
@@ -63,13 +62,13 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
             Div(
                 H3("Your Vision", cls="font-semibold text-lg mb-2"),
                 P(
-                    status.get("vision", {}).get("statement", "No vision"),
+                    vision.get("statement", "No vision"),
                     cls="text-muted-foreground italic",
                 ),
                 Div(
                     *[
                         Badge(theme, variant=BadgeT.outline, cls="mr-2")
-                        for theme in status.get("vision", {}).get("themes", [])[:5]
+                        for theme in vision.get("themes", [])[:5]
                     ],
                     cls="mt-4",
                 ),
@@ -98,7 +97,7 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
     )
 
 
-def render_daily_focus(daily_focus: dict | None) -> Any:
+def render_daily_focus(daily_focus: DailyFocusResult | None) -> FT:
     """Build daily focus card."""
     if not daily_focus:
         return Div()

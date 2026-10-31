@@ -193,9 +193,10 @@ See: [DomainRouteConfig Pattern](../patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
 | Route | Method | Purpose |
 |-------|--------|---------|
 | `/lifepath` | GET | Main life path dashboard |
-| `/lifepath/vision` | GET | Vision capture page |
-| `/lifepath/vision` | POST | Process vision capture — a refusal re-renders the form with its banner and the learner's text |
-| `/lifepath/designate` | POST | Designate an LP as life path — a native form post: 303 to `/lifepath/alignment`, or the refusal in the Life Path shell |
+| `/lifepath/vision` | GET | Vision capture page — the form holds the saved vision (`get_vision`); a failed read is its banner and no form |
+| `/lifepath/vision` | POST | Capture the vision (`capture_vision`: extract the themes, save both) — 303 to `/lifepath/vision/recommendations`; a refused or unsaved vision re-renders the form with its banner and the learner's text |
+| `/lifepath/vision/recommendations` | GET | Learning Paths recommended from the **saved** vision's themes (`get_vision`, then `match_learning_paths` — no theme extraction, so a reload costs a search); no saved vision → 303 to `/lifepath/vision`; no themes → the way back to revise it; a failed read is a banner; each card is a native "Choose This Path" form |
+| `/lifepath/designate` | POST | Designate an LP as life path — a native form post: 303 to `/lifepath/alignment`, or the refusal in the Life Path shell with the way back to the recommendations |
 | `/lifepath/alignment` | GET | Alignment page: the 5-dimension breakdown (the page's one alignment figure), then the path's steps by `SubstanceBand` and where the practice comes from — `AnalyticsService.calculate_life_path_alignment`, read beside `get_full_status`; a failed substance read banners only its two cards |
 
 ### API Routes
@@ -220,27 +221,27 @@ See: [DomainRouteConfig Pattern](../patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
 ```python
 from core.services.lifepath import LifePathService
 
-lifepath = LifePathService(driver, lp_service, ku_service, user_service, llm_service)
+lifepath = LifePathService(
+    backend, lp_service, ku_service, user_service, llm_service, cross_domain_backend
+)
 
-# 1. Capture vision
-vision = await lifepath.vision.capture_vision(
+# 1. Capture the vision: extract its themes and save both (a failed save fails it)
+vision = (await lifepath.capture_vision(
     user_uid,
     "I want to become a mindful technical leader who builds meaningful products"
-)
-# Themes extracted: ["leadership", "mindfulness", "technology", "impact"]
+)).value
+# vision["themes"]: CORE's keyword match finds ["technical", "meaning"]; FULL's LLM reads more
 
-# 2. Get LP recommendations based on vision
-recommendations = await lifepath.vision.recommend_learning_paths(vision.themes)
+# 2. Recommend LPs from the saved themes — one search per theme, best match first
+saved = (await lifepath.get_vision(user_uid)).value
+recommendations = await lifepath.match_learning_paths(saved["themes"])
 
-# 3. Designate an LP as life path
-designation = await lifepath.core.designate_life_path(user_uid, "lp.tech-leadership")
+# 3. Designate an LP as life path and score its alignment
+designation = await lifepath.designate_and_calculate(user_uid, "lp.tech.leadership")
 
 # 4. Calculate alignment
 alignment = await lifepath.get_alignment(user_uid)
 # alignment_score: 0.72 (ALIGNED); per-dimension scores in alignment["dimensions"]
-
-# 5. Get recommendations
-recs = await lifepath.intelligence.get_recommendations(user_uid, alignment)
 ```
 
 ## Three-Tier Type System

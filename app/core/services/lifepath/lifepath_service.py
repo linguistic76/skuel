@@ -34,6 +34,7 @@ from core.ports.query_types import (
     LifePathRecommendationItem,
     LifePathStatus,
     LpMatchResult,
+    VisionData,
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -68,20 +69,18 @@ class LifePathService:
     - ALIGNMENT (measured via 5 dimensions)
 
     Usage:
-        # Capture vision
-        vision = await lifepath.vision.capture_vision(user_uid, "I want to become...")
+        # Capture the vision: extract its themes and save both
+        vision = (await lifepath.capture_vision(user_uid, "I want to become...")).value
 
-        # Get LP recommendations
-        recommendations = await lifepath.vision.recommend_learning_paths(vision.themes)
+        # Recommend Learning Paths from the saved themes (no extraction)
+        saved = (await lifepath.get_vision(user_uid)).value
+        paths = await lifepath.match_learning_paths(saved["themes"])
 
-        # Designate life path
-        designation = await lifepath.core.designate_life_path(user_uid, lp_uid)
+        # Designate a life path and score its alignment
+        designation = await lifepath.designate_and_calculate(user_uid, lp_uid)
 
         # Calculate alignment
         alignment = await lifepath.get_alignment(user_uid)
-
-        # Get recommendations
-        recs = await lifepath.intelligence.get_recommendations(user_uid, alignment)
     """
 
     def __init__(
@@ -138,46 +137,66 @@ class LifePathService:
     # CONVENIENCE METHODS (delegate to sub-services)
     # =========================================================================
 
-    async def capture_and_recommend(
-        self,
-        user_uid: UserUID,
-        vision_statement: str,
-    ) -> Result[LifePathRecommendation]:
+    async def capture_vision(self, user_uid: UserUID, vision_statement: str) -> Result[VisionData]:
+        """Extract the vision's themes and save both, answering what was saved.
+
+        A vision that is not saved is not captured: every later read (the
+        recommendations page, the dashboard, word-action alignment) starts from
+        the saved vision, so a failed save fails the capture.
         """
-        Complete vision capture flow: capture → extract themes → recommend LPs.
-
-        This is the main entry point for new users expressing their vision.
-
-        Args:
-            user_uid: User identifier
-            vision_statement: User's vision in their own words
-
-        Returns:
-            Result with vision capture and LP recommendations
-        """
-        # Step 1: Capture and extract themes
         vision_result = await self.vision.capture_vision(user_uid, vision_statement)
         if vision_result.is_error:
             return Result.fail(vision_result)
 
-        vision = vision_result.value
-
-        # Step 2: Save vision to user
-        save_result = await self.core.save_vision(
+        saved_result = await self.core.save_vision(
             user_uid=user_uid,
             vision_statement=vision_statement,
-            vision_themes=list(vision.theme_keywords),
+            vision_themes=list(vision_result.value.theme_keywords),
         )
-        if save_result.is_error:
-            logger.warning(f"Failed to save vision: {save_result.expect_error()}")
-            # Continue anyway - vision was captured
+        if saved_result.is_error:
+            return Result.fail(saved_result)
 
-        # Step 3: Get LP recommendations
-        recommendations_result = await self.vision.recommend_learning_paths(vision.theme_keywords)
+        saved = saved_result.value
+        return Result.ok(
+            VisionData(
+                statement=saved.vision_statement,
+                themes=list(saved.vision_themes),
+                captured_at=saved.vision_captured_at.isoformat()
+                if saved.vision_captured_at
+                else None,
+            )
+        )
 
-        recommendations: list[LpMatchResult] = []
-        if recommendations_result.is_ok:
-            recommendations = [
+    async def get_vision(self, user_uid: UserUID) -> Result[VisionData | None]:
+        """The learner's saved vision and its themes, or None if they have not
+        expressed one (a designated path alone is not a vision).
+
+        Carries no ``captured_at``: the designation record cannot tell a stored
+        capture time from a missing one.
+        """
+        designation_result = await self.core.get_designation(user_uid)
+        if designation_result.is_error:
+            return Result.fail(designation_result)
+        designation = designation_result.value
+        if designation is None or not designation.has_vision:
+            return Result.ok(None)
+        return Result.ok(
+            VisionData(
+                statement=designation.vision_statement,
+                themes=list(designation.vision_themes),
+            )
+        )
+
+    async def match_learning_paths(self, themes: list[str]) -> Result[list[LpMatchResult]]:
+        """Learning Paths matching the vision's themes, best match first.
+
+        No themes means no matches; a failed search fails the read.
+        """
+        recommendations_result = await self.vision.recommend_learning_paths(themes)
+        if recommendations_result.is_error:
+            return Result.fail(recommendations_result)
+        return Result.ok(
+            [
                 LpMatchResult(
                     lp_uid=r.lp_uid,
                     lp_name=r.lp_name,
@@ -186,15 +205,31 @@ class LifePathService:
                 )
                 for r in recommendations_result.value
             ]
+        )
+
+    async def capture_and_recommend(
+        self,
+        user_uid: UserUID,
+        vision_statement: str,
+    ) -> Result[LifePathRecommendation]:
+        """Capture the vision, then recommend Learning Paths from its themes.
+
+        Every leg propagates: a vision that was not saved, or whose
+        recommendations could not be read, is an error rather than an answer.
+        """
+        captured_result = await self.capture_vision(user_uid, vision_statement)
+        if captured_result.is_error:
+            return Result.fail(captured_result)
+        vision = captured_result.value
+
+        recommendations_result = await self.match_learning_paths(vision.get("themes", []))
+        if recommendations_result.is_error:
+            return Result.fail(recommendations_result)
 
         return Result.ok(
             LifePathRecommendation(
-                vision={
-                    "statement": vision.vision_statement,
-                    "themes": vision.theme_keywords,
-                    "captured_at": vision.captured_at.isoformat(),
-                },
-                recommendations=recommendations,
+                vision=vision,
+                recommendations=recommendations_result.value,
                 next_step="Select a Learning Path to designate as your life path",
             )
         )
@@ -259,10 +294,8 @@ class LifePathService:
         recommendations_result = await self.intelligence.get_recommendations(
             user_uid, alignment_data
         )
-
-        recommendations: list[LifePathRecommendationItem] = []
-        if recommendations_result.is_ok:
-            recommendations = recommendations_result.value
+        if recommendations_result.is_error:
+            return Result.fail(recommendations_result)
 
         return Result.ok(
             LifePathDesignation(
@@ -274,7 +307,7 @@ class LifePathService:
                     "vision_statement": designation.vision_statement,
                 },
                 alignment=alignment_data or LifePathAlignmentResult(),
-                recommendations=recommendations,
+                recommendations=recommendations_result.value,
             )
         )
 
@@ -324,19 +357,15 @@ class LifePathService:
                 return Result.fail(alignment_result)
             alignment_data = alignment_result.value
 
-        # Get recommendations
-        recommendations: list[LifePathRecommendationItem] = []
         recommendations_result = await self.intelligence.get_recommendations(
             user_uid, alignment_data
         )
-        if recommendations_result.is_ok:
-            recommendations = recommendations_result.value
+        if recommendations_result.is_error:
+            return Result.fail(recommendations_result)
 
-        # Get daily focus
-        daily_focus = None
         daily_focus_result = await self.intelligence.get_daily_focus(user_uid, alignment_data)
-        if daily_focus_result.is_ok:
-            daily_focus = daily_focus_result.value
+        if daily_focus_result.is_error:
+            return Result.fail(daily_focus_result)
 
         return Result.ok(
             LifePathStatus(
@@ -360,8 +389,8 @@ class LifePathService:
                 if designation.has_designation
                 else None,
                 alignment=alignment_data,
-                recommendations=recommendations,
-                daily_focus=daily_focus,
+                recommendations=recommendations_result.value,
+                daily_focus=daily_focus_result.value,
             )
         )
 

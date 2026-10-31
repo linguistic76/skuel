@@ -24,13 +24,15 @@ Sub-Services:
 Main Entry Point:
     from core.services.lifepath import LifePathService
 
-    lifepath = LifePathService(driver, lp_service, ku_service, user_service, llm_service)
+    lifepath = LifePathService(
+        backend, lp_service, ku_service, user_service, llm_service, cross_domain_backend
+    )
 
-    # Capture vision
-    vision = await lifepath.vision.capture_vision(user_uid, "I want to become...")
+    # Capture the vision: extract its themes and save both
+    vision = await lifepath.capture_vision(user_uid, "I want to become...")
 
     # Designate life path
-    await lifepath.core.designate_life_path(user_uid, lp_uid)
+    await lifepath.designate_and_calculate(user_uid, lp_uid)
 
     # Calculate alignment
     alignment = await lifepath.get_alignment(user_uid)

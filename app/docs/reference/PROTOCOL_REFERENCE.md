@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-10-23
+updated: 2026-10-31
 status: current
 category: reference
 tags: [protocol, reference]
@@ -519,7 +519,7 @@ Verify the layer before typing `self.backend` against anything named `Group*Oper
 | `VisualizationOperations` | `visualization` | 6 async (4 Chart.js + 2 Gantt) | `visualization_api.py` |
 | `SystemServiceOperations` | `system_service` | 11 (5 async health + 6 sync management) | `system_api.py` |
 | `CrossDomainAnalyticsOperations` | `cross_domain_analytics` | 4 async (learning_velocity, productivity, habit_consistency, get_combined_dashboard) | `analytics_api.py` |
-| `LifePathOperations` | `lifepath` | 3 async + `.alignment` sub-service | `lifepath_api.py` |
+| `LifePathOperations` | `lifepath` | 7 async + `.alignment` sub-service | `lifepath_api.py`, `lifepath_ui.py` |
 | `GraphAuthOperations` | `graph_auth` | 7 async (sign_up, sign_in, sign_out, reset_password_email, reset_password_with_token, admin_reset_token, validate_session_identity) | `auth_ui.py`, `admin_api.py` |
 | `GoalTaskGeneratorOperations` | `goal_task_generator` | 3 (generate_tasks_for_goal, generate_tasks_for_all_goals, generate_next_critical_tasks) | `orchestration_routes.py` |
 | `HabitEventSchedulerOperations` | `habit_event_scheduler` | 1 (schedule_events_for_habit) | `orchestration_routes.py` |
@@ -538,13 +538,18 @@ class LifePathAlignmentOperations(Protocol):
 class LifePathOperations(Protocol):
     alignment: LifePathAlignmentOperations  # Sub-service access
 
-    async def get_full_status(self, user_uid: UserUID) -> Result[dict[str, Any]]: ...
-    async def capture_and_recommend(self, user_uid: UserUID, vision_statement: str) -> Result[dict[str, Any]]: ...
-    async def designate_and_calculate(self, user_uid: UserUID, life_path_uid: str) -> Result[dict[str, Any]]: ...
-    async def get_alignment(self, user_uid: UserUID) -> Result[dict[str, Any]]: ...
+    async def get_full_status(self, user_uid: UserUID) -> Result[LifePathStatus]: ...
+    async def capture_vision(self, user_uid: UserUID, vision_statement: str) -> Result[VisionData]: ...
+    async def get_vision(self, user_uid: UserUID) -> Result[VisionData | None]: ...
+    async def match_learning_paths(self, themes: list[str]) -> Result[list[LpMatchResult]]: ...
+    async def capture_and_recommend(self, user_uid: UserUID, vision_statement: str) -> Result[LifePathRecommendation]: ...
+    async def designate_and_calculate(self, user_uid: UserUID, life_path_uid: str) -> Result[LifePathDesignation]: ...
+    async def get_alignment(self, user_uid: UserUID) -> Result[LifePathAlignmentResult]: ...
 ```
 
 Routes access it as `lifepath_service.get_alignment(user_uid)`. The facade builds UserContext internally and delegates to `alignment.calculate_alignment(context)`.
+
+The vision pages read through `get_vision`, a facade method, rather than reaching `core.get_designation`: they need the statement and themes, not the whole designation record (whose capture time reads `now` when none was stored).
 
 ### Vendor-Payload Pattern: VisualizationOperations
 

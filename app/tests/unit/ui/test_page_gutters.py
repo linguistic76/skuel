@@ -28,7 +28,6 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.system_ui import create_system_ui_routes
 from core.models.enums.entity_enums import EntityStatus
-from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import UserEntry, periodic_note_uid
 from tests.unit.ui import _gutter_census as census
 from ui.journals.chat_page import PeriodicNotePage
@@ -483,7 +482,7 @@ def test_the_dashboard_actions_wrap_rather_than_squeeze() -> None:
     Without ``flex-wrap`` the row shrinks both links until their labels break onto a
     second line, and a margin on one link (beside the row's ``gap``) widens the squeeze.
     """
-    xml = to_xml(render_dashboard_content({"has_vision": True}, UserUID("user_learner")))
+    xml = to_xml(render_dashboard_content({"has_vision": True}))
     row = re.search(r'<div class="([^"]*)">\s*<a [^>]*href="/lifepath/alignment"', xml)
     assert row, "the dashboard's action row was not found"
     assert {"flex", "flex-wrap"} <= set(row.group(1).split())

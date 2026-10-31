@@ -17,7 +17,6 @@ from adapters.inbound.auth.context_middleware import AuthContextMiddleware
 from adapters.inbound.auth.roles import (
     check_role_permission,
     get_user_role,
-    is_current_user_admin,
     make_service_getter,
     require_admin,
     require_role,
@@ -58,7 +57,6 @@ __all__ = [
     # Role-based access control
     "check_role_permission",
     "get_user_role",
-    "is_current_user_admin",
     "make_service_getter",
     "require_admin",
     "require_role",
