@@ -45,7 +45,7 @@ def _client(monkeypatch: pytest.MonkeyPatch, service: MagicMock) -> TestClient:
     monkeypatch.setattr(lifepath_ui, "require_authenticated_user", signed_in)
     monkeypatch.setattr(lifepath_ui, "get_settings", settings_stub(debug=False))
     app, rt = fast_app(pico=False, default_hdrs=False)
-    lifepath_ui.create_lifepath_ui_routes(app, rt, service)
+    lifepath_ui.create_lifepath_ui_routes(app, rt, service, MagicMock())
     return TestClient(app)
 
 

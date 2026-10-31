@@ -155,6 +155,10 @@ class AlignmentLevel(StrEnum):
         """
         return _ALIGNMENT_COLORS[self]
 
+    def get_label(self) -> str:
+        """Human-readable label for UI display ("Mostly aligned")."""
+        return self.value.replace("_", " ").capitalize()
+
     @classmethod
     def from_score(cls, score: float) -> AlignmentLevel:
         """Derive alignment level from numeric score."""

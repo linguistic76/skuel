@@ -1,6 +1,6 @@
 ---
 title: Analytics Architecture - Statistical Aggregation Meta-Service
-updated: 2026-10-30
+updated: 2026-10-31
 status: current
 category: architecture
 tags: [architecture, analytics]
@@ -130,8 +130,13 @@ def __init__(
 **Responsibilities:**
 - Calculate life path alignment — over the WHOLE designated path (`HAS_STEP`),
   scored from the learner's own six activity channels
-- Identify knowledge gaps (steps under the 0.5 review threshold)
+- Identify knowledge gaps (steps under the 0.5 review threshold), each carrying its
+  `SubstanceBand` from the raw score
 - Decompose alignment by substance channel
+
+**Consumers:** `/lifepath/alignment` (its step-level half — the band counts, the least-lived
+steps, the channel shares; the mean is never shown beside the five-dimension score),
+`GET /api/analytics/life-path-alignment`, and `ProgressReportGenerator`.
 
 **Explicitly NOT trends.** The `ALIGNMENT_SNAPSHOT` history is written only by
 `LifePathCoreService.update_alignment_score`, which stores the *five-dimension*

@@ -143,9 +143,10 @@ cancelled, completed or already over; pending choices it informs; active princip
 - With one, `alignment_level` is `flourishing`, `aligned`, `exploring` or `drifting`.
 - With one, it always reaches a strict accessor, so it needs a rich context.
 
-This is not the alignment the analytics pages show: `analytics_summary_api.py` and
-`analytics_ui.py` call `AnalyticsService.calculate_life_path_alignment(user_uid)`, a different
-implementation returning a dict.
+This is not the substance figure `/lifepath/alignment` bands its steps by: that page's
+step-level half (`lifepath_ui.py`), `analytics_summary_api.py` and the progress report call
+`AnalyticsService.calculate_life_path_alignment(user_uid)`, a different implementation
+returning a dict.
 
 ### SynergyIntelligenceMixin — method 6
 

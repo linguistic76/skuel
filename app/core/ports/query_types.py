@@ -58,6 +58,7 @@ from typing import TYPE_CHECKING, Any, Literal, NotRequired, Required, TypedDict
 # resolves the annotation instead of raising NameError.
 from core.models.entity_dto import EntityDTO
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.learning_enums import SubstanceBand
 from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
@@ -2288,6 +2289,53 @@ class LifePathComposition(TypedDict):
     life_path_uid: str
     life_path_title: str
     steps: list[LifePathStepRow]
+
+
+class LifePathStepSubstanceRow(TypedDict):
+    """One step of the designated path, scored for THIS learner.
+
+    ``ku_uid`` carries the PathStep's uid (the key's historical spelling).
+    ``substance`` is rounded for display; ``band`` is banded from the RAW score,
+    so a step's label agrees with the band counts it is tallied in.
+    """
+
+    ku_uid: str
+    title: str
+    substance: float
+    band: SubstanceBand
+
+
+class LifePathSubstanceAlignment(TypedDict):
+    """Return shape for ``AnalyticsService.calculate_life_path_alignment()``.
+
+    The learner's PERSONAL substance over every step of the designated path —
+    not the five-dimension alignment (``LifePathAlignmentResult``), whose score is
+    the one /lifepath/alignment names as alignment. ``alignment_score`` here is
+    the steps' mean; ``knowledge_count`` and the four ``*_knowledge`` counts are
+    PathSteps (historical key spelling), banded by ``SubstanceBand``.
+    ``domain_contributions`` is each of the six channels' share, all six keys
+    present once there are steps. ``gaps`` holds the steps under the 0.5 review
+    threshold, least-substantiated first, at most ten.
+
+    ``message`` is present only on the nothing-to-score payloads (no designation,
+    or a designated path with no steps); ``user_uid`` and ``calculated_at`` only
+    on a scored one.
+    """
+
+    life_path_uid: str | None
+    life_path_title: str | None
+    alignment_score: float
+    knowledge_count: int
+    embodied_knowledge: int
+    practiced_knowledge: int
+    applied_knowledge: int
+    theoretical_knowledge: int
+    domain_contributions: dict[str, float]
+    gaps: list[LifePathStepSubstanceRow]
+    recommendations: list[str]
+    message: NotRequired[str]
+    user_uid: NotRequired[UserUID]
+    calculated_at: NotRequired[str]
 
 
 class LifePathKuMasteryRow(TypedDict):

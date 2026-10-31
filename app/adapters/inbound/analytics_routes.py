@@ -21,9 +21,8 @@ API:
 - GET /api/analytics/yearly-review
 - GET /api/analytics/cross-domain-patterns
 
-UI:
-- GET /ui/analytics (existing dashboard)
-- GET /ui/analytics/life-path-alignment
+UI (Insights-section pages; the Life Path alignment page is /lifepath/alignment):
+- GET /ui/analytics (dashboard)
 - GET /ui/analytics/weekly-life-summary
 """
 

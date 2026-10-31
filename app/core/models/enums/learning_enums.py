@@ -100,6 +100,57 @@ _MASTERY_IMPACT_SORT_ORDERS: dict[MasteryImpact, int] = {
 }
 
 
+class SubstanceBand(StrEnum):
+    """
+    How lived one learner's knowledge is: the Substance Scale's four bands over a
+    PERSONAL substance score (0.0-1.0, from the learner's own six channels).
+
+    One banding for every surface that reads a personal score — the Life Path
+    alignment page's steps, and the weekly knowledge metrics — so the same step
+    never reads "embodied" on one and "practiced" on the other.
+
+    Values:
+        EMBODIED: 0.8+ — lifestyle-integrated
+        PRACTICED: 0.6-0.8 — in regular use
+        APPLIED: 0.3-0.6 — some practice
+        THEORETICAL: under 0.3 — not yet applied
+
+    See: /docs/architecture/knowledge_substance_philosophy.md § Substance Scale
+    """
+
+    EMBODIED = "embodied"
+    PRACTICED = "practiced"
+    APPLIED = "applied"
+    THEORETICAL = "theoretical"
+
+    @classmethod
+    def from_score(cls, score: float) -> SubstanceBand:
+        """The band a raw (unrounded) personal substance score falls in."""
+        if score >= 0.8:
+            return cls.EMBODIED
+        if score >= 0.6:
+            return cls.PRACTICED
+        if score >= 0.3:
+            return cls.APPLIED
+        return cls.THEORETICAL
+
+    def get_label(self) -> str:
+        """Human-readable label for UI display."""
+        return self.value.title()
+
+    def get_description(self) -> str:
+        """What the band means in the learner's life, for a label's subline."""
+        return _SUBSTANCE_BAND_DESCRIPTIONS[self]
+
+
+_SUBSTANCE_BAND_DESCRIPTIONS: dict[SubstanceBand, str] = {
+    SubstanceBand.EMBODIED: "part of how you live",
+    SubstanceBand.PRACTICED: "in regular use",
+    SubstanceBand.APPLIED: "some practice",
+    SubstanceBand.THEORETICAL: "not yet in your life",
+}
+
+
 class AssessmentOutcome(StrEnum):
     """
     Outcome of an EntryReport assessment.

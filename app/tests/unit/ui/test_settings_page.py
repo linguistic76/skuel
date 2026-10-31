@@ -1,7 +1,8 @@
 """/settings — the account page, and below the desktop widths the chrome's overflow.
 
-The sign-out row (below sm) and the role-gated doors (below lg) render
-first, in the page shell, outside any HTMX fragment or ``x-cloak``: an admin
+The sign-out row (below sm), the Insights row (sm to md, where the top bar has
+no room for its icon) and the role-gated doors (below lg) render first, in the
+page shell, outside any HTMX fragment or ``x-cloak``: an admin
 or teacher on a phone or tablet reaches /admin and /teaching/* from here and
 nowhere else, and signing out never waits for the preferences fragment or
 for Alpine.
@@ -69,6 +70,13 @@ def test_the_role_rows_are_below_lg_doors_gated_like_the_centre_links(
     ]
     assert [re.search(r'href="([^"]*)"', r).group(1) for r in rows] == expected  # type: ignore[union-attr]
     assert all("lg:hidden" in r for r in rows)
+
+
+def test_the_insights_row_follows_sign_out_and_shows_only_from_sm_to_md() -> None:
+    links = re.findall(r"<a[^>]*>", _main(_page()))
+    hrefs = [re.search(r'href="([^"]*)"', tag).group(1) for tag in links]  # type: ignore[union-attr]
+    assert hrefs[:2] == ["/logout", "/insights"]
+    assert "hidden sm:flex md:hidden" in links[1]
 
 
 def test_the_page_lights_the_avatar() -> None:

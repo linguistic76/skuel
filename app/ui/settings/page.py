@@ -1,11 +1,12 @@
 """The /settings page shell — the account page every avatar tap opens.
 
 Below the desktop widths it is also the chrome's overflow: the sign-out row
-(``sm:hidden`` — the top bar carries the icon from sm) and the role-gated
-section doors Admin and Teaching (``lg:hidden`` — the centre links carry
-them from lg; the bottom nav never does) render here as rows. Those rows
-come first and sit outside any HTMX fragment or ``x-cloak`` — they must not
-wait for the preferences fragment or for Alpine.
+(``sm:hidden`` — the top bar carries the icon from sm), the Insights row
+(``sm`` to ``md`` only — the band where the top bar has no room for its icon)
+and the role-gated section doors Admin and Teaching (``lg:hidden`` — the
+centre links carry them from lg; the bottom nav never does) render here as
+rows. Those rows come first and sit outside any HTMX fragment or ``x-cloak`` —
+they must not wait for the preferences fragment or for Alpine.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from fasthtml.common import A, Div
 
 from core.utils.auth_context import current_auth_state
 from ui.layouts.base_page import BasePage
-from ui.layouts.navbar import role_nav_rows, signout_row
+from ui.layouts.navbar import insights_row, role_nav_rows, signout_row
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 
@@ -36,6 +37,7 @@ def render_settings_page(request: Request) -> FT:
     auth = current_auth_state()
     content = Div(
         signout_row(),
+        insights_row(),
         *role_nav_rows(is_admin=auth.is_admin, is_teacher=auth.is_teacher),
         PageHeader("Settings", subtitle="Manage your preferences"),
         Div(

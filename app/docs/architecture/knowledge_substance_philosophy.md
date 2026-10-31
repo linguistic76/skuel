@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-10-17
+updated: 2026-10-31
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -625,7 +625,10 @@ this one, `AnalyticsLifePathService.calculate_life_path_alignment` (above), and
 `core/services/user/intelligence/life_path_intelligence.py`, an in-memory
 calculator over `RichUserContext` that reuses the same five dimension names and
 25/25/20/15/15 weights but scores them from learning-goal prerequisites. Check
-which one a caller means before comparing numbers.
+which one a caller means before comparing numbers. `/lifepath/alignment` shows the
+first two together and only one as alignment: the five-dimension score is its
+figure, and this section's metric appears as its steps' `SubstanceBand` counts and
+channel shares, never as a second percentage.
 
 ---
 

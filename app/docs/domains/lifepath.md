@@ -1,7 +1,7 @@
 ---
 title: LifePath Domain
 created: 2025-12-04
-updated: 2026-10-30
+updated: 2026-10-31
 status: current
 category: domains
 tags: [lifepath, destination-domain, domain]
@@ -196,7 +196,7 @@ See: [DomainRouteConfig Pattern](../patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
 | `/lifepath/vision` | GET | Vision capture page |
 | `/lifepath/vision` | POST | Process vision capture — a refusal re-renders the form with its banner and the learner's text |
 | `/lifepath/designate` | POST | Designate an LP as life path — a native form post: 303 to `/lifepath/alignment`, or the refusal in the Life Path shell |
-| `/lifepath/alignment` | GET | Alignment dashboard |
+| `/lifepath/alignment` | GET | Alignment page: the 5-dimension breakdown (the page's one alignment figure), then the path's steps by `SubstanceBand` and where the practice comes from — `AnalyticsService.calculate_life_path_alignment`, read beside `get_full_status`; a failed substance read banners only its two cards |
 
 ### API Routes
 

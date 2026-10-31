@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-10-16
+updated: 2026-10-31
 category: patterns
 related_skills:
 - fasthtml
@@ -773,6 +773,8 @@ LIFEPATH_CONFIG = DomainRouteConfig(
     api_factory=create_lifepath_api_routes,
     ui_factory=create_lifepath_ui_routes,
     api_related_services={},  # Self-contained facade
+    # The alignment page's step-level half: personal substance over the path.
+    ui_related_services={"analytics_service": "analytics"},
 )
 ```
 

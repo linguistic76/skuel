@@ -10,9 +10,10 @@ failure as the learner's alignment.
 """
 
 import re
+from unittest.mock import MagicMock
 
 import pytest
-from fasthtml.common import fast_app, to_xml
+from fasthtml.common import Div, fast_app, to_xml
 from starlette.testclient import TestClient
 
 import adapters.inbound.lifepath_ui as lifepath_ui
@@ -57,7 +58,7 @@ def _client(monkeypatch: pytest.MonkeyPatch, service: _LifePath) -> TestClient:
 
     monkeypatch.setattr(lifepath_ui, "require_authenticated_user", signed_in)
     app, rt = fast_app(pico=False, default_hdrs=False)
-    lifepath_ui.create_lifepath_ui_routes(app, rt, service)
+    lifepath_ui.create_lifepath_ui_routes(app, rt, service, MagicMock())
     return TestClient(app)
 
 
@@ -91,11 +92,7 @@ def test_a_failed_alignment_read_is_an_error_not_a_zero_radar(
 
 
 def test_the_radar_names_each_axis_as_the_rows_below_it_do() -> None:
-    page = to_xml(
-        render_alignment_dashboard(
-            {"alignment": {"dimensions": DIMENSIONS}}, UserUID("user_learner")
-        )
-    )
+    page = to_xml(render_alignment_dashboard({"alignment": {"dimensions": DIMENSIONS}}, Div()))
     rows = re.findall(r'<span class="text-sm font-medium">([^<]*)</span>', page)
 
     assert lifepath_ui._alignment_radar_config(DIMENSIONS)["data"]["labels"] == rows

@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-30'
+updated: '2026-10-31'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -1134,13 +1134,13 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **Explore UI:** `ui/explore/cards.py` holds `render_explore_card()` and `render_explore_search_panel()`. Filtering and sorting are no longer a UI concern at all — the former `filters.py` module went when `/explore/library` was consolidated onto `SearchRouter.faceted_search`. Sidebar data aggregation moved to `ExploreOrchestrator.get_sidebar_data()`. `render_explore_sidebar_page()` accepts pre-fetched `sidebar_data: dict[str, Any] | None` instead of raw services.
 
-**LifePath UI:** `ui/lifepath/` — `dashboard.py` (dashboard content + daily focus), `vision.py` (vision form + recommendations page), `alignment.py` (5-dimension alignment dashboard), `nav.py` (sidebar items + page wrapper). `lifepath_ui.py` is ~175 lines — pure auth + service call + delegation.
+**LifePath UI:** `ui/lifepath/` — `dashboard.py` (dashboard content + daily focus), `vision.py` (vision form + recommendations page), `alignment.py` (the alignment page: the 5-dimension breakdown, then the path's steps by substance band and where the practice comes from), `nav.py` (sidebar items + page wrapper). `lifepath_ui.py` is ~175 lines — pure auth + service call + delegation.
 
 **Askesis UI:** `ui/askesis/` — `welcome.py` (centered welcome + chat form), `chat.py` (message bubbles), `settings.py` (settings form), `nav.py` (sidebar items + page wrapper). Dissolved `AskesisUI` class. `askesis_ui.py` is ~168 lines.
 
 **Activity Review UI:** `ui/activity_review/` — `cards.py` (queue items + snapshot domain cards), `forms.py` (snapshot form + feedback form with Script sync), `types.py` (domain choices config), `nav.py` (sidebar). `activity_review_ui.py` is ~266 lines.
 
-**Analytics UI:** `ui/analytics/` — `dashboard.py` (dashboard + period fields + result rendering), `domain_metrics.py` (7 per-domain metric renderers), `life_path.py` (alignment dashboard), `life_summary.py` (weekly cross-layer summary). `adapters/inbound/analytics_ui.py` holds the routes and their query readers.
+**Analytics UI:** `ui/analytics/` — `dashboard.py` (dashboard + period fields + result rendering), `domain_metrics.py` (7 per-domain metric renderers), `life_summary.py` (weekly cross-layer summary). `adapters/inbound/analytics_ui.py` holds the routes and their query readers.
 
 **Ingestion UI:** `ui/ingestion/` — `dashboard.py` (form groups, ingestion cards, results display + JS handlers). `ingestion_ui.py` is ~59 lines — pure admin auth + delegation.
 

@@ -34,7 +34,7 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
-from core.models.enums import EntityStatus, PrincipleStrength
+from core.models.enums import EntityStatus, PrincipleStrength, SubstanceBand
 from core.models.type_hints import UserUID
 from core.ports.query_types import (
     CurriculumFocus,
@@ -806,10 +806,7 @@ class AnalyticsMetricsService:
 
             # Analyze substance scores
             total_substance = 0.0
-            theoretical = 0  # < 0.3
-            applied = 0  # 0.3-0.6
-            practiced = 0  # 0.6-0.8
-            embodied = 0  # 0.8+
+            band_counts = dict.fromkeys(SubstanceBand, 0)
 
             by_domain: dict[str, dict[str, Any]] = {}
             review_recommendations = []
@@ -822,15 +819,7 @@ class AnalyticsMetricsService:
 
                 total_substance += substance
 
-                # Categorize by substance level
-                if substance >= 0.8:
-                    embodied += 1
-                elif substance >= 0.6:
-                    practiced += 1
-                elif substance >= 0.3:
-                    applied += 1
-                else:
-                    theoretical += 1
+                band_counts[SubstanceBand.from_score(substance)] += 1
 
                 # Group by domain
                 domain = str(ku.domain or "UNKNOWN")
@@ -867,10 +856,10 @@ class AnalyticsMetricsService:
                 {
                     "total_knowledge_units": count,
                     "avg_substance_score": round(avg_substance, 2),
-                    "theoretical_knowledge": theoretical,
-                    "applied_knowledge": applied,
-                    "practiced_knowledge": practiced,
-                    "embodied_knowledge": embodied,
+                    "theoretical_knowledge": band_counts[SubstanceBand.THEORETICAL],
+                    "applied_knowledge": band_counts[SubstanceBand.APPLIED],
+                    "practiced_knowledge": band_counts[SubstanceBand.PRACTICED],
+                    "embodied_knowledge": band_counts[SubstanceBand.EMBODIED],
                     "knowledge_by_domain": knowledge_by_domain,
                     # Least-substantiated first, so the cap keeps the ten that
                     # most need work rather than an arbitrary ten.
