@@ -280,7 +280,7 @@ def ui_boundary_handler(
                 f"`{REQUEST_PARAM}`, which the handler does not take"
             )
 
-        def render_failure(exc: Exception, *args: Any, **kwargs: Any) -> FT:
+        def render_failure(exc: Exception, *args: P.args, **kwargs: P.kwargs) -> FT:
             banner = render_error_banner(
                 message,
                 technical_details=str(exc),
