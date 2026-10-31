@@ -2314,8 +2314,10 @@ class LifePathSubstanceAlignment(TypedDict):
     the steps' mean; ``knowledge_count`` and the four ``*_knowledge`` counts are
     PathSteps (historical key spelling), banded by ``SubstanceBand``.
     ``domain_contributions`` is each of the six channels' share, all six keys
-    present once there are steps. ``gaps`` holds the steps under the 0.5 review
-    threshold, least-substantiated first, at most ten.
+    present once there are steps, ROUNDED for display: a share of 0.0 does not
+    mean unused. ``unused_channels`` does — the channels whose raw total is zero.
+    ``gaps`` holds the steps under the 0.5 review threshold, least-substantiated
+    first, at most ten.
 
     ``message`` is present only on the nothing-to-score payloads (no designation,
     or a designated path with no steps); ``user_uid`` and ``calculated_at`` only
@@ -2331,6 +2333,7 @@ class LifePathSubstanceAlignment(TypedDict):
     applied_knowledge: int
     theoretical_knowledge: int
     domain_contributions: dict[str, float]
+    unused_channels: list[str]
     gaps: list[LifePathStepSubstanceRow]
     recommendations: list[str]
     message: NotRequired[str]

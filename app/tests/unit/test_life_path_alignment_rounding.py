@@ -176,6 +176,18 @@ class TestChannelPromptsUseTheRawTotals:
             "total — it tells a learner to do what they have already done"
         )
 
+    def test_a_channel_used_but_rounding_to_zero_is_not_reported_unused(self):
+        """The payload's ``unused_channels`` is what the page reads "not yet" from."""
+        steps, substance = self._path_with_a_tiny_task_share()
+        totals = AnalyticsLifePathService._sum_channel_substance(steps, substance)
+
+        unused = AnalyticsLifePathService._unused_channels(totals)
+
+        assert unused == ["events", "entries", "choices", "principles"], (
+            "tasks rounds to a 0.0 share and was still used — reading the rounded "
+            "proportions would call it unused"
+        )
+
     def test_a_channel_genuinely_unused_is_still_prompted(self):
         """The complement — the fix must not silence the real prompts."""
         steps, substance = self._path_with_a_tiny_task_share()

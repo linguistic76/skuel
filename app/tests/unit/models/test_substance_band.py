@@ -1,4 +1,5 @@
-"""SubstanceBand — the Substance Scale's four bands over a personal substance score.
+"""SubstanceBand — the Substance Scale's four bands over a personal substance score — and
+AlignmentLevel's display reading.
 
 One banding for every surface: the Life Path alignment page's steps and the weekly
 knowledge metrics both band through ``from_score``, so its edges are pinned here,
@@ -36,3 +37,11 @@ def test_every_band_has_a_label_and_a_description() -> None:
 def test_an_alignment_level_label_reads_as_words() -> None:
     assert AlignmentLevel.MOSTLY_ALIGNED.get_label() == "Mostly aligned"
     assert AlignmentLevel.FLOURISHING.get_label() == "Flourishing"
+
+
+def test_a_level_outside_the_vocabulary_reads_as_unknown() -> None:
+    """The five-dimension no-designation payload says "undefined"."""
+    assert AlignmentLevel.from_value("undefined") is AlignmentLevel.UNKNOWN
+    assert AlignmentLevel.from_value(None) is AlignmentLevel.UNKNOWN
+    assert AlignmentLevel.from_value("Mostly_Aligned") is AlignmentLevel.MOSTLY_ALIGNED
+    assert AlignmentLevel.from_value(AlignmentLevel.ALIGNED) is AlignmentLevel.ALIGNED

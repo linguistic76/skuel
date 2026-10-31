@@ -8,7 +8,12 @@ page's one alignment figure. The substance half shows as the steps' band counts,
 least-lived steps (each a link to its step, its band from the payload), and each
 channel's share — the substance mean is never rendered. A failed substance read
 banners its own cards and leaves the five-dimension half standing; a failed status
-read banners the fragment. Neither banner shows developer text.
+read banners the fragment. Neither banner shows developer text. A channel's
+"not yet" comes from the payload's raw ``unused_channels``, never from a share that
+rounds to zero.
+
+The Life Path dashboard (``/lifepath/content``) renders for a learner with a vision
+and no chosen path, whose status carries no alignment.
 """
 
 from __future__ import annotations
@@ -24,29 +29,35 @@ from starlette.testclient import TestClient
 import adapters.inbound.lifepath_ui as lifepath_ui
 from core.models.enums import SubstanceBand
 from core.models.type_hints import UserUID
-from core.ports.query_types import LifePathStatus, LifePathSubstanceAlignment
+from core.ports.query_types import (
+    LifePathAlignmentResult,
+    LifePathStatus,
+    LifePathSubstanceAlignment,
+)
 from core.utils.result_simplified import Errors, Result
 from tests.helpers.settings_stub import settings_stub
 
 URL = "/lifepath/alignment/content"
 
+ALIGNMENT: LifePathAlignmentResult = {
+    "life_path_uid": "lp.x.teacher",
+    "life_path_title": "Become a patient teacher",
+    "alignment_score": 0.62,
+    "alignment_level": "mostly_aligned",
+    "dimensions": {
+        "knowledge": 0.42,
+        "activity": 0.55,
+        "goal": 0.5,
+        "principle": 0.33,
+        "momentum": 0.7,
+    },
+    "knowledge_stats": {"total": 14, "embodied": 3, "theoretical": 8},
+}
+
 STATUS: LifePathStatus = {
     "has_vision": True,
     "has_designation": True,
-    "alignment": {
-        "life_path_uid": "lp.x.teacher",
-        "life_path_title": "Become a patient teacher",
-        "alignment_score": 0.62,
-        "alignment_level": "mostly_aligned",
-        "dimensions": {
-            "knowledge": 0.42,
-            "activity": 0.55,
-            "goal": 0.5,
-            "principle": 0.33,
-            "momentum": 0.7,
-        },
-        "knowledge_stats": {"total": 14, "embodied": 3, "theoretical": 8},
-    },
+    "alignment": ALIGNMENT,
     "recommendations": [{"title": "Strengthen value alignment", "description": "…"}],
 }
 
@@ -67,6 +78,7 @@ LIVED: LifePathSubstanceAlignment = {
         "choices": 0.0,
         "principles": 0.0,
     },
+    "unused_channels": ["choices", "principles"],
     "gaps": [
         {
             "ku_uid": "ps.teaching.listening",
@@ -154,12 +166,28 @@ def test_the_practice_card_shows_each_channel_share(monkeypatch: pytest.MonkeyPa
     assert "Choices not yet" in page
 
 
+def test_a_channel_whose_share_rounds_to_zero_is_used_not_unused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The shares are rounded for display; "not yet" comes from the raw totals."""
+    tiny: LifePathSubstanceAlignment = {
+        **LIVED,
+        "domain_contributions": {**LIVED["domain_contributions"], "habits": 0.65, "tasks": 0.0},
+        "unused_channels": ["choices", "principles"],
+    }
+    page = _text(_client(monkeypatch, lived=Result.ok(tiny))[0].get(URL).text)
+
+    assert "Tasks <1%" in page
+    assert "Choices not yet" in page
+
+
 def test_a_learner_with_no_practice_reads_a_sentence_not_six_empty_bars(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     idle: LifePathSubstanceAlignment = {
         **LIVED,
         "domain_contributions": dict.fromkeys(LIVED["domain_contributions"], 0.0),
+        "unused_channels": list(LIVED["domain_contributions"]),
     }
     page = _text(_client(monkeypatch, lived=Result.ok(idle))[0].get(URL).text)
 
@@ -205,6 +233,33 @@ def test_a_failed_status_read_banners_the_fragment_without_developer_text(
     assert 'id="lifepath-alignment-content"' in response.text
     assert "Could not load your Life Path alignment" in response.text
     assert "read failed" not in response.text and ".py" not in response.text
+
+
+def test_a_level_outside_the_vocabulary_reads_as_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The five-dimension no-designation payload says "undefined"."""
+    undefined: LifePathStatus = {
+        **STATUS,
+        "alignment": {**ALIGNMENT, "alignment_level": "undefined"},
+    }
+    page = _text(_client(monkeypatch, status=Result.ok(undefined))[0].get(URL).text)
+
+    assert "Unknown" in page
+
+
+def test_the_dashboard_of_a_learner_with_a_vision_and_no_path_renders(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``get_full_status`` gives no alignment until a path is chosen."""
+    chosen_none: LifePathStatus = {
+        **STATUS,
+        "has_designation": False,
+        "alignment": None,
+        "vision": {"statement": "I want to become a patient teacher", "themes": []},
+    }
+    response = _client(monkeypatch, status=Result.ok(chosen_none))[0].get("/lifepath/content")
+
+    assert response.status_code == 200
+    assert "Choose a Learning Path for your vision" in _text(response.text)
 
 
 def test_no_designation_redirects_to_the_vision(monkeypatch: pytest.MonkeyPatch) -> None:

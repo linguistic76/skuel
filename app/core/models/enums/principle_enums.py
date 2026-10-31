@@ -160,6 +160,21 @@ class AlignmentLevel(StrEnum):
         return self.value.replace("_", " ").capitalize()
 
     @classmethod
+    def from_value(cls, value: object) -> AlignmentLevel:
+        """Normalize a stored or payload level, defaulting to UNKNOWN.
+
+        A payload outside the vocabulary — the five-dimension no-designation
+        response says ``"undefined"`` — reads as unassessed, not as an error.
+        """
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            for level in cls:
+                if level.value == value.lower():
+                    return level
+        return cls.UNKNOWN
+
+    @classmethod
     def from_score(cls, score: float) -> AlignmentLevel:
         """Derive alignment level from numeric score."""
         if score >= 0.9:

@@ -326,6 +326,7 @@ class AnalyticsLifePathService:
                     "applied_knowledge": knowledge_analysis["applied_count"],
                     "theoretical_knowledge": knowledge_analysis["theoretical_count"],
                     "domain_contributions": domain_contributions,
+                    "unused_channels": self._unused_channels(channel_totals),
                     "gaps": gaps,
                     "recommendations": recommendations,
                     "user_uid": user_uid,
@@ -377,6 +378,7 @@ class AnalyticsLifePathService:
             "applied_knowledge": 0,
             "theoretical_knowledge": 0,
             "domain_contributions": {},
+            "unused_channels": [channel.name for channel in USER_SUBSTANCE_CHANNELS],
             "gaps": [],
             "recommendations": [recommendation],
             "message": message,
@@ -483,6 +485,22 @@ class AnalyticsLifePathService:
         return totals
 
     @staticmethod
+    def _unused_channels(channel_totals: dict[str, float]) -> list[str]:
+        """The channels this learner has not used AT ALL on the path, in table order.
+
+        Read off the RAW totals: no activity of that kind touches any of the
+        path's knowledge. Deliberately not the rounded proportions — a channel
+        worth under 0.5% of the total displays as 0.0 while having been used, so
+        a reader of those would tell the learner to do what they have already
+        done, or call a channel they practise through unused.
+        """
+        return [
+            channel.name
+            for channel in USER_SUBSTANCE_CHANNELS
+            if channel_totals.get(channel.name, 0.0) <= 0.0
+        ]
+
+    @staticmethod
     def _analyze_domain_contributions(channel_totals: dict[str, float]) -> dict[str, float]:
         """
         Which of the six substance channels this learner's alignment comes from.
@@ -549,16 +567,12 @@ class AnalyticsLifePathService:
                 ]
             )
 
-        # A channel the learner has not used AT ALL on this path — 0.0 in the RAW
-        # totals, so no activity of that kind touches any of the path's knowledge.
-        # Deliberately not the rounded proportions: a channel worth under 0.5% of
-        # the total displays as 0.0 while having been used, and this would then
-        # tell the learner to do something they have already done.
+        unused = AnalyticsLifePathService._unused_channels(channel_totals)
         recommendations.extend(
             [
                 channel.recommendation.format(title="your Life Path")
                 for channel in USER_SUBSTANCE_CHANNELS
-                if channel_totals.get(channel.name, 0.0) <= 0.0
+                if channel.name in unused
             ]
         )
 

@@ -36,7 +36,7 @@ def render_alignment_dashboard(status: LifePathStatus, lived: FT) -> FT:
     alignment = status.get("alignment") or {}
     dimensions = alignment.get("dimensions")
     recommendations = status.get("recommendations", [])
-    level = AlignmentLevel(alignment.get("alignment_level", AlignmentLevel.UNKNOWN))
+    level = AlignmentLevel.from_value(alignment.get("alignment_level"))
     scores = (
         [
             ("Knowledge", dimensions["knowledge"]),
@@ -56,10 +56,10 @@ def render_alignment_dashboard(status: LifePathStatus, lived: FT) -> FT:
             Div(
                 Div(
                     Span(dim_name, cls="text-sm font-medium"),
-                    Span(f"{int(score * 100)}%", cls=f"text-lg font-bold {color}"),
+                    Span(f"{round(score * 100)}%", cls=f"text-lg font-bold {color}"),
                     cls="flex justify-between items-center mb-1",
                 ),
-                Progress(value=int(score * 100), max=100, cls="w-full h-2"),
+                Progress(value=round(score * 100), max=100, cls="w-full h-2"),
                 cls="mb-4",
             )
         )
@@ -82,7 +82,7 @@ def render_alignment_dashboard(status: LifePathStatus, lived: FT) -> FT:
                 Div(
                     Div(
                         Span(
-                            f"{int(alignment.get('alignment_score', 0) * 100)}%",
+                            f"{round(alignment.get('alignment_score', 0) * 100)}%",
                             cls="text-5xl font-bold",
                         ),
                         Span(level.get_label(), cls="text-2xl text-muted-foreground ml-4"),
@@ -206,11 +206,19 @@ def _least_lived_row(gap: LifePathStepSubstanceRow) -> FT:
 
 
 def _practice_card(lived: LifePathSubstanceAlignment) -> FT:
-    """Each channel's share of the learner's substance on the path."""
+    """Each channel's share of the learner's substance on the path.
+
+    "Not yet" is the payload's ``unused_channels`` (raw totals), never a share
+    that merely rounds to zero.
+    """
     shares = lived["domain_contributions"]
-    if any(share > 0 for share in shares.values()):
+    unused = set(lived["unused_channels"])
+    if shares and not unused.issuperset(shares):
         body = Div(
-            *[_share_row(channel, share) for channel, share in shares.items()],
+            *[
+                _share_row(channel, share, used=channel not in unused)
+                for channel, share in shares.items()
+            ],
             cls="flex flex-col gap-4",
         )
     else:
@@ -227,15 +235,18 @@ def _practice_card(lived: LifePathSubstanceAlignment) -> FT:
     )
 
 
-def _share_row(channel: str, share: float) -> FT:
-    percent = int(share * 100)
+def _share_row(channel: str, share: float, *, used: bool) -> FT:
+    percent = round(share * 100)
+    if not used:
+        reading = "not yet"
+    elif percent == 0:
+        reading = "<1%"  # practised through, under half a percent of the path's substance
+    else:
+        reading = f"{percent}%"
     return Div(
         Div(
             Span(channel.title(), cls="text-sm font-medium"),
-            Span(
-                f"{percent}%" if share > 0 else "not yet",
-                cls="text-sm text-muted-foreground tabular-nums",
-            ),
+            Span(reading, cls="text-sm text-muted-foreground tabular-nums"),
             cls="flex justify-between items-center mb-1",
         ),
         Progress(value=percent, max=100, cls="w-full h-2"),
