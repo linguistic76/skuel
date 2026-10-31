@@ -1,8 +1,9 @@
 """The /ui/analytics pages answer in the page shell (adapters/inbound/analytics_ui.py).
 
 A full-page request to the dashboard or the weekly life summary gets ``BasePage``:
-one ``<main id="main-content">``, the top navbar and the bottom nav — on success and
-on a failed read, whose banner renders inside the shell. Both are Insights-section
+one ``<main id="main-content">``, the top navbar and the bottom nav — on success, on
+a failed read, and on a crash, whose banner the boundary builds with the summary's
+own shell. Both are Insights-section
 pages: the navbar's Insights icon is lit on them. The result fragment the dashboard's
 form loads stays a fragment. The weekly summary reads ``start_date`` by the one query
 rule: blank is this week, malformed is a 400.
@@ -25,6 +26,7 @@ from fasthtml.common import fast_app
 from starlette.testclient import TestClient
 
 import adapters.inbound.analytics_ui as analytics_ui
+from adapters.inbound import boundary
 from core.models.analytics.analytics import AnalyticsSummary
 from core.models.enums import AnalyticsDomain, AnalyticsPeriod
 from core.models.type_hints import UserUID
@@ -73,6 +75,7 @@ def _client(monkeypatch: pytest.MonkeyPatch, service: MagicMock) -> TestClient:
 
     monkeypatch.setattr(analytics_ui, "require_authenticated_user", signed_in)
     monkeypatch.setattr(analytics_ui, "get_settings", settings_stub(debug=False))
+    monkeypatch.setattr(boundary, "get_settings", settings_stub(debug=False))
     app, rt = fast_app(pico=False, default_hdrs=False)
     analytics_ui.create_analytics_ui_routes(app, rt, service)
     return TestClient(_SignedInChrome(app))
@@ -150,6 +153,39 @@ def test_a_failed_read_renders_its_banner_in_the_shell(monkeypatch: pytest.Monke
     _assert_in_shell(response.text)
     assert message in response.text
     assert "read failed" not in response.text  # the detail renders only in debug
+
+
+def test_a_crashed_summary_renders_its_banner_in_its_shell(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The boundary builds the failure with the page's own shell: chrome, Insights lit."""
+    service = _service()
+    service.generate_weekly_life_summary = AsyncMock(side_effect=RuntimeError("socket closed"))
+    response = _client(monkeypatch, service).get("/ui/analytics/weekly-life-summary")
+    page = response.text
+
+    assert response.status_code == 200
+    _assert_in_shell(page)
+    main = page[page.index('id="main-content"') :]
+    assert "Could not load your weekly life summary" in main
+    assert "socket closed" not in page  # the detail renders only in debug
+    lit = re.findall(r'<a[^>]*aria-current="page"[^>]*>', page[: page.index('id="main-content"')])
+    assert [re.search(r'href="([^"]*)"', tag).group(1) for tag in lit] == ["/insights"]  # type: ignore[union-attr]
+
+
+def test_a_crashed_report_stays_a_fragment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The result is a fragment swapped into the dashboard's slot, so its crash is too."""
+    service = _service()
+    service.generate_weekly_report = AsyncMock(side_effect=RuntimeError("socket closed"))
+    response = _client(monkeypatch, service).get(
+        "/ui/analytics/view?analytics_domain=tasks&period=week_current",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert "Error generating analytics" in response.text
+    assert "<html" not in response.text
+    assert 'id="main-content"' not in response.text
 
 
 def test_the_result_fragment_stays_a_fragment(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-10-17
+updated: 2026-10-31
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -265,7 +265,7 @@ model, imported by every consumer.
 
 **UI** (`adapters/inbound/user_entry_ui.py`): `/submissions`,
 `/submissions/submit`, `/submissions/journal`,
-`/submissions/history` (+ `/submissions/history/list`, `POST /submissions/history/delete`),
+`/submissions/history` (+ `POST /submissions/history/delete`),
 `/submissions/knowledge`, `/submit/journals/{uid}/download`, `/gradebook`
 (+ `/gradebook/lines`, `/gradebook/{uid}`), and `POST /api/entry-reports/respond`.
 

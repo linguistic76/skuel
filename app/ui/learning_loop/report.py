@@ -149,17 +149,13 @@ def render_submission_history_row(item: dict) -> Any:
 
 
 def render_yours_list(items: list[dict]) -> Any:
-    """Render the full list of submissions with feedback status (HTMX swap target)."""
+    """Render the full list of submissions with feedback status."""
     if not items:
-        return Div(
-            EmptyState(title="No submissions yet"),
-            id="submissions-yours-list",
+        return EmptyState(
+            title="No submissions yet",
+            description="Submit your first exercise to see it here.",
         )
-    return Div(
-        *[render_submission_history_row(item) for item in items],
-        id="submissions-yours-list",
-        cls="space-y-2",
-    )
+    return Div(*[render_submission_history_row(item) for item in items], cls="space-y-2")
 
 
 # ============================================================================

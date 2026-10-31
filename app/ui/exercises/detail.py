@@ -92,9 +92,7 @@ def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
         )
 
     # ── Actions ───────────────────────────────────────────────────────
-    submit_href = submit_page_href(exercise.uid)
-    if from_ps:
-        submit_href += f"&from_ps={from_ps}"
+    submit_href = submit_page_href(exercise.uid, from_ps=from_ps or None)
     actions = Div(
         ButtonLink(
             "Download",

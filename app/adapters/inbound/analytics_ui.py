@@ -93,6 +93,11 @@ def _read_custom_range(request: Request) -> Result[tuple[date, date]]:
     return Result.ok((start.value, end.value))
 
 
+def _weekly_summary_page(request: Request, content: FT) -> FT:
+    """The weekly life summary's shell, for its result, its refusal and its crash alike."""
+    return BasePage(content, title="Weekly Life Summary", request=request, active_page="insights")
+
+
 # ============================================================================
 # ROUTE HANDLERS
 # ============================================================================
@@ -177,7 +182,7 @@ def create_analytics_ui_routes(
         return render_analytics_result(result.value)
 
     @app.get("/ui/analytics/weekly-life-summary")
-    @ui_boundary_handler("Error loading weekly life summary")
+    @ui_boundary_handler("Could not load your weekly life summary", page=_weekly_summary_page)
     async def weekly_life_summary_ui(request: Request) -> FT | Response:
         """Weekly life summary page (ALL layers); ``start_date`` picks the week."""
         user_uid = require_authenticated_user(request)
@@ -203,9 +208,7 @@ def create_analytics_ui_routes(
             if result.is_error
             else render_weekly_life_summary(result.value)
         )
-        return BasePage(
-            content, title="Weekly Life Summary", request=request, active_page="insights"
-        )
+        return _weekly_summary_page(request, content)
 
     logger.info("Analytics UI routes registered (dashboard + weekly life summary)")
 

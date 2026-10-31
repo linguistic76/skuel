@@ -285,8 +285,9 @@ No `exception_handlers=` is passed to `fast_app()`. After that seam the two rout
 have two boundaries: an API handler returns `Result[T]` and `@boundary_handler()` converts
 it to the HTTP response (a non-`Result` value passes through unchanged); a UI or HTMX
 handler returns FT nodes and `@ui_boundary_handler()` renders an unexpected exception as an
-error banner fragment, never a JSON body (both in `adapters/inbound/boundary.py`; the
-`ui-error-handling` skill has the UI side).
+error banner in the route's own shape, never a JSON body: a fragment's banner in its slot
+(`fragment_id=`), a page's inside its shell (`page=`, the helper its success path calls). Both
+are in `adapters/inbound/boundary.py`; the `ui-error-handling` skill has the UI side.
 
 ## Async Routes
 

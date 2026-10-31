@@ -18,6 +18,7 @@ from core.utils.zone_context import zone_scope
 
 if TYPE_CHECKING:
     from core.models.report.activity_report import ActivityReport
+    from core.ports.query_types import PendingReviewItem
     from core.ports.report_protocols import ActivityReportOperations, ReviewQueueOperations
     from core.services.user.unified_user_context import RichUserContext, UserContext
     from core.services.user.user_context_builder import UserContextBuilder
@@ -52,7 +53,9 @@ class ActivityReviewOrchestrator:
 
     # --- Review Queue ---
 
-    async def get_pending_reviews(self, admin_uid: UserUID, limit: int = 20) -> Result[list[Any]]:
+    async def get_pending_reviews(
+        self, admin_uid: UserUID, limit: int = 20
+    ) -> Result[list[PendingReviewItem]]:
         """Return pending review requests. Empty list when queue service unavailable."""
         if self._review_queue is None:
             return Result.ok([])

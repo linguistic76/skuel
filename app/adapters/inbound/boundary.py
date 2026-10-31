@@ -13,11 +13,12 @@ Key Principles:
 See: /docs/patterns/ERROR_HANDLING.md
 """
 
+import inspect
 import logging
 import time
+from annotationlib import Format
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
-from inspect import iscoroutinefunction
 from types import MappingProxyType
 from typing import Any, ParamSpec
 
@@ -26,6 +27,7 @@ from pydantic_core import to_jsonable_python
 from starlette.exceptions import HTTPException
 from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
+from adapters.inbound.auth.roles import REQUEST_PARAM
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from adapters.inbound.form_helpers import FORM_MEDIA_TYPES, media_type_of
 from core.config.settings import get_settings
@@ -208,9 +210,17 @@ def boundary_handler(
     return decorator
 
 
+#: A page route's shell: the builder its success path calls, handed the request
+#: and the page's content (``BasePage`` with its ``active_page``, or a section's
+#: sidebar page through a small named function).
+PageShell = Callable[[Request, FT], FT]
+
+
 def ui_boundary_handler(
     message: str,
     fragment_id: str | None = None,
+    *,
+    page: PageShell | None = None,
 ) -> Callable[[Callable[P, Any]], Callable[P, Any]]:
     """
     Decorator for UI route handlers: unexpected exceptions render an error banner.
@@ -221,6 +231,12 @@ def ui_boundary_handler(
     rendered only in debug mode (``get_settings().application.debug``) — the
     single place that wiring lives now.
 
+    The banner answers in the shape the route answers on success: a fragment's
+    banner is the fragment (wrapped in its ``fragment_id`` when the swap replaces
+    that element), and a page's banner renders inside the page's own shell,
+    built by the same ``page`` helper its success path calls — so the two cannot
+    drift apart. Should that shell itself fail, the bare banner answers.
+
     ``HTTPException`` is always re-raised so auth guards keep their semantics:
     ``require_authenticated_user`` inside a handler still produces a 401/login
     redirect instead of a 200 with an error banner.
@@ -229,31 +245,67 @@ def ui_boundary_handler(
         message: User-facing banner text; also prefixes the server-side log line.
         fragment_id: When set, the banner is wrapped in ``Div(..., id=fragment_id)``
             so an HTMX swap still targets the right element on failure.
+        page: A page route's shell, called as ``page(request, banner)``. The
+            handler must take a ``request`` parameter; a route is a fragment or a
+            page, so ``page`` and ``fragment_id`` together are refused.
 
     Usage:
         @rt("/reports/progress-list")
         @ui_boundary_handler("Error loading progress reports", fragment_id="progress-list")
-        async def progress_list_fragment(request: Request) -> Any:
+        async def progress_list_fragment(request: Request) -> FT:
             ...  # body needs no try/except scaffolding
+
+        def _summary_page(request: Request, content: FT) -> FT:
+            return BasePage(content, title="Summary", request=request, active_page="insights")
+
+        @rt("/summary")
+        @ui_boundary_handler("Error loading the summary", page=_summary_page)
+        async def summary(request: Request) -> FT:
+            ...
+            return _summary_page(request, render_summary(result.value))
 
     Works on both sync and async handlers (UI shells are often sync,
     fragments async).
     """
+    if page is not None and fragment_id is not None:
+        raise TypeError("ui_boundary_handler: a route is a page or a fragment, not both")
 
     def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
-        def render_failure(exc: Exception) -> FT:
+        # Only the parameter names are read, so the annotations are never evaluated:
+        # a handler may type a parameter with a TYPE_CHECKING-only import.
+        signature = inspect.signature(func, annotation_format=Format.FORWARDREF)
+        if page is not None and REQUEST_PARAM not in signature.parameters:
+            raise TypeError(
+                f"{func.__qualname__}: a page route's boundary builds its shell from "
+                f"`{REQUEST_PARAM}`, which the handler does not take"
+            )
+
+        def render_failure(exc: Exception, *args: P.args, **kwargs: P.kwargs) -> FT:
             banner = render_error_banner(
                 message,
                 technical_details=str(exc),
                 show_details=get_settings().application.debug,
             )
-            return Div(banner, id=fragment_id) if fragment_id else banner
+            if fragment_id:
+                return Div(banner, id=fragment_id)
+            if page is None:
+                return banner
+            # FastHTML calls a handler positionally, so the request is found by binding.
+            try:
+                request = signature.bind_partial(*args, **kwargs).arguments[REQUEST_PARAM]
+                return page(request, banner)
+            except Exception as shell_exc:  # safety-net: the page's own shell failed
+                logger.error(
+                    f"{message}: the shell of {func.__name__} failed too: {shell_exc}",
+                    exc_info=shell_exc,
+                )
+                return banner
 
         def log_failure(exc: Exception) -> None:
             # exc_info=exc (not True): this helper runs outside the except frame (LOG014)
             logger.error(f"{message} in {func.__name__}: {exc}", exc_info=exc)
 
-        if iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
 
             @wraps(func)
             async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
@@ -263,7 +315,7 @@ def ui_boundary_handler(
                     raise  # Auth guards / redirects keep their status codes
                 except Exception as e:  # safety-net: UI boundary — catch-all after HTTPException
                     log_failure(e)
-                    return render_failure(e)
+                    return render_failure(e, *args, **kwargs)
 
             return async_wrapper
 
@@ -275,7 +327,7 @@ def ui_boundary_handler(
                 raise  # Auth guards / redirects keep their status codes
             except Exception as e:  # safety-net: UI boundary — catch-all after HTTPException
                 log_failure(e)
-                return render_failure(e)
+                return render_failure(e, *args, **kwargs)
 
         return sync_wrapper
 

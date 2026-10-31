@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-24
+updated: 2026-10-31
 ---
 
 # Core Systems Architecture
@@ -125,9 +125,13 @@ from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import refuse
 from ui.layouts.base_page import BasePage
 
+def _ku_page(request: Request, content: FT, title: str = "Knowledge") -> FT:
+    """The Ku page's shell — its success and its crash both render through it."""
+    return BasePage(content, title=title, request=request, active_page="library")
+
 @rt("/ku/{uid}")
-@ui_boundary_handler("Error loading Ku")
-async def ku_detail(request: Request, uid: str):
+@ui_boundary_handler("Error loading Ku", page=_ku_page)
+async def ku_detail(request: Request, uid: str) -> FT | FtResponse:
     found = require_found(await ku_service.get_ku(uid), "Ku", uid)
     if found.is_error:
         # A handler returns a Response, never a raw Result. Render the refusal
@@ -136,14 +140,14 @@ async def ku_detail(request: Request, uid: str):
         return refuse(found.expect_error(), _ku_refusal, "Ku")
     ku = found.value
 
-    return BasePage(
-        content=Div(
+    return _ku_page(
+        request,
+        Div(
             H1(ku.title),
             P(ku.description),
             EntityRelationshipsSection(uid, "ku"),  # Graph visualization
         ),
         title=ku.title,
-        request=request,
     )
 ```
 
