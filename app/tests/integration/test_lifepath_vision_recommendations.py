@@ -2,8 +2,9 @@
 Integration tests for the vision → recommendations read (testcontainer Neo4j).
 
 ``LifePathService`` over the real LifePath backend and a real ``LpService``: a
-captured vision is saved and read back with its themes, and its Learning Paths are
-found by one search per theme. The LP text search matches its query as one
+captured vision is saved and read back with its themes (and, once the learner
+designates one, the path they chose), and its Learning Paths are found by one
+search per theme. The LP text search matches its query as one
 phrase, so the themes joined into one query would find only a path holding them
 all side by side — these themes appear in no title together, and are found.
 
@@ -69,7 +70,21 @@ class TestVisionRecommendations:
 
         saved = await lifepath.get_vision(_USER_UID)
         assert saved.is_ok
-        assert saved.value == {"statement": _STATEMENT, "themes": _THEMES}
+        assert saved.value == {"statement": _STATEMENT, "themes": _THEMES, "life_path_uid": None}
+
+    async def test_the_saved_vision_carries_the_designated_path(self, lifepath, vision_graph):
+        """The recommendations page marks this path among the matches."""
+        assert (await lifepath.capture_vision(_USER_UID, _STATEMENT)).is_ok
+        designated = await lifepath.core.designate_life_path(_USER_UID, _LP_ONE_THEME)
+        assert designated.is_ok, designated
+
+        saved = await lifepath.get_vision(_USER_UID)
+        assert saved.is_ok
+        assert saved.value == {
+            "statement": _STATEMENT,
+            "themes": _THEMES,
+            "life_path_uid": _LP_ONE_THEME,
+        }
 
     async def test_paths_are_found_by_any_theme_best_match_first(self, lifepath, vision_graph):
         found = await lifepath.match_learning_paths(_THEMES)

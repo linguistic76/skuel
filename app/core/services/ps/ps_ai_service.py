@@ -23,6 +23,7 @@ from core.ports import PsOperations
 from core.ports.query_types import StepApplicationsResult, StepLearningSequenceResult
 from core.services.base_ai_service import BaseAIService
 from core.services.curriculum_similarity import rank_similar_curriculum
+from core.utils.llm_json import parse_json_reply
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -176,12 +177,9 @@ Each activity must be specific, actionable, and varied in type."""
             return Result.fail(insight_result)
 
         try:
-            raw = insight_result.value
-            # Strip markdown code fences if present
-            if "```" in raw:
-                raw = raw.split("```")[1]
-                raw = raw.removeprefix("json")
-            parsed = json.loads(raw.strip())
+            parsed = parse_json_reply(insight_result.value)
+            if not isinstance(parsed, dict):
+                raise TypeError("reply is not a JSON object")
             activities: list[dict[str, str]] = parsed.get("activities", [])
             return Result.ok(activities[:num_activities])
         except json.JSONDecodeError, KeyError, TypeError:
@@ -258,11 +256,9 @@ Each item should be concrete and actionable, not generic."""
             return Result.fail(insight_result)
 
         try:
-            raw = insight_result.value
-            if "```" in raw:
-                raw = raw.split("```")[1]
-                raw = raw.removeprefix("json")
-            parsed = json.loads(raw.strip())
+            parsed = parse_json_reply(insight_result.value)
+            if not isinstance(parsed, dict):
+                raise TypeError("reply is not a JSON object")
             result: StepApplicationsResult = {
                 "ps_uid": ps_uid,
                 "ps_title": ps.title,
@@ -363,11 +359,9 @@ Next steps: natural progressions after mastering this step."""
             return Result.fail(insight_result)
 
         try:
-            raw = insight_result.value
-            if "```" in raw:
-                raw = raw.split("```")[1]
-                raw = raw.removeprefix("json")
-            parsed = json.loads(raw.strip())
+            parsed = parse_json_reply(insight_result.value)
+            if not isinstance(parsed, dict):
+                raise TypeError("reply is not a JSON object")
             result: StepLearningSequenceResult = {
                 "ps_uid": ps_uid,
                 "ps_title": ps.title,

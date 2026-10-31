@@ -477,17 +477,23 @@ def test_control_what_cannot_be_resolved_is_a_hole() -> None:
 
 
 def test_the_dashboard_actions_wrap_rather_than_squeeze() -> None:
-    """At 375px the two action links do not fit on one line; the row wraps them.
+    """At 375px the three action links do not fit on one line; the row wraps them.
 
-    Without ``flex-wrap`` the row shrinks both links until their labels break onto a
+    Without ``flex-wrap`` the row shrinks the links until their labels break onto a
     second line, and a margin on one link (beside the row's ``gap``) widens the squeeze.
     """
     xml = to_xml(render_dashboard_content({"has_vision": True}))
-    row = re.search(r'<div class="([^"]*)">\s*<a [^>]*href="/lifepath/alignment"', xml)
+    row = re.search(
+        r'<div class="([^"]*)">\s*(<a [^>]*href="/lifepath/alignment".*?)</div>', xml, re.DOTALL
+    )
     assert row, "the dashboard's action row was not found"
     assert {"flex", "flex-wrap"} <= set(row.group(1).split())
-    links = re.findall(r'<a [^>]*href="/lifepath/(?:alignment|vision)"[^>]*>', xml)
-    assert len(links) == 2
+    assert re.findall(r'<a [^>]*href="([^"]*)"', row.group(2)) == [
+        "/lifepath/alignment",
+        "/lifepath/vision",
+        "/lifepath/vision/recommendations",
+    ]
+    links = re.findall(r"<a [^>]*>", row.group(2))
     for link in links:
         classes = re.search(r'class="([^"]*)"', link)
         assert classes and not [

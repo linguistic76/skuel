@@ -165,7 +165,9 @@ Prepends `context` as `key: value` lines — each value through `_bounded` — c
   `except` — the chat adapters catch their SDK exceptions below the port.
 
 A method that returns the helper's `Result` hands the caller text; a method that parses the
-text (`.split("\n")`, `json.loads`) parses a `str`.
+text (`.split("\n")`, or JSON) parses a `str`. JSON goes through `parse_json_reply`
+(`core/utils/llm_json.py`), never a bare `json.loads`: a model often fences its JSON, and the
+method still checks the value's shape (`isinstance(parsed, dict)`) before reading it.
 
 ### `_bounded(value, limit=PromptInput.FIELD_MAX_CHARS) -> str`
 

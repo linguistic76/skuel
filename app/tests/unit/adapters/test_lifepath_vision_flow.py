@@ -7,9 +7,10 @@ reload is a GET that extracts nothing. A refused or unsaved vision comes back as
 the form, in the shell, with its banner and the learner's text; a validation
 refusal's banner reads its reason. The recommendations page sends a learner with
 no saved vision back to the form, and a failed read is a banner, never an empty
-result. The vision page itself fills the form from the saved vision, and a failed
-read there is the banner alone. Each recommendation's "Choose This Path" is a
-native POST; a designation answers a 303 to the alignment page, or its refusal in
+result. The learner's designated path, when the search finds it, is marked "Your
+current path" in place of its button. The vision page itself fills the form from
+the saved vision, and a failed read there is the banner alone. Each other
+recommendation's "Choose This Path" is a native POST; a designation answers a 303 to the alignment page, or its refusal in
 the shell with the way back to the recommendations. CSRF is enforced for real:
 cookie plus the form field.
 """
@@ -26,16 +27,17 @@ from starlette.testclient import TestClient
 import adapters.inbound.lifepath_ui as lifepath_ui
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, mint_token
 from core.models.type_hints import UserUID
-from core.ports.query_types import LpMatchResult, VisionData
+from core.ports.query_types import LpMatchResult, SavedVision, VisionData
 from core.ports.service_protocols import LifePathOperations
 from core.utils.csrf_token_context import CSRF_FORM_FIELD
 from core.utils.result_simplified import Errors, Result
 from tests.helpers.settings_stub import settings_stub
 from ui.lifepath import render_recommendation_cards
 
-VISION = VisionData(
+VISION = SavedVision(
     statement="I want to become a patient teacher and a mindful leader",
     themes=["teaching", "leadership"],
+    life_path_uid=None,
 )
 MATCHES = [
     LpMatchResult(
@@ -45,6 +47,14 @@ MATCHES = [
         matching_themes=["teaching"],
     ),
 ]
+OTHER_MATCH = LpMatchResult(
+    lp_uid="lp.x.leader",
+    lp_name="Mindful Leadership",
+    match_score=0.5,
+    matching_themes=["leadership"],
+)
+#: What a capture answers: the vision as saved.
+CAPTURED = VisionData(statement=VISION["statement"], themes=VISION["themes"])
 RECOMMENDATIONS = "/lifepath/vision/recommendations"
 
 
@@ -93,7 +103,7 @@ def test_a_captured_vision_answers_a_303_to_its_recommendations(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = _service()
-    service.capture_vision.return_value = Result.ok(VISION)
+    service.capture_vision.return_value = Result.ok(CAPTURED)
     response = _post_form(
         _client(monkeypatch, service), "/lifepath/vision", {"vision_statement": VISION["statement"]}
     )
@@ -111,7 +121,7 @@ def test_reloading_the_recommendations_captures_nothing_again(
     """The landing page is a GET: a reload re-reads the saved vision and searches,
     and the capture (theme extraction, the LLM in FULL tier) ran once."""
     service = _service()
-    service.capture_vision.return_value = Result.ok(VISION)
+    service.capture_vision.return_value = Result.ok(CAPTURED)
     service.get_vision.return_value = Result.ok(VISION)
     service.match_learning_paths.return_value = Result.ok(MATCHES)
     client = _client(monkeypatch, service)
@@ -216,7 +226,9 @@ def test_a_vision_with_no_themes_is_sent_to_revise_it_without_a_search(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = _service()
-    service.get_vision.return_value = Result.ok(VisionData(statement="I want it all.", themes=[]))
+    service.get_vision.return_value = Result.ok(
+        SavedVision(statement="I want it all.", themes=[], life_path_uid=None)
+    )
     response = _client(monkeypatch, service).get(RECOMMENDATIONS)
 
     assert response.status_code == 200
@@ -263,8 +275,44 @@ def test_no_matching_paths_offers_the_paths_to_browse(monkeypatch: pytest.Monkey
     assert re.search(r'<a href="/learning-paths"[^>]*>\s*Browse Learning Paths', response.text)
 
 
+def test_the_designated_path_is_marked_in_place_of_its_button(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Choosing the path the learner already has would only re-designate it."""
+    service = _service()
+    service.get_vision.return_value = Result.ok(
+        SavedVision(**{**VISION, "life_path_uid": "lp.x.teacher"})
+    )
+    service.match_learning_paths.return_value = Result.ok([*MATCHES, OTHER_MATCH])
+    page = _client(monkeypatch, service).get(RECOMMENDATIONS).text
+
+    forms = re.findall(r'<form[^>]*action="/lifepath/designate".*?</form>', page, re.DOTALL)
+    assert len(forms) == 1
+    assert 'value="lp.x.leader"' in forms[0]
+    assert "Mindful Leadership" in forms[0]
+    assert 'value="lp.x.teacher"' not in page
+    teacher_card = page[page.index("Patient Teaching") : page.index("Mindful Leadership")]
+    assert "Your current path" in teacher_card
+    assert "Choose This Path" not in teacher_card
+    assert page.count("Your current path") == 1
+
+
+def test_a_designated_path_the_search_did_not_find_marks_no_card(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _service()
+    service.get_vision.return_value = Result.ok(
+        SavedVision(**{**VISION, "life_path_uid": "lp.x.elsewhere"})
+    )
+    service.match_learning_paths.return_value = Result.ok([*MATCHES, OTHER_MATCH])
+    page = _client(monkeypatch, service).get(RECOMMENDATIONS).text
+
+    assert "Your current path" not in page
+    assert len(re.findall(r'<form[^>]*action="/lifepath/designate"', page)) == 2
+
+
 def test_each_recommendation_posts_natively_with_its_path_and_token() -> None:
-    page = to_xml(render_recommendation_cards(MATCHES))
+    page = to_xml(render_recommendation_cards(MATCHES, None))
     form = re.search(r'<form[^>]*action="/lifepath/designate".*?</form>', page, re.DOTALL)
 
     assert form is not None
@@ -287,7 +335,7 @@ def test_each_recommendation_posts_natively_with_its_path_and_token() -> None:
     ids=["saved-vision", "no-vision"],
 )
 def test_the_vision_page_fills_the_form_from_the_saved_vision(
-    monkeypatch: pytest.MonkeyPatch, saved: VisionData | None, text: str
+    monkeypatch: pytest.MonkeyPatch, saved: SavedVision | None, text: str
 ) -> None:
     service = _service()
     service.get_vision.return_value = Result.ok(saved)

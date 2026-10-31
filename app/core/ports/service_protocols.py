@@ -62,6 +62,7 @@ if TYPE_CHECKING:
         LifePathStatus,
         LpMatchResult,
         RelationshipGraphData,
+        SavedVision,
         SessionIdentity,
         SignInResult,
         SignUpResult,
@@ -346,8 +347,9 @@ class LifePathOperations(Protocol):
         """Extract the vision's themes and save both; a failed save fails the capture."""
         ...
 
-    async def get_vision(self, user_uid: UserUID) -> Result[VisionData | None]:
-        """The saved vision and its themes, or None if the learner has not expressed one."""
+    async def get_vision(self, user_uid: UserUID) -> Result[SavedVision | None]:
+        """The saved vision, its themes and the designated path, or None if the learner
+        has not expressed a vision."""
         ...
 
     async def match_learning_paths(self, themes: list[str]) -> Result[list[LpMatchResult]]:

@@ -124,7 +124,7 @@ def create_lifepath_ui_routes(
             return lifepath_sidebar_page("vision", content, request)
 
         vision = vision_result.value
-        content = render_vision_form(vision.get("statement", "") if vision else "")
+        content = render_vision_form(vision["statement"] if vision else "")
         return lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/vision", methods=["POST"])
@@ -148,7 +148,8 @@ def create_lifepath_ui_routes(
 
     @rt("/lifepath/vision/recommendations", methods=["GET"])
     async def vision_recommendations_page(request: Request) -> FT | RedirectResponse:
-        """Learning Paths recommended from the saved vision's themes.
+        """Learning Paths recommended from the saved vision's themes, the
+        learner's designated path marked among them.
 
         Rebuilt from what was saved, with no theme extraction, so a reload costs
         a search and nothing more. No saved vision goes back to the form.
@@ -166,7 +167,7 @@ def create_lifepath_ui_routes(
         if vision is None:
             return RedirectResponse(url="/lifepath/vision", status_code=303)
 
-        themes = vision.get("themes", [])
+        themes = vision["themes"]
         if not themes:
             recommendations = render_no_themes()
         else:
@@ -177,7 +178,9 @@ def create_lifepath_ui_routes(
                     recommendations_result.expect_error(),
                 )
                 if recommendations_result.is_error
-                else render_recommendation_cards(recommendations_result.value)
+                else render_recommendation_cards(
+                    recommendations_result.value, vision["life_path_uid"]
+                )
             )
 
         content = render_recommendations_page(vision, recommendations)
@@ -223,7 +226,9 @@ def create_lifepath_ui_routes(
 
         The five-dimension alignment and the steps' personal substance are read
         together; a failed substance read banners its own cards and leaves the
-        five-dimension half standing.
+        five-dimension half standing. Alignment is measured against a designated
+        path, so a learner without one goes where a path is chosen: the
+        recommendations page (which sends a learner with no vision on to the form).
         """
         user_uid = require_authenticated_user(request)
         status_result, lived_result = await asyncio.gather(
@@ -239,7 +244,9 @@ def create_lifepath_ui_routes(
             )
         status = status_result.value
         if not status.get("has_designation"):
-            return HTMLResponse("", status_code=200, headers={"HX-Redirect": "/lifepath/vision"})
+            return HTMLResponse(
+                "", status_code=200, headers={"HX-Redirect": "/lifepath/vision/recommendations"}
+            )
         lived = (
             _read_failed_banner(
                 "Could not load how your path's steps are lived", lived_result.expect_error()

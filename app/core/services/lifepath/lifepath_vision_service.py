@@ -10,7 +10,9 @@ This service bridges:
 
 Flow:
 1. User expresses vision: "I want to become a mindful technical leader"
-2. LLM extracts themes: ["leadership", "mindfulness", "technology", "growth"]
+2. Themes are extracted: ["leadership", "mindfulness", "technology", "growth"] —
+   by the LLM in FULL tier, by keyword matching in CORE and whenever the LLM's
+   reply yields no usable theme
 3. Themes match to LP candidates: [lp.mindful-engineer, lp.tech-leadership]
 4. User confirms designation or refines vision
 
@@ -29,6 +31,8 @@ from typing import TYPE_CHECKING
 from core.constants import PromptInput
 from core.models.enums.lifepath_enums import ThemeCategory
 from core.models.type_hints import UserUID
+from core.prompts import PROMPT_REGISTRY
+from core.utils.llm_json import parse_json_reply
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
@@ -121,12 +125,23 @@ THEME_CATEGORY_MAPPING: dict[str, ThemeCategory] = {
 }
 
 
+def _usable(themes: list[VisionTheme]) -> list[VisionTheme]:
+    """Each theme once, where it first appears, and no blank one."""
+    seen: set[str] = set()
+    usable = []
+    for theme in themes:
+        if theme.theme and theme.theme not in seen:
+            seen.add(theme.theme)
+            usable.append(theme)
+    return usable
+
+
 class LifePathVisionService:
     """
     Service for capturing and analyzing user vision statements.
 
-    Uses LLM to extract themes from natural language vision statements,
-    then matches themes to Learning Paths for recommendation.
+    Extracts themes from a natural-language vision statement (the LLM in FULL
+    tier, keyword matching in CORE), then matches the themes to Learning Paths.
     """
 
     def __init__(
@@ -149,17 +164,22 @@ class LifePathVisionService:
         self, user_uid: UserUID, vision_statement: str
     ) -> Result[VisionCapture]:
         """
-        Extract themes from user's vision statement.
+        Extract the themes of the user's vision statement.
 
-        Uses LLM to parse the natural language vision into
-        structured themes that can be matched to Learning Paths.
+        FULL tier asks the LLM; CORE matches keywords. Whatever keeps the LLM
+        from answering a usable theme (the provider failed, the reply is not
+        JSON or not an array of themes, it names no theme) falls back to the
+        keywords, so extraction never refuses a vision: only a statement under
+        10 characters is refused. Either extractor's themes are kept once each,
+        and a blank one not at all.
 
         Args:
             user_uid: User identifier
             vision_statement: User's vision in their own words
 
         Returns:
-            Result[VisionCapture] with extracted themes
+            Result[VisionCapture] with the extracted themes; ``llm_model`` names
+            the model only when the LLM's themes were kept
         """
         logger.info(f"Capturing vision for user {user_uid}")
         start_time = time.time()
@@ -172,24 +192,27 @@ class LifePathVisionService:
                 )
             )
 
-        # Extract themes using LLM or fallback
+        themes: list[VisionTheme] = []
+        llm_model: str | None = None
         if self.llm_service:
-            themes_result = await self._extract_themes_with_llm(vision_statement)
-        else:
-            # Fallback to keyword extraction
-            themes_result = self._extract_themes_keywords(vision_statement)
+            extracted = await self._extract_themes_with_llm(self.llm_service, vision_statement)
+            themes = _usable(extracted or [])
+            if themes:
+                llm_model = self.llm_service.config.model_name
+            elif extracted is not None:
+                logger.warning(
+                    "Vision themes fell back to keywords: the LLM's reply named no usable theme"
+                )
+        if not themes:
+            themes = _usable(self._extract_themes_keywords(vision_statement))
 
-        if themes_result.is_error:
-            return Result.fail(themes_result)
-
-        themes = themes_result.value
         processing_time = int((time.time() - start_time) * 1000)
 
         vision_capture = VisionCapture(
             user_uid=user_uid,
             vision_statement=vision_statement,
             themes=tuple(themes),
-            llm_model=self.llm_service.config.model_name if self.llm_service else None,
+            llm_model=llm_model,
             processing_time_ms=processing_time,
         )
 
@@ -200,123 +223,98 @@ class LifePathVisionService:
 
         return Result.ok(vision_capture)
 
-    async def _extract_themes_with_llm(self, vision_statement: str) -> Result[list[VisionTheme]]:
+    async def _extract_themes_with_llm(
+        self, llm_service: LLMService, vision_statement: str
+    ) -> list[VisionTheme] | None:
         """
-        Extract themes using LLM.
+        The themes the LLM reads in the vision statement, as it named them.
 
-        Prompts the LLM to identify key themes and aspirations
-        from the user's vision statement.
+        None when its reply cannot be read as themes, with the reason logged:
+        the provider failed, the reply is not JSON, or the JSON is not an array.
+        An array entry that is not an object with a string ``theme`` is skipped.
         """
-        if not self.llm_service:
-            return Result.fail(
-                Errors.system("LLM service not available", operation="extract_themes")
+        prompt = PROMPT_REGISTRY.render(
+            "lifepath_vision_themes",
+            vision_statement=truncate_to_budget(vision_statement, PromptInput.FIELD_MAX_CHARS),
+        )
+        response = await llm_service.generate(prompt)
+        if response.error:
+            logger.warning(
+                f"Vision themes fell back to keywords: the LLM failed ({response.error})"
             )
-
-        prompt = f"""Analyze this life vision statement and extract 3-7 key themes.
-For each theme, provide:
-- The theme keyword (1-2 words)
-- A brief context from the original statement
-
-Vision: "{truncate_to_budget(vision_statement, PromptInput.FIELD_MAX_CHARS)}"
-
-Return themes as a JSON array like:
-[
-  {{"theme": "leadership", "context": "become a technical leader"}},
-  {{"theme": "mindfulness", "context": "mindful approach"}}
-]
-
-Focus on actionable aspirations, not generic words."""
+            return None
 
         try:
-            response = await self.llm_service.generate(prompt)
-            if response.error:
-                return Result.fail(
-                    Errors.integration("llm", f"LLM extraction failed: {response.error}")
-                )
-
-            # Parse LLM response
-            themes_data = json.loads(response.content)
-            themes = []
-            for t in themes_data:
-                theme_str = t.get("theme", "").lower().strip()
-                category = self._categorize_theme(theme_str)
-                themes.append(
-                    VisionTheme(
-                        theme=theme_str,
-                        category=category,
-                        confidence=0.9,  # LLM extraction has high confidence
-                        context=t.get("context"),
-                    )
-                )
-            return Result.ok(themes)
-
+            reply = parse_json_reply(response.content)
         except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse LLM response: {e}")
-            # Fall back to keyword extraction
-            return self._extract_themes_keywords(vision_statement)
-        except (ValueError, TypeError, AttributeError, KeyError) as e:
-            logger.error(f"LLM theme extraction failed: {e}")
-            return Result.fail(
-                Errors.system(f"Theme extraction failed: {e}", operation="extract_themes")
+            logger.warning(f"Vision themes fell back to keywords: the reply is not JSON ({e})")
+            return None
+        if not isinstance(reply, list):
+            logger.warning(
+                "Vision themes fell back to keywords: "
+                f"the reply is a JSON {type(reply).__name__}, not an array"
             )
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"LLM theme extraction failed: {e}")
-            return Result.fail(
-                Errors.system(f"Theme extraction failed: {e}", operation="extract_themes")
-            )
+            return None
 
-    def _extract_themes_keywords(self, vision_statement: str) -> Result[list[VisionTheme]]:
-        """
-        Extract themes using keyword matching (fallback).
-
-        Simple approach: find known keywords in the vision statement.
-        """
         themes = []
-        vision_lower = vision_statement.lower()
-
-        for keyword, category in THEME_CATEGORY_MAPPING.items():
-            if keyword in vision_lower:
-                themes.append(
-                    VisionTheme(
-                        theme=keyword,
-                        category=category,
-                        confidence=0.7,  # Lower confidence for keyword match
-                        context=None,
-                    )
+        for entry in reply:
+            if not isinstance(entry, dict) or not isinstance(entry.get("theme"), str):
+                continue
+            theme = entry["theme"].strip().lower()
+            context = entry.get("context")
+            themes.append(
+                VisionTheme(
+                    theme=theme,
+                    category=self._categorize_theme(theme),
+                    confidence=0.9,  # LLM extraction has high confidence
+                    context=context if isinstance(context, str) else None,
                 )
+            )
+        return themes
 
-        # Deduplicate by theme keyword
-        seen = set()
-        unique_themes = []
-        for t in themes:
-            if t.theme not in seen:
-                seen.add(t.theme)
-                unique_themes.append(t)
+    def _extract_themes_keywords(self, vision_statement: str) -> list[VisionTheme]:
+        """
+        Extract themes by keyword matching: CORE tier, and FULL's fallback.
 
-        if not unique_themes:
-            # Extract any noun-like words as fallback
-            words = vision_statement.split()
-            for word in words:
-                clean = word.lower().strip(".,!?")
-                if len(clean) > 4 and clean not in {"want", "become", "like", "would", "could"}:
-                    unique_themes.append(
-                        VisionTheme(
-                            theme=clean,
-                            category=ThemeCategory.PERSONAL_GROWTH,
-                            confidence=0.5,
-                        )
-                    )
-                    if len(unique_themes) >= 5:
-                        break
+        The known keywords the statement contains; failing any, up to five of
+        its longer words.
+        """
+        vision_lower = vision_statement.lower()
+        themes = [
+            VisionTheme(
+                theme=keyword,
+                category=category,
+                confidence=0.7,  # Lower confidence for keyword match
+            )
+            for keyword, category in THEME_CATEGORY_MAPPING.items()
+            if keyword in vision_lower
+        ]
+        if themes:
+            return themes
 
-        return Result.ok(unique_themes)
+        # No known keyword: the statement's longer words, each once
+        words: list[str] = []
+        for word in vision_statement.split():
+            clean = word.lower().strip(".,!?")
+            if (
+                len(clean) > 4
+                and clean not in {"want", "become", "like", "would", "could"}
+                and clean not in words
+            ):
+                words.append(clean)
+                if len(words) >= 5:
+                    break
+        return [
+            VisionTheme(theme=word, category=ThemeCategory.PERSONAL_GROWTH, confidence=0.5)
+            for word in words
+        ]
 
     def _categorize_theme(self, theme: str) -> ThemeCategory:
         """Map a theme keyword to its category."""
         theme_lower = theme.lower()
         return THEME_CATEGORY_MAPPING.get(theme_lower, ThemeCategory.PERSONAL_GROWTH)
 
-    async def recommend_learning_paths(
+    async def match_learning_paths(
         self, themes: list[str], limit: int = 5
     ) -> Result[list[LpRecommendation]]:
         """
@@ -339,7 +337,7 @@ Focus on actionable aspirations, not generic words."""
             return Result.fail(
                 Errors.system(
                     "LP service not available",
-                    operation="recommend_learning_paths",
+                    operation="match_learning_paths",
                 )
             )
 
@@ -347,7 +345,7 @@ Focus on actionable aspirations, not generic words."""
         if not themes:
             return Result.ok([])
 
-        logger.info(f"Recommending LPs for themes: {themes}")
+        logger.info(f"Matching LPs to themes: {themes}")
 
         lp_search = self.lp_service.search
         search_results = await asyncio.gather(

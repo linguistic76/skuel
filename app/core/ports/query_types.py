@@ -1918,6 +1918,15 @@ class VisionData(TypedDict, total=False):
     captured_at: str | None  # ISO format
 
 
+class SavedVision(TypedDict):
+    """Return shape for lifepath_service.get_vision(): the learner's saved vision,
+    its themes, and their designated Learning Path (None until they choose one)."""
+
+    statement: str
+    themes: list[str]
+    life_path_uid: str | None
+
+
 class DesignationData(TypedDict, total=False):
     """Nested shape for life path designation."""
 
