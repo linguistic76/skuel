@@ -15,7 +15,6 @@ Routes:
 - GET  /gradebook/{uid}/download         — The entry as a .md file, behind the same audience read
 - GET  /gradebook/{uid}                  — Submission detail: the owner's page, or the recipient card
 - GET  /submissions/history              — Submission history (4th sidebar slot)
-- GET  /submissions/history/list         — HTMX fragment refresh
 - POST /submissions/history/delete       — HTMX row delete
 - GET  /submissions/knowledge            — Knowledge notes + their knowledge chips (5th slot)
 
@@ -69,7 +68,6 @@ from ui.layouts.base_page import BasePage
 from ui.learning_loop.entry_body import EntryBody
 from ui.learning_loop.report import render_activity_report_list, render_yours_list
 from ui.learning_loop.turn_in_label import turn_in_label
-from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.hub import HubSection, MocCard, hub_cards_from_organizers
@@ -431,13 +429,7 @@ def create_user_entry_ui_routes(
             )
         else:
             items = [_to_history_dict(e) for e in (result.value or [])]
-            if items:
-                submissions_content = render_yours_list(items)
-            else:
-                submissions_content = EmptyState(
-                    title="No submissions yet",
-                    description="Submit your first exercise to see it here.",
-                )
+            submissions_content = render_yours_list(items)
 
         content = Div(
             PageHeader(
@@ -451,21 +443,6 @@ def create_user_entry_ui_routes(
             active="history",
             request=request,
         )
-
-    @rt("/submissions/history/list")
-    @ui_boundary_handler("Error loading submissions", fragment_id="submissions-yours-list")
-    async def history_list(request: Request) -> Any:
-        """HTMX fragment: refreshed submissions list."""
-        user_uid = require_authenticated_user(request)
-        result = await orchestrator.list_exercise_entries(user_uid)
-        if result.is_error:
-            logger.error(f"Error loading submissions history: {result.error}")
-            return Div(
-                render_error_banner("Failed to load submissions", str(result.error)),
-                id="submissions-yours-list",
-            )
-        items = [_to_history_dict(e) for e in (result.value or [])]
-        return render_yours_list(items)
 
     @rt("/submissions/history/delete", methods=["POST"])
     @csrf_protected

@@ -8,12 +8,13 @@ learner in the exercise's audience, with its instructions shown in full
 (no black box) and the doors to download the worksheet and turn in work.
 """
 
-from typing import Any
+from urllib.parse import urlencode
 
-from fasthtml.common import FT, Div, P
+from fasthtml.common import FT, Div, FtResponse, P
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import ui_boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.utils.logging import get_logger
 from ui.components import ButtonT
@@ -36,9 +37,12 @@ def create_exercises_ui_routes(app, rt, exercises_service) -> None:
     """Create the learner's exercise page and its content fragment."""
 
     @app.get("/exercises/get")
-    @ui_boundary_handler("Error loading exercise")
-    def exercise_detail(request, uid: str, from_ps: str = "") -> Any:
-        """Student-facing exercise detail page — shell renders immediately, content loads via HTMX."""
+    def exercise_detail(request: Request, uid: str, from_ps: str = "") -> FT:
+        """Student-facing exercise detail page — shell renders immediately, content loads via HTMX.
+
+        The shell reads nothing, so it carries no boundary of its own: the read is
+        the content fragment's, which answers its failure in its slot.
+        """
         require_authenticated_user(request)
 
         if not uid:
@@ -57,9 +61,8 @@ def create_exercises_ui_routes(app, rt, exercises_service) -> None:
                 active_page="library",
             )
 
-        fragment_url = f"/exercises/get/content?uid={uid}"
-        if from_ps:
-            fragment_url += f"&from_ps={from_ps}"
+        query = {"uid": uid, "from_ps": from_ps} if from_ps else {"uid": uid}
+        fragment_url = f"/exercises/get/content?{urlencode(query)}"
 
         content = content_loading_placeholder(fragment_url, "exercise-detail-content")
         return BasePage(
@@ -71,7 +74,9 @@ def create_exercises_ui_routes(app, rt, exercises_service) -> None:
 
     @app.get("/exercises/get/content")
     @ui_boundary_handler("Error loading exercise", fragment_id="exercise-detail-content")
-    async def exercise_detail_content_fragment(request, uid: str, from_ps: str = "") -> Any:
+    async def exercise_detail_content_fragment(
+        request: Request, uid: str, from_ps: str = ""
+    ) -> FT | FtResponse:
         """HTMX fragment: exercise detail content.
 
         This fragment is where the read actually happens — the /exercises/get

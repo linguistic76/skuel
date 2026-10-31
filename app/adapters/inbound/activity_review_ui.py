@@ -20,12 +20,14 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
 
-from fasthtml.common import H3, Div, P
+from fasthtml.common import FT, H3, Div, P
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
+from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from core.config.settings import get_settings
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from ui.activity_review import (
@@ -39,10 +41,15 @@ from ui.activity_review.types import DOMAIN_CHOICES
 from ui.components import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.error_banner import render_inline_error
+from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.activity_review.ui")
+
+
+def _queue_page(request: Request, content: FT) -> FT:
+    """The review queue's shell, for its queue, its failed read and its crash alike."""
+    return activity_review_sidebar_page("queue", content, request, page_title="Review Queue")
 
 
 def create_activity_review_ui_routes(
@@ -64,20 +71,24 @@ def create_activity_review_ui_routes(
 
     @rt("/activity-review/queue")
     @require_admin(get_user_service)
-    async def activity_review_queue_page(request: Request, current_user: Any = None) -> Any:
-        """Admin queue: pending review requests from users."""
-        _not_found = object()
-        _uid_val = getattr(current_user, "uid", _not_found)
-        admin_uid = UserUID(str(current_user) if _uid_val is _not_found else str(_uid_val))
+    @ui_boundary_handler("Could not load the review queue", page=_queue_page)
+    async def activity_review_queue_page(request: Request, current_user: Any = None) -> FT:
+        """Admin queue: pending review requests from users.
 
-        pending: list[Any] = []
-        try:
-            result = await orchestrator.get_pending_reviews(admin_uid)
-            if not result.is_error:
-                pending = result.value or []
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.error(f"Error loading review queue: {e}", exc_info=True)
+        A failed read is a banner in the queue's shell, never an empty queue.
+        """
+        result = await orchestrator.get_pending_reviews(UserUID(current_user.uid))
+        if result.is_error:
+            return _queue_page(
+                request,
+                render_error_banner(
+                    "Could not load the review queue",
+                    technical_details=result.expect_error().message,
+                    show_details=get_settings().application.debug,
+                ),
+            )
 
+        pending = result.value or []
         if pending:
             queue_content: Any = Div(*[render_queue_item(item) for item in pending])
         else:
@@ -94,7 +105,7 @@ def create_activity_review_ui_routes(
             ),
         )
 
-        return activity_review_sidebar_page("queue", content, request, page_title="Review Queue")
+        return _queue_page(request, content)
 
     @rt("/activity-review/new")
     @require_admin(get_user_service)
@@ -193,11 +204,7 @@ def create_activity_review_ui_routes(
         domains: list[str] | None = None,
     ) -> Any:
         """HTMX fragment: admin submits written activity feedback."""
-        _missing = object()
-        admin_uid_val = getattr(current_user, "uid", _missing)
-        admin_uid = UserUID(
-            str(admin_uid_val) if admin_uid_val is not _missing else str(current_user)
-        )
+        admin_uid = UserUID(current_user.uid)
 
         if not subject_uid or not feedback_text:
             return Div(

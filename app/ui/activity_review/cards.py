@@ -1,9 +1,11 @@
 """Activity Review card components."""
 
 from typing import Any
+from urllib.parse import urlencode
 
-from fasthtml.common import H4, Div, P, Span
+from fasthtml.common import FT, H4, Div, P, Span
 
+from core.ports.query_types import PendingReviewItem
 from ui.components import ButtonT, Card
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
@@ -11,10 +13,10 @@ from ui.patterns.format_date import format_date
 from ui.primitives import ButtonLink
 
 
-def render_queue_item(item: dict[str, Any]) -> Any:
-    """Render a single pending review request card."""
-    subject_uid = item.get("subject_uid", "")
-    time_period = item.get("time_period", "7d")
+def render_queue_item(item: PendingReviewItem) -> FT:
+    """Render a single pending review request card: who asked, and the door to review them."""
+    subject_uid = item.get("user_uid", "")
+    time_period = item.get("time_period") or "7d"
     domains = item.get("domains") or []
     message = item.get("message") or ""
     created_at = item.get("created_at", "")
@@ -23,11 +25,13 @@ def render_queue_item(item: dict[str, Any]) -> Any:
 
     domain_badges = [Badge(d, variant=BadgeT.ghost, size=Size.xs) for d in (domains or [])]
 
-    review_href = f"/activity-review/new?subject_uid={subject_uid}&time_period={time_period}"
+    review_href = "/activity-review/new?" + urlencode(
+        {"subject_uid": subject_uid, "time_period": time_period}
+    )
 
     return Div(
         Card(
-            H4(subject_uid, cls="font-semibold mb-1"),
+            H4(item.get("username") or subject_uid, cls="font-semibold mb-1"),
             P(
                 f"{date_str} · {time_period}",
                 cls="text-xs text-muted-foreground mb-2",

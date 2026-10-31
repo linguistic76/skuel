@@ -861,6 +861,113 @@ def test_ui_boundary_handler_details_hidden_by_default(monkeypatch):
     assert "secret internals" in to_xml(mock_route())
 
 
+# A page route's failure answers in the page's own shell (``page=``).
+
+
+def _shell(request, content):
+    """A stand-in page shell: marks the request it was handed around the content."""
+    from fasthtml.common import Div, Main
+
+    return Div(Main(content, id="main-content"), id=f"shell-for-{request}")
+
+
+@pytest.mark.asyncio
+async def test_ui_boundary_handler_page_renders_the_banner_in_its_shell(debug_off):
+    """FastHTML calls a handler positionally; the shell gets that request and the banner."""
+    from fasthtml.common import to_xml
+
+    @ui_boundary_handler("Error loading the summary", page=_shell)
+    async def mock_route(request, week: str = ""):
+        raise ValueError("boom")
+
+    html = to_xml(await mock_route("req-1", "2026-10-26"))
+    assert 'id="shell-for-req-1"' in html
+    main = html[html.index('id="main-content"') :]
+    assert "Error loading the summary" in main
+    assert 'role="alert"' in main
+
+
+def test_ui_boundary_handler_page_finds_a_keyword_request(debug_off):
+    """A role gate passes the injected user by keyword; the request is still found."""
+    from fasthtml.common import to_xml
+
+    @ui_boundary_handler("Error loading the queue", page=_shell)
+    def mock_route(request, current_user=None):
+        raise ValueError("boom")
+
+    html = to_xml(mock_route(request="req-2", current_user="admin"))
+    assert 'id="shell-for-req-2"' in html
+    assert "Error loading the queue" in html
+
+
+@pytest.mark.asyncio
+async def test_ui_boundary_handler_page_success_is_untouched():
+    """The shell is built for a failure only; success is the handler's own answer."""
+
+    def shell_never_called(_request, _content):
+        raise AssertionError("the shell is the handler's to build on success")
+
+    @ui_boundary_handler("Error loading the summary", page=shell_never_called)
+    async def mock_route(request):
+        return "the-page"
+
+    assert await mock_route("req") == "the-page"
+
+
+@pytest.mark.asyncio
+async def test_ui_boundary_handler_page_shell_failure_answers_the_bare_banner(debug_off):
+    """A shell that fails too still answers the banner, never a raised exception."""
+    from fasthtml.common import to_xml
+
+    def broken_shell(_request, _content):
+        raise RuntimeError("the shell is down")
+
+    @ui_boundary_handler("Error loading the summary", page=broken_shell)
+    async def mock_route(request):
+        raise ValueError("boom")
+
+    html = to_xml(await mock_route("req"))
+    assert "Error loading the summary" in html
+    assert 'id="main-content"' not in html
+
+
+@pytest.mark.asyncio
+async def test_ui_boundary_handler_page_reraises_http_exception():
+    """A page route's auth guard keeps its status too."""
+    from starlette.exceptions import HTTPException
+
+    @ui_boundary_handler("Error loading the summary", page=_shell)
+    async def mock_route(request):
+        raise HTTPException(status_code=401)
+
+    with pytest.raises(HTTPException):
+        await mock_route("req")
+
+
+def test_ui_boundary_handler_refuses_a_page_and_a_fragment_together():
+    with pytest.raises(TypeError, match="a page or a fragment"):
+        ui_boundary_handler("Error", fragment_id="slot", page=_shell)
+
+
+def test_ui_boundary_handler_refuses_a_page_handler_without_a_request():
+    with pytest.raises(TypeError, match="does not take"):
+
+        @ui_boundary_handler("Error", page=_shell)
+        def mock_route(uid: str):
+            return uid
+
+
+def test_ui_boundary_handler_page_reads_no_annotation(debug_off):
+    """A handler may annotate with a TYPE_CHECKING-only name; decorating never evaluates it."""
+    from fasthtml.common import to_xml
+
+    @ui_boundary_handler("Error loading the summary", page=_shell)
+    def mock_route(request: NotImportedAtRuntime) -> AlsoNotImported:  # type: ignore[name-defined]  # noqa: F821
+        raise ValueError("boom")
+
+    assert 'id="shell-for-req"' in to_xml(mock_route("req"))
+
+
 if __name__ == "__main__":
     # Run with: uv run pytest tests/unit/test_error_boundary.py -v
     pytest.main([__file__, "-v"])

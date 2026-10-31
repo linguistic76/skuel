@@ -153,7 +153,9 @@ failure lands where the content would have, and navigation still works:
 # adapters/inbound/exercises_ui.py
 @app.get("/exercises/get/content")
 @ui_boundary_handler("Error loading exercise", fragment_id="exercise-detail-content")
-async def exercise_detail_content_fragment(request, uid: str, from_ps: str = "") -> Any:
+async def exercise_detail_content_fragment(
+    request: Request, uid: str, from_ps: str = ""
+) -> FT | FtResponse:
     user_uid = require_authenticated_user(request)
 
     def render_refusal(message: str) -> FT:
@@ -172,9 +174,34 @@ async def exercise_detail_content_fragment(request, uid: str, from_ps: str = "")
 ```
 
 The shell (`GET /exercises/get?uid=`) is a `BasePage` holding
-`content_loading_placeholder(f"/exercises/get/content?uid={uid}", "exercise-detail-content")`.
-`@ui_boundary_handler` catches what escapes the handler and renders the same banner under the same
-id.
+`content_loading_placeholder(f"/exercises/get/content?{urlencode(query)}", "exercise-detail-content")`.
+`@ui_boundary_handler` catches what escapes the fragment and renders the same banner under the same
+id. The shell reads nothing, so it carries no boundary: the only thing that could fail in it is
+`BasePage` itself, which the failure would have to rebuild.
+
+A page route that does read answers its crash in its own shell. Name the shell once and hand it to
+the boundary as `page=` — the success path, a failed `Result` and an escaped exception all build
+the page through it, so a sidebar page keeps its sidebar and the section stays lit:
+
+```python
+# adapters/inbound/activity_review_ui.py
+def _queue_page(request: Request, content: FT) -> FT:
+    return activity_review_sidebar_page("queue", content, request, page_title="Review Queue")
+
+@rt("/activity-review/queue")
+@require_admin(get_user_service)
+@ui_boundary_handler("Could not load the review queue", page=_queue_page)
+async def activity_review_queue_page(request: Request, current_user: Any = None) -> FT:
+    result = await orchestrator.get_pending_reviews(UserUID(current_user.uid))
+    if result.is_error:
+        return _queue_page(request, render_error_banner("Could not load the review queue", ...))
+    ...
+    return _queue_page(request, content)
+```
+
+`page=` and `fragment_id=` together are refused at decoration (a route is one or the other), as is
+a `page=` handler that takes no `request`. Should the shell itself fail while rendering the crash,
+the bare banner answers.
 
 ---
 
