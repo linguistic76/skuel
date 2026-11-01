@@ -214,6 +214,24 @@ async def test_a_short_task_prompt_is_the_fields_as_written() -> None:
 
 
 @pytest.mark.asyncio
+async def test_a_choices_options_reach_the_prompt_by_title() -> None:
+    choice = Choice(
+        uid="choice_1",
+        user_uid="user_1",
+        title="Move or stay",
+        options=(
+            ChoiceOption(uid="opt_1", title="Move to Lisbon", description="Closer to family"),
+            ChoiceOption(uid="opt_2", title="Stay in Leeds"),
+        ),
+    )
+
+    prompt = await _prompt_sent(ChoicesAIService, "generate_alternatives", choice)
+
+    assert "\ncurrent_options: Move to Lisbon, Stay in Leeds\n" in prompt
+    assert "ChoiceOption(" not in prompt
+
+
+@pytest.mark.asyncio
 async def test_a_description_at_the_field_bound_reaches_the_prompt_whole() -> None:
     description = ("word " * 400)[: PromptInput.FIELD_MAX_CHARS]
     assert len(description) == PromptInput.FIELD_MAX_CHARS

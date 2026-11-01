@@ -142,7 +142,7 @@ class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):
         context = {
             "title": choice.title,
             "description": choice.description or "No description",
-            "current_options": ", ".join(str(o) for o in choice.options)
+            "current_options": ", ".join(option.title for option in choice.options)
             if choice.options
             else "Not specified",
         }
