@@ -87,10 +87,11 @@ async def update_task(self, task_uid: str, intent: TaskUpdateIntent) -> Result[T
 ## Route Files Use Concrete Class Types
 
 ```python
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.goals_service import GoalsService
     from core.services.tasks_service import TasksService
 
@@ -100,8 +101,8 @@ def create_tasks_api_routes(
     rt: RouteDecorator,
     tasks_service: TasksService,
     goals_service: GoalsService,
-    **_kwargs: Any,  # boundary: route-registry — the config's other related services (habits_service, user_service)
-) -> None:
+    connection_fetch_backend: ConnectionFetchOperations,
+) -> None:  # exactly TASKS_CONFIG's api_related_services — no **kwargs sink
     async def update_status(uid: str, new_status: str) -> Result[Task]:
         return await tasks_service.update_task(uid, TaskUpdateIntent(status=new_status))
     ...

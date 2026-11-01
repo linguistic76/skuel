@@ -5,7 +5,7 @@ Form Submission Routes - Configuration-Driven Registration
 Wires FormSubmission API and UI routes using DomainRouteConfig.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.form_submissions_api import create_form_submissions_api_routes
@@ -31,7 +31,7 @@ FORM_SUBMISSIONS_CONFIG = DomainRouteConfig(
 
 
 def create_form_submissions_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
 ) -> None:
     """Wire form submission routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, FORM_SUBMISSIONS_CONFIG)

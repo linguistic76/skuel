@@ -66,6 +66,7 @@ if TYPE_CHECKING:
     from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
     from core.services.principles_service import PrinciplesService
     from core.services.user_service import UserService
+    from services_bootstrap import Services
 
 # The most days one scheduling request may reach ahead: a daily habit writes one
 # event per day, so this is the ceiling on what a single request creates.
@@ -445,9 +446,7 @@ ORCHESTRATION_CONFIG = DomainRouteConfig(
 )
 
 
-def create_orchestration_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
-) -> None:
+def create_orchestration_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
     """
     Wire orchestration API routes using DomainRouteConfig (Multi-Factory variant).
 

@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-10-15'
+updated: '2026-11-01'
 category: patterns
 related_skills:
 - domain-route-config
@@ -194,11 +194,20 @@ from adapters.inbound.route_factories.query_route_factory import CommonQueryRout
 query_factory = CommonQueryRouteFactory(
     service=tasks_service,
     domain_name="tasks",
+    user_service=user_service,    # an admin's read of another user's list
+    goals_service=goals_service,  # checks the goal filter's anchor
     supports_goal_filter=True,
     supports_habit_filter=False,
 )
 query_factory.register_routes(app, rt)
 ```
+
+Under `USER_OWNED` scope (the default) a filter turned on without its service is refused
+at construction (`ValueError`): the goal and habit routes always check the anchor's owner,
+and a goal or habit the caller does not own — missing or foreign alike — is 404 with the
+domain never read. `register_domain_routes` builds the factory from the container —
+`services.user`, plus `services.goals` / `services.habits` for an enabled filter — never
+from the config's `api_related_services`.
 
 ### Generated Routes
 

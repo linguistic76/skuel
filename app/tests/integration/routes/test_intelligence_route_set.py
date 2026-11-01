@@ -120,7 +120,7 @@ async def client(skuel_app, seeded_graph):
     services = skuel_app.state.services
     app, rt = fast_app(pico=False, default_hdrs=False, secret_key="f7b1-route-set-test-key")
     create_ku_routes(app, rt, services)
-    create_pathways_routes(app, rt, services, None)
+    create_pathways_routes(app, rt, services)
     create_tasks_routes(app, rt, services)
     create_goals_routes(app, rt, services)
     create_habits_routes(app, rt, services)

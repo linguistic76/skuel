@@ -7,7 +7,7 @@ CRUDRouteFactory. A form is embedded in a PathStep by the content vault
 (an Edge YAML file with `relationship: EMBEDS_FORM`, ADR-091), never in the app.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import (
@@ -41,7 +41,7 @@ FORM_TEMPLATES_CONFIG = DomainRouteConfig(
 
 
 def create_form_templates_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
 ) -> None:
     """Wire form template API routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, FORM_TEMPLATES_CONFIG)

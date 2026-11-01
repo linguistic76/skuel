@@ -105,7 +105,6 @@ def create_habits_api_routes(
     habits_service: HabitsService,
     principles_service: PrinciplesService,
     connection_fetch_backend: ConnectionFetchOperations,
-    **_kwargs: Any,
 ) -> None:
     """Register Habits API routes."""
 

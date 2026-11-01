@@ -26,7 +26,7 @@ UI (Insights-section pages; the Life Path alignment page is /lifepath/alignment)
 - GET /ui/analytics/weekly-life-summary
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.analytics_summary_api import create_analytics_summary_api_routes
 from adapters.inbound.analytics_ui import create_analytics_ui_routes
@@ -48,7 +48,7 @@ ANALYTICS_CONFIG = DomainRouteConfig(
 
 
 def create_analytics_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
 ) -> None:
     """
     Wire analytics API and UI routes using configuration-driven registration.
@@ -57,7 +57,6 @@ def create_analytics_routes(
         app: FastHTML app instance
         rt: Route decorator
         services: Service container with analytics service
-        _sync_service: Optional sync service (unused, for signature compatibility)
     """
     register_domain_routes(app, rt, services, ANALYTICS_CONFIG)
 

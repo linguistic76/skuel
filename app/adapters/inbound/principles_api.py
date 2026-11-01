@@ -67,7 +67,6 @@ def create_principles_api_routes(
     rt: RouteDecorator,
     principles_service: PrinciplesService,
     connection_fetch_backend: ConnectionFetchOperations,
-    **_kwargs: Any,
 ) -> None:
     """Register Principles API routes."""
 

@@ -249,9 +249,7 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 )
 
 
-def create_transcription_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_transcription_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     register_domain_routes(app, rt, services, TRANSCRIPTION_CONFIG)
 ```
 

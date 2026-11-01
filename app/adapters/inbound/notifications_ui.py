@@ -38,7 +38,6 @@ def create_notifications_ui_routes(
     app: Any,
     rt: Any,
     notification_service: NotificationService,
-    **_kwargs: Any,
 ) -> None:
     """Create UI routes for notifications."""
 

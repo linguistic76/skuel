@@ -60,7 +60,6 @@ def create_tasks_api_routes(
     tasks_service: TasksService,
     goals_service: GoalsService,
     connection_fetch_backend: ConnectionFetchOperations,
-    **_kwargs: Any,
 ) -> None:
     """Register Tasks API routes."""
 

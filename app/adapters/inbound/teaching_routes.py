@@ -11,7 +11,7 @@ Wires Teaching review API + UI routes:
 See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -40,9 +40,7 @@ TEACHING_API_CONFIG = DomainRouteConfig(
 )
 
 
-def create_teaching_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_teaching_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire teaching API + UI routes.
 
     API: DomainRouteConfig (mutations need TeacherReviewService directly)

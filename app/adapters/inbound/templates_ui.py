@@ -37,7 +37,6 @@ def create_templates_ui_routes(
     _app: Any,
     rt: Any,
     services: Services | None,
-    _sync_service: Any = None,
 ) -> None:
     """Register the teacher-facing template panel route.
 

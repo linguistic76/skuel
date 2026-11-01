@@ -8,7 +8,7 @@ Registers hierarchy routes for:
 Usage:
     from adapters.inbound.hierarchy_routes import create_hierarchy_routes
 
-    hierarchy_routes = create_hierarchy_routes(app, rt, services)
+    create_hierarchy_routes(app, rt, services)
 
 See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 """
@@ -27,21 +27,39 @@ from core.models.principle.principle_request import PrincipleUpdateRequest
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
+    from core.services.choices_service import ChoicesService
+    from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.principles_service import PrinciplesService
+    from services_bootstrap import Services
+
 
 def create_hierarchy_api_routes(
-    app: FastHTMLApp, rt: RouteDecorator, _primary: Any, **kwargs: Any
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    _primary: GoalsService,
+    *,
+    goals_service: GoalsService | None,
+    habits_service: HabitsService | None,
+    events_service: EventsService | None,
+    choices_service: ChoicesService | None,
+    principles_service: PrinciplesService | None,
 ) -> None:
     """
     Register hierarchy routes for all hierarchical domains.
 
+    A domain whose service is absent from the container registers nothing.
+
     Args:
         app: FastHTML app instance
         rt: FastHTML route decorator
-        _primary: Primary service (unused — hierarchy uses multiple services)
-        **kwargs: The 5 domain services (goals, habits, events, choices, principles)
-
-    Returns:
-        List of registered route functions
+        _primary: Primary service (unused — hierarchy uses the five below)
+        goals_service: GoalsService
+        habits_service: HabitsService
+        events_service: EventsService
+        choices_service: ChoicesService
+        principles_service: PrinciplesService
     """
 
     # Activity domains (5) — each carries its *UpdateRequest so inline title edits build
@@ -49,11 +67,11 @@ def create_hierarchy_api_routes(
     # Their GET /{uid}/children fragment comes from create_activity_hierarchy_api_routes
     # (registered per domain in *_api.py), NOT from this factory — One Path Forward.
     domain_configs: list[tuple[str, Any, str, type[BaseModel]]] = [
-        ("goals", kwargs.get("goals"), "Goal", GoalUpdateRequest),
-        ("habits", kwargs.get("habits"), "Habit", HabitUpdateRequest),
-        ("events", kwargs.get("events"), "Event", EventUpdateRequest),
-        ("choices", kwargs.get("choices"), "Choice", ChoiceUpdateRequest),
-        ("principles", kwargs.get("principles"), "Principle", PrincipleUpdateRequest),
+        ("goals", goals_service, "Goal", GoalUpdateRequest),
+        ("habits", habits_service, "Habit", HabitUpdateRequest),
+        ("events", events_service, "Event", EventUpdateRequest),
+        ("choices", choices_service, "Choice", ChoiceUpdateRequest),
+        ("principles", principles_service, "Principle", PrincipleUpdateRequest),
     ]
 
     for domain, service, entity_name, update_schema in domain_configs:
@@ -75,17 +93,15 @@ HIERARCHY_CONFIG = DomainRouteConfig(
     primary_service_attr="goals",
     api_factory=create_hierarchy_api_routes,
     api_related_services={
-        "goals": "goals",
-        "habits": "habits",
-        "events": "events",
-        "choices": "choices",
-        "principles": "principles",
+        "goals_service": "goals",
+        "habits_service": "habits",
+        "events_service": "events",
+        "choices_service": "choices",
+        "principles_service": "principles",
     },
 )
 
 
-def create_hierarchy_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
-) -> None:
+def create_hierarchy_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
     """Wire hierarchy routes via DomainRouteConfig."""
     register_domain_routes(app, rt, services, HIERARCHY_CONFIG)

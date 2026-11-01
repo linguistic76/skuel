@@ -19,7 +19,7 @@ Knowledge intelligence:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.route_factories import (
     PRIORITY_VALUES,
@@ -53,7 +53,6 @@ def create_events_api_routes(
     events_service: EventsService,
     goals_service: GoalsService,
     connection_fetch_backend: ConnectionFetchOperations,
-    **_kwargs: Any,
 ) -> None:
     """Register Events API routes."""
 

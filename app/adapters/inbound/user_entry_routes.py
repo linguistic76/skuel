@@ -11,13 +11,16 @@ for the unified submission/journal experience.
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.user_entry_api import create_user_entry_api_routes
 from adapters.inbound.user_entry_ui import create_user_entry_ui_routes
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 logger = get_logger("skuel.routes.user_entry")
 
@@ -44,9 +47,7 @@ USER_ENTRY_CONFIG = DomainRouteConfig(
 )
 
 
-def create_user_entry_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
-) -> None:
+def create_user_entry_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
     """Register UserEntry API + UI routes, plus cross-cutting extensions."""
     register_domain_routes(app, rt, services, USER_ENTRY_CONFIG)
 

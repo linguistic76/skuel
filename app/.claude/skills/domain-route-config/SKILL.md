@@ -79,6 +79,14 @@ api_factory(
 )
 ```
 
+**The mapping is exactly the factory's parameters.** Each key names a parameter, each
+parameter after the first three without a default has a key, and no factory takes
+`**kwargs` — a sink accepts a mistyped or misrouted key without a word.
+`tests/unit/adapters/test_route_factory_signatures.py` binds every module-level config's
+mappings against its factories. The query routes' services never ride in the api mapping:
+`CommonQueryRouteFactory` takes `services.user`, and `services.goals` / `services.habits`
+for a filter the config turns on, straight from the container.
+
 **Service attribute naming convention:**
 - Activity domains use short names: `services.tasks`, `services.goals`, `services.habits`
 - Shared services use bare names: `services.user`, `services.system`
@@ -139,10 +147,6 @@ def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Servi
 __all__ = ["create_{domain}_routes"]
 ```
 
-Some older route modules still declare a trailing `_sync_service=None`. It is vestigial —
-nothing reads it (bootstrap passes a positional `None` to those few) — so a new file omits
-it, as above.
-
 **Placeholders:** `{domain}` → lowercase, `{Domain}` → capitalized, `{DOMAIN}` → uppercase.
 
 ---
@@ -184,12 +188,10 @@ TASKS_CONFIG = create_activity_domain_route_config(
     api_related_services={
         "connection_fetch_backend": "connection_fetch_backend",  # the card re-render's page links
         "goals_service": "goals",
-        "habits_service": "habits",
     },
     ui_related_services={
         "connection_fetch_backend": "connection_fetch_backend",
         "user_service": "user",
-        "goals_service": "goals",
         "habits_service": "habits",
     },
     prometheus_metrics_attr="prometheus_metrics",
@@ -213,7 +215,7 @@ silently. `tests/unit/test_route_create_via_primitive.py` guards it.
 
 **What `create_activity_domain_route_config` registers automatically (before `api_factory`):**
 - `CRUDRouteFactory` — create, get, list, update, delete
-- `CommonQueryRouteFactory` — `GET /api/{domain}/user`, `GET /api/{domain}/by-status`, and `GET /api/{domain}/goal` / `GET /api/{domain}/habit` when the config sets `supports_goal_filter` / `supports_habit_filter`
+- `CommonQueryRouteFactory` — `GET /api/{domain}/user`, `GET /api/{domain}/by-status`, and `GET /api/{domain}/goal` / `GET /api/{domain}/habit` when the config sets `supports_goal_filter` / `supports_habit_filter`. It takes `services.user`, and `services.goals` / `services.habits` for an enabled filter, from the container — not from `api_related_services` — and refuses construction when a filter is on and its service is absent, so a goal or habit the caller does not own is always 404
 - `IntelligenceRouteFactory` — `GET /api/{domain}/context`, `GET /api/{domain}/analytics`, `GET /api/{domain}/insights`
 
 **What stays in `api_factory`:** `create_activity_field_api_routes` (inline status/priority updates), `create_activity_hierarchy_api_routes`, `create_activity_link_api_routes`, `create_knowledge_patterns_api_route`, and manual routes with custom logic (`verify_entity_ownership` in the handler).

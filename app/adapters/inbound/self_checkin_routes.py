@@ -16,7 +16,7 @@ X-CSRF-Token header to every HTMX request.
 from __future__ import annotations
 
 import functools
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
 
@@ -36,6 +36,9 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.page_header import PageHeader
 from ui.self_checkin import render_checkin_form, render_checkin_history, render_checkin_results
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 logger = get_logger("skuel.routes.self_checkin")
 
@@ -90,13 +93,13 @@ async def _load_checkins(services: Any, user_uid: str) -> dict[str, list[dict[st
 def create_self_checkin_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
-    services: Any,
-    _sync_service: Any = None,
+    services: Services,
 ) -> None:
     """Wire the self check-in page + results fragment."""
     if not (services and services.tasks and services.events and services.choices and services.user):
         logger.warning("Self check-in routes skipped: required services unavailable")
         return
+    user_service = services.user
 
     @rt("/self-checkin")
     async def self_checkin_page(request: Request) -> Any:
@@ -144,7 +147,7 @@ def create_self_checkin_routes(
                 continue
             assess = getattr(getattr(services, svc_attr).intelligence, method_name)
             store_callback = functools.partial(
-                services.user.append_dual_track_checkin, dimension=dim
+                user_service.append_dual_track_checkin, dimension=dim
             )
             _collect(
                 dim.value,

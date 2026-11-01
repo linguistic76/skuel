@@ -57,9 +57,7 @@ _SUPPORTED_TYPES: frozenset[EntityType] = frozenset(
 )
 
 
-def create_picker_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services, _sync_service: Any = None
-) -> None:
+def create_picker_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
     """Register the entity-picker search endpoint."""
 
     @rt("/api/picker/search")

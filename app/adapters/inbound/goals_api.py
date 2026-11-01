@@ -32,7 +32,7 @@ Knowledge intelligence:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -85,7 +85,6 @@ def create_goals_api_routes(
     principles_service: PrinciplesService,
     connection_fetch_backend: ConnectionFetchOperations,
     user_service: UserService | None = None,
-    **_kwargs: Any,
 ) -> None:
     """Register Goals API routes."""
 

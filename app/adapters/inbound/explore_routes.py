@@ -18,7 +18,7 @@ Engagement (learning_loop_routes.py):
 - GET  /learning-loop/ps/{ps_uid}/submissions-and-feedback — Submissions + feedback fragment
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.explore_ui import create_explore_api_routes, create_explore_ui_routes
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -28,9 +28,7 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 
-def create_explore_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services, _sync_service: Any = None
-) -> None:
+def create_explore_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
     """Wire explore UI + API routes via ExploreOrchestrator."""
     if services.explore_orchestrator is None:
         raise RuntimeError("ExploreOrchestrator is required — check bootstrap wiring")

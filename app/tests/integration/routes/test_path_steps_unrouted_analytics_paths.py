@@ -66,7 +66,7 @@ async def client(skuel_app, seeded_step):
     from adapters.inbound.pathways_routes import create_pathways_routes
 
     app, rt = fast_app(pico=False, default_hdrs=False, secret_key="r3-unrouted-paths-key")
-    create_pathways_routes(app, rt, skuel_app.state.services, None)
+    create_pathways_routes(app, rt, skuel_app.state.services)
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
