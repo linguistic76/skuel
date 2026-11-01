@@ -506,7 +506,7 @@ class EntityStatus(StrEnum):
 
     def get_badge_class(self) -> str:
         """Get Tailwind badge classes for status display."""
-        return _ENTITY_STATUS_BADGE_CLASSES.get(self, "bg-gray-100 text-gray-600 border-gray-200")
+        return _ENTITY_STATUS_BADGE_CLASSES.get(self, "bg-muted text-foreground/70 border-border")
 
     def get_border_class(self) -> str:
         """Get Tailwind border-left class for status card borders."""
@@ -649,20 +649,20 @@ _ENTITY_STATUS_COLORS: dict[EntityStatus, str] = {
 }
 
 _ENTITY_STATUS_BADGE_CLASSES: dict[EntityStatus, str] = {
-    EntityStatus.ACTIVE: "bg-green-100 text-green-800 border-green-200",
-    EntityStatus.COMPLETED: "bg-green-100 text-green-800 border-green-200",
-    EntityStatus.PAUSED: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    EntityStatus.SCHEDULED: "bg-blue-100 text-blue-800 border-blue-200",
-    EntityStatus.BLOCKED: "bg-red-100 text-red-800 border-red-200",
-    EntityStatus.CANCELLED: "bg-red-100 text-red-800 border-red-200",
-    EntityStatus.FAILED: "bg-red-100 text-red-800 border-red-200",
-    EntityStatus.ARCHIVED: "bg-gray-100 text-gray-600 border-gray-200",
-    EntityStatus.DRAFT: "bg-gray-100 text-gray-600 border-gray-200",
-    EntityStatus.POSTPONED: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    EntityStatus.SUBMITTED: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    EntityStatus.QUEUED: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    EntityStatus.PROCESSING: "bg-blue-100 text-blue-800 border-blue-200",
-    EntityStatus.REVISION_REQUESTED: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    EntityStatus.ACTIVE: "bg-green-100 dark:bg-green-400/10 text-green-800 dark:text-green-300 border-green-200 dark:border-green-400/30",
+    EntityStatus.COMPLETED: "bg-green-100 dark:bg-green-400/10 text-green-800 dark:text-green-300 border-green-200 dark:border-green-400/30",
+    EntityStatus.PAUSED: "bg-yellow-100 dark:bg-yellow-400/10 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-400/30",
+    EntityStatus.SCHEDULED: "bg-blue-100 dark:bg-blue-400/10 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-400/30",
+    EntityStatus.BLOCKED: "bg-red-100 dark:bg-red-400/10 text-red-800 dark:text-red-300 border-red-200 dark:border-red-400/30",
+    EntityStatus.CANCELLED: "bg-red-100 dark:bg-red-400/10 text-red-800 dark:text-red-300 border-red-200 dark:border-red-400/30",
+    EntityStatus.FAILED: "bg-red-100 dark:bg-red-400/10 text-red-800 dark:text-red-300 border-red-200 dark:border-red-400/30",
+    EntityStatus.ARCHIVED: "bg-muted text-foreground/70 border-border",
+    EntityStatus.DRAFT: "bg-muted text-foreground/70 border-border",
+    EntityStatus.POSTPONED: "bg-yellow-100 dark:bg-yellow-400/10 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-400/30",
+    EntityStatus.SUBMITTED: "bg-yellow-100 dark:bg-yellow-400/10 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-400/30",
+    EntityStatus.QUEUED: "bg-yellow-100 dark:bg-yellow-400/10 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-400/30",
+    EntityStatus.PROCESSING: "bg-blue-100 dark:bg-blue-400/10 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-400/30",
+    EntityStatus.REVISION_REQUESTED: "bg-yellow-100 dark:bg-yellow-400/10 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-400/30",
 }
 
 _ENTITY_STATUS_TEXT_CLASSES: dict[EntityStatus, str] = {

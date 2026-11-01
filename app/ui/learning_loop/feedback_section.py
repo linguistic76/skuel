@@ -38,7 +38,7 @@ def _outcome_badge(outcome: str) -> Any:
         return Badge(
             "Revision Requested",
             variant=None,
-            cls="bg-amber-100 text-amber-800 border-amber-200",
+            cls="bg-amber-100 dark:bg-amber-400/10 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-400/30",
             size=Size.sm,
         )
     return Badge("Reviewed", variant=BadgeT.info, size=Size.sm)

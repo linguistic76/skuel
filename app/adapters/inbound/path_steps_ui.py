@@ -554,7 +554,7 @@ def _path_step_list(items: list[Any], enrolled_uids: set[str]) -> Any:
                     Badge(
                         "Path Step",
                         variant=None,
-                        cls="bg-teal-100 text-teal-800 border-teal-200",
+                        cls="bg-teal-100 dark:bg-teal-400/10 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-400/30",
                         size=Size.sm,
                     ),
                     A(

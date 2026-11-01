@@ -77,10 +77,10 @@ class UserRole(StrEnum):
     def get_badge_class(self) -> str:
         """Get Tailwind badge classes for role display."""
         return {
-            UserRole.ADMIN: "bg-red-100 text-red-800 border-red-200",
-            UserRole.TEACHER: "bg-yellow-100 text-yellow-800 border-yellow-200",
-            UserRole.MEMBER: "bg-green-100 text-green-800 border-green-200",
-            UserRole.REGISTERED: "bg-blue-100 text-blue-800 border-blue-200",
+            UserRole.ADMIN: "bg-red-100 dark:bg-red-400/10 text-red-800 dark:text-red-300 border-red-200 dark:border-red-400/30",
+            UserRole.TEACHER: "bg-yellow-100 dark:bg-yellow-400/10 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-400/30",
+            UserRole.MEMBER: "bg-green-100 dark:bg-green-400/10 text-green-800 dark:text-green-300 border-green-200 dark:border-green-400/30",
+            UserRole.REGISTERED: "bg-blue-100 dark:bg-blue-400/10 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-400/30",
         }.get(self, "bg-muted text-muted-foreground border-border")
 
     @property
@@ -209,7 +209,7 @@ class ContextHealthScore(StrEnum):
             ContextHealthScore.GOOD: "text-blue-600",
             ContextHealthScore.EXCELLENT: "text-green-600",
         }
-        return colors.get(self, "text-gray-600")
+        return colors.get(self, "text-muted-foreground")
 
     def get_icon(self) -> str:
         """

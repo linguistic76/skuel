@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-18
+updated: 2026-11-01
 ---
 
 # UX Improvements Integration Guide
@@ -10,56 +10,14 @@ This guide provides step-by-step instructions for integrating the newly implemen
 
 ## Toast Notifications Integration
 
-### Step 1: Add Toast Container to base_page.py
+### Step 1: The toast container (already in BasePage)
 
-Add this code to `/ui/layouts/base_page.py` in the `Body` section, after the modal container:
-
-```python
-# In BasePage() function, inside Body():
-Body(
-    navbar,
-    main_area,
-    # Modal container for overlays
-    Div(id="modal"),
-    # Live region for screen reader announcements
-    Div(
-        id="live-region",
-        role="status",
-        cls="sr-only",
-        **{"aria-live": "polite", "aria-atomic": "true"},
-    ),
-    # Toast notification container - ADD THIS
-    Div(
-        **{"x-data": "toastManager", "x-cloak": ""},
-        cls="fixed top-4 right-4 z-50 space-y-2",
-        # Template for toast rendering
-        Div(
-            **{"x-for": "toast in toasts", ":key": "toast.id"},
-            Div(
-                Div(
-                    P(**{"x-text": "toast.message"}, cls="text-sm font-medium"),
-                    Button(
-                        "×",
-                        **{"@click": "dismiss(toast.id)"},
-                        cls="ml-4 text-lg",
-                    ),
-                    cls="flex items-center justify-between",
-                ),
-                cls="alert shadow-lg max-w-sm",
-                **{
-                    ":class": """{
-                        'alert-success': toast.type === 'success',
-                        'alert-error': toast.type === 'error',
-                        'alert-info': toast.type === 'info',
-                        'alert-warning': toast.type === 'warning'
-                    }"""
-                },
-            ),
-        ),
-    ),
-    cls="bg-white",
-)
-```
+`BasePage` renders the toast container on every page (`ui/layouts/base_page.py`, the
+`toastManager` block after the live region); nothing to add. Each toast is a `<template x-for>`
+row: an opaque `bg-background` shell holding a tinted layer whose colour follows
+`toast.type` — the light fill with its dark twin (`bg-green-50 dark:bg-green-400/10 …`). The
+shell is there because a toast floats over the page: the dark twin is a wash, and without an
+opaque surface under it the page's text shows through.
 
 ### Step 2: Add Toast Headers in Route Handlers
 

@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-31'
+updated: '2026-11-01'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -78,7 +78,7 @@ One navbar for every role, one rule: the chrome carries **one door per section**
 
 The measurements behind these choices and the rulings they overturned are the arc record, `docs/roadmap/done/tasks-plus-one-chrome.md`.
 
-**Background convention:** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
+**Background convention:** All layout surfaces (navbar, sidebars, body) are `bg-background`. Edges are defined by 1px borders (`border-b border-border` on navbar, `border-r border-border` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
 
 ### BasePage Usage
 
@@ -454,7 +454,7 @@ Badge("Active", variant=BadgeT.success)
 Badge("Pending", variant=BadgeT.warning)
 Badge("5", variant=BadgeT.primary, size=Size.sm)
 Badge("Ku", variant=BadgeT.accent, size=Size.sm)  # entity type pill
-Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200", size=Size.sm)
+Badge("Path Step", variant=None, cls="bg-teal-100 dark:bg-teal-400/10 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-400/30", size=Size.sm)
 ```
 
 ### Progress
@@ -921,7 +921,7 @@ Span(label, cls=_STATUS_COLORS[status])
 
 # GOOD: Badge with variant for non-EntityStatus categories
 Badge("Feedback Available", variant=BadgeT.success, size=Size.sm)
-Badge("Revision Requested", variant=None, cls="bg-amber-100 text-amber-800 border-amber-200", size=Size.sm)
+Badge("Revision Requested", variant=None, cls="bg-amber-100 dark:bg-amber-400/10 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-400/30", size=Size.sm)
 ```
 
 **Badge selection convention:**
@@ -932,7 +932,7 @@ Badge("Revision Requested", variant=None, cls="bg-amber-100 text-amber-800 borde
 | Priority value (high, medium, low, ...) | `PriorityBadge(priority)` | `PriorityBadge("high")` |
 | Priority on an Activity card (inline-editable) | `PriorityBadgeDropdown(...)` from `ui/activities/_shared` | `PriorityBadgeDropdown(task.uid, "high", domain="tasks", singular="task")` |
 | Category/type label with a BadgeT color match | `Badge(label, variant=BadgeT.xxx)` | `Badge("Ku", variant=BadgeT.accent)` |
-| Category/type label with a custom color | `Badge(label, variant=None, cls="...")` | `Badge("Path Step", variant=None, cls="bg-teal-100 ...")` |
+| Category/type label with a custom color | `Badge(label, variant=None, cls="...")` — the light fill with its dark twin | `Badge("Path Step", variant=None, cls="bg-teal-100 dark:bg-teal-400/10 ...")` |
 
 ### Don't Hand-Roll Stat Grids
 
@@ -1496,7 +1496,7 @@ TypedDicts in `/ui/page_contexts.py` define route → UI contracts with typed en
 - `/ui/workbench/nav.py` — Submissions sidebar; `/ui/library/nav.py` — Library sidebar
 
 **Shared:**
-- `/ui/primitives.py` — `icon_tile`, `section_label`, `primary_btn`, `card_row`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard`: low-level building blocks from the /submit and Askesis UX redesigns; use these instead of duplicating class strings. `SelectableOptionRow` consolidates the icon+title+subtitle+checkmark pattern (active: `bg-blue-50`, hover: `hover:bg-slate-100` live here only). `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states.
+- `/ui/primitives.py` — `icon_tile`, `section_label`, `primary_btn`, `card_row`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard`: low-level building blocks from the /submit and Askesis UX redesigns; use these instead of duplicating class strings. `SelectableOptionRow` consolidates the icon+title+subtitle+checkmark pattern (active: `SELECTION_TINT`, hover: `hover:bg-muted` live here only). `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states.
 - `/ui/page_contexts.py`, `/ui/tokens.py` (spacing/layout)
 - `/core/utils/palette.py` (centralized hex colors, imported directly by core and UI)
 - `/core/services/visualization_service.py` (pure Chart.js + Frappe Gantt formatter — no domain deps; import it directly from `core`). Vis.js payloads come from `LateralRelationshipService`, not from here.

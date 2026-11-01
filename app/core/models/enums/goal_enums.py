@@ -75,19 +75,35 @@ class HabitEssentiality(StrEnum):
     def get_badge_class(self) -> str:
         """Get Tailwind badge classes for essentiality display."""
         return {
-            HabitEssentiality.ESSENTIAL: "bg-red-100 text-red-800 border-red-200",
-            HabitEssentiality.CRITICAL: "bg-yellow-100 text-yellow-800 border-yellow-200",
-            HabitEssentiality.SUPPORTING: "bg-blue-100 text-blue-800 border-blue-200",
-            HabitEssentiality.OPTIONAL: "bg-gray-100 text-gray-600 border-gray-200",
-        }.get(self, "bg-gray-100 text-gray-600 border-gray-200")
+            HabitEssentiality.ESSENTIAL: "bg-red-100 dark:bg-red-400/10 text-red-800 dark:text-red-300 border-red-200 dark:border-red-400/30",
+            HabitEssentiality.CRITICAL: "bg-yellow-100 dark:bg-yellow-400/10 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-400/30",
+            HabitEssentiality.SUPPORTING: "bg-blue-100 dark:bg-blue-400/10 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-400/30",
+            HabitEssentiality.OPTIONAL: "bg-muted text-foreground/70 border-border",
+        }.get(self, "bg-muted text-foreground/70 border-border")
 
     def get_styled(self) -> tuple[str, str, str]:
         """Get (emoji, border_class, bg_class) for essentiality display."""
         return {
-            HabitEssentiality.ESSENTIAL: ("\U0001f534", "border-red-500", "bg-red-50"),
-            HabitEssentiality.CRITICAL: ("\U0001f7e0", "border-orange-500", "bg-orange-50"),
-            HabitEssentiality.SUPPORTING: ("\U0001f7e1", "border-yellow-500", "bg-yellow-50"),
-            HabitEssentiality.OPTIONAL: ("\U0001f7e2", "border-green-500", "bg-green-50"),
+            HabitEssentiality.ESSENTIAL: (
+                "\U0001f534",
+                "border-red-500",
+                "bg-red-50 dark:bg-red-400/10",
+            ),
+            HabitEssentiality.CRITICAL: (
+                "\U0001f7e0",
+                "border-orange-500",
+                "bg-orange-50 dark:bg-orange-400/10",
+            ),
+            HabitEssentiality.SUPPORTING: (
+                "\U0001f7e1",
+                "border-yellow-500",
+                "bg-yellow-50 dark:bg-yellow-400/10",
+            ),
+            HabitEssentiality.OPTIONAL: (
+                "\U0001f7e2",
+                "border-green-500",
+                "bg-green-50 dark:bg-green-400/10",
+            ),
         }.get(self, ("\u26aa", "border-border", "bg-muted"))
 
     def get_weight(self) -> float:

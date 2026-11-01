@@ -300,7 +300,7 @@ class ExchangeStatus(StrEnum):
     def get_badge_class(self) -> str:
         """Tailwind classes for the line's status text / chip accent."""
         return {
-            ExchangeStatus.WAITING: "bg-amber-100 text-amber-800",
-            ExchangeStatus.FEEDBACK_RECEIVED: "bg-emerald-100 text-emerald-800",
-            ExchangeStatus.REVISION_REQUESTED: "bg-orange-100 text-orange-800",
+            ExchangeStatus.WAITING: "bg-amber-100 dark:bg-amber-400/10 text-amber-800 dark:text-amber-300",
+            ExchangeStatus.FEEDBACK_RECEIVED: "bg-emerald-100 dark:bg-emerald-400/10 text-emerald-800 dark:text-emerald-300",
+            ExchangeStatus.REVISION_REQUESTED: "bg-orange-100 dark:bg-orange-400/10 text-orange-800 dark:text-orange-300",
         }[self]

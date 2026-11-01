@@ -144,7 +144,7 @@ def create_teaching_api_routes(
 
         return Div(
             P("Feedback submitted successfully.", cls="text-sm text-green-600 font-medium"),
-            cls="p-3 bg-green-50 rounded-sm border border-green-200",
+            cls="p-3 bg-green-50 dark:bg-green-400/10 rounded-sm border border-green-200 dark:border-green-400/30",
         )
 
     @rt("/api/teaching/review/{uid}/revision", methods=["POST"])
@@ -198,7 +198,7 @@ def create_teaching_api_routes(
                 cls=(ButtonT.ghost, "mt-1"),
                 size="sm",
             ),
-            cls="p-3 bg-amber-50 rounded-sm border border-amber-200",
+            cls="p-3 bg-amber-50 dark:bg-amber-400/10 rounded-sm border border-amber-200 dark:border-amber-400/30",
         )
 
     @rt("/api/reports/{report_uid}/download", methods=["GET"])
@@ -256,7 +256,7 @@ def create_teaching_api_routes(
 
         return Div(
             P("Submission approved.", cls="text-sm text-green-600 font-medium"),
-            cls="p-3 bg-green-50 rounded-sm border border-green-200",
+            cls="p-3 bg-green-50 dark:bg-green-400/10 rounded-sm border border-green-200 dark:border-green-400/30",
         )
 
     @rt("/api/teaching/review/{uid}", methods=["GET"])

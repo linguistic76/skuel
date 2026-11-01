@@ -219,7 +219,7 @@ def _kind_badge() -> FT:
         " Path step",
         cls=(
             "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] "
-            "bg-blue-50 text-blue-600 "
+            "bg-blue-50 dark:bg-blue-400/10 text-blue-600 dark:text-blue-300 "
             "text-xs font-semibold whitespace-nowrap"
         ),
     )

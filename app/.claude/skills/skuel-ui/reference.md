@@ -711,13 +711,14 @@ Use SKUEL semantic tokens, not the raw Tailwind palette:
 
 # ❌ Tailwind palette (breaks theming)
 "text-gray-900"  "bg-white"  "text-gray-600"
+# A coloured light fill carries its dark twin: "bg-teal-100 dark:bg-teal-400/10" (see ui-css § No fill ignores the theme)
 ```
 
 **SKUEL component imports (pure Tailwind, ADR-071):**
 
 ```python
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
-from ui.primitives import ButtonLink, SelectableOptionRow, icon_tile, section_label, primary_btn, card_row
+from ui.primitives import SELECTION_TINT, ButtonLink, SelectableOptionRow, icon_tile, section_label, primary_btn, card_row
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading
 from ui.forms import LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Input, Select, Textarea, Checkbox
 from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
@@ -740,8 +741,8 @@ ButtonLink("View all →", href="/tasks", cls=ButtonT.ghost, size="xs")
 # SKUEL Primitives (ui/primitives.py) — unified design language building blocks
 
 # Rounded semantic icon tile: md=34×34 (default), lg=42×42
-icon_tile("check-circle", bg_cls="bg-blue-50", icon_cls="text-blue-600")
-icon_tile("star", bg_cls="bg-amber-50", icon_cls="text-amber-600", size="lg")
+icon_tile("check-circle", bg_cls=SELECTION_TINT, icon_cls="text-primary")
+icon_tile("star", bg_cls="bg-amber-50 dark:bg-amber-400/10", icon_cls="text-amber-600 dark:text-amber-300", size="lg")
 
 # Uppercase section divider label (CONNECTS, DETAILS, etc.)
 section_label("Connects")
@@ -752,7 +753,7 @@ primary_btn("Generate", icon="sparkles", cls="w-full")
 
 # Flex row with gap-[13px] — standard icon-tile + text content layout
 card_row(
-    icon_tile("check", "bg-green-50", "text-green-600"),
+    icon_tile("check", "bg-green-50 dark:bg-green-400/10", "text-green-600 dark:text-green-300"),
     P("Task complete", cls="text-sm font-semibold"),
 )
 
@@ -760,7 +761,7 @@ card_row(
 # Used in dropdowns and option lists where one option is selected at a time (journal
 # mode, the Submit page's "Ask for feedback?", etc.)
 SelectableOptionRow(
-    icon="sparkles", tile_bg="bg-violet-50", icon_cls="text-violet-700",
+    icon="sparkles", tile_bg="bg-violet-50 dark:bg-violet-400/10", icon_cls="text-violet-700 dark:text-violet-300",
     title="AI", subtitle="Graded against the exercise.",
     selected_expr="feedback === 'ai'", click_handler="selectFeedback('ai')",
 )
@@ -777,7 +778,7 @@ PriorityBadge("high")       # error variant
 Badge("Active", variant=BadgeT.success)
 Badge("Pending", variant=BadgeT.warning, size=Size.sm)
 Badge("Ku", variant=BadgeT.accent, size=Size.sm)  # entity type pill
-Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200", size=Size.sm)
+Badge("Path Step", variant=None, cls="bg-teal-100 dark:bg-teal-400/10 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-400/30", size=Size.sm)
 
 # Alerts / Error banners
 Alert("Error message", variant=AlertT.error)

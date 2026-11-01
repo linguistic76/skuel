@@ -369,7 +369,7 @@ def _Composer(
                         cls="text-sm text-muted-foreground htmx-indicator",
                     ),
                     Button(
-                        Icon("arrow-up", size=16, cls="text-white"),
+                        Icon("arrow-up", size=16, cls="text-background"),
                         type="submit",
                         aria_label="Send follow-up",
                         # Disabled while a save is in flight so a mid-save reply
@@ -971,7 +971,7 @@ def SuggestedActivitiesContainer(content: str) -> Any:
     return Div(
         P("Finding activities…", cls="text-13 text-muted-foreground"),
         id="suggested-activities",
-        cls="mt-2 rounded-[12px] border border-border bg-slate-50 px-4 py-3",
+        cls="mt-2 rounded-[12px] border border-border bg-muted/50 px-4 py-3",
         hx_post="/journals/suggest-activities",
         hx_trigger="load",
         hx_vals=_json.dumps({"content": content}),

@@ -154,7 +154,7 @@ def _notification_button(unread_count: int = 0) -> A:
             Div(
                 Span(
                     str(unread_count) if unread_count < 100 else "99+",
-                    cls="text-xs font-bold text-white",
+                    cls="text-xs font-bold text-yellow-950",
                 ),
                 cls="absolute -top-1 -right-1 size-5 rounded-full bg-yellow-500 flex items-center justify-center",
             )

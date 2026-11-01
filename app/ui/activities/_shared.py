@@ -16,7 +16,7 @@ from core.models.enums import Priority
 from ui.components import Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge
 from ui.patterns.empty_state import EmptyState
-from ui.primitives import dropdown_menu, section_label
+from ui.primitives import SELECTION_TINT, dropdown_menu, section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -184,12 +184,12 @@ def PriorityBadgeDropdown(
                     style=f"background-color: {level.get_color()}",
                 ),
                 Span(level.value.title(), cls="flex-1 text-left text-sm"),
-                Icon("check", size=14, cls="flex-none text-blue-600") if is_current else None,
+                Icon("check", size=14, cls="flex-none text-primary") if is_current else None,
                 type="button",
                 cls=(
                     "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[8px] border-0 "
                     "text-left cursor-pointer transition-colors "
-                    + ("bg-blue-50" if is_current else "bg-transparent hover:bg-slate-100")
+                    + (SELECTION_TINT if is_current else "bg-transparent hover:bg-muted")
                 ),
                 hx_post=f"/api/{domain}/{uid}/priority",
                 hx_vals=f'{{"priority": "{level.value}"}}',

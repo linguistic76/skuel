@@ -38,11 +38,11 @@ EXPLORE_STORAGE_KEY = "explore-sidebar"
 
 # Type pill badge classes (match explore_ui.py)
 _KU_PILL_CLS = (
-    "bg-violet-100 text-violet-800 border border-violet-200 "
+    "bg-violet-100 dark:bg-violet-400/10 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-400/30 "
     "text-xs font-medium px-1.5 py-0 rounded-full shrink-0"
 )
 _PS_PILL_CLS = (
-    "bg-teal-100 text-teal-800 border border-teal-200 "
+    "bg-teal-100 dark:bg-teal-400/10 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-400/30 "
     "text-xs font-medium px-1.5 py-0 rounded-full shrink-0"
 )
 

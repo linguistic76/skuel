@@ -37,7 +37,7 @@ _EXTRA_STATUS_MAP: dict[str, tuple[str, BadgeT | None, str]] = {
     "revision_needed": (
         "Revision Needed",
         None,
-        "bg-amber-100 text-amber-800 border-amber-200",
+        "bg-amber-100 dark:bg-amber-400/10 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-400/30",
     ),
 }
 

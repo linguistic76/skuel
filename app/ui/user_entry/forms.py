@@ -45,6 +45,7 @@ from ui.feedback import Badge, BadgeT
 from ui.gradebook.share_panel import AudienceCheckbox
 from ui.layout import Size
 from ui.primitives import (
+    SELECTION_TINT,
     SelectableOptionRow,
     SelectedFileCard,
     UploadDropzone,
@@ -123,16 +124,16 @@ def _feedback_question(*, has_exercise: bool, teacher_groups: Sequence[tuple[str
         _feedback_option(
             FEEDBACK_TEACHER,
             icon="user-round",
-            tile_bg="bg-blue-50",
-            icon_cls="text-blue-600",
+            tile_bg=SELECTION_TINT,
+            icon_cls="text-primary",
             title="Teacher",
             desc="Your teacher reads it and replies in your GradeBook.",
         ),
         _feedback_option(
             FEEDBACK_AI,
             icon="sparkles",
-            tile_bg="bg-violet-50",
-            icon_cls="text-violet-700",
+            tile_bg="bg-violet-50 dark:bg-violet-400/10",
+            icon_cls="text-violet-700 dark:text-violet-300",
             title="AI",
             desc=(
                 "Graded against the exercise. After submitting, ask for it with "
@@ -145,8 +146,8 @@ def _feedback_question(*, has_exercise: bool, teacher_groups: Sequence[tuple[str
         _feedback_option(
             FEEDBACK_NONE,
             icon="bookmark",
-            tile_bg="bg-slate-100",
-            icon_cls="text-slate-500",
+            tile_bg="bg-muted",
+            icon_cls="text-muted-foreground",
             title="No",
             desc="Just keep it. You can still share it below.",
         ),
@@ -239,7 +240,7 @@ def _share_question(targets: ShareTargets | None, *, portfolio_mode: str) -> FT:
             section_label("Share with", tag=Span, cls="mb-0"),
             Span("(optional)", cls="text-xs text-muted-foreground ml-2"),
             Span(
-                Icon("chevron-down", cls="w-4 h-4 text-slate-400"),
+                Icon("chevron-down", cls="w-4 h-4 text-muted-foreground"),
                 cls="ml-auto flex transition-transform",
                 **{":class": "shareOpen ? 'rotate-180' : ''"},
             ),
@@ -359,16 +360,14 @@ def render_upload_form(
         Span(**{"x-text": "sendLabel"}),
         cls=(
             "inline-flex items-center gap-[9px] px-[18px] py-[11px] rounded-[9px] "
-            "bg-border text-slate-400 text-sm font-semibold cursor-not-allowed"
+            "bg-border text-muted-foreground text-sm font-semibold cursor-not-allowed"
         ),
         **{"x-show": "!canSend"},
     )
     card_footer = Div(
-        Span("Up to 100 MB per file.", cls="text-xs text-slate-400"),
+        Span("Up to 100 MB per file.", cls="text-xs text-muted-foreground"),
         Div(send_btn_enabled, send_btn_disabled),
-        cls=(
-            "mt-[26px] pt-[22px] border-t border-slate-100 flex items-center justify-between gap-4"
-        ),
+        cls=("mt-[26px] pt-[22px] border-t border-muted flex items-center justify-between gap-4"),
     )
 
     toast = Div(

@@ -49,13 +49,13 @@ class BadgeT(StrEnum):
 _BADGE_COLORS: dict[str, str] = {
     "primary": "bg-primary/10 text-primary border-primary/20",
     "secondary": "bg-secondary text-secondary-foreground border-secondary",
-    "accent": "bg-violet-100 text-violet-800 border-violet-200",
+    "accent": "bg-violet-100 dark:bg-violet-400/10 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-400/30",
     "neutral": "bg-muted text-muted-foreground border-border",
     "ghost": "bg-muted/50 text-muted-foreground border-transparent",
-    "info": "bg-blue-100 text-blue-800 border-blue-200",
-    "success": "bg-green-100 text-green-800 border-green-200",
-    "warning": "bg-yellow-100 text-yellow-800 border-yellow-200",
-    "error": "bg-red-100 text-red-800 border-red-200",
+    "info": "bg-blue-100 dark:bg-blue-400/10 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-400/30",
+    "success": "bg-green-100 dark:bg-green-400/10 text-green-800 dark:text-green-300 border-green-200 dark:border-green-400/30",
+    "warning": "bg-yellow-100 dark:bg-yellow-400/10 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-400/30",
+    "error": "bg-red-100 dark:bg-red-400/10 text-red-800 dark:text-red-300 border-red-200 dark:border-red-400/30",
     "outline": "bg-transparent text-foreground border-border",
 }
 

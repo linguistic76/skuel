@@ -148,6 +148,7 @@ CENSUS: dict[tuple[str, str, str], tuple[int, str]] = {
     ("ui/patterns/sidebar.py", "x-data", "collapsed_default"): (1, NUMBER),
     ("ui/patterns/sidebar.py", "x-data", "storage_key"): (2, ENUM),
     ("ui/patterns/sidebar.py", "x-data", "str(default_collapsed).lower()"): (1, NUMBER),
+    ("ui/primitives.py", ":class", "SELECTION_TINT"): (2, ENUM),
     ("ui/primitives.py", ":class", "active_expr"): (1, CODE),
     ("ui/primitives.py", ":class", "selected_expr"): (1, CODE),
     ("ui/primitives.py", "@click", "click_handler"): (2, CODE),

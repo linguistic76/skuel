@@ -7,7 +7,7 @@ Import these instead of duplicating the class strings across modules.
 
 Design language reference:
 - Container:  border border-border rounded-[12px] bg-card
-- Selection:  bg-blue-50 (active) / hover:bg-slate-100 (hover)
+- Selection:  SELECTION_TINT (active) / hover:bg-muted (hover)
 - Typography: text-sm font-semibold (title) / text-xs text-muted-foreground (body)
 
 See: ui/journals/forms.py, ui/user_entry/forms.py, ui/askesis/chat.py
@@ -25,6 +25,12 @@ from ui.components.button import _BTN_BASE, _BTN_SIZES
 
 # Default subtitle class for option rows (description text)
 _SUBTITLE_CLS = "block text-xs text-muted-foreground mt-[6px] leading-[1.35]"
+
+# The selection tint: a selected option row, an active drop target, the tile behind
+# an icon drawn in the primary colour. Light is blue-50's weight (muted text on it
+# stays at its 4.38:1); dark mixes more primary in, or the tint vanishes on the
+# dark background.
+SELECTION_TINT = "bg-primary/6 dark:bg-primary/15"
 
 
 def safe_external_url(url: str | None) -> str | None:
@@ -51,8 +57,8 @@ def icon_tile(
 
     Args:
         icon:     Icon name (see ``ui/components/icon.py``).
-        bg_cls:   Background class, e.g. ``"bg-blue-50"``.
-        icon_cls: Icon colour class, e.g. ``"text-blue-600"``.
+        bg_cls:   Background class, e.g. ``SELECTION_TINT``.
+        icon_cls: Icon colour class, e.g. ``"text-primary"``.
         size:     ``"md"`` (34×34, default) or ``"lg"`` (42×42).
     """
     dims = "w-[34px] h-[34px] rounded-[8px]" if size == "md" else "w-[42px] h-[42px] rounded-[10px]"
@@ -116,7 +122,7 @@ def card_row(*content: Any, cls: str = "") -> Any:  # boundary: fasthtml-element
 
 def dropdown_separator() -> Any:  # boundary: fasthtml-elements
     """Thin divider for compact dropdown menus."""
-    return Div(cls="h-px bg-slate-100 my-1 mx-2")
+    return Div(cls="h-px bg-muted my-1 mx-2")
 
 
 def dropdown_menu(
@@ -171,13 +177,13 @@ def SelectableOptionRow(
 ) -> Any:  # boundary: fasthtml-elements
     """Selectable option row: icon tile + title + subtitle + checkmark indicator.
 
-    Active state (bg-blue-50) and hover state (bg-transparent hover:bg-slate-100)
+    Active state (``SELECTION_TINT``) and hover state (bg-transparent hover:bg-muted)
     are canonical here — never duplicate in call sites.
 
     Args:
         icon: Icon name for the tile (see ``ui/components/icon.py``).
-        tile_bg: Tile background class, e.g. ``"bg-blue-50"``.
-        icon_cls: Icon colour class, e.g. ``"text-blue-600"``.
+        tile_bg: Tile background class, e.g. ``SELECTION_TINT``.
+        icon_cls: Icon colour class, e.g. ``"text-primary"``.
         title: Primary text.
         subtitle: Secondary text beneath the title (omit for no subtitle).
         selected_expr: Alpine expression that evaluates true when selected,
@@ -217,7 +223,7 @@ def SelectableOptionRow(
         )
 
     check = Span(
-        Icon("check", cls="w-4 h-4 text-blue-600"),
+        Icon("check", cls="w-4 h-4 text-primary"),
         cls="flex-none pt-[3px] flex",
         **{"x-show": selected_expr},
         **{"x-cloak": True},
@@ -229,7 +235,7 @@ def SelectableOptionRow(
         type="button",
         cls=base_cls + "cursor-pointer transition-colors",
         **{"@click": click_handler},
-        **{":class": f"{selected_expr} ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"},
+        **{":class": f"{selected_expr} ? '{SELECTION_TINT}' : 'bg-transparent hover:bg-muted'"},
     )
 
 
@@ -258,17 +264,17 @@ def UploadDropzone(
     if dragleave_handler:
         attrs["@dragleave"] = dragleave_handler
     if active_expr:
-        attrs[":class"] = f"{active_expr} ? 'border-blue-600 bg-blue-50' : ''"
+        attrs[":class"] = f"{active_expr} ? 'border-primary {SELECTION_TINT}' : ''"
 
     base = (
-        "border-[1.5px] border-dashed border-slate-300 rounded-[12px] bg-slate-50 "
+        "border-[1.5px] border-dashed border-muted-foreground/30 rounded-[12px] bg-muted/50 "
         "px-6 py-[34px] text-center cursor-pointer flex flex-col items-center gap-1 "
-        "hover:border-blue-600 hover:bg-blue-50 transition-colors"
+        "hover:border-primary hover:bg-primary/6 dark:hover:bg-primary/15 transition-colors"
     )
     hint_content = hint if isinstance(hint, tuple) else (hint,)
     return Div(
         Div(
-            Icon(icon, cls="w-6 h-6 text-blue-600"),
+            Icon(icon, cls="w-6 h-6 text-primary"),
             cls=(
                 "w-[46px] h-[46px] rounded-[12px] border border-border bg-background "
                 "flex items-center justify-center mb-3"
@@ -297,8 +303,8 @@ def SelectedFileCard(
     base = "flex items-center gap-[14px] px-4 py-[14px] border border-border rounded-[12px] bg-card"
     return Div(
         Div(
-            Icon("file-text", cls="w-5 h-5 text-blue-600"),
-            cls="w-[42px] h-[42px] rounded-[10px] bg-blue-50 flex items-center justify-center flex-none",
+            Icon("file-text", cls="w-5 h-5 text-primary"),
+            cls=f"w-[42px] h-[42px] rounded-[10px] {SELECTION_TINT} flex items-center justify-center flex-none",
         ),
         Div(
             Span(
@@ -307,7 +313,7 @@ def SelectedFileCard(
             ),
             Span(
                 meta or "",
-                cls="block text-xs text-slate-400 font-mono mt-[2px]",
+                cls="block text-xs text-muted-foreground font-mono mt-[2px]",
                 **meta_attrs,
             ),
             cls="flex-1 min-w-0",
@@ -318,7 +324,7 @@ def SelectedFileCard(
             cls=(
                 "flex-none border border-border rounded-[8px] px-3 py-[7px] "
                 "text-13 font-semibold bg-card text-foreground cursor-pointer "
-                "hover:bg-slate-50 transition-colors"
+                "hover:bg-muted/50 transition-colors"
             ),
             **{"@click": replace_handler},
         ),
@@ -327,8 +333,8 @@ def SelectedFileCard(
             type="button",
             cls=(
                 "flex-none w-8 h-8 rounded-[8px] border-0 bg-transparent "
-                "text-slate-400 cursor-pointer flex items-center justify-center "
-                "hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                "text-muted-foreground cursor-pointer flex items-center justify-center "
+                "hover:bg-muted hover:text-foreground transition-colors"
             ),
             **{"@click": remove_handler},
         ),

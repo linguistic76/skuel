@@ -20,7 +20,7 @@
         <div data-slot="card-body" class="p-6 [[data-slot=card-header]+&amp;]:pt-0">
           <h4 class="text-sm font-medium line-clamp-2">Where I grew up</h4>
           <div class="flex flex-wrap items-center gap-1 mt-1">
-<span class="inline-flex items-center rounded-full border font-medium bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-0.5">Reviewed · Teacher</span><span class="inline-flex items-center rounded-full border font-medium bg-transparent text-foreground border-border text-xs px-2 py-0.5">Shared with you</span>          </div>
+<span class="inline-flex items-center rounded-full border font-medium bg-blue-100 dark:bg-blue-400/10 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-400/30 text-xs px-2 py-0.5">Reviewed · Teacher</span><span class="inline-flex items-center rounded-full border font-medium bg-transparent text-foreground border-border text-xs px-2 py-0.5">Shared with you</span>          </div>
           <div class="flex items-center gap-2 mt-2">
 <span class="inline-flex items-center rounded-full border font-medium bg-primary/10 text-primary border-primary/20 text-xs px-2 py-0.5">User Entry</span>            <p class="text-xs text-muted-foreground mb-0">From Sam Student · 7h ago</p>
           </div>
@@ -40,7 +40,7 @@
         <div class="flex items-baseline justify-between gap-2">
 <a href="/gradebook/{entry}" class="text-sm font-medium hover:underline">Where I grew up</a><span class="text-xs text-muted-foreground">7h ago</span>        </div>
         <div class="flex flex-wrap gap-1 mt-1">
-<span class="inline-flex items-center rounded-full border font-medium bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-0.5">Reviewed · Teacher</span>        </div>
+<span class="inline-flex items-center rounded-full border font-medium bg-blue-100 dark:bg-blue-400/10 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-400/30 text-xs px-2 py-0.5">Reviewed · Teacher</span>        </div>
         <div class="flex flex-wrap gap-1.5 mt-2">
 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-muted/40 text-xs font-medium text-foreground">Essay class<button type="button" hx-post="/api/user-entries/{entry}/unshare?audience=group%3Agroup.golden-class" hx-swap="outerHTML" hx-disabled-elt="this" aria-label="Stop sharing with Essay class" hx-target="closest [data-wall-row]" class="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent" title="Stop sharing"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></span>        </div>
       </div>

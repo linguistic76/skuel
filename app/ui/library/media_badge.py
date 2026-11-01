@@ -15,10 +15,19 @@ from ui.layout import Size
 _MEDIA_BADGE_MAP: dict[str, tuple[BadgeT | None, str]] = {
     "book": (BadgeT.success, ""),
     "talk": (BadgeT.info, ""),
-    "film": (None, "bg-purple-100 text-purple-800 border-purple-200"),
-    "podcast": (None, "bg-orange-100 text-orange-800 border-orange-200"),
+    "film": (
+        None,
+        "bg-purple-100 dark:bg-purple-400/10 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-400/30",
+    ),
+    "podcast": (
+        None,
+        "bg-orange-100 dark:bg-orange-400/10 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-400/30",
+    ),
     "article": (BadgeT.warning, ""),
-    "music": (None, "bg-pink-100 text-pink-800 border-pink-200"),
+    "music": (
+        None,
+        "bg-pink-100 dark:bg-pink-400/10 text-pink-800 dark:text-pink-300 border-pink-200 dark:border-pink-400/30",
+    ),
 }
 
 
