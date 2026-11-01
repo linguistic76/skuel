@@ -9,11 +9,17 @@ Alpine: { sidebarOpen } on shell root; { sourcesOpen } per AI message.
 import json
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Button, Div, Form, Option, P, Span, Template, Textarea
+from fasthtml.common import A, Button, Div, Form, Option, P, Span, Template, Textarea
 from fasthtml.common import Input as FTInput
 
 from ui.canon import CanonSourcesBlock
 from ui.components import COMPOSER_FOCUS_RING, Icon, Input, Select
+from ui.patterns.chat_shell import (
+    CHAT_SHELL_HEIGHT,
+    chat_sidebar,
+    chat_sidebar_open_default,
+    chat_sidebar_set,
+)
 
 if TYPE_CHECKING:
     from core.services.canon import CanonSource
@@ -36,7 +42,7 @@ def render_askesis_shell(
     """
     Full-height 3-column chat surface for /askesis.
 
-    Height calc(100vh - 3.5rem) aligns with the SKUEL top navbar (h-14 = 3.5rem).
+    Its height and sidebar are the chat shell's (``ui/patterns/chat_shell.py``).
     Alpine root state: { sidebarOpen, settingsOpen, responseMode, selectedModel,
     selectedNous, selectedNousSubtopic, nousSubtopicMap }. The ``selected*`` /
     ``responseMode`` / ``selectedModel`` fields live on the root so they persist
@@ -71,11 +77,10 @@ def render_askesis_shell(
         _center_panel(
             nous_topics or [], nous_subtopic_map or {}, initial_question, model_options or []
         ),
-        cls="flex overflow-hidden bg-background",
-        style="height: calc(100vh - 3.5rem);",
+        cls=f"flex overflow-hidden bg-background {CHAT_SHELL_HEIGHT}",
         **{
             "x-data": (
-                "{ sidebarOpen: true, settingsOpen: false,"
+                "{ sidebarOpen: " + chat_sidebar_open_default() + ", settingsOpen: false,"
                 " responseMode: localStorage.getItem('askesis_mode') || 'direct',"
                 " selectedModel: localStorage.getItem('askesis_model') || 'gpt-4o',"
                 " selectedNous: " + json.dumps(initial_nous) + ","
@@ -156,31 +161,28 @@ def render_assistant_message(
 
 
 def _sidebar(username: str, learning_scope_label: str) -> Any:
-    """Left sidebar: conversation list + controls. Width transitions 274px ↔ 62px."""
-    return Div(
-        # Full sidebar content (shown when open)
-        Div(
+    """The Askesis sidebar (``ui/patterns/chat_shell.py``): the open panel holds the
+    conversation list and controls; the rail holds expand, New chat and the avatar."""
+    return chat_sidebar(
+        panel=[
             _sb_header(),
             _sb_new_chat_btn(),
             _sb_search_field(),
             _sb_history(),
             _sb_account_footer(username, learning_scope_label),
-            cls="flex flex-col h-full",
-            **{"x-show": "sidebarOpen"},
-        ),
-        # Collapsed rail (shown when closed)
-        Div(
+        ],
+        rail=[
             Button(
                 Icon("panel-left-open", size=16),
                 cls="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
                 type="button",
                 aria_label="Expand sidebar",
-                **{"@click": "sidebarOpen = true"},
+                **{"@click": chat_sidebar_set(True)},
             ),
-            Button(
+            A(
                 Icon("square-pen", size=16, cls="text-foreground/70"),
+                href="/askesis",
                 cls="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors",
-                type="button",
                 aria_label="New chat",
             ),
             Div(cls="flex-1"),
@@ -188,13 +190,7 @@ def _sidebar(username: str, learning_scope_label: str) -> Any:
                 username[0].upper(),
                 cls="w-[30px] h-[30px] rounded-full bg-foreground/10 text-foreground flex items-center justify-center text-sm font-semibold",
             ),
-            cls="flex flex-col items-center gap-3 py-3 px-2 h-full",
-            **{"x-show": "!sidebarOpen", "x-cloak": True},
-        ),
-        # Static width=274px matches sidebarOpen=true default — prevents layout flash
-        style="width:274px;",
-        cls="bg-muted/50 border-r border-muted shrink-0 overflow-hidden transition-all duration-300",
-        **{":style": "{ width: sidebarOpen ? '274px' : '62px' }"},
+        ],
     )
 
 
@@ -206,7 +202,7 @@ def _sb_header() -> Any:
             cls="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
             type="button",
             aria_label="Collapse sidebar",
-            **{"@click": "sidebarOpen = false"},
+            **{"@click": chat_sidebar_set(False)},
         ),
         cls="flex items-center justify-between px-4 py-4",
     )
@@ -214,11 +210,12 @@ def _sb_header() -> Any:
 
 def _sb_new_chat_btn() -> Any:
     return Div(
-        Button(
+        # Askesis keeps no session: a new chat is a fresh page.
+        A(
             Icon("square-pen", size=17, cls="text-foreground/70 shrink-0"),
             Span("New chat", cls="text-sm font-semibold text-foreground"),
+            href="/askesis",
             cls="w-full flex items-center gap-2 px-3 py-[10px] rounded-[10px] border border-border bg-background hover:bg-muted/50 transition-colors shadow-xs",
-            type="button",
         ),
         cls="px-3 pb-3",
     )

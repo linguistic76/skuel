@@ -68,6 +68,11 @@ CENSUS: dict[tuple[str, str, str], tuple[int, str]] = {
     ("ui/askesis/chat.py", ":class", "value"): (2, ENUM),
     ("ui/askesis/chat.py", "@click", "value"): (2, ENUM),
     ("ui/askesis/chat.py", "x-show", "value"): (1, ENUM),
+    # The chat sidebar's seed and toggle (ui/patterns/chat_shell.py): JavaScript built
+    # from constant text — the breakpoint query and a literal localStorage key.
+    ("ui/askesis/chat.py", "x-data", "chat_sidebar_open_default()"): (1, CODE),
+    ("ui/askesis/chat.py", "@click", "chat_sidebar_set(False)"): (1, CODE),
+    ("ui/askesis/chat.py", "@click", "chat_sidebar_set(True)"): (1, CODE),
     ("ui/calendar/components.py", ":aria-pressed", "item_type.value"): (1, ENUM),
     ("ui/calendar/components.py", ":class", "item_type.value"): (1, ENUM),
     ("ui/calendar/components.py", "@click", "item_type.value"): (1, ENUM),
@@ -112,6 +117,9 @@ CENSUS: dict[tuple[str, str, str], tuple[int, str]] = {
     ("ui/ingestion/dashboard.py", "onclick", "onclick"): (1, CODE),
     ("ui/journals/__init__.py", "@click", "safe_href"): (1, URL_QUOTED),
     ("ui/journals/__init__.py", "x-data", "alpine_data"): (3, ENCODED),
+    ("ui/journals/chat_page.py", "x-data", "chat_sidebar_open_default(_SIDEBAR_KEY)"): (1, CODE),
+    ("ui/journals/chat_page.py", "@click", "chat_sidebar_set(False, _SIDEBAR_KEY)"): (1, CODE),
+    ("ui/journals/chat_page.py", "@click", "chat_sidebar_set(True, _SIDEBAR_KEY)"): (1, CODE),
     ("ui/journals/components.py", "x-data", "component_name"): (1, ENUM),
     ("ui/journals/forms.py", ":aria-pressed", "value"): (2, ENUM),
     ("ui/journals/forms.py", ":class", "mode_key.value"): (2, ENUM),
