@@ -243,7 +243,7 @@ class TestLlmExtraction:
 
 class TestMatchLearningPaths:
     async def test_without_lp_service_is_system_error(self, vision_service):
-        result = await vision_service.match_learning_paths(["mindfulness"])
+        result = await vision_service.match_learning_paths(["mindfulness"], None)
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.SYSTEM

@@ -200,11 +200,12 @@ class LifePathCoreService:
                 Errors.system("Backend not available", operation="designate_life_path")
             )
 
-        # Validate LP exists
+        # Validate LP exists. The read answers not-found itself; any other
+        # failure is the read's, not a missing path.
         if self.lp_service:
             lp_result = await self.lp_service.core.get(life_path_uid)
             if lp_result.is_error:
-                return Result.fail(Errors.not_found("Learning Path", life_path_uid))
+                return Result.fail(lp_result)
 
         now = datetime.now()
 

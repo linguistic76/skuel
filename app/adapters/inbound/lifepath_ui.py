@@ -38,8 +38,7 @@ from ui.lifepath import (
     render_dashboard_content,
     render_designation_refused,
     render_lived_cards,
-    render_no_themes,
-    render_recommendation_cards,
+    render_path_matches,
     render_recommendations_page,
     render_vision_form,
 )
@@ -148,8 +147,8 @@ def create_lifepath_ui_routes(
 
     @rt("/lifepath/vision/recommendations", methods=["GET"])
     async def vision_recommendations_page(request: Request) -> FT | RedirectResponse:
-        """Learning Paths recommended from the saved vision's themes, the
-        learner's designated path marked among them.
+        """Learning Paths recommended from the saved vision's themes, under the
+        learner's designated path — shown whether the themes find it or not.
 
         Rebuilt from what was saved, with no theme extraction, so a reload costs
         a search and nothing more. No saved vision goes back to the form.
@@ -167,23 +166,16 @@ def create_lifepath_ui_routes(
         if vision is None:
             return RedirectResponse(url="/lifepath/vision", status_code=303)
 
-        themes = vision["themes"]
-        if not themes:
-            recommendations = render_no_themes()
-        else:
-            recommendations_result = await lifepath_service.match_learning_paths(themes)
-            recommendations = (
-                _read_failed_banner(
-                    "Could not load your recommended Learning Paths",
-                    recommendations_result.expect_error(),
-                )
-                if recommendations_result.is_error
-                else render_recommendation_cards(
-                    recommendations_result.value, vision["life_path_uid"]
-                )
-            )
+        matches_result = await lifepath_service.match_learning_paths(
+            vision["themes"], vision["life_path_uid"]
+        )
+        matches = (
+            _read_failed_banner("Could not load your Learning Paths", matches_result.expect_error())
+            if matches_result.is_error
+            else render_path_matches(matches_result.value, has_themes=bool(vision["themes"]))
+        )
 
-        content = render_recommendations_page(vision, recommendations)
+        content = render_recommendations_page(vision, matches)
         return lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/designate", methods=["POST"])

@@ -1,8 +1,8 @@
 """LifePath vision capture and recommendations pages."""
 
-from fasthtml.common import FT, H3, Div, Form, Input, P, Span
+from fasthtml.common import FT, H3, A, Div, Form, Input, P
 
-from core.ports.query_types import LpMatchResult, SavedVision
+from core.ports.query_types import LpMatches, LpMatchResult, SavedVision
 from ui.components import Button, ButtonT, Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label, Textarea
@@ -61,27 +61,58 @@ def render_vision_form(existing_vision: str = "", refusal: FT | None = None) -> 
     )
 
 
-def render_recommendations_page(vision: SavedVision, recommendations: FT) -> FT:
-    """The recommendations page: the saved vision, its themes, and what was found
-    for them — the cards, an empty state, or a failed read's banner."""
+def render_recommendations_page(vision: SavedVision, matches: FT) -> FT:
+    """The recommendations page: the saved vision, its themes, and the paths
+    matched to them — or a failed read's banner. A learner who has designated a
+    path is told it is theirs; one who has not is asked to choose."""
     return Div(
-        PageHeader("Choose Your Life Path"),
+        PageHeader("Your Life Path" if vision["life_path_uid"] else "Choose Your Life Path"),
         P(f'Your vision: "{vision["statement"]}"', cls="text-muted-foreground italic mb-2"),
         P(
             f"Themes extracted: {', '.join(vision['themes']) or 'none'}",
             cls="text-sm text-muted-foreground mb-8",
         ),
-        SectionHeader("Recommended Learning Paths"),
-        recommendations,
+        matches,
         cls=f"container mx-auto {Container.NARROW}",
     )
 
 
-def render_recommendation_cards(
-    recommendations: list[LpMatchResult], current_path_uid: str | None
-) -> FT:
-    """One card per recommended path, each its own native form choosing it — but
-    the learner's current path, which says so in place of the button."""
+def render_path_matches(matches: LpMatches, *, has_themes: bool) -> FT:
+    """The learner's current path, when one is designated, then the paths the
+    themes recommend: one card each, an empty state, or — with no themes — the
+    way back to revise the vision. The current path is shown once, above them,
+    whether the themes found it or not."""
+    current = matches["current"]
+    return Div(
+        _current_path_card(current, has_themes=has_themes) if current else None,
+        SectionHeader("Recommended Learning Paths"),
+        _recommendation_cards(matches["others"]) if has_themes else _no_themes(),
+    )
+
+
+def _current_path_card(current: LpMatchResult, *, has_themes: bool) -> FT:
+    """The designated path, linked to its page, with its match against the
+    current themes — a match that has fallen to 0% says the path no longer fits
+    the vision. With no themes there is nothing to match, and no percentage."""
+    return Div(
+        SectionHeader("Your current path"),
+        Card(
+            _match_summary(
+                current,
+                title=A(
+                    current["lp_name"],
+                    href=f"/lp/{current['lp_uid']}",
+                    cls="text-primary hover:underline",
+                ),
+                show_score=has_themes,
+            )
+        ),
+        cls="mb-8",
+    )
+
+
+def _recommendation_cards(recommendations: list[LpMatchResult]) -> FT:
+    """One card per recommended path, each its own native form choosing it."""
     if not recommendations:
         return EmptyState(
             title="No Matching Learning Paths",
@@ -89,16 +120,10 @@ def render_recommendation_cards(
             action_text="Browse Learning Paths",
             action_href="/learning-paths",
         )
-    return Div(
-        *[
-            _recommendation_card(rec, is_current=rec["lp_uid"] == current_path_uid)
-            for rec in recommendations
-        ],
-        cls="space-y-4",
-    )
+    return Div(*[_recommendation_card(rec) for rec in recommendations], cls="space-y-4")
 
 
-def render_no_themes() -> FT:
+def _no_themes() -> FT:
     """What a vision with no themes gets in place of recommendations: nothing to
     match paths against, and the way back to revise it."""
     return EmptyState(
@@ -109,32 +134,29 @@ def render_no_themes() -> FT:
     )
 
 
-def _recommendation_card(rec: LpMatchResult, *, is_current: bool) -> FT:
-    summary = Div(
-        H3(rec["lp_name"], cls="font-semibold text-lg"),
-        P(
-            f"Match: {int(rec['match_score'] * 100)}%",
-            cls="text-sm text-muted-foreground",
-        ),
+def _match_summary(rec: LpMatchResult, *, title: str | FT, show_score: bool = True) -> FT:
+    return Div(
+        H3(title, cls="font-semibold text-lg"),
+        P(f"Match: {int(rec['match_score'] * 100)}%", cls="text-sm text-muted-foreground")
+        if show_score
+        else None,
         Div(
             *[
                 Badge(t, variant=BadgeT.primary, size=Size.sm, cls="mr-1")
                 for t in rec["matching_themes"][:3]
             ],
             cls="mt-2",
-        ),
+        )
+        if rec["matching_themes"]
+        else None,
         cls="p-4",
     )
-    if is_current:
-        return Card(
-            summary,
-            Div(
-                Span("Your current path", cls="text-sm font-medium text-foreground"), cls="p-4 pt-0"
-            ),
-        )
+
+
+def _recommendation_card(rec: LpMatchResult) -> FT:
     return Card(
         Form(
-            summary,
+            _match_summary(rec, title=rec["lp_name"]),
             Div(
                 Button(
                     "Choose This Path",

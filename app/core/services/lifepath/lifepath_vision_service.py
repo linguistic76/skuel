@@ -14,6 +14,7 @@ Flow:
    by the LLM in FULL tier, by keyword matching in CORE and whenever the LLM's
    reply yields no usable theme
 3. Themes match to LP candidates: [lp.mindful-engineer, lp.tech-leadership]
+   — and a learner who has designated a path sees it scored against them too
 4. User confirms designation or refines vision
 
 Philosophy:
@@ -39,6 +40,7 @@ from core.utils.text_truncation import truncate_to_budget
 
 from .lifepath_types import (
     LpRecommendation,
+    PathMatches,
     VisionCapture,
     VisionTheme,
     WordActionAlignment,
@@ -134,6 +136,20 @@ def _usable(themes: list[VisionTheme]) -> list[VisionTheme]:
             seen.add(theme.theme)
             usable.append(theme)
     return usable
+
+
+def _score_path(lp: LearningPath, themes: list[str]) -> LpRecommendation:
+    """How well a path matches the themes: the share of themes its title,
+    description or outcomes mention. No themes match nothing."""
+    lp_text = f"{lp.title} {lp.description or ''} {' '.join(lp.outcomes)}".lower()
+    matching = [t for t in themes if t.lower() in lp_text]
+    return LpRecommendation(
+        lp_uid=lp.uid,
+        lp_name=lp.title,
+        match_score=len(matching) / len(themes) if themes else 0.0,
+        matching_themes=tuple(matching),
+        lp_domain=lp.domain.value if lp.domain else None,
+    )
 
 
 class LifePathVisionService:
@@ -315,25 +331,33 @@ class LifePathVisionService:
         return THEME_CATEGORY_MAPPING.get(theme_lower, ThemeCategory.PERSONAL_GROWTH)
 
     async def match_learning_paths(
-        self, themes: list[str], limit: int = 5
-    ) -> Result[list[LpRecommendation]]:
+        self, themes: list[str], current_path_uid: str | None, limit: int = 5
+    ) -> Result[PathMatches]:
         """
-        Find Learning Paths that match the extracted vision themes.
+        The Learning Paths the vision's themes match, and the learner's own.
 
         Each theme is its own search, and a path any theme finds is a
         candidate: the LP text search matches its query as one phrase, so the
         themes joined into one query would find only a path that holds them
         all, side by side. No themes means no candidates, and no search.
 
+        The designated path is read by its uid, not looked for among the
+        candidates: a vision revised since the path was chosen, the top-``limit``
+        cut, or a designation made elsewhere can each leave it unfound. It is
+        scored against the themes by the same rule as the candidates, and the
+        candidates leave it out, so it is answered once.
+
         Args:
             themes: List of theme keywords
-            limit: Maximum recommendations to return
+            current_path_uid: The learner's designated path, or None
+            limit: Maximum number of other paths to return
 
         Returns:
-            Result[list[LpRecommendation]] sorted by match score; a failed
-            search fails the whole read
+            Result[PathMatches]; a failed search, or a failed read of the
+            designated path, fails the whole read
         """
-        if not self.lp_service:
+        lp_service = self.lp_service
+        if not lp_service:
             return Result.fail(
                 Errors.system(
                     "LP service not available",
@@ -342,15 +366,24 @@ class LifePathVisionService:
             )
 
         themes = [theme for theme in dict.fromkeys(t.strip() for t in themes) if theme]
-        if not themes:
-            return Result.ok([])
-
         logger.info(f"Matching LPs to themes: {themes}")
 
-        lp_search = self.lp_service.search
-        search_results = await asyncio.gather(
-            *(lp_search.search(query=theme, limit=limit * 2) for theme in themes)
-        )
+        async def read_current() -> Result[LearningPath | None]:
+            if current_path_uid is None:
+                return Result.ok(None)
+            current_result = await lp_service.core.get(current_path_uid)
+            if current_result.is_error:
+                return Result.fail(current_result)
+            return Result.ok(current_result.value)
+
+        async def search_themes() -> list[Result[list[LearningPath]]]:
+            return await asyncio.gather(
+                *(lp_service.search.search(query=theme, limit=limit * 2) for theme in themes)
+            )
+
+        current_result, search_results = await asyncio.gather(read_current(), search_themes())
+        if current_result.is_error:
+            return Result.fail(current_result)
         lps: dict[str, LearningPath] = {}
         for search_result in search_results:
             if search_result.is_error:
@@ -358,32 +391,21 @@ class LifePathVisionService:
             for found in search_result.value:
                 lps.setdefault(found.uid, found)
 
-        recommendations = []
-
-        for lp in lps.values():
-            # Calculate match score based on how many themes appear in LP
-            lp_description = lp.description or ""
-            lp_text = f"{lp.title} {lp_description} {' '.join(lp.outcomes)}".lower()
-            matching = [t for t in themes if t.lower() in lp_text]
-            match_score = len(matching) / len(themes)
-
-            recommendations.append(
-                LpRecommendation(
-                    lp_uid=lp.uid,
-                    lp_name=lp.title,
-                    match_score=match_score,
-                    matching_themes=tuple(matching),
-                    lp_domain=lp.domain.value if lp.domain else None,
-                )
-            )
-
         def get_match_score(rec: LpRecommendation) -> float:
             return rec.match_score
 
-        # Sort by match score descending
-        recommendations.sort(key=get_match_score, reverse=True)
-
-        return Result.ok(recommendations[:limit])
+        others = sorted(
+            (_score_path(lp, themes) for uid, lp in lps.items() if uid != current_path_uid),
+            key=get_match_score,
+            reverse=True,
+        )
+        current = current_result.value
+        return Result.ok(
+            PathMatches(
+                current=_score_path(current, themes) if current else None,
+                others=tuple(others[:limit]),
+            )
+        )
 
     async def calculate_word_action_alignment(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self, vision_themes: list[str], user_context: UserContext

@@ -8,6 +8,7 @@ These are service-layer types (not stored entities):
 - LifePathDesignation: View over Ku + ULTIMATE_PATH data
 - VisionTheme, VisionCapture: Vision capture types
 - LpRecommendation: LP recommendation type
+- PathMatches: the designated path and the other matches, scored alike
 - WordActionAlignment: Word-action gap analysis type (staged — see
   LifePathService.check_word_action_alignment)
 
@@ -136,6 +137,20 @@ class LpRecommendation:
     match_score: float
     matching_themes: tuple[str, ...] = field(default_factory=tuple)
     lp_domain: str | None = None
+
+
+@dataclass(frozen=True)
+class PathMatches:
+    """
+    The Learning Paths a vision's themes match, around the learner's own path.
+
+    ``current`` is the designated path, scored against the themes whether the
+    themes find it or not (None while no path is designated); ``others`` are
+    the paths the themes find, best match first, ``current`` never among them.
+    """
+
+    current: LpRecommendation | None
+    others: tuple[LpRecommendation, ...]
 
 
 @dataclass(frozen=True)
