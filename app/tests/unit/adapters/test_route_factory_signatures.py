@@ -2,8 +2,8 @@
 
 Two pins over ``adapters/inbound``:
 
-* **No ``_sync_service``.** No function declares the parameter: bootstrap filled
-  it with ``None`` and no body read it.
+* **No ``_sync_service``.** No function declares the parameter: a route function
+  declares only what its caller passes.
 * **Every config binds its factories exactly.** ``register_domain_routes`` calls
   ``factory(app, rt, primary_service, **mapping)`` with the config's
   ``api_related_services`` / ``ui_related_services`` mapping. Each mapping key
