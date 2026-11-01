@@ -711,7 +711,7 @@ Use SKUEL semantic tokens, not the raw Tailwind palette:
 
 # ❌ Tailwind palette (breaks theming)
 "text-gray-900"  "bg-white"  "text-gray-600"
-# A coloured light fill carries its dark twin: "bg-teal-100 dark:bg-teal-400/10" (see ui-css § No fill ignores the theme)
+# A coloured light fill carries its dark twin: "bg-teal-100 dark:bg-teal-400/10" (see ui-css § No colour ignores the theme)
 ```
 
 **SKUEL component imports (pure Tailwind, ADR-071):**

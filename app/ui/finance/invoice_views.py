@@ -385,7 +385,7 @@ class InvoiceViews:
                     type="button",
                     aria_label="Remove line item",
                     onclick="this.closest('[data-line-item]').remove()",
-                    cls="h-11 md:h-10 text-sm text-destructive hover:text-destructive/80",
+                    cls="h-11 md:h-10 text-sm text-error hover:text-error/80",
                 )
                 if removable
                 else Span("", cls="text-muted-foreground"),  # the first row stays

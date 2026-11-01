@@ -63,7 +63,7 @@ def render_review_error(uid: str, message: str) -> Div:
             cls="flex flex-col gap-1",
         ),
         id=_ENGAGEMENT_ACTIONS_ID,
-        cls="border border-destructive/40 rounded-md p-4",
+        cls="border border-error/40 rounded-md p-4",
     )
 
 

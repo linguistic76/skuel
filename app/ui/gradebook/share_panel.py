@@ -144,7 +144,7 @@ def _group(title: str, rows: list[FT]) -> FT | str:
 def SharePanelOutcome(outcome: ShareOutcome | None, error: str | None = None) -> FT | str:
     """The line above the form after a POST: what landed, what was refused."""
     if error:
-        return P(error, cls="text-sm text-destructive mb-3", role="alert")
+        return P(error, cls="text-sm text-error mb-3", role="alert")
     if outcome is None:
         return ""
     landed = len(outcome.shared_groups) + len(outcome.shared_users)

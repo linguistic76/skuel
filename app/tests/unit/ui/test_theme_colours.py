@@ -1,4 +1,4 @@
-"""No fill ignores the theme.
+"""No colour ignores the theme.
 
 A fixed-palette fill (``bg-slate-50``, ``bg-red-50``, ``bg-white``) paints the same in
 both themes. Under text that follows the theme, it goes unreadable in dark mode: light
@@ -12,6 +12,18 @@ fill follows the theme in one of two ways:
 - **A coloured light fill** (shade 300 or lighter) carries its dark twin in the same
   literal (``bg-red-50 dark:bg-red-400/10``), and so does every coloured text in that
   literal (``text-red-800 dark:text-red-300``).
+
+A coloured text follows the theme the same way:
+
+- **On no fill of its own**, a coloured text (shade 500 or darker) is fixed whatever it
+  sits on: ``text-blue-600`` is 3.6:1 on the dark background, ``text-yellow-600`` 2.9:1 on
+  the light one. A status colour is a status token (``text-success``, ``text-warning``,
+  ``text-error``, ``text-info``, each AA on both backgrounds); any other carries its dark
+  twin (``text-violet-700 dark:text-violet-300``). Text on a fill set by another element
+  moves into the fill's literal, so the judge sees what it sits on.
+- **``destructive`` names a fill**: the danger button's, dark ``#7f1d1d``, under its
+  ``text-destructive-foreground``. As text, a border or a faint tint it is 2.0:1 or less
+  on the dark background; those are ``error`` (identical in light).
 
 Some fills pass because they read on both themes: a saturated fill (shade 400 or darker,
 such as a dot, a bar or a count badge) and a translucent overlay (``bg-black/50``,
@@ -42,6 +54,10 @@ _FILL = re.compile(
     rf"{_EDGE_L}((?:[a-z0-9-]+:)*)bg-(?:({_NEUTRAL})-(\d+)|({_HUE})-(\d+)|(white|black))(/\d+)?{_EDGE_R}"
 )
 _TEXT = re.compile(rf"{_EDGE_L}((?:[a-z0-9-]+:)*)text-(?:{_HUE})-(\d+){_EDGE_R}")
+_DESTRUCTIVE = re.compile(
+    rf"{_EDGE_L}(?:[a-z0-9-]+:)*(?:(?:text|border|ring|outline|divide|decoration|fill|stroke)"
+    rf"-destructive(?:/\d+)?|bg-destructive/(?:[1-4]?\d)){_EDGE_R}"
+)
 _STYLE_BACKGROUND = re.compile(
     r"background(?:-color)?\s*:\s*(?:#|rgba?\(|hsla?\((?!\s*var)|oklch\(|white\b|black\b)",
     re.IGNORECASE,
@@ -51,26 +67,36 @@ _STYLE_BACKGROUND = re.compile(
 def literal_problems(text: str, *, computed: bool = False) -> list[str]:
     """What is wrong with one literal's fills. ``computed``: an f-string part (its style
     colours are data, so only its classes are read)."""
-    problems: list[str] = []
-    light_hue = False
+    problems = [
+        f"{match.group(0)}: destructive names a fill; text, borders and tints use error"
+        for match in _DESTRUCTIVE.finditer(text)
+    ]
+    light_hue = own_fill = False
     for match in _FILL.finditer(text):
         variants, neutral, neutral_shade, hue, hue_shade, black_white, alpha = match.groups()
         if variants.startswith("dark:"):
             continue
         token = match.group(0)
+        own_fill = True
         if (neutral and int(neutral_shade) <= 300) or (black_white == "white" and not alpha):
             problems.append(f"{token} is a neutral fill: use a theme token (bg-muted, bg-card, …)")
         elif hue and int(hue_shade) <= 300:
             light_hue = True
             if not re.search(rf"{_EDGE_L}dark:{re.escape(variants)}bg-", text):
                 problems.append(f"{token} has no dark twin (dark:{variants}bg-{hue}-400/10)")
-    if light_hue:
+    if light_hue or not own_fill:
         for match in _TEXT.finditer(text):
             variants, shade = match.groups()
             if variants.startswith("dark:") or int(shade) < 500:
                 continue
-            if not re.search(rf"{_EDGE_L}dark:{re.escape(variants)}text-", text):
-                problems.append(f"{match.group(0)} sits on a light fill with no dark twin")
+            if re.search(rf"{_EDGE_L}dark:{re.escape(variants)}text-", text):
+                continue
+            problems.append(
+                f"{match.group(0)} sits on a light fill with no dark twin"
+                if light_hue
+                else f"{match.group(0)} is fixed whatever it sits on: a status token "
+                "(text-success, text-warning, text-error, text-info) or its dark twin"
+            )
     if not computed and _STYLE_BACKGROUND.search(text):
         problems.append("a style paints a fixed background: use classes")
     return problems
@@ -138,11 +164,15 @@ def test_no_literal_paints_a_fill_that_ignores_the_theme() -> None:
         ("core/models/enums/entity_enums.py", "bg-blue-100 dark:bg-blue-400/10"),
         # A quoted string in static/js: the modal backdrop.
         ("static/js/skuel.js", "bg-black/50"),
+        # An Alpine expression: a prerequisite's met / unmet colour.
+        ("ui/explore/ps_detail.py", "'text-priority-low' : 'text-error'"),
+        # An enum's status text.
+        ("core/models/enums/entity_enums.py", "text-success"),
     ],
 )
 def test_the_walk_reads_each_kind_of_literal(path: str, needle: str) -> None:
-    """The walk is not vacuous: it reaches a class string, an f-string part, an enum and
-    a JS string, each holding a fill the guard judges."""
+    """The walk is not vacuous: it reaches a class string, an f-string part, an enum, a JS
+    string and an Alpine expression, each holding a colour the guard judges."""
     assert any(p == path and needle in text for p, _, text, _ in _LITERALS)
 
 
@@ -166,7 +196,22 @@ def test_the_walk_reads_each_kind_of_literal(path: str, needle: str) -> None:
         ("bg-gray-400", False, False),
         ("fixed inset-0 bg-black/50", False, False),
         ("rounded-full bg-white/20", False, False),
-        ("text-blue-600", False, False),
+        ("text-blue-600", False, True),
+        ("text-sm text-green-600 font-medium", False, True),
+        ("hover:text-violet-700", False, True),
+        ("bg-muted text-amber-600", False, True),
+        ("text-sm text-destructive", False, True),
+        ("hover:text-destructive/80", False, True),
+        ("border border-destructive/40", False, True),
+        ("bg-destructive/10 text-error", False, True),
+        ("allMet ? 'text-priority-low' : 'text-destructive'", False, True),
+        ("text-success", False, False),
+        ("bg-error/10 border border-error/20", False, False),
+        ("text-blue-600 dark:text-blue-400", False, False),
+        ("hover:text-violet-700 dark:hover:text-violet-300", False, False),
+        ("bg-destructive text-destructive-foreground hover:bg-destructive/90", False, False),
+        ("bg-yellow-500 text-yellow-950", False, False),
+        ("text-blue-100", False, False),
         ("background-color: hsl(", True, False),
         ("background: hsl(var(--muted))", False, False),
     ],

@@ -323,7 +323,7 @@ def render_upload_form(
         "Drag & drop your file here",
         (
             "or ",
-            Span("browse", cls="text-blue-600 font-semibold"),
+            Span("browse", cls="text-primary font-semibold"),
             " — audio, text, PDF, images, video",
         ),
         icon="upload-cloud",
@@ -371,7 +371,7 @@ def render_upload_form(
     )
 
     toast = Div(
-        Span(Icon("check", cls="w-[18px] h-[18px]"), cls="text-green-400 flex"),
+        Span(Icon("check", cls="w-[18px] h-[18px]"), cls="text-green-400 dark:text-green-700 flex"),
         Span("Submission sent", cls="text-sm font-semibold"),
         cls=(
             "fixed bottom-7 left-1/2 -translate-x-1/2 z-50 "

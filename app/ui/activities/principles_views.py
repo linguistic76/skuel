@@ -55,13 +55,13 @@ if TYPE_CHECKING:
 _STRENGTH_ORDER = {"core": 0, "strong": 1, "moderate": 2, "developing": 3, "exploring": 4}
 
 _ALIGNMENT_COLORS = {
-    "flourishing": "text-green-600",
-    "aligned": "text-green-600",
-    "mostly_aligned": "text-green-600",
-    "exploring": "text-yellow-600",
-    "partial": "text-yellow-600",
-    "drifting": "text-destructive",
-    "misaligned": "text-destructive",
+    "flourishing": "text-success",
+    "aligned": "text-success",
+    "mostly_aligned": "text-success",
+    "exploring": "text-warning",
+    "partial": "text-warning",
+    "drifting": "text-error",
+    "misaligned": "text-error",
     "unknown": "text-muted-foreground",
 }
 

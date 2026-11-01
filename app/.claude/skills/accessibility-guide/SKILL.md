@@ -202,7 +202,7 @@ For the full, copy-paste implementation patterns — accessible button vs link, 
 Div(
     "Delete",
     onclick="deleteTask()",
-    cls="text-destructive cursor-pointer",
+    cls="text-error cursor-pointer",
 )
 
 # ✅ GOOD: Semantic button element (ui.components.Button renders <button>)

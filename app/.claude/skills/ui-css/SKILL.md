@@ -128,7 +128,7 @@ Theme selection is available on `/settings` (Display & Appearance section). The 
 
 1. **Semantic HTML first** — use `<article>`, `<section>`, `<nav>`, not divs for everything
 2. **Mobile-first** — apply base classes for mobile, add `md:` / `lg:` prefixes for larger screens
-3. **Semantic tokens over the Tailwind palette** — `text-foreground` / `text-muted-foreground` not `text-gray-900` / `text-gray-600`; a neutral fill is a token and a coloured light fill carries its dark twin (reference § No fill ignores the theme, guarded by `tests/unit/ui/test_theme_fills.py`)
+3. **Semantic tokens over the Tailwind palette** — `text-foreground` / `text-muted-foreground` not `text-gray-900` / `text-gray-600`; a neutral fill is a token, a coloured light fill carries its dark twin, status text is a status token and `destructive` is a fill, never text (reference § No colour ignores the theme, guarded by `tests/unit/ui/test_theme_colours.py`)
 4. **Design tokens over magic numbers** — `Container.NARROW` not `max-w-4xl mx-auto` repeated; and inside `BasePage` / `SidebarPage` a body adds no padding — the shell owns the gutter
 5. **`cls` parameter for extensibility** — components accept extra classes via `cls` parameter
 
@@ -140,7 +140,7 @@ SKUEL's CSS is compiled by the **Tailwind CLI** (`./dev css-build`) into `static
 |--------|---------|------------|
 | **Tailwind utilities** | flex, p-4, grid, etc. | scanned + compiled to `output.css` |
 | **Semantic variables** | `--primary`, `--background`, `--card`, etc. | SKUEL-owned in `static/css/input.css` (`:root` and `.dark`) |
-| **Theme-aware color tokens** | `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-muted`, `border-border`, `bg-primary`, `text-destructive` | `input.css` `@theme inline`, each `hsl(var(--x))`, so they switch under `.dark` |
+| **Theme-aware color tokens** | `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-muted`, `border-border`, `bg-primary`, `bg-destructive` (a fill; its text is `text-error`) | `input.css` `@theme inline`, each `hsl(var(--x))`, so they switch under `.dark` |
 | **Status tokens** | `text-error`, `bg-success`, `text-warning`, `text-info` | the DaisyUI names, kept so their class strings compile; theme-aware — `--status-*` on `:root` and `.dark`. There are no `base-*` tokens: a `base-100/200/300/content` utility compiles to nothing (`tests/unit/ui/test_a11y_semantics.py` refuses one) |
 
 **All pages load CSS through `build_head()` / `skuel_headers()`** (in `ui/theme.py`) — never hand-assemble `<link>` tags. Two layout functions:

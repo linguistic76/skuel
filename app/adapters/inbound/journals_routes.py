@@ -429,7 +429,7 @@ def create_journals_routes(
         from ui.journals import StandardResponseFragment
 
         def _err(msg: str) -> Any:
-            return _Div(_P(msg, cls="text-sm text-destructive"), id="start-status")
+            return _Div(_P(msg, cls="text-sm text-error"), id="start-status")
 
         user_uid = require_authenticated_user(request)
 
@@ -911,15 +911,15 @@ def create_journals_routes(
 
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
-            return _P("Service unavailable", id="note-save-status", cls="text-13 text-destructive")
+            return _P("Service unavailable", id="note-save-status", cls="text-13 text-error")
         # Guard: only allow saves on owned periodic notes (PERIODIC_NOTE_KINDS).
         # Prevents mutation of unrelated entries (e.g. TEACHER_REVIEW submissions)
         # via this route.
         entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
         if entry_result.is_error or entry_result.value is None:
-            return _P("Note not found", id="note-save-status", cls="text-13 text-destructive")
+            return _P("Note not found", id="note-save-status", cls="text-13 text-error")
         if not entry_result.value.is_periodic_note():
-            return _P("Not a periodic note", id="note-save-status", cls="text-13 text-destructive")
+            return _P("Not a periodic note", id="note-save-status", cls="text-13 text-error")
         form = await request.form()
         content = str(form.get("content", ""))
         result = await user_entry_service.update_entry(
@@ -929,8 +929,8 @@ def create_journals_routes(
         )
         if result.is_error:
             logger.error("Periodic note save failed for %s: %s", entry_uid, result.expect_error())
-            return _P("Could not save", id="note-save-status", cls="text-13 text-destructive")
-        return _P("Saved ✓", id="note-save-status", cls="text-13 text-green-600")
+            return _P("Could not save", id="note-save-status", cls="text-13 text-error")
+        return _P("Saved ✓", id="note-save-status", cls="text-13 text-success")
 
     # ------------------------------------------------------------------
     # POST /journals/suggest-activities — lazy-loaded "Suggested activities" panel

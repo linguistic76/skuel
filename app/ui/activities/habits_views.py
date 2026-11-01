@@ -98,11 +98,11 @@ def HabitCard(
     if is_completed:
         new_status = "active"
         icon = "check"
-        icon_cls = "text-green-600"
+        icon_cls = "text-success"
     elif is_paused:
         new_status = "active"
         icon = "pause"
-        icon_cls = "text-yellow-600"
+        icon_cls = "text-warning"
     else:
         new_status = "completed"
         icon = "repeat"
@@ -154,7 +154,7 @@ def HabitCard(
     if habit.current_streak and habit.current_streak > 0:
         streak_el = Small(
             f"Streak: {habit.current_streak}d",
-            cls="text-green-600 font-bold ml-2",
+            cls="text-success font-bold ml-2",
         )
 
     # Frequency
@@ -282,7 +282,7 @@ def HabitDetailView(
         streak_items.append(
             MetadataField(
                 "Current Streak",
-                Span(f"{habit.current_streak} days", cls="text-green-600 font-bold"),
+                Span(f"{habit.current_streak} days", cls="text-success font-bold"),
             )
         )
     if habit.best_streak:

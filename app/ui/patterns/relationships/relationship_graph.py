@@ -80,7 +80,7 @@ def RelationshipGraphView(
                 cls="w-full h-96 border border-border rounded-sm",
             ),
             P(
-                cls="text-sm text-destructive mt-2",
+                cls="text-sm text-error mt-2",
                 role="alert",
                 x_show="error",
                 x_text="error",

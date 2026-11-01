@@ -190,7 +190,7 @@ def _hero_article(plan: dict[str, Any]) -> FT:
             Span(
                 Span(cls="w-[7px] h-[7px] rounded-full bg-green-500 flex-none"),
                 featured.get("status_label", "Ready now"),
-                cls="inline-flex items-center gap-1.5 font-mono text-10 font-medium tracking-widest uppercase text-green-700",
+                cls="inline-flex items-center gap-1.5 font-mono text-10 font-medium tracking-widest uppercase text-success",
             ),
             Span("·", cls="text-11 text-muted-foreground/70"),
             Span(
@@ -273,7 +273,7 @@ def _evidence_item(row: dict[str, Any]) -> FT:
     text = row.get("text", "")
 
     if met is True:
-        indicator: FT = Icon("check", cls="w-[15px] h-[15px] text-green-600 flex-none mt-0.5")
+        indicator: FT = Icon("check", cls="w-[15px] h-[15px] text-success flex-none mt-0.5")
         text_cls = "text-xs leading-snug text-foreground/80"
     else:
         indicator = Span(

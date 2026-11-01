@@ -46,8 +46,8 @@ from ui.feedback import Badge
 
 def test_get_trend_color_valid_values():
     """Test trend color mapping for valid values."""
-    assert "green" in get_trend_color("increasing")
-    assert "red" in get_trend_color("decreasing")
+    assert get_trend_color("increasing") == "text-success"
+    assert get_trend_color("decreasing") == "text-error"
     assert get_trend_color("stable") == "text-muted-foreground"
 
 

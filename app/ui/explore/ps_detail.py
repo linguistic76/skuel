@@ -680,7 +680,7 @@ def _deps_accordion() -> FT:
             ),
             Span(
                 Icon("lock", cls="w-[15px] h-[15px]", stroke_width="2.2"),
-                cls="w-7 h-7 rounded-md flex items-center justify-center flex-none bg-destructive/10 text-destructive",
+                cls="w-7 h-7 rounded-md flex items-center justify-center flex-none bg-red-50 dark:bg-red-400/10 text-red-600 dark:text-red-300",
                 **{
                     "x-show": "!allMet",
                 },
@@ -701,7 +701,7 @@ def _deps_accordion() -> FT:
                             "? 'Ready — nothing blocks this step.' "
                             ": (blockedCount + ' prerequisite' + (blockedCount === 1 ? '' : 's') + ' to clear')"
                         ),
-                        ":class": "allMet ? 'text-priority-low' : 'text-destructive'",
+                        ":class": "allMet ? 'text-priority-low' : 'text-error'",
                     },
                 ),
                 cls="flex-1 min-w-0",
@@ -742,7 +742,7 @@ def _deps_accordion() -> FT:
                         ),
                         Span(
                             Icon("lock", cls="w-3 h-3", stroke_width="2.4"),
-                            cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-destructive/10 text-destructive",
+                            cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-red-50 dark:bg-red-400/10 text-red-600 dark:text-red-300",
                             **{
                                 "x-show": "dep.status !== 'met'",
                             },
@@ -760,7 +760,7 @@ def _deps_accordion() -> FT:
                             cls="font-mono text-10 font-semibold uppercase tracking-wider",
                             **{
                                 "x-text": "dep.status === 'met' ? 'Completed' : 'Blocked'",
-                                ":class": "dep.status === 'met' ? 'text-priority-low' : 'text-destructive'",
+                                ":class": "dep.status === 'met' ? 'text-priority-low' : 'text-error'",
                             },
                         ),
                         cls="flex items-center gap-2.5 px-3 py-2.5 border border-border rounded-lg bg-muted/40",

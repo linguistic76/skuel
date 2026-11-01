@@ -131,7 +131,7 @@ def _new_group_modal() -> Any:
 
     form = Form(
         H3("New Group", id="new-group-title", cls="text-xl font-bold mb-4"),
-        Div(id="new-group-status", cls="text-sm text-destructive mb-2"),
+        Div(id="new-group-status", cls="text-sm text-error mb-2"),
         LabelInput(
             "Name",
             name="name",

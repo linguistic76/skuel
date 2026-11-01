@@ -67,8 +67,8 @@ class Priority(StrEnum):
     def get_text_class(self) -> str:
         """Get Tailwind text color class for priority display."""
         return {
-            Priority.HIGH: "text-yellow-600",
-            Priority.MEDIUM: "text-blue-600",
+            Priority.HIGH: "text-warning",
+            Priority.MEDIUM: "text-info",
             Priority.LOW: "text-muted-foreground",
         }.get(self, "text-muted-foreground")
 

@@ -28,7 +28,7 @@
                        (folderInput && folderInput.files.length > 0);
         if (!hasFiles) {
             evt.preventDefault();
-            setStatus('<p class="text-destructive text-sm text-center mt-2">Please select a file first.</p>');
+            setStatus('<p class="text-error text-sm text-center mt-2">Please select a file first.</p>');
             return;
         }
         var count = (fileInput ? fileInput.files.length : 0) +
@@ -60,7 +60,7 @@
         var form = evt.detail.elt;
         if (form.id !== 'upload-form') return;
         console.error('[Journals] Request failed:', evt.detail.xhr.status);
-        setStatus('<p class="text-destructive text-sm text-center mt-2">Upload failed (' +
+        setStatus('<p class="text-error text-sm text-center mt-2">Upload failed (' +
             evt.detail.xhr.status + '). Please try again.</p>');
     });
 
@@ -68,6 +68,6 @@
         var form = evt.detail.elt;
         if (form.id !== 'upload-form') return;
         console.error('[Journals] Network error:', evt.detail.error);
-        setStatus('<p class="text-destructive text-sm text-center mt-2">Network error. Check your connection.</p>');
+        setStatus('<p class="text-error text-sm text-center mt-2">Network error. Check your connection.</p>');
     });
 })();

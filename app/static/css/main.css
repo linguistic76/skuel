@@ -291,8 +291,8 @@ a {
     position: absolute;
     top: -40px;
     left: 0;
-    background-color: oklch(0.6 0.2 250);
-    color: white;
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
     padding: 0.5rem 1rem;
     text-decoration: none;
     z-index: 100;
@@ -302,7 +302,7 @@ a {
 
 .skip-link:focus {
     top: 0;
-    outline: 2px solid oklch(0.4 0.2 250);
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
 }
 

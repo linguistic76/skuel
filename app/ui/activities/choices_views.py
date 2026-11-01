@@ -98,7 +98,7 @@ def ChoiceCard(
     # Status toggle button
     new_status = "active" if is_decided else "completed"
     toggle_icon = "check" if is_decided else "git-branch"
-    toggle_cls = "text-green-600" if is_decided else ""
+    toggle_cls = "text-success" if is_decided else ""
 
     toggle_btn = Button(
         Icon(toggle_icon, size=16, cls=f"inline {toggle_cls}"),
@@ -143,9 +143,7 @@ def ChoiceCard(
         dl_str = format_date(choice.decision_deadline, "%Y-%m-%d")
         if overdue and not is_decided:
             dl_str += " (overdue)"
-        dl_cls = (
-            "text-destructive font-bold" if overdue and not is_decided else "text-muted-foreground"
-        )
+        dl_cls = "text-error font-bold" if overdue and not is_decided else "text-muted-foreground"
         deadline_el = Small(f"Deadline: {dl_str}", cls=dl_cls)
 
     # Satisfaction score for decided choices
@@ -260,7 +258,7 @@ def ChoiceDetailView(
             outcome_items.append(
                 MetadataField(
                     "Satisfaction",
-                    Span(stars, cls="text-yellow-600 text-xl"),
+                    Span(stars, cls="text-warning text-xl"),
                     Span(f" {choice.satisfaction_score}/5", cls="text-muted-foreground text-sm"),
                 )
             )
@@ -283,7 +281,7 @@ def ChoiceDetailView(
     timing_items: list[Any] = []
     if choice.decision_deadline:
         overdue = choice.is_deadline_past() and not is_decided
-        dl_cls = "text-destructive font-bold" if overdue else ""
+        dl_cls = "text-error font-bold" if overdue else ""
         timing_items.append(
             MetadataField(
                 "Deadline", Span(format_date(choice.decision_deadline, "%Y-%m-%d"), cls=dl_cls)
@@ -338,7 +336,7 @@ def OptionsSection(options: tuple[ChoiceOption, ...], selected_uid: str | None) 
     for opt in options:
         is_selected = selected_uid and opt.uid == selected_uid
         icon = "check-circle" if is_selected else "circle"
-        icon_cls = "text-green-600" if is_selected else "text-muted-foreground"
+        icon_cls = "text-success" if is_selected else "text-muted-foreground"
         text_cls = "font-bold" if is_selected else ""
 
         opt_content: list[Any] = [
@@ -346,7 +344,7 @@ def OptionsSection(options: tuple[ChoiceOption, ...], selected_uid: str | None) 
             Span(opt.title or opt.uid, cls=text_cls),
         ]
         if is_selected:
-            opt_content.append(Small(" (selected)", cls="text-green-600"))
+            opt_content.append(Small(" (selected)", cls="text-success"))
         if opt.description:
             opt_content.append(Small(f" — {opt.description}", cls="text-muted-foreground"))
 

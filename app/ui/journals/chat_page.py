@@ -642,7 +642,7 @@ def _DiscussionRowActions(sid: str, title: str) -> Any:
             Icon("trash-2", size=13),
             type="button",
             aria_label="Delete discussion",
-            cls=btn + " hover:text-destructive",
+            cls=btn + " hover:text-error",
             hx_post=f"/journals/discussion/{sid}/delete",
             hx_target="closest [data-discussion-row]",
             hx_swap="outerHTML",
