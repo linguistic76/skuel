@@ -20,6 +20,8 @@ Usage:
 from collections.abc import Callable
 from typing import Any, Protocol
 
+from starlette.datastructures import State
+
 # Re-export the concrete Starlette Request class.
 # FastHTML resolves route-handler type annotations at runtime and instantiates
 # the annotated class (anno(**cargs)).  A Protocol cannot be instantiated, so
@@ -49,18 +51,26 @@ class FastHTMLApp(Protocol):
     """
     Minimal protocol for the FastHTML application object.
 
-    FastHTML's app object inherits from Starlette. SKUEL route factories receive it
-    as a parameter but delegate all route registration to `rt`. This protocol exists
-    to give the parameter a name that is not `Any`.
+    FastHTML's app object inherits from Starlette. Most SKUEL route factories receive
+    it only to pass it on and register through `rt`; the few that read it use the
+    members below — `get` (GET-only routes), `router` (WebSocket), and
+    `add_exception_handler`.
 
     Boundary note: FastHTML's app API is not stable enough to type fully without
-    maintaining our own stubs. This protocol captures intent, not the full surface.
+    maintaining our own stubs. This protocol captures what SKUEL reads, not the full
+    surface; `tests/unit/adapters/test_route_param_types.py` checks each member
+    against a real `fast_app()`.
     """
 
     # Starlette router — FastHTML's @rt registers HTTP routes only, so
     # WebSocket endpoints mount here directly (see device_routes.py /ws/agent).
     # boundary: fasthtml-app — starlette Router, untyped through FastHTML.
     router: Any
+
+    # Starlette's attribute bag: bootstrap parks the app container, the services
+    # and the embedding worker's task here; the lifespan and the integration
+    # fixtures read them back.
+    state: State
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
         """ASGI interface."""

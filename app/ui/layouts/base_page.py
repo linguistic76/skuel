@@ -22,7 +22,7 @@ Usage:
     )
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fasthtml.common import (
     A,
@@ -143,7 +143,7 @@ def _build_bottom_nav(
 
 
 def BasePage(
-    content: Any,
+    content: FT,
     title: str = "SKUEL",
     page_type: PageType = PageType.STANDARD,
     request: Request | None = None,
@@ -308,7 +308,7 @@ def BasePage(
 
 
 def AuthPage(
-    content: Any,
+    content: FT,
     title: str = "SKUEL",
 ) -> FT:
     """Lightweight page wrapper for unauthenticated pages (login, register).

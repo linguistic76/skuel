@@ -14,7 +14,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import verify_entity_ownership
 from core.models.group.group import Group
@@ -29,8 +29,8 @@ logger = get_logger(__name__)
 
 
 def create_groups_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     group_service: GroupOperations,
     user_service: Any,
 ) -> None:

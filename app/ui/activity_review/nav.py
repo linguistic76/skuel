@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
+    from fasthtml.common import FT
+
     from adapters.inbound.fasthtml_types import Request
 
 ACTIVITY_REVIEW_SIDEBAR_ITEMS = [
@@ -16,8 +18,8 @@ ACTIVITY_REVIEW_SIDEBAR_ITEMS = [
 
 
 def activity_review_sidebar_page(
-    active: str, content: Any, request: Request, *, page_title: str
-) -> Any:
+    active: str, content: FT, request: Request, *, page_title: str
+) -> FT:
     """Create sidebar page for Activity Review routes."""
     return SidebarPage(
         content=content,

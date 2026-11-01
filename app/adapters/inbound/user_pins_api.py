@@ -11,14 +11,12 @@ Routes:
 - POST /api/user/pins/reorder - Reorder pinned entities
 """
 
-from typing import Any
-
 from fasthtml.common import FT
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_form_body, parse_json_body
 from core.models.type_hints import EntityUID
 from core.models.user_pins_request import PinEntityRequest, ReorderPinsRequest
@@ -28,7 +26,7 @@ from ui.patterns.pin_button import PinButton
 
 
 def create_user_pins_routes(
-    _app: Any, rt: Any, user_relationship_service: UserRelationshipOperations
+    _app: FastHTMLApp, rt: RouteDecorator, user_relationship_service: UserRelationshipOperations
 ) -> None:
     """
     Create user pins API routes.

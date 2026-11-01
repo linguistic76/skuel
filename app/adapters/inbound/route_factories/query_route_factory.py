@@ -37,7 +37,7 @@ from typing import Any, cast
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope, UserRole
 from core.models.type_hints import UserUID
@@ -114,7 +114,7 @@ class CommonQueryRouteFactory:
         self.verify_ownership = scope == ContentScope.USER_OWNED
         self.base_path = base_path or f"/api/{domain_name}"
 
-    def register_routes(self, _app, rt) -> None:
+    def register_routes(self, _app: FastHTMLApp, rt: RouteDecorator) -> None:
         """Register all common query routes."""
         # Single user query route (handles both own data and admin queries)
         self._register_user_query_route(rt)
@@ -132,7 +132,7 @@ class CommonQueryRouteFactory:
 
         logger.info(f"Common query routes registered for {self.domain} at {self.base_path}")
 
-    def _register_user_query_route(self, rt) -> None:
+    def _register_user_query_route(self, rt: RouteDecorator) -> None:
         """
         Register GET /api/{domain}/user route.
 
@@ -202,7 +202,7 @@ class CommonQueryRouteFactory:
 
             return cast("Result[Any]", await method(target_user_uid))
 
-    def _register_status_filter_route(self, rt) -> None:
+    def _register_status_filter_route(self, rt: RouteDecorator) -> None:
         """
         Register GET /api/{domain}/by-status?status=... route.
 
@@ -238,7 +238,7 @@ class CommonQueryRouteFactory:
                 "Result[Any]", await method(filters={"status": status, "user_uid": user_uid})
             )
 
-    def _register_goal_filter_route(self, rt) -> None:
+    def _register_goal_filter_route(self, rt: RouteDecorator) -> None:
         """
         Register GET /api/{domain}/goal?goal_uid=... route.
 
@@ -281,7 +281,7 @@ class CommonQueryRouteFactory:
 
             return cast("Result[Any]", await method(goal_uid, user_uid=user_uid))
 
-    def _register_habit_filter_route(self, rt) -> None:
+    def _register_habit_filter_route(self, rt: RouteDecorator) -> None:
         """
         Register GET /api/{domain}/habit?habit_uid=... route.
 

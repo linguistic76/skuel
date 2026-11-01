@@ -1,6 +1,6 @@
 ---
 title: MyPy Type Safety Patterns - Systematic Error Reduction
-updated: 2026-10-17
+updated: 2026-11-01
 category: patterns
 related_skills:
 - python
@@ -73,7 +73,9 @@ def create_reports_api_routes(
 ### ✅ After (Typed with TYPE_CHECKING)
 
 ```python
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 
 # A @rt() handler's parameter and return types are REAL imports: FastHTML
 # evaluates every handler signature at registration (signature_ex, eval_str=True),
@@ -86,14 +88,14 @@ if TYPE_CHECKING:
     from core.services.user_entry.user_entry_processing_service import UserEntryProcessingService
 
 def create_user_entry_api_routes(
-    _app: Any,                                              # FastHTML boundary
-    rt: Any,                                                # FastHTML boundary
+    _app: FastHTMLApp,                                      # fasthtml_types protocols
+    rt: RouteDecorator,
     processing_service: UserEntryProcessingService,         # Type-safe, lazily evaluated
-) -> list[Any]:
+) -> None:
     """Create UserEntry API routes."""
 
     @rt("/api/submissions/reprocess")
-    async def reprocess_route(request, entry: UserEntry) -> Result[UserEntry]:
+    async def reprocess_route(request: Request, entry: UserEntry) -> Result[UserEntry]:
         # ✅ No error — process() is typed Result[UserEntry] on the annotated
         # service, so mypy validates the return concretely
         return await processing_service.process(entry, force=True)
@@ -109,18 +111,20 @@ def create_user_entry_api_routes(
 ### Pattern Template
 
 ```python
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 
 if TYPE_CHECKING:
     # Import concrete types only for type checking
     from module.path import ConcreteService
 
 def create_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,                              # fasthtml_types protocols
+    rt: RouteDecorator,
     service: ConcreteService,                      # Required service — unquoted
     optional_service: OptionalService | None = None,  # Optional service
-) -> list[Any]:
+) -> None:
     """Create API routes with type-safe service parameters."""
     ...
 ```

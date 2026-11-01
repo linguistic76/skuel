@@ -13,12 +13,12 @@ API Routes:
 - GET /api/lifepath/alignment - Get alignment data
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.lifepath_request import CaptureVisionRequest, DesignateLifePathRequest
 from core.ports.query_types import (
@@ -37,8 +37,8 @@ logger = get_logger("skuel.routes.lifepath.api")
 
 
 def create_lifepath_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     lifepath_service: LifePathOperations,
 ) -> None:
     """

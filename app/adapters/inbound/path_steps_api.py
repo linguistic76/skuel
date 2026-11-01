@@ -16,7 +16,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import (
     parse_float_param_strict,
@@ -43,8 +43,8 @@ logger = get_logger("skuel.routes.path_steps.api")
 
 
 def create_path_steps_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     ps_service: PsService,
     user_progress_service: UserProgressService,
 ) -> None:

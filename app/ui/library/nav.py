@@ -13,7 +13,7 @@ Usage:
     )
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -33,7 +33,7 @@ LIBRARY_SIDEBAR_ITEMS: list[SidebarItem] = [
 
 
 def render_library_sidebar_page(
-    content: Any,
+    content: FT,
     active: str,
     request: Request | None = None,
 ) -> FT:

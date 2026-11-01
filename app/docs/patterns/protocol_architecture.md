@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-09-23
+updated: 2026-11-01
 category: patterns
 related_skills:
 - python
@@ -240,16 +240,18 @@ class TasksService(BaseService[TasksOperations, Task]):
 **Route files import the concrete service class:**
 
 ```python
-# Current (February 2026)
 from typing import TYPE_CHECKING
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+
 if TYPE_CHECKING:
     from core.services.tasks_service import TasksService
 
 def create_tasks_api_routes(
-    app: Any,
-    rt: Any,
-    tasks_service: "TasksService",  # Concrete class, not protocol
-) -> list[Any]:
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    tasks_service: TasksService,  # Concrete class, not protocol
+) -> None:
     await tasks_service.schedule_task(...)  # ✓ Type-safe (method is explicit)
     await tasks_service.get_ready_to_work_on(...)  # ✓ Type-safe
 ```

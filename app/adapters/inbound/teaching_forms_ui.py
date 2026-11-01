@@ -18,7 +18,7 @@ from starlette.responses import HTMLResponse, Response
 
 from adapters.inbound.auth import make_service_getter
 from adapters.inbound.auth.roles import UserRole, require_role
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -90,8 +90,8 @@ def _classroom_scope(current_user: ScopeSubject) -> UserUID | None:
 
 
 def create_teaching_forms_ui_routes(
-    _app: Any,
-    rt: Any,
+    _app: FastHTMLApp,
+    rt: RouteDecorator,
     form_template_service: FormTemplateOperations,
     form_submission_service: FormSubmissionOperations,
     user_service: Any,

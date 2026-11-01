@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from adapters.inbound.result_helpers import require_found
 from core.config.intelligence_tier import IntelligenceTier
@@ -38,8 +38,8 @@ logger = get_logger("skuel.routes.askesis.api")
 
 
 def create_askesis_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     askesis_service: AskesisOperations,
     intelligence_tier: IntelligenceTier | None = None,
     user_service: UserService | None = None,

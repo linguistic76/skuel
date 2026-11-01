@@ -3,8 +3,8 @@
 Testing-gap roadmap item 6 (tranche 2, analytics/insight cluster): PIN tests
 over the cross-domain analytics routes — auth gate (401), the days_back
 clamp, response shaping from the metrics objects, and exact service args.
-Note this factory has the ``register_analytics_routes(app, services)``
-signature (reads ``services.cross_domain_analytics`` and ``app.route``).
+The factory takes ``register_analytics_routes(rt, analytics)`` — the route
+decorator and the cross-domain analytics service it reads.
 Harness mirrors ``test_choices_api_routes.py``.
 """
 
@@ -51,7 +51,7 @@ def _make_harness(
     *,
     authenticated: bool = True,
 ) -> _Harness:
-    app, _rt = fast_app(pico=False, default_hdrs=False)
+    app, rt = fast_app(pico=False, default_hdrs=False)
 
     analytics = MagicMock()
     analytics.get_learning_velocity = AsyncMock(return_value=Result.ok(_velocity_metrics()))
@@ -83,13 +83,10 @@ def _make_harness(
     )
     analytics.get_combined_dashboard = AsyncMock(return_value=Result.ok({"widgets": []}))
 
-    services = MagicMock()
-    services.cross_domain_analytics = analytics
-
     if authenticated:
         monkeypatch.setattr("adapters.inbound.analytics_api.require_authenticated_user", _fake_auth)
 
-    register_analytics_routes(app, services)
+    register_analytics_routes(rt, analytics)
     return _Harness(client=TestClient(app), analytics=analytics)
 
 

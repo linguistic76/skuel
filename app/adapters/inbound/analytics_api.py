@@ -16,23 +16,25 @@ from datetime import datetime
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import parse_int_param_strict
+from core.ports import CrossDomainAnalyticsOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
 
 
-def register_analytics_routes(app, services):
+def register_analytics_routes(
+    rt: RouteDecorator, analytics: CrossDomainAnalyticsOperations
+) -> None:
     """
     Register analytics API routes.
 
     Args:
-        app: FastHTML application
-        services: Services container with cross_domain_analytics service
+        rt: Route decorator
+        analytics: The cross-domain analytics service every route reads
     """
-    rt = app.route
-    analytics = services.cross_domain_analytics
 
     # ========================================================================
     # LEARNING VELOCITY ANALYTICS
@@ -40,7 +42,7 @@ def register_analytics_routes(app, services):
 
     @rt("/api/analytics/learning-velocity")
     @boundary_handler()
-    async def learning_velocity(request):
+    async def learning_velocity(request: Request):
         """
         Get learning velocity metrics for the signed-in user.
 
@@ -88,7 +90,7 @@ def register_analytics_routes(app, services):
 
     @rt("/api/analytics/productivity")
     @boundary_handler()
-    async def productivity_metrics(request):
+    async def productivity_metrics(request: Request):
         """
         Get the signed-in user's productivity analytics from task completions.
 
@@ -141,7 +143,7 @@ def register_analytics_routes(app, services):
 
     @rt("/api/analytics/habit-consistency")
     @boundary_handler()
-    async def habit_consistency_metrics(request):
+    async def habit_consistency_metrics(request: Request):
         """
         Get the signed-in user's habit consistency analytics.
 
@@ -192,7 +194,7 @@ def register_analytics_routes(app, services):
 
     @rt("/api/analytics/dashboard")
     @boundary_handler()
-    async def analytics_dashboard(request):
+    async def analytics_dashboard(request: Request):
         """Get combined analytics dashboard for user."""
         user_uid = require_authenticated_user(request)
 

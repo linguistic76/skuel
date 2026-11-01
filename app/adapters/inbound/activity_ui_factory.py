@@ -18,17 +18,19 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlencode
 
-from fasthtml.common import Div, HttpHeader
+from fasthtml.common import FT, Div, FtResponse, HttpHeader
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.models.enums.neo_labels import NeoLabel
+from core.utils.result_simplified import Result
 from ui.activities._shared import CurriculumOriginField
 from ui.activities.filter_bar import ActivityFilterBar, with_user_categories
 from ui.activities.nav import render_activity_sidebar_page
@@ -44,8 +46,11 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.models.shared.dual_track import DualTrackResult
     from core.models.type_hints import UserUID
     from core.ports import ConnectionFetchOperations
+    from core.ports.query_types import EntityConnection
+    from ui.activities.filter_bar import FilterBarConfig
 
 
 # ============================================================================
@@ -53,9 +58,33 @@ if TYPE_CHECKING:
 # ============================================================================
 
 
+class ActivityEntity(Protocol):
+    """What the factory reads off an activity: its uid and its curriculum origin."""
+
+    @property
+    def uid(self) -> str: ...
+
+    @property
+    def source_path_step_uid(self) -> str | None: ...
+
+
+class DualTrackAssess[L: StrEnum](Protocol):
+    """A facade's per-entity dual-track assessment, as the results route calls it:
+    the entity, its owner, the learner's level on the domain's scale, the reflection."""
+
+    async def __call__(
+        self, uid: str, user_uid: UserUID, level: L, /, *, user_evidence: str
+    ) -> Result[DualTrackResult[L]]: ...
+
+
 @dataclass(frozen=True)
-class ActivityUIConfig:
+class ActivityUIConfig[E: ActivityEntity, L: StrEnum = StrEnum]:
     """Configuration for a single Activity Domain's UI routes.
+
+    Generic over the domain's entity ``E`` (``Task``, ``Goal``…) — every service
+    method and component the config names is checked against it — and the level
+    scale ``L`` the dual-track route rates on (``ProgressLevel``…; the default
+    for domains without one).
 
     Captures all per-domain differences so the factory can generate
     identical route structures with domain-specific behavior.
@@ -75,7 +104,7 @@ class ActivityUIConfig:
         filter_fn: Domain filter function (items, *param_values) -> filtered
         link_label: the domain's label — its page views in the relationship
             registry are the links the list card and the detail page show (ADR-090 §2)
-        filter_config: FilterConfig for ActivityFilterBar
+        filter_config: The FilterBarConfig ActivityFilterBar renders
         list_component: (filtered, connections_map) -> FT
         stats_component: (all_items) -> FT
         detail_component: (entity, connections) -> FT
@@ -100,23 +129,34 @@ class ActivityUIConfig:
     domain_singular: str
     page_title: str
     filter_params: tuple[tuple[str, str], ...]
-    get_all: Callable[[UserUID], Awaitable[Any]]
-    get_owned: Callable[[str, UserUID], Awaitable[Any]]
+    get_all: Callable[[UserUID], Awaitable[Result[list[E]]]]
+    get_owned: Callable[[str, UserUID], Awaitable[Result[E]]]
     backend: ConnectionFetchOperations
-    filter_fn: Callable[..., list[Any]]
+    filter_fn: Callable[..., list[E]]
     link_label: NeoLabel
-    filter_config: Any
-    list_component: Callable[..., Any]
-    stats_component: Callable[..., Any]
-    detail_component: Callable[..., Any]
+    filter_config: FilterBarConfig
+    list_component: Callable[[list[E], dict[str, list[EntityConnection]]], FT]
+    stats_component: Callable[[list[E]], FT]
+    detail_component: Callable[[E, list[EntityConnection]], FT]
     create_href: str | None = None
     create_label: str | None = None
     # Dual-track per-entity self-assessment (ADR-030) — optional
-    dual_track_assess: Callable[..., Awaitable[Any]] | None = None
-    dual_track_level_enum: type | None = None
+    dual_track_assess: DualTrackAssess[L] | None = None
+    dual_track_level_enum: type[L] | None = None
     dual_track_label: str = ""
     # Live category options for the filter bar — optional
-    list_categories: Callable[[UserUID], Awaitable[Any]] | None = None
+    list_categories: Callable[[UserUID], Awaitable[Result[list[str]]]] | None = None
+
+
+@dataclass(frozen=True)
+class _FilteredView[E]:
+    """One read of a domain's list page: every item, the filtered slice, the
+    slice's page links, and the filter values the request asked for."""
+
+    all_items: list[E]
+    filtered: list[E]
+    connections_map: dict[str, list[EntityConnection]]
+    param_values: dict[str, str]
 
 
 # ============================================================================
@@ -130,10 +170,10 @@ def _bare_banner(message: str) -> Div:
     return Div(render_error_banner(message))
 
 
-def create_activity_ui_routes(
+def create_activity_ui_routes[E: ActivityEntity, L: StrEnum](
     app: FastHTMLApp,
     rt: RouteDecorator,
-    config: ActivityUIConfig,
+    config: ActivityUIConfig[E, L],
 ) -> None:
     """Generate the standard 5-route UI pattern for an Activity Domain.
 
@@ -149,19 +189,13 @@ def create_activity_ui_routes(
     # Shared data-loading helper (used by content + list-fragment routes)
     # ------------------------------------------------------------------
 
-    async def _fetch_filtered(
-        request: Request,
-    ) -> tuple[Any, list[Any], list[Any], dict[str, Any], dict[str, str]]:
-        """Auth, fetch all items, filter, fetch connections.
-
-        Returns (error_or_none, all_items, filtered, connections_map, param_values).
-        On error, only the first element is set; the rest are empty.
-        """
+    async def _fetch_filtered(request: Request) -> Result[_FilteredView[E]]:
+        """Auth, fetch all items, filter, fetch connections."""
         user_uid = require_authenticated_user(request)
 
         result = await config.get_all(user_uid)
         if result.is_error:
-            return result.expect_error(), [], [], {}, {}
+            return Result.fail(result)
 
         all_items = result.value
 
@@ -174,7 +208,7 @@ def create_activity_ui_routes(
         uids = [item.uid for item in filtered]
         connections_map = await config.backend.fetch_entity_connections(config.link_label, uids)
 
-        return None, all_items, filtered, connections_map, param_values
+        return Result.ok(_FilteredView(all_items, filtered, connections_map, param_values))
 
     # ------------------------------------------------------------------
     # 1. Page shell: /{domain}
@@ -191,7 +225,7 @@ def create_activity_ui_routes(
     )
 
     @rt(f"/{domain}")
-    def page(request: Request) -> Any:
+    def page(request: Request) -> FT:
         """Main page shell — content loads via HTMX."""
         require_authenticated_user(request)
         # The shell and its content fragment are two separate HTTP requests:
@@ -219,14 +253,15 @@ def create_activity_ui_routes(
     # ------------------------------------------------------------------
 
     @rt(f"/{domain}/content")
-    async def content_fragment(request: Request) -> Any:
+    async def content_fragment(request: Request) -> FT:
         """HTMX fragment: filter bar + list + stats bar."""
-        error, all_items, filtered, connections_map, param_values = await _fetch_filtered(request)
-        if error is not None:
+        read = await _fetch_filtered(request)
+        if read.is_error:
             return Div(
-                render_error_banner(error.display_message),
+                render_error_banner(read.expect_error().display_message),
                 id=f"{domain}-content",
             )
+        view = read.value
 
         filter_config = config.filter_config
         if config.list_categories is not None:
@@ -238,9 +273,9 @@ def create_activity_ui_routes(
             )
 
         return Div(
-            ActivityFilterBar(filter_config, param_values),
-            config.list_component(filtered, connections_map),
-            config.stats_component(all_items),
+            ActivityFilterBar(filter_config, view.param_values),
+            config.list_component(view.filtered, view.connections_map),
+            config.stats_component(view.all_items),
             id=f"{domain}-content",
             cls="space-y-4",
         )
@@ -250,32 +285,36 @@ def create_activity_ui_routes(
     # ------------------------------------------------------------------
 
     @rt(f"/{domain}/list-fragment")
-    async def list_fragment(request: Request) -> Any:
+    async def list_fragment(request: Request) -> FT | tuple[FT, HttpHeader]:
         """HTMX fragment: filtered list only (for filter bar updates)."""
-        error, _all_items, filtered, connections_map, param_values = await _fetch_filtered(request)
-        if error is not None:
+        read = await _fetch_filtered(request)
+        if read.is_error:
             return Div(
-                render_error_banner(error.display_message),
+                render_error_banner(read.expect_error().display_message),
                 id=f"{singular}-list",
             )
+        view = read.value
 
         # Sync the browser URL with the applied filters so a filtered view is
         # bookmarkable and survives refresh (the page shell re-forwards the
         # params). Default-valued params are omitted to keep the URL canonical.
         non_default = {
-            name: param_values[name]
+            name: view.param_values[name]
             for name, default in config.filter_params
-            if param_values[name] != default
+            if view.param_values[name] != default
         }
         page_url = f"/{domain}?{urlencode(non_default)}" if non_default else f"/{domain}"
-        return config.list_component(filtered, connections_map), HttpHeader("HX-Push-Url", page_url)
+        return (
+            config.list_component(view.filtered, view.connections_map),
+            HttpHeader("HX-Push-Url", page_url),
+        )
 
     # ------------------------------------------------------------------
     # 4. Detail shell: /{domain}/detail
     # ------------------------------------------------------------------
 
     @rt(f"/{domain}/detail")
-    def detail_page(request: Request) -> Any:
+    def detail_page(request: Request) -> FT:
         """Detail page shell — content loads via HTMX."""
         require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -297,7 +336,7 @@ def create_activity_ui_routes(
     # ------------------------------------------------------------------
 
     @rt(f"/{domain}/detail/content")
-    async def detail_content_fragment(request: Request) -> Any:
+    async def detail_content_fragment(request: Request) -> FT | FtResponse:
         """HTMX fragment: entity detail with connections."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -345,7 +384,7 @@ def create_activity_ui_routes(
 
         @rt(f"/{domain}/dual-track/results", methods=["POST"])
         @csrf_protected
-        async def dual_track_results(request: Request) -> Any:
+        async def dual_track_results(request: Request) -> FT | FtResponse:
             """HTMX POST: run + persist a per-entity dual-track assessment.
 
             POST (not GET) because it mutates — the assessment appends a check-in

@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from ui.admin import pages
@@ -54,8 +54,8 @@ def _parse_user_filters(role: str | None, status: str | None) -> tuple[str | Non
 
 
 def create_admin_dashboard_routes(
-    _app: Any,
-    rt: Any,
+    _app: FastHTMLApp,
+    rt: RouteDecorator,
     orchestrator: AdminOrchestrator,
     prereq_suggestions: PrereqSuggestionService,
 ) -> None:

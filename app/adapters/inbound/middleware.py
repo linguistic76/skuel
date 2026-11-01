@@ -6,7 +6,6 @@ Web framework middleware that belongs in the adapter layer, not in core utilitie
 """
 
 import time
-from typing import Any
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -21,10 +20,10 @@ _SKIP_PREFIXES = ("/static/", "/favicon", "/manifest", "/service-worker")
 class RequestTimingMiddleware:
     """ASGI middleware to log request duration for performance diagnosis."""
 
-    def __init__(self, app: Any) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
@@ -37,7 +36,7 @@ class RequestTimingMiddleware:
         start = time.perf_counter()
         status_code = 0
 
-        async def send_wrapper(message: dict[str, Any]) -> None:
+        async def send_wrapper(message: Message) -> None:
             nonlocal status_code
             if message["type"] == "http.response.start":
                 status_code = message.get("status", 0)
@@ -69,10 +68,10 @@ class RequestTimingMiddleware:
 class RequestIDMiddleware:
     """ASGI middleware to inject request IDs for log correlation"""
 
-    def __init__(self, app: Any) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http":
             # Generate unique request ID
             request_id = generate_request_id()
@@ -81,7 +80,7 @@ class RequestIDMiddleware:
             token = request_id_context.set(request_id)
 
             # Add to response headers for debugging
-            async def send_wrapper(message: dict[str, Any]) -> None:
+            async def send_wrapper(message: Message) -> None:
                 if message["type"] == "http.response.start":
                     headers = list(message.get("headers", []))
                     headers.append([b"x-request-id", request_id.encode()])

@@ -61,7 +61,7 @@ from typing import Any, Protocol, TypedDict, TypeVar, cast
 from pydantic import BaseModel
 
 from adapters.inbound.auth.session import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_body
 from adapters.inbound.route_factories.route_helpers import (
     check_required_role,
@@ -346,7 +346,7 @@ class CRUDRouteFactory[T]:
             )(handler)
         )
 
-    def register_routes(self, _app, rt) -> None:
+    def register_routes(self, _app: FastHTMLApp, rt: RouteDecorator) -> None:
         """
         Register all CRUD routes using FastHTML conventions.
 
@@ -375,7 +375,7 @@ class CRUDRouteFactory[T]:
             f"✅ CRUD routes registered for {self.domain} at {self.base_path} (FastHTML-aligned)"
         )
 
-    def _register_create_route(self, rt) -> None:
+    def _register_create_route(self, rt: RouteDecorator) -> None:
         """
         Register create route: POST /{domain}/create
 
@@ -487,7 +487,7 @@ class CRUDRouteFactory[T]:
         )
         rt(f"{self.base_path}/create", methods=["POST"])(instrumented)
 
-    def _register_get_route(self, rt) -> None:
+    def _register_get_route(self, rt: RouteDecorator) -> None:
         """
         Register get route: GET /{domain}/get?uid=...
 
@@ -528,7 +528,7 @@ class CRUDRouteFactory[T]:
         instrumented = self._instrument_handler(get, f"{self.base_path}/get")
         rt(f"{self.base_path}/get")(instrumented)
 
-    def _register_update_route(self, rt) -> None:
+    def _register_update_route(self, rt: RouteDecorator) -> None:
         """
         Register update route: POST /{domain}/update?uid=...
 
@@ -591,7 +591,7 @@ class CRUDRouteFactory[T]:
         instrumented = self._instrument_handler(update, f"{self.base_path}/update")
         rt(f"{self.base_path}/update", methods=["POST"])(instrumented)
 
-    def _register_delete_route(self, rt) -> None:
+    def _register_delete_route(self, rt: RouteDecorator) -> None:
         """
         Register delete route: POST /{domain}/delete?uid=...
 
@@ -635,7 +635,7 @@ class CRUDRouteFactory[T]:
         instrumented = self._instrument_handler(delete, f"{self.base_path}/delete")
         rt(f"{self.base_path}/delete", methods=["POST"])(instrumented)
 
-    def _register_list_route(self, rt) -> None:
+    def _register_list_route(self, rt: RouteDecorator) -> None:
         """
         Register list route: GET /{domain}/list
 
@@ -716,7 +716,7 @@ class CRUDRouteFactory[T]:
         instrumented = self._instrument_handler(list_entities, f"{self.base_path}/list")
         rt(f"{self.base_path}/list")(instrumented)
 
-    def _register_search_route(self, rt) -> None:
+    def _register_search_route(self, rt: RouteDecorator) -> None:
         """
         Register search route: GET /{domain}/search?query=...
 

@@ -1020,17 +1020,18 @@ Page-level layout components and structures.
 
 Unified page wrapper for all SKUEL pages.
 
-### BasePage(content, title, request, page_type, sidebar, **kwargs)
+### BasePage(content, title, page_type, request, active_page, extra_css, extra_scripts, user_display_name, is_authenticated, is_admin)
 
 Universal page layout.
 
 **Parameters:**
-- `content: Any` - Main page content
+- `content: FT` - Main page content
 - `title: str` - Page title (for `<title>` tag)
-- `request: Request` - Starlette request object
 - `page_type: PageType` - Page type (default: STANDARD)
-- `sidebar: Any | None` - Optional custom sidebar
-- `**kwargs` - Additional attributes
+- `request: Request | None` - Starlette request (preferred — the chrome reads auth/admin from it)
+- `active_page: str` - Navbar key to highlight
+- `extra_css: list[str] | None` / `extra_scripts: list[str] | None` - Additional head assets
+- `user_display_name: str`, `is_authenticated: bool`, `is_admin: bool` - The no-request fallback for the chrome
 
 ### PageType (Enum)
 

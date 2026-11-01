@@ -25,7 +25,7 @@ from starlette.responses import FileResponse
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_form_body
 from adapters.inbound.route_factories import is_not_found
 from core.models.teaching.teaching_request import RequestRevisionRequest
@@ -75,8 +75,8 @@ def _save_report_file(teacher_uid: str, submission_uid: str, content: str) -> st
 
 
 def create_teaching_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     teacher_review_service: TeacherReviewOperations,
     user_service: Any,
     exercises_service: Any,

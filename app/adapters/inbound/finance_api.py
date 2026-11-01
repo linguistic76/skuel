@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import parse_int_param_strict
@@ -35,7 +35,7 @@ logger = get_logger("skuel.routes.finance.api")
 
 
 def create_finance_api_routes(
-    app: Any, rt: Any, finance_service: FinanceService, user_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, finance_service: FinanceService, user_service: Any = None
 ) -> None:
     """
     Create finance API routes (JSON endpoints only).

@@ -18,7 +18,7 @@ from fasthtml.common import Div, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.insights_api import (
     parse_active_insight_filter,
     parse_active_insight_offset,
@@ -248,8 +248,8 @@ _ANSWERS: dict[
 
 
 def create_insights_ui_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     insight_store: Any,
     user_service: UserService,
     context_intelligence: UserContextIntelligenceFactory,

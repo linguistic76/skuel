@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import read_json_body
 from adapters.inbound.route_factories import parse_int_param_strict
 from core.models.entity_converters import entity_to_response
@@ -31,8 +31,8 @@ logger = get_logger(__name__)
 
 
 def create_form_submissions_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     form_submission_service: FormSubmissionService,
     user_service: Any = None,
 ) -> None:

@@ -26,7 +26,7 @@ from adapters.inbound.auth import (
     make_service_getter,
     require_admin,
 )
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.primitives import ButtonLink
@@ -35,8 +35,8 @@ logger = get_logger("skuel.routes.auth_api")
 
 
 def create_auth_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     graph_auth: Any,
     user_service: Any = None,
 ) -> None:

@@ -51,7 +51,7 @@ from fasthtml.common import FT
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories.route_helpers import (
     parse_float_param_strict,
     parse_int_param_strict,
@@ -205,7 +205,7 @@ class LateralRouteFactory:
         self.entity_name = entity_name
         self.domain_service = domain_service
 
-    def register_routes(self, _app, rt) -> None:
+    def register_routes(self, _app: FastHTMLApp, rt: RouteDecorator) -> None:
         """Register this domain's lateral routes.
 
         Every domain gets the reads. Only a domain with an ownership verifier
@@ -234,7 +234,7 @@ class LateralRouteFactory:
         # Authoring: flat, deletable edit list
         self._create_manage_route(rt, verifier)
 
-    def _create_blocking_routes(self, rt) -> None:
+    def _create_blocking_routes(self, rt: RouteDecorator) -> None:
         """Create BLOCKS relationship routes."""
 
         # GET /api/{domain}/{uid}/lateral/blocking - Get entities that block this one
@@ -287,7 +287,7 @@ class LateralRouteFactory:
                 }
             )
 
-    def _create_prerequisite_routes(self, rt) -> None:
+    def _create_prerequisite_routes(self, rt: RouteDecorator) -> None:
         """Create PREREQUISITE_FOR relationship routes."""
 
         # GET /api/{domain}/{uid}/lateral/prerequisites - Get prerequisite entities
@@ -318,7 +318,7 @@ class LateralRouteFactory:
                 }
             )
 
-    def _create_alternative_routes(self, rt) -> None:
+    def _create_alternative_routes(self, rt: RouteDecorator) -> None:
         """Create ALTERNATIVE_TO relationship routes."""
 
         # GET /api/{domain}/{uid}/lateral/alternatives - Get alternative entities
@@ -346,7 +346,7 @@ class LateralRouteFactory:
                 }
             )
 
-    def _create_complementary_routes(self, rt) -> None:
+    def _create_complementary_routes(self, rt: RouteDecorator) -> None:
         """Create COMPLEMENTARY_TO relationship routes."""
 
         # GET /api/{domain}/{uid}/lateral/complementary - Get complementary entities
@@ -374,7 +374,7 @@ class LateralRouteFactory:
                 }
             )
 
-    def _create_sibling_route(self, rt) -> None:
+    def _create_sibling_route(self, rt: RouteDecorator) -> None:
         """Create sibling relationship route (derived from hierarchy)."""
 
         # GET /api/{domain}/{uid}/lateral/siblings - Get sibling entities
@@ -400,7 +400,7 @@ class LateralRouteFactory:
                 }
             )
 
-    def _create_blocking_write_route(self, rt, verifier: OwnershipVerifier) -> None:
+    def _create_blocking_write_route(self, rt: RouteDecorator, verifier: OwnershipVerifier) -> None:
         """Create the blocking write route (an owned domain only)."""
 
         # POST /api/{domain}/{uid}/lateral/blocks - Create blocking relationship
@@ -463,7 +463,9 @@ class LateralRouteFactory:
                 }
             )
 
-    def _create_prerequisite_write_route(self, rt, verifier: OwnershipVerifier) -> None:
+    def _create_prerequisite_write_route(
+        self, rt: RouteDecorator, verifier: OwnershipVerifier
+    ) -> None:
         """Create the prerequisite write route (an owned domain only)."""
 
         # POST /api/{domain}/{uid}/lateral/prerequisites - Create prerequisite relationship
@@ -531,7 +533,9 @@ class LateralRouteFactory:
                 }
             )
 
-    def _create_alternative_write_route(self, rt, verifier: OwnershipVerifier) -> None:
+    def _create_alternative_write_route(
+        self, rt: RouteDecorator, verifier: OwnershipVerifier
+    ) -> None:
         """Create the alternative write route (an owned domain only)."""
 
         # POST /api/{domain}/{uid}/lateral/alternatives - Create alternative relationship
@@ -619,7 +623,9 @@ class LateralRouteFactory:
                 }
             )
 
-    def _create_complementary_write_route(self, rt, verifier: OwnershipVerifier) -> None:
+    def _create_complementary_write_route(
+        self, rt: RouteDecorator, verifier: OwnershipVerifier
+    ) -> None:
         """Create the complementary write route (an owned domain only)."""
 
         # POST /api/{domain}/{uid}/lateral/complementary - Create complementary relationship
@@ -687,7 +693,7 @@ class LateralRouteFactory:
                 }
             )
 
-    def _create_delete_route(self, rt, verifier: OwnershipVerifier) -> None:
+    def _create_delete_route(self, rt: RouteDecorator, verifier: OwnershipVerifier) -> None:
         """Create route to delete lateral relationships."""
 
         # DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid} - Delete relationship
@@ -751,7 +757,7 @@ class LateralRouteFactory:
     # Enhanced UX Routes
     # ========================================================================
 
-    def _create_chain_route(self, rt) -> None:
+    def _create_chain_route(self, rt: RouteDecorator) -> None:
         """Create route to get blocking chain with depth levels."""
 
         # GET /api/{domain}/{uid}/lateral/chain - Get transitive blocking chain
@@ -780,7 +786,7 @@ class LateralRouteFactory:
 
             return Result.ok(render_chain_fragment(cast("dict[str, Any]", result.value)))
 
-    def _create_comparison_route(self, rt) -> None:
+    def _create_comparison_route(self, rt: RouteDecorator) -> None:
         """Create route to get alternatives with comparison data."""
 
         # GET /api/{domain}/{uid}/lateral/alternatives/compare - Get alternatives with comparison
@@ -820,7 +826,7 @@ class LateralRouteFactory:
                 render_alternatives_fragment(cast("list[dict[str, Any]]", result.value))
             )
 
-    def _create_graph_route(self, rt) -> None:
+    def _create_graph_route(self, rt: RouteDecorator) -> None:
         """Create route to get relationship graph in Vis.js format."""
 
         # GET /api/{domain}/{uid}/lateral/graph - Get relationship graph
@@ -892,7 +898,7 @@ class LateralRouteFactory:
             # Return Vis.js format directly (includes nodes and edges)
             return Result.ok(result.value)
 
-    def _create_manage_route(self, rt, verifier: OwnershipVerifier) -> None:
+    def _create_manage_route(self, rt: RouteDecorator, verifier: OwnershipVerifier) -> None:
         """Create the flat, deletable relationship-management list route (authoring)."""
 
         # GET /api/{domain}/{uid}/lateral/manage - Flat list of direct lateral edges

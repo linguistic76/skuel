@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories.route_helpers import (
     parse_float_param_strict,
     parse_int_param_strict,
@@ -238,7 +238,7 @@ class IntelligenceRouteFactory:
 
         logger.info(f"IntelligenceRouteFactory initialized for {domain_name} (scope={scope.value})")
 
-    def register_routes(self, _app, rt) -> None:
+    def register_routes(self, _app: FastHTMLApp, rt: RouteDecorator) -> None:
         """
         Register the intelligence routes.
 
@@ -260,7 +260,9 @@ class IntelligenceRouteFactory:
 
         logger.info(f"Intelligence routes registered for {self.domain} at {self.base_path}")
 
-    def _register_analytics_route(self, rt, service: PerformanceAnalyticsOperations) -> None:
+    def _register_analytics_route(
+        self, rt: RouteDecorator, service: PerformanceAnalyticsOperations
+    ) -> None:
         """
         Register analytics route: GET /api/{domain}/analytics
 
@@ -289,7 +291,7 @@ class IntelligenceRouteFactory:
             logger.debug(f"Analytics retrieved for {domain}: user={user_uid}, period={period_days}")
             return result
 
-    def _register_context_route(self, rt) -> None:
+    def _register_context_route(self, rt: RouteDecorator) -> None:
         """
         Register context route: GET /api/{domain}/context?uid=...
 
@@ -350,7 +352,7 @@ class IntelligenceRouteFactory:
                 }
             )
 
-    def _register_insights_route(self, rt) -> None:
+    def _register_insights_route(self, rt: RouteDecorator) -> None:
         """
         Register insights route: GET /api/{domain}/insights?uid=...
 

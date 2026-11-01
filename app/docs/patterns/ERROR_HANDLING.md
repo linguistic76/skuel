@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: '2026-10-18'
+updated: '2026-11-01'
 category: patterns
 related_skills:
 - result-pattern
@@ -179,21 +179,27 @@ renders a banner in the fragment's slot instead of an empty list:
 
 ```python
 # activity_ui_factory.py — _fetch_filtered(), shared by the content and list fragments
-user_uid = require_authenticated_user(request)
-result = await config.get_all(user_uid)
-if result.is_error:
-    return result.expect_error(), [], [], {}, {}  # the error is the first element
-filtered = config.filter_fn(result.value, *filter_args)
+async def _fetch_filtered(request: Request) -> Result[_FilteredView[E]]:
+    user_uid = require_authenticated_user(request)
+    result = await config.get_all(user_uid)
+    if result.is_error:
+        return Result.fail(result)
+    filtered = config.filter_fn(result.value, *filter_args)
+    ...
+    return Result.ok(_FilteredView(result.value, filtered, connections_map, param_values))
 
 # the /{domain}/content fragment
-error, all_items, filtered, connections_map, param_values = await _fetch_filtered(request)
-if error is not None:
+read = await _fetch_filtered(request)
+if read.is_error:
     # Same id as the shell's placeholder, so the swap lands the banner in place
-    return Div(render_error_banner(error.display_message), id=f"{domain}-content")
+    return Div(
+        render_error_banner(read.expect_error().display_message), id=f"{domain}-content"
+    )
+view = read.value
 return Div(
-    ActivityFilterBar(filter_config, param_values),
-    config.list_component(filtered, connections_map),
-    config.stats_component(all_items),
+    ActivityFilterBar(filter_config, view.param_values),
+    config.list_component(view.filtered, view.connections_map),
+    config.stats_component(view.all_items),
     id=f"{domain}-content",
 )
 ```

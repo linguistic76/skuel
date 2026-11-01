@@ -23,11 +23,11 @@ own containers (see ui/insights/components.py); the two Gantt endpoints are a ST
 surface — see docs/roadmap/gantt-visualization-surface.md.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.ports.query_types import ChartJsConfig, GanttConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -39,8 +39,8 @@ logger = get_logger("skuel.routes.visualization_api")
 
 
 def create_visualization_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     visualization_service: VisualizationOperations,
 ) -> None:
     """Create visualization API routes."""

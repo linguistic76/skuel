@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import read_json_body
 from core.ports.query_types import AlertCheckResult, HealthCheckValidation
 from core.utils.logging import get_logger
@@ -42,8 +42,8 @@ logger = get_logger("skuel.routes.system.api")
 
 
 def create_system_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     system_service: SystemServiceOperations,
     user_service: Any = None,
 ) -> None:

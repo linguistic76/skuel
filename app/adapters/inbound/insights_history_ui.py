@@ -10,7 +10,7 @@ from typing import Any
 from fasthtml.common import Div, NotStr, Span
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select
@@ -54,8 +54,8 @@ def parse_insights_history_params(request: Request) -> InsightsHistoryParams:
 
 
 def create_insights_history_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     insight_store: Any,
 ) -> None:
     """Create insights history UI routes.

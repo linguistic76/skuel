@@ -23,7 +23,7 @@ from fasthtml.common import (
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT
 from ui.exercises.inline_form import render_inline_exercise_form
@@ -147,8 +147,8 @@ def _exercises_for_ku_section(exercises: list[dict]) -> Any:
 
 
 def create_ku_ui_routes(
-    _app: Any,
-    rt: Any,
+    _app: FastHTMLApp,
+    rt: RouteDecorator,
     ku_service: Any,
     user_relationship_service: Any = None,
     exercises_service: Any = None,
