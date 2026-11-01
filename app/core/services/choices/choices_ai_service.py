@@ -99,24 +99,9 @@ class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):
             "choice_type": choice.choice_type.value if choice.choice_type else "multiple",
         }
 
-        prompt = """Suggest a decision-making framework for this choice.
-
-Provide:
-1. FRAMEWORK: The recommended approach (e.g., "Pros/Cons", "10-10-10", "Reversibility Test")
-2. WHY: Why this framework fits this decision
-3. QUESTIONS: 3 key questions to ask yourself
-4. CONSIDERATIONS: 2-3 factors to weigh
-
-Format:
-FRAMEWORK: [name]
-WHY: [explanation]
-QUESTION: [question 1]
-QUESTION: [question 2]
-QUESTION: [question 3]
-CONSIDERATION: [factor 1]
-CONSIDERATION: [factor 2]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
+        insight_result = await self._generate_insight(
+            "choices_ai_framework", context=context, max_tokens=350
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -162,19 +147,12 @@ CONSIDERATION: [factor 2]"""
             else "Not specified",
         }
 
-        prompt = f"""Generate {num_alternatives} alternative approaches for this decision.
-
-For each alternative:
-1. A clear name/description
-2. Key advantage
-3. Key tradeoff
-
-Format:
-ALTERNATIVE: [name/description]
-ADVANTAGE: [key benefit]
-TRADEOFF: [key downside or consideration]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
+        insight_result = await self._generate_insight(
+            "choices_ai_alternatives",
+            fields={"num_alternatives": num_alternatives},
+            context=context,
+            max_tokens=350,
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -217,11 +195,4 @@ TRADEOFF: [key downside or consideration]"""
             "priority": choice.priority if choice.priority else "medium",
         }
 
-        prompt = """Provide a brief insight about this decision.
-Focus on:
-1. What makes this decision significant
-2. One key factor to consider
-3. A perspective shift that might help
-Keep it under 100 words."""
-
-        return await self._generate_insight(prompt, context=context, max_tokens=200)
+        return await self._generate_insight("choices_ai_insight", context=context, max_tokens=200)

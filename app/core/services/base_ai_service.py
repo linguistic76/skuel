@@ -27,13 +27,14 @@ Usage:
 """
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
 from core.constants import PromptInput
 from core.events import publish_event
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import EntityUID
+from core.prompts import PROMPT_REGISTRY
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -49,6 +50,41 @@ if TYPE_CHECKING:
 # Generic type vars
 B = TypeVar("B")  # Backend operations protocol
 T = TypeVar("T")  # Domain model type
+
+#: The templates ``_generate_insight`` renders (``core/prompts/templates/{id}.md``):
+#: one per prompt method of the eight domain AI services, each named for its
+#: route's ``AIRouteSpec`` (the two unrouted PathStep prompts for their method).
+#: A prompt string is not one of these, so no inline prompt reaches the door.
+AIPromptId = Literal[
+    "tasks_ai_breakdown",
+    "tasks_ai_insight",
+    "tasks_ai_priority_suggestion",
+    "goals_ai_milestones",
+    "goals_ai_insight",
+    "goals_ai_smart_refinement",
+    "goals_ai_strategy",
+    "habits_ai_streak_insight",
+    "habits_ai_habit_stack",
+    "habits_ai_optimize_loop",
+    "habits_ai_identity",
+    "events_ai_preparation",
+    "events_ai_insight",
+    "events_ai_reflection",
+    "choices_ai_framework",
+    "choices_ai_alternatives",
+    "choices_ai_insight",
+    "principles_ai_deepen",
+    "principles_ai_practices",
+    "principles_ai_insight",
+    "ps_ai_explain",
+    "ps_ai_practice",
+    "ps_ai_insight",
+    "ps_ai_applications",
+    "ps_ai_learning_sequence",
+    "lp_ai_overview",
+    "lp_ai_strategy",
+    "lp_ai_insight",
+]
 
 
 class BaseAIService(Generic[B, T]):
@@ -160,23 +196,29 @@ class BaseAIService(Generic[B, T]):
     def _bounded(value: object, limit: int = PromptInput.FIELD_MAX_CHARS) -> str:
         """Render ``value`` as prompt text of at most ``limit`` characters.
 
-        Every entity field a prompt builder interpolates goes through this:
-        a field within the limit is returned as written, a longer one is cut
-        at a paragraph, sentence or word boundary and ends in ``...`` so the
+        Every value that enters a prompt from an entity goes through this: a
+        value within the limit is returned as written, a longer one is cut at
+        a paragraph, sentence or word boundary and ends in ``...`` so the
         model can see it was cut. ``_generate_insight`` applies it to each
-        ``context`` value; a builder that writes a field straight into its
-        prompt string calls it at the interpolation.
+        ``fields`` and ``context`` value.
         """
         return truncate_to_budget(f"{value}", limit)
 
     async def _generate_insight(
         self,
-        prompt: str,
+        template_id: AIPromptId,
+        *,
+        fields: Mapping[str, object] | None = None,
         context: Mapping[str, object] | None = None,
         max_tokens: int = 500,
     ) -> Result[str]:
         """
         Generate AI insight using LLM service.
+
+        The instructions are a committed template (``PROMPT_REGISTRY``, so a
+        founder-local override serves first), never a string the caller
+        wrote: ``template_id`` names one, and ``fields`` fill its
+        placeholders.
 
         ``LLMService.generate`` always answers: a provider failure comes back
         as a response with empty ``content`` and a set ``error``, never as an
@@ -184,22 +226,26 @@ class BaseAIService(Generic[B, T]):
         failed ``Result``, so a caller that parses the text never sees an
         empty answer as success.
 
-        Each ``context`` value is bounded on its own (``_bounded``), so a long
-        field shortens that field and leaves the instructions in ``prompt``
-        whole. The assembled prompt is then held to
+        Each ``fields`` and ``context`` value is bounded on its own
+        (``_bounded``), so a long field shortens that field and leaves the
+        template's instructions whole. The assembled prompt is then held to
         ``PromptInput.PROMPT_MAX_CHARS``: one over the ceiling is refused with
         a system error and never sent, because cutting it here would cut the
         instructions.
 
         Args:
-            prompt: The instructions for the LLM, with any entity field it
-                interpolates already passed through ``_bounded``
+            template_id: The template holding the instructions for the LLM
+            fields: The template's placeholder values, one per placeholder
             context: Optional entity fields to put before the instructions
             max_tokens: Maximum tokens in response
 
         Returns:
             Result containing the generated text; an integration error when the
             provider fails; a system error when the prompt is over the ceiling
+
+        Raises:
+            FileNotFoundError: No committed template has that id
+            KeyError: ``fields`` lacks one of the template's placeholders
         """
         if not self.llm:
             return Result.fail(
@@ -210,6 +256,11 @@ class BaseAIService(Generic[B, T]):
                 )
             )
 
+        prompt = PROMPT_REGISTRY.render(
+            template_id,
+            **{name: self._bounded(value) for name, value in (fields or {}).items()},
+        )
+
         # Build full prompt with context if provided
         full_prompt = prompt
         if context:
@@ -218,17 +269,18 @@ class BaseAIService(Generic[B, T]):
 
         if len(full_prompt) > PromptInput.PROMPT_MAX_CHARS:
             self.logger.error(
-                f"Prompt of {len(full_prompt)} characters exceeds the "
+                f"Prompt {template_id!r} of {len(full_prompt)} characters exceeds the "
                 f"{PromptInput.PROMPT_MAX_CHARS}-character ceiling - not sent"
             )
             return Result.fail(
                 Errors.system(
                     message=(
                         f"Assembled prompt is {len(full_prompt)} characters; the ceiling is "
-                        f"{PromptInput.PROMPT_MAX_CHARS}. A prompt builder interpolated a "
-                        "field without bounding it."
+                        f"{PromptInput.PROMPT_MAX_CHARS}. Template {template_id!r} and its "
+                        "bounded fields and context add up past it."
                     ),
                     operation="generate_insight",
+                    template_id=template_id,
                     prompt_chars=len(full_prompt),
                     ceiling=PromptInput.PROMPT_MAX_CHARS,
                 )

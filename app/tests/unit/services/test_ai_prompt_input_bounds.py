@@ -3,14 +3,17 @@
 The domain AI services build a prompt from an entity's stored fields. A field
 written through a door with no request model (vault ingestion, a template
 spawn) has no length cap, so the bound sits where the text enters the prompt:
-``BaseAIService._bounded`` on each field, and a ceiling on the assembled prompt
-in ``_generate_insight`` that refuses instead of cutting.
+``_generate_insight`` renders a committed template and passes each ``fields``
+and ``context`` value through ``BaseAIService._bounded``, then holds the
+assembled prompt to a ceiling that refuses instead of cutting.
 
 Every prompt-building method of the eight services is exercised here with an
 entity whose every text field is far over the bound. The method list is
 derived from the service classes, so a new prompt builder is covered on the
-day it is written. Runs the real ``LLMService`` over a scripted chat port: the
-prompt asserted on is the one the provider would receive.
+day it is written, and a builder whose template is missing
+(``FileNotFoundError``) or lacks a value for a placeholder (``KeyError``) fails
+here. Runs the real ``LLMService`` over a scripted chat port: the prompt
+asserted on is the one the provider would receive.
 """
 
 from __future__ import annotations
@@ -44,6 +47,7 @@ from core.models.principle.principle_request import (
 )
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
+from core.prompts import PROMPT_REGISTRY
 from core.services.base_ai_service import BaseAIService
 from core.services.choices.choices_ai_service import ChoicesAIService
 from core.services.events.events_ai_service import EventsAIService
@@ -205,7 +209,7 @@ async def test_a_short_task_prompt_is_the_fields_as_written() -> None:
         "Task: Plan trip\n"
         "Description: Flights, hotel, and a day in Kyoto.\n"
         "\n"
-        "Return only the subtask titles, one per line. Be specific and actionable."
+        "Return only the subtask titles, one per line. Be specific and actionable.\n"
     )
 
 
@@ -239,7 +243,7 @@ async def test_context_values_are_bounded_one_by_one() -> None:
     service, caller = _service(TasksAIService, SERVICES[TasksAIService][0])
 
     result = await service._generate_insight(
-        "Say something useful.", context={"notes": LONG_TEXT, "streak": 7}
+        "tasks_ai_insight", context={"notes": LONG_TEXT, "streak": 7}
     )
 
     assert result.is_ok
@@ -248,19 +252,67 @@ async def test_context_values_are_bounded_one_by_one() -> None:
     assert notes_line.startswith("notes: A sentence of ordinary words")
     assert len(notes_line) <= len("notes: ") + PromptInput.FIELD_MAX_CHARS
     assert streak_line == "streak: 7"
-    assert prompt.endswith("\n\nSay something useful.")
+    assert prompt.endswith("\n\n" + PROMPT_REGISTRY.render("tasks_ai_insight"))
+
+
+@pytest.mark.asyncio
+async def test_field_values_are_bounded_one_by_one() -> None:
+    service, caller = _service(TasksAIService, SERVICES[TasksAIService][0])
+
+    result = await service._generate_insight(
+        "tasks_ai_breakdown",
+        fields={"max_subtasks": 4, "title": LONG_TEXT, "description": "Flights first."},
+    )
+
+    assert result.is_ok
+    prompt = str(caller.calls[0][-1]["content"])
+    title_line = next(line for line in prompt.split("\n") if line.startswith("Task: "))
+    assert len(title_line) <= len("Task: ") + PromptInput.FIELD_MAX_CHARS
+    assert title_line.endswith("...")
+    assert "Break down this task into 4 or fewer" in prompt
+    assert "Description: Flights first.\n" in prompt
+
+
+@pytest.mark.asyncio
+async def test_a_template_placeholder_with_no_field_raises() -> None:
+    service, caller = _service(TasksAIService, SERVICES[TasksAIService][0])
+
+    with pytest.raises(KeyError):
+        await service._generate_insight("tasks_ai_breakdown", fields={"title": "Plan trip"})
+    assert caller.calls == []
+
+
+def _context_block_of(chars: int) -> dict[str, str]:
+    """A context whose ``key: value`` lines, newline-joined, are ``chars`` long.
+
+    Every value is within the field bound, so ``_bounded`` passes each whole:
+    the only way past the ceiling once each value is bounded is many of them.
+    """
+    lines = -(-(chars + 1) // (PromptInput.FIELD_MAX_CHARS + 6))  # "kNN: " + value + "\n"
+    per_line, extra = divmod(chars + 1 - 6 * lines, lines)
+    return {f"k{n:02d}": "x" * (per_line + (n < extra)) for n in range(lines)}
+
+
+def _context_reaching(prompt_chars: int) -> dict[str, str]:
+    """A context that brings the ``tasks_ai_insight`` prompt to ``prompt_chars``."""
+    instructions = PROMPT_REGISTRY.render("tasks_ai_insight")
+    framing = len("Context:\n") + len("\n\n")
+    return _context_block_of(prompt_chars - framing - len(instructions))
 
 
 @pytest.mark.asyncio
 async def test_a_prompt_over_the_ceiling_is_refused_and_never_sent() -> None:
     service, caller = _service(TasksAIService, SERVICES[TasksAIService][0])
 
-    result = await service._generate_insight("x" * (PromptInput.PROMPT_MAX_CHARS + 1))
+    result = await service._generate_insight(
+        "tasks_ai_insight", context=_context_reaching(PromptInput.PROMPT_MAX_CHARS + 1)
+    )
 
     assert result.is_error
     error = result.expect_error()
     assert error.category == ErrorCategory.SYSTEM
     assert error.details["prompt_chars"] == PromptInput.PROMPT_MAX_CHARS + 1
+    assert error.details["template_id"] == "tasks_ai_insight"
     assert caller.calls == []
 
 
@@ -268,10 +320,13 @@ async def test_a_prompt_over_the_ceiling_is_refused_and_never_sent() -> None:
 async def test_a_prompt_at_the_ceiling_is_sent() -> None:
     service, caller = _service(TasksAIService, SERVICES[TasksAIService][0])
 
-    result = await service._generate_insight("x" * PromptInput.PROMPT_MAX_CHARS)
+    result = await service._generate_insight(
+        "tasks_ai_insight", context=_context_reaching(PromptInput.PROMPT_MAX_CHARS)
+    )
 
     assert result.is_ok
     assert len(caller.calls) == 1
+    assert len(str(caller.calls[0][-1]["content"])) == PromptInput.PROMPT_MAX_CHARS
 
 
 ACTIVITY_REQUEST_MODELS: list[type[BaseModel]] = [

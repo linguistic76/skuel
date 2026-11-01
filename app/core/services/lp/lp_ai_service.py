@@ -106,18 +106,9 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
             "outcomes": outcomes,
         }
 
-        prompt = """Create an engaging overview of this learning path.
-
-Provide:
-1. HOOK: A compelling 1-sentence hook about why this path matters
-2. WHO_ITS_FOR: Who would benefit most from this path
-3. WHAT_YOULL_LEARN: Key skills/knowledge (3-4 bullet points)
-4. COMMITMENT: Realistic time/effort expectation
-5. OUTCOME: What success looks like after completion
-
-Format each section with its label."""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=400)
+        insight_result = await self._generate_insight(
+            "lp_ai_overview", context=context, max_tokens=400
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -160,18 +151,9 @@ Format each section with its label."""
             "learning_level": lp.learning_level.value,
         }
 
-        prompt = """Create a completion strategy for this learning path.
-
-Provide:
-1. PACE: Recommended pace (hours per day/week)
-2. SCHEDULE: Suggested schedule pattern (e.g., "30 min daily" or "2 hours on weekends")
-3. FOCUS_TIP: One key tip for staying focused
-4. CHALLENGE: The most likely challenge and how to overcome it
-5. MILESTONE: A meaningful mid-point milestone to celebrate
-
-Format each as KEY: [response]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
+        insight_result = await self._generate_insight(
+            "lp_ai_strategy", context=context, max_tokens=350
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -214,10 +196,4 @@ Format each as KEY: [response]"""
             "estimated_hours": lp.estimated_hours or "Unknown",
         }
 
-        prompt = """Provide a brief, motivating insight about this learning path.
-Focus on:
-1. The transformation this path enables
-2. One encouraging thought for someone starting
-Keep it under 100 words."""
-
-        return await self._generate_insight(prompt, context=context, max_tokens=200)
+        return await self._generate_insight("lp_ai_insight", context=context, max_tokens=200)

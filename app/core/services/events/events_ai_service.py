@@ -101,14 +101,12 @@ class EventsAIService(BaseAIService["EventsOperations", Event]):
             "event_date": str(event.event_date) if event.event_date else "Not set",
         }
 
-        prompt = f"""Create a preparation checklist for this event with up to {max_items} items.
-
-Focus on actionable items that help the person prepare effectively.
-Order from most important to least important.
-
-Return only the checklist items, one per line. Be specific and practical."""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=250)
+        insight_result = await self._generate_insight(
+            "events_ai_preparation",
+            fields={"max_items": max_items},
+            context=context,
+            max_tokens=250,
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -138,13 +136,7 @@ Return only the checklist items, one per line. Be specific and practical."""
             "status": event.status.value if event.status else "scheduled",
         }
 
-        prompt = """Provide a brief insight about this event.
-Focus on:
-1. How to make the most of this event
-2. One tip for maximizing learning or value
-Keep it under 100 words."""
-
-        return await self._generate_insight(prompt, context=context, max_tokens=200)
+        return await self._generate_insight("events_ai_insight", context=context, max_tokens=200)
 
     async def suggest_reflection_prompts(
         self, event_uid: str, num_prompts: int = 3
@@ -164,16 +156,12 @@ Keep it under 100 words."""
             "event_type": event.event_type or "general",
         }
 
-        prompt = f"""Generate {num_prompts} reflection prompts for after this event.
-
-Each prompt should help the person:
-- Extract key learnings
-- Identify actionable next steps
-- Connect the experience to their goals
-
-Format: One prompt per line, phrased as a question."""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=200)
+        insight_result = await self._generate_insight(
+            "events_ai_reflection",
+            fields={"num_prompts": num_prompts},
+            context=context,
+            max_tokens=200,
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 

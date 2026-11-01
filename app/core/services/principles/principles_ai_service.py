@@ -103,18 +103,9 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
             "category": category,
         }
 
-        prompt = """Help deepen understanding of this principle.
-
-Provide:
-1. ORIGIN: Where might this principle come from (personal experience, tradition, observation)?
-2. WHEN_TESTED: When is this principle most challenged or tested?
-3. OPPOSITE: What is the opposite belief, and why might someone hold it?
-4. DAILY_APPLICATION: How might this show up in daily decisions?
-5. GROWTH_EDGE: How might living this principle more fully lead to growth?
-
-Format each as KEY: [response]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=400)
+        insight_result = await self._generate_insight(
+            "principles_ai_deepen", context=context, max_tokens=400
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -162,19 +153,12 @@ Format each as KEY: [response]"""
             "category": category,
         }
 
-        prompt = f"""Suggest {num_practices} practices to embody this principle more fully.
-
-Each practice should be:
-- Specific and actionable
-- Something that can be done regularly
-- Connected to real-life situations
-
-Format:
-PRACTICE: [name]
-HOW: [specific instruction]
-WHEN: [when/where to apply it]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
+        insight_result = await self._generate_insight(
+            "principles_ai_practices",
+            fields={"num_practices": num_practices},
+            context=context,
+            max_tokens=350,
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -220,10 +204,6 @@ WHEN: [when/where to apply it]"""
             "strength": strength_display,
         }
 
-        prompt = """Provide a brief, meaningful insight about living this principle.
-Focus on:
-1. What living this principle reveals about character
-2. A challenge or paradox within this principle
-Keep it reflective and under 100 words."""
-
-        return await self._generate_insight(prompt, context=context, max_tokens=200)
+        return await self._generate_insight(
+            "principles_ai_insight", context=context, max_tokens=200
+        )

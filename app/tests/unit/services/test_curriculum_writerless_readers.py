@@ -24,6 +24,7 @@ from core.models.pathways.lp_position import LpPosition
 from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
 from core.services.askesis.context_retriever import ContextRetriever
+from core.services.base_ai_service import AIPromptId
 from core.services.goals.goals_learning_service import GoalsLearningService
 from core.services.lp.lp_ai_service import LpAIService
 from core.services.principles.principles_learning_service import (
@@ -200,7 +201,9 @@ class _CapturingLpAI(LpAIService):
 
     async def _generate_insight(
         self,
-        prompt: str,
+        template_id: AIPromptId,
+        *,
+        fields: Mapping[str, object] | None = None,
         context: Mapping[str, object] | None = None,
         max_tokens: int = 500,
     ) -> Result[str]:

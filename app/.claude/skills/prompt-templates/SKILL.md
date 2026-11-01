@@ -75,7 +75,9 @@ core/prompts/
     ├── askesis_scaffold_entry.md
     ├── askesis_socratic_turn.md
     ├── askesis_ku_bridge.md
-    └── askesis_journal_reflection.md
+    ├── askesis_journal_reflection.md
+    ├── {domain}_ai_*.md                # 28 — one per *AIService prompt method (tasks_ai_breakdown.md, …)
+    └── ps_ai_explain_level_*.md        # 6 — explain_step's level fragments
 ```
 
 `PromptRegistry` lazy-loads on first access and caches for the process lifetime.
@@ -123,6 +125,8 @@ with a warning — it replaces the words, never the placeholders.
 | `askesis_socratic_turn` | Staged — no render site (PLANNED, ADR-082 D4) — mid-conversation | `{ku_title}`, `{conversation_history}`, `{user_message}`, `{user_understanding_estimate}`, `{awaiting_response_to}` |
 | `askesis_ku_bridge` | Staged — no render site (PLANNED, ADR-082 D4; first wiring candidate) — ZPD traversal | `{current_ku_title}`, `{current_ku_engagement}`, `{target_ku_title}`, `{target_ku_description}`, `{bridge_connection}` |
 | `askesis_journal_reflection` | Staged — no render site (PLANNED, ADR-082 D4; je_pro shared-entry doorway only) — journal-triggered | `{user_name}`, `{journal_open_questions}`, `{journal_struggles}`, `{related_ku_title}`, `{related_ku_description}` |
+| `{domain}_ai_*` (28) | One per prompt method of the eight `*AIService` classes, rendered by `BaseAIService._generate_insight(template_id, fields=…)`, named for the method's `AIRouteSpec` (`tasks_ai_breakdown` ↔ `/api/tasks/ai/breakdown`); the two unrouted PS methods' are `ps_ai_applications`, `ps_ai_learning_sequence`. The id set is `AIPromptId` (`base_ai_service.py`) | the call's `fields` keys — most take none (their entity fields go in the `Context:` block) |
+| `ps_ai_explain_level_{beginner,standard,intermediate,advanced,brief,detailed}` | `PsAIService.explain_step` — the one-line guidance sentence for each target level, filling `ps_ai_explain`'s `{guidance}` (`EXPLAIN_LEVEL_TEMPLATES`; an unknown level reads as `standard`) | none |
 
 ---
 
@@ -133,6 +137,9 @@ with a warning — it replaces the words, never the placeholders.
 3. Add a row to the catalog table above
 
 **Naming convention:**
+- A domain AI service's prompt: its route's `AIRouteSpec` name — `{domain}_ai_{action}.md`, so a
+  route and its template share one name (`tests/unit/services/test_ai_prompt_templates.py` holds
+  the rule). Add the id to `AIPromptId` too; `_generate_insight` takes no other.
 - Domain-specific: `{domain}_{purpose}.md` — e.g., `askesis_daily_plan.md`, `askesis_qa_response.md`
 - Cross-domain service: `{service}_{purpose}.md` — e.g., `activity_feedback.md`, `journal_activity.md`
 - DSL pipeline: `dsl_{purpose}.md`

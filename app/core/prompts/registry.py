@@ -45,6 +45,9 @@ Available templates (core/prompts/templates/):
     entry_ku_grounding_judge      — Entry→Ku engagement filter (EntryGroundingService)
     transcript_formatting         — Formatting instructions for a raw transcript (ContentEnrichmentService)
     lifepath_vision_themes        — Themes of a Life Path vision statement (LifePathVisionService)
+    {domain}_ai_*                 — One per prompt method of the eight *AIService classes, named for
+                                    its AIRouteSpec (BaseAIService._generate_insight, AIPromptId)
+    ps_ai_explain_level_*         — PsAIService.explain_step's six level fragments ({guidance})
 """
 
 import string

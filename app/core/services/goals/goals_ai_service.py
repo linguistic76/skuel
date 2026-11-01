@@ -151,24 +151,17 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
         if not goal:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
-        prompt = f"""Generate {max_milestones} meaningful milestones for achieving this goal.
-
-Goal: {self._bounded(goal.title)}
-Description: {self._bounded(goal.description or "No description provided")}
-Success Criteria: {self._bounded(goal.success_criteria or "Not specified")}
-Timeframe: {goal.timeframe.value if goal.timeframe else "Not specified"}
-
-For each milestone, provide:
-1. A clear, measurable title
-2. Specific completion criteria
-
-Format each milestone as:
-MILESTONE: [title]
-CRITERIA: [how to know it's complete]
-
-Order from earliest to latest achievement."""
-
-        insight_result = await self._generate_insight(prompt, max_tokens=500)
+        insight_result = await self._generate_insight(
+            "goals_ai_milestones",
+            fields={
+                "max_milestones": max_milestones,
+                "title": goal.title,
+                "description": goal.description or "No description provided",
+                "success_criteria": goal.success_criteria or "Not specified",
+                "timeframe": goal.timeframe.value if goal.timeframe else "Not specified",
+            },
+            max_tokens=500,
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -225,14 +218,7 @@ Order from earliest to latest achievement."""
             "target_date": str(goal.target_date) if goal.target_date else "No deadline",
         }
 
-        prompt = """Provide a brief, motivating insight about this goal.
-Focus on:
-1. Why this goal matters for personal growth
-2. One specific strategy for making progress
-3. A potential challenge to watch for
-Keep it under 150 words."""
-
-        return await self._generate_insight(prompt, context=context, max_tokens=250)
+        return await self._generate_insight("goals_ai_insight", context=context, max_tokens=250)
 
     # ========================================================================
     # SMART GOAL REFINEMENT
@@ -265,19 +251,9 @@ Keep it under 150 words."""
             "target_date": str(goal.target_date) if goal.target_date else "Not set",
         }
 
-        prompt = """Analyze this goal against SMART criteria and provide suggestions.
-
-For each criterion, rate it (Strong/Needs Work) and provide a specific improvement if needed.
-
-Respond in this exact format:
-SPECIFIC: [Strong/Needs Work] - [suggestion if needed]
-MEASURABLE: [Strong/Needs Work] - [suggestion if needed]
-ACHIEVABLE: [Strong/Needs Work] - [suggestion if needed]
-RELEVANT: [Strong/Needs Work] - [suggestion if needed]
-TIME_BOUND: [Strong/Needs Work] - [suggestion if needed]
-REFINED_GOAL: [A SMART-improved version of the goal title]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=400)
+        insight_result = await self._generate_insight(
+            "goals_ai_smart_refinement", context=context, max_tokens=400
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -336,20 +312,9 @@ REFINED_GOAL: [A SMART-improved version of the goal title]"""
             "domain": goal.domain.value if goal.domain else "General",
         }
 
-        prompt = """Create an achievement strategy for this goal.
-
-Suggest 2-3 items for each category:
-
-HABITS: Daily/weekly habits that support this goal
-TASKS: Specific one-time tasks to complete
-KNOWLEDGE: Skills or knowledge areas to develop
-
-Format:
-HABIT: [habit description]
-TASK: [task description]
-KNOWLEDGE: [knowledge/skill area]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=400)
+        insight_result = await self._generate_insight(
+            "goals_ai_strategy", context=context, max_tokens=400
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 

@@ -160,16 +160,15 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         if not task:
             return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
 
-        # Build prompt for LLM
-        prompt = f"""Break down this task into {max_subtasks} or fewer actionable subtasks.
-
-Task: {self._bounded(task.title)}
-Description: {self._bounded(task.description or "No description provided")}
-
-Return only the subtask titles, one per line. Be specific and actionable."""
-
-        # Use base class LLM generation
-        insight_result = await self._generate_insight(prompt, max_tokens=300)
+        insight_result = await self._generate_insight(
+            "tasks_ai_breakdown",
+            fields={
+                "max_subtasks": max_subtasks,
+                "title": task.title,
+                "description": task.description or "No description provided",
+            },
+            max_tokens=300,
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -214,13 +213,7 @@ Return only the subtask titles, one per line. Be specific and actionable."""
             "due_date": str(task.due_date) if task.due_date else "No deadline",
         }
 
-        prompt = """Provide a brief, actionable insight about this task.
-Focus on:
-1. Why this task might be important
-2. One specific tip for completing it effectively
-Keep it under 100 words."""
-
-        return await self._generate_insight(prompt, context=context, max_tokens=200)
+        return await self._generate_insight("tasks_ai_insight", context=context, max_tokens=200)
 
     # ========================================================================
     # INTELLIGENT PRIORITIZATION (Future AI Feature)
@@ -255,14 +248,9 @@ Keep it under 100 words."""
             "due_date": str(task.due_date) if task.due_date else "No deadline",
         }
 
-        prompt = """Analyze this task and suggest a priority level.
-Priority levels: HIGH, MEDIUM, LOW
-
-Respond in this format:
-PRIORITY: [your suggestion]
-REASONING: [brief explanation, 1-2 sentences]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=150)
+        insight_result = await self._generate_insight(
+            "tasks_ai_priority_suggestion", context=context, max_tokens=150
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
