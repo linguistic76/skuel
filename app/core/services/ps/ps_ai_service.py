@@ -21,6 +21,7 @@ from core.models.pathways.path_step import PathStep
 from core.models.type_hints import EntityUID
 from core.ports import PsOperations
 from core.ports.query_types import StepApplicationsResult, StepLearningSequenceResult
+from core.prompts import PROMPT_REGISTRY
 from core.services.base_ai_service import BaseAIService
 from core.services.curriculum_similarity import rank_similar_curriculum
 from core.utils.llm_json import parse_json_reply
@@ -30,6 +31,18 @@ if TYPE_CHECKING:
     from core.services.embeddings_service import EmbeddingsService
     from core.services.llm_service import LLMService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+
+#: The guidance sentence ``ps_ai_explain`` carries for each ``explain_step``
+#: target level: one fragment template per level, each overridable on its own.
+#: An unknown level reads as ``standard``.
+EXPLAIN_LEVEL_TEMPLATES: dict[str, str] = {
+    "beginner": "ps_ai_explain_level_beginner",
+    "standard": "ps_ai_explain_level_standard",
+    "intermediate": "ps_ai_explain_level_intermediate",
+    "advanced": "ps_ai_explain_level_advanced",
+    "brief": "ps_ai_explain_level_brief",
+    "detailed": "ps_ai_explain_level_detailed",
+}
 
 
 class PsAIService(BaseAIService[PsOperations, PathStep]):
@@ -109,15 +122,6 @@ class PsAIService(BaseAIService[PsOperations, PathStep]):
         if not ps:
             return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
 
-        level_guidance = {
-            "beginner": "Use simple language. Assume no prior knowledge. Explain why this matters in everyday terms.",
-            "standard": "Provide a clear explanation with key points.",
-            "intermediate": "Assume some familiarity with the domain. Focus on nuance and connections.",
-            "advanced": "Go in-depth. Connect to broader concepts and practical applications at a high level.",
-            "brief": "Provide a 2-3 sentence overview.",
-            "detailed": "Provide a comprehensive explanation with examples.",
-        }
-
         context = {
             "title": ps.title,
             "intent": ps.intent or "Not specified",
@@ -125,16 +129,15 @@ class PsAIService(BaseAIService[PsOperations, PathStep]):
             "estimated_time": f"{ps.estimated_hours or 1.0} hours",
         }
 
-        guidance = level_guidance.get(target_level, level_guidance["standard"])
+        level_template = EXPLAIN_LEVEL_TEMPLATES.get(
+            target_level, EXPLAIN_LEVEL_TEMPLATES["standard"]
+        )
+        # The fragment sits mid-sentence; its file's closing newline is not part of it.
+        guidance = PROMPT_REGISTRY.render(level_template).strip()
 
-        prompt = f"""Explain this path step. {guidance}
-
-Focus on:
-1. What the learner will understand or be able to do
-2. Why this step matters in the learning journey
-3. How to approach this step effectively"""
-
-        return await self._generate_insight(prompt, context=context, max_tokens=300)
+        return await self._generate_insight(
+            "ps_ai_explain", fields={"guidance": guidance}, context=context, max_tokens=300
+        )
 
     async def suggest_practice_activities(
         self, ps_uid: str, num_activities: int = 3
@@ -157,22 +160,12 @@ Focus on:
             "description": ps.description or "No description",
         }
 
-        prompt = f"""Suggest {num_activities} practice activities for this path step.
-
-Return ONLY valid JSON in this exact shape:
-{{
-  "activities": [
-    {{
-      "name": "activity name",
-      "type": "hands-on | reflective | applied | creative",
-      "description": "what the learner should do"
-    }}
-  ]
-}}
-
-Each activity must be specific, actionable, and varied in type."""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=400)
+        insight_result = await self._generate_insight(
+            "ps_ai_practice",
+            fields={"num_activities": num_activities},
+            context=context,
+            max_tokens=400,
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -207,13 +200,7 @@ Each activity must be specific, actionable, and varied in type."""
             "sequence": ps.sequence if ps.sequence else "Standalone",
         }
 
-        prompt = """Provide a brief, encouraging insight about this path step.
-Focus on:
-1. The value of mastering this step
-2. A tip for staying motivated
-Keep it under 100 words."""
-
-        return await self._generate_insight(prompt, context=context, max_tokens=200)
+        return await self._generate_insight("ps_ai_insight", context=context, max_tokens=200)
 
     async def suggest_step_applications(self, ps_uid: str) -> Result[StepApplicationsResult]:
         """Suggest how to apply this path step across activity domains.
@@ -239,19 +226,9 @@ Keep it under 100 words."""
             "domain": ps.domain.value if ps.domain else "General",
         }
 
-        prompt = """Suggest practical applications for this path step across different life domains.
-
-Return ONLY valid JSON in this exact shape:
-{
-  "tasks": ["specific task 1", "specific task 2", "specific task 3"],
-  "habits": ["habit to build 1", "habit to build 2", "habit to build 3"],
-  "goals": ["goal this enables 1", "goal this enables 2", "goal this enables 3"],
-  "real_world_examples": ["real situation 1", "real situation 2", "real situation 3"]
-}
-
-Each item should be concrete and actionable, not generic."""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=500)
+        insight_result = await self._generate_insight(
+            "ps_ai_applications", context=context, max_tokens=500
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -339,22 +316,12 @@ Each item should be concrete and actionable, not generic."""
             "domain": ps.domain.value if ps.domain else "General",
         }
 
-        prompt = f"""Suggest a learning sequence for this path step (up to {max_suggestions} items each).
-
-Return ONLY valid JSON in this exact shape:
-{{
-  "prerequisites": [
-    {{"title": "prerequisite step title", "reason": "why this should come first"}}
-  ],
-  "next_steps": [
-    {{"title": "next step title", "reason": "why this builds on the current step"}}
-  ]
-}}
-
-Prerequisites: foundational knowledge needed before this step.
-Next steps: natural progressions after mastering this step."""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=600)
+        insight_result = await self._generate_insight(
+            "ps_ai_learning_sequence",
+            fields={"max_suggestions": max_suggestions},
+            context=context,
+            max_tokens=600,
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 

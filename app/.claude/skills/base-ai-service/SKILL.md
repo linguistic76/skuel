@@ -148,17 +148,23 @@ ingest path publishes after persisting. `./dev embed-backfill` fills nodes that 
 
 ## The Helpers
 
-### `_generate_insight(prompt, context=None, max_tokens=500) -> Result[str]`
+### `_generate_insight(template_id, *, fields=None, context=None, max_tokens=500) -> Result[str]`
 
-Prepends `context` as `key: value` lines — each value through `_bounded` — calls
-`self.llm.generate(full_prompt, max_tokens=max_tokens)`, and returns
-`Result.ok(response.content)`.
+Renders the committed template `template_id` from `PROMPT_REGISTRY`, filling its placeholders
+from `fields`; prepends `context` as `key: value` lines; calls
+`self.llm.generate(full_prompt, max_tokens=max_tokens)`; and returns
+`Result.ok(response.content)`. Every `fields` and `context` value goes through `_bounded`.
 
+- `template_id` is an `AIPromptId` — a `Literal` of the 28 template ids — so mypy refuses a
+  prompt string, or an id that is not one of them, at the call.
 - No LLM → `Result.fail(Errors.unavailable(feature="ai_insights", ...))`.
+- A missing template raises `FileNotFoundError`; a placeholder with no `fields` value raises
+  `KeyError`. Both are programming errors, and
+  `tests/unit/services/test_ai_prompt_templates.py` catches them statically.
 - An assembled prompt over `PromptInput.PROMPT_MAX_CHARS` → `Result.fail(Errors.system(...))`,
   and nothing is sent. The helper refuses instead of cutting: the instructions are the end of
-  the prompt, and a cut here would take them. Bounded fields keep every live prompt under the
-  ceiling; a builder that interpolates a field without `_bounded` is what reaches it.
+  the prompt, and a cut here would take them. Each value is bounded, so only many of them can
+  reach the ceiling.
 - A response with `error` set → `Result.fail(Errors.integration(service="llm", ...))`.
   `LLMService.generate` never raises: a provider failure is a response with empty `content`
   and a set `error`, and this helper is where it becomes a failed `Result`. There is no
@@ -174,9 +180,8 @@ method still checks the value's shape (`isinstance(parsed, dict)`) before readin
 Renders one entity field as prompt text of at most `limit` characters
 (`truncate_to_budget`, `core/utils/text_truncation.py`): a field within the limit is returned
 as written; a longer one is cut at a paragraph, sentence or word boundary and ends in `...`.
-`_generate_insight` applies it to every `context` value, so a field that goes into the context
-dict needs nothing more. A builder that writes a field straight into its prompt string calls
-it at the interpolation — `generate_task_breakdown` and `generate_milestones` do.
+`_generate_insight` applies it to every `fields` and `context` value, so a builder passes the
+entity's values as they are.
 
 The bound is per field because the request models are not the only writers: a Task or Event
 `description` is capped at 2000 by its request model, the limit `FIELD_MAX_CHARS` matches, and
@@ -354,14 +359,23 @@ HTTP door onto an AI method goes through `_ai_route`.
 
 ## Prompts
 
-The eight domain AI services hold their prompts inline, as string literals in the method.
-`PROMPT_REGISTRY` (`core/prompts/`) is the registry other LLM callers render from — Askesis
-and the report generators among them. A new prompt goes in the registry — see the
+The eight domain AI services render every prompt from `PROMPT_REGISTRY` (`core/prompts/`),
+one template per prompt method, through `_generate_insight`. A template's id is its route's
+`AIRouteSpec` name (`tasks_ai_breakdown`, served at `/api/tasks/ai/breakdown`); an unrouted
+method's template is named for it (`ps_ai_applications`, `ps_ai_learning_sequence`).
+`explain_step`'s six target levels are six one-line fragments, `ps_ai_explain_level_*`, that
+fill `ps_ai_explain`'s `{guidance}` (`EXPLAIN_LEVEL_TEMPLATES`, `ps_ai_service.py`). Each
+template is founder-overridable at `data/instructions/{id}.md`. See the
 [prompt-templates](../prompt-templates/SKILL.md) skill.
 
-Entity text reaches the model bounded: put a field in the `context` dict, or pass it through
-`self._bounded(...)` where the prompt string interpolates it (§ The Helpers). `max_tokens` caps
-the reply only.
+A new prompt method: write `core/prompts/templates/{route name}.md`, add the id to
+`AIPromptId` (`base_ai_service.py`), and call `_generate_insight("{id}", fields=..., ...)`
+with one `fields` entry per placeholder, as a dict literal.
+`tests/unit/services/test_ai_prompt_templates.py` holds the template set, the placeholders and
+the naming rule.
+
+Entity text reaches the model bounded: a value in `fields` or `context` goes through
+`_bounded` (§ The Helpers). `max_tokens` caps the reply only.
 
 ---
 

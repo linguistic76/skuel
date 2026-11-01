@@ -101,22 +101,30 @@ async def generate_task_insight(self, task_uid: str) -> Result[str]:
         "due_date": str(task.due_date) if task.due_date else "No deadline",
     }
 
-    prompt = """Provide a brief, actionable insight about this task.
-Focus on:
-1. Why this task might be important
-2. One specific tip for completing it effectively
-Keep it under 100 words."""
+    return await self._generate_insight("tasks_ai_insight", context=context, max_tokens=200)
+```
 
-    return await self._generate_insight(prompt, context=context, max_tokens=200)
+The instructions are `core/prompts/templates/tasks_ai_insight.md`, named for the method's
+route. A template with placeholders takes them from `fields`:
+
+```python
+insight_result = await self._generate_insight(
+    "tasks_ai_breakdown",
+    fields={
+        "max_subtasks": max_subtasks,
+        "title": task.title,
+        "description": task.description or "No description provided",
+    },
+    max_tokens=300,
+)
 ```
 
 The shape to keep: fetch, guard not-found, build the context, one helper call, return its
 `Result` — `Result.ok(str)`, or the provider's failure as `Errors.integration(service="llm")`.
 
-**The helper bounds the input.** Each `context` value goes through `_bounded`
-(`PromptInput.FIELD_MAX_CHARS`), so a long `task.description` shortens that one line and the
-instructions stay whole; `max_tokens` caps the reply, not the prompt. A method that writes a
-field into the prompt string itself bounds it there — see § Anti-Patterns, Unbounded input.
+**The helper bounds the input.** Each `fields` and `context` value goes through `_bounded`
+(`PromptInput.FIELD_MAX_CHARS`), so a long `task.description` shortens that one value and the
+instructions stay whole; `max_tokens` caps the reply, not the prompt.
 
 Entity fields reach the model as written by the user. Treat the output as untrusted text: it is
 data for display, never an instruction to act on.
@@ -250,24 +258,22 @@ return await self._rank_similar_entities(
 )
 ```
 
-### Unbounded input
+### An inline prompt
 
 ```python
-# WRONG - the field goes into the prompt string as stored, whatever its length
+# WRONG - mypy refuses it: the id is an AIPromptId, and a prompt string is not one
 prompt = f"Summarize: {step.description}"
+result = await self._generate_insight(prompt, max_tokens=200)
 
 # WRONG - a hand slice: a second limit, and no mark that the text was cut
 excerpt = step.description[:1500] if step.description else ""
 
-# CORRECT - a context value is bounded by the helper
+# CORRECT - the words are a template; the helper bounds each field and context value
 result = await self._generate_insight(
-    "Summarize this path step.",
+    "ps_ai_insight",
     context={"description": step.description or ""},
     max_tokens=200,
 )
-
-# CORRECT - a field the prompt string interpolates is bounded at the interpolation
-prompt = f"Summarize: {self._bounded(step.description or '')}"
 ```
 
 ### A failed call reported as an empty answer

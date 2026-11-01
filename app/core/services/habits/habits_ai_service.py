@@ -170,16 +170,9 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
             "polarity": habit.polarity.value if habit.polarity else "unknown",
         }
 
-        prompt = """Provide a brief, motivating insight about this habit streak.
-
-Consider:
-1. The user's current progress vs their best
-2. Specific encouragement based on their streak status
-3. A behavioral science tip for maintaining momentum
-
-Keep it under 100 words. Be warm but not over-the-top."""
-
-        return await self._generate_insight(prompt, context=context, max_tokens=200)
+        return await self._generate_insight(
+            "habits_ai_streak_insight", context=context, max_tokens=200
+        )
 
     # ========================================================================
     # HABIT FORMATION TIPS
@@ -213,22 +206,9 @@ Keep it under 100 words. Be warm but not over-the-top."""
             "cue": habit.cue or "Not specified",
         }
 
-        prompt = """Suggest 3 habit stacking opportunities for this habit.
-
-Use the format: "After I [existing habit], I will [this habit]" or
-"After I [this habit], I will [suggested next habit]"
-
-Consider:
-1. Time of day compatibility
-2. Duration flow (short habits stack well)
-3. Category synergies
-
-Format each suggestion as:
-BEFORE: [habit that comes before]
-AFTER: [habit that comes after]
-WHY: [brief explanation]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
+        insight_result = await self._generate_insight(
+            "habits_ai_habit_stack", context=context, max_tokens=350
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -294,22 +274,9 @@ WHY: [brief explanation]"""
             "difficulty": habit.habit_difficulty.value if habit.habit_difficulty else "unknown",
         }
 
-        prompt = """Optimize this habit's cue-routine-reward loop.
-
-For each element, provide:
-1. An evaluation of the current setup (if specified)
-2. A specific, actionable improvement
-
-Format:
-CUE_ANALYSIS: [evaluation of current cue]
-CUE_SUGGESTION: [specific improved cue]
-ROUTINE_ANALYSIS: [evaluation of current routine]
-ROUTINE_SUGGESTION: [specific improved routine]
-REWARD_ANALYSIS: [evaluation of current reward]
-REWARD_SUGGESTION: [specific improved reward]
-OVERALL_TIP: [one key insight for this habit]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=450)
+        insight_result = await self._generate_insight(
+            "habits_ai_optimize_loop", context=context, max_tokens=450
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
@@ -379,21 +346,9 @@ OVERALL_TIP: [one key insight for this habit]"""
             "polarity": habit.polarity.value if habit.polarity else "unknown",
         }
 
-        prompt = """Create identity-based framing for this habit.
-
-Provide:
-1. An identity statement ("I am a..." or "I am someone who...")
-2. Why this identity matters
-3. How each completion reinforces this identity
-4. A mantra for difficult days
-
-Format:
-IDENTITY: [I am a... statement]
-WHY_IT_MATTERS: [brief explanation]
-VOTE_MEANING: [what each completion represents]
-MANTRA: [short motivational phrase]"""
-
-        insight_result = await self._generate_insight(prompt, context=context, max_tokens=300)
+        insight_result = await self._generate_insight(
+            "habits_ai_identity", context=context, max_tokens=300
+        )
         if insight_result.is_error:
             return Result.fail(insight_result)
 
