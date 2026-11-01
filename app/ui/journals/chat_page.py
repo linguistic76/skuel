@@ -33,6 +33,12 @@ from ui.journals.period_links import (
     period_link,
     period_step,
 )
+from ui.patterns.chat_shell import (
+    CHAT_SHELL_HEIGHT,
+    chat_sidebar,
+    chat_sidebar_open_default,
+    chat_sidebar_set,
+)
 
 if TYPE_CHECKING:
     from core.models.conversation import ConversationSession
@@ -76,14 +82,13 @@ def JournalsLandingPage(
             upload_form_script(),
             cls=("w-[320px] shrink-0 border-l border-muted bg-muted/50 overflow-y-auto p-4"),
         ),
-        cls="flex overflow-hidden bg-background",
-        style="height: calc(100vh - 3.5rem);",
+        cls=f"flex overflow-hidden bg-background {CHAT_SHELL_HEIGHT}",
         # sessionActive: "New Journal" is a reset button. /journals/start swaps the
         # conversation into #journal-workspace with the URL still /journals, so the
         # only signal that a reset has anything to reset is that swap event.
         **{
             "x-data": (
-                "{ sidebarOpen: localStorage.getItem('journal-sidebar') !== 'false',"
+                f"{{ sidebarOpen: {chat_sidebar_open_default(_SIDEBAR_KEY)},"
                 f" sessionActive: {'true' if workspace is not None else 'false'} }}"
             ),
             "@htmx:after-swap.window": (
@@ -219,6 +224,9 @@ def _note_anchor(kind: str, period_key: str) -> tuple[datetime.date, set[datetim
 # Journal routes answer with a 302 redirect that HTMX boost would swap into the
 # current target instead of navigating, so every rail link opts out.
 _NO_BOOST = {"hx-boost": "false"}
+
+# Where a wide screen remembers whether the Journal sidebar was left open.
+_SIDEBAR_KEY = "journal-sidebar"
 
 
 def _period_rail(kind: str, ref_date: datetime.date) -> Any:
@@ -410,19 +418,17 @@ def _mini_month_calendar(
 
 
 def journal_sidebar(user: User, sessions: list[ConversationSession] | None = None) -> Any:
-    return Div(
-        # Full sidebar (shown when open): entry point, the revisit list of past
-        # discussions (ADR-078 — owner-private sessions), and identity.
-        Div(
+    """The Journal sidebar (``ui/patterns/chat_shell.py``): the open panel holds the
+    entry point, the revisit list of past discussions (ADR-078 — owner-private
+    sessions) and identity; the rail holds expand, New Journal and the avatar."""
+    return chat_sidebar(
+        panel=[
             _sb_header(),
             _sb_new_journal_btn(),
             discussions_revisit_panel(sessions or []),
             _sb_identity_footer(user),
-            cls="flex flex-col h-full",
-            **{"x-show": "sidebarOpen"},
-        ),
-        # Collapsed rail (shown when closed)
-        Div(
+        ],
+        rail=[
             Button(
                 Icon("panel-left-open", size=16),
                 cls=(
@@ -432,11 +438,7 @@ def journal_sidebar(user: User, sessions: list[ConversationSession] | None = Non
                 ),
                 type="button",
                 aria_label="Expand sidebar",
-                **{
-                    "@click": (
-                        "sidebarOpen = true; localStorage.setItem('journal-sidebar', 'true')"
-                    )
-                },
+                **{"@click": chat_sidebar_set(True, _SIDEBAR_KEY)},
             ),
             Button(
                 Icon("square-pen", size=16, cls="text-foreground/70"),
@@ -460,14 +462,7 @@ def journal_sidebar(user: User, sessions: list[ConversationSession] | None = Non
                     " flex items-center justify-center text-sm font-semibold"
                 ),
             ),
-            cls="flex flex-col items-center gap-3 py-3 px-2 h-full",
-            **{"x-show": "!sidebarOpen", "x-cloak": True},
-        ),
-        style="width:274px;",
-        cls=(
-            "bg-muted/50 border-r border-muted shrink-0 overflow-hidden transition-all duration-300"
-        ),
-        **{":style": "{ width: sidebarOpen ? '274px' : '62px' }"},
+        ],
     )
 
 
@@ -483,7 +478,7 @@ def _sb_header() -> Any:
             ),
             type="button",
             aria_label="Collapse sidebar",
-            **{"@click": ("sidebarOpen = false; localStorage.setItem('journal-sidebar', 'false')")},
+            **{"@click": chat_sidebar_set(False, _SIDEBAR_KEY)},
         ),
         cls="flex items-center justify-between px-4 py-4",
     )
