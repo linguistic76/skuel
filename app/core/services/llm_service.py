@@ -348,12 +348,13 @@ class LLMService:
     def _build_context_aware_system_prompt(
         self, user_context: str, additional_context: dict | None, intent: Any | None
     ) -> str:
-        """Build rich system prompt: authored Askesis stance + user context.
+        """Build rich system prompt: authored Askesis stance + user context + guidelines.
 
         The ``askesis_stance`` fragment (committed floor, founder-overridable —
         ADR-082 D1/D3) heads the prompt here exactly as it heads the guided
         branch, so the facet/context-aware path carries the same authored voice
-        and citation discipline.
+        and citation discipline. The ``askesis_response_guidelines`` template
+        closes it; the ``===`` section labels between them are code.
         """
         prompt_parts = [
             PROMPT_REGISTRY.render("askesis_stance"),
@@ -376,19 +377,7 @@ class LLMService:
             prompt_parts.append(f"The user is asking a {intent_str} question.")
             prompt_parts.append("")
 
-        # Add response guidelines
-        prompt_parts.extend(
-            [
-                "=== RESPONSE GUIDELINES ===",
-                "1. Reference SPECIFIC data from the user's context (numbers, UIDs, etc.)",
-                "2. Be conversational and natural - avoid robotic responses",
-                "3. Provide actionable insights when appropriate",
-                "4. Keep answers concise (2-4 paragraphs)",
-                "5. If the user has critical issues (overdue tasks, at-risk habits), mention them",
-                "",
-                "Now answer the user's question using their actual data:",
-            ]
-        )
+        prompt_parts.append(PROMPT_REGISTRY.render("askesis_response_guidelines"))
 
         return "\n".join(prompt_parts)
 

@@ -58,11 +58,16 @@ core/prompts/
     ├── journal_exploration.md
     ├── dsl_domain_recognition.md
     ├── dsl_domain_recognition_compact.md
+    ├── dsl_domain_recognition_system.md
     ├── prereq_edge_judge.md
     ├── entry_ku_grounding_judge.md
     ├── transcript_formatting.md
+    ├── transcript_editing.md
+    ├── transcript_editing_context.md
     ├── lifepath_vision_themes.md
     ├── askesis_stance.md
+    ├── askesis_response_guidelines.md
+    ├── askesis_curriculum_reference.md
     ├── askesis_tool_selection.md
     ├── askesis_guided_redirect.md
     ├── askesis_guided_direct.md
@@ -109,10 +114,15 @@ with a warning — it replaces the words, never the placeholders.
 | `prereq_edge_judge` | `PrereqSuggestionService._judge_batch()` (admin prereq-edge queue, batch pair classification) | `{pairs_block}` |
 | `entry_ku_grounding_judge` | `EntryGroundingService._judge_entry()` (entry→Ku grounding engagement filter) | `{entry_title}`, `{entry_excerpt}`, `{candidates_block}` |
 | `transcript_formatting` | `ContentEnrichmentService.process_transcript()` — the formatting instructions for a raw transcript (reached from the staged `process_audio`) | none |
+| `transcript_editing` | `ContentEnrichmentService._build_editing_prompt()` — the editing task around those instructions: the transcript and the Markdown output format | `{instructions}`, `{context_section}`, `{raw_transcript}` |
+| `transcript_editing_context` | `ContentEnrichmentService._build_editing_prompt()` — fills `transcript_editing`'s `{context_section}` when a context is gathered (stripped, then `\n\n` closes it) | `{active_goals}`, `{goal_titles}` |
 | `lifepath_vision_themes` | `LifePathVisionService._extract_themes_with_llm()` — a vision statement's 3–7 themes as a JSON array (FULL tier; a provider failure or a reply with no usable theme falls back to keyword matching) | `{vision_statement}` |
 | `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}`, `{user_context}`, `{reference_date}` |
 | `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}`, `{user_context}`, `{reference_date}` |
+| `dsl_domain_recognition_system` | `LLMDSLBridgeService._call_llm()` — the system prompt of both recognition prompts | none |
 | `askesis_stance` | `ResponseGenerator.build_guided_system_prompt()` + `LLMService._build_context_aware_system_prompt()` — heads BOTH Askesis answer branches (ADR-082 D1/D3) | none |
+| `askesis_response_guidelines` | `LLMService._build_context_aware_system_prompt()` — closes the facet/context-aware system prompt (the `===` section labels before it are code) | none |
+| `askesis_curriculum_reference` | `QueryProcessor._generate_guided_answer()` — the guided user turn when the bundle carries curriculum: the curriculum as reference ("do NOT share directly"), then the learner's message | `{curriculum_text}`, `{question}` |
 | `askesis_tool_selection` | `select_and_run()` (`core/services/askesis/query_tools.py`) — system prompt for the aggregation tool-selection call (`LLMService.select_tool`): match every constraint or select no tool; never guess dates | none |
 | `askesis_guided_redirect` | `ResponseGenerator._build_direct_prompt()` | `{lessons_text}`, `{resource_refs}` |
 | `askesis_guided_out_of_scope` | `ResponseGenerator._build_direct_prompt()` | `{ls_title}`, `{ls_intent}` |
@@ -135,6 +145,13 @@ with a warning — it replaces the words, never the placeholders.
 1. Create `core/prompts/templates/{template_id}.md` with `{placeholder}` syntax
 2. Use `PROMPT_REGISTRY.render("template_id", placeholder=value)` in the service
 3. Add a row to the catalog table above
+4. A new LLM call site also needs a row in `CENSUS` (`tests/unit/test_prompt_sources_census.py`):
+   every call to an LLM port method in `core/` names where its words come from (`REGISTRY`,
+   `INSTRUCTION_FILE`, `AUTHORED_CURRICULUM`, `REQUEST`, `FORWARDED`), and the test traces each
+   row to its source. A word argument that is literal text alone fails there at every row.
+
+A template's file ends in a newline. Where the rendered text sits mid-prompt (a fragment filling a
+placeholder, a section followed by more), `.strip()` it so the newline doesn't land in the middle.
 
 **Naming convention:**
 - A domain AI service's prompt: its route's `AIRouteSpec` name — `{domain}_ai_{action}.md`, so a
@@ -228,14 +245,15 @@ doorway (the ADR-073 wall is absolute).
 The chat-completion boundary (`core/ports/llm_protocols.py`, W1 / ADR-063) takes the system
 prompt *separately* from the conversation:
 `ChatCompletionPort.complete(messages, *, system_prompt: str | None = None, model=..., ...)`.
-When `None`, no system message is sent (templates are self-contained). Use it only for role
-framing that doesn't belong in the template itself — each adapter then places it where its SDK
-expects (OpenAI: a system message; Anthropic: the `system=` parameter).
+When `None`, no system message is sent (templates are self-contained). A system prompt is a
+prompt too: render it from the registry like the user turn (`dsl_domain_recognition_system`) —
+each adapter then places it where its SDK expects (OpenAI: a system message; Anthropic: the
+`system=` parameter).
 
 ```python
 result = await chat_port.complete(
     [{"role": "user", "content": PROMPT_REGISTRY.render("my_template", ...)}],
-    system_prompt="You are a personal development coach.",  # Optional role framing
+    system_prompt=PROMPT_REGISTRY.render("my_template_system"),
     model="gpt-4o-mini",
 )
 report_text = result.value.text  # read .text off the returned LLMCompletion

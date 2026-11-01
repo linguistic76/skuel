@@ -382,10 +382,7 @@ class LLMDSLBridgeService:
         assert self.chat_port is not None
         result = await self.chat_port.complete(
             [{"role": "user", "content": prompt}],
-            system_prompt=(
-                "You are a structured data extraction assistant. "
-                "Output only the requested format, no explanations."
-            ),
+            system_prompt=PROMPT_REGISTRY.render("dsl_domain_recognition_system"),
             model=self.model,
             temperature=0.3,  # Lower temperature for more consistent output
             max_tokens=2000,

@@ -59,6 +59,7 @@ from core.models.enums import GuidanceMode, MessageRole
 from core.models.query_types import QueryIntent
 from core.models.type_hints import UserUID
 from core.models.user.conversation import ConversationContext
+from core.prompts import PROMPT_REGISTRY
 from core.services.askesis.query_tools import (
     AggregationAnswered,
     AggregationDeclined,
@@ -693,8 +694,10 @@ class QueryProcessor:
         """
         Generate an LLM answer using the guided (Socratic) pipeline.
 
-        Prepends curriculum context to the user prompt when available,
-        then calls LLM with the guided system prompt. ``model`` is the
+        With curriculum in the bundle, the user turn is the
+        ``askesis_curriculum_reference`` template (the curriculum as reference,
+        then the learner's message); without, it is the message alone. The LLM
+        is called with the guided system prompt. ``model`` is the
         already-resolved per-conversation choice (None rides the config default).
         """
         user_prompt = question
@@ -703,10 +706,8 @@ class QueryProcessor:
                 ps_bundle.curriculum_context_text,
                 AskesisTokenBudget.MAX_USER_PROMPT_CURRICULUM_CHARS,
             )
-            user_prompt = (
-                f"=== CURRICULUM CONTEXT (for your reference, do NOT share directly) ===\n"
-                f"{curriculum_text}\n\n"
-                f"=== LEARNER'S MESSAGE ===\n{question}"
+            user_prompt = PROMPT_REGISTRY.render(
+                "askesis_curriculum_reference", curriculum_text=curriculum_text, question=question
             )
 
         llm_response = await self.llm_service.generate(
