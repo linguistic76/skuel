@@ -54,7 +54,10 @@ def chat_sidebar_set(open_: bool, remembered_key: str | None = None) -> str:
     )
 
 
-def chat_sidebar(panel: Any, rail: Any) -> Div:
+def chat_sidebar(
+    panel: list[Any],  # boundary: fasthtml-elements
+    rail: list[Any],  # boundary: fasthtml-elements
+) -> Div:
     """The sidebar frame around a page's ``panel`` and ``rail`` (each a list of children)."""
     close_overlay = f"if (sidebarOpen && !{_WIDE}) sidebarOpen = false"
     return Div(
