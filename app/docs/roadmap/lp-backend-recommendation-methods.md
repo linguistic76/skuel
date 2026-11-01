@@ -1,6 +1,6 @@
 ---
 title: "LP intelligence: two backend methods that were never built"
-updated: 2026-10-31
+updated: 2026-11-01
 status: "ruled build, not now"
 registered: 2026-08-20
 ruled: 2026-08-20
@@ -102,11 +102,11 @@ ZPD never names a LearningPath:
   and its edge weights are constant defaults: staged, see
   [lp-adaptive-reads.md](lp-adaptive-reads.md).
 - Whole-LP ranking exists, live, on a different key:
-  `LifePathVisionService.match_learning_paths(themes)` — reachable via
+  `LifePathVisionService.match_learning_paths(themes, current_path_uid)` — reachable via
   `LifePathService.match_learning_paths` (the `GET /lifepath/vision/recommendations`
   page) and `POST /api/lifepath/vision` → `LifePathService.capture_and_recommend` —
-  matches vision themes against LP search and returns frozen
-  `LpRecommendation` rows. Path *choice* in the product today is
+  matches vision themes against LP search, scores the learner's designated path the
+  same way, and returns frozen `PathMatches` (`LpRecommendation` rows). Path *choice* in the product today is
   vision-anchored (capture → recommend → designate), deliberately not
   state-keyed. A different capability on a different key from this doc's
   `recommend_learning_paths`, and named differently so the two are not

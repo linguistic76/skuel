@@ -33,6 +33,7 @@ from core.ports.query_types import (
     LifePathRecommendation,
     LifePathRecommendationItem,
     LifePathStatus,
+    LpMatches,
     LpMatchResult,
     SavedVision,
     VisionData,
@@ -43,7 +44,7 @@ from core.utils.result_simplified import Result
 from .lifepath_alignment_service import LifePathAlignmentService
 from .lifepath_core_service import LifePathCoreService
 from .lifepath_intelligence_service import LifePathIntelligenceService
-from .lifepath_types import WordActionAlignment
+from .lifepath_types import LpRecommendation, WordActionAlignment
 from .lifepath_vision_service import LifePathVisionService
 
 if TYPE_CHECKING:
@@ -56,6 +57,15 @@ if TYPE_CHECKING:
     from core.services.user_service import UserService
 
 logger = get_logger(__name__)
+
+
+def _match_row(recommendation: LpRecommendation) -> LpMatchResult:
+    return LpMatchResult(
+        lp_uid=recommendation.lp_uid,
+        lp_name=recommendation.lp_name,
+        match_score=recommendation.match_score,
+        matching_themes=list(recommendation.matching_themes),
+    )
 
 
 class LifePathService:
@@ -73,9 +83,10 @@ class LifePathService:
         # Capture the vision: extract its themes and save both
         vision = (await lifepath.capture_vision(user_uid, "I want to become...")).value
 
-        # Recommend Learning Paths from the saved themes (no extraction)
+        # Match Learning Paths to the saved themes (no extraction), the
+        # designated path scored against them whether they find it or not
         saved = (await lifepath.get_vision(user_uid)).value
-        paths = await lifepath.match_learning_paths(saved["themes"])
+        paths = await lifepath.match_learning_paths(saved["themes"], saved["life_path_uid"])
 
         # Designate a life path and score its alignment
         designation = await lifepath.designate_and_calculate(user_uid, lp_uid)
@@ -121,7 +132,6 @@ class LifePathService:
         # satisfies LifePathOperations.alignment: LifePathAlignmentOperations.
         self.alignment: LifePathAlignmentOperations = LifePathAlignmentService(
             backend=backend,
-            lp_service=lp_service,
             ku_service=ku_service,
             cross_domain_backend=cross_domain_backend,
         )
@@ -190,24 +200,25 @@ class LifePathService:
             )
         )
 
-    async def match_learning_paths(self, themes: list[str]) -> Result[list[LpMatchResult]]:
-        """Learning Paths matching the vision's themes, best match first.
+    async def match_learning_paths(
+        self, themes: list[str], current_path_uid: str | None
+    ) -> Result[LpMatches]:
+        """The learner's designated path scored against the vision's themes,
+        found by their search or not, and the other paths they find, best match
+        first.
 
-        No themes means no matches; a failed search fails the read.
+        No themes means no other paths; a failed search, or a failed read of the
+        designated path, fails the read.
         """
-        recommendations_result = await self.vision.match_learning_paths(themes)
-        if recommendations_result.is_error:
-            return Result.fail(recommendations_result)
+        matches_result = await self.vision.match_learning_paths(themes, current_path_uid)
+        if matches_result.is_error:
+            return Result.fail(matches_result)
+        matches = matches_result.value
         return Result.ok(
-            [
-                LpMatchResult(
-                    lp_uid=r.lp_uid,
-                    lp_name=r.lp_name,
-                    match_score=r.match_score,
-                    matching_themes=list(r.matching_themes),
-                )
-                for r in recommendations_result.value
-            ]
+            LpMatches(
+                current=_match_row(matches.current) if matches.current else None,
+                others=[_match_row(r) for r in matches.others],
+            )
         )
 
     async def capture_and_recommend(
@@ -215,24 +226,34 @@ class LifePathService:
         user_uid: UserUID,
         vision_statement: str,
     ) -> Result[LifePathRecommendation]:
-        """Capture the vision, then recommend Learning Paths from its themes.
+        """Capture the vision, then match Learning Paths to its themes, the
+        learner's designated path scored against them as ``current_path``.
 
-        Every leg propagates: a vision that was not saved, or whose
-        recommendations could not be read, is an error rather than an answer.
+        Every leg propagates: a vision that was not saved, or whose matches
+        could not be read, is an error rather than an answer.
         """
         captured_result = await self.capture_vision(user_uid, vision_statement)
         if captured_result.is_error:
             return Result.fail(captured_result)
         vision = captured_result.value
 
-        recommendations_result = await self.match_learning_paths(vision.get("themes", []))
-        if recommendations_result.is_error:
-            return Result.fail(recommendations_result)
+        designation_result = await self.core.get_designation(user_uid)
+        if designation_result.is_error:
+            return Result.fail(designation_result)
+        designation = designation_result.value
+
+        matches_result = await self.match_learning_paths(
+            vision.get("themes", []), designation.life_path_uid if designation else None
+        )
+        if matches_result.is_error:
+            return Result.fail(matches_result)
+        matches = matches_result.value
 
         return Result.ok(
             LifePathRecommendation(
                 vision=vision,
-                recommendations=recommendations_result.value,
+                current_path=matches["current"],
+                recommendations=matches["others"],
                 next_step="Select a Learning Path to designate as your life path",
             )
         )
@@ -267,13 +288,9 @@ class LifePathService:
         # while a discarded write result reported it when the score never reached
         # the edge.
         #
-        # ⚠ Step 1's write is durable but NOT idempotent: designate_life_path
-        # MATCHes the target only while its entity_type is 'learning_path', and
-        # step 1 has already flipped it to 'life_path'. So a caller retrying
-        # after a step-2 failure gets not_found rather than a second scoring run,
-        # and the learner is left designated with no alignment on the edge. That
-        # is item 2 of LIFEPATH_ALIGNMENT_DEBT.md showing through — the in-place
-        # entity_type mutation — and it is fixed there, by removing the mutation.
+        # Step 1's write is durable and idempotent: a step-2 failure leaves the
+        # learner designated with no alignment on the edge, and a retry
+        # re-designates the same path (keeping its designated_at) and scores it.
         ctx_result = await self._build_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)

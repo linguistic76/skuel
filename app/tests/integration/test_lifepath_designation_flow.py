@@ -3,9 +3,8 @@ Integration tests for LifePath designation CRUD (testcontainer Neo4j).
 
 Exercises LifePathCoreService + LifePathBackend against a real graph:
 vision persistence on the User node, the ULTIMATE_PATH designation edge
-with its entity_type promotion (learning_path → life_path), re-designation
-reverting the previous path, alignment-score writes on the edge, and the
-daily ALIGNMENT_SNAPSHOT trend history.
+(the path node itself untouched), re-designation moving the edge, alignment-score
+writes on the edge, and the daily ALIGNMENT_SNAPSHOT trend history.
 
 These paths were previously untested at the service layer (only route-level
 mocks existed) — the designation Cypher does OPTIONAL MATCH + SET + DELETE

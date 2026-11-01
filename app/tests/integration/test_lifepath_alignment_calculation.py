@@ -260,7 +260,6 @@ async def alignment_service(neo4j_driver) -> LifePathAlignmentService:
     executor = Neo4jQueryExecutor(neo4j_driver)
     return LifePathAlignmentService(
         backend=build_production_backends(neo4j_driver, executor)["lifepath_backend"],
-        lp_service=None,
         ku_service=None,
         cross_domain_backend=build_production_backends(neo4j_driver, executor)[
             "cross_domain_backend"
@@ -270,7 +269,7 @@ async def alignment_service(neo4j_driver) -> LifePathAlignmentService:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def lifepath_facade(neo4j_driver) -> LifePathService:
-    """Facade with real backends; peer services None (CORE-tier shape)."""
+    """Facade with real backends and no peer services: the paths under test read only the backends."""
     executor = Neo4jQueryExecutor(neo4j_driver)
     return LifePathService(
         backend=build_production_backends(neo4j_driver, executor)["lifepath_backend"],

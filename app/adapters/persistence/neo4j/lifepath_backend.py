@@ -478,11 +478,12 @@ class LifePathBackend:
     # ========================================================================
 
     async def get_user_life_path(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get user's designated life path UID."""
+        """The user's designated life path: its uid and title, read off the
+        ``ULTIMATE_PATH`` edge in one statement. No row = no designation."""
         return await self._executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity)
-            RETURN lp.uid AS life_path_uid
+            RETURN lp.uid AS life_path_uid, lp.title AS life_path_title
             """,
             {"user_uid": user_uid},
         )

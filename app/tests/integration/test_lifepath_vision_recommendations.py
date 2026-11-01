@@ -8,6 +8,10 @@ search per theme. The LP text search matches its query as one
 phrase, so the themes joined into one query would find only a path holding them
 all side by side — these themes appear in no title together, and are found.
 
+The designated path is read by its uid and scored against the themes whether
+they find it or not — a path they miss, a draft the search hides, a vision with
+no themes — and is never also among the other matches.
+
 CORE tier (no LLM): theme extraction is the keyword fallback, which keeps the
 statement's longer words when it names no known theme.
 """
@@ -73,7 +77,7 @@ class TestVisionRecommendations:
         assert saved.value == {"statement": _STATEMENT, "themes": _THEMES, "life_path_uid": None}
 
     async def test_the_saved_vision_carries_the_designated_path(self, lifepath, vision_graph):
-        """The recommendations page marks this path among the matches."""
+        """The recommendations page reads and scores this path as the current one."""
         assert (await lifepath.capture_vision(_USER_UID, _STATEMENT)).is_ok
         designated = await lifepath.core.designate_life_path(_USER_UID, _LP_ONE_THEME)
         assert designated.is_ok, designated
@@ -87,20 +91,90 @@ class TestVisionRecommendations:
         }
 
     async def test_paths_are_found_by_any_theme_best_match_first(self, lifepath, vision_graph):
-        found = await lifepath.match_learning_paths(_THEMES)
+        found = await lifepath.match_learning_paths(_THEMES, None)
 
         assert found.is_ok, found
-        assert [(m["lp_uid"], m["matching_themes"]) for m in found.value] == [
+        assert found.value["current"] is None
+        others = found.value["others"]
+        assert [(m["lp_uid"], m["matching_themes"]) for m in others] == [
             (_LP_TWO_THEMES, ["zephyrcraft", "quillwork"]),
             (_LP_ONE_THEME, ["lanternry"]),
         ]
-        assert [round(m["match_score"], 3) for m in found.value] == [0.667, 0.333]
+        assert [round(m["match_score"], 3) for m in others] == [0.667, 0.333]
 
     async def test_no_themes_find_no_paths(self, lifepath, vision_graph):
-        found = await lifepath.match_learning_paths([])
+        found = await lifepath.match_learning_paths([], None)
 
         assert found.is_ok
-        assert found.value == []
+        assert found.value == {"current": None, "others": []}
+
+    async def test_a_designated_path_the_themes_miss_is_still_the_current_path(
+        self, lifepath, vision_graph
+    ):
+        """A vision revised since the path was chosen: the path matches none of
+        the new themes, and is shown at 0% rather than not at all."""
+        found = await lifepath.match_learning_paths(_THEMES, _LP_NO_THEME)
+
+        assert found.is_ok, found
+        assert found.value["current"] == {
+            "lp_uid": _LP_NO_THEME,
+            "lp_name": "Gardening",
+            "match_score": 0.0,
+            "matching_themes": [],
+        }
+        assert [m["lp_uid"] for m in found.value["others"]] == [_LP_TWO_THEMES, _LP_ONE_THEME]
+
+    async def test_a_designated_path_the_themes_find_is_answered_once(self, lifepath, vision_graph):
+        found = await lifepath.match_learning_paths(_THEMES, _LP_TWO_THEMES)
+
+        assert found.is_ok, found
+        current = found.value["current"]
+        assert current is not None
+        assert current["lp_uid"] == _LP_TWO_THEMES
+        assert round(current["match_score"], 3) == 0.667
+        assert current["matching_themes"] == ["zephyrcraft", "quillwork"]
+        assert [m["lp_uid"] for m in found.value["others"]] == [_LP_ONE_THEME]
+
+    async def test_with_no_themes_the_designated_path_is_still_read(self, lifepath, vision_graph):
+        found = await lifepath.match_learning_paths([], _LP_ONE_THEME)
+
+        assert found.is_ok, found
+        assert found.value["current"] == {
+            "lp_uid": _LP_ONE_THEME,
+            "lp_name": "Lanternry",
+            "match_score": 0.0,
+            "matching_themes": [],
+        }
+        assert found.value["others"] == []
+
+    async def test_a_designated_path_now_a_draft_is_still_the_current_path(
+        self, neo4j_driver, lifepath, vision_graph
+    ):
+        """The search hides a draft; the learner's own path is read by its uid."""
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MATCH (lp:Entity {uid: $uid}) SET lp.publication_state = 'draft'",
+                uid=_LP_ONE_THEME,
+            )
+
+        unlisted = await lifepath.match_learning_paths(_THEMES, None)
+        found = await lifepath.match_learning_paths(_THEMES, _LP_ONE_THEME)
+
+        assert unlisted.is_ok, unlisted
+        assert [m["lp_uid"] for m in unlisted.value["others"]] == [_LP_TWO_THEMES]
+        assert found.is_ok, found
+        current = found.value["current"]
+        assert current is not None
+        assert (current["lp_uid"], current["matching_themes"]) == (_LP_ONE_THEME, ["lanternry"])
+        assert [m["lp_uid"] for m in found.value["others"]] == [_LP_TWO_THEMES]
+
+    async def test_a_designated_path_that_cannot_be_read_fails_the_read(
+        self, lifepath, vision_graph
+    ):
+        found = await lifepath.match_learning_paths(_THEMES, "lp.test.vision-nowhere")
+
+        assert found.is_error
+        assert found.expect_error().category == ErrorCategory.NOT_FOUND
 
     async def test_capture_and_recommend_recommends_from_the_saved_themes(
         self, lifepath, vision_graph
@@ -109,10 +183,25 @@ class TestVisionRecommendations:
 
         assert result.is_ok, result
         assert result.value["vision"]["themes"] == _THEMES
+        assert result.value["current_path"] is None
         assert [m["lp_uid"] for m in result.value["recommendations"]] == [
             _LP_TWO_THEMES,
             _LP_ONE_THEME,
         ]
+
+    async def test_capture_and_recommend_answers_the_designated_path_once(
+        self, lifepath, vision_graph
+    ):
+        designated = await lifepath.core.designate_life_path(_USER_UID, _LP_ONE_THEME)
+        assert designated.is_ok, designated
+
+        result = await lifepath.capture_and_recommend(_USER_UID, _STATEMENT)
+
+        assert result.is_ok, result
+        current = result.value["current_path"]
+        assert current is not None
+        assert current["lp_uid"] == _LP_ONE_THEME
+        assert [m["lp_uid"] for m in result.value["recommendations"]] == [_LP_TWO_THEMES]
 
     async def test_a_vision_that_cannot_be_saved_is_not_captured(self, lifepath, vision_graph):
         unknown = seed_user_uid("test_lifepath_vision_nobody")

@@ -11,8 +11,9 @@ permanently, and it cost three separate things:
    the node, then built a ``LearningPath`` from it — tripping that model's
    honest-leaf-identity guard (G6). ``@safe_backend_operation``'s safety net
    converted the ``ValueError`` into a ``Result.fail`` indistinguishable from a
-   database outage, so ``_get_life_path_details`` took its fallback and the
-   alignment payload named every designated learner's path **"Unknown"**.
+   database outage, so the alignment's title read took its fallback and the
+   alignment payload named every designated learner's path **"Unknown"**. (The
+   title is now read with the designation, and there is no fallback.)
 2. **Re-designation.** The writer MATCHed its target only while ``entity_type``
    was still ``'learning_path'``, so designating the same path twice failed —
    which also meant a caller could not retry after a mid-flow failure.
@@ -88,21 +89,8 @@ def _alignment(driver) -> LifePathAlignmentService:
     executor = Neo4jQueryExecutor(driver)
     return LifePathAlignmentService(
         backend=build_production_backends(driver, executor)["lifepath_backend"],
-        lp_service=_LpServiceShim(_lp_backend(driver)),
         cross_domain_backend=build_production_backends(driver, executor)["cross_domain_backend"],
     )
-
-
-class _LpServiceShim:
-    """The one attribute path ``_get_life_path_details`` uses: ``.core.get``.
-
-    Composing the whole LpService facade would drag in PS, graph intelligence
-    and an event bus for a single delegation. What must be REAL is the backend
-    underneath — that is where the model is built and where the G6 guard fires.
-    """
-
-    def __init__(self, backend: LpBackend) -> None:
-        self.core = backend
 
 
 @pytest.mark.asyncio
@@ -117,8 +105,7 @@ class TestTheDesignatedPathKeepsItsTitle:
 
         assert result.is_ok, f"alignment failed: {result}"
         assert result.value["life_path_title"] == TITLE, (
-            "'Unknown' = the designated node no longer reads as a LearningPath, "
-            "so the LP read failed and _get_life_path_details took its fallback"
+            "the designation lookup did not carry the designated path's title"
         )
 
     async def test_the_title_survives_a_remove_designation_round_trip(self, graph):

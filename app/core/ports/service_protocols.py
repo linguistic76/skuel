@@ -60,7 +60,7 @@ if TYPE_CHECKING:
         LifePathDesignation,
         LifePathRecommendation,
         LifePathStatus,
-        LpMatchResult,
+        LpMatches,
         RelationshipGraphData,
         SavedVision,
         SessionIdentity,
@@ -352,8 +352,11 @@ class LifePathOperations(Protocol):
         has not expressed a vision."""
         ...
 
-    async def match_learning_paths(self, themes: list[str]) -> Result[list[LpMatchResult]]:
-        """Learning Paths matching the themes, best match first; no themes, no matches."""
+    async def match_learning_paths(
+        self, themes: list[str], current_path_uid: str | None
+    ) -> Result[LpMatches]:
+        """The designated path scored against the themes, found by them or not, and
+        the other paths they find, best match first; no themes, no other paths."""
         ...
 
     async def capture_and_recommend(

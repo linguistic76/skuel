@@ -1954,6 +1954,15 @@ class LpMatchResult(TypedDict):
     matching_themes: list[str]
 
 
+class LpMatches(TypedDict):
+    """The vision's Learning Paths: the learner's designated path scored
+    against the themes (None while no path is designated), and the other paths
+    the themes find, best match first, the designated one never among them."""
+
+    current: LpMatchResult | None
+    others: list[LpMatchResult]
+
+
 class LifePathRecommendationItem(TypedDict, total=False):
     """Single life path recommendation item."""
 
@@ -2008,6 +2017,7 @@ class LifePathRecommendation(TypedDict, total=False):
     """Return shape for lifepath_service.capture_and_recommend()."""
 
     vision: VisionData
+    current_path: LpMatchResult | None
     recommendations: list[LpMatchResult]
     next_step: str
 
@@ -4748,6 +4758,7 @@ __all__ = [
     "LearningOpportunitiesResult",
     # Life Path Result Types
     "LpMatchResult",
+    "LpMatches",
     "LifePathRecommendationItem",
     "DailyFocusResult",
     "LifePathAlignmentResult",

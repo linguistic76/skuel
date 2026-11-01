@@ -7,12 +7,14 @@ reload is a GET that extracts nothing. A refused or unsaved vision comes back as
 the form, in the shell, with its banner and the learner's text; a validation
 refusal's banner reads its reason. The recommendations page sends a learner with
 no saved vision back to the form, and a failed read is a banner, never an empty
-result. The learner's designated path, when the search finds it, is marked "Your
-current path" in place of its button. The vision page itself fills the form from
-the saved vision, and a failed read there is the banner alone. Each other
-recommendation's "Choose This Path" is a native POST; a designation answers a 303 to the alignment page, or its refusal in
-the shell with the way back to the recommendations. CSRF is enforced for real:
-cookie plus the form field.
+result. A learner with a designated path sees it once, as "Your current path"
+above the recommendations — linked to its page, with its match against the
+themes — whether the search found it or not, and the header says the path is
+theirs; one without is asked to choose. The vision page itself fills the form
+from the saved vision, and a failed read there is the banner alone. Each
+recommendation's "Choose This Path" is a native POST; a designation answers a
+303 to the alignment page, or its refusal in the shell with the way back to the
+recommendations. CSRF is enforced for real: cookie plus the form field.
 """
 
 from __future__ import annotations
@@ -27,12 +29,12 @@ from starlette.testclient import TestClient
 import adapters.inbound.lifepath_ui as lifepath_ui
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, mint_token
 from core.models.type_hints import UserUID
-from core.ports.query_types import LpMatchResult, SavedVision, VisionData
+from core.ports.query_types import LpMatches, LpMatchResult, SavedVision, VisionData
 from core.ports.service_protocols import LifePathOperations
 from core.utils.csrf_token_context import CSRF_FORM_FIELD
 from core.utils.result_simplified import Errors, Result
 from tests.helpers.settings_stub import settings_stub
-from ui.lifepath import render_recommendation_cards
+from ui.lifepath import render_path_matches
 
 VISION = SavedVision(
     statement="I want to become a patient teacher and a mindful leader",
@@ -53,9 +55,21 @@ OTHER_MATCH = LpMatchResult(
     match_score=0.5,
     matching_themes=["leadership"],
 )
+CURRENT = LpMatchResult(
+    lp_uid="lp.x.elsewhere",
+    lp_name="Quiet Craft",
+    match_score=0.0,
+    matching_themes=[],
+)
+#: The learner's vision with ``CURRENT`` designated.
+DESIGNATED = SavedVision(**{**VISION, "life_path_uid": CURRENT["lp_uid"]})
 #: What a capture answers: the vision as saved.
 CAPTURED = VisionData(statement=VISION["statement"], themes=VISION["themes"])
 RECOMMENDATIONS = "/lifepath/vision/recommendations"
+
+
+def _matches(others: list[LpMatchResult], current: LpMatchResult | None = None) -> LpMatches:
+    return LpMatches(current=current, others=others)
 
 
 def _service() -> MagicMock:
@@ -123,7 +137,7 @@ def test_reloading_the_recommendations_captures_nothing_again(
     service = _service()
     service.capture_vision.return_value = Result.ok(CAPTURED)
     service.get_vision.return_value = Result.ok(VISION)
-    service.match_learning_paths.return_value = Result.ok(MATCHES)
+    service.match_learning_paths.return_value = Result.ok(_matches(MATCHES))
     client = _client(monkeypatch, service)
 
     landed = _post_form(
@@ -198,7 +212,7 @@ def test_the_recommendations_are_rebuilt_from_the_saved_themes(
 ) -> None:
     service = _service()
     service.get_vision.return_value = Result.ok(VISION)
-    service.match_learning_paths.return_value = Result.ok(MATCHES)
+    service.match_learning_paths.return_value = Result.ok(_matches(MATCHES))
     response = _client(monkeypatch, service).get(RECOMMENDATIONS)
 
     assert response.status_code == 200
@@ -207,7 +221,7 @@ def test_the_recommendations_are_rebuilt_from_the_saved_themes(
     assert "Themes extracted: teaching, leadership" in response.text
     assert re.search(r'<form[^>]*action="/lifepath/designate"', response.text)
     service.get_vision.assert_awaited_once_with("user_learner")
-    service.match_learning_paths.assert_awaited_once_with(["teaching", "leadership"])
+    service.match_learning_paths.assert_awaited_once_with(["teaching", "leadership"], None)
     service.capture_vision.assert_not_awaited()
     service.capture_and_recommend.assert_not_awaited()
 
@@ -222,20 +236,22 @@ def test_no_saved_vision_goes_back_to_the_form(monkeypatch: pytest.MonkeyPatch) 
     service.match_learning_paths.assert_not_awaited()
 
 
-def test_a_vision_with_no_themes_is_sent_to_revise_it_without_a_search(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_a_vision_with_no_themes_is_sent_to_revise_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No themes, no search (the service's half, on the real graph in
+    tests/integration/test_lifepath_vision_recommendations.py)."""
     service = _service()
     service.get_vision.return_value = Result.ok(
         SavedVision(statement="I want it all.", themes=[], life_path_uid=None)
     )
+    service.match_learning_paths.return_value = Result.ok(_matches([]))
     response = _client(monkeypatch, service).get(RECOMMENDATIONS)
 
     assert response.status_code == 200
     assert "No themes found in your vision" in response.text
     assert re.search(r'<a href="/lifepath/vision"[^>]*>\s*Revise your vision', response.text)
     assert "No Matching Learning Paths" not in response.text
-    service.match_learning_paths.assert_not_awaited()
+    assert "Your current path" not in response.text
+    service.match_learning_paths.assert_awaited_once_with([], None)
 
 
 def test_a_failed_vision_read_is_a_banner(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -249,7 +265,7 @@ def test_a_failed_vision_read_is_a_banner(monkeypatch: pytest.MonkeyPatch) -> No
     service.match_learning_paths.assert_not_awaited()
 
 
-def test_a_failed_recommendation_read_is_a_banner_under_the_vision(
+def test_a_failed_path_read_is_a_banner_under_the_vision(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = _service()
@@ -261,58 +277,111 @@ def test_a_failed_recommendation_read_is_a_banner_under_the_vision(
 
     assert response.status_code == 200
     assert VISION["statement"] in response.text
-    assert _banner_text(response.text) == "❌ Could not load your recommended Learning Paths"
+    assert _banner_text(response.text) == "❌ Could not load your Learning Paths"
     assert "No Matching Learning Paths" not in response.text
+    assert "Recommended Learning Paths" not in response.text
 
 
 def test_no_matching_paths_offers_the_paths_to_browse(monkeypatch: pytest.MonkeyPatch) -> None:
     service = _service()
     service.get_vision.return_value = Result.ok(VISION)
-    service.match_learning_paths.return_value = Result.ok([])
+    service.match_learning_paths.return_value = Result.ok(_matches([]))
     response = _client(monkeypatch, service).get(RECOMMENDATIONS)
 
     assert "No Matching Learning Paths" in response.text
     assert re.search(r'<a href="/learning-paths"[^>]*>\s*Browse Learning Paths', response.text)
 
 
-def test_the_designated_path_is_marked_in_place_of_its_button(
+def _current_card(page: str) -> str:
+    """The current path's section: from its header to the recommendations'."""
+    start = page.index("Your current path")
+    return page[start : page.index("Recommended Learning Paths", start)]
+
+
+def test_the_designated_path_is_shown_once_above_the_recommendations(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Choosing the path the learner already has would only re-designate it."""
+    """Found by the search or not: the service answers it as ``current`` and
+    leaves it out of ``others``, so it is shown once and offers no button — choosing
+    the path the learner already has would only re-designate it."""
     service = _service()
-    service.get_vision.return_value = Result.ok(
-        SavedVision(**{**VISION, "life_path_uid": "lp.x.teacher"})
+    service.get_vision.return_value = Result.ok(DESIGNATED)
+    service.match_learning_paths.return_value = Result.ok(
+        _matches([*MATCHES, OTHER_MATCH], CURRENT)
     )
-    service.match_learning_paths.return_value = Result.ok([*MATCHES, OTHER_MATCH])
     page = _client(monkeypatch, service).get(RECOMMENDATIONS).text
 
-    forms = re.findall(r'<form[^>]*action="/lifepath/designate".*?</form>', page, re.DOTALL)
-    assert len(forms) == 1
-    assert 'value="lp.x.leader"' in forms[0]
-    assert "Mindful Leadership" in forms[0]
-    assert 'value="lp.x.teacher"' not in page
-    teacher_card = page[page.index("Patient Teaching") : page.index("Mindful Leadership")]
-    assert "Your current path" in teacher_card
-    assert "Choose This Path" not in teacher_card
+    service.match_learning_paths.assert_awaited_once_with(
+        ["teaching", "leadership"], "lp.x.elsewhere"
+    )
+    assert page.index("Your current path") < page.index("Recommended Learning Paths")
+    card = _current_card(page)
+    assert re.search(r'<a href="/lp/lp.x.elsewhere"[^>]*>Quiet Craft</a>', card)
+    assert "Match: 0%" in card
+    assert "<form" not in card
+    assert page.count("Quiet Craft") == 1
     assert page.count("Your current path") == 1
+    forms = re.findall(r'<form[^>]*action="/lifepath/designate".*?</form>', page, re.DOTALL)
+    assert [re.findall(r'name="life_path_uid" value="([^"]+)"', f) for f in forms] == [
+        ["lp.x.teacher"],
+        ["lp.x.leader"],
+    ]
 
 
-def test_a_designated_path_the_search_did_not_find_marks_no_card(
+@pytest.mark.parametrize(
+    ("saved", "current", "header"),
+    [(DESIGNATED, CURRENT, "Your Life Path"), (VISION, None, "Choose Your Life Path")],
+    ids=["designated", "undesignated"],
+)
+def test_the_header_says_whether_the_learner_has_a_path(
     monkeypatch: pytest.MonkeyPatch,
+    saved: SavedVision,
+    current: LpMatchResult | None,
+    header: str,
 ) -> None:
     service = _service()
-    service.get_vision.return_value = Result.ok(
-        SavedVision(**{**VISION, "life_path_uid": "lp.x.elsewhere"})
-    )
-    service.match_learning_paths.return_value = Result.ok([*MATCHES, OTHER_MATCH])
+    service.get_vision.return_value = Result.ok(saved)
+    service.match_learning_paths.return_value = Result.ok(_matches(MATCHES, current))
     page = _client(monkeypatch, service).get(RECOMMENDATIONS).text
 
-    assert "Your current path" not in page
-    assert len(re.findall(r'<form[^>]*action="/lifepath/designate"', page)) == 2
+    h1 = re.search(r"<h1[^>]*>(.*?)</h1>", page, re.DOTALL)
+    assert h1 is not None
+    assert h1.group(1).strip() == header
+
+
+def test_the_current_path_is_shown_above_no_matches() -> None:
+    page = to_xml(render_path_matches(_matches([], CURRENT), has_themes=True))
+
+    assert "Quiet Craft" in _current_card(page)
+    assert page.index("Recommended Learning Paths") < page.index("No Matching Learning Paths")
+
+
+def test_with_no_themes_the_current_path_carries_no_match() -> None:
+    """Nothing to match it against: a percentage would read as a verdict."""
+    page = to_xml(render_path_matches(_matches([], CURRENT), has_themes=False))
+
+    card = _current_card(page)
+    assert re.search(r'<a href="/lp/lp.x.elsewhere"[^>]*>Quiet Craft</a>', card)
+    assert "Match:" not in page
+    assert page.index("Recommended Learning Paths") < page.index("No themes found in your vision")
+
+
+def test_the_current_path_shows_the_themes_it_matches() -> None:
+    current = LpMatchResult(
+        lp_uid="lp.x.teacher",
+        lp_name="Patient Teaching",
+        match_score=0.5,
+        matching_themes=["teaching"],
+    )
+    page = to_xml(render_path_matches(_matches([OTHER_MATCH], current), has_themes=True))
+
+    card = _current_card(page)
+    assert "Match: 50%" in card
+    assert ">teaching<" in card
 
 
 def test_each_recommendation_posts_natively_with_its_path_and_token() -> None:
-    page = to_xml(render_recommendation_cards(MATCHES, None))
+    page = to_xml(render_path_matches(_matches(MATCHES), has_themes=True))
     form = re.search(r'<form[^>]*action="/lifepath/designate".*?</form>', page, re.DOTALL)
 
     assert form is not None

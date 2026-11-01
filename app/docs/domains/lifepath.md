@@ -1,7 +1,7 @@
 ---
 title: LifePath Domain
 created: 2025-12-04
-updated: 2026-10-31
+updated: 2026-11-01
 status: current
 category: domains
 tags: [lifepath, destination-domain, domain]
@@ -75,7 +75,7 @@ LifePathService (Facade)
 
 | Sub-Service | Purpose |
 |-------------|---------|
-| **vision** | Capture user's vision statement, extract themes (the `lifepath_vision_themes` prompt in FULL tier; keyword matching in CORE, and whenever a provider failure or an unreadable reply leaves the LLM's answer with no usable theme — a vision is never refused for its extraction), match LPs to them (`match_learning_paths`); carries the staged word-action lens |
+| **vision** | Capture user's vision statement, extract themes (the `lifepath_vision_themes` prompt in FULL tier; keyword matching in CORE, and whenever a provider failure or an unreadable reply leaves the LLM's answer with no usable theme — a vision is never refused for its extraction), match LPs to them and score the learner's designated path against them, found or not (`match_learning_paths`); carries the staged word-action lens |
 | **core** | CRUD for designation, manage ULTIMATE_PATH relationship, store vision data |
 | **alignment** | Calculate 5-dimension alignment score from graph edges |
 | **intelligence** | Generate personalized recommendations based on alignment |
@@ -195,7 +195,7 @@ See: [DomainRouteConfig Pattern](../patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
 | `/lifepath` | GET | Main life path dashboard — with a saved vision, a "Recommended Paths" button beside "View Alignment Details" and "Update Vision"; while no path is chosen, the alignment card links "See your recommended Learning Paths" too |
 | `/lifepath/vision` | GET | Vision capture page — the form holds the saved vision (`get_vision`); a failed read is its banner and no form |
 | `/lifepath/vision` | POST | Capture the vision (`capture_vision`: extract the themes, save both) — 303 to `/lifepath/vision/recommendations`; a refused or unsaved vision re-renders the form with its banner and the learner's text |
-| `/lifepath/vision/recommendations` | GET | Learning Paths recommended from the **saved** vision's themes (`get_vision`, then `match_learning_paths` — no theme extraction, so a reload costs a search); no saved vision → 303 to `/lifepath/vision`; no themes → the way back to revise it; a failed read is a banner; each card is a native "Choose This Path" form, but the learner's designated path's, which says "Your current path" in its place |
+| `/lifepath/vision/recommendations` | GET | Learning Paths recommended from the **saved** vision's themes (`get_vision`, then `match_learning_paths` — no theme extraction, so a reload costs a search); no saved vision → 303 to `/lifepath/vision`; a designated path is a "Your current path" card above the recommendations — linked to `/lp/{uid}`, its match % against the current themes (none without themes), shown whether the search found it or not, a draft included — and is left out of the list; the header reads "Your Life Path" once a path is chosen, "Choose Your Life Path" while none is; no themes → the way back to revise it; a failed read (the search or the designated path) is a banner; each recommendation is a native "Choose This Path" form |
 | `/lifepath/designate` | POST | Designate an LP as life path — a native form post: 303 to `/lifepath/alignment`, or the refusal in the Life Path shell with the way back to the recommendations |
 | `/lifepath/alignment` | GET | Alignment page: the 5-dimension breakdown (the page's one alignment figure), then the path's steps by `SubstanceBand` and where the practice comes from — `AnalyticsService.calculate_life_path_alignment`, read beside `get_full_status`; a failed substance read banners only its two cards; with no designated path the content answers `HX-Redirect` to `/lifepath/vision/recommendations`, where a path is chosen |
 
@@ -204,7 +204,7 @@ See: [DomainRouteConfig Pattern](../patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
 | Route | Method | Purpose |
 |-------|--------|---------|
 | `/api/lifepath/status` | GET | Get full status (JSON) |
-| `/api/lifepath/vision` | POST | Capture vision (JSON) |
+| `/api/lifepath/vision` | POST | Capture vision (JSON): the vision, `current_path` (the designated path scored against its themes, or null) and `recommendations` (the others) |
 | `/api/lifepath/designate` | POST | Designate life path (JSON) |
 | `/api/lifepath/alignment` | GET | Get alignment data (JSON) |
 
@@ -232,9 +232,11 @@ vision = (await lifepath.capture_vision(
 )).value
 # vision["themes"]: CORE's keyword match finds ["technical", "meaning"]; FULL's LLM reads more
 
-# 2. Recommend LPs from the saved themes — one search per theme, best match first
+# 2. Match LPs to the saved themes — one search per theme, best match first — with the
+#    designated path read by its uid and scored the same way, found or not
 saved = (await lifepath.get_vision(user_uid)).value  # statement, themes, life_path_uid
-recommendations = await lifepath.match_learning_paths(saved["themes"])
+matches = (await lifepath.match_learning_paths(saved["themes"], saved["life_path_uid"])).value
+# matches["current"]: the designated path (or None); matches["others"]: the rest
 
 # 3. Designate an LP as life path and score its alignment
 designation = await lifepath.designate_and_calculate(user_uid, "lp.tech.leadership")

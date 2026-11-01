@@ -30,6 +30,7 @@ See: /docs/architecture/knowledge_substance_philosophy.md
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Final
 
@@ -50,7 +51,6 @@ if TYPE_CHECKING:
     from core.ports.cross_domain_protocols import CrossDomainBackendOperations
     from core.ports.lifepath_protocols import LifePathBackendOperations
     from core.services.knowledge.user_substance import SubstanceIndex
-    from core.services.lp_service import LpService
     from core.services.ps_service import PsService
     from core.services.user.unified_user_context import UserContext
 
@@ -91,6 +91,14 @@ _EMBODIED_AT: Final = 0.7
 _THEORETICAL_BELOW: Final = 0.5
 
 
+@dataclass(frozen=True)
+class _DesignatedPath:
+    """The learner's designated life path, as the designation lookup reads it."""
+
+    uid: str
+    title: str
+
+
 class LifePathAlignmentService:
     """
     Service for calculating life path alignment.
@@ -109,7 +117,6 @@ class LifePathAlignmentService:
     def __init__(
         self,
         backend: LifePathBackendOperations | None = None,
-        lp_service: LpService | None = None,
         ku_service: PsService | None = None,
         cross_domain_backend: CrossDomainBackendOperations | None = None,
     ) -> None:
@@ -117,8 +124,8 @@ class LifePathAlignmentService:
         Initialize alignment service.
 
         Args:
-            backend: LifePathBackendOperations for database operations
-            lp_service: LP service for path details
+            backend: LifePathBackendOperations for database operations — the
+                designated path, its title included, and every dimension's inputs
             ku_service: KU service for knowledge substance
             cross_domain_backend: source of the learner's six activity→knowledge
                 channels. REQUIRED to score: without it the knowledge dimension
@@ -127,7 +134,6 @@ class LifePathAlignmentService:
                 one, so its absence refuses instead.
         """
         self.backend = backend
-        self.lp_service = lp_service
         self.ku_service = ku_service
         self.cross_domain_backend = cross_domain_backend
         logger.info("LifePathAlignmentService initialized")
@@ -160,12 +166,10 @@ class LifePathAlignmentService:
         if designation_result.is_error:
             return Result.fail(designation_result)
 
-        life_path_uid = designation_result.value
-        if not life_path_uid:
+        designated = designation_result.value
+        if designated is None:
             return Result.ok(self._no_designation_response())
-
-        # Get life path details
-        lp_details = await self._get_life_path_details(life_path_uid)
+        life_path_uid = designated.uid
 
         substance_result = await self._build_substance_index(user_uid)
         if substance_result.is_error:
@@ -221,7 +225,7 @@ class LifePathAlignmentService:
 
         result: LifePathAlignmentResult = {
             "life_path_uid": life_path_uid,
-            "life_path_title": lp_details.get("title", "Unknown"),
+            "life_path_title": designated.title,
             "alignment_score": round(overall_score, 3),
             "alignment_level": alignment_level.value,
             "dimensions": {
@@ -242,14 +246,17 @@ class LifePathAlignmentService:
 
         return Result.ok(result)
 
-    async def _get_user_life_path(self, user_uid: UserUID) -> Result[str | None]:
-        """The user's designated life path UID, or None if they have none.
+    async def _get_user_life_path(self, user_uid: UserUID) -> Result[_DesignatedPath | None]:
+        """The user's designated life path, its title read in the same lookup,
+        or None if they have none.
 
-        ``Result`` rather than a bare ``str | None`` because those are three
-        outcomes, not two: designated, not designated, and *unknown*. Collapsing
-        the third into None reported a Neo4j outage as "no life path designated"
-        — a successful payload scoring 0.0, which ``designate_and_calculate``
-        then wrote onto the ULTIMATE_PATH edge it had just created.
+        ``Result`` rather than a bare ``_DesignatedPath | None`` because those
+        are three outcomes, not two: designated, not designated, and *unknown*.
+        Collapsing the third into None reported a Neo4j outage as "no life path
+        designated" — a successful payload scoring 0.0, which
+        ``designate_and_calculate`` then wrote onto the ULTIMATE_PATH edge it had
+        just created. The title comes with the uid, so there is no second read
+        of the path whose failure could be passed off as a title.
         """
         if not self.backend:
             return Result.fail(Errors.system("Backend not available", operation="get_life_path"))
@@ -259,18 +266,14 @@ class LifePathAlignmentService:
             return Result.fail(result)
 
         records = result.value or []
-        return Result.ok(records[0].get("life_path_uid") if records else None)
-
-    async def _get_life_path_details(self, life_path_uid: str) -> dict[str, str]:
-        """Get life path title and metadata."""
-        if self.lp_service:
-            lp_result = await self.lp_service.core.get(life_path_uid)
-            if lp_result.is_ok and lp_result.value:
-                return {
-                    "title": lp_result.value.title,
-                    "description": lp_result.value.description or "",
-                }
-        return {"title": "Unknown", "description": ""}
+        if not records:
+            return Result.ok(None)
+        record = records[0]
+        return Result.ok(
+            _DesignatedPath(
+                uid=str(record["life_path_uid"]), title=str(record["life_path_title"] or "")
+            )
+        )
 
     @staticmethod
     def _level(aligned: int, total: int) -> float:
