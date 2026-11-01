@@ -27,7 +27,10 @@ Available templates (core/prompts/templates/):
     entry_response                — Reflective response to a journal entry (EntryReportService, ADR-069)
     dsl_domain_recognition        — Full domain recognition prompt for LLMDSLBridgeService
     dsl_domain_recognition_compact — Compact domain recognition prompt for LLMDSLBridgeService
+    dsl_domain_recognition_system — The system prompt of both domain recognition prompts
     askesis_stance                — Shared Askesis study-buddy stance — heads BOTH answer branches (ADR-082 D1/D3)
+    askesis_response_guidelines   — Closes the facet/context-aware system prompt (LLMService)
+    askesis_curriculum_reference  — The guided user turn: the bundle's curriculum as reference, then the message
     askesis_tool_selection        — Aggregation tool-selection system prompt (tool-selection first slice)
     askesis_guided_redirect       — DIRECT/REDIRECT_TO_CURRICULUM system prompt
     askesis_guided_out_of_scope   — DIRECT/OUT_OF_SCOPE system prompt
@@ -44,6 +47,8 @@ Available templates (core/prompts/templates/):
     prereq_edge_judge             — Ku-pair prerequisite classification (PrereqSuggestionService)
     entry_ku_grounding_judge      — Entry→Ku engagement filter (EntryGroundingService)
     transcript_formatting         — Formatting instructions for a raw transcript (ContentEnrichmentService)
+    transcript_editing            — The editing task around those instructions: transcript + output format
+    transcript_editing_context    — transcript_editing's context section (active goals, what to extract)
     lifepath_vision_themes        — Themes of a Life Path vision statement (LifePathVisionService)
     {domain}_ai_*                 — One per prompt method of the eight *AIService classes, named for
                                     its AIRouteSpec (BaseAIService._generate_insight, AIPromptId)

@@ -338,20 +338,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             self.logger.error(f"AI generation failed: {ai_result.error}")
             return Result.fail(ai_result)
 
-        completion_text = ai_result.value.text
-
-        # Debug logging
-        self.logger.info(
-            f"AI result length: {len(completion_text)}, value: {completion_text[:100] if completion_text else 'None'}"
-        )
-
-        # Parse AI response
-        insights = self._parse_ai_response(completion_text)
-
-        # Debug logging
-        self.logger.info(
-            f"Parsed AI response: title={insights.title[:50] if insights.title else 'None'}"
-        )
+        insights = self._parse_ai_response(ai_result.value.text)
 
         # Return EnrichmentInsights directly (not dict)
         return Result.ok(insights)
@@ -359,149 +346,41 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     def _build_editing_prompt(
         self, raw_transcript: str, instructions: str, context: dict[str, Any] | None
     ) -> str:
-        """Build comprehensive prompt for AI editing.
+        """The editing task: the instructions, the context section, the transcript.
 
-        The transcript is bounded at ``PromptInput.DOCUMENT_MAX_CHARS`` before
-        either prompt — the full one or the minimal fallback — is built.
+        Rendered from ``transcript_editing``; a context (when given) fills its
+        ``{context_section}`` from ``transcript_editing_context``. The transcript
+        is bounded at ``PromptInput.DOCUMENT_MAX_CHARS`` before it enters.
         """
-        # COMPREHENSIVE ERROR TRACING - Find the exact .get() on None location
-        self.logger.info(
-            f"_build_editing_prompt called with context type: {type(context)}, context is None: {context is None}"
-        )
-        raw_transcript = truncate_to_budget(raw_transcript, PromptInput.DOCUMENT_MAX_CHARS)
-
-        try:
-            prompt_parts = [
-                "# Journal Transcript Editing Task",
-                "",
-                "## Instructions",
-                instructions,
-                "",
-            ]
-
-            # Add enhanced context if available (Step 1 implementation)
-            if context:
-                prompt_parts.extend(
-                    [
-                        "## User Context (Enhanced Intelligence)",
-                        "Use this context to provide intelligent, personalized, context-aware editing:",
-                        "",
-                    ]
-                )
-
-                # Active Goals (the only live enrichment signal post-ADR-054)
-                self.logger.info("Processing active_goals context section")
-                if context.get("active_goals"):
-                    prompt_parts.append("**Active Goals**:")
-                    prompt_parts.extend(
-                        f"  - {goal.get('title', 'Untitled')}: {(goal.get('description') or '')[:100]}"
-                        for goal in context["active_goals"]
-                        if goal and isinstance(goal, dict)  # Defensive check
-                    )
-                    prompt_parts.append("")
-
-                # Extraction guidance - with defensive None handling
-                self.logger.info("Building extraction guidance")
-                active_goals_list: Any = []
-                try:
-                    active_goals_list = context.get("active_goals", []) or []
-                    goal_titles = ", ".join(
-                        [
-                            g.get("title", "")
-                            for g in active_goals_list[:3]
-                            if g and isinstance(g, dict) and g.get("title")
-                        ]
-                    )
-                except (TypeError, AttributeError, KeyError) as e:
-                    self.logger.error(
-                        f"Error building goal_titles: {e}, active_goals_list = {active_goals_list}"
-                    )
-                    goal_titles = "none"
-
-                prompt_parts.extend(
-                    [
-                        "**Extract from this transcript**:",
-                        "1. **Key topics** (main subjects discussed)",
-                        "2. **Knowledge applications** (which concepts are being used/practiced?)",
-                        f"3. **Goal progress** (which goals mentioned: {goal_titles if goal_titles else 'none'})",
-                        "4. **Action items** (specific next steps mentioned)",
-                        "",
-                    ]
-                )
-
-            # Add raw transcript
-            self.logger.info("Adding raw transcript to prompt")
-            prompt_parts.extend(
-                [
-                    "## Raw Transcript",
-                    "```",
-                    raw_transcript,
-                    "```",
-                    "",
-                    "## Task",
-                    "Format this transcript according to instructions above, using context for intelligent editing.",
-                    "",
-                    "**Output Format: Return ONLY Markdown in this exact structure:**",
-                    "",
-                    "```markdown",
-                    "# [Descriptive Title]",
-                    "",
-                    "**Summary**: [1-2 sentence summary of key points]",
-                    "",
-                    "## Journal Entry",
-                    "",
-                    "[Formatted journal content with proper markdown - use headings, lists, emphasis as appropriate]",
-                    "",
-                    "## Key Themes",
-                    "- Theme 1",
-                    "- Theme 2",
-                    "- Theme 3",
-                    "",
-                    "## Action Items",
-                    "- [ ] Action item 1",
-                    "- [ ] Action item 2",
-                    "```",
-                    "",
-                    "Do NOT wrap the output in code fences. Return the raw Markdown directly.",
+        context_section = ""
+        if context:
+            active_goals = context.get("active_goals") or []
+            goal_block = ""
+            if active_goals:
+                goal_lines = [
+                    f"  - {goal.get('title', 'Untitled')}: {(goal.get('description') or '')[:100]}"
+                    for goal in active_goals
+                    if goal and isinstance(goal, dict)
                 ]
+                goal_block = "\n".join(["**Active Goals**:", *goal_lines, ""]) + "\n"
+            goal_titles = ", ".join(
+                goal.get("title", "")
+                for goal in active_goals[:3]
+                if goal and isinstance(goal, dict) and goal.get("title")
             )
+            rendered = PROMPT_REGISTRY.render(
+                "transcript_editing_context",
+                active_goals=goal_block,
+                goal_titles=goal_titles or "none",
+            )
+            context_section = f"{rendered.strip()}\n\n"
 
-            result = "\n".join(prompt_parts)
-            self.logger.info(f"Successfully built prompt: {len(result)} chars")
-            return result
-
-        except (TypeError, AttributeError, KeyError, ValueError) as e:
-            self.logger.error(f"CRITICAL ERROR in _build_editing_prompt: {e}", exc_info=True)
-            self.logger.error(f"Context type: {type(context)}, context value: {context}")
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"CRITICAL ERROR in _build_editing_prompt: {e}", exc_info=True)
-            self.logger.error(f"Context type: {type(context)}, context value: {context}")
-
-        # Return minimal prompt on error (reached by either except block)
-        return f"""
-# Journal Transcript Editing Task
-
-## Instructions
-{instructions}
-
-## Raw Transcript
-```
-{raw_transcript}
-```
-
-## Task
-Format this transcript according to instructions above.
-
-Return ONLY Markdown in this structure:
-# [Title]
-**Summary**: [Summary]
-## Journal Entry
-[Content]
-## Key Themes
-- Theme 1
-## Action Items
-- [ ] Action 1
-"""
+        return PROMPT_REGISTRY.render(
+            "transcript_editing",
+            instructions=instructions,
+            context_section=context_section,
+            raw_transcript=truncate_to_budget(raw_transcript, PromptInput.DOCUMENT_MAX_CHARS),
+        )
 
     def _parse_ai_response(self, ai_response: str) -> EnrichmentInsights:
         """

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-11-01
 ---
 
 # How Askesis Works
@@ -184,7 +184,7 @@ The decision tree always tutors to the **weakest** KU's evidence level. If the u
 - **EXPLORATORY:** "Guide through questions and analogies. Do NOT explain directly."
 - **ENCOURAGING:** "Acknowledge understanding. Connect to practice activities."
 
-The curriculum content from the bundle is injected as hidden context — the LLM can reference it to guide the conversation, but it's marked as "do NOT share directly."
+The curriculum content from the bundle is injected as hidden context — the LLM can reference it to guide the conversation, but it's marked as "do NOT share directly" (the `askesis_curriculum_reference` template frames the user turn: the curriculum, then the learner's message).
 
 ### Step 9: Generate Answer
 
