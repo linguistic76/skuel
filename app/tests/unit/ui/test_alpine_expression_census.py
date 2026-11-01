@@ -130,9 +130,11 @@ CENSUS: dict[tuple[str, str, str], tuple[int, str]] = {
     ("ui/journals/forms.py", "x-data", "alpine_data"): (2, ENCODED),
     ("ui/journals/forms.py", "x-show", "mode_key.value"): (4, ENUM),
     ("ui/journals/forms.py", "x-show", "supported"): (1, CODE),
-    # The overlay's close: the breakpoint query, constant text.
-    ("ui/patterns/chat_shell.py", "@click.outside", "close_overlay"): (1, CODE),
-    ("ui/patterns/chat_shell.py", "@keydown.escape.window", "close_overlay"): (1, CODE),
+    # The overlays' close (the sidebar's and the side panel's): the breakpoint query and
+    # the side panel toggle's marker attribute, constant text.
+    ("ui/patterns/chat_shell.py", "@click.outside", "_PANEL_TOGGLE"): (1, CODE),
+    ("ui/patterns/chat_shell.py", "@click.outside", "close_overlay"): (2, CODE),
+    ("ui/patterns/chat_shell.py", "@keydown.escape.window", "close_overlay"): (2, CODE),
     ("ui/patterns/form_generator.py", "@input", "field_name"): (1, IDENTIFIER),
     ("ui/patterns/hub.py", "hx_trigger", "trigger"): (1, ENUM),
     ("ui/patterns/modal.py", "x-on:click", "close"): (1, CODE),
