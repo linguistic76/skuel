@@ -5,7 +5,7 @@ Transcription Routes - Clean Architecture Factory
 Minimal factory that wires transcription API routes using DomainRouteConfig.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -25,7 +25,7 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 
 
 def create_transcription_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
 ) -> None:
     """Wire transcription API routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, TRANSCRIPTION_CONFIG)

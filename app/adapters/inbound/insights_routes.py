@@ -16,7 +16,7 @@ Routes:
 - GET /api/insights/stats - Get insight stats (JSON)
 """
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.insights_api import create_insights_api_routes
@@ -24,6 +24,9 @@ from adapters.inbound.insights_history_ui import create_insights_history_routes
 from adapters.inbound.insights_ui import create_insights_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 logger = get_logger("skuel.routes.insights")
 
@@ -43,9 +46,7 @@ INSIGHTS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_insights_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
-) -> None:
+def create_insights_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
     """
     Wire insights API and UI routes using configuration-driven registration.
 
@@ -55,7 +56,6 @@ def create_insights_routes(
         app: FastHTML app instance
         rt: Route decorator
         services: Service container with insight_store
-        _sync_service: Optional sync service (unused, for signature compatibility)
     """
     # Register standard API + UI routes via DomainRouteConfig
     register_domain_routes(app, rt, services, INSIGHTS_CONFIG)

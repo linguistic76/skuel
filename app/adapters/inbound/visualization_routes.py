@@ -5,7 +5,7 @@ Visualization Routes - Clean Architecture Factory
 Minimal factory that wires visualization API routes using DomainRouteConfig.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -24,7 +24,7 @@ VISUALIZATION_CONFIG = DomainRouteConfig(
 
 
 def create_visualization_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
 ) -> None:
     """Wire visualization API routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, VISUALIZATION_CONFIG)

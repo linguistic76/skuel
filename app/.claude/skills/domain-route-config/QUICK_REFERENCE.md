@@ -296,4 +296,5 @@ api_related_services={
 | `TypeError: 'NoneType' object is not callable` | `api_factory=None` without null guard in `register_domain_routes` | The `if config.api_factory:` guard in `register_domain_routes()` must stay |
 | `TypeError: missing required keyword argument` | Factory param not in `api_related_services` | Add the mapping to `api_related_services` |
 | Wrong service injected silently | `container_attr` points to wrong service | Verify key → value mapping matches intent |
-| `TypeError: unexpected keyword argument` in UI factory | A `ui_related_services` kwarg_name has no matching param on the UI factory | Make each `ui_related_services` kwarg_name match an explicit param on the factory signature |
+| `TypeError: unexpected keyword argument` in an API or UI factory | A mapping kwarg_name has no matching param on the factory | Make each kwarg_name match an explicit param — no factory takes `**kwargs` (`tests/unit/adapters/test_route_factory_signatures.py` binds every config) |
+| `ValueError: … the goal filter needs goals_service` at boot | `supports_goal_filter=True` (or the habit filter) with `services.goals` / `services.habits` absent | The query routes take those services from the container; compose the facade, or turn the filter off |

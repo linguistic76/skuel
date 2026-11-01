@@ -69,7 +69,6 @@ from __future__ import annotations
 import ast
 import importlib
 import inspect
-import pkgutil
 import sys
 import textwrap
 import typing
@@ -79,9 +78,9 @@ from pathlib import Path
 
 import pytest
 
-import adapters.inbound
 from adapters.inbound.route_factories import DomainRouteConfig
 from services_bootstrap._container import Services
+from tests.helpers.route_configs import collect_module_configs
 
 # Measured: 33 factories over 20 concrete-service configs.
 # A floor, not an equality — new domains raise it, and a config migrating to a
@@ -190,22 +189,6 @@ def _factory_definition(factory: object) -> ast.FunctionDef | ast.AsyncFunctionD
     return None
 
 
-def _collect_module_configs() -> tuple[list[tuple[str, str, DomainRouteConfig]], list[str]]:
-    """Every module-level ``DomainRouteConfig`` under ``adapters/inbound``."""
-    configs: list[tuple[str, str, DomainRouteConfig]] = []
-    import_failures: list[str] = []
-    for info in pkgutil.iter_modules(adapters.inbound.__path__, "adapters.inbound."):
-        try:
-            module = importlib.import_module(info.name)
-        except ImportError as exc:  # a route module that will not import is itself a defect
-            import_failures.append(f"{info.name}: {exc}")
-            continue
-        for name, value in vars(module).items():
-            if isinstance(value, DomainRouteConfig):
-                configs.append((info.name, name, value))
-    return configs, import_failures
-
-
 def audit_configs(configs: list[tuple[str, str, DomainRouteConfig]]) -> Audit:
     """Check every factory's reads of its injected primary service."""
     hints = _container_type_hints()
@@ -262,7 +245,7 @@ def audit_configs(configs: list[tuple[str, str, DomainRouteConfig]]) -> Audit:
 
 @pytest.fixture(scope="module")
 def audit() -> Audit:
-    configs, import_failures = _collect_module_configs()
+    configs, import_failures = collect_module_configs()
     assert not import_failures, "adapters/inbound modules failed to import:\n" + "\n".join(
         import_failures
     )

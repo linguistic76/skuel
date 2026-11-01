@@ -9,7 +9,7 @@ afterwards (ADR-091 N2).
 Part of the four-phase learning loop: Exercise → UserEntry → EntryReport → RevisedExercise → ...
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.revised_exercises_api import create_revised_exercises_api_routes
@@ -30,7 +30,7 @@ REVISED_EXERCISES_CONFIG = DomainRouteConfig(
 
 
 def create_revised_exercises_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
 ) -> None:
     """Wire revised exercise API routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, REVISED_EXERCISES_CONFIG)

@@ -78,15 +78,31 @@ class CommonQueryRouteFactory:
             service: Domain service with query methods
             domain_name: Domain name (e.g., "tasks", "goals", "habits")
             user_service: UserService for admin role verification when querying other users
-            goals_service: GoalsService for goal ownership verification
-            habits_service: HabitsService for habit ownership verification
+            goals_service: GoalsService for goal ownership verification — required
+                under USER_OWNED scope when the goal filter is on
+            habits_service: HabitsService for habit ownership verification — required
+                under USER_OWNED scope when the habit filter is on
             supports_goal_filter: Whether domain supports filtering by goal
             supports_habit_filter: Whether domain supports filtering by habit
             scope: Content ownership model (default: ContentScope.USER_OWNED).
                   - ContentScope.USER_OWNED: User-specific content with ownership verification
                   - ContentScope.SHARED: Public/shared content (no ownership checks)
             base_path: Custom base path (default: /api/{domain_name})
+
+        Raises:
+            ValueError: a filter is on under USER_OWNED scope without the service
+                that checks its anchor's owner — the route would read the domain
+                for a goal or habit the caller does not own.
         """
+        if scope == ContentScope.USER_OWNED:
+            if supports_goal_filter and goals_service is None:
+                raise ValueError(
+                    f"{domain_name}: the goal filter needs goals_service to check the goal's owner"
+                )
+            if supports_habit_filter and habits_service is None:
+                raise ValueError(
+                    f"{domain_name}: the habit filter needs habits_service to check the habit's owner"
+                )
         self.service = service
         self.domain = domain_name
         self.user_service = user_service
@@ -226,8 +242,8 @@ class CommonQueryRouteFactory:
         """
         Register GET /api/{domain}/goal?goal_uid=... route.
 
-        Requires authentication. If goals_service is provided and verify_ownership
-        is True, verifies the user owns the goal before returning results.
+        Requires authentication. Under USER_OWNED scope, a goal the caller does
+        not own — missing or foreign alike — is 404 and the domain is not read.
 
         Calls: service.get_{domain}_for_goal(goal_uid, user_uid=user_uid)
         Example: tasks_service.get_tasks_for_goal(goal_uid, user_uid=user_uid)
@@ -244,8 +260,7 @@ class CommonQueryRouteFactory:
             # Require authentication
             user_uid = require_authenticated_user(request)
 
-            # Verify user owns the goal if goals_service is provided
-            if goals_service and verify_ownership:
+            if verify_ownership:
                 ownership_error = await verify_entity_ownership(
                     goals_service, goal_uid, user_uid, domain
                 )
@@ -270,8 +285,8 @@ class CommonQueryRouteFactory:
         """
         Register GET /api/{domain}/habit?habit_uid=... route.
 
-        Requires authentication. If habits_service is provided and verify_ownership
-        is True, verifies the user owns the habit before returning results.
+        Requires authentication. Under USER_OWNED scope, a habit the caller does
+        not own — missing or foreign alike — is 404 and the domain is not read.
 
         Calls: service.get_{domain}_for_habit(habit_uid, user_uid=user_uid)
         Example: tasks_service.get_tasks_for_habit(habit_uid, user_uid=user_uid)
@@ -288,8 +303,7 @@ class CommonQueryRouteFactory:
             # Require authentication
             user_uid = require_authenticated_user(request)
 
-            # Verify user owns the habit if habits_service is provided
-            if habits_service and verify_ownership:
+            if verify_ownership:
                 ownership_error = await verify_entity_ownership(
                     habits_service, habit_uid, user_uid, domain
                 )

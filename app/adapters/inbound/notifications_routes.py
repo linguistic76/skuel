@@ -6,7 +6,7 @@ Wires Notifications UI routes using DomainRouteConfig.
 UI-only (no separate API factory needed — HTMX handles mutations).
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.notifications_ui import create_notifications_ui_routes
@@ -24,7 +24,7 @@ NOTIFICATIONS_CONFIG = DomainRouteConfig(
 
 
 def create_notifications_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
 ) -> None:
     """Wire notifications UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, NOTIFICATIONS_CONFIG)

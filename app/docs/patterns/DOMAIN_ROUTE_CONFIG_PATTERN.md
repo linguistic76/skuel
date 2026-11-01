@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-10-31
+updated: 2026-11-01
 category: patterns
 related_skills:
 - fasthtml
@@ -119,7 +119,8 @@ def create_activity_domain_route_config(
     Pre-populate Activity Domain conventions into DomainRouteConfig.
 
     Automatically creates CRUD, Query, and Intelligence sub-configs.
-    Ensures user_service is in api_related_services (required by Query).
+    api_related_services is passed through unchanged — the Query factory
+    takes its own services from the container (see Query Services below).
     """
 ```
 
@@ -170,6 +171,12 @@ Both `api_related_services` and `ui_related_services` use the same `{kwarg_name:
 - **Key (kwarg_name):** The parameter name expected by the factory function
 - **Value (container_attr):** The attribute name on the services container
 
+**The mapping is exactly the factory's own parameters:** each key names a parameter,
+each parameter after the first three without a default has a key, and the factory
+takes no `**kwargs` — a sink there accepts a mistyped or misrouted key without a word.
+`tests/unit/adapters/test_route_factory_signatures.py` binds every module-level
+config's mappings against its factories.
+
 **Example:**
 ```python
 api_related_services={
@@ -199,6 +206,14 @@ api_factory(app, rt, primary_service,
 6. (Optional) Extract UI-related services, call ui_factory the same way
 7. Return None — registration is the decorator's side effect; there is no route list
 ```
+
+**Query Services:** the Query factory (when `query` is set) does not read the api
+mapping. It takes `services.user` (an admin's read of another user's list), plus
+`services.goals` when `supports_goal_filter` is on and `services.habits` when
+`supports_habit_filter` is on — the service that checks the filter's anchor. Under
+`USER_OWNED` scope `CommonQueryRouteFactory` refuses at construction a filter turned on
+without its service, so `GET /api/{domain}/goal` and `/habit` always answer 404 for a
+goal or habit the caller does not own.
 
 **Service resolution warnings:** `register_domain_routes()` uses sentinel-based detection to distinguish two cases:
 - **Attribute exists but is `None`** (e.g. tier-dependent services like `submission_report` in CORE tier) — silently passes `None` through. Factory must handle with default parameters.
@@ -327,10 +342,12 @@ __all__ = ["create_{domain}_routes"]
 
 ```python
 def create_{domain}_api_routes(
-    app: Any,
-    rt: Any,
-    primary_service: ServiceType,
-    **related_services: Any  # Optional kwargs - MUST have defaults
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    {domain}_service: ServiceType,
+    # Related services are injected BY NAME via api_related_services — each an explicit kwarg:
+    connection_fetch_backend: ConnectionFetchOperations,
+    goals_service: GoalsService | None = None,   # optional ones default to None
 ) -> None:
     """
     Register {domain} API routes.
@@ -338,8 +355,9 @@ def create_{domain}_api_routes(
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        primary_service: {Domain}Service instance
-        **related_services: Optional related services (e.g., user_service, goals_service)
+        {domain}_service: {Domain}Service instance (primary service, positional)
+        connection_fetch_backend / goals_service / ...: related services injected by
+            name via api_related_services (kwarg_name must match the param name)
     """
     # Register routes via @rt() decorators — the decorator IS the registration,
     # so the factory returns nothing.
@@ -373,7 +391,7 @@ def create_{domain}_ui_routes(
 1. **First param:** `app` (FastHTML app instance, prefixed with `_` only if unused)
 2. **Second param:** `rt` (route decorator)
 3. **Third param:** `primary_service` (the domain's main service, positional)
-4. **Related services (both API and UI):** declared as explicit **named** kwargs, injected by `register_domain_routes()` from `api_related_services` / `ui_related_services`. Required ones (e.g. `connection_fetch_backend` since PR #75) have no default; optional ones default to `None`. The registration path passes only `primary_service` + these named kwargs — it does **not** inject a whole `services` container.
+4. **Related services (both API and UI):** declared as explicit **named** kwargs, injected by `register_domain_routes()` from `api_related_services` / `ui_related_services`. Required ones (e.g. `connection_fetch_backend` since PR #75) have no default; optional ones default to `None`. No factory takes `**kwargs`: the mapping names exactly its parameters (see Service Mapping Contract). The registration path passes only `primary_service` + these named kwargs — it does **not** inject a whole `services` container.
 5. **Return nothing:** every layer — sub-factory (`api_factory`/`ui_factory`), `register_domain_routes()`, and the top-level `create_{domain}_routes` — returns `None`. The `@rt()` decorator registers the handler the moment it is applied; there is no route list to hand up.
 
 **Note:** A whole-`services` container is the convention for the separate **Orchestrator / Manual hub** wiring (home, explore, today, settings, lifepath, system — wired by hand in bootstrap), not for the DomainRouteConfig path, which injects named services via `ui_related_services`.
@@ -482,7 +500,7 @@ def create_old_api_routes(app, rt, service) -> list[Any]:
 
 **Before (manual pattern):**
 ```python
-def create_tasks_routes(app, rt, services, _sync_service=None):
+def create_tasks_routes(app, rt, services):
     tasks_service = getattr(services, "tasks", None)
     user_service = getattr(services, "user_service", None)
     goals_service = getattr(services, "goals", None)
@@ -699,7 +717,7 @@ INSIGHTS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_insights_routes(app, rt, services, _sync_service=None):
+def create_insights_routes(app, rt, services):
     """
     Wire insights API and UI routes using configuration-driven registration.
 
@@ -738,7 +756,7 @@ PATHWAYS_CONFIG = DomainRouteConfig(
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 
-def create_pathways_routes(app, rt, services, _sync_service=None):
+def create_pathways_routes(app, rt, services):
     register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
     # PS routes via its own DomainRouteConfig (soft-fail if ls service missing)
     register_domain_routes(app, rt, services, PS_CONFIG)
@@ -841,7 +859,7 @@ ORCHESTRATION_CONFIG = DomainRouteConfig(
 )
 
 
-def create_orchestration_routes(app, rt, services, _sync_service=None):
+def create_orchestration_routes(app, rt, services):
     register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
 
     if services and services.goal_task_generator and services.user:
@@ -886,7 +904,7 @@ ADVANCED_CONFIG = DomainRouteConfig(
 )
 
 
-def create_advanced_routes(app, rt, services, _sync_service=None):
+def create_advanced_routes(app, rt, services):
     register_domain_routes(app, rt, services, ADVANCED_CONFIG)
 ```
 
@@ -913,7 +931,7 @@ def create_advanced_routes(app, rt, services, _sync_service=None):
 ```python
 # Inside create_tasks_api_routes() - the endpoint-level factories are called bare;
 # each registers with rt and returns nothing.
-def create_tasks_api_routes(app, rt, tasks_service, goals_service, **_kwargs) -> None:
+def create_tasks_api_routes(app, rt, tasks_service, goals_service, connection_fetch_backend) -> None:
     # Inline field updates (status, priority) via the field-api factory
     create_activity_field_api_routes(rt, ActivityFieldApiConfig(...))
     # Hierarchy + cross-domain link blocks

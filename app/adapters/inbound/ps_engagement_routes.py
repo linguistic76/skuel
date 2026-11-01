@@ -63,7 +63,6 @@ def create_ps_engagement_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     services: Services | None,
-    _sync_service: Any = None,
 ) -> None:
     """Register the 3-transition engagement endpoints.
 

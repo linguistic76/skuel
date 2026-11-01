@@ -13,7 +13,7 @@ Benefits:
 Version: 2.0 (Migrated to DomainRouteConfig pattern)
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.askesis_api import create_askesis_api_routes
 from adapters.inbound.askesis_ui import create_askesis_ui_routes
@@ -43,9 +43,7 @@ ASKESIS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_askesis_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_askesis_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """
     Wire askesis API and UI routes using configuration-driven registration.
 
@@ -53,7 +51,6 @@ def create_askesis_routes(
         app: FastHTML app instance
         rt: Route decorator
         services: Service container with askesis service
-        _sync_service: Optional sync service (unused, for signature compatibility)
     """
     register_domain_routes(app, rt, services, ASKESIS_CONFIG)
 

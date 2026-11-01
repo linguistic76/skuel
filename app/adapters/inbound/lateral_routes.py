@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from core.orchestrator.lateral_relationships_orchestrator import (
         LateralRelationshipsOrchestrator,
     )
+    from services_bootstrap import Services
 
 logger = get_logger(__name__)
 
@@ -302,9 +303,7 @@ def create_lateral_api_routes(
 # ============================================================================
 
 
-def create_lateral_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
-) -> None:
+def create_lateral_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
     """Wire lateral relationship routes via LateralRelationshipsOrchestrator."""
     if not services or not services.lateral_orchestrator:
         logger.warning("LateralRelationshipsOrchestrator not available — lateral routes skipped")

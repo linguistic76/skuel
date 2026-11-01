@@ -29,15 +29,16 @@ Usage:
         uid_prefix="task",
         supports_goal_filter=True,
         supports_habit_filter=True,
+        # Exactly create_tasks_api_routes' own parameters — the query routes'
+        # user/goals/habits services come from the container (QueryRouteConfig).
         api_related_services={
-            "user_service": "user",
+            "connection_fetch_backend": "connection_fetch_backend",
             "goals_service": "goals",
-            "habits_service": "habits",
         },
         prometheus_metrics_attr="prometheus_metrics",
     )
 
-    def create_tasks_routes(app, rt, services, _sync_service=None):
+    def create_tasks_routes(app, rt, services):
         register_domain_routes(app, rt, services, TASKS_CONFIG)
 """
 
@@ -94,6 +95,12 @@ class CRUDRouteConfig:
 class QueryRouteConfig:
     """Static parameters for CommonQueryRouteFactory.
 
+    The query routes take their services from the container, not from the
+    config's ``api_related_services``: ``services.user`` always (admin reads of
+    another user's list), ``services.goals`` when the goal filter is on and
+    ``services.habits`` when the habit filter is on — the service that checks
+    the filter's anchor belongs to the caller.
+
     See: /docs/patterns/ROUTE_FACTORIES.md
     """
 
@@ -128,14 +135,16 @@ class DomainRouteConfig:
     Attributes:
         domain_name: Human-readable domain name for logging (e.g., "tasks", "goals")
         primary_service_attr: Attribute name on services container (e.g., "tasks", "goals")
-        api_factory: Optional function to register API routes - signature:
-            (app, rt, primary_service, **related_services) -> None
-        ui_factory: Optional function to register UI routes - signature:
-            (app, rt, primary_service, **ui_related_services) -> None
+        api_factory: Optional function to register API routes, called as
+            ``api_factory(app, rt, primary_service, **api_related)`` -> None
+        ui_factory: Optional function to register UI routes, called as
+            ``ui_factory(app, rt, primary_service, **ui_related)`` -> None
         api_related_services: Mapping of {kwarg_name: container_attr} for API factory.
-            Keys must match parameter names in api_factory's signature.
-            Values must be the exact attribute name on the services container.
-            A warning is logged if any value resolves to None at registration time.
+            Exactly the factory's own parameters: each key names one, each
+            parameter without a default has a key, and the factory takes no
+            ``**kwargs`` (a sink would accept a mistyped key without a word).
+            Values must be the exact attribute name on the services container;
+            a warning is logged for a value that names no attribute.
         ui_related_services: Same mapping convention for UI factory.
         crud: When set, CRUDRouteFactory is instantiated and registered before api_factory.
         query: When set, CommonQueryRouteFactory is instantiated and registered before api_factory.
@@ -195,7 +204,7 @@ def register_domain_routes(
     # 1. Extract primary service
     primary_service = getattr(services, config.primary_service_attr, None) if services else None
 
-    if not primary_service:
+    if services is None or not primary_service:
         logger.warning(
             f"{config.domain_name.title()} routes registered without "
             f"{config.primary_service_attr} service"
@@ -256,9 +265,9 @@ def register_domain_routes(
         CommonQueryRouteFactory(
             service=primary_service,
             domain_name=config.domain_name,
-            user_service=api_related.get("user_service"),
-            goals_service=api_related.get("goals_service"),
-            habits_service=api_related.get("habits_service"),
+            user_service=services.user,
+            goals_service=services.goals if config.query.supports_goal_filter else None,
+            habits_service=services.habits if config.query.supports_habit_filter else None,
             supports_goal_filter=config.query.supports_goal_filter,
             supports_habit_filter=config.query.supports_habit_filter,
             scope=ContentScope.USER_OWNED,
@@ -318,8 +327,8 @@ def create_activity_domain_route_config(
 
     All Activity Domains share:
     - scope=USER_OWNED
-    - CRUD + Query + Intelligence factories
-    - user_service in api_related_services (Query factory needs it)
+    - CRUD + Query + Intelligence factories (the Query factory takes its own
+      services from the container — QueryRouteConfig)
     - a REQUIRED request_create_method: every Activity Domain's create route goes
       through its request-door primitive (``create_task``, ``create_goal``, …) —
       the entity path drops the request-only link fields these domains carry, so
@@ -327,15 +336,12 @@ def create_activity_domain_route_config(
 
     See: /docs/patterns/ROUTE_FACTORIES.md, /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
     """
-    related = dict(api_related_services or {})
-    related.setdefault("user_service", "user")
-
     return DomainRouteConfig(
         domain_name=domain_name,
         primary_service_attr=primary_service_attr,
         api_factory=api_factory,
         ui_factory=ui_factory,
-        api_related_services=related,
+        api_related_services=api_related_services or {},
         ui_related_services=ui_related_services or {},
         crud=CRUDRouteConfig(
             create_schema=create_schema,

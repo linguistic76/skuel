@@ -11,7 +11,7 @@ Architecture:
     - Components: ui/calendar/components.py
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.calendar_ui import create_calendar_ui_routes
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -28,9 +28,7 @@ CALENDAR_CONFIG = DomainRouteConfig(
 )
 
 
-def create_calendar_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_calendar_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire the calendar UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, CALENDAR_CONFIG)
 

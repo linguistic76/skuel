@@ -2,12 +2,12 @@
 Tests for Domain Route Factory — Config-Driven Registration
 ============================================================
 
-16 tests covering:
-  A. Sub-config instantiation (3)
-  B. register_domain_routes config-driven dispatch (5)
-  C. Backward compatibility (2)
-  D. Factory function create_activity_domain_route_config (4)
-  E. Integration round-trips (2)
+Groups:
+  A. Sub-config instantiation
+  B. register_domain_routes config-driven dispatch
+  C. Configs without sub-configs
+  D. Factory function create_activity_domain_route_config
+  E. Integration round-trips
 """
 
 from typing import Any
@@ -59,7 +59,7 @@ def _make_services(
 
 
 # ============================================================================
-# Group A — Sub-config instantiation (3 tests)
+# Group A — Sub-config instantiation
 # ============================================================================
 
 
@@ -106,7 +106,7 @@ def test_intelligence_route_config_defaults():
 
 
 # ============================================================================
-# Group B — register_domain_routes config-driven dispatch (5 tests)
+# Group B — register_domain_routes config-driven dispatch
 # ============================================================================
 
 
@@ -142,16 +142,20 @@ def test_crud_config_triggers_factory(mock_crud: MagicMock):
 
 @patch("adapters.inbound.route_factories.query_route_factory.CommonQueryRouteFactory")
 def test_query_config_triggers_factory(mock_query: MagicMock):
-    """query config → CommonQueryRouteFactory instantiated and registered."""
+    """query config → CommonQueryRouteFactory takes its services from the container.
+
+    The api mapping is empty: the query routes' user and goal services do not
+    travel in it, and the habit service stays out while the habit filter is off.
+    """
     user_svc = MagicMock()
     goals_svc = MagicMock()
-    services = _make_services(extras={"user": user_svc, "goals": goals_svc})
+    habits_svc = MagicMock()
+    services = _make_services(extras={"user": user_svc, "goals": goals_svc, "habits": habits_svc})
     primary = services.tasks
     config = DomainRouteConfig(
         domain_name="tasks",
         primary_service_attr="tasks",
         api_factory=_noop_api_factory,
-        api_related_services={"user_service": "user", "goals_service": "goals"},
         query=QueryRouteConfig(supports_goal_filter=True, supports_habit_filter=False),
     )
 
@@ -162,6 +166,7 @@ def test_query_config_triggers_factory(mock_query: MagicMock):
     assert kwargs["service"] is primary
     assert kwargs["user_service"] is user_svc
     assert kwargs["goals_service"] is goals_svc
+    assert kwargs["habits_service"] is None
     assert kwargs["supports_goal_filter"] is True
     assert kwargs["supports_habit_filter"] is False
     mock_query.return_value.register_routes.assert_called_once_with("app", "rt")
@@ -274,7 +279,7 @@ def test_prometheus_metrics_attr_resolves_from_services(mock_crud: MagicMock):
 
 
 # ============================================================================
-# Group C — Backward compatibility (2 tests)
+# Group C — Configs without sub-configs
 # ============================================================================
 
 
@@ -319,7 +324,7 @@ def test_none_primary_service_early_return():
 
 
 # ============================================================================
-# Group D — Factory function (4 tests)
+# Group D — Factory function
 # ============================================================================
 
 
@@ -363,41 +368,20 @@ def test_factory_produces_correct_structure():
     assert cfg.intelligence is not None
 
 
-def test_factory_auto_adds_user_service():
-    """user_service is auto-added to api_related_services when missing."""
+def test_factory_passes_the_api_mapping_through_unchanged():
+    """The api mapping is exactly the caller's — nothing is added for the query routes."""
     cfg = create_activity_domain_route_config(
-        domain_name="goals",
-        request_create_method="create_task",
-        primary_service_attr="goals",
+        domain_name="habits",
+        request_create_method="create_habit",
+        primary_service_attr="habits",
         api_factory=_noop_api_factory,
         create_schema=_FakeCreateSchema,
         update_schema=_FakeUpdateSchema,
-        uid_prefix="goal",
-        api_related_services={"goals_service": "goals"},
+        uid_prefix="habit",
+        api_related_services={"principles_service": "principles"},
     )
 
-    assert "user_service" in cfg.api_related_services
-    # Default maps to the `user` attribute on the Services container
-    assert cfg.api_related_services["user_service"] == "user"
-    # Original key preserved
-    assert cfg.api_related_services["goals_service"] == "goals"
-
-
-def test_factory_does_not_duplicate_user_service():
-    """user_service is NOT duplicated when already present."""
-    cfg = create_activity_domain_route_config(
-        domain_name="goals",
-        request_create_method="create_task",
-        primary_service_attr="goals",
-        api_factory=_noop_api_factory,
-        create_schema=_FakeCreateSchema,
-        update_schema=_FakeUpdateSchema,
-        uid_prefix="goal",
-        api_related_services={"user_service": "custom_user_svc"},
-    )
-
-    # Caller's value wins (setdefault semantics)
-    assert cfg.api_related_services["user_service"] == "custom_user_svc"
+    assert cfg.api_related_services == {"principles_service": "principles"}
 
 
 def test_factory_threads_prometheus_metrics_attr():
@@ -418,7 +402,7 @@ def test_factory_threads_prometheus_metrics_attr():
 
 
 # ============================================================================
-# Group E — Integration (2 tests)
+# Group E — Integration
 # ============================================================================
 
 
@@ -454,11 +438,6 @@ def test_full_roundtrip_factory_to_register(mock_crud, mock_query, mock_intel):
         uid_prefix="task",
         supports_goal_filter=True,
         supports_habit_filter=True,
-        api_related_services={
-            "user_service": "user",
-            "goals_service": "goals",
-            "habits_service": "habits",
-        },
         prometheus_metrics_attr="prometheus_metrics",
     )
 
@@ -472,12 +451,22 @@ def test_full_roundtrip_factory_to_register(mock_crud, mock_query, mock_intel):
     assert api_called == [True]
 
 
-def test_api_factory_kwargs_absorbs_extra_related_services():
-    """api_factory with **_kwargs absorbs extra related services without error."""
-    received_kwargs: dict[str, Any] = {}
+def test_api_factory_receives_its_mapping_as_keywords():
+    """Each mapping key arrives as the keyword of the same name, resolved on the container."""
+    received_kwargs: dict[str, object] = {}
 
-    def api_factory(app: Any, rt: Any, primary: Any, **kwargs: Any) -> None:
-        received_kwargs.update(kwargs)
+    def api_factory(
+        app: object,
+        rt: object,
+        primary: object,
+        *,
+        user_service: object,
+        goals_service: object,
+        habits_service: object,
+    ) -> None:
+        received_kwargs.update(
+            user_service=user_service, goals_service=goals_service, habits_service=habits_service
+        )
 
     services = _make_services(
         extras={
@@ -497,7 +486,7 @@ def test_api_factory_kwargs_absorbs_extra_related_services():
         },
     )
 
-    # No sub-configs — goes straight to api_factory with all related services
+    # No sub-configs — goes straight to api_factory with its related services
     register_domain_routes("app", "rt", services, config)
 
     assert received_kwargs["user_service"] == "user_svc"

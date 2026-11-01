@@ -11,7 +11,7 @@ Routes:
 - GET /cal/cognitive-load - Analyze cognitive load for a date
 """
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -33,6 +33,9 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 logger = get_logger("skuel.routes.advanced")
 
@@ -128,9 +131,7 @@ ADVANCED_CONFIG = DomainRouteConfig(
 )
 
 
-def create_advanced_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
-) -> None:
+def create_advanced_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
     """
     Wire the calendar optimization routes using DomainRouteConfig.
 

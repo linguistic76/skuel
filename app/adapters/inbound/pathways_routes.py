@@ -11,7 +11,7 @@ This file handles:
 Version: 3.0 (Renamed from learning_routes.py)
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.path_steps_routes import PS_CONFIG
@@ -50,9 +50,7 @@ PATHWAYS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_pathways_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_pathways_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """
     Wire pathways API and UI routes using configuration-driven registration.
 
@@ -64,7 +62,6 @@ def create_pathways_routes(
         app: FastHTML app instance
         rt: Route decorator
         services: Service container with learning service
-        _sync_service: Optional sync service (unused, for signature compatibility)
     """
 
     # Register main LP routes via DomainRouteConfig (soft-fail if service missing)

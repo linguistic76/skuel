@@ -7,7 +7,7 @@ only in the content vault (ADR-091 S4), so the domain registers no CRUD routes:
 the app reads exercises and records what learners do with them.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.exercises_api import create_exercises_api_routes
 from adapters.inbound.exercises_ui import create_exercises_ui_routes
@@ -32,7 +32,7 @@ EXERCISES_CONFIG = DomainRouteConfig(
 
 
 def create_exercises_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
 ) -> None:
     """Wire exercise API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, EXERCISES_CONFIG)

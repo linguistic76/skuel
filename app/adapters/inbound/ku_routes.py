@@ -15,7 +15,7 @@ The Ku detail PAGE is /explore/ku/{uid} (learning_loop_routes.py) — there is n
 /ku/{uid} route; entity_detail_href owns the entity_type → URL mapping.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.ku_ui import create_ku_ui_routes
@@ -43,9 +43,7 @@ KU_CONFIG = DomainRouteConfig(
 )
 
 
-def create_ku_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_ku_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire Ku UI routes."""
     register_domain_routes(app, rt, services, KU_CONFIG)
 

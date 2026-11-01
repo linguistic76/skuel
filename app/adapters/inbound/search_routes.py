@@ -142,7 +142,6 @@ def create_search_api_routes(
     ku_service: Any = None,
     intelligence_tier: IntelligenceTier | None = None,
     user_service: Any = None,
-    **_kwargs: Any,
 ) -> None:
     """Create search routes with SearchRouter dependency."""
 
@@ -597,9 +596,7 @@ SEARCH_CONFIG = DomainRouteConfig(
 )
 
 
-def create_search_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services, _sync_service: Any = None
-) -> None:
+def create_search_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
     """Wire search routes via DomainRouteConfig."""
     register_domain_routes(app, rt, services, SEARCH_CONFIG)
 

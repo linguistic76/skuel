@@ -665,11 +665,11 @@ async def _wire_all_routes(
 
     from adapters.inbound.auth_routes import create_auth_routes
 
-    create_auth_routes(app, rt, services, None)
+    create_auth_routes(app, rt, services)
 
     from adapters.inbound.admin_routes import create_admin_routes
 
-    create_admin_routes(app, rt, services, None)
+    create_admin_routes(app, rt, services)
 
     from adapters.inbound.metrics_routes import create_metrics_routes
 
@@ -686,12 +686,12 @@ async def _wire_all_routes(
     # -- Explore (merged Ku + PathStep discovery) --
     from adapters.inbound.explore_routes import create_explore_routes
 
-    create_explore_routes(app, rt, services, None)
+    create_explore_routes(app, rt, services)
 
     # -- Curriculum --
     from adapters.inbound.ku_routes import create_ku_routes
 
-    create_ku_routes(app, rt, services, None)
+    create_ku_routes(app, rt, services)
 
     from adapters.inbound.exercises_routes import create_exercises_routes
 
@@ -703,12 +703,12 @@ async def _wire_all_routes(
 
     from adapters.inbound.pathways_routes import create_pathways_routes
 
-    create_pathways_routes(app, rt, services, None)
+    create_pathways_routes(app, rt, services)
 
     if services.askesis is not None:
         from adapters.inbound.askesis_routes import create_askesis_routes
 
-        create_askesis_routes(app, rt, services, None)
+        create_askesis_routes(app, rt, services)
 
     # -- Activity Domain read-focused UI --
     from adapters.inbound.tasks_routes import create_tasks_routes
@@ -738,7 +738,7 @@ async def _wire_all_routes(
     # -- UserEntry (ADR-054) — unified submissions + journals surface --
     from adapters.inbound.user_entry_routes import create_user_entry_routes
 
-    create_user_entry_routes(app, rt, services, None)
+    create_user_entry_routes(app, rt, services)
 
     # -- PS+Activity Templates --
     # Templates are vault-authored curriculum (ADR-091 S8): the app registers the
@@ -762,7 +762,7 @@ async def _wire_all_routes(
     # -- Other entity domains --
     from adapters.inbound.finance_routes import create_finance_routes
 
-    create_finance_routes(app, rt, services, None)
+    create_finance_routes(app, rt, services)
 
     from adapters.inbound.lifepath_routes import create_lifepath_routes
 
@@ -774,11 +774,11 @@ async def _wire_all_routes(
 
     from adapters.inbound.insights_routes import create_insights_routes
 
-    create_insights_routes(app, rt, services, None)
+    create_insights_routes(app, rt, services)
 
     from adapters.inbound.self_checkin_routes import create_self_checkin_routes
 
-    create_self_checkin_routes(app, rt, services, None)
+    create_self_checkin_routes(app, rt, services)
 
     from adapters.inbound.search_routes import create_search_routes
 
@@ -850,7 +850,7 @@ async def _wire_all_routes(
 
     from adapters.inbound.transcription_routes import create_transcription_routes
 
-    create_transcription_routes(app, rt, services, None)
+    create_transcription_routes(app, rt, services)
 
     # -- Graph / Visualization --
     from adapters.inbound.hierarchy_routes import create_hierarchy_routes
@@ -863,7 +863,7 @@ async def _wire_all_routes(
 
     from adapters.inbound.visualization_routes import create_visualization_routes
 
-    create_visualization_routes(app, rt, services, None)
+    create_visualization_routes(app, rt, services)
 
     from adapters.inbound.orchestration_routes import create_orchestration_routes
 
