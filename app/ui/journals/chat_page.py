@@ -35,6 +35,8 @@ from ui.journals.period_links import (
 )
 from ui.patterns.chat_shell import (
     CHAT_SHELL_HEIGHT,
+    chat_side_panel,
+    chat_side_panel_toggle,
     chat_sidebar,
     chat_sidebar_open_default,
     chat_sidebar_set,
@@ -59,7 +61,8 @@ def JournalsLandingPage(
     discussions). Center: chat input with the discussion source panel (FOUNDER
     canon-shelf checkboxes + vault toggle), or — when ``workspace`` is passed —
     a rehydrated discussion thread (continue, ADR-078). Right: compact
-    Processing / Sources / Browse upload panel. No Tasks+ sidebar — uses
+    Processing / Sources / Browse upload panel — below ``lg`` an overlay the header's
+    Upload button opens (``ui/patterns/chat_shell.py``). No Tasks+ sidebar — uses
     BasePage(CUSTOM).
 
     ``shelf_books`` is the canon shelf (``resource_uid`` + ``title`` per book) —
@@ -77,18 +80,19 @@ def JournalsLandingPage(
         _landing_center_column(
             shelf_books or [], is_founder, workspace=workspace, model_options=model_options or []
         ),
-        Div(
-            render_right_panel(is_founder=is_founder),
-            upload_form_script(),
-            cls=("w-[320px] shrink-0 border-l border-muted bg-muted/50 overflow-y-auto p-4"),
+        # A processed upload lands in #journal-workspace: on a phone the panel closes onto it.
+        chat_side_panel(
+            [render_right_panel(is_founder=is_founder), upload_form_script()],
+            closes_on_swap_into="journal-workspace",
         ),
-        cls=f"flex overflow-hidden bg-background {CHAT_SHELL_HEIGHT}",
+        cls=f"relative flex overflow-hidden bg-background {CHAT_SHELL_HEIGHT}",
         # sessionActive: "New Journal" is a reset button. /journals/start swaps the
         # conversation into #journal-workspace with the URL still /journals, so the
         # only signal that a reset has anything to reset is that swap event.
         **{
             "x-data": (
                 f"{{ sidebarOpen: {chat_sidebar_open_default(_SIDEBAR_KEY)},"
+                f" panelOpen: false,"
                 f" sessionActive: {'true' if workspace is not None else 'false'} }}"
             ),
             "@htmx:after-swap.window": (
@@ -669,12 +673,15 @@ def _landing_center_column(
         center = Div(
             Div(
                 Div(
-                    P("Journal", cls="text-xl font-bold text-foreground"),
-                    P(
-                        "Your private thinking space.",
-                        cls="text-15 text-muted-foreground mt-1",
+                    Div(
+                        P("Journal", cls="text-xl font-bold text-foreground"),
+                        P(
+                            "Your private thinking space.",
+                            cls="text-15 text-muted-foreground mt-1",
+                        ),
                     ),
-                    cls="mb-6",
+                    _upload_panel_button(),
+                    cls="mb-6 flex items-start justify-between gap-3",
                 ),
                 _landing_text_form(shelf_books, is_founder, model_options or []),
                 cls="max-w-[640px] mx-auto pt-10 px-6",
@@ -685,6 +692,21 @@ def _landing_center_column(
     return Div(
         center,
         cls="flex-1 flex flex-col overflow-hidden",
+    )
+
+
+def _upload_panel_button() -> Any:  # boundary: fasthtml-elements
+    """The header's Upload button: below ``lg`` the upload panel is an overlay, and this
+    opens it. At ``lg`` the panel is always in the row and the button is gone."""
+    return Button(
+        Icon("upload", size=16, cls="text-foreground/70"),
+        Span("Upload", cls="text-sm font-semibold text-foreground"),
+        type="button",
+        cls=(
+            "lg:hidden shrink-0 flex items-center gap-2 px-3 min-h-8 rounded-lg"
+            " border border-border bg-background hover:bg-muted transition-colors"
+        ),
+        **chat_side_panel_toggle(),
     )
 
 

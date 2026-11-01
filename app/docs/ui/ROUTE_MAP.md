@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-31
+updated: 2026-11-01
 ---
 
 # Route Map
@@ -177,7 +177,7 @@ Journal domain. The file/audio door is a zero-persistence workshop (ADR-073); th
 **FOUNDER tier** (`linguistic76`) — full three-stage DNWF. STANDARD tier sees a placeholder.
 
 **Routes:**
-- `GET  /journals` — tier-aware 3-column landing (collapsible journal sidebar · chat input · upload panel; `BasePage(CUSTOM)`, no Tasks+ sidebar). The sidebar carries the **revisit list** of the user's past discussions (ADR-078, owner-private) plus the "New Journal" reset
+- `GET  /journals` — tier-aware 3-column landing (collapsible journal sidebar · chat input · upload panel — below `lg` an overlay from the right, opened by the header's Upload button; `BasePage(CUSTOM)`, no Tasks+ sidebar). The sidebar carries the **revisit list** of the user's past discussions (ADR-078, owner-private) plus the "New Journal" reset
 - `POST /journals/start` — open a discussion on typed text (both tiers; companion voice, user leads); returns the response **inline** (`HX-Retarget` `#journal-workspace`) and persists an owner-private `:ConversationSession` + opening turn pair (ADR-078 — revisit/continue) but **no `UserEntry`**, no redirect. FOUNDER source panel (canon-shelf checkboxes + vault toggle) grounds from message one
 - `GET  /journals/discussion/{session_id}` — **continue** an owned discussion: rehydrate `#journal-workspace` from stored turns + restored source selection (404-not-403 on a non-owner)
 - `POST /journals/discussion/{session_id}/delete` — delete an owned discussion (session + all turns); removes the revisit-list row (`@csrf_protected`)

@@ -1,4 +1,4 @@
-<div x-data="{ sidebarOpen: window.matchMedia('(min-width: 1024px)').matches &amp;&amp; localStorage.getItem('journal-sidebar') !== 'false' }" class="flex">
+<div x-data="{ sidebarOpen: window.matchMedia('(min-width: 1024px)').matches &amp;&amp; localStorage.getItem('journal-sidebar') !== 'false', panelOpen: false }" class="relative flex">
   <div class="relative shrink-0 w-[62px] lg:w-auto">
     <div :style="{ width: sidebarOpen ? '274px' : '62px' }" :class="sidebarOpen ? 'max-lg:shadow-xl' : ''" @click.outside="if (sidebarOpen &amp;&amp; !window.matchMedia('(min-width: 1024px)').matches) sidebarOpen = false" @keydown.escape.window="if (sidebarOpen &amp;&amp; !window.matchMedia('(min-width: 1024px)').matches) sidebarOpen = false" class="[--chat-sidebar-w:62px] lg:[--chat-sidebar-w:274px] h-full bg-background border-r border-muted overflow-hidden transition-[width] duration-300 max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-30" style="width: var(--chat-sidebar-w);">
       <div x-show="sidebarOpen" class="flex flex-col h-full bg-muted/50">
@@ -7,5 +7,11 @@
 <button type="button" aria-label="Expand sidebar" @click="sidebarOpen = true; if (window.matchMedia('(min-width: 1024px)').matches) localStorage.setItem('journal-sidebar', 'true')">open</button>      </div>
     </div>
   </div>
-  <div id="chat">chat</div>
+  <div id="chat">
+chat<button type="button" @click="panelOpen = !panelOpen" aria-expanded="false" :aria-expanded="panelOpen" aria-controls="chat-side-panel" data-chat-panel-toggle id="toggle" name="toggle">upload</button>  </div>
+  <div :data-open="panelOpen" @click.outside="if (!$event.target.closest('[data-chat-panel-toggle]')) { if (panelOpen &amp;&amp; !window.matchMedia('(min-width: 1024px)').matches) panelOpen = false }" @keydown.escape.window="if (panelOpen &amp;&amp; !window.matchMedia('(min-width: 1024px)').matches) panelOpen = false" @htmx:after-swap.window='if ($event.detail.target.id === "chat") panelOpen = false' id="chat-side-panel" class="w-[320px] shrink-0 border-l border-muted bg-background max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:shadow-xl max-lg:max-w-[calc(100%-62px)] max-lg:hidden max-lg:data-open:block">
+    <div class="h-full overflow-y-auto p-4 bg-muted/50">
+<button type="button" id="inside" name="inside">inside</button>      <div id="status"></div>
+    </div>
+  </div>
 </div>
