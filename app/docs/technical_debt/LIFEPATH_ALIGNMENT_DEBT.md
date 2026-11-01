@@ -1,6 +1,6 @@
 ---
 title: LifePath Alignment Debt
-updated: 2026-08-28
+updated: 2026-11-01
 status: resolved
 category: technical-debt
 tags: [lifepath, analytics, substance, cypher, technical-debt, graph-vocabulary]
@@ -170,6 +170,11 @@ ruling rather than the invariant.
 **Guard:** `tests/integration/test_life_path_designation_is_edge_only.py` —
 title, round trip, idempotency, two users on one path, and a simulated vault
 re-sync.
+
+**The fallback itself is gone (2026-11-01).** The title is now read in the same
+statement as the designation (`LifePathBackend.get_user_life_path`), so there is
+no second read of the path whose failure could be passed off as a title; a failed
+lookup fails the alignment read.
 
 ---
 
