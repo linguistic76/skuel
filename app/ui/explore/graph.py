@@ -120,7 +120,7 @@ def ExploreGraphView(
 
     # Error display
     error_display = Div(
-        Span("", cls="text-xs text-destructive", **{"x-text": "error"}),
+        Span("", cls="text-xs text-error", **{"x-text": "error"}),
         cls="absolute inset-0 flex items-center justify-center",
         x_show="error && !loading",
         x_cloak=True,

@@ -154,9 +154,9 @@ def _notification_button(unread_count: int = 0) -> A:
             Div(
                 Span(
                     str(unread_count) if unread_count < 100 else "99+",
-                    cls="text-xs font-bold text-yellow-950",
+                    cls="text-xs font-bold",
                 ),
-                cls="absolute -top-1 -right-1 size-5 rounded-full bg-yellow-500 flex items-center justify-center",
+                cls="absolute -top-1 -right-1 size-5 rounded-full bg-yellow-500 text-yellow-950 flex items-center justify-center",
             )
         )
     return A(
@@ -187,13 +187,22 @@ def _avatar_hue(name: str) -> int:
 
 
 def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
-    """Colored avatar circle with the user's initial."""
+    """Colored avatar circle with the user's initial.
+
+    The hue is the user's; the lightness is the theme's. The style carries only the hue,
+    and the classes mix it: a pale disc with a dark initial in light, the mirror in dark.
+    The initial reads at 4.6:1 or better on every hue, in both themes.
+    """
     initial = current_user[0].upper() if current_user else fallback
     hue = _avatar_hue(current_user)
     return Div(
         initial,
-        cls="size-8 rounded-full flex items-center justify-center font-medium text-sm",
-        style=f"background-color: hsl({hue}, 15%, 88%); color: hsl({hue}, 15%, 50%);",
+        cls=(
+            "size-8 rounded-full flex items-center justify-center font-medium text-sm "
+            "bg-[hsl(var(--avatar-hue)_15%_88%)] text-[hsl(var(--avatar-hue)_15%_35%)] "
+            "dark:bg-[hsl(var(--avatar-hue)_15%_20%)] dark:text-[hsl(var(--avatar-hue)_15%_70%)]"
+        ),
+        style=f"--avatar-hue: {hue};",
         aria_hidden="true",
     )
 

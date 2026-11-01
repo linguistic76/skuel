@@ -204,10 +204,10 @@ class ContextHealthScore(StrEnum):
     def get_text_class(self) -> str:
         """Get Tailwind CSS text color class for health score."""
         colors = {
-            ContextHealthScore.POOR: "text-red-600",
-            ContextHealthScore.FAIR: "text-yellow-600",
-            ContextHealthScore.GOOD: "text-blue-600",
-            ContextHealthScore.EXCELLENT: "text-green-600",
+            ContextHealthScore.POOR: "text-error",
+            ContextHealthScore.FAIR: "text-warning",
+            ContextHealthScore.GOOD: "text-info",
+            ContextHealthScore.EXCELLENT: "text-success",
         }
         return colors.get(self, "text-muted-foreground")
 

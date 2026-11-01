@@ -109,7 +109,7 @@ def EntryKnowledgeChips(
     if chips is None:
         body: Any = P(
             "Could not load this note's knowledge links.",
-            cls="text-xs text-destructive mb-0",
+            cls="text-xs text-error mb-0",
         )
     elif not chips:
         return None

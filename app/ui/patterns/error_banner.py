@@ -133,7 +133,7 @@ def render_inline_error(message: str) -> FT:
 
     Example:
         Div(
-            Input(name="title", cls="border-destructive"),
+            Input(name="title", cls="border-error"),
             render_inline_error("Title is required"),
         )
     """

@@ -79,9 +79,7 @@ def _aria_attrs(
     if error_text:
         describedby_ids.append(error_id)
         extra["aria_invalid"] = "true"
-        elements.append(
-            Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-destructive")
-        )
+        elements.append(Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error"))
     if describedby_ids:
         extra["aria_describedby"] = " ".join(describedby_ids)
 
@@ -94,7 +92,7 @@ def _field_cls(look: str, size: str, *, full_width: bool, error_text: str | None
         look,
         size,
         "w-full" if full_width else "w-auto",
-        "border-destructive" if error_text else "",
+        "border-error" if error_text else "",
         cls,
     )
 

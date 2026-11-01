@@ -26,8 +26,8 @@ def _error_banner(error_message: str | None) -> Any:
     if not error_message:
         return ()
     return Div(
-        P(error_message, cls="text-sm text-destructive"),
-        cls="mb-4 rounded-md bg-destructive/10 border border-destructive/20 p-3",
+        P(error_message, cls="text-sm text-error"),
+        cls="mb-4 rounded-md bg-error/10 border border-error/20 p-3",
         role="alert",
     )
 
@@ -274,7 +274,7 @@ class AuthComponents:
             Div(
                 H1(
                     "Login Failed",
-                    cls="text-3xl font-bold text-destructive mb-2",
+                    cls="text-3xl font-bold text-error mb-2",
                 ),
                 P(error_message, cls="text-lg text-foreground/80 mb-6"),
                 Div(

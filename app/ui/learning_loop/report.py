@@ -631,8 +631,8 @@ def _render_period_line(report: Any) -> Any:
 
 _TREND_ARROW = {"improved": "\u2191", "declined": "\u2193", "stable": "\u2192"}
 _TREND_COLOR = {
-    "improved": "text-green-600",
-    "declined": "text-amber-600",
+    "improved": "text-success",
+    "declined": "text-warning",
     "stable": "text-muted-foreground",
 }
 
@@ -1047,7 +1047,7 @@ def _render_zpd_section(zpd: dict[str, Any]) -> Any:
     if max_readiness is not None:
         items.append(P(f"Top readiness: {max_readiness:.0%}", cls="text-sm"))
     if blocking > 0:
-        items.append(P(f"Blocking gaps: {blocking}", cls="text-sm text-amber-600"))
+        items.append(P(f"Blocking gaps: {blocking}", cls="text-sm text-warning"))
     if recommended > 0:
         items.append(P(f"Recommended actions: {recommended}", cls="text-sm text-muted-foreground"))
 

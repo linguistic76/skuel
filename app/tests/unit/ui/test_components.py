@@ -599,9 +599,10 @@ class TestInput:
         xml = to_xml(Input())
         assert "border" in xml
 
-    def test_error_adds_destructive(self) -> None:
+    def test_error_adds_the_error_border_and_text(self) -> None:
         xml = to_xml(Input(error_text="Required"))
-        assert "destructive" in xml
+        assert "border-error" in xml
+        assert "text-error" in xml
 
     def test_help_text_rendered(self) -> None:
         xml = to_xml(Input(name="email", help_text="Your email"))
@@ -626,7 +627,7 @@ class TestTextArea:
 
     def test_error_text(self) -> None:
         xml = to_xml(TextArea(name="bio", error_text="Required"))
-        assert "destructive" in xml
+        assert "text-error" in xml
 
 
 class TestSelect:

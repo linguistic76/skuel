@@ -98,7 +98,7 @@ def _row(entity_uid: str, entity_type: str, item: LateralRelationshipItem) -> Di
             hx_confirm="Remove this relationship?",
             **{"aria-label": f"Remove {label} {item.get('target_title') or item['target_uid']}"},
             cls=(
-                "text-muted-foreground hover:text-destructive text-xl leading-none "
+                "text-muted-foreground hover:text-error text-xl leading-none "
                 "px-2 cursor-pointer shrink-0"
             ),
         ),

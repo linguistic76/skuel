@@ -31,7 +31,7 @@ Button(
 ButtonLink("View Task Details", href=f"/tasks/detail?uid={task.uid}", cls=ButtonT.ghost, size="sm")
 
 # ❌ BAD: Div as button (no keyboard support, no role)
-Div("Delete Task", onclick="confirmDelete()", cls="text-destructive cursor-pointer")
+Div("Delete Task", onclick="confirmDelete()", cls="text-error cursor-pointer")
 
 # ⚠️ Only when a native <button> is impossible: role + tabindex + both key handlers
 Div(

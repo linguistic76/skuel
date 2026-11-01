@@ -119,11 +119,11 @@ def create_teaching_api_routes(
         form = await request.form()
         upload = form.get("feedback_file")
         if upload is None or not isinstance(upload, starlette.datastructures.UploadFile):
-            return Div(P("No file uploaded.", cls="text-sm text-destructive"))
+            return Div(P("No file uploaded.", cls="text-sm text-error"))
 
         raw = await upload.read()
         if not raw:
-            return Div(P("Uploaded file is empty.", cls="text-sm text-destructive"))
+            return Div(P("Uploaded file is empty.", cls="text-sm text-error"))
 
         content = raw.decode("utf-8")
         file_path = _save_report_file(current_user.uid, uid, content)
@@ -140,10 +140,10 @@ def create_teaching_api_routes(
             # leaves no orphan on disk.
             pathlib.Path(file_path).unlink(missing_ok=True)
             error = result.expect_error()
-            return Div(P(error.message, cls="text-sm text-destructive"))
+            return Div(P(error.message, cls="text-sm text-error"))
 
         return Div(
-            P("Feedback submitted successfully.", cls="text-sm text-green-600 font-medium"),
+            P("Feedback submitted successfully.", cls="text-sm text-success font-medium"),
             cls="p-3 bg-green-50 dark:bg-green-400/10 rounded-sm border border-green-200 dark:border-green-400/30",
         )
 
@@ -164,7 +164,7 @@ def create_teaching_api_routes(
         result = await parse_form_body(request, RequestRevisionRequest)
         if result.is_error:
             error = result.expect_error()
-            return Div(P(error.message, cls="text-sm text-destructive"))
+            return Div(P(error.message, cls="text-sm text-error"))
         form_data = result.value
 
         raw_form = await request.form()
@@ -187,11 +187,11 @@ def create_teaching_api_routes(
             # (no exercise, another teacher's exercise, a status) says why.
             error = revision_result.expect_error()
             message = "Submission not found." if is_not_found(error) else error.message
-            return Div(P(message, cls="text-sm text-destructive"))
+            return Div(P(message, cls="text-sm text-error"))
 
         re_uid = revision_result.value["revised_exercise_uid"]
         return Div(
-            P("Revision requested.", cls="text-sm text-amber-600 font-medium"),
+            P("Revision requested.", cls="text-sm text-warning font-medium"),
             ButtonLink(
                 "View revision instructions →",
                 href=f"/revised-exercises/detail?uid={re_uid}",
@@ -252,10 +252,10 @@ def create_teaching_api_routes(
         )
         if result.is_error:
             error = result.expect_error()
-            return Div(P(error.message, cls="text-sm text-destructive"))
+            return Div(P(error.message, cls="text-sm text-error"))
 
         return Div(
-            P("Submission approved.", cls="text-sm text-green-600 font-medium"),
+            P("Submission approved.", cls="text-sm text-success font-medium"),
             cls="p-3 bg-green-50 dark:bg-green-400/10 rounded-sm border border-green-200 dark:border-green-400/30",
         )
 
@@ -396,12 +396,12 @@ def create_teaching_api_routes(
         from fasthtml.common import Div, P
 
         if not user_entry_service:
-            return Div(P("Submission deletion not available.", cls="text-sm text-destructive"))
+            return Div(P("Submission deletion not available.", cls="text-sm text-error"))
 
         result = await user_entry_service.delete_entry_as_teacher(uid, current_user.uid)
         if result.is_error:
             return Div(
-                P(f"Failed to delete: {result.error}", cls="text-sm text-destructive"),
+                P(f"Failed to delete: {result.error}", cls="text-sm text-error"),
             )
 
         return ""

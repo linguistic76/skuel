@@ -388,7 +388,7 @@ def _render_filter_panel(
             "Clear all",
             type="button",
             size="sm",
-            cls=(ButtonT.ghost, "text-destructive"),
+            cls=(ButtonT.ghost, "text-error"),
             **{"x-on:click": "clearAllFilters()"},
         ),
         Button(
@@ -897,7 +897,7 @@ def _render_active_filter_badges() -> Div:
                     HtmlButton(
                         "×",
                         type="button",
-                        cls="ml-1 leading-none opacity-70 hover:opacity-100 hover:text-destructive",
+                        cls="ml-1 leading-none opacity-70 hover:opacity-100 hover:text-error",
                         **{"x-on:click": "clearFilter('entity_type')"},
                     ),
                     variant=BadgeT.primary,
@@ -910,7 +910,7 @@ def _render_active_filter_badges() -> Div:
                 "Clear All",
                 type="button",
                 size="sm",
-                cls=(ButtonT.ghost, "text-destructive"),
+                cls=(ButtonT.ghost, "text-error"),
                 x_show="hasActiveFilters",
                 **{"x-on:click": "clearAllFilters()"},
             ),

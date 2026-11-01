@@ -96,7 +96,7 @@ def TaskCard(
         Icon(
             "check" if is_completed else "circle",
             size=16,
-            cls=f"inline {'text-green-600' if is_completed else ''}",
+            cls=f"inline {'text-success' if is_completed else ''}",
         ),
         hx_post=f"/api/tasks/{task.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
@@ -132,7 +132,7 @@ def TaskCard(
     due_el = None
     if task.due_date:
         due_str = str(task.due_date)
-        due_cls = "text-destructive font-bold" if overdue else "text-muted-foreground"
+        due_cls = "text-error font-bold" if overdue else "text-muted-foreground"
         due_el = Small(f"Due: {due_str}", cls=due_cls)
 
     # Tags
@@ -310,7 +310,7 @@ def _dependency_row(task_uid: str, neighbor: TaskDependencyNeighbor, direction: 
         hx_target=f"#{_dependency_container_id(task_uid)}",
         hx_swap="outerHTML",
         hx_confirm="Remove this dependency?",
-        cls="text-muted-foreground hover:text-destructive text-lg leading-none px-2 shrink-0",
+        cls="text-muted-foreground hover:text-error text-lg leading-none px-2 shrink-0",
         **{"aria-label": f"Remove dependency {neighbor['title'] or neighbor['uid']}"},
     )
     return Div(
@@ -424,7 +424,7 @@ def TaskDetailView(
     meta_items: list[Any] = []
     if task.due_date:
         overdue = task.is_overdue()
-        due_cls = "text-destructive font-bold" if overdue else ""
+        due_cls = "text-error font-bold" if overdue else ""
         meta_items.append(MetadataField("Due Date", Span(str(task.due_date), cls=due_cls)))
     if task.duration_minutes:
         meta_items.append(MetadataField("Duration", Span(f"{task.duration_minutes} min")))

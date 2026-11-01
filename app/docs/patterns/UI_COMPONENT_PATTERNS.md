@@ -512,7 +512,7 @@ Card(CardBody(...))
 # Emphasis / muted / danger — semantic-token border + background via cls
 Card(CardBody(...), cls="border-primary")
 Card(CardBody(...), cls="bg-muted")
-Card(CardBody(...), cls="border-destructive")
+Card(CardBody(...), cls="border-error")
 
 # Hover effect (lift + shadow on hover)
 Card(CardBody(...), cls="hover:shadow-md transition-shadow")
@@ -1178,7 +1178,7 @@ from ui.activities._shared import MetadataField
 MetadataField("Due Date", Span(str(task.due_date), cls=due_cls))
 # Complex (multiple children)
 MetadataField("Satisfaction",
-    Span(stars, cls="text-yellow-600 text-xl"),
+    Span(stars, cls="text-warning text-xl"),
     Span(f" {score}/5", cls="text-muted-foreground text-sm"),
 )
 ```

@@ -88,7 +88,7 @@ def EventCard(
     # Status toggle button
     new_status = "active" if is_completed else "completed"
     toggle_icon = "check" if is_completed else "calendar"
-    toggle_cls = "text-green-600" if is_completed else ""
+    toggle_cls = "text-success" if is_completed else ""
 
     toggle_btn = Button(
         Icon(toggle_icon, size=16, cls=f"inline {toggle_cls}"),
@@ -137,9 +137,9 @@ def EventCard(
             date_str += f" {time_str}"
         date_cls = "text-muted-foreground"
         if is_past and not is_completed:
-            date_cls = "text-destructive"
+            date_cls = "text-error"
         elif event.is_today():
-            date_cls = "text-yellow-600 font-bold"
+            date_cls = "text-warning font-bold"
         date_el = Small(date_str, cls=date_cls)
 
     # Location
@@ -217,7 +217,7 @@ def EventDetailView(
     if event.event_date:
         is_past = event.is_past()
         date_cls = (
-            "text-destructive"
+            "text-error"
             if is_past and not (event.status and event.status.value == "completed")
             else ""
         )

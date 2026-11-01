@@ -666,12 +666,12 @@ _ENTITY_STATUS_BADGE_CLASSES: dict[EntityStatus, str] = {
 }
 
 _ENTITY_STATUS_TEXT_CLASSES: dict[EntityStatus, str] = {
-    EntityStatus.COMPLETED: "text-green-600",
-    EntityStatus.ACTIVE: "text-green-600",
-    EntityStatus.PAUSED: "text-yellow-600",
-    EntityStatus.BLOCKED: "text-red-600",
-    EntityStatus.FAILED: "text-red-600",
-    EntityStatus.SCHEDULED: "text-blue-600",
+    EntityStatus.COMPLETED: "text-success",
+    EntityStatus.ACTIVE: "text-success",
+    EntityStatus.PAUSED: "text-warning",
+    EntityStatus.BLOCKED: "text-error",
+    EntityStatus.FAILED: "text-error",
+    EntityStatus.SCHEDULED: "text-info",
 }
 
 _ENTITY_STATUS_BORDER_CLASSES: dict[EntityStatus, str] = {

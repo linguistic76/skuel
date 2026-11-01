@@ -61,7 +61,7 @@ def _feedback_point_template_row() -> FT:
             Icon("x", size=16),
             type="button",
             size="field",
-            cls="shrink-0 text-destructive hover:bg-accent hover:text-destructive/80",
+            cls="shrink-0 text-error hover:bg-accent hover:text-error/80",
             aria_label="Remove feedback point",
             **{"x-on:click": "$el.closest('[data-fp-row]').remove()"},
         ),

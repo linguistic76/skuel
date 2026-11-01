@@ -144,7 +144,7 @@ def _AiBubble(label: str, text: str) -> Any:
                 ),
                 Span(
                     "Copied!",
-                    cls="text-xs text-green-600",
+                    cls="text-xs text-success",
                     **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
                 ),
                 cls="flex items-center gap-2 mt-3",
@@ -204,7 +204,7 @@ def _SaveAffordance(session_id: str, transcript_json: str) -> Any:
         return Span(
             Icon("check", size=14),
             Span("Saved"),
-            cls="inline-flex items-center gap-1 text-13 text-green-600 font-medium",
+            cls="inline-flex items-center gap-1 text-13 text-success font-medium",
         )
     if transcript_json:
         return Button(
@@ -744,7 +744,7 @@ def FileOutputFragment(
             # Saved banner + download
             Div(
                 Div(
-                    Icon("file-check", size=18, cls="text-green-600 shrink-0"),
+                    Icon("file-check", size=18, cls="text-success shrink-0"),
                     Div(
                         P(
                             "Your file is automatically saved in your Journal Output folder.",
@@ -797,7 +797,7 @@ def FileOutputFragment(
                         ),
                         Span(
                             "Copied!",
-                            cls="text-xs text-green-600",
+                            cls="text-xs text-success",
                             **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
                         ),
                         cls="flex items-center gap-2 mt-2",
@@ -875,9 +875,9 @@ def FollowUpErrorFragment(message: str) -> Any:
     from ui.components import Icon
 
     return Div(
-        Icon("alert-circle", size=15, cls="text-destructive shrink-0"),
-        P(message, cls="text-sm text-destructive"),
-        cls="flex items-center gap-2 py-3 px-1 text-destructive",
+        Icon("alert-circle", size=15, cls="text-error shrink-0"),
+        P(message, cls="text-sm text-error"),
+        cls="flex items-center gap-2 py-3 px-1 text-error",
     )
 
 
@@ -886,7 +886,7 @@ def ErrorFragment(message: str) -> Any:
     return Div(
         Card(
             CardBody(
-                P("Something went wrong.", cls="text-sm font-semibold text-destructive mb-1"),
+                P("Something went wrong.", cls="text-sm font-semibold text-error mb-1"),
                 P(message, cls="text-xs text-muted-foreground"),
             ),
         ),
@@ -924,7 +924,7 @@ def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
                     cls="resize-y",
                 ),
                 Div(
-                    P("", id="note-save-status", cls="text-13 text-green-600"),
+                    P("", id="note-save-status", cls="text-13 text-success"),
                     Button(
                         "Save",
                         type="submit",
@@ -1054,7 +1054,7 @@ def _suggestion_row(item: SuggestedActivity) -> Any:
                 Icon("copy", size=13),
                 Span(
                     "Copied!",
-                    cls="text-10 text-green-600",
+                    cls="text-10 text-success",
                     **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
                 ),
                 type="button",

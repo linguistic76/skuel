@@ -146,7 +146,7 @@ def GoalCard(
     # Target date
     date_el = Span()
     if goal.target_date:
-        date_cls = "text-destructive font-bold" if overdue else "text-muted-foreground"
+        date_cls = "text-error font-bold" if overdue else "text-muted-foreground"
         days_left = goal.days_remaining()
         date_str = str(goal.target_date)
         if overdue:
@@ -205,13 +205,13 @@ def GoalDetailView(
     progress = goal.calculate_progress()
     progress_pct = int(progress * 100)
     on_track = goal.is_on_track()
-    track_cls = "text-green-600" if on_track else "text-yellow-600"
+    track_cls = "text-success" if on_track else "text-warning"
     track_text = "On Track" if on_track else "Behind"
     if goal.is_completed:
-        track_cls = "text-green-600"
+        track_cls = "text-success"
         track_text = "Completed"
     elif goal.is_overdue():
-        track_cls = "text-destructive"
+        track_cls = "text-error"
         track_text = "Overdue"
 
     progress_section = Div(
@@ -257,7 +257,7 @@ def GoalDetailView(
     meta_items: list[Any] = []
     if goal.target_date:
         overdue = goal.is_overdue()
-        due_cls = "text-destructive font-bold" if overdue else ""
+        due_cls = "text-error font-bold" if overdue else ""
         meta_items.append(MetadataField("Target Date", Span(str(goal.target_date), cls=due_cls)))
     if goal.start_date:
         meta_items.append(MetadataField("Start Date", Span(str(goal.start_date))))
@@ -324,7 +324,7 @@ def MilestonesSection(milestones: tuple[Milestone, ...]) -> FT:
     items: list[Any] = []
     for ms in milestones:
         icon = "check" if ms.is_completed else "circle"
-        icon_cls = "text-green-600" if ms.is_completed else "text-muted-foreground"
+        icon_cls = "text-success" if ms.is_completed else "text-muted-foreground"
         text_cls = "line-through text-muted-foreground" if ms.is_completed else ""
 
         date_str = ""

@@ -325,8 +325,8 @@ class TrendDirection(StrEnum):
     def get_text_class(self) -> str:
         """Get Tailwind CSS text color class for trend direction."""
         colors = {
-            TrendDirection.INCREASING: "text-green-600",
-            TrendDirection.DECREASING: "text-red-600",
+            TrendDirection.INCREASING: "text-success",
+            TrendDirection.DECREASING: "text-error",
             TrendDirection.STABLE: "text-muted-foreground",
         }
         return colors.get(self, "text-muted-foreground")

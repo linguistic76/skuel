@@ -187,7 +187,7 @@ def _render_batch_results() -> Any:
             H5("Transcription Result", cls="font-semibold"),
             P("", cls="text-sm", **{"x-text": "resultSummary()"}),
             Div(
-                H5("Errors", cls="font-semibold text-destructive mb-1 text-sm"),
+                H5("Errors", cls="font-semibold text-error mb-1 text-sm"),
                 Template(
                     P(
                         Span("", cls="font-medium", **{"x-text": "e.name"}),
