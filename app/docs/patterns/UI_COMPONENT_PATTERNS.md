@@ -1496,7 +1496,7 @@ TypedDicts in `/ui/page_contexts.py` define route → UI contracts with typed en
 - `/ui/workbench/nav.py` — Submissions sidebar; `/ui/library/nav.py` — Library sidebar
 
 **Shared:**
-- `/ui/primitives.py` — `icon_tile`, `section_label`, `primary_btn`, `card_row`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard`: low-level building blocks from the /submit and Askesis UX redesigns; use these instead of duplicating class strings. `SelectableOptionRow` consolidates the icon+title+subtitle+checkmark pattern (active: `bg-blue-50`, hover: `hover:bg-slate-100` live here only). `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states.
+- `/ui/primitives.py` — `icon_tile`, `section_label`, `primary_btn`, `card_row`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard`: low-level building blocks from the /submit and Askesis UX redesigns; use these instead of duplicating class strings. `SelectableOptionRow` consolidates the icon+title+subtitle+checkmark pattern (active: `SELECTION_TINT`, hover: `hover:bg-muted` live here only). `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states.
 - `/ui/page_contexts.py`, `/ui/tokens.py` (spacing/layout)
 - `/core/utils/palette.py` (centralized hex colors, imported directly by core and UI)
 - `/core/services/visualization_service.py` (pure Chart.js + Frappe Gantt formatter — no domain deps; import it directly from `core`). Vis.js payloads come from `LateralRelationshipService`, not from here.

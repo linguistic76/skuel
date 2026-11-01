@@ -128,7 +128,7 @@ Theme selection is available on `/settings` (Display & Appearance section). The 
 
 1. **Semantic HTML first** — use `<article>`, `<section>`, `<nav>`, not divs for everything
 2. **Mobile-first** — apply base classes for mobile, add `md:` / `lg:` prefixes for larger screens
-3. **Semantic tokens over the Tailwind palette** — `text-foreground` / `text-muted-foreground` not `text-gray-900` / `text-gray-600`
+3. **Semantic tokens over the Tailwind palette** — `text-foreground` / `text-muted-foreground` not `text-gray-900` / `text-gray-600`; a neutral fill is a token and a coloured light fill carries its dark twin (reference § No fill ignores the theme, guarded by `tests/unit/ui/test_theme_fills.py`)
 4. **Design tokens over magic numbers** — `Container.NARROW` not `max-w-4xl mx-auto` repeated; and inside `BasePage` / `SidebarPage` a body adds no padding — the shell owns the gutter
 5. **`cls` parameter for extensibility** — components accept extra classes via `cls` parameter
 
