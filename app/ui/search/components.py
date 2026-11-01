@@ -985,8 +985,8 @@ def _render_capacity_banner(warnings: Mapping[str, Any]) -> Any | None:
         Span("⚠️", aria_hidden="true"),
         Span(" · ".join(messages)),
         cls=(
-            "flex items-start gap-2 rounded-md border border-yellow-200 bg-yellow-50 "
-            "text-yellow-800 text-sm px-3 py-2 mb-4"
+            "flex items-start gap-2 rounded-md border border-yellow-200 dark:border-yellow-400/30 bg-yellow-50 dark:bg-yellow-400/10 "
+            "text-yellow-800 dark:text-yellow-300 text-sm px-3 py-2 mb-4"
         ),
     )
 

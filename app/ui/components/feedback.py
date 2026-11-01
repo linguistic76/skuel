@@ -16,10 +16,10 @@ class AlertT(StrEnum):
 
 
 _ALERT_CLASSES: dict[str, str] = {
-    "info": "bg-blue-50 border-blue-200 text-blue-800",
-    "success": "bg-green-50 border-green-200 text-green-800",
-    "warning": "bg-yellow-50 border-yellow-200 text-yellow-800",
-    "error": "bg-red-50 border-red-200 text-red-800",
+    "info": "bg-blue-50 dark:bg-blue-400/10 border-blue-200 dark:border-blue-400/30 text-blue-800 dark:text-blue-300",
+    "success": "bg-green-50 dark:bg-green-400/10 border-green-200 dark:border-green-400/30 text-green-800 dark:text-green-300",
+    "warning": "bg-yellow-50 dark:bg-yellow-400/10 border-yellow-200 dark:border-yellow-400/30 text-yellow-800 dark:text-yellow-300",
+    "error": "bg-red-50 dark:bg-red-400/10 border-red-200 dark:border-red-400/30 text-red-800 dark:text-red-300",
 }
 
 # An error or warning interrupts (role="alert", implicitly assertive); an info or

@@ -48,7 +48,7 @@ def test_get_trend_color_valid_values():
     """Test trend color mapping for valid values."""
     assert "green" in get_trend_color("increasing")
     assert "red" in get_trend_color("decreasing")
-    assert "gray" in get_trend_color("stable")
+    assert get_trend_color("stable") == "text-muted-foreground"
 
 
 def test_get_trend_color_invalid():

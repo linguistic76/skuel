@@ -105,7 +105,7 @@ function showSyncResult(result, isError) {
         const msg = (result && result.error && result.error.message)
             || result.message || result.error || 'Content vault sync failed';
         statusEl.innerHTML = `
-            <div class="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
+            <div class="p-4 rounded-lg bg-red-50 dark:bg-red-400/10 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-400/30">
                 __ICON_X__
                 <span class="font-semibold">${msg}</span>
             </div>`;
@@ -122,8 +122,8 @@ function showSyncResult(result, isError) {
         // amber banner; the full error/warning lines are in the JSON below.
         const clean = errors === 0 && warnings === 0 && failed === 0;
         const cardCls = clean
-            ? 'bg-green-50 text-green-800 border-green-200'
-            : 'bg-amber-50 text-amber-900 border-amber-200';
+            ? 'bg-green-50 dark:bg-green-400/10 text-green-800 dark:text-green-300 border-green-200 dark:border-green-400/30'
+            : 'bg-amber-50 dark:bg-amber-400/10 text-amber-900 dark:text-amber-300 border-amber-200 dark:border-amber-400/30';
         const headline = clean ? 'Content vault synced' : 'Content vault sync had problems';
         statusEl.innerHTML = `
             <div class="p-4 rounded-lg border ${cardCls}">
@@ -150,7 +150,7 @@ function showRegenResult(result, isError) {
         const msg = (result && result.error && result.error.message)
             || result.message || result.error || 'Regeneration failed';
         statusEl.innerHTML = `
-            <div class="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
+            <div class="p-4 rounded-lg bg-red-50 dark:bg-red-400/10 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-400/30">
                 __ICON_X__
                 <span class="font-semibold">${msg}</span>
             </div>`;
@@ -163,7 +163,7 @@ function showRegenResult(result, isError) {
         const duration = result.duration_seconds ?? 0;
         const summary = `${succeeded}/${processed} succeeded &middot; ${failed} failed &middot; ${skippedCurrent} already-current &middot; ${skippedNoBody} no-body &middot; ${duration}s`;
         statusEl.innerHTML = `
-            <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
+            <div class="p-4 rounded-lg bg-green-50 dark:bg-green-400/10 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-400/30">
                 __ICON_CHECK__
                 <div>
                     <span class="font-semibold">Chunks regenerated</span>

@@ -327,9 +327,9 @@ class TrendDirection(StrEnum):
         colors = {
             TrendDirection.INCREASING: "text-green-600",
             TrendDirection.DECREASING: "text-red-600",
-            TrendDirection.STABLE: "text-gray-600",
+            TrendDirection.STABLE: "text-muted-foreground",
         }
-        return colors.get(self, "text-gray-600")
+        return colors.get(self, "text-muted-foreground")
 
     def get_icon(self) -> str:
         """Get emoji icon for trend direction"""
@@ -362,9 +362,9 @@ class HealthStatus(StrEnum):
     def get_bg_class(self) -> str:
         """Get Tailwind background/border classes for health status."""
         return {
-            HealthStatus.HEALTHY: "bg-green-50 border-green-500",
-            HealthStatus.WARNING: "bg-yellow-50 border-yellow-500",
-            HealthStatus.CRITICAL: "bg-red-50 border-red-500",
+            HealthStatus.HEALTHY: "bg-green-50 dark:bg-green-400/10 border-green-500",
+            HealthStatus.WARNING: "bg-yellow-50 dark:bg-yellow-400/10 border-yellow-500",
+            HealthStatus.CRITICAL: "bg-red-50 dark:bg-red-400/10 border-red-500",
         }.get(self, "bg-background border-border shadow-xs")
 
     def get_dot_class(self) -> str:

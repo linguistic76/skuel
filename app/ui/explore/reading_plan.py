@@ -51,27 +51,32 @@ _CAP_STYLES: dict[str, tuple[str, str, str, str]] = {
     "practice": (
         "activity",
         "Practice",
-        "bg-green-50 text-green-700",
-        "bg-green-50 text-green-700",
+        "bg-green-50 dark:bg-green-400/10 text-green-700 dark:text-green-300",
+        "bg-green-50 dark:bg-green-400/10 text-green-700 dark:text-green-300",
     ),
-    "apply": ("target", "Apply", "bg-blue-50 text-blue-700", "bg-blue-50 text-blue-700"),
+    "apply": (
+        "target",
+        "Apply",
+        "bg-blue-50 dark:bg-blue-400/10 text-blue-700 dark:text-blue-300",
+        "bg-blue-50 dark:bg-blue-400/10 text-blue-700 dark:text-blue-300",
+    ),
     "assessment": (
         "clipboard-check",
         "Assessment",
-        "bg-amber-50 text-amber-700",
-        "bg-amber-50 text-amber-700",
+        "bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300",
+        "bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300",
     ),
     "reflection": (
         "pen-line",
         "Reflection",
-        "bg-violet-50 text-violet-700",
-        "bg-violet-50 text-violet-700",
+        "bg-violet-50 dark:bg-violet-400/10 text-violet-700 dark:text-violet-300",
+        "bg-violet-50 dark:bg-violet-400/10 text-violet-700 dark:text-violet-300",
     ),
     "journal": (
         "book-open",
         "Journal",
-        "bg-violet-50 text-violet-700",
-        "bg-violet-50 text-violet-700",
+        "bg-violet-50 dark:bg-violet-400/10 text-violet-700 dark:text-violet-300",
+        "bg-violet-50 dark:bg-violet-400/10 text-violet-700 dark:text-violet-300",
     ),
 }
 
@@ -421,7 +426,7 @@ def _in_progress_row(r: dict[str, Any]) -> FT:
     return A(
         Span(
             Icon("book-marked", cls="w-[18px] h-[18px]"),
-            cls="flex-none w-[38px] h-[38px] rounded-lg flex items-center justify-center bg-violet-50 text-violet-700",
+            cls="flex-none w-[38px] h-[38px] rounded-lg flex items-center justify-center bg-violet-50 dark:bg-violet-400/10 text-violet-700 dark:text-violet-300",
         ),
         Span(
             Span(r.get("title", ""), cls="block text-sm font-semibold text-foreground"),
@@ -550,7 +555,7 @@ def _ps_ku_row(ku: dict[str, Any]) -> FT:
     elif status == "current":
         node = Span(
             Span(cls="w-[7px] h-[7px] rounded-full bg-primary"),
-            cls="flex-none w-[22px] h-[22px] rounded-full flex items-center justify-center bg-white border-2 border-primary",
+            cls="flex-none w-[22px] h-[22px] rounded-full flex items-center justify-center bg-background border-2 border-primary",
         )
         title_cls = "text-sm font-semibold text-foreground"
         row_cls = "px-3 py-2.5 border rounded-lg bg-primary/5 border-primary/20"
@@ -560,7 +565,7 @@ def _ps_ku_row(ku: dict[str, Any]) -> FT:
         )
     else:  # upcoming
         node = Span(
-            cls="flex-none w-[22px] h-[22px] rounded-full bg-white",
+            cls="flex-none w-[22px] h-[22px] rounded-full bg-background",
             style="border: 1.5px dashed hsl(214 20% 78%)",
         )
         title_cls = "text-sm font-medium text-foreground/90"

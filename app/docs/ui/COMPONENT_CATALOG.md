@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # SKUEL UI Component Catalog
@@ -259,7 +259,7 @@ Interactive variant for Activity Domain **cards** (`ui/activities/_shared.py`): 
 | Priority value | `PriorityBadge(priority)` | `PriorityBadge("high")` |
 | Priority on an Activity card (inline-editable) | `PriorityBadgeDropdown(uid, priority, domain, singular)` | `PriorityBadgeDropdown(task.uid, "high", domain="tasks", singular="task")` |
 | Category with a BadgeT match | `Badge(label, variant=BadgeT.xxx)` | `Badge("Ku", variant=BadgeT.accent)` |
-| Category with a custom color | `Badge(label, variant=None, cls="...")` | `Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200")` |
+| Category with a custom color | `Badge(label, variant=None, cls="...")` | `Badge("Path Step", variant=None, cls="bg-teal-100 dark:bg-teal-400/10 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-400/30")` |
 
 **Examples:**
 ```python
@@ -277,7 +277,7 @@ PriorityBadge("medium")     # yellow
 
 # Badge for category/type pills
 Badge("Ku", variant=BadgeT.accent, size=Size.sm)
-Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200", size=Size.sm)
+Badge("Path Step", variant=None, cls="bg-teal-100 dark:bg-teal-400/10 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-400/30", size=Size.sm)
 Badge("5", variant=BadgeT.primary, size=Size.sm)
 ```
 

@@ -172,14 +172,14 @@ def _sidebar(username: str, learning_scope_label: str) -> Any:
         Div(
             Button(
                 Icon("panel-left-open", size=16),
-                cls="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-slate-100 hover:text-slate-600 transition-colors",
+                cls="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
                 type="button",
                 aria_label="Expand sidebar",
                 **{"@click": "sidebarOpen = true"},
             ),
             Button(
-                Icon("square-pen", size=16, cls="text-slate-600"),
-                cls="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:bg-slate-100 transition-colors",
+                Icon("square-pen", size=16, cls="text-foreground/70"),
+                cls="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors",
                 type="button",
                 aria_label="New chat",
             ),
@@ -193,7 +193,7 @@ def _sidebar(username: str, learning_scope_label: str) -> Any:
         ),
         # Static width=274px matches sidebarOpen=true default — prevents layout flash
         style="width:274px;",
-        cls="bg-slate-50 border-r border-slate-100 shrink-0 overflow-hidden transition-all duration-300",
+        cls="bg-muted/50 border-r border-muted shrink-0 overflow-hidden transition-all duration-300",
         **{":style": "{ width: sidebarOpen ? '274px' : '62px' }"},
     )
 
@@ -203,7 +203,7 @@ def _sb_header() -> Any:
         Span("Askesis", cls="text-lg font-bold tracking-tight text-foreground"),
         Button(
             Icon("panel-left-close", size=16),
-            cls="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-slate-100 hover:text-slate-600 transition-colors",
+            cls="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
             type="button",
             aria_label="Collapse sidebar",
             **{"@click": "sidebarOpen = false"},
@@ -215,9 +215,9 @@ def _sb_header() -> Any:
 def _sb_new_chat_btn() -> Any:
     return Div(
         Button(
-            Icon("square-pen", size=17, cls="text-slate-600 shrink-0"),
+            Icon("square-pen", size=17, cls="text-foreground/70 shrink-0"),
             Span("New chat", cls="text-sm font-semibold text-foreground"),
-            cls="w-full flex items-center gap-2 px-3 py-[10px] rounded-[10px] border border-border bg-background hover:bg-slate-50 transition-colors shadow-xs",
+            cls="w-full flex items-center gap-2 px-3 py-[10px] rounded-[10px] border border-border bg-background hover:bg-muted/50 transition-colors shadow-xs",
             type="button",
         ),
         cls="px-3 pb-3",
@@ -461,7 +461,11 @@ def _nous_scope_chip() -> Any:
     """
     return Div(
         Span("Scoped to", cls="text-muted-foreground"),
-        Span("", cls="font-semibold text-strength-core", **{"x-text": "selectedNous"}),
+        Span(
+            "",
+            cls="font-semibold text-strength-core dark:text-violet-300",
+            **{"x-text": "selectedNous"},
+        ),
         Button(
             Icon("x", size=12),
             type="button",
@@ -469,8 +473,10 @@ def _nous_scope_chip() -> Any:
             cls="ml-0.5 text-muted-foreground hover:text-foreground",
             **{"@click": "selectedNous = ''"},
         ),
-        cls="flex items-center gap-1.5 w-fit mx-auto mb-2 px-3 py-1 rounded-[18px] text-xs",
-        style="background:#f4f1fc; border:1px solid #e0d9f4;",
+        cls=(
+            "flex items-center gap-1.5 w-fit mx-auto mb-2 px-3 py-1 rounded-[18px] text-xs"
+            " bg-violet-50 dark:bg-violet-400/10 border border-violet-200 dark:border-violet-400/30"
+        ),
         **{"x-show": "selectedNous", "x-cloak": True},
     )
 
@@ -636,17 +642,19 @@ def _composer_form(
 
 def _kb_pill() -> Any:
     return Button(
-        Icon("book-open-text", size=14, cls="shrink-0 text-strength-core"),
-        Span("Knowledge base", cls="text-13 font-semibold text-strength-core"),
-        cls="flex items-center gap-1.5 px-3 py-1.5 rounded-[18px] transition-colors",
-        style="background:#f4f1fc; border:1px solid #e0d9f4;",
+        Icon("book-open-text", size=14, cls="shrink-0 text-strength-core dark:text-violet-300"),
+        Span("Knowledge base", cls="text-13 font-semibold text-strength-core dark:text-violet-300"),
+        cls=(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-[18px] transition-colors"
+            " bg-violet-50 dark:bg-violet-400/10 border border-violet-200 dark:border-violet-400/30"
+        ),
         type="button",
     )
 
 
 def _send_btn() -> Any:
     return Button(
-        Icon("arrow-up", size=16, cls="text-white"),
+        Icon("arrow-up", size=16, cls="text-background"),
         cls="w-[34px] h-[34px] rounded-full flex items-center justify-center bg-foreground hover:bg-foreground/80 transition-colors",
         type="submit",
         aria_label="Send message",
@@ -694,7 +702,7 @@ def _sources_accordion(sources: list[dict]) -> Any:
                 ),
                 cls="flex items-center",
             ),
-            cls="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors",
+            cls="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors",
             type="button",
             **{"@click": "sourcesOpen = !sourcesOpen"},
         ),
@@ -748,7 +756,7 @@ def _source_card(n: int, source: dict) -> Any:
                 else None
             ),
         ),
-        cls="flex gap-3 px-3 py-[11px] hover:bg-slate-50 transition-colors",
+        cls="flex gap-3 px-3 py-[11px] hover:bg-muted/50 transition-colors",
     )
 
 

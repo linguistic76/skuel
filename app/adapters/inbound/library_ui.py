@@ -60,7 +60,7 @@ _EXTRA_STATUS_MAP: dict[str, tuple[str, BadgeT | None, str]] = {
     "revision_needed": (
         "Revision Needed",
         None,
-        "bg-amber-100 text-amber-800 border-amber-200",
+        "bg-amber-100 dark:bg-amber-400/10 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-400/30",
     ),
 }
 
@@ -84,7 +84,7 @@ def _submission_item(sub: UserEntry) -> Div:
             Badge(
                 "Submission",
                 variant=None,
-                cls="bg-sky-100 text-sky-800 border-sky-200",
+                cls="bg-sky-100 dark:bg-sky-400/10 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-400/30",
                 size=Size.sm,
             ),
             Span(sub.title or sub.uid, cls="text-sm font-medium text-foreground ml-2 mr-auto"),
@@ -212,28 +212,28 @@ def create_library_ui_routes(
                     "Exercises assigned via group membership, with submission and feedback status.",
                     "/library/exercises",
                     "book-open",
-                    "bg-blue-50",
+                    "bg-blue-50 dark:bg-blue-400/10",
                 ),
                 MocCard(
                     "Resources",
                     "Admin-curated content — books, talks, films, podcasts, and articles.",
                     "/library/resources",
                     "bookmark",
-                    "bg-amber-50",
+                    "bg-amber-50 dark:bg-amber-400/10",
                 ),
                 MocCard(
                     "Ku",
                     "Your bookmarked atomic knowledge units from the curriculum graph.",
                     "/library/ku",
                     "brain",
-                    "bg-violet-50",
+                    "bg-violet-50 dark:bg-violet-400/10",
                 ),
                 MocCard(
                     "Path Steps",
                     "Your enrolled path steps — structured learning content and exercises.",
                     "/library/path-steps",
                     "map",
-                    "bg-emerald-50",
+                    "bg-emerald-50 dark:bg-emerald-400/10",
                 ),
                 cls="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6",
             ),
@@ -462,7 +462,7 @@ def create_library_ui_routes(
                     Badge(
                         "Path Step",
                         variant=None,
-                        cls="bg-teal-100 text-teal-800 border-teal-200",
+                        cls="bg-teal-100 dark:bg-teal-400/10 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-400/30",
                         size=Size.sm,
                     ),
                     A(

@@ -74,7 +74,7 @@ def JournalsLandingPage(
         Div(
             render_right_panel(is_founder=is_founder),
             upload_form_script(),
-            cls=("w-[320px] shrink-0 border-l border-slate-100 bg-slate-50 overflow-y-auto p-4"),
+            cls=("w-[320px] shrink-0 border-l border-muted bg-muted/50 overflow-y-auto p-4"),
         ),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
@@ -162,7 +162,7 @@ def _period_navigator(entry: UserEntry) -> Any:
         aria_label="Periodic note navigation",
         cls=(
             "w-[240px] max-w-full shrink-0 self-center lg:self-start lg:sticky lg:top-20"
-            " rounded-[12px] border border-border bg-slate-50 overflow-hidden flex flex-col"
+            " rounded-[12px] border border-border bg-muted/50 overflow-hidden flex flex-col"
         ),
     )
 
@@ -251,9 +251,9 @@ def _period_rail_row(kind: str, ref_date: datetime.date, *, is_current: bool) ->
         " transition-colors"
     )
     label_cls += (
-        " bg-slate-200 text-foreground font-semibold"
+        " bg-foreground/10 text-foreground font-semibold"
         if is_current
-        else " text-muted-foreground hover:text-foreground hover:bg-slate-200"
+        else " text-muted-foreground hover:text-foreground hover:bg-foreground/10"
     )
     return Div(
         _period_rail_step(kind, ref_date, -1, name),
@@ -289,7 +289,7 @@ def _period_rail_step(kind: str, ref_date: datetime.date, steps: int, name: str)
         **_NO_BOOST,
         cls=(
             "shrink-0 flex items-center justify-center w-5 h-6 rounded-[6px]"
-            " text-muted-foreground hover:text-foreground hover:bg-slate-200"
+            " text-muted-foreground hover:text-foreground hover:bg-foreground/10"
             " transition-colors no-underline"
         ),
     )
@@ -342,7 +342,7 @@ def _mini_month_calendar(
         else:
             cls = (
                 "w-6 h-6 flex items-center justify-center text-11 rounded-full"
-                " hover:bg-slate-200 text-foreground"
+                " hover:bg-foreground/10 text-foreground"
             )
         return A(
             str(day_num),
@@ -369,7 +369,7 @@ def _mini_month_calendar(
         cls += (
             " bg-foreground text-background font-semibold"
             if is_active
-            else " text-muted-foreground hover:text-foreground hover:bg-slate-200"
+            else " text-muted-foreground hover:text-foreground hover:bg-foreground/10"
         )
         return A(
             str(iso_week),
@@ -427,7 +427,7 @@ def journal_sidebar(user: User, sessions: list[ConversationSession] | None = Non
                 Icon("panel-left-open", size=16),
                 cls=(
                     "w-8 h-8 flex items-center justify-center rounded-lg"
-                    " text-muted-foreground hover:bg-slate-100 hover:text-slate-600"
+                    " text-muted-foreground hover:bg-muted hover:text-foreground"
                     " transition-colors"
                 ),
                 type="button",
@@ -439,10 +439,10 @@ def journal_sidebar(user: User, sessions: list[ConversationSession] | None = Non
                 },
             ),
             Button(
-                Icon("square-pen", size=16, cls="text-slate-600"),
+                Icon("square-pen", size=16, cls="text-foreground/70"),
                 cls=(
                     "w-8 h-8 flex items-center justify-center rounded-lg"
-                    " border border-border hover:bg-slate-100 transition-colors"
+                    " border border-border hover:bg-muted transition-colors"
                 ),
                 type="button",
                 aria_label="New Journal",
@@ -465,8 +465,7 @@ def journal_sidebar(user: User, sessions: list[ConversationSession] | None = Non
         ),
         style="width:274px;",
         cls=(
-            "bg-slate-50 border-r border-slate-100 shrink-0 overflow-hidden"
-            " transition-all duration-300"
+            "bg-muted/50 border-r border-muted shrink-0 overflow-hidden transition-all duration-300"
         ),
         **{":style": "{ width: sidebarOpen ? '274px' : '62px' }"},
     )
@@ -479,7 +478,7 @@ def _sb_header() -> Any:
             Icon("panel-left-close", size=16),
             cls=(
                 "w-8 h-8 flex items-center justify-center rounded-lg"
-                " text-muted-foreground hover:bg-slate-100 hover:text-slate-600"
+                " text-muted-foreground hover:bg-muted hover:text-foreground"
                 " transition-colors"
             ),
             type="button",
@@ -493,12 +492,12 @@ def _sb_header() -> Any:
 def _sb_new_journal_btn() -> Any:
     return Div(
         A(
-            Icon("square-pen", size=17, cls="text-slate-600 shrink-0"),
+            Icon("square-pen", size=17, cls="text-foreground/70 shrink-0"),
             Span("New Journal", cls="text-sm font-semibold text-foreground"),
             href="/journals",
             cls=(
                 "w-full flex items-center gap-2 px-3 py-[10px] rounded-[10px]"
-                " border border-border bg-background hover:bg-slate-50"
+                " border border-border bg-background hover:bg-muted/50"
                 " transition-colors shadow-xs no-underline"
             ),
         ),
@@ -613,7 +612,7 @@ def DiscussionRow(session: ConversationSession) -> Any:
             cls="flex items-center gap-1",
             **{"x-show": "editing", "x-cloak": True, "@submit": "editing = false"},
         ),
-        cls="group px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors",
+        cls="group px-2 py-1.5 rounded-lg hover:bg-muted transition-colors",
         **{"x-data": "{ editing: false }", "data-discussion-row": sid},
     )
 
@@ -622,7 +621,7 @@ def _DiscussionRowActions(sid: str, title: str) -> Any:
     """Hover-revealed rename / export / delete controls for a discussion row."""
     btn = (
         "w-6 h-6 flex items-center justify-center rounded-sm text-muted-foreground"
-        " hover:bg-slate-200 hover:text-foreground opacity-0 group-hover:opacity-100"
+        " hover:bg-foreground/10 hover:text-foreground opacity-0 group-hover:opacity-100"
         " transition-opacity"
     )
     return Div(
@@ -793,7 +792,7 @@ def _landing_text_form(
                     # options → a hidden field with the safe default).
                     ModelControl("", model_options),
                     Button(
-                        Icon("arrow-up", size=16, cls="text-white"),
+                        Icon("arrow-up", size=16, cls="text-background"),
                         type="submit",
                         aria_label="Start journal entry",
                         cls=(

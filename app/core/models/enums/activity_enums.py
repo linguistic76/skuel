@@ -59,9 +59,9 @@ class Priority(StrEnum):
     def get_badge_class(self) -> str:
         """Get Tailwind badge classes for priority display."""
         return {
-            Priority.HIGH: "bg-yellow-100 text-yellow-800 border-yellow-200",
-            Priority.MEDIUM: "bg-blue-100 text-blue-800 border-blue-200",
-            Priority.LOW: "bg-green-100 text-green-800 border-green-200",
+            Priority.HIGH: "bg-yellow-100 dark:bg-yellow-400/10 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-400/30",
+            Priority.MEDIUM: "bg-blue-100 dark:bg-blue-400/10 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-400/30",
+            Priority.LOW: "bg-green-100 dark:bg-green-400/10 text-green-800 dark:text-green-300 border-green-200 dark:border-green-400/30",
         }.get(self, "bg-muted text-muted-foreground border-border")
 
     def get_text_class(self) -> str:
