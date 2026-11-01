@@ -259,26 +259,31 @@ def BasePage(
                 Template(
                     **{"x-for": "toast in toasts", ":key": "toast.id"},
                 )(
+                    # The toast floats over the page: an opaque surface behind its tint,
+                    # or the content under it shows through the dark twin's wash.
                     Div(
                         Div(
-                            P(**{"x-text": "toast.message"}, cls="text-sm font-medium"),
-                            Button(
-                                "x",
-                                **{"@click": "dismiss(toast.id)"},
-                                cls="ml-4 text-lg hover:opacity-70 transition-opacity",
-                                type="button",
+                            Div(
+                                P(**{"x-text": "toast.message"}, cls="text-sm font-medium"),
+                                Button(
+                                    "x",
+                                    **{"@click": "dismiss(toast.id)"},
+                                    cls="ml-4 text-lg hover:opacity-70 transition-opacity",
+                                    type="button",
+                                ),
+                                cls="flex items-center justify-between",
                             ),
-                            cls="flex items-center justify-between",
-                        ),
-                        cls="rounded-lg border px-4 py-3 shadow-lg max-w-sm transition-all",
-                        **{
-                            ":class": """{
+                            cls="rounded-lg border px-4 py-3",
+                            **{
+                                ":class": """{
                                 'bg-green-50 dark:bg-green-400/10 border-green-200 dark:border-green-400/30 text-green-800 dark:text-green-300': toast.type === 'success',
                                 'bg-red-50 dark:bg-red-400/10 border-red-200 dark:border-red-400/30 text-red-800 dark:text-red-300': toast.type === 'error',
                                 'bg-blue-50 dark:bg-blue-400/10 border-blue-200 dark:border-blue-400/30 text-blue-800 dark:text-blue-300': toast.type === 'info',
                                 'bg-yellow-50 dark:bg-yellow-400/10 border-yellow-200 dark:border-yellow-400/30 text-yellow-800 dark:text-yellow-300': toast.type === 'warning'
                             }""",
-                        },
+                            },
+                        ),
+                        cls="rounded-lg bg-background shadow-lg max-w-sm transition-all",
                     )
                 )
             ),
