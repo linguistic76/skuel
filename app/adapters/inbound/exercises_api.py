@@ -12,7 +12,7 @@ from typing import Any
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_form_body, parse_json_body
 from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from core.config.intelligence_tier import IntelligenceTier
@@ -29,7 +29,6 @@ logger = get_logger(__name__)
 
 
 def create_exercises_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     exercises_service: ExerciseService,
     entry_report_service: EntryReportService | None,
@@ -40,7 +39,6 @@ def create_exercises_api_routes(
     Create exercises API routes using factory pattern.
 
     Args:
-        app: FastHTML application instance
         rt: Route decorator
         exercises_service: ExerciseService instance
         entry_report_service: EntryReportService for AI reports

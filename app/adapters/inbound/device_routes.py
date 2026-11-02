@@ -475,8 +475,7 @@ def create_device_routes(
     async def agent_ws_endpoint(websocket: WebSocket) -> None:
         await handle_agent_ws(websocket, user_service, agent_channel_registry)
 
-    if app is not None:
-        app.router.routes.append(WebSocketRoute("/ws/agent", endpoint=agent_ws_endpoint))
+    app.router.routes.append(WebSocketRoute("/ws/agent", endpoint=agent_ws_endpoint))
 
     logger.info("Device routes registered (settings UI, JSON API, /ws/agent)")
 

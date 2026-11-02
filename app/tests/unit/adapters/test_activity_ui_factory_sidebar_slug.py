@@ -89,7 +89,7 @@ def _client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, list[str]]:
         stats_component=_stats_component,
         detail_component=_detail_component,
     )
-    create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(rt, config)
     return TestClient(app), seen
 
 

@@ -803,7 +803,7 @@ def _real_task_factory(service: Any) -> tuple[CRUDRouteFactory, CapturingRT]:
         uid_prefix="task",
     )
     rt = CapturingRT()
-    factory.register_routes(None, rt)
+    factory.register_routes(rt)
     return factory, rt
 
 

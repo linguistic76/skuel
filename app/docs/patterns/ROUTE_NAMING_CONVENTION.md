@@ -1,6 +1,6 @@
 ---
 title: Route File Naming Convention
-updated: '2026-04-14'
+updated: '2026-11-02'
 category: patterns
 related_skills:
 - fasthtml
@@ -43,9 +43,9 @@ SKUEL uses a consistent three-tier pattern for route file organization in `/adap
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
 
-def create_tasks_routes(app, rt, services):
-    create_tasks_api_routes(app, rt, services.tasks)
-    create_tasks_ui_routes(app, rt, services.tasks)
+def create_tasks_routes(rt, services):
+    create_tasks_api_routes(rt, services.tasks)
+    create_tasks_ui_routes(rt, services.tasks)
 ```
 
 ## Domains Using This Pattern

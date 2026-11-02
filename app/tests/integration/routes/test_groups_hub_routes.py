@@ -77,7 +77,7 @@ def handlers(mock_services: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, A
 
         return decorator
 
-    create_groups_hub_routes(MagicMock(), rt_collector, mock_services)
+    create_groups_hub_routes(rt_collector, mock_services)
     return registered
 
 
@@ -261,7 +261,7 @@ class TestGroupsSharedPreview:
         degraded_services.groups.get_user_groups = AsyncMock(return_value=Result.ok([]))
         degraded_services.sharing = None
 
-        create_groups_hub_routes(MagicMock(), rt_collector, degraded_services)
+        create_groups_hub_routes(rt_collector, degraded_services)
 
         response = await registered["/api/groups/{group_uid}/shared/preview"](
             request=_make_request(), group_uid="group.a"

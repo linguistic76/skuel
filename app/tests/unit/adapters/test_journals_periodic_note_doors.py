@@ -53,7 +53,7 @@ def _client() -> tuple[TestClient, MagicMock]:
     services.user = MagicMock()
     services.user_entry = user_entry
     services.calendar = MagicMock()
-    create_journals_routes(app, rt, services)
+    create_journals_routes(rt, services)
     return TestClient(app, follow_redirects=False), user_entry
 
 

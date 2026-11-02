@@ -1,6 +1,6 @@
 ---
 title: MyPy Type Safety Patterns - Systematic Error Reduction
-updated: 2026-11-01
+updated: 2026-11-02
 category: patterns
 related_skills:
 - python
@@ -48,7 +48,6 @@ Every mypy error falls into one of five categories. Fix the root cause, not the 
 
 ```python
 def create_reports_api_routes(
-    _app,                           # No type
     rt,                             # No type
     report_service,                 # No type → mypy treats as Any
     processing_service,             # No type → mypy treats as Any
@@ -75,7 +74,7 @@ def create_reports_api_routes(
 ```python
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 
 # A @rt() handler's parameter and return types are REAL imports: FastHTML
 # evaluates every handler signature at registration (signature_ex, eval_str=True),
@@ -88,7 +87,6 @@ if TYPE_CHECKING:
     from core.services.user_entry.user_entry_processing_service import UserEntryProcessingService
 
 def create_user_entry_api_routes(
-    _app: FastHTMLApp,                                      # fasthtml_types protocols
     rt: RouteDecorator,
     processing_service: UserEntryProcessingService,         # Type-safe, lazily evaluated
 ) -> None:
@@ -113,14 +111,13 @@ def create_user_entry_api_routes(
 ```python
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 
 if TYPE_CHECKING:
     # Import concrete types only for type checking
     from module.path import ConcreteService
 
 def create_api_routes(
-    app: FastHTMLApp,                              # fasthtml_types protocols
     rt: RouteDecorator,
     service: ConcreteService,                      # Required service — unquoted
     optional_service: OptionalService | None = None,  # Optional service

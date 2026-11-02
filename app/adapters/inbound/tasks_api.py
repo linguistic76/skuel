@@ -48,14 +48,13 @@ from core.utils.result_simplified import Result
 from ui.activities.tasks_views import TaskCard
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.goals_service import GoalsService
     from core.services.tasks_service import TasksService
 
 
 def create_tasks_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     tasks_service: TasksService,
     goals_service: GoalsService,

@@ -54,7 +54,7 @@ from ui.today.membership import (
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from services_bootstrap._container import Services
     from ui.page_contexts import TodayPageContext
 
@@ -72,7 +72,6 @@ _DEFER_SOURCES = ("day", "triage")
 
 
 def create_today_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     services: Services,
 ) -> None:

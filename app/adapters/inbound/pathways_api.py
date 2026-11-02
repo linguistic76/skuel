@@ -16,7 +16,7 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories.hierarchy_api_factory import tree_error_row
@@ -42,7 +42,6 @@ logger = get_logger("skuel.routes.pathways.api")
 
 
 def create_pathways_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     learning_service: LpService,
     user_service: Any = None,
@@ -56,7 +55,6 @@ def create_pathways_api_routes(
     Read operations (get, list) are public.
 
     Args:
-        app: FastHTML application instance
         rt: Route decorator
         learning_service: LpService instance
         user_service: User service for admin role verification

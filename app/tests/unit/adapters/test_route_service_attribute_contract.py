@@ -16,10 +16,10 @@ The guard outlives the file: it checks every ``DomainRouteConfig`` in the tree.
 Three mechanisms that *look* like they should have caught it, and why none did:
 
 1. **MyPy.** The injected service was annotated ``Any``
-   (``def create_timeline_api_routes(_app, rt, tasks_service: Any)``), and ``Any``
+   (``def create_timeline_api_routes(rt, tasks_service: Any)``), and ``Any``
    absorbs every attribute read. Note this is not fixable by annotating the
    parameter alone: ``register_domain_routes`` calls
-   ``config.api_factory(app, rt, primary_service, **api_related)`` where
+   ``config.api_factory(rt, primary_service, **api_related)`` where
    ``primary_service`` came out of ``getattr(services, ...)``, so the concrete
    type is only recoverable from the ``Services`` container's own annotations —
    which is exactly what this guard reads.
@@ -41,7 +41,7 @@ For every module-level ``DomainRouteConfig`` in ``adapters/inbound``:
 
 * resolve ``primary_service_attr`` through the ``Services`` container's
   annotations to the class the composition root injects;
-* take the third positional parameter of ``api_factory`` / ``ui_factory``
+* take the second positional parameter of ``api_factory`` / ``ui_factory``
   (``register_domain_routes`` passes the primary service there positionally);
 * AST-collect every ``<that param>.<attr>`` read inside the factory;
 * assert each ``<attr>`` is reachable on the class.
@@ -220,10 +220,10 @@ def audit_configs(configs: list[tuple[str, str, DomainRouteConfig]]) -> Audit:
                 skipped.append((label, f"{kind} source unavailable"))
                 continue
             params = [arg.arg for arg in definition.args.args]
-            if len(params) < 3:
-                skipped.append((label, f"{kind} takes fewer than 3 positional parameters"))
+            if len(params) < 2:
+                skipped.append((label, f"{kind} takes fewer than 2 positional parameters"))
                 continue
-            service_param = params[2]
+            service_param = params[1]
             checked.append(f"{label}.{kind} -> {service_class.__name__}")
             missing.extend(
                 Read(
@@ -288,12 +288,12 @@ def test_audit_coverage_floor(audit: Audit) -> None:
 # timeline routes were injected with.
 
 
-def _factory_reading_a_missing_method(_app: object, _rt: object, tasks_service: object) -> None:
+def _factory_reading_a_missing_method(_rt: object, tasks_service: object) -> None:
     """Stand-in for the deleted markwhen handler — reads a method that does not exist."""
     tasks_service.export_to_markwhen()  # type: ignore[attr-defined]
 
 
-def _factory_reading_a_real_sub_service(_app: object, _rt: object, tasks_service: object) -> None:
+def _factory_reading_a_real_sub_service(_rt: object, tasks_service: object) -> None:
     """Control: `.core` is bound in __init__, not on the class — must NOT be reported."""
     tasks_service.core  # type: ignore[attr-defined]  # noqa: B018
 

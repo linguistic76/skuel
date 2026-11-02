@@ -49,7 +49,7 @@ def _make_harness(
     if authenticated:
         monkeypatch.setattr("adapters.inbound.user_pins_api.require_authenticated_user", _fake_auth)
 
-    create_user_pins_routes(None, rt, service)
+    create_user_pins_routes(rt, service)
     return _Harness(client=TestClient(app), relationships=service)
 
 

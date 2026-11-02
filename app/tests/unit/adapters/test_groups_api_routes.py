@@ -70,7 +70,7 @@ def _make_harness(
         monkeypatch.setattr("adapters.inbound.groups_api.require_authenticated_user", _fake_auth)
         monkeypatch.setattr("adapters.inbound.auth.roles.require_authenticated_user", _fake_auth)
 
-    create_groups_api_routes(app, rt, groups, user_service)
+    create_groups_api_routes(rt, groups, user_service)
     return _Harness(client=TestClient(app), groups=groups)
 
 

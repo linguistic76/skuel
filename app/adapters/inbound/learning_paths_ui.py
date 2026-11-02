@@ -11,7 +11,7 @@ from typing import Any
 
 from fasthtml.common import Div
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.patterns.card_generator import CardGenerator
@@ -23,7 +23,6 @@ logger = get_logger("skuel.routes.learning_paths")
 
 
 def create_learning_paths_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     services: Any,
 ) -> None:

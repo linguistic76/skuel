@@ -166,7 +166,7 @@ def handlers(mock_services: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, A
 
         return decorator
 
-    create_today_routes(MagicMock(), rt_collector, mock_services)
+    create_today_routes(rt_collector, mock_services)
     return registered
 
 

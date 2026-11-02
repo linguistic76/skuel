@@ -109,7 +109,6 @@ class TestFactoryWiring:
         ingestion = MagicMock()
         batch_service = MagicMock()
         create_ingestion_api_routes(
-            app=None,
             rt=registry,
             unified_ingestion=ingestion,
             user_service=_admin_user_service(),
@@ -121,7 +120,6 @@ class TestFactoryWiring:
         registry = _RouteRegistry()
         ingestion = MagicMock()
         create_ingestion_api_routes(
-            app=None,
             rt=registry,
             unified_ingestion=ingestion,
             user_service=_admin_user_service(),
@@ -141,7 +139,6 @@ def admin_routes_and_service():
     user_service = _admin_user_service()
     batch_service = MagicMock()
     create_ingestion_api_routes(
-        app=None,
         rt=registry,
         unified_ingestion=MagicMock(),
         user_service=user_service,
@@ -248,7 +245,6 @@ class TestRegenerateRouteAdminGate:
     async def test_unauthenticated_raises_401(self) -> None:
         registry = _RouteRegistry()
         create_ingestion_api_routes(
-            app=None,
             rt=registry,
             unified_ingestion=MagicMock(),
             user_service=_admin_user_service(),
@@ -265,7 +261,6 @@ class TestRegenerateRouteAdminGate:
     async def test_non_admin_user_raises_403(self) -> None:
         registry = _RouteRegistry()
         create_ingestion_api_routes(
-            app=None,
             rt=registry,
             unified_ingestion=MagicMock(),
             user_service=_non_admin_user_service(),

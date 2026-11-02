@@ -29,7 +29,7 @@ def _client() -> TestClient:
         request.session["is_admin"] = admin
         return "ok"
 
-    create_system_ui_routes(app, rt, MagicMock())
+    create_system_ui_routes(rt, MagicMock())
     return TestClient(app)
 
 

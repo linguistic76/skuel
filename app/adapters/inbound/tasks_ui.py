@@ -49,7 +49,7 @@ from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.habits_service import HabitsService
     from core.services.tasks_service import TasksService
@@ -58,7 +58,6 @@ logger = get_logger("skuel.routes.tasks_ui")
 
 
 def create_tasks_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     tasks_service: TasksService,
     connection_fetch_backend: ConnectionFetchOperations,
@@ -82,7 +81,7 @@ def create_tasks_ui_routes(
         detail_component=TaskDetailView,
         create_href="/tasks/create",
     )
-    create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(rt, config)
 
     # ------------------------------------------------------------------
     # Create form: GET /tasks/create  +  POST /tasks/create

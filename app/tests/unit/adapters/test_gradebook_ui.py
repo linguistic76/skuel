@@ -68,7 +68,7 @@ def gradebook_handler():
         ),
         get_activity_report_history=AsyncMock(return_value=Result.ok([])),
     )
-    create_user_entry_ui_routes(None, registry, SimpleNamespace(), orchestrator=orchestrator)
+    create_user_entry_ui_routes(registry, SimpleNamespace(), orchestrator=orchestrator)
     return registry.get("/gradebook")
 
 

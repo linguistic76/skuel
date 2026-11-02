@@ -77,8 +77,9 @@ def _device(uid: str = "device_ab12cd34", revoked: bool = False) -> Device:
 
 def _routes(user_service) -> _RouteRegistry:
     registry = _RouteRegistry()
-    # app=None: the WS route mounts on the real starlette router only.
-    create_device_routes(app=None, rt=registry, user_service=user_service)
+    # The WS route mounts on the app's starlette router, not through rt.
+    app = SimpleNamespace(router=SimpleNamespace(routes=[]))
+    create_device_routes(app=app, rt=registry, user_service=user_service)
     return registry
 
 

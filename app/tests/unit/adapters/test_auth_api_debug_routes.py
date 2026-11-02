@@ -46,7 +46,7 @@ def _make_client(
             _fake_admin_auth,
         )
 
-    create_auth_api_routes(app, rt, graph_auth=MagicMock(), user_service=user_service)
+    create_auth_api_routes(rt, graph_auth=MagicMock(), user_service=user_service)
     return TestClient(app)
 
 

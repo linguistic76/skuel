@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-10-16
+updated: 2026-11-02
 category: patterns
 related_skills:
 - base-analytics-service
@@ -295,14 +295,14 @@ class TasksService(BaseService[TasksOperations, Task]):
 if TYPE_CHECKING:
     from core.ports.facade_protocols import TasksFacadeProtocol
 
-def create_tasks_api_routes(app, rt, tasks_service: "TasksFacadeProtocol", ...):
+def create_tasks_api_routes(rt, tasks_service: "TasksFacadeProtocol", ...):
     ...
 
 # After (current)
 if TYPE_CHECKING:
     from core.services.tasks_service import TasksService
 
-def create_tasks_api_routes(app, rt, tasks_service: "TasksService", ...):
+def create_tasks_api_routes(rt, tasks_service: "TasksService", ...):
     ...
 ```
 

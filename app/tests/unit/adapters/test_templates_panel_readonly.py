@@ -55,7 +55,7 @@ def _register(services: Any) -> tuple[list[str], dict[str, Any]]:
 
         return _keep
 
-    create_templates_ui_routes(object(), rt, services)  # type: ignore[arg-type]
+    create_templates_ui_routes(rt, services)  # type: ignore[arg-type]
     return paths, handlers
 
 

@@ -64,7 +64,7 @@ def _make_harness(monkeypatch: pytest.MonkeyPatch, config: DomainRouteConfig) ->
     primary.update_for_user = AsyncMock(return_value=Result.ok({"uid": "updated"}))
     primary.delete_for_user = AsyncMock(return_value=Result.ok(True))
 
-    register_domain_routes(app, rt, services, config)
+    register_domain_routes(rt, services, config)
     install_malformed_body_guard(app)
     return _Harness(client=TestClient(app, raise_server_exceptions=False), services=services)
 

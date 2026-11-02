@@ -83,7 +83,6 @@ def _make_harness(
         )
 
     create_user_entry_api_routes(
-        None,
         rt,
         service,
         processing_service=processing,

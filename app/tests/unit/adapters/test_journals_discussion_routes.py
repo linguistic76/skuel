@@ -90,7 +90,7 @@ def _client(**conv_overrides: object) -> tuple[TestClient, MagicMock]:
     services.user = user_service
     services.journal = MagicMock()
     services.conversation = conv
-    create_journals_routes(app, rt, services)
+    create_journals_routes(rt, services)
     return TestClient(app), conv
 
 

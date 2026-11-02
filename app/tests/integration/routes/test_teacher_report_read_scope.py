@@ -107,7 +107,7 @@ def _make_request(user_uid: str) -> Any:
 
 
 def _collector() -> tuple[Any, dict[str, Any]]:
-    """A stand-in app/rt pair that records path → registered handler."""
+    """A stand-in rt that records path → registered handler."""
     registered: dict[str, Any] = {}
 
     def rt(path: str, *_a: Any, **_kw: Any) -> Any:
@@ -117,8 +117,7 @@ def _collector() -> tuple[Any, dict[str, Any]]:
 
         return decorator
 
-    app = SimpleNamespace(get=rt, post=rt, route=rt)
-    return (app, rt), registered
+    return rt, registered
 
 
 @pytest.fixture
@@ -149,10 +148,9 @@ def entry_report_service(neo4j_driver) -> EntryReportService:
 
 @pytest.fixture
 def ui_handlers(review_service, entry_report_service) -> dict[str, Any]:
-    (app, rt), registered = _collector()
+    rt, registered = _collector()
     orchestrator = TeacherOrchestrator(review_service)
     create_teaching_ui_routes(
-        app,
         rt,
         orchestrator,
         user_service=_user_service(),
@@ -163,9 +161,8 @@ def ui_handlers(review_service, entry_report_service) -> dict[str, Any]:
 
 @pytest.fixture
 def api_handlers(review_service, entry_report_service) -> dict[str, Any]:
-    (app, rt), registered = _collector()
+    rt, registered = _collector()
     create_teaching_api_routes(
-        app,
         rt,
         review_service,
         user_service=_user_service(),

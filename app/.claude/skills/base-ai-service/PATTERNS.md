@@ -235,7 +235,7 @@ and `tests/unit/services/test_ai_prompt_input_bounds.py` do.
 ### The routes
 
 Patch `require_authenticated_user` and `llm_quota_allowed` in `adapters.inbound.ai_routes`, build
-a container whose facades carry `.ai` and `verify_ownership`, call `create_ai_routes(app, rt,
+a container whose facades carry `.ai` and `verify_ownership`, call `create_ai_routes(rt,
 services)`, and drive it with a `TestClient`. `POST`, with a `csrf_token` cookie and the same
 value in `X-CSRF-Token` (`mint_token()` from `adapters.inbound.csrf`) — without them the request
 stops at 405 or 403 before the gates. Count the calls to the quota function: a request stopped

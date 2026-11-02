@@ -464,7 +464,7 @@ class TestRouteWiring:
         search_router.faceted_search = AsyncMock(
             return_value=Result.ok(SearchResponse(results=[], total=0, limit=20, offset=0))
         )
-        create_search_api_routes(app=MagicMock(), rt=registry, search_router=search_router)
+        create_search_api_routes(rt=registry, search_router=search_router)
         return registry.handlers[("/search/results", "GET")], search_router
 
     @staticmethod
@@ -793,9 +793,7 @@ class TestFacetVocabularyWiring:
         search_router.list_tags = AsyncMock(return_value=Result.ok([]))
         ku_service = MagicMock()
         ku_service.list_nous_topics = AsyncMock(return_value=Result.ok(["body"]))
-        create_search_api_routes(
-            app=MagicMock(), rt=registry, search_router=search_router, ku_service=ku_service
-        )
+        create_search_api_routes(rt=registry, search_router=search_router, ku_service=ku_service)
         return registry.handlers, search_router
 
     @staticmethod

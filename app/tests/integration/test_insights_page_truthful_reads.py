@@ -192,9 +192,8 @@ def _handlers(store: InsightStore, monkeypatch: pytest.MonkeyPatch) -> dict[str,
     monkeypatch.setattr("adapters.inbound.insights_api.require_authenticated_user", _as_user)
     monkeypatch.setattr("adapters.inbound.insights_ui.BasePage", _identity_page)
 
-    create_insights_api_routes(SimpleNamespace(), rt, store)
+    create_insights_api_routes(rt, store)
     create_insights_ui_routes(
-        None,
         rt,
         store,
         user_service=MagicMock(),

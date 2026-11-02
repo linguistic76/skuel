@@ -19,7 +19,7 @@ Key Principles:
 - Consistent error handling and response patterns
 
 Architecture:
-- Each route module exports a single `create_*_routes(app, rt, services...)` function
+- Each route module exports a single `create_*_routes(rt, services...)` function
 - Services are explicitly injected - no hidden dependencies
 - Routes delegate to services and return HTTP responses
 - UI rendering handled by specialized UI adapters
@@ -29,8 +29,8 @@ Example:
     from adapters.inbound.core_routes import create_core_routes
 
     # Services explicitly injected
-    create_system_routes(app, rt, services)
-    create_core_routes(app, rt, tasks_service, habits_service)
+    create_system_routes(rt, services)
+    create_core_routes(rt, tasks_service, habits_service)
 """
 
 __version__ = "1.0"

@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories.lateral_route_factory import (
     LateralRouteFactory,
     parse_edge_score,
@@ -61,7 +61,6 @@ _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
 
 
 def create_lateral_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: LateralRelationshipsOrchestrator,
 ) -> None:
@@ -75,7 +74,7 @@ def create_lateral_api_routes(
             entity_name=entity_name,
             domain_service=domain_service,
         )
-        factory.register_routes(app, rt)
+        factory.register_routes(rt)
 
     logger.info("Standard lateral routes registered for all 9 domains")
 
@@ -303,12 +302,12 @@ def create_lateral_api_routes(
 # ============================================================================
 
 
-def create_lateral_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
+def create_lateral_routes(rt: RouteDecorator, services: Services) -> None:
     """Wire lateral relationship routes via LateralRelationshipsOrchestrator."""
     if not services or not services.lateral_orchestrator:
         logger.warning("LateralRelationshipsOrchestrator not available — lateral routes skipped")
         return
-    create_lateral_api_routes(app, rt, orchestrator=services.lateral_orchestrator)
+    create_lateral_api_routes(rt, orchestrator=services.lateral_orchestrator)
 
 
 __all__ = ["create_lateral_routes"]

@@ -79,7 +79,7 @@ def _make_harness(
 
     goals = _FakeVerifier("Goal")
     habits = _FakeVerifier("Habit")
-    create_context_aware_api_routes(None, rt, service, goals=goals, habits=habits)
+    create_context_aware_api_routes(rt, service, goals=goals, habits=habits)
     return _Harness(client=TestClient(app), context=service, goals=goals, habits=habits)
 
 
@@ -174,7 +174,7 @@ class TestOwnerCheck:
         verifiers[missing] = None  # type: ignore[assignment]
 
         with pytest.raises(ValueError, match="cannot be registered without"):
-            create_context_aware_api_routes(None, rt, MagicMock(), **verifiers)
+            create_context_aware_api_routes(rt, MagicMock(), **verifiers)
 
 
 class TestContextIntegrationBodies:

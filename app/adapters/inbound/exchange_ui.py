@@ -21,7 +21,7 @@ from starlette.responses import HTMLResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import UserRole
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import refuse_not_found
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory
@@ -38,9 +38,7 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.exchange")
 
 
-def create_exchange_ui_routes(
-    _app: FastHTMLApp, rt: RouteDecorator, orchestrator: UserEntryOrchestrator
-) -> None:
+def create_exchange_ui_routes(rt: RouteDecorator, orchestrator: UserEntryOrchestrator) -> None:
     """Register the /exchange thread page."""
 
     @rt("/exchange")

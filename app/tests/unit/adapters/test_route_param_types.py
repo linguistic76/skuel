@@ -42,7 +42,6 @@ _ALLOWED = {
     "rt": {"RouteDecorator"},
     "_rt": {"RouteDecorator"},
     "app": {"FastHTMLApp", "ASGIApp"},
-    "_app": {"FastHTMLApp", "ASGIApp"},
 }
 
 

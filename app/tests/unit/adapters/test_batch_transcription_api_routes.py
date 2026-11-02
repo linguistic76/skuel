@@ -102,7 +102,6 @@ def _make_harness(
         monkeypatch.setattr("adapters.inbound.auth.roles.require_authenticated_user", _fake_auth)
 
     create_batch_transcription_api_routes(
-        None,
         rt,
         batch_service,
         journal_batch,

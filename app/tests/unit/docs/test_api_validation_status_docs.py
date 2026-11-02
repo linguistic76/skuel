@@ -213,7 +213,7 @@ async def test_form_body_row_names_both_answers_its_consumers_give(
     monkeypatch.setattr(
         "adapters.inbound.tasks_ui.require_authenticated_user", _fake_authenticated_user
     )
-    create_tasks_ui_routes(app, rt, MagicMock(), MagicMock())
+    create_tasks_ui_routes(rt, MagicMock(), MagicMock())
     ui_response = TestClient(app, cookies={"csrf_token": "tok"}).post(
         "/tasks/create",
         data={"title": ""},
@@ -318,7 +318,7 @@ def test_html_form_params_row_answers_with_a_banner_not_a_status(
         "adapters.inbound.search_routes.require_authenticated_user", _fake_authenticated_user
     )
     # A 501-character query fails in from_form_params, before the route reaches the router.
-    create_search_api_routes(app, rt, MagicMock())
+    create_search_api_routes(rt, MagicMock())
     response = TestClient(app).get("/search/results", params={"query": "x" * 501})
 
     assert str(response.status_code) + " (banner)" == _documented_rows()["HTML Form Params (GET)"]
@@ -346,7 +346,7 @@ def test_path_params_row_reports_the_disagreement_it_documents(
     services.tasks.core.verify_ownership = AsyncMock(
         return_value=Result.fail(Errors.not_found("Task", "task_someone_else"))
     )
-    create_today_routes(app, rt, services)
+    create_today_routes(rt, services)
     client = TestClient(app)
 
     # Coercion, not rejection: the garbage date reaches the orchestrator as today.

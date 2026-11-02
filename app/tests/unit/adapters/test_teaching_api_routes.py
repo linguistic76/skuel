@@ -94,7 +94,6 @@ def _make_harness(
         monkeypatch.setattr("adapters.inbound.auth.roles.require_authenticated_user", _fake_auth)
 
     create_teaching_api_routes(
-        app,
         rt,
         review_service,
         user_service,
@@ -475,7 +474,6 @@ def _make_harness_without_entry_service(
     user_service.get_user = AsyncMock(return_value=Result.ok(_caller(UserRole.TEACHER)))
     monkeypatch.setattr("adapters.inbound.auth.roles.require_authenticated_user", _fake_auth)
     create_teaching_api_routes(
-        app,
         rt,
         review_service,
         user_service,

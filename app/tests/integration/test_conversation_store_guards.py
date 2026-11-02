@@ -379,7 +379,7 @@ class TestOptInPersistenceGuard:
 
             return decorator
 
-        create_journals_routes(MagicMock(), rt_collector, services)
+        create_journals_routes(rt_collector, services)
         return registered
 
     async def _count(self, driver, query: str, **params) -> int:

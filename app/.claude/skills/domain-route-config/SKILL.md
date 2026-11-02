@@ -73,14 +73,14 @@ api_related_services={
 
 # register_domain_routes() resolves it at runtime:
 api_factory(
-    app, rt, primary_service,
+    rt, primary_service,
     user_service=services.user,    # getattr(services, "user")
     goals_service=services.goals,  # getattr(services, "goals")
 )
 ```
 
 **The mapping is exactly the factory's parameters.** Each key names a parameter, each
-parameter after the first three without a default has a key, and no factory takes
+parameter after the first two without a default has a key, and no factory takes
 `**kwargs` — a sink accepts a mistyped or misrouted key without a word.
 `tests/unit/adapters/test_route_factory_signatures.py` binds every module-level config's
 mappings against its factories. The query routes' services never ride in the api mapping:
@@ -97,7 +97,7 @@ for a filter the config turns on, straight from the container.
 **None is valid.** If the attribute exists on the container but its value is `None` (e.g. tier-dependent services like `submission_report` in CORE tier), the `None` is passed through silently. The factory must handle optional dependencies with default parameters:
 
 ```python
-def create_tasks_api_routes(app, rt, tasks_service, goals_service=None, ...):
+def create_tasks_api_routes(rt, tasks_service, goals_service=None, ...):
     ...  # goals_service may be None
 ```
 
@@ -119,7 +119,7 @@ Wires {Domain} API and UI routes using DomainRouteConfig pattern.
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -139,9 +139,9 @@ if TYPE_CHECKING:
 )
 
 
-def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_{domain}_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire {domain} API and UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -162,7 +162,7 @@ __all__ = ["create_{domain}_routes"]
 ```python
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
@@ -198,9 +198,9 @@ TASKS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_tasks_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_tasks_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire tasks API and UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, TASKS_CONFIG)
+    register_domain_routes(rt, services, TASKS_CONFIG)
 
 
 __all__ = ["create_tasks_routes"]
@@ -222,7 +222,7 @@ silently. `tests/unit/test_route_create_via_primitive.py` guards it.
 
 **What `ui_factory` does (inside `create_{domain}_ui_routes`):**
 - Creates an `ActivityUIConfig` dataclass (~50 lines) with domain-specific callbacks and components
-- Delegates to `create_activity_ui_routes(app, rt, config)` from `activity_ui_factory.py`
+- Delegates to `create_activity_ui_routes(rt, config)` from `activity_ui_factory.py`
 - The shared factory generates 5 routes: `/{domain}`, `/{domain}/content`, `/{domain}/list-fragment`, `/{domain}/detail`, `/{domain}/detail/content`
 - Uses `ActivityFilterBar` with per-domain `FilterBarConfig` for config-driven filter bars
 
@@ -311,13 +311,13 @@ INSIGHTS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_insights_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_insights_routes(rt: RouteDecorator, services: Services | None) -> None:
     # Standard routes via config
-    register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
+    register_domain_routes(rt, services, INSIGHTS_CONFIG)
 
     # Additional history routes registered manually
     if services and services.insight_store:
-        create_insights_history_routes(app, rt, services.insight_store)
+        create_insights_history_routes(rt, services.insight_store)
 ```
 
 The manual block follows the same service-null-guard pattern that `register_domain_routes()` uses internally: check `services` and the specific service before calling the factory.
@@ -393,13 +393,12 @@ PS_CONFIG = DomainRouteConfig(
 
 ## Factory Signature Requirements
 
-All API and UI factories wired via DomainRouteConfig MUST match these signatures exactly. `register_domain_routes()` calls them positionally for the first 3 args, then passes related services as kwargs.
+All API and UI factories wired via DomainRouteConfig MUST match these signatures exactly. `register_domain_routes()` calls them positionally for the first 2 args (`rt`, the primary service), then passes related services as kwargs.
 
 ### API Factory
 
 ```python
 def create_{domain}_api_routes(
-    app: FastHTMLApp,                            # FastHTML app instance
     rt: RouteDecorator,                          # Route decorator
     {domain}_service: ServiceType,               # Primary service (positional)
     # Related services as keyword args, injected by name via api_related_services:
@@ -413,7 +412,6 @@ def create_{domain}_api_routes(
 
 ```python
 def create_{domain}_ui_routes(
-    app: FastHTMLApp,                            # FastHTML app
     rt: RouteDecorator,                          # Route decorator
     {domain}_service: ServiceType,               # Primary service (positional)
     connection_fetch_backend: ConnectionFetchOperations,  # related service, injected by name via ui_related_services
@@ -436,12 +434,12 @@ def create_{domain}_ui_routes(
 
 ```python
 # BAD — factory reaches into the container itself
-def create_tasks_api_routes(app, rt, services):
+def create_tasks_api_routes(rt, services):
     tasks_service = services.tasks        # ← breaks the contract
     goals_service = services.goals
 
 # GOOD — services extracted by config, injected as kwargs
-def create_tasks_api_routes(app, rt, tasks_service, goals_service=None):
+def create_tasks_api_routes(rt, tasks_service, goals_service=None):
     ...
 ```
 
@@ -468,13 +466,13 @@ This fails silently: `getattr` returns `None`, which is passed as the kwarg. The
 ```python
 # BAD — the list is dead: @rt registered get_tasks when it was applied,
 # and nothing reads what the factory returns
-def create_tasks_api_routes(app, rt, tasks_service) -> list[Any]:
+def create_tasks_api_routes(rt, tasks_service) -> list[Any]:
     @rt("/api/tasks")
     async def get_tasks(): ...
     return [get_tasks]
 
 # GOOD — register and return nothing
-def create_tasks_api_routes(app, rt, tasks_service) -> None:
+def create_tasks_api_routes(rt, tasks_service) -> None:
     @rt("/api/tasks")
     async def get_tasks(): ...
 ```
@@ -485,11 +483,11 @@ def create_tasks_api_routes(app, rt, tasks_service) -> None:
 
 ```python
 # BAD — if someone removes the null guard from domain_route_factory.py:
-# config.api_factory(app, rt, ...)  # TypeError when api_factory is None
+# config.api_factory(rt, ...)  # TypeError when api_factory is None
 
 # The `if config.api_factory:` guard in register_domain_routes() MUST stay:
 if config.api_factory:
-    config.api_factory(app, rt, primary_service, **api_related)
+    config.api_factory(rt, primary_service, **api_related)
 ```
 
 Don't refactor `register_domain_routes()` without preserving both null guards (api_factory and ui_factory).

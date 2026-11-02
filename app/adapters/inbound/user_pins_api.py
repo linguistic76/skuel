@@ -16,7 +16,7 @@ from fasthtml.common import FT
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_form_body, parse_json_body
 from core.models.type_hints import EntityUID
 from core.models.user_pins_request import PinEntityRequest, ReorderPinsRequest
@@ -26,13 +26,12 @@ from ui.patterns.pin_button import PinButton
 
 
 def create_user_pins_routes(
-    _app: FastHTMLApp, rt: RouteDecorator, user_relationship_service: UserRelationshipOperations
+    rt: RouteDecorator, user_relationship_service: UserRelationshipOperations
 ) -> None:
     """
     Create user pins API routes.
 
     Args:
-        _app: FastHTML application instance
         rt: Router instance
         user_relationship_service: UserRelationshipOperations instance
     """

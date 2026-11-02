@@ -42,7 +42,7 @@ from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.principles_service import PrinciplesService
 
@@ -50,7 +50,6 @@ logger = get_logger("skuel.routes.principles_ui")
 
 
 def create_principles_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     principles_service: PrinciplesService,
     connection_fetch_backend: ConnectionFetchOperations,
@@ -81,7 +80,7 @@ def create_principles_ui_routes(
         dual_track_label="Alignment",
         list_categories=principles_service.search.list_user_categories,
     )
-    create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(rt, config)
 
     @rt("/principles/create", methods=["GET"])
     def principle_create_page(request: Request) -> Any:

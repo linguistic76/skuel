@@ -13,7 +13,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.user_entry_api import create_user_entry_api_routes
 from adapters.inbound.user_entry_ui import create_user_entry_ui_routes
@@ -47,9 +47,9 @@ USER_ENTRY_CONFIG = DomainRouteConfig(
 )
 
 
-def create_user_entry_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
+def create_user_entry_routes(rt: RouteDecorator, services: Services) -> None:
     """Register UserEntry API + UI routes, plus cross-cutting extensions."""
-    register_domain_routes(app, rt, services, USER_ENTRY_CONFIG)
+    register_domain_routes(rt, services, USER_ENTRY_CONFIG)
 
     # -------------------------------------------------------------------------
     # Extension: activity review UI (admin-only)
@@ -58,7 +58,7 @@ def create_user_entry_routes(app: FastHTMLApp, rt: RouteDecorator, services: Ser
     if activity_review_orch:
         from adapters.inbound.activity_review_ui import create_activity_review_ui_routes
 
-        create_activity_review_ui_routes(app, rt, activity_review_orch)
+        create_activity_review_ui_routes(rt, activity_review_orch)
         logger.info("UserEntry: activity review UI routes registered")
 
     # -------------------------------------------------------------------------
@@ -74,7 +74,6 @@ def create_user_entry_routes(app: FastHTMLApp, rt: RouteDecorator, services: Ser
             "JournalBatchService must be wired before batch transcription routes"
         )
         create_batch_transcription_api_routes(
-            app,
             rt,
             batch_transcription_service=batch_transcription_svc,
             journal_batch=services.journal_batch,
@@ -93,15 +92,14 @@ def create_user_entry_routes(app: FastHTMLApp, rt: RouteDecorator, services: Ser
         from adapters.inbound.exchange_ui import create_exchange_ui_routes
         from adapters.inbound.revised_exercises_ui import create_revised_exercises_ui_routes
 
-        create_entry_reports_ui_routes(app, rt, orchestrator=user_entry_orch)
+        create_entry_reports_ui_routes(rt, orchestrator=user_entry_orch)
         create_activity_reports_ui_routes(
-            app,
             rt,
             orchestrator=user_entry_orch,
             progress_generator=getattr(services, "progress_report_generator", None),
         )
-        create_revised_exercises_ui_routes(app, rt, orchestrator=user_entry_orch)
-        create_exchange_ui_routes(app, rt, orchestrator=user_entry_orch)
+        create_revised_exercises_ui_routes(rt, orchestrator=user_entry_orch)
+        create_exchange_ui_routes(rt, orchestrator=user_entry_orch)
         logger.info(
             "UserEntry: exercise/activity/revised-exercise/exchange UI sub-factories registered"
         )

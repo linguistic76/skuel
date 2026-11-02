@@ -1,6 +1,6 @@
 ---
 title: Route Decorator Architecture
-updated: '2026-10-16'
+updated: '2026-11-02'
 category: patterns
 related_skills:
 - fasthtml
@@ -110,7 +110,7 @@ Factories generate routes from configuration. The handler code lives inside the 
 | IntelligenceRouteFactory | context, analytics, insights | `intelligence_route_factory.py` |
 | **LateralRouteFactory** | Blocking, prerequisites, alternatives, graph | `lateral_route_factory.py` |
 
-Every generated handler uses `@boundary_handler()` internally. When you call `factory.register_routes(app, rt)`, you get properly decorated routes.
+Every generated handler uses `@boundary_handler()` internally. When you call `factory.register_routes(rt)`, you get properly decorated routes.
 
 ### 2. Domain API Routes (Hand-Written)
 
@@ -161,7 +161,7 @@ Route registration follows a consistent composition pattern:
 ```
 bootstrap.py
     │
-    ├── create_tasks_routes(app, rt, services)
+    ├── create_tasks_routes(rt, services)
     │       │
     │       ├── tasks_api.py → @rt() + @boundary_handler() handlers
     │       │       │
@@ -173,7 +173,7 @@ bootstrap.py
     │       │
     │       └── tasks_ui.py → @rt() handlers (HTML responses)
     │
-    ├── create_lateral_routes(app, rt, services)
+    ├── create_lateral_routes(rt, services)
     │       │
     │       ├── LateralRouteFactory × 9 domains (generic routes)
     │       └── Domain-specific lateral routes (conflicts, stacking, enables)

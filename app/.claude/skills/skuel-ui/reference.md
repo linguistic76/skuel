@@ -220,7 +220,7 @@ config = ActivityUIConfig(
     detail_component=TaskDetailView,      # (entity, connections) -> FT
     get_owned=tasks_service.verify_ownership,
 )
-create_activity_ui_routes(app, rt, config)
+create_activity_ui_routes(rt, config)
 ```
 
 **When to use Strategy 2:** When three or more domain surfaces share the same layout but differ in data and components. Use a frozen dataclass (not a dict) so the config is type-safe and immutable. Grouping renderers as `@staticmethod`s on a class is the retired shape: the analytics and Askesis `*UI` classes were dissolved into module functions.

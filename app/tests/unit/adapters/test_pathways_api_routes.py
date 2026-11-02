@@ -67,7 +67,6 @@ def _make_harness(
         monkeypatch.setattr("adapters.inbound.pathways_api.require_authenticated_user", _fake_auth)
 
     create_pathways_api_routes(
-        app,
         rt,
         learning_service,
         user_service=user_service,

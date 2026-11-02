@@ -59,7 +59,7 @@ def handler():
     registry = _RouteRegistry()
     sharing = SimpleNamespace(candidates=AsyncMock(return_value=Result.ok(_CANDIDATES)))
     create_user_entry_ui_routes(
-        None, registry, SimpleNamespace(), orchestrator=SimpleNamespace(), entry_sharing=sharing
+        registry, SimpleNamespace(), orchestrator=SimpleNamespace(), entry_sharing=sharing
     )
     return registry.get("/gradebook/{uid}/share-panel")
 

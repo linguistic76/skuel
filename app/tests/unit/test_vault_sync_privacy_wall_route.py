@@ -63,9 +63,7 @@ class TestConsentFormShowsLiveWall:
         reconciler = MagicMock()
         reconciler.sync = AsyncMock(return_value=Result.ok(VaultSyncStats(first_run_notice=True)))
         reconciler.describe = AsyncMock(return_value=Result.ok(_DOORWAYS))
-        create_vault_routes(
-            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
-        )
+        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
 
         handler = registry.get("/settings/vault/sync", "POST")
         html = to_xml(await handler(_request()))
@@ -85,9 +83,7 @@ class TestSyncPageRender:
         registry = _RouteRegistry()
         reconciler = MagicMock()
         reconciler.describe = AsyncMock(return_value=Result.ok(_DOORWAYS))
-        create_vault_routes(
-            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
-        )
+        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
 
         handler = registry.get("/submissions/sync", "GET")
         html = to_xml(await handler(_request(method="GET", path="/submissions/sync")))
@@ -108,9 +104,7 @@ class TestSyncPageRender:
         reconciler.describe = AsyncMock(
             return_value=Result.ok(VaultDescription(vault_configured=False))
         )
-        create_vault_routes(
-            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
-        )
+        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
 
         handler = registry.get("/submissions/sync", "GET")
         html = to_xml(await handler(_request(method="GET", path="/submissions/sync")))

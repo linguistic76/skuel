@@ -25,7 +25,7 @@ from fasthtml.common import FT
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
     parse_bool_param_strict,
@@ -136,7 +136,6 @@ def scope_to_search_page(request: SearchRequest) -> SearchRequest:
 
 
 def create_search_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     search_router: SearchRouter,
     ku_service: Any = None,
@@ -596,9 +595,9 @@ SEARCH_CONFIG = DomainRouteConfig(
 )
 
 
-def create_search_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
+def create_search_routes(rt: RouteDecorator, services: Services) -> None:
     """Wire search routes via DomainRouteConfig."""
-    register_domain_routes(app, rt, services, SEARCH_CONFIG)
+    register_domain_routes(rt, services, SEARCH_CONFIG)
 
 
 __all__ = ["create_search_routes"]

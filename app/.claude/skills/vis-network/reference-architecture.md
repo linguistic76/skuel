@@ -89,7 +89,7 @@ for domain, entity_name, service_attr in _LATERAL_DOMAINS:
         lateral_service=orchestrator.lateral_service,
         entity_name=entity_name,
         domain_service=domain_service,  # OwnershipVerifier; None for ku/ps/lp
-    ).register_routes(app, rt)          # @rt registers — nothing is returned
+    ).register_routes(rt)          # @rt registers — nothing is returned
 ```
 
 Each factory threads `domain_service` on every route it registers. An Activity domain gets all

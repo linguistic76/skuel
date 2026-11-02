@@ -8,7 +8,7 @@ Minimal factory that wires admin API routes using DomainRouteConfig.
 from typing import TYPE_CHECKING
 
 from adapters.inbound.admin_api import create_admin_api_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 if TYPE_CHECKING:
@@ -26,9 +26,9 @@ ADMIN_CONFIG = DomainRouteConfig(
 )
 
 
-def create_admin_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_admin_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire admin API routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, ADMIN_CONFIG)
+    register_domain_routes(rt, services, ADMIN_CONFIG)
 
 
 __all__ = ["create_admin_routes"]

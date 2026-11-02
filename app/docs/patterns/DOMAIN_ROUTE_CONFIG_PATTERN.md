@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-11-01
+updated: 2026-11-02
 category: patterns
 related_skills:
 - fasthtml
@@ -172,7 +172,7 @@ Both `api_related_services` and `ui_related_services` use the same `{kwarg_name:
 - **Value (container_attr):** The attribute name on the services container
 
 **The mapping is exactly the factory's own parameters:** each key names a parameter,
-each parameter after the first three without a default has a key, and the factory
+each parameter after the first two without a default has a key, and the factory
 takes no `**kwargs` — a sink there accepts a mistyped or misrouted key without a word.
 `tests/unit/adapters/test_route_factory_signatures.py` binds every module-level
 config's mappings against its factories.
@@ -188,7 +188,7 @@ api_related_services={
 
 This is passed to the factory as:
 ```python
-api_factory(app, rt, primary_service,
+api_factory(rt, primary_service,
     user_service=services.user,
     goals_service=services.goals,
     habits_service=services.habits
@@ -202,7 +202,7 @@ api_factory(app, rt, primary_service,
 2. Extract primary service: getattr(services, config.primary_service_attr)
 3. Validate primary service exists (warn and return if missing)
 4. Extract API-related services: sentinel-based getattr for each api_related_services entry (warns if attr missing, silent if None)
-5. Call api_factory(app, rt, primary_service, **api_related) — its @rt decorators register the handlers
+5. Call api_factory(rt, primary_service, **api_related) — its @rt decorators register the handlers
 6. (Optional) Extract UI-related services, call ui_factory the same way
 7. Return None — registration is the decorator's side effect; there is no route list
 ```
@@ -257,9 +257,9 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 )
 
 
-def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_{domain}_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire {domain} API and UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -310,9 +310,9 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
 )
 
 
-def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_{domain}_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire {domain} API and UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -342,7 +342,6 @@ __all__ = ["create_{domain}_routes"]
 
 ```python
 def create_{domain}_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     {domain}_service: ServiceType,
     # Related services are injected BY NAME via api_related_services — each an explicit kwarg:
@@ -367,7 +366,6 @@ def create_{domain}_api_routes(
 
 ```python
 def create_{domain}_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     {domain}_service: ServiceType,
     # Related services are injected BY NAME via ui_related_services — each an explicit kwarg:
@@ -477,20 +475,20 @@ New route file for structural/infrastructure concerns?
 
 ```python
 # ✅ CORRECT - canonical signature
-def create_reports_api_routes(app, rt, reports_service) -> None:
+def create_reports_api_routes(rt, reports_service) -> None:
     ...  # @rt() handlers
 
 # ✅ CORRECT - with optional related services
-def create_finance_api_routes(app, rt, finance_service, user_service: Any = None) -> None:
+def create_finance_api_routes(rt, finance_service, user_service: Any = None) -> None:
     ...  # @rt() handlers
 
 # ❌ WRONG - takes full services container
-def create_system_api_routes(app, rt, services, sync_service):
+def create_system_api_routes(rt, services, sync_service):
     system_service = services.system
     # Must refactor to extract services.system first
 
 # ❌ WRONG - collects the handlers @rt already registered and returns them
-def create_old_api_routes(app, rt, service) -> list[Any]:
+def create_old_api_routes(rt, service) -> list[Any]:
     return [handler_a, handler_b]  # nothing reads this — delete the list
 ```
 
@@ -500,7 +498,7 @@ def create_old_api_routes(app, rt, service) -> list[Any]:
 
 **Before (manual pattern):**
 ```python
-def create_tasks_routes(app, rt, services):
+def create_tasks_routes(rt, services):
     tasks_service = getattr(services, "tasks", None)
     user_service = getattr(services, "user_service", None)
     goals_service = getattr(services, "goals", None)
@@ -511,12 +509,12 @@ def create_tasks_routes(app, rt, services):
         return
 
     create_tasks_api_routes(
-        app, rt, tasks_service,
+        rt, tasks_service,
         user_service=user_service,
         goals_service=goals_service,
         habits_service=habits_service,
     )
-    create_tasks_ui_routes(app, rt, tasks_service)
+    create_tasks_ui_routes(rt, tasks_service)
 
     logger.info("Tasks routes registered")
 ```
@@ -548,9 +546,9 @@ TASKS_CONFIG = DomainRouteConfig(
 
 **After (DomainRouteConfig pattern):**
 ```python
-def create_tasks_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_tasks_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire tasks API and UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, TASKS_CONFIG)
+    register_domain_routes(rt, services, TASKS_CONFIG)
 ```
 
 ### Step 4: Verify Registration
@@ -717,7 +715,7 @@ INSIGHTS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_insights_routes(app, rt, services):
+def create_insights_routes(rt, services):
     """
     Wire insights API and UI routes using configuration-driven registration.
 
@@ -725,11 +723,11 @@ def create_insights_routes(app, rt, services):
     additional history routes registered separately.
     """
     # Register main API + UI routes via DomainRouteConfig
-    register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
+    register_domain_routes(rt, services, INSIGHTS_CONFIG)
 
     # Additional history routes (separate from main API/UI)
     if services and services.insight_store:
-        create_insights_history_routes(app, rt, services.insight_store)
+        create_insights_history_routes(rt, services.insight_store)
         logger.info("Insights history routes registered")
 ```
 
@@ -756,10 +754,10 @@ PATHWAYS_CONFIG = DomainRouteConfig(
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 
-def create_pathways_routes(app, rt, services):
-    register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
+def create_pathways_routes(rt, services):
+    register_domain_routes(rt, services, PATHWAYS_CONFIG)
     # PS routes via its own DomainRouteConfig (soft-fail if ls service missing)
-    register_domain_routes(app, rt, services, PS_CONFIG)
+    register_domain_routes(rt, services, PS_CONFIG)
 ```
 
 ```python
@@ -836,7 +834,7 @@ CALENDAR_CONFIG = DomainRouteConfig(
 - Module-level helpers: `_calendar_shell` (shared header + toolbar), page wrapper, navigation aliases (prev/next month/week)
 
 **Key features:**
-- **Minimal config:** a UI-only cross-cutting config — no `api_factory` (the calendar has no JSON API; every read is an HTMX fragment); the UI factory takes `(app, rt, calendar_service)` — no `ui_related_services`; even the habit-complete POST goes through the calendar meta-service (`calendar_service.record_habit_occurrence`, which delegates to the habits facade internally). Both views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`. (The single-day view was dropped — the Today surface owns the current day; Week/Month are the calendar's temporal lenses.)
+- **Minimal config:** a UI-only cross-cutting config — no `api_factory` (the calendar has no JSON API; every read is an HTMX fragment); the UI factory takes `(rt, calendar_service)` — no `ui_related_services`; even the habit-complete POST goes through the calendar meta-service (`calendar_service.record_habit_occurrence`, which delegates to the habits facade internally). Both views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`. (The single-day view was dropped — the Today surface owns the current day; Week/Month are the calendar's temporal lenses.)
 - **Per-view membership:** each view renders what its `ViewSpec` (`VIEW_SPECS` in `core/models/event/calendar_models.py`) declares — kinds and, per kind, a minimum priority. The month shows events at medium priority or above and nothing else; the week shows events, habits and goal milestones at medium or above plus high-priority tasks. `CalendarService.get_calendar_view` fetches only the admitted kinds and filters the rest server-side; an entity stating no priority reads as MEDIUM.
 - **Shell + fragment split:** each page shell returns chrome (title, Prev/Today/Next toolbar, and — on views that render more than one kind — the kind legend) plus a `content_loading_placeholder`; the matching `*_content` route returns the grid/agenda fragment on HTMX load. The legend swatches double as kind filters within the view's membership (`calendarLegend` Alpine component on the shell + pure-CSS `cal-hide-*`/`cal-spot-*` rules in `calendar.css`, so filters survive fragment swaps). The month binds no legend controller: with one kind there is nothing to toggle, and a kind hidden on the week (shared browser key) would otherwise apply with no control left to lift it.
 - **Redirect entry point:** `GET /cal` issues a `RedirectResponse` to `/cal/month/{y}/{m}` for the current month.
@@ -859,21 +857,21 @@ ORCHESTRATION_CONFIG = DomainRouteConfig(
 )
 
 
-def create_orchestration_routes(app, rt, services):
-    register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
+def create_orchestration_routes(rt, services):
+    register_domain_routes(rt, services, ORCHESTRATION_CONFIG)
 
     if services and services.goal_task_generator and services.user:
-        create_goal_task_bulk_routes(app, rt, services.goal_task_generator, services.user)
+        create_goal_task_bulk_routes(rt, services.goal_task_generator, services.user)
 
     if services and services.habit_event_scheduler:
-        create_habit_event_routes(app, rt, services.habit_event_scheduler, services.habits)
+        create_habit_event_routes(rt, services.habit_event_scheduler, services.habits)
 
     if services and services.goals:
-        create_goals_intelligence_routes(app, rt, services.goals.intelligence, services.goals)
+        create_goals_intelligence_routes(rt, services.goals.intelligence, services.goals)
 
     if services and services.principles:
         create_principle_alignment_routes(
-            app, rt, services.principles, services.goals, services.habits
+            rt, services.principles, services.goals, services.habits
         )
 ```
 
@@ -882,7 +880,7 @@ def create_orchestration_routes(app, rt, services):
 - Each extension factory is independently guarded: if its service is unavailable, only that group is skipped
 - **A factory whose routes take a goal or habit uid is handed the facade that owner-verifies it** (`OwnershipVerifier`) and refuses to register without one — every such route runs `verify_entity_ownership` before the service behind it reads the uid, so another user's uid is answered as a missing one
 - The three routes that write (`POST /goals/generate-tasks`, `POST /goals/generate-tasks-all`, `POST /habits/schedule-events`) are POST behind `@csrf_protected`; the eleven reads are GET
-- All 14 endpoints share a single bootstrap call (`create_orchestration_routes(app, rt, services)`)
+- All 14 endpoints share a single bootstrap call (`create_orchestration_routes(rt, services)`)
 - Primary service (`goal_task_generator`) chosen because it's the namesake orchestration service; the other four groups are extensions by nature
 
 **When to reach for this variant:**
@@ -904,8 +902,8 @@ ADVANCED_CONFIG = DomainRouteConfig(
 )
 
 
-def create_advanced_routes(app, rt, services):
-    register_domain_routes(app, rt, services, ADVANCED_CONFIG)
+def create_advanced_routes(rt, services):
+    register_domain_routes(rt, services, ADVANCED_CONFIG)
 ```
 
 **Key features:**
@@ -931,7 +929,7 @@ def create_advanced_routes(app, rt, services):
 ```python
 # Inside create_tasks_api_routes() - the endpoint-level factories are called bare;
 # each registers with rt and returns nothing.
-def create_tasks_api_routes(app, rt, tasks_service, goals_service, connection_fetch_backend) -> None:
+def create_tasks_api_routes(rt, tasks_service, goals_service, connection_fetch_backend) -> None:
     # Inline field updates (status, priority) via the field-api factory
     create_activity_field_api_routes(rt, ActivityFieldApiConfig(...))
     # Hierarchy + cross-domain link blocks
@@ -1161,7 +1159,7 @@ Logs show "API routes: 15 endpoints" but no "UI routes: X endpoints"
 
 **Fix:**
 1. Verify `ui_factory` is set: `ui_factory=create_{domain}_ui_routes`
-2. Ensure the UI factory signature matches: `def create_{domain}_ui_routes(app, rt, {domain}_service, <named related services>)` — related services are positional/keyword params, not a `services` container
+2. Ensure the UI factory signature matches: `def create_{domain}_ui_routes(rt, {domain}_service, <named related services>)` — related services are positional/keyword params, not a `services` container
 3. If the UI factory needs related services (e.g. `connection_fetch_backend`), wire them via `ui_related_services={"kwarg_name": "container_attr"}` so `register_domain_routes()` injects them by name
 
 ### Issue: TypeError with api_factory=None (UI-only pattern)
@@ -1180,10 +1178,10 @@ In `/adapters/inbound/route_factories/domain_route_factory.py`, ensure the null 
 ```python
 # ✓ CORRECT - with null check
 if config.api_factory:
-    config.api_factory(app, rt, primary_service, **api_related)
+    config.api_factory(rt, primary_service, **api_related)
 
 # ✗ WRONG - missing null check
-config.api_factory(app, rt, primary_service, **api_related)
+config.api_factory(rt, primary_service, **api_related)
 ```
 
 **Status:** Fixed in infrastructure as of 2026-02-03. UI-only pattern (`api_factory=None`) now fully supported.

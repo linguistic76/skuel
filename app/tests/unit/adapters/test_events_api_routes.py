@@ -79,7 +79,7 @@ def _make_client(
         monkeypatch.setattr(_SESSION_AUTH_SEAM, _fake_auth)
 
     create_events_api_routes(
-        app, rt, events_service, goals_service, connection_fetch_backend=FakePageLinks()
+        rt, events_service, goals_service, connection_fetch_backend=FakePageLinks()
     )
     return TestClient(app), events_service, goals_service
 

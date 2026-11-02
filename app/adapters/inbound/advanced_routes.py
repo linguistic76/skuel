@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
     parse_date_param_strict,
@@ -46,7 +46,6 @@ logger = get_logger("skuel.routes.advanced")
 
 
 def create_calendar_optimization_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     calendar_optimization_orchestrator: CalendarOptimizationOrchestrator,
 ) -> None:
@@ -131,13 +130,13 @@ ADVANCED_CONFIG = DomainRouteConfig(
 )
 
 
-def create_advanced_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
+def create_advanced_routes(rt: RouteDecorator, services: Services) -> None:
     """
     Wire the calendar optimization routes using DomainRouteConfig.
 
     See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
     """
-    register_domain_routes(app, rt, services, ADVANCED_CONFIG)
+    register_domain_routes(rt, services, ADVANCED_CONFIG)
 
 
 __all__ = ["create_advanced_routes"]

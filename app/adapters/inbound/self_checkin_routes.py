@@ -22,7 +22,7 @@ from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums import (
     DecisionQualityLevel,
     DualTrackDimension,
@@ -91,7 +91,6 @@ async def _load_checkins(services: Any, user_uid: str) -> dict[str, list[dict[st
 
 
 def create_self_checkin_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     services: Services,
 ) -> None:

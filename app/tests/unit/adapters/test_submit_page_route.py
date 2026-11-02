@@ -67,7 +67,6 @@ def _handler(*, groups: list[SimpleNamespace] | None = None, targets=None, exerc
         targets=AsyncMock(return_value=Result.ok(targets if targets is not None else _TARGETS))
     )
     create_user_entry_ui_routes(
-        None,
         registry,
         SimpleNamespace(),
         orchestrator=orchestrator,

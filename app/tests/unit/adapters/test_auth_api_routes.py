@@ -51,7 +51,7 @@ def _make_client(
     if authenticated:
         monkeypatch.setattr("adapters.inbound.auth.roles.require_authenticated_user", _fake_auth)
 
-    create_auth_api_routes(app, rt, graph_auth=MagicMock(), user_service=user_service)
+    create_auth_api_routes(rt, graph_auth=MagicMock(), user_service=user_service)
     return TestClient(app)
 
 

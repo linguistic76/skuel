@@ -8,14 +8,14 @@ Registers hierarchy routes for:
 Usage:
     from adapters.inbound.hierarchy_routes import create_hierarchy_routes
 
-    create_hierarchy_routes(app, rt, services)
+    create_hierarchy_routes(rt, services)
 
 See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 """
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.hierarchy_route_factory import HierarchyRouteFactory
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.models.choice.choice_request import ChoiceUpdateRequest
@@ -36,7 +36,6 @@ if TYPE_CHECKING:
 
 
 def create_hierarchy_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     _primary: GoalsService,
     *,
@@ -52,7 +51,6 @@ def create_hierarchy_api_routes(
     A domain whose service is absent from the container registers nothing.
 
     Args:
-        app: FastHTML app instance
         rt: FastHTML route decorator
         _primary: Primary service (unused — hierarchy uses the five below)
         goals_service: GoalsService
@@ -78,7 +76,6 @@ def create_hierarchy_api_routes(
         if not service:
             continue
         factory = HierarchyRouteFactory(
-            app=app,
             rt=rt,
             domain=domain,
             service=service,
@@ -102,6 +99,6 @@ HIERARCHY_CONFIG = DomainRouteConfig(
 )
 
 
-def create_hierarchy_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
+def create_hierarchy_routes(rt: RouteDecorator, services: Services) -> None:
     """Wire hierarchy routes via DomainRouteConfig."""
-    register_domain_routes(app, rt, services, HIERARCHY_CONFIG)
+    register_domain_routes(rt, services, HIERARCHY_CONFIG)

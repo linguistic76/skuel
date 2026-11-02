@@ -87,7 +87,6 @@ def _make_harness(
         monkeypatch.setattr("adapters.inbound.auth.session.get_current_user", _fake_auth)
 
     create_choices_api_routes(
-        app,
         rt,
         choices_service,
         goals_service,

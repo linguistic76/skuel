@@ -15,12 +15,11 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from services_bootstrap._container import Services
 
 
 def create_home_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     services: Services,
 ) -> None:

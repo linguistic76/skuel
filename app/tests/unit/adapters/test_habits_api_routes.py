@@ -86,7 +86,7 @@ def _make_client(
         monkeypatch.setattr(_FIELD_FACTORY_AUTH_SEAM, _fake_auth)
 
     create_habits_api_routes(
-        app, rt, habits_service, principles_service, connection_fetch_backend=FakePageLinks()
+        rt, habits_service, principles_service, connection_fetch_backend=FakePageLinks()
     )
     return TestClient(app), habits_service
 

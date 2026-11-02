@@ -35,7 +35,7 @@ Usage:
         entity_name="Goal",
         domain_service=goals_service, # For ownership verification
     )
-    factory.register_routes(app, rt)
+    factory.register_routes(rt)
 
 A curriculum domain (ku / ps / lp) passes ``domain_service=None`` and gets the
 reads only, on an anchor the service holds to curriculum. Its edges are authored
@@ -51,7 +51,7 @@ from fasthtml.common import FT
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories.route_helpers import (
     parse_float_param_strict,
     parse_int_param_strict,
@@ -205,7 +205,7 @@ class LateralRouteFactory:
         self.entity_name = entity_name
         self.domain_service = domain_service
 
-    def register_routes(self, _app: FastHTMLApp, rt: RouteDecorator) -> None:
+    def register_routes(self, rt: RouteDecorator) -> None:
         """Register this domain's lateral routes.
 
         Every domain gets the reads. Only a domain with an ownership verifier

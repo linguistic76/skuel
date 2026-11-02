@@ -103,7 +103,7 @@ def _make_request(user_uid: str, **query_params: str) -> Any:
 
 
 def _collector() -> tuple[Any, dict[str, Any]]:
-    """A stand-in app/rt pair that records path → registered handler."""
+    """A stand-in rt that records path → registered handler."""
     registered: dict[str, Any] = {}
 
     def rt(path: str, *_a: Any, **_kw: Any) -> Any:
@@ -113,8 +113,7 @@ def _collector() -> tuple[Any, dict[str, Any]]:
 
         return decorator
 
-    app = SimpleNamespace(get=rt, post=rt, route=rt)
-    return (app, rt), registered
+    return rt, registered
 
 
 @pytest.fixture
@@ -130,8 +129,8 @@ def report_backend(neo4j_driver) -> EntryReportBackend:
 
 @pytest.fixture
 def api_handlers(revised_service) -> dict[str, Any]:
-    (app, rt), registered = _collector()
-    create_revised_exercises_api_routes(app, rt, revised_service, user_service=_user_service())
+    rt, registered = _collector()
+    create_revised_exercises_api_routes(rt, revised_service, user_service=_user_service())
     return registered
 
 

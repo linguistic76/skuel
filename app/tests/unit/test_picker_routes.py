@@ -74,7 +74,7 @@ def handler(mock_services: Any) -> Any:
 
         return decorator
 
-    create_picker_routes(MagicMock(), rt_collector, mock_services)
+    create_picker_routes(rt_collector, mock_services)
     return registered["/api/picker/search"]
 
 

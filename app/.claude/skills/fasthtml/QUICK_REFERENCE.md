@@ -25,7 +25,7 @@ async def dismiss_insight(request: Request, uid: str) -> Result[FT]:
 ### Route registration — decorator registers IMMEDIATELY
 
 ```python
-def create_domain_routes(app: FastHTMLApp, rt: RouteDecorator, service: TasksService) -> None:
+def create_domain_routes(rt: RouteDecorator, service: TasksService) -> None:
     @rt("/domain/dashboard")
     def domain_dashboard(request: Request): ...
     # NO routes = [] / routes.append(...) — @rt() already registered it

@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-10-25'
+updated: '2026-11-02'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -374,7 +374,7 @@ class LateralRouteFactory:
         domain_service: "OwnershipVerifier | None" = None,  # None = curriculum, reads only
     ) -> None: ...
 
-    def register_routes(self, _app, rt) -> None:
+    def register_routes(self, rt) -> None:
         self._create_blocking_routes(rt)  # the GETs of each family
         self._create_prerequisite_routes(rt)
         self._create_alternative_routes(rt)
@@ -401,7 +401,6 @@ class LateralRouteFactory:
 
 ```python
 def create_lateral_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: LateralRelationshipsOrchestrator,
 ) -> None:
@@ -413,7 +412,7 @@ def create_lateral_api_routes(
             entity_name=entity_name,
             domain_service=domain_service,  # None for ku/ps/lp
         )
-        factory.register_routes(app, rt)
+        factory.register_routes(rt)
 ```
 
 The `orchestrator.lateral_service` property is the single documented layering exception: `LateralRouteFactory` lives in the inbound adapter layer and cannot import a core orchestrator, so routes hand it the raw service instead.

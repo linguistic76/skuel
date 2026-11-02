@@ -69,7 +69,7 @@ from core.utils.result_simplified import Result
 from ui.activities.goals_views import GoalCard
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.models.type_hints import UserUID
     from core.ports import ConnectionFetchOperations
     from core.services.goals_service import GoalsService
@@ -79,7 +79,6 @@ if TYPE_CHECKING:
 
 
 def create_goals_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     goals_service: GoalsService,
     principles_service: PrinciplesService,

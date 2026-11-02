@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-25
+updated: 2026-11-02
 ---
 
 # Type Safety Architecture Overview
@@ -72,7 +72,6 @@ Facades use concrete types (the facade IS the contract), thin services use ISP p
 ```python
 # Route function — facades use concrete types, thin services use protocols
 def create_tasks_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     tasks_service: TasksService,          # Facade — concrete class IS the contract
     user_service: UserService,            # Facade — concrete class IS the contract

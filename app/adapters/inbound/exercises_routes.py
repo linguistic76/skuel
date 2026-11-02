@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from adapters.inbound.exercises_api import create_exercises_api_routes
 from adapters.inbound.exercises_ui import create_exercises_ui_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 if TYPE_CHECKING:
@@ -31,11 +31,9 @@ EXERCISES_CONFIG = DomainRouteConfig(
 )
 
 
-def create_exercises_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
-) -> None:
+def create_exercises_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire exercise API and UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, EXERCISES_CONFIG)
+    register_domain_routes(rt, services, EXERCISES_CONFIG)
 
 
 __all__ = ["create_exercises_routes"]

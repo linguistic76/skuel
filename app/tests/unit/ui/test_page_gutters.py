@@ -525,7 +525,7 @@ def test_the_periodic_note_editor_takes_the_full_width_below_lg() -> None:
 
 def test_the_not_found_page_goes_through_the_shell() -> None:
     app, rt = fast_app(pico=False, default_hdrs=False)
-    create_system_ui_routes(app, rt, None)
+    create_system_ui_routes(rt, None)
 
     page = TestClient(app).get("/404")
 

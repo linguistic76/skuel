@@ -25,7 +25,7 @@ from starlette.responses import HTMLResponse, RedirectResponse
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import safe_form_string
 from core.config.settings import get_settings
 from core.ports.query_types import AlignmentDimensions, ChartJsConfig
@@ -73,7 +73,6 @@ def _refusal_banner(error: ErrorContext, retry_message: str) -> FT:
 
 
 def create_lifepath_ui_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     lifepath_service: LifePathOperations,
     analytics_service: AnalyticsService,

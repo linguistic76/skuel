@@ -24,14 +24,14 @@ Usage:
         intelligence_service=goals_service.intelligence,
         domain_name="goals",
         ownership_service=goals_service,
-    ).register_routes(app, rt)
+    ).register_routes(rt)
 
     # Curriculum domain (shared): context + insights
     IntelligenceRouteFactory(
         intelligence_service=ps_service.intelligence,
         domain_name="path-steps",
         scope=ContentScope.SHARED,
-    ).register_routes(app, rt)
+    ).register_routes(rt)
 
 See: /docs/patterns/ROUTE_FACTORIES.md
 """
@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories.route_helpers import (
     parse_float_param_strict,
     parse_int_param_strict,
@@ -238,12 +238,11 @@ class IntelligenceRouteFactory:
 
         logger.info(f"IntelligenceRouteFactory initialized for {domain_name} (scope={scope.value})")
 
-    def register_routes(self, _app: FastHTMLApp, rt: RouteDecorator) -> None:
+    def register_routes(self, rt: RouteDecorator) -> None:
         """
         Register the intelligence routes.
 
         Args:
-            app: FastHTML application instance
             rt: Route decorator
 
         Registers:

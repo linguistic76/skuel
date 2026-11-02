@@ -16,7 +16,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import (
     parse_float_param_strict,
@@ -43,7 +43,6 @@ logger = get_logger("skuel.routes.path_steps.api")
 
 
 def create_path_steps_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     ps_service: PsService,
     user_progress_service: UserProgressService,
@@ -52,7 +51,6 @@ def create_path_steps_api_routes(
     Create path steps API routes using factory pattern.
 
     Args:
-        app: FastHTML application instance
         rt: Route decorator
         ps_service: PsService instance
         user_progress_service: UserProgressService for per-caller mastery annotation

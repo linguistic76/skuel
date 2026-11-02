@@ -527,9 +527,7 @@ class TestPreviewRoute:
                 )
             )
         )
-        create_vault_routes(
-            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
-        )
+        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
 
         handler = registry.get("/settings/vault/preview", "POST")
         html = to_xml(await handler(_request()))
@@ -554,9 +552,7 @@ class TestPreviewRoute:
                 VaultDescription(vault_configured=True, allowed_folders=("periodic_notes",))
             )
         )
-        create_vault_routes(
-            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
-        )
+        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
 
         handler = registry.get("/settings/vault/preview", "POST")
         html = to_xml(await handler(_request()))
@@ -580,9 +576,7 @@ class TestPreviewRoute:
             return_value=Result.ok(VaultSyncPreview(would_ingest_count=1, would_ingest_new=1))
         )
         reconciler.sync = AsyncMock()
-        create_vault_routes(
-            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
-        )
+        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
 
         handler = registry.get("/settings/vault/preview/consent", "POST")
         html = to_xml(await handler(_request()))
@@ -608,9 +602,7 @@ class TestPreviewRoute:
                 )
             )
         )
-        create_vault_routes(
-            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
-        )
+        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
 
         handler = registry.get("/settings/vault/preview", "POST")
         html = to_xml(await handler(_request()))

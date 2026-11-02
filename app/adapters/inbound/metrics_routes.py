@@ -9,15 +9,14 @@ See: /monitoring/prometheus/prometheus.yml for scrape configuration
 from fasthtml.common import Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 
 
-def create_metrics_routes(app: FastHTMLApp, rt: RouteDecorator) -> None:
+def create_metrics_routes(rt: RouteDecorator) -> None:
     """
     Register Prometheus metrics endpoint.
 
     Args:
-        app: FastHTML application instance
         rt: FastHTML router instance
     """
 

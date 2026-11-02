@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 
 from adapters.inbound.analytics_summary_api import create_analytics_summary_api_routes
 from adapters.inbound.analytics_ui import create_analytics_ui_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 if TYPE_CHECKING:
@@ -47,18 +47,15 @@ ANALYTICS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_analytics_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
-) -> None:
+def create_analytics_routes(rt: RouteDecorator, services: Services | None) -> None:
     """
     Wire analytics API and UI routes using configuration-driven registration.
 
     Args:
-        app: FastHTML app instance
         rt: Route decorator
         services: Service container with analytics service
     """
-    register_domain_routes(app, rt, services, ANALYTICS_CONFIG)
+    register_domain_routes(rt, services, ANALYTICS_CONFIG)
 
 
 __all__ = ["create_analytics_routes"]

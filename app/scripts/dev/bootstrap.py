@@ -657,19 +657,19 @@ async def _wire_all_routes(
 
     from adapters.inbound.system_routes import create_system_routes
 
-    create_system_routes(app, rt, services)
+    create_system_routes(rt, services)
 
     from adapters.inbound.auth_routes import create_auth_routes
 
-    create_auth_routes(app, rt, services)
+    create_auth_routes(rt, services)
 
     from adapters.inbound.admin_routes import create_admin_routes
 
-    create_admin_routes(app, rt, services)
+    create_admin_routes(rt, services)
 
     from adapters.inbound.metrics_routes import create_metrics_routes
 
-    create_metrics_routes(app, rt)
+    create_metrics_routes(rt)
 
     # ========================================================================
     # Section 2: ENTITY DOMAIN ROUTES
@@ -682,59 +682,59 @@ async def _wire_all_routes(
     # -- Explore (merged Ku + PathStep discovery) --
     from adapters.inbound.explore_routes import create_explore_routes
 
-    create_explore_routes(app, rt, services)
+    create_explore_routes(rt, services)
 
     # -- Curriculum --
     from adapters.inbound.ku_routes import create_ku_routes
 
-    create_ku_routes(app, rt, services)
+    create_ku_routes(rt, services)
 
     from adapters.inbound.exercises_routes import create_exercises_routes
 
-    create_exercises_routes(app, rt, services)
+    create_exercises_routes(rt, services)
 
     from adapters.inbound.revised_exercises_routes import create_revised_exercises_routes
 
-    create_revised_exercises_routes(app, rt, services)
+    create_revised_exercises_routes(rt, services)
 
     from adapters.inbound.pathways_routes import create_pathways_routes
 
-    create_pathways_routes(app, rt, services)
+    create_pathways_routes(rt, services)
 
     if services.askesis is not None:
         from adapters.inbound.askesis_routes import create_askesis_routes
 
-        create_askesis_routes(app, rt, services)
+        create_askesis_routes(rt, services)
 
     # -- Activity Domain read-focused UI --
     from adapters.inbound.tasks_routes import create_tasks_routes
 
-    create_tasks_routes(app, rt, services)
+    create_tasks_routes(rt, services)
 
     from adapters.inbound.goals_routes import create_goals_routes
 
-    create_goals_routes(app, rt, services)
+    create_goals_routes(rt, services)
 
     from adapters.inbound.habits_routes import create_habits_routes
 
-    create_habits_routes(app, rt, services)
+    create_habits_routes(rt, services)
 
     from adapters.inbound.events_routes import create_events_routes
 
-    create_events_routes(app, rt, services)
+    create_events_routes(rt, services)
 
     from adapters.inbound.choices_routes import create_choices_routes
 
-    create_choices_routes(app, rt, services)
+    create_choices_routes(rt, services)
 
     from adapters.inbound.principles_routes import create_principles_routes
 
-    create_principles_routes(app, rt, services)
+    create_principles_routes(rt, services)
 
     # -- UserEntry (ADR-054) — unified submissions + journals surface --
     from adapters.inbound.user_entry_routes import create_user_entry_routes
 
-    create_user_entry_routes(app, rt, services)
+    create_user_entry_routes(rt, services)
 
     # -- PS+Activity Templates --
     # Templates are vault-authored curriculum (ADR-091 S8): the app registers the
@@ -743,64 +743,63 @@ async def _wire_all_routes(
     from adapters.inbound.ps_engagement_routes import create_ps_engagement_routes
     from adapters.inbound.templates_ui import create_templates_ui_routes
 
-    create_ps_engagement_routes(app, rt, services)
-    create_templates_ui_routes(app, rt, services)
+    create_ps_engagement_routes(rt, services)
+    create_templates_ui_routes(rt, services)
 
     # -- Forms --
     from adapters.inbound.form_templates_routes import create_form_templates_routes
 
-    create_form_templates_routes(app, rt, services)
+    create_form_templates_routes(rt, services)
 
     from adapters.inbound.form_submissions_routes import create_form_submissions_routes
 
-    create_form_submissions_routes(app, rt, services)
+    create_form_submissions_routes(rt, services)
 
     # -- Other entity domains --
     from adapters.inbound.finance_routes import create_finance_routes
 
-    create_finance_routes(app, rt, services)
+    create_finance_routes(rt, services)
 
     from adapters.inbound.lifepath_routes import create_lifepath_routes
 
-    create_lifepath_routes(app, rt, services)
+    create_lifepath_routes(rt, services)
 
     from adapters.inbound.context_routes import create_context_aware_routes
 
-    create_context_aware_routes(app, rt, services)
+    create_context_aware_routes(rt, services)
 
     from adapters.inbound.insights_routes import create_insights_routes
 
-    create_insights_routes(app, rt, services)
+    create_insights_routes(rt, services)
 
     from adapters.inbound.self_checkin_routes import create_self_checkin_routes
 
-    create_self_checkin_routes(app, rt, services)
+    create_self_checkin_routes(rt, services)
 
     from adapters.inbound.search_routes import create_search_routes
 
-    create_search_routes(app, rt, services)
+    create_search_routes(rt, services)
 
     from adapters.inbound.picker_routes import create_picker_routes
 
-    create_picker_routes(app, rt, services)
+    create_picker_routes(rt, services)
 
     from adapters.inbound.analytics_routes import create_analytics_routes
 
-    create_analytics_routes(app, rt, services)
+    create_analytics_routes(rt, services)
 
     from adapters.inbound.calendar_routes import create_calendar_routes
 
-    create_calendar_routes(app, rt, services)
+    create_calendar_routes(rt, services)
 
     from adapters.inbound.ingestion_routes import create_ingestion_routes
 
-    create_ingestion_routes(app, rt, services)
+    create_ingestion_routes(rt, services)
 
     if services and services.vault_reconciler:
         from adapters.inbound.vault_routes import create_vault_routes
 
         create_vault_routes(
-            app,
             rt,
             services.vault_reconciler,
             services.user,
@@ -814,69 +813,69 @@ async def _wire_all_routes(
 
     from adapters.inbound.home_routes import create_home_routes
 
-    create_home_routes(app, rt, services)
+    create_home_routes(rt, services)
 
     from adapters.inbound.today_routes import create_today_routes
 
-    create_today_routes(app, rt, services)
+    create_today_routes(rt, services)
 
     from adapters.inbound.journals_routes import create_journals_routes
 
-    create_journals_routes(app, rt, services)
+    create_journals_routes(rt, services)
 
     from adapters.inbound.settings_routes import create_settings_routes
 
-    create_settings_routes(app, rt, services)
+    create_settings_routes(rt, services)
 
     from adapters.inbound.notifications_routes import create_notifications_routes
 
-    create_notifications_routes(app, rt, services)
+    create_notifications_routes(rt, services)
 
     from adapters.inbound.groups_routes import create_groups_routes
 
-    create_groups_routes(app, rt, services)
+    create_groups_routes(rt, services)
 
     from adapters.inbound.groups_hub_routes import create_groups_hub_routes
 
-    create_groups_hub_routes(app, rt, services)
+    create_groups_hub_routes(rt, services)
 
     from adapters.inbound.teaching_routes import create_teaching_routes
 
-    create_teaching_routes(app, rt, services)
+    create_teaching_routes(rt, services)
 
     from adapters.inbound.transcription_routes import create_transcription_routes
 
-    create_transcription_routes(app, rt, services)
+    create_transcription_routes(rt, services)
 
     # -- Graph / Visualization --
     from adapters.inbound.hierarchy_routes import create_hierarchy_routes
 
-    create_hierarchy_routes(app, rt, services)
+    create_hierarchy_routes(rt, services)
 
     from adapters.inbound.lateral_routes import create_lateral_routes
 
-    create_lateral_routes(app, rt, services)
+    create_lateral_routes(rt, services)
 
     from adapters.inbound.visualization_routes import create_visualization_routes
 
-    create_visualization_routes(app, rt, services)
+    create_visualization_routes(rt, services)
 
     from adapters.inbound.orchestration_routes import create_orchestration_routes
 
-    create_orchestration_routes(app, rt, services)
+    create_orchestration_routes(rt, services)
 
     from adapters.inbound.advanced_routes import create_advanced_routes
 
-    create_advanced_routes(app, rt, services)
+    create_advanced_routes(rt, services)
 
     # -- Hubs --
     from adapters.inbound.library_routes import create_library_routes
 
-    create_library_routes(app, rt, services)
+    create_library_routes(rt, services)
 
     from adapters.inbound.learning_paths_ui import create_learning_paths_ui_routes
 
-    create_learning_paths_ui_routes(app, rt, services)
+    create_learning_paths_ui_routes(rt, services)
 
     # ========================================================================
     # Section 3: MANUAL ROUTES (custom wiring — not DomainRouteConfig)
@@ -887,7 +886,6 @@ async def _wire_all_routes(
     assert services.admin_orchestrator is not None, "AdminOrchestrator not initialised"
     assert services.prereq_suggestions is not None, "PrereqSuggestionService not initialised"
     create_admin_dashboard_routes(
-        app,
         rt,
         orchestrator=services.admin_orchestrator,
         prereq_suggestions=services.prereq_suggestions,
@@ -900,7 +898,7 @@ async def _wire_all_routes(
 
     from adapters.inbound.ai_routes import create_ai_routes
 
-    create_ai_routes(app, rt, services)
+    create_ai_routes(rt, services)
 
     from adapters.inbound.sidebar_badges_ui import setup_sidebar_badges_routes
     from adapters.inbound.user_profile_ui import setup_user_profile_routes
@@ -911,7 +909,7 @@ async def _wire_all_routes(
     if services.user_relationships:
         from adapters.inbound.user_pins_api import create_user_pins_routes
 
-        create_user_pins_routes(app, rt, services.user_relationships)
+        create_user_pins_routes(rt, services.user_relationships)
 
     # ========================================================================
     # Section 4: PWA ROUTES

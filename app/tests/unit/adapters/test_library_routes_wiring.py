@@ -23,7 +23,7 @@ def test_no_orchestrator_registers_nothing() -> None:
     app, rt = fast_app(pico=False, default_hdrs=False)
     before = _paths(app)
 
-    create_library_routes(app, rt, SimpleNamespace(library_orchestrator=None))
+    create_library_routes(rt, SimpleNamespace(library_orchestrator=None))
 
     assert _paths(app) == before
 
@@ -31,6 +31,6 @@ def test_no_orchestrator_registers_nothing() -> None:
 def test_an_orchestrator_registers_the_hub() -> None:
     app, rt = fast_app(pico=False, default_hdrs=False)
 
-    create_library_routes(app, rt, SimpleNamespace(library_orchestrator=MagicMock()))
+    create_library_routes(rt, SimpleNamespace(library_orchestrator=MagicMock()))
 
     assert "/library" in _paths(app)

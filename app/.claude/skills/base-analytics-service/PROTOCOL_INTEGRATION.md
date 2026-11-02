@@ -143,7 +143,7 @@ IntelligenceRouteFactory(
     domain_name="tasks",               # routes live under /api/{domain_name}
     scope=ContentScope.USER_OWNED,     # or ContentScope.SHARED
     ownership_service=...,             # required when scope is USER_OWNED
-).register_routes(app, rt)
+).register_routes(rt)
 ```
 
 - `scope=ContentScope.USER_OWNED` without an `ownership_service` raises `ValueError` at

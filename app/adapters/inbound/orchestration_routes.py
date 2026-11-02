@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.route_factories.route_helpers import (
     parse_bool_param_strict,
@@ -79,7 +79,6 @@ _MAX_SCHEDULE_DAYS_AHEAD = 90
 
 
 def create_goal_task_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     goal_task_generator: GoalTaskGeneratorOperations,
     goals: OwnershipVerifier | None,
@@ -141,7 +140,6 @@ def create_goal_task_routes(
 
 
 def create_goal_task_bulk_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     goal_task_generator: GoalTaskGeneratorOperations,
     user_service: UserService,
@@ -203,7 +201,6 @@ def create_goal_task_bulk_routes(
 
 
 def create_habit_event_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     habit_event_scheduler: HabitEventSchedulerOperations,
     habits: OwnershipVerifier | None,
@@ -280,7 +277,6 @@ def create_habit_event_routes(
 
 
 def create_goals_intelligence_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     goals_intelligence: GoalsIntelligenceService,
     goals: OwnershipVerifier | None,
@@ -352,7 +348,6 @@ def create_goals_intelligence_routes(
 
 
 def create_principle_alignment_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     principles: PrinciplesService,
     goals: OwnershipVerifier | None,
@@ -446,7 +441,7 @@ ORCHESTRATION_CONFIG = DomainRouteConfig(
 )
 
 
-def create_orchestration_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
+def create_orchestration_routes(rt: RouteDecorator, services: Services) -> None:
     """
     Wire orchestration API routes using DomainRouteConfig (Multi-Factory variant).
 
@@ -457,21 +452,19 @@ def create_orchestration_routes(app: FastHTMLApp, rt: RouteDecorator, services: 
 
     See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
     """
-    register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
+    register_domain_routes(rt, services, ORCHESTRATION_CONFIG)
 
     if services and services.goal_task_generator and services.user:
-        create_goal_task_bulk_routes(app, rt, services.goal_task_generator, services.user)
+        create_goal_task_bulk_routes(rt, services.goal_task_generator, services.user)
 
     if services and services.habit_event_scheduler:
-        create_habit_event_routes(app, rt, services.habit_event_scheduler, services.habits)
+        create_habit_event_routes(rt, services.habit_event_scheduler, services.habits)
 
     if services and services.goals:
-        create_goals_intelligence_routes(app, rt, services.goals.intelligence, services.goals)
+        create_goals_intelligence_routes(rt, services.goals.intelligence, services.goals)
 
     if services and services.principles:
-        create_principle_alignment_routes(
-            app, rt, services.principles, services.goals, services.habits
-        )
+        create_principle_alignment_routes(rt, services.principles, services.goals, services.habits)
 
 
 __all__ = ["create_orchestration_routes"]

@@ -96,7 +96,7 @@ def registry_orchestrator_generator():
     orchestrator = AsyncMock()
     generator = AsyncMock()
     create_activity_reports_ui_routes(
-        None, registry, orchestrator=orchestrator, progress_generator=generator
+        registry, orchestrator=orchestrator, progress_generator=generator
     )
     return registry, orchestrator, generator
 

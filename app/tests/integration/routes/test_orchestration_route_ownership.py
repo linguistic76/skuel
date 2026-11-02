@@ -186,7 +186,7 @@ def _app(skuel_app):
     from adapters.inbound.orchestration_routes import create_orchestration_routes
 
     app, rt = fast_app(pico=False, default_hdrs=False, secret_key="nb2a-orchestration-test-key")
-    create_orchestration_routes(app, rt, skuel_app.state.services)
+    create_orchestration_routes(rt, skuel_app.state.services)
 
     @rt("/sign-in/{uid}")
     def sign_in(request: Request, uid: str) -> PlainTextResponse:

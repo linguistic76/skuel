@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-11-02
 ---
 
 # SKUEL Troubleshooting Guide
@@ -90,14 +90,14 @@ if services.tasks:
 
     # Register API routes
     create_tasks_api_routes(
-        app, rt, services.tasks,
+        rt, services.tasks,
         user_service=services.user,
         # ... other services
     )
 
     # ✅ Register UI routes
     create_tasks_ui_routes(
-        app, rt, services.tasks,
+        rt, services.tasks,
         services=services,
     )
 ```

@@ -57,7 +57,7 @@ from core.utils.zone_context import current_zone
 from ui.journals.components import render_upload_status as render_journal_upload_status
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.models.type_hints import UserUID
     from core.models.user.user import User
     from core.services.journal import BatchRunReport, JournalBatchService
@@ -273,7 +273,6 @@ async def _process_single_upload(
 
 
 def create_journals_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     services: Services,
 ) -> None:

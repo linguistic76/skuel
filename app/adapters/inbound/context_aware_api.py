@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_body
 from adapters.inbound.route_factories import (
     parse_bool_param_strict,
@@ -47,7 +47,6 @@ logger = get_logger("skuel.routes.context_aware.api")
 
 
 def create_context_aware_api_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     context_service: UserContextOperations,
     goals: OwnershipVerifier | None = None,
@@ -57,7 +56,6 @@ def create_context_aware_api_routes(
     Create clean API routes for context-aware functionality with service integration.
 
     Args:
-        app: FastHTML application instance
         rt: Route decorator
         context_service: UserContextService instance (REQUIRED)
         goals: The Goals facade — owner-verifies ``POST /api/context/goal/tasks``'s goal

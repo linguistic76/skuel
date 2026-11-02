@@ -11,7 +11,7 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.groups_api import create_groups_api_routes
 from adapters.inbound.route_factories import (
     CRUDRouteConfig,
@@ -45,9 +45,9 @@ GROUPS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_groups_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_groups_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire group API and UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, GROUPS_CONFIG)
+    register_domain_routes(rt, services, GROUPS_CONFIG)
 
 
 __all__ = ["create_groups_routes"]

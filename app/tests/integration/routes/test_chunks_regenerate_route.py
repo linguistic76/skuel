@@ -158,7 +158,6 @@ async def test_regenerate_route_replaces_stale_chunks(neo4j_driver):
 
         registry = _RouteRegistry()
         create_ingestion_api_routes(
-            app=None,
             rt=registry,
             unified_ingestion=MagicMock(),
             user_service=_admin_user_service(),

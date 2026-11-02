@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Li
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
 
@@ -57,7 +57,7 @@ _SUPPORTED_TYPES: frozenset[EntityType] = frozenset(
 )
 
 
-def create_picker_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
+def create_picker_routes(rt: RouteDecorator, services: Services) -> None:
     """Register the entity-picker search endpoint."""
 
     @rt("/api/picker/search")

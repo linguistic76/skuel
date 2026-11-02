@@ -81,9 +81,7 @@ def _make_client(
             _fake_auth,
         )
 
-    create_principles_api_routes(
-        app, rt, principles_service, connection_fetch_backend=FakePageLinks()
-    )
+    create_principles_api_routes(rt, principles_service, connection_fetch_backend=FakePageLinks())
     return TestClient(app), principles_service
 
 

@@ -210,7 +210,7 @@ async def handlers(neo4j_driver: Any) -> Any:
     )
 
     rt, registered = _collector()
-    create_user_entry_ui_routes(None, rt, entries, orchestrator=orchestrator)
+    create_user_entry_ui_routes(rt, entries, orchestrator=orchestrator)
     yield registered
     await backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
 

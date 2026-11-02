@@ -70,7 +70,7 @@ def _route_handlers(store: InsightStore) -> dict[str, Handler]:
 
         return decorator
 
-    create_insights_api_routes(SimpleNamespace(), rt, store)
+    create_insights_api_routes(rt, store)
     return registered
 
 

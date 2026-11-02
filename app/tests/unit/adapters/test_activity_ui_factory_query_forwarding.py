@@ -121,7 +121,7 @@ def _client() -> TestClient:
         stats_component=stats_component,
         detail_component=detail_component,
     )
-    create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(rt, config)
     return TestClient(app)
 
 
