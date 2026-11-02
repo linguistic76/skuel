@@ -17,7 +17,7 @@ Usage:
 """
 
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import ParamSpec, Protocol, TypeVar
 
 from starlette.datastructures import State
 
@@ -31,6 +31,9 @@ from starlette.responses import Response
 from starlette.routing import Router
 from starlette.types import Receive, Scope, Send
 
+P = ParamSpec("P")
+R = TypeVar("R")
+
 
 class RouteDecorator(Protocol):
     """
@@ -38,14 +41,24 @@ class RouteDecorator(Protocol):
 
     FastHTML creates `rt` via `fast_app()`. It is a callable that:
     - Accepts a path string and an optional list of HTTP methods
-    - Returns a decorator that registers the given handler function as a route
+    - Returns a decorator that registers the given handler function as a route,
+      and returns a callable that calls like the handler: same parameters, same
+      return type
+
+    What FastHTML hands back is its own wrapper (it forwards every call to the
+    handler and also carries `.to()`, a `str()` of the path and `__wrapped__`);
+    no SKUEL code reads those extras, so the protocol declares the call alone.
+    `tests/unit/adapters/test_route_param_types.py` checks the forwarding
+    against a real `fast_app()`.
 
     Example:
         @rt("/api/tasks/create", methods=["POST"])
         async def create_task(request): ...
     """
 
-    def __call__(self, path: str, methods: list[str] | None = None) -> Any: ...
+    def __call__(
+        self, path: str, methods: list[str] | None = None
+    ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
 
 class FastHTMLApp(Protocol):

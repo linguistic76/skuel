@@ -1,7 +1,7 @@
 """Route parameter types: ``rt`` and ``app`` name the protocols, and the protocols name
 the real framework.
 
-Five pins:
+Six pins:
 
 * **Every route function types ``rt`` and ``app``.** Under ``adapters/inbound`` and in
   the script that builds them (``scripts/dev/bootstrap.py``), a parameter named ``rt``
@@ -15,6 +15,10 @@ Five pins:
   every protocol member checked against it: an attribute exists (and is an instance of
   its annotated class when that is a class), a method accepts the arguments the
   protocol declares.
+* **``rt`` hands back what it registered.** ``RouteDecorator`` promises that
+  ``rt(path)(handler)`` calls like the handler — same parameters, same return type — and
+  the real ``rt`` keeps it: what it returns carries the handler's signature, passes every
+  argument on and returns the handler's own result.
 * **Every app a test holds names the protocol.** Under ``tests/``, a parameter named
   ``skuel_app`` (the bootstrapped app) is a ``FastHTMLApp``, and one named ``app`` is
   never ``Any`` or unannotated.
@@ -40,7 +44,7 @@ from fasthtml.common import fast_app
 
 import adapters.inbound
 import ui
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, P, R, RouteDecorator
 
 _INBOUND = Path(adapters.inbound.__file__).parent
 _UI = Path(ui.__file__).parent
@@ -223,6 +227,105 @@ def test_the_conformance_check_refuses_a_false_claim(real_app: tuple[object, obj
     defects = conformance_defects(Overclaims, app)
     assert len(defects) == 3, defects
     assert "Overclaims.router: Router, not int" in defects, defects
+
+
+# ---------------------------------------------------------------------------
+# What rt hands back
+# ---------------------------------------------------------------------------
+
+
+def test_the_protocol_says_rt_returns_the_handler_type() -> None:
+    returned = get_annotations(RouteDecorator.__call__, eval_str=True)["return"]
+    assert returned == Callable[[Callable[P, R]], Callable[P, R]], returned
+
+
+def forwarding_defects(rt: Callable[..., object]) -> list[str]:
+    """How the callable ``rt(path)(handler)`` returns fails to call like the handler: the
+    handler's signature (``__wrapped__`` is the handler), every argument passed on, the
+    handler's own result handed back."""
+    received: list[tuple[object, object, object]] = []
+    result = object()
+
+    def handler(first: object, second: object, *, third: object = None) -> object:
+        received.append((first, second, third))
+        return result
+
+    decorator = rt("/route-param-types/forwarding", methods=["GET"])
+    assert callable(decorator), decorator
+    registered = decorator(handler)
+    assert callable(registered), registered
+
+    defects: list[str] = []
+    if getattr(registered, "__wrapped__", None) is not handler:
+        defects.append("__wrapped__ is not the handler")
+    if inspect.signature(registered) != inspect.signature(handler):
+        defects.append(f"signature {inspect.signature(registered)}, not the handler's")
+    returned = registered("a", "b", third="c")
+    if received != [("a", "b", "c")]:
+        defects.append(f"the handler received {received}")
+    if returned is not result:
+        defects.append(f"returned {returned!r}, not the handler's result")
+    return defects
+
+
+def test_the_real_rt_returns_a_callable_that_calls_like_the_handler(
+    real_app: tuple[object, object],
+) -> None:
+    _app, rt = real_app
+    assert callable(rt)
+    assert forwarding_defects(rt) == []
+
+
+def _drops_the_result(handler: Callable[..., object]) -> Callable[..., object]:
+    @functools.wraps(handler)
+    def call(*args: object, **kwargs: object) -> object:
+        handler(*args, **kwargs)
+        return None
+
+    return call
+
+
+def _drops_a_keyword(handler: Callable[..., object]) -> Callable[..., object]:
+    @functools.wraps(handler)
+    def call(*args: object, **_kwargs: object) -> object:
+        return handler(*args)
+
+    return call
+
+
+def _hides_the_handler(handler: Callable[..., object]) -> Callable[..., object]:
+    def call(*args: object, **kwargs: object) -> object:
+        return handler(*args, **kwargs)
+
+    return call
+
+
+@pytest.mark.parametrize(
+    ("wrap", "expected"),
+    [
+        (_drops_the_result, ["returned None, not the handler's result"]),
+        (_drops_a_keyword, ["the handler received [('a', 'b', None)]"]),
+        (
+            _hides_the_handler,
+            [
+                "__wrapped__ is not the handler",
+                "signature (*args: 'object', **kwargs: 'object') -> 'object', not the handler's",
+            ],
+        ),
+    ],
+)
+def test_the_forwarding_check_refuses_a_decorator_that_breaks_the_call(
+    wrap: Callable[[Callable[..., object]], Callable[..., object]], expected: list[str]
+) -> None:
+    """Control: an ``rt`` whose decorator drops the result, drops an argument or hides the
+    handler's signature fails the check."""
+
+    def fake_rt(
+        path: str, methods: list[str] | None = None
+    ) -> Callable[[Callable[..., object]], Callable[..., object]]:
+        return wrap
+
+    assert forwarding_defects(fake_rt) == expected
 
 
 # ---------------------------------------------------------------------------
