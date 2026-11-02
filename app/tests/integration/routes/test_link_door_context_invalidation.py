@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import HubQuestion
@@ -59,7 +60,7 @@ async def _synergies_card(client: httpx.AsyncClient) -> str:
 
 
 async def test_a_link_and_its_removal_reach_the_cached_context(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> None:
     services = skuel_app.state.services
     async with signed_in_client(skuel_app, CALLER, MARK) as client:

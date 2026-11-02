@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.constants import LearningLoop
@@ -76,7 +77,7 @@ def _keys(payload: Any) -> set[str]:  # boundary: any TypedDict class
     return set(payload.__required_keys__ | payload.__optional_keys__)
 
 
-async def _learned(skuel_app: Any, user_uid: str, count: int) -> None:  # boundary: fasthtml-app
+async def _learned(skuel_app: FastHTMLApp, user_uid: str, count: int) -> None:
     """The learning state as the task-completion handler writes it."""
     backend = skuel_app.state.services.tasks.backend
     written = await backend.update_user_learning_state(
@@ -91,7 +92,7 @@ async def _learned(skuel_app: Any, user_uid: str, count: int) -> None:  # bounda
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def client(skuel_app: Any) -> AsyncIterator[httpx.AsyncClient]:  # boundary: fasthtml-app
+async def client(skuel_app: FastHTMLApp) -> AsyncIterator[httpx.AsyncClient]:
     driver = skuel_app.state.services.neo4j_driver
     async with signed_in_client(skuel_app, USER, MARK) as http:
         for segment in ("tasks", "goals", "habits", "choices", "principles"):
@@ -118,7 +119,7 @@ async def client(skuel_app: Any) -> AsyncIterator[httpx.AsyncClient]:  # boundar
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def few_client(skuel_app: Any) -> AsyncIterator[httpx.AsyncClient]:  # boundary: fasthtml-app
+async def few_client(skuel_app: FastHTMLApp) -> AsyncIterator[httpx.AsyncClient]:
     async with signed_in_client(skuel_app, FEW_USER, FEW_MARK) as http:
         await create(http, "tasks", f"{FEW_MARK} task")
         await _learned(skuel_app, FEW_USER, LearningLoop.MIN_SAMPLES_TASK_DURATION - 1)

@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.events.habit_events import HabitCompleted, HabitMissed
@@ -51,7 +52,7 @@ QUIET_MARK = "zzzhabquiet"
 QUIET_USER = seed_user_uid(f"{QUIET_MARK}")
 
 
-async def _props(skuel_app: Any, uid: str) -> dict[str, Any]:  # boundary: fasthtml-app
+async def _props(skuel_app: FastHTMLApp, uid: str) -> dict[str, Any]:
     """The habit node's stored properties, read raw."""
     async with skuel_app.state.services.neo4j_driver.session() as session:
         record = await (
@@ -76,21 +77,21 @@ async def _complete(http: httpx.AsyncClient, habit_uid: str) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def client(skuel_app: Any) -> AsyncIterator[httpx.AsyncClient]:  # boundary: fasthtml-app
+async def client(skuel_app: FastHTMLApp) -> AsyncIterator[httpx.AsyncClient]:
     async with signed_in_client(skuel_app, USER, MARK) as http:
         yield http
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
 async def quiet_client(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> AsyncIterator[httpx.AsyncClient]:
     async with signed_in_client(skuel_app, QUIET_USER, QUIET_MARK) as http:
         yield http
 
 
 async def test_two_completions_accumulate(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
     client: httpx.AsyncClient,
 ) -> None:
     habit = await create(client, "habits", f"{MARK} accumulates")
@@ -111,7 +112,7 @@ async def test_two_completions_accumulate(
 
 
 async def test_a_completion_waits_for_one_in_flight(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
     client: httpx.AsyncClient,
 ) -> None:
     """The learning write takes the node's lock before it reads. A completion whose write
@@ -151,7 +152,7 @@ async def test_a_completion_waits_for_one_in_flight(
 
 
 async def test_analytics_count_the_learned_state(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
     client: httpx.AsyncClient,
     quiet_client: httpx.AsyncClient,
 ) -> None:

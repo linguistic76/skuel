@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.constants import KnowledgeEnhancementScore
@@ -95,7 +96,7 @@ KU_LATER_DRAFT = f"ku.{PRI_MARK}.later-draft"  # published when linked, a draft 
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def priorities(skuel_app: Any) -> AsyncIterator[Env]:  # boundary: fasthtml-app
+async def priorities(skuel_app: FastHTMLApp) -> AsyncIterator[Env]:
     services = skuel_app.state.services
     driver = services.neo4j_driver
     async with signed_in_client(skuel_app, PRI_USER, PRI_MARK) as client:
@@ -183,7 +184,7 @@ CON_USER = seed_user_uid(f"{CON_MARK}")
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def conflicts(skuel_app: Any) -> AsyncIterator[Env]:  # boundary: fasthtml-app
+async def conflicts(skuel_app: FastHTMLApp) -> AsyncIterator[Env]:
     services = skuel_app.state.services
     async with signed_in_client(skuel_app, CON_USER, CON_MARK) as client:
         uids = {
@@ -233,7 +234,7 @@ STEP_VIEWED = f"ps.{NB_MARK}.viewed"
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def neighbourhood(skuel_app: Any) -> AsyncIterator[Env]:  # boundary: fasthtml-app
+async def neighbourhood(skuel_app: FastHTMLApp) -> AsyncIterator[Env]:
     services = skuel_app.state.services
     driver = services.neo4j_driver
     async with signed_in_client(skuel_app, NB_USER, NB_MARK) as client:

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
@@ -35,7 +35,7 @@ from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.helpers.seed_uids import seed_user_uid
@@ -113,7 +113,7 @@ Wired = tuple[FastHTML, httpx.AsyncClient]
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def wired(skuel_app: Any) -> AsyncIterator[Wired]:  # boundary: fasthtml-app
+async def wired(skuel_app: FastHTMLApp) -> AsyncIterator[Wired]:
     """The whole route tree the bootstrap wires, and a client signed in as CALLER."""
     from fasthtml.common import fast_app
 
@@ -156,11 +156,11 @@ def _routes_at(app: FastHTML, path: str) -> list[set[str]]:
     ]
 
 
-def _composed(skuel_app: Any, service: str) -> bool:  # boundary: fasthtml-app
+def _composed(skuel_app: FastHTMLApp, service: str) -> bool:
     return getattr(skuel_app.state.container.services, service) is not None
 
 
-def _csrf_writes(skuel_app: Any) -> list[str]:  # boundary: fasthtml-app
+def _csrf_writes(skuel_app: FastHTMLApp) -> list[str]:
     """Every hand-written write this app wires — the tier-bound families when composed."""
     paths = [path for family in CSRF_WRITES.values() for path in family]
     for service, family in TIER_WRITES.items():
@@ -205,7 +205,7 @@ async def test_every_crud_write_in_the_table_answers_post_only(wired: Wired) -> 
 
 async def test_every_csrf_write_in_the_table_answers_post_only(
     wired: Wired,
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> None:
     app, _client = wired
     for path in _csrf_writes(skuel_app):
@@ -226,7 +226,7 @@ async def test_every_csrf_write_in_the_table_answers_post_only(
 
 async def test_get_and_head_of_a_csrf_write_are_405(
     wired: Wired,
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> None:
     app, client = wired
     # Positive control: a GET that reaches a handler is answered by the handler.
@@ -244,7 +244,7 @@ async def test_get_and_head_of_a_csrf_write_are_405(
 
 async def test_post_of_a_csrf_write_reaches_its_handler(
     wired: Wired,
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> None:
     # The control for the 405s: the same paths, on POST, are answered by the
     # handler stack — a role gate, a body gate or the handler itself — never 405.

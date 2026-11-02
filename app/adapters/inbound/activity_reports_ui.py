@@ -191,9 +191,7 @@ def create_activity_reports_ui_routes(
 
     @rt("/activity-reports/for", methods=["POST"])
     @csrf_protected
-    async def generate_activity_report_for_period(
-        request: Request,
-    ) -> Any:  # boundary: fasthtml-app
+    async def generate_activity_report_for_period(request: Request) -> Response | FT:
         """Mint one calendar period's report — the detail page's "Regenerate".
 
         Url-encoded ``time_period``; a token outside the vocabulary is 400. A

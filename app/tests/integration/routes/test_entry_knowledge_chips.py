@@ -14,11 +14,12 @@ pass's own writer; the Kus and the PathStep are seeded.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
 from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from core.config.credential_store import get_credential
@@ -130,7 +131,7 @@ class World:
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
 async def world(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> AsyncIterator[World]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver

@@ -31,6 +31,7 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern
@@ -77,7 +78,7 @@ class _Composed:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def services(skuel_app) -> AsyncIterator[_Composed]:
+async def services(skuel_app: FastHTMLApp) -> AsyncIterator[_Composed]:
     """The composed services, with this module's user seeded and its entities swept after.
 
     ``skuel_app``'s graph is session-scoped and shared, so every entity here carries the

@@ -10,10 +10,14 @@ racing second sign-up, past its lookup.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
+from neo4j import AsyncDriver
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
+from adapters.persistence.neo4j.user_backend import UserBackend
 from core.models.user import create_user
 from core.utils.result_simplified import ErrorCategory
 from tests.helpers.production_backends import build_production_backends
@@ -31,7 +35,7 @@ async def _rows(driver: Any, query: str, **params: Any) -> list[Any]:  # boundar
 
 
 @pytest.fixture
-async def users(skuel_app: Any) -> Any:  # boundary: fasthtml-app
+async def users(skuel_app: FastHTMLApp) -> AsyncIterator[tuple[UserBackend, AsyncDriver]]:
     driver = skuel_app.state.services.neo4j_driver
     yield build_production_backends(driver)["users_backend"], driver
     await _rows(
@@ -42,7 +46,7 @@ async def users(skuel_app: Any) -> Any:  # boundary: fasthtml-app
     )
 
 
-async def test_the_username_is_constrained(users: Any) -> None:
+async def test_the_username_is_constrained(users: tuple[UserBackend, AsyncDriver]) -> None:
     _, driver = users
     rows = await _rows(
         driver,
@@ -54,7 +58,9 @@ async def test_the_username_is_constrained(users: Any) -> None:
     }
 
 
-async def test_a_second_account_on_a_taken_username_is_refused_as_taken(users: Any) -> None:
+async def test_a_second_account_on_a_taken_username_is_refused_as_taken(
+    users: tuple[UserBackend, AsyncDriver],
+) -> None:
     backend, driver = users
     first = await backend.create_user(create_user(NAME, f"{MARK}1@example.com"))
     assert first.is_ok, first

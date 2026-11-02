@@ -165,7 +165,7 @@ DTOs mirror the hierarchy: `EntityDTO → UserOwnedDTO, KuDTO, CurriculumDTO →
 
 **Type aliases** (`core/models/type_hints.py`): `Neo4jProperties`, `FilterParams`, `RelationshipMetadata`. **Protocol return TypedDicts** (`core/ports/query_types.py`): all domain stats, system health, intelligence outputs — handlers return `Result[FT]` (fragments), `Result[Goal]` (models), or `Response` (redirects). `Result[Any]` in a handler is a regression.
 
-**FastHTML boundary** (no `py.typed`): `RouteDecorator`/`FastHTMLApp`/`Request` protocols for signatures; `Result[FT]` for fragment returns; `*c: Any, **kwargs: Any` inside FT factories = `# boundary: fasthtml-elements`; ASGI plumbing = `# boundary: fasthtml-app`.
+**FastHTML boundary** (no `py.typed`): `RouteDecorator`/`FastHTMLApp`/`Request` protocols for signatures; `Result[FT]` for fragment returns; `*c: Any, **kwargs: Any` inside FT factories = `# boundary: fasthtml-elements`; ASGI plumbing takes Starlette's own types (`Scope`/`Receive`/`Send`, `ASGIApp`) — no tag.
 
 **`Any` policy:** A = eliminate, B = use specific type (e.g. `Neo4jProperties`), C = permanent boundary (`# boundary:` comment). The rule: "`Any` must mean *genuinely heterogeneous*."
 

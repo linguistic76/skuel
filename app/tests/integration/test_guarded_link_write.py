@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
@@ -103,7 +104,7 @@ async def _owned(driver: AsyncDriver, label: str, uid: str, owner: str) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:  # boundary: fasthtml-app
+async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     await _wipe(driver)
     for user in (ALICE, BOB):

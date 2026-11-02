@@ -36,7 +36,7 @@ from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import PublicationState
@@ -226,7 +226,7 @@ async def _set_publication(driver: AsyncDriver, state: PublicationState | None) 
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
+async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     await _wipe(driver)
     async with driver.session() as session:
@@ -319,7 +319,7 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def http(skuel_app: Any, graph: AsyncDriver) -> AsyncIterator[httpx.AsyncClient]:
+async def http(skuel_app: FastHTMLApp, graph: AsyncDriver) -> AsyncIterator[httpx.AsyncClient]:
     """The whole route tree, wired by the bootstrap's own entry point, signed in as CALLER."""
     from fasthtml.common import fast_app
 
@@ -349,9 +349,9 @@ async def http(skuel_app: Any, graph: AsyncDriver) -> AsyncIterator[httpx.AsyncC
         yield client
 
 
-def _read_paths(app: Any) -> list[str]:
+def _read_paths(app: FastHTMLApp) -> list[str]:
     paths: set[str] = set()
-    for route in app.routes:
+    for route in app.router.routes:
         methods = getattr(route, "methods", None) or set()
         path = getattr(route, "path", "")
         if "GET" not in methods or not path or path.startswith(_SKIPPED_PREFIXES):
@@ -373,13 +373,13 @@ async def _crawl(client: httpx.AsyncClient, paths: list[str]) -> Crawl:
     return crawl
 
 
-async def _rich_context(skuel_app: Any) -> str:
+async def _rich_context(skuel_app: FastHTMLApp) -> str:
     result = await skuel_app.state.services.user.context_builder.build_rich(CALLER)
     assert result.is_ok, result
     return repr(result.value)
 
 
-async def _readiness(skuel_app: Any) -> dict[str, Any]:
+async def _readiness(skuel_app: FastHTMLApp) -> dict[str, Any]:
     """Whether the caller's task may start — it REQUIRES_KNOWLEDGE the linked Ku."""
     services = skuel_app.state.services
     context = await services.user.context_builder.build_rich(CALLER)
@@ -414,7 +414,7 @@ async def test_the_same_routes_still_render_the_callers_own_linked_entity(crawl:
 
 
 async def test_the_rich_context_carries_the_callers_node_and_not_the_other_users(
-    skuel_app: Any, graph: AsyncDriver
+    skuel_app: FastHTMLApp, graph: AsyncDriver
 ) -> None:
     context = await _rich_context(skuel_app)
 
@@ -424,7 +424,7 @@ async def test_the_rich_context_carries_the_callers_node_and_not_the_other_users
 
 
 async def test_a_linked_ku_reverted_to_draft_is_hidden_and_republished_is_back(
-    skuel_app: Any, graph: AsyncDriver, http: httpx.AsyncClient, crawl: Crawl
+    skuel_app: FastHTMLApp, graph: AsyncDriver, http: httpx.AsyncClient, crawl: Crawl
 ) -> None:
     readers = sorted(crawl.knowledge)
     # The linked Ku is on the list and detail pages, under the global

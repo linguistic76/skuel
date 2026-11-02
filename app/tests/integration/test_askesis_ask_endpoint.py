@@ -27,6 +27,7 @@ Askesis regression.
 
 import pytest
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 
@@ -40,13 +41,13 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-async def _embeddings_available(skuel_app) -> bool:
+async def _embeddings_available(skuel_app: FastHTMLApp) -> bool:
     """Check if embeddings service is available in the test environment."""
     embeddings = getattr(skuel_app.state.services, "embeddings_service", None)
     return embeddings is not None and getattr(embeddings, "_embedding_client", None) is not None
 
 
-def test_ask_endpoint_validation(skuel_app):
+def test_ask_endpoint_validation(skuel_app: FastHTMLApp):
     """Test that /api/askesis/ask validates required parameters."""
     from starlette.testclient import TestClient
 
@@ -68,7 +69,7 @@ def test_ask_endpoint_validation(skuel_app):
 
 
 @pytest.mark.asyncio
-async def test_ask_endpoint_success(skuel_app, enrolled_user_with_lp):
+async def test_ask_endpoint_success(skuel_app: FastHTMLApp, enrolled_user_with_lp):
     """Test successful RAG question answering for user enrolled in a Learning Path.
 
     Uses enrolled_user_with_lp so the pipeline runs past the LP enrollment gate.
@@ -105,7 +106,7 @@ async def test_ask_endpoint_success(skuel_app, enrolled_user_with_lp):
 
 @pytest.mark.asyncio
 async def test_ask_endpoint_entity_extraction(
-    skuel_app, populated_test_data, enrolled_user_with_lp
+    skuel_app: FastHTMLApp, populated_test_data, enrolled_user_with_lp
 ):
     """A prerequisite question that names the in-progress PathStep is MATCHED, and cited.
 
@@ -155,7 +156,7 @@ async def test_ask_endpoint_entity_extraction(
 
 @pytest.mark.asyncio
 async def test_ask_endpoint_matches_a_mastered_ku(
-    skuel_app, populated_test_data, enrolled_user_with_lp
+    skuel_app: FastHTMLApp, populated_test_data, enrolled_user_with_lp
 ):
     """A prerequisite question naming a MASTERED Ku matches the Ku, typed as one.
 
@@ -201,7 +202,9 @@ async def test_ask_endpoint_matches_a_mastered_ku(
 
 
 @pytest.mark.asyncio
-async def test_ask_endpoint_semantic_search(skuel_app, populated_test_data, enrolled_user_with_lp):
+async def test_ask_endpoint_semantic_search(
+    skuel_app: FastHTMLApp, populated_test_data, enrolled_user_with_lp
+):
     """A question with no keyword match runs the full pipeline for an enrolled learner.
 
     Same fixture pairing as `test_ask_endpoint_entity_extraction`, and its other
@@ -230,7 +233,7 @@ async def test_ask_endpoint_semantic_search(skuel_app, populated_test_data, enro
 
 
 @pytest.mark.asyncio
-async def test_enrollment_gate_fires(skuel_app, populated_test_data):
+async def test_enrollment_gate_fires(skuel_app: FastHTMLApp, populated_test_data):
     """User with neither an active PathStep nor an LP enrollment gets the gate response.
 
     populated_test_data has KUs but no IN_PROGRESS PathStep and no LearningPath
@@ -257,7 +260,7 @@ async def test_enrollment_gate_fires(skuel_app, populated_test_data):
 
 
 @pytest.mark.asyncio
-async def test_guided_pipeline_activates(skuel_app, enrolled_user_with_lp):
+async def test_guided_pipeline_activates(skuel_app: FastHTMLApp, enrolled_user_with_lp):
     """Guided pipeline (ZPD + GuidanceMode) activates for enrolled user with active PathStep.
 
     This test exercises the path that was previously unverified: when a user is enrolled

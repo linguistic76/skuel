@@ -20,6 +20,7 @@ CORE and executes it.
 
 import pytest
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.persistence.neo4j.graph_driver import open_async_driver
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
@@ -34,7 +35,7 @@ _MARKER_UID = "skuel.app-fixture-probe"
 
 
 @pytest.mark.asyncio
-async def test_app_driver_reaches_the_pinned_testcontainer_kernel(skuel_app) -> None:
+async def test_app_driver_reaches_the_pinned_testcontainer_kernel(skuel_app: FastHTMLApp) -> None:
     """The bootstrapped app's own driver reports the calendar-pinned kernel."""
     version = await running_kernel_version(skuel_app.state.services.neo4j_driver)
 
@@ -48,7 +49,7 @@ async def test_app_driver_reaches_the_pinned_testcontainer_kernel(skuel_app) -> 
 
 @pytest.mark.asyncio
 async def test_app_driver_reaches_the_app_fixtures_own_container(
-    skuel_app, skuel_app_container
+    skuel_app: FastHTMLApp, skuel_app_container
 ) -> None:
     """A node written straight into the app's container is visible through the app's driver.
 

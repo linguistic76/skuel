@@ -1,7 +1,7 @@
 """Route parameter types: ``rt`` and ``app`` name the protocols, and the protocols name
 the real framework.
 
-Three pins:
+Five pins:
 
 * **Every route function types ``rt`` and ``app``.** Under ``adapters/inbound`` and in
   the script that builds them (``scripts/dev/bootstrap.py``), a parameter named ``rt``
@@ -15,12 +15,21 @@ Three pins:
   every protocol member checked against it: an attribute exists (and is an instance of
   its annotated class when that is a class), a method accepts the arguments the
   protocol declares.
+* **Every app a test holds names the protocol.** Under ``tests/``, a parameter named
+  ``skuel_app`` (the bootstrapped app) is a ``FastHTMLApp``, and one named ``app`` is
+  never ``Any`` or unannotated.
+* **No ``Any`` is excused at the ASGI boundary.** Starlette exports the types of
+  ``scope`` / ``receive`` / ``send`` (``starlette.types``) and of the router, so no
+  tracked file in the repository carries a boundary tag for an ``Any`` there.
 """
 
 from __future__ import annotations
 
 import ast
+import functools
 import inspect
+import re
+import subprocess
 from annotationlib import Format, get_annotations
 from collections.abc import Callable
 from pathlib import Path
@@ -51,8 +60,13 @@ def _route_sources() -> list[Path]:
 
 def _parameters(path: Path) -> list[tuple[int, str, ast.arg]]:
     """Every named parameter of every function in the file: (line, function, arg)."""
+    return _parameters_in(path.read_text(encoding="utf-8"))
+
+
+def _parameters_in(source: str) -> list[tuple[int, str, ast.arg]]:
+    """Every named parameter of every function in ``source``: (line, function, arg)."""
     found: list[tuple[int, str, ast.arg]] = []
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+    for node in ast.walk(ast.parse(source)):
         if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
         arguments = node.args
@@ -144,8 +158,13 @@ def _dummy_call(protocol_method: Callable[..., object]) -> tuple[list[object], d
 
 
 def conformance_defects(protocol: type, real: object) -> list[str]:
-    """How ``real`` fails to carry what ``protocol`` declares."""
-    annotations = get_annotations(protocol, format=Format.FORWARDREF)
+    """How ``real`` fails to carry what ``protocol`` declares.
+
+    A stringized annotation (``from __future__ import annotations``) is evaluated, so an
+    attribute's class is checked whichever way its module spells it; a name that does not
+    resolve raises rather than skipping the check.
+    """
+    annotations = get_annotations(protocol, eval_str=True)
     defects: list[str] = []
     for name in sorted(get_protocol_members(protocol)):
         sentinel = object()
@@ -190,14 +209,144 @@ def test_route_decorator_protocol_describes_the_real_rt(real_app: tuple[object, 
 
 
 def test_the_conformance_check_refuses_a_false_claim(real_app: tuple[object, object]) -> None:
-    """Control: a protocol claiming a member the app lacks, or a call it refuses, fails."""
+    """Control: a protocol claiming a member the app lacks, a member of another class, or a
+    call it refuses, fails."""
     from typing import Protocol
 
     class Overclaims(Protocol):
         absent_member: int
+        router: int
 
         def get(self, path: str, extra: int, more: int, still_more: int) -> object: ...
 
     app, _rt = real_app
     defects = conformance_defects(Overclaims, app)
-    assert len(defects) == 2, defects
+    assert len(defects) == 3, defects
+    assert "Overclaims.router: Router, not int" in defects, defects
+
+
+# ---------------------------------------------------------------------------
+# The app a test holds
+# ---------------------------------------------------------------------------
+
+_TESTS = _REPO / "tests"
+
+
+def held_app_defects(sources: dict[str, str]) -> list[str]:
+    """Every ``skuel_app`` not typed ``FastHTMLApp``, and every ``app`` typed ``Any`` or bare."""
+    defects: list[str] = []
+    for name, source in sources.items():
+        for line, function, arg in _parameters_in(source):
+            annotation = _annotation(arg)
+            if (arg.arg == "skuel_app" and annotation != "FastHTMLApp") or (
+                arg.arg == "app" and annotation in {None, "Any"}
+            ):
+                defects.append(f"{name}:{line} {function}({arg.arg}: {annotation})")
+    return defects
+
+
+#: A parameter named ``app`` or ``skuel_app`` — the prefilter that keeps the AST pass to
+#: the files that can hold one.
+_HELD_APP = re.compile(r"\b(?:skuel_)?app\s*[:,)=]")
+
+
+@functools.cache
+def _test_sources() -> dict[str, str]:
+    """Every test module that can name an app parameter, by its path under the app root."""
+    sources: dict[str, str] = {}
+    for path in sorted(_TESTS.rglob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        if _HELD_APP.search(source):
+            sources[str(path.relative_to(_REPO))] = source
+    return sources
+
+
+def test_every_app_a_test_holds_names_the_protocol() -> None:
+    assert held_app_defects(_test_sources()) == []
+
+
+def test_the_test_app_scan_refuses_an_untyped_app() -> None:
+    """Control: an ``Any``, a bare ``skuel_app`` and an ``app: Any`` are each refused."""
+    source = (
+        "async def typed_any(skuel_app: Any) -> None: ...\n"
+        "def bare(skuel_app): ...\n"
+        "def built(app: Any) -> None: ...\n"
+        "def fine(skuel_app: FastHTMLApp, app: object) -> None: ...\n"
+    )
+    assert [defect.split(" ", 1)[1] for defect in held_app_defects({"fixture.py": source})] == [
+        "typed_any(skuel_app: Any)",
+        "bare(skuel_app: None)",
+        "built(app: Any)",
+    ]
+
+
+def test_the_test_app_scan_reads_the_integration_fixtures() -> None:
+    """Control: the scan sees the ``skuel_app`` the integration tests take."""
+    held = [
+        arg
+        for source in _test_sources().values()
+        for _line, _function, arg in _parameters_in(source)
+        if arg.arg == "skuel_app"
+    ]
+    assert len(held) >= 150, len(held)
+
+
+# ---------------------------------------------------------------------------
+# No boundary tag at the ASGI boundary
+# ---------------------------------------------------------------------------
+
+#: Built from two parts so this file does not carry the tag it refuses.
+_ASGI_TAG = ("# boundary: " + "fasthtml-app").encode()
+
+
+def tag_sites(files: dict[str, bytes]) -> list[str]:
+    """Every ``path:line`` whose line carries the ASGI boundary tag."""
+    return [
+        f"{path}:{number}"
+        for path, content in files.items()
+        if _ASGI_TAG in content
+        for number, line in enumerate(content.splitlines(), 1)
+        if _ASGI_TAG in line
+    ]
+
+
+def _tracked_files() -> dict[str, bytes]:
+    """Every file git tracks in the repository, by its path from the repository root."""
+    root = Path(
+        subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=_REPO,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    )
+    listed = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=root, capture_output=True, check=True
+    ).stdout
+    files: dict[str, bytes] = {}
+    for raw in listed.split(b"\0"):
+        path = root / raw.decode()
+        if raw and path.is_file():
+            files[raw.decode()] = path.read_bytes()
+    return files
+
+
+def test_no_tracked_file_carries_the_asgi_boundary_tag() -> None:
+    assert tag_sites(_tracked_files()) == []
+
+
+def test_the_tag_scan_finds_the_tag() -> None:
+    """Control: a line carrying the tag is reported, a line without it is not."""
+    fixture = b"x = 1\nasync def f(scope: Any) -> None:  " + _ASGI_TAG + b"\n"
+    assert tag_sites({"fixture.py": fixture, "clean.py": b"x = 1\n"}) == ["fixture.py:2"]
+
+
+def test_the_tag_scan_reads_the_tracked_tree() -> None:
+    """Control: the tracked files include this module and the protocol it pins."""
+    tracked = _tracked_files()
+    assert {
+        "app/tests/unit/adapters/test_route_param_types.py",
+        "app/adapters/inbound/fasthtml_types.py",
+    } <= set(tracked)
+    assert len(tracked) >= 3000, len(tracked)

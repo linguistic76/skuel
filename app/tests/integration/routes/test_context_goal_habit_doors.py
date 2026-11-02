@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.helpers.lateral_routes_client import without_timestamp
@@ -88,7 +89,7 @@ async def _seed_shared_ku(driver: AsyncDriver, uid: str) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def world(skuel_app) -> AsyncIterator[World]:
+async def world(skuel_app: FastHTMLApp) -> AsyncIterator[World]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     async with signed_in_client(skuel_app, OTHER, OTHER_MARK) as other:
         foreign_goal = await create(other, "goals", f"{FOREIGN_TEXT} goal")

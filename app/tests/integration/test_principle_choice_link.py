@@ -44,6 +44,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 from core.config.credential_store import get_credential
@@ -99,7 +100,7 @@ class Env:
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
 async def env(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> AsyncIterator[Env]:
     async with signed_in_client(skuel_app, CALLER, MARK) as client:
         yield Env(

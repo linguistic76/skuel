@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.inbound.route_factories.activity_link_api_factory import (
     KnowledgePatternsPayload,
     LinkedPayload,
@@ -69,7 +70,7 @@ class Env:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def env(skuel_app: Any) -> AsyncIterator[Env]:  # boundary: fasthtml-app
+async def env(skuel_app: FastHTMLApp) -> AsyncIterator[Env]:
     async with signed_in_client(skuel_app, USER, MARK) as client:
         uids = {
             "parent": await create(client, "tasks", f"{MARK} parent"),

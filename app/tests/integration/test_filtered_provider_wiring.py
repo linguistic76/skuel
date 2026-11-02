@@ -14,6 +14,7 @@ from typing import cast
 
 import pytest
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.ports.filtered_context_protocols import FilteredContextProvider
@@ -29,7 +30,7 @@ _ACTIVITY_DOMAINS = {"tasks", "goals", "habits", "events", "choices", "principle
 
 
 @pytest.mark.asyncio
-async def test_every_composed_provider_serves_a_filtered_context(skuel_app) -> None:
+async def test_every_composed_provider_serves_a_filtered_context(skuel_app: FastHTMLApp) -> None:
     factory = skuel_app.state.services.context_intelligence
     assert factory is not None
     # The registry reaches a consumer through create(); the context is not read here.

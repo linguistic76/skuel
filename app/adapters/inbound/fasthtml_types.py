@@ -8,10 +8,9 @@ FastHTML does not publish type stubs. These Protocols capture the minimal interf
 actually used by SKUEL's route factories and UI modules — enough for type checkers
 and IDE autocomplete without attempting to model the full framework.
 
-Boundary note: `app` and `rt` are created at runtime by FastHTML's `fast_app()`.
-Their full type hierarchy (Starlette subclass, dynamic decorator) cannot be expressed
-without maintaining complete FastHTML stubs. These protocols capture exactly what
-SKUEL calls — nothing more.
+Boundary note: `app` and `rt` are created at runtime by FastHTML's `fast_app()`,
+which publishes no types. These protocols capture exactly what SKUEL calls — nothing
+more — typed with Starlette's own types (`starlette.types`, `starlette.routing`).
 
 Usage:
     from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp
@@ -29,6 +28,8 @@ from starlette.datastructures import State
 # all imports centralized through the hexagonal boundary.
 from starlette.requests import Request as Request
 from starlette.responses import Response
+from starlette.routing import Router
+from starlette.types import Receive, Scope, Send
 
 
 class RouteDecorator(Protocol):
@@ -65,15 +66,14 @@ class FastHTMLApp(Protocol):
 
     # Starlette router — FastHTML's @rt registers HTTP routes only, so
     # WebSocket endpoints mount here directly (see device_routes.py /ws/agent).
-    # boundary: fasthtml-app — starlette Router, untyped through FastHTML.
-    router: Any
+    router: Router
 
     # Starlette's attribute bag: bootstrap parks the app container, the services
     # and the embedding worker's task here; the lifespan and the integration
     # fixtures read them back.
     state: State
 
-    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """ASGI interface."""
         ...
 

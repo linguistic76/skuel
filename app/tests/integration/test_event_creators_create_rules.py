@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import RecurrencePattern
@@ -53,14 +54,14 @@ USER = seed_user_uid(f"{MARK}_caller")
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def habit(skuel_app: Any) -> AsyncIterator[str]:  # boundary: fasthtml-app
+async def habit(skuel_app: FastHTMLApp) -> AsyncIterator[str]:
     async with signed_in_client(skuel_app, USER, MARK) as client:
         yield await create(client, "habits", f"{MARK} habit")
 
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def driver(
-    skuel_app,
+    skuel_app: FastHTMLApp,
     habit: str,
 ) -> AsyncIterator[AsyncDriver]:
     """The graph, with every event the caller owns removed before each test."""
@@ -88,7 +89,7 @@ def _day() -> str:
     return (today_in(current_zone()) + timedelta(days=3)).isoformat()
 
 
-async def _context(skuel_app: Any) -> UserContext:  # boundary: fasthtml-app
+async def _context(skuel_app: FastHTMLApp) -> UserContext:
     built = await skuel_app.state.services.user.context_builder.build(UserUID(USER))
     assert built.is_ok, built.error
     return built.value
@@ -97,7 +98,7 @@ async def _context(skuel_app: Any) -> UserContext:  # boundary: fasthtml-app
 class TestCreateEventWithContext:
     async def test_a_span_out_of_bounds_is_refused(
         self,
-        skuel_app,
+        skuel_app: FastHTMLApp,
         driver: AsyncDriver,
     ) -> None:
         request = EventCreateRequest(
@@ -117,7 +118,7 @@ class TestCreateEventWithContext:
 
     async def test_a_span_in_bounds_is_written_with_its_habit_link(
         self,
-        skuel_app,
+        skuel_app: FastHTMLApp,
         driver: AsyncDriver,
         habit: str,
     ) -> None:
@@ -140,7 +141,7 @@ class TestCreateEventWithContext:
 
 
 class TestCreateRecurringInstances:
-    async def _source(self, skuel_app, driver: AsyncDriver, end: time) -> str:
+    async def _source(self, skuel_app: FastHTMLApp, driver: AsyncDriver, end: time) -> str:
         """A recurring event written through the create door, then its end moved —
         an event stored before the span rule held."""
         request = EventCreateRequest(
@@ -162,7 +163,7 @@ class TestCreateRecurringInstances:
 
     async def test_a_source_out_of_bounds_writes_no_instance(
         self,
-        skuel_app,
+        skuel_app: FastHTMLApp,
         driver: AsyncDriver,
     ) -> None:
         source = await self._source(skuel_app, driver, time(9, 2))
@@ -176,7 +177,7 @@ class TestCreateRecurringInstances:
 
     async def test_a_source_in_bounds_writes_its_instances(
         self,
-        skuel_app,
+        skuel_app: FastHTMLApp,
         driver: AsyncDriver,
     ) -> None:
         source = await self._source(skuel_app, driver, time(10, 0))
@@ -195,7 +196,7 @@ class TestCreateRecurringEvents:
     )
     async def test_a_span_out_of_bounds_is_refused(
         self,
-        skuel_app,
+        skuel_app: FastHTMLApp,
         driver: AsyncDriver,
         habit: str,
         preferred: time,
@@ -216,7 +217,7 @@ class TestCreateRecurringEvents:
 
     async def test_a_span_in_bounds_is_written_with_its_habit_link(
         self,
-        skuel_app,
+        skuel_app: FastHTMLApp,
         driver: AsyncDriver,
         habit: str,
     ) -> None:
@@ -240,7 +241,7 @@ class TestCreateRecurringEvents:
 class TestCreateRecurringEventsForHabit:
     async def test_each_event_is_written_with_its_habit_link_and_kind(
         self,
-        skuel_app,
+        skuel_app: FastHTMLApp,
         driver: AsyncDriver,
         habit: str,
     ) -> None:

@@ -923,7 +923,7 @@ async def _wire_all_routes(
     # Startup summary
     # ========================================================================
 
-    route_count = len(getattr(app, "routes", []))
+    route_count = len(app.router.routes)
     logger.info(f"Route wiring complete: {route_count} routes registered")
 
 

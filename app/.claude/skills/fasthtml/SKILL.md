@@ -159,7 +159,7 @@ A SKUEL route module exposes a factory — `create_{domain}_api_routes(rt, ...)`
 `None`**. `@rt()` registers a handler the moment it decorates it; collecting handlers in a
 `routes = []` list and returning it loses the sub-routes (404) and warns nobody. The rule
 holds at every layer — `register_domain_routes()`, the factory classes' `register_routes()`,
-a single-route helper — and bootstrap logs one route count from `app.routes`.
+a single-route helper — and bootstrap logs one route count from `app.router.routes`.
 
 ```python
 # adapters/inbound/pathways_api.py (abridged — its optional related services omitted)

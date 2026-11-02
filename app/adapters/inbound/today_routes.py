@@ -25,8 +25,9 @@ Today is a cross-cutting view; routes are registered via the
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+from fasthtml.common import FT
 from pydantic import ValidationError
 from starlette.responses import Response
 
@@ -52,8 +53,6 @@ from ui.today.membership import (
 )
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from adapters.inbound.fasthtml_types import RouteDecorator
     from services_bootstrap._container import Services
     from ui.page_contexts import TodayPageContext
@@ -105,19 +104,15 @@ def create_today_routes(
             title="Today",
         )
 
-    # boundary: fasthtml-app — registered route; FastHTML resolves the handler's
-    # annotations at registration, so the FT/Response return stays Any here (the
-    # concrete Response | FT shape lives on the _render_today helper above). This
-    # matches the repo-wide full-page-handler convention (e.g. calendar_week).
     @rt("/today")
-    async def today_page(request: Request) -> Any:
+    async def today_page(request: Request) -> Response | FT:
         """Render the day view for the live current day."""
         user_uid = require_authenticated_user(request)
         ctx_result = await orchestrator.build_context(user_uid)
         return _render_today(request, ctx_result)
 
     @rt("/today/{date_str}")
-    async def today_page_dated(request: Request, date_str: str) -> Any:  # boundary: fasthtml-app
+    async def today_page_dated(request: Request, date_str: str) -> Response | FT:
         """Render the day lens for an arbitrary date (Prev/Next navigation).
 
         An unparseable ``date_str`` degrades to the current day rather than 404 —
@@ -132,9 +127,7 @@ def create_today_routes(
         return _render_today(request, ctx_result)
 
     @rt("/today/{date_str}/habits")
-    async def today_habits_fragment(
-        request: Request, date_str: str
-    ) -> Any:  # boundary: fasthtml-app
+    async def today_habits_fragment(request: Request, date_str: str) -> Response | FT:
         """HTMX fragment: the day's habit chips, re-fetched on ``calendar-refresh``.
 
         The per-day complete door (``POST /cal/habit/{uid}/complete``) answers

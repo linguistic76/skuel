@@ -18,7 +18,7 @@ app's services, on a ``fast_app`` with real session middleware and a sign-in rou
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
@@ -27,7 +27,7 @@ from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.neo_labels import NeoLabel
@@ -36,7 +36,7 @@ from tests.helpers.seed_uids import seed_user_uid
 from ui.activities._shared import safe_id
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Awaitable
 
     from neo4j import AsyncDriver
 
@@ -99,7 +99,7 @@ async def _wipe(driver: AsyncDriver) -> None:
         )
 
 
-def _app(skuel_app: Any) -> Any:
+def _app(skuel_app: FastHTMLApp) -> tuple[FastHTMLApp, Awaitable[None]]:
     from fasthtml.common import fast_app
 
     from scripts.dev.bootstrap import _wire_all_routes
@@ -118,7 +118,7 @@ def _app(skuel_app: Any) -> Any:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def client(skuel_app: Any) -> AsyncIterator[httpx.AsyncClient]:
+async def client(skuel_app: FastHTMLApp) -> AsyncIterator[httpx.AsyncClient]:
     """An HTTP client signed in as ``CALLER``, carrying a CSRF cookie and header."""
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     await _wipe(driver)
@@ -140,7 +140,7 @@ async def client(skuel_app: Any) -> AsyncIterator[httpx.AsyncClient]:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def linked(skuel_app: Any, client: httpx.AsyncClient) -> dict[Link, tuple[str, str]]:
+async def linked(skuel_app: FastHTMLApp, client: httpx.AsyncClient) -> dict[Link, tuple[str, str]]:
     """Each pair's two entities, created at the real doors and joined by its edge."""
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     uids: dict[Link, tuple[str, str]] = {}

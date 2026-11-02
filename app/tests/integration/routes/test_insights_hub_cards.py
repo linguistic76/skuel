@@ -15,7 +15,7 @@ over a stub entity would prove nothing (the F7b lesson).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
@@ -24,7 +24,7 @@ from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import HubQuestion
@@ -61,7 +61,7 @@ async def _wipe(driver: AsyncDriver) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
+async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     await _wipe(driver)
     async with driver.session() as session:
@@ -108,7 +108,7 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def app(skuel_app: Any, graph: AsyncDriver) -> Any:
+async def app(skuel_app: FastHTMLApp, graph: AsyncDriver) -> FastHTMLApp:
     """The whole route tree, wired by the bootstrap's own entry point."""
     from fasthtml.common import fast_app
 
@@ -128,7 +128,7 @@ async def app(skuel_app: Any, graph: AsyncDriver) -> Any:
     return app
 
 
-def _client(app: Any) -> httpx.AsyncClient:
+def _client(app: FastHTMLApp) -> httpx.AsyncClient:
     token = mint_token()
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
@@ -140,13 +140,13 @@ def _client(app: Any) -> httpx.AsyncClient:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def anonymous(app: Any) -> AsyncIterator[httpx.AsyncClient]:
+async def anonymous(app: FastHTMLApp) -> AsyncIterator[httpx.AsyncClient]:
     async with _client(app) as client:
         yield client
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def learner(app: Any) -> AsyncIterator[httpx.AsyncClient]:
+async def learner(app: FastHTMLApp) -> AsyncIterator[httpx.AsyncClient]:
     async with _client(app) as client:
         assert (await client.get(f"/sign-in/{USER}")).status_code == 200
         yield client

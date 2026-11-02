@@ -14,7 +14,7 @@ has its control: the caller's own entity still comes back.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
@@ -23,7 +23,7 @@ from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.relationship_names import RelationshipName
@@ -112,7 +112,7 @@ async def _link(driver: AsyncDriver, source: str, edge: RelationshipName, target
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
+async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     await _wipe(driver)
     async with driver.session() as session:
@@ -158,7 +158,7 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def http(skuel_app: Any, graph: AsyncDriver) -> AsyncIterator[httpx.AsyncClient]:
+async def http(skuel_app: FastHTMLApp, graph: AsyncDriver) -> AsyncIterator[httpx.AsyncClient]:
     """The whole route tree, wired by the bootstrap's own entry point, signed in as CALLER."""
     from fasthtml.common import fast_app
 
@@ -219,7 +219,7 @@ async def test_the_goals_principle_read_returns_its_principle_and_not_its_habit(
 
 
 async def test_the_task_readers_return_the_viewers_tasks(
-    skuel_app: Any, graph: AsyncDriver
+    skuel_app: FastHTMLApp, graph: AsyncDriver
 ) -> None:
     tasks = skuel_app.state.services.tasks
 
@@ -235,7 +235,7 @@ async def test_the_task_readers_return_the_viewers_tasks(
 
 
 async def test_a_generic_read_from_a_shared_anchor_names_no_users_entity(
-    skuel_app: Any, graph: AsyncDriver
+    skuel_app: FastHTMLApp, graph: AsyncDriver
 ) -> None:
     """Asked of a Ku, the Activity backend's related-uid reads return nobody's task;
     asked of the caller's task, they still return the Ku."""
@@ -257,7 +257,7 @@ async def test_a_generic_read_from_a_shared_anchor_names_no_users_entity(
 
 
 async def test_the_semantic_filter_returns_the_viewers_entities(
-    skuel_app: Any, graph: AsyncDriver
+    skuel_app: FastHTMLApp, graph: AsyncDriver
 ) -> None:
     backend = skuel_app.state.services.habits.core.backend
     pattern = f"(n:Habit)-[r:{RelationshipName.REINFORCES_KNOWLEDGE.value}]->(target)"

@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.type_hints import UserUID
@@ -84,7 +85,7 @@ async def _set_admin(driver: AsyncDriver, uid: str) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-app
+async def world(skuel_app: FastHTMLApp) -> AsyncIterator[World]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     async with (
         signed_in_client(skuel_app, USER, MARK) as client,
@@ -386,13 +387,13 @@ _SETTINGS: dict[str, str] = {
 }
 
 
-async def _preferences(skuel_app: Any) -> UserPreferences:  # boundary: fasthtml-app
+async def _preferences(skuel_app: FastHTMLApp) -> UserPreferences:
     user = await skuel_app.state.services.user.get_user(UserUID(USER))
     assert user.is_ok, user.error
     return user.value.preferences
 
 
-async def test_the_settings_form_is_saved_as_posted(world: World, skuel_app) -> None:
+async def test_the_settings_form_is_saved_as_posted(world: World, skuel_app: FastHTMLApp) -> None:
     response = await world.client.post("/settings/save", data=_SETTINGS)
 
     assert response.status_code == 200, response.text[:300]
@@ -426,7 +427,7 @@ async def test_the_settings_form_is_saved_as_posted(world: World, skuel_app) -> 
 )
 async def test_a_settings_value_the_editor_could_not_send_is_refused(
     world: World,
-    skuel_app,
+    skuel_app: FastHTMLApp,
     field: str,
     value: str,
 ) -> None:

@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
@@ -159,7 +160,7 @@ async def _cleanup(driver: AsyncDriver) -> None:
 class World:
     def __init__(
         self,
-        skuel_app: Any,  # boundary: fasthtml-app
+        skuel_app: FastHTMLApp,
         learner: httpx.AsyncClient,
         other: httpx.AsyncClient,
     ) -> None:
@@ -178,7 +179,7 @@ class World:
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
 async def world(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> AsyncIterator[World]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver

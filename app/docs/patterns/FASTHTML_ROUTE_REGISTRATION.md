@@ -107,7 +107,7 @@ A route factory returns `None`, whatever its layer:
 | `register_domain_routes()` | returns `None`; a missing primary service is a warning and an early `return` |
 | `register_routes(rt)` on the route-factory classes (`crud`, `query`, `intelligence`, `analytics`, `lateral`) | returns `None` |
 | a single-route helper (`_register_*_route`, `create_knowledge_patterns_api_route`) | applies `rt(path)(handler)` as a statement and returns nothing |
-| `create_{domain}_routes` in `*_routes.py` | returns `None`; bootstrap counts `app.routes` once for its summary log |
+| `create_{domain}_routes` in `*_routes.py` | returns `None`; bootstrap counts `app.router.routes` once for its summary log |
 
 A test that needs the handler a factory registered captures it from a fake `rt`
 (see `tests/unit/infrastructure/test_activity_field_api_factory.py`'s `_RouteRegistry`),
@@ -183,7 +183,7 @@ a handler list, and a hand-maintained number drifts. `scripts/dev/bootstrap.py`
 logs one summary after all wiring, from the application's own route table:
 
 ```python
-route_count = len(getattr(app, "routes", []))
+route_count = len(app.router.routes)
 logger.info(f"Route wiring complete: {route_count} routes registered")
 ```
 

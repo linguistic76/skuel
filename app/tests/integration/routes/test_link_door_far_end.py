@@ -47,7 +47,7 @@ from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import PrincipleLinkType, PublicationState, RecurrencePattern
@@ -302,7 +302,7 @@ async def _seed_shared(
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def driver(skuel_app) -> AsyncDriver:
+async def driver(skuel_app: FastHTMLApp) -> AsyncDriver:
     """Two users owning one entity of each Activity kind, plus shared Kus and a PathStep.
 
     The three Kus are the three publication states a node can read as: no property
@@ -372,7 +372,7 @@ async def edges(driver: AsyncDriver) -> EdgeReader:
     return read
 
 
-def _app(skuel_app):
+def _app(skuel_app: FastHTMLApp) -> FastHTMLApp:
     from fasthtml.common import fast_app
 
     from adapters.inbound.choices_routes import create_choices_routes
@@ -403,7 +403,7 @@ def _app(skuel_app):
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def client(skuel_app, driver):
+async def client(skuel_app: FastHTMLApp, driver):
     """An HTTP client signed in as ``CALLER``, carrying a CSRF cookie and header."""
     token = mint_token()
     async with httpx.AsyncClient(
@@ -646,7 +646,7 @@ class TestEventEditForm:
 class TestWritersNoRouteReaches:
     """The facade link methods behind no route are held to the same rule."""
 
-    async def test_goal_to_habit(self, skuel_app, edges: EdgeReader) -> None:
+    async def test_goal_to_habit(self, skuel_app: FastHTMLApp, edges: EdgeReader) -> None:
         goals = skuel_app.state.services.goals
 
         for far_uid in (FOREIGN["Habit"], OWN["Task"], "habit.nb2b-missing"):
@@ -659,7 +659,7 @@ class TestWritersNoRouteReaches:
         assert linked.is_ok, linked.error
         assert await edges() == {(OWN["Habit"], "SUPPORTS_GOAL", OWN["Goal"])}
 
-    async def test_choice_to_habit(self, skuel_app, edges: EdgeReader) -> None:
+    async def test_choice_to_habit(self, skuel_app: FastHTMLApp, edges: EdgeReader) -> None:
         choices = skuel_app.state.services.choices
 
         refused = await choices.link_choice_to_habit(OWN["Choice"], FOREIGN["Habit"])
@@ -670,7 +670,7 @@ class TestWritersNoRouteReaches:
         assert linked.is_ok, linked.error
         assert await edges() == {(OWN["Choice"], "IMPACTS_HABIT", OWN["Habit"])}
 
-    async def test_task_to_knowledge(self, skuel_app, edges: EdgeReader) -> None:
+    async def test_task_to_knowledge(self, skuel_app: FastHTMLApp, edges: EdgeReader) -> None:
         tasks = skuel_app.state.services.tasks
 
         for far_uid in (FOREIGN["Task"], SHARED_STEP, DRAFT_KU):
@@ -682,7 +682,9 @@ class TestWritersNoRouteReaches:
         assert linked.is_ok, linked.error
         assert await edges() == {(OWN["Task"], "APPLIES_KNOWLEDGE", SHARED_KU)}
 
-    async def test_task_to_prerequisite_knowledge(self, skuel_app, edges: EdgeReader) -> None:
+    async def test_task_to_prerequisite_knowledge(
+        self, skuel_app: FastHTMLApp, edges: EdgeReader
+    ) -> None:
         tasks = skuel_app.state.services.tasks
 
         for far_uid in (FOREIGN["Task"], SHARED_STEP, DRAFT_KU):
@@ -695,7 +697,7 @@ class TestWritersNoRouteReaches:
         assert await edges() == {(OWN["Task"], "REQUIRES_KNOWLEDGE", SHARED_KU)}
 
     async def test_event_to_knowledge_writes_nothing_when_one_far_end_is_refused(
-        self, skuel_app, edges: EdgeReader
+        self, skuel_app: FastHTMLApp, edges: EdgeReader
     ) -> None:
         events = skuel_app.state.services.events
 
@@ -707,7 +709,7 @@ class TestWritersNoRouteReaches:
         assert linked.is_ok, linked.error
         assert await edges() == {(OWN["Event"], "APPLIES_KNOWLEDGE", SHARED_KU)}
 
-    async def test_event_to_habit(self, skuel_app, edges: EdgeReader) -> None:
+    async def test_event_to_habit(self, skuel_app: FastHTMLApp, edges: EdgeReader) -> None:
         events = skuel_app.state.services.events
 
         refused = await events.link_event_to_habit(OWN["Event"], FOREIGN["Habit"])
@@ -716,7 +718,7 @@ class TestWritersNoRouteReaches:
 
     @pytest.mark.parametrize("habit_uid", [FOREIGN["Habit"], OWN["Task"], "habit.nb2b-missing"])
     async def test_recurring_events_are_not_created_for_a_habit_that_is_not_the_users(
-        self, skuel_app, driver: AsyncDriver, edges: EdgeReader, habit_uid: str
+        self, skuel_app: FastHTMLApp, driver: AsyncDriver, edges: EdgeReader, habit_uid: str
     ) -> None:
         services = skuel_app.state.services
         context = await services.user.context_builder.build(UserUID(CALLER))
@@ -751,7 +753,7 @@ class TestTheOwnerIsReadFromTheSource:
     """No caller passes a user: the far end must be the source's owner's or shared."""
 
     async def test_an_owned_source_links_to_its_owners_entities_and_shared_content(
-        self, skuel_app, driver
+        self, skuel_app: FastHTMLApp, driver
     ) -> None:
         relationships = skuel_app.state.services.goals.relationships
         source = EntityUID(OWN["Goal"])
@@ -762,7 +764,9 @@ class TestTheOwnerIsReadFromTheSource:
         assert refused.is_error
         assert refused.expect_error().details["reason"] == "cross_user"
 
-    async def test_a_shared_source_links_to_shared_content_only(self, skuel_app, driver) -> None:
+    async def test_a_shared_source_links_to_shared_content_only(
+        self, skuel_app: FastHTMLApp, driver
+    ) -> None:
         relationships = skuel_app.state.services.goals.relationships
         source = EntityUID(SHARED_STEP)
 
@@ -773,7 +777,7 @@ class TestTheOwnerIsReadFromTheSource:
             assert refused.expect_error().details["reason"] == "cross_user"
 
     async def test_a_draft_is_refused_from_an_owned_and_a_shared_source(
-        self, skuel_app, driver
+        self, skuel_app: FastHTMLApp, driver
     ) -> None:
         relationships = skuel_app.state.services.goals.relationships
 
@@ -784,7 +788,9 @@ class TestTheOwnerIsReadFromTheSource:
             assert refused.is_error, source
             assert refused.expect_error().details["reason"] == "draft"
 
-    async def test_a_source_that_names_nothing_is_not_found(self, skuel_app, driver) -> None:
+    async def test_a_source_that_names_nothing_is_not_found(
+        self, skuel_app: FastHTMLApp, driver
+    ) -> None:
         relationships = skuel_app.state.services.goals.relationships
 
         refused = await relationships.admit_far_ends(

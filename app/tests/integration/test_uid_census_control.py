@@ -11,12 +11,12 @@ fails — an expected failure, held strict.
 """
 
 from collections.abc import AsyncIterator
-from typing import Any
 
 import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 
@@ -44,7 +44,7 @@ async def shared_graph(neo4j_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def app_graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:  # boundary: fasthtml-app
+async def app_graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     yield driver
     await _wipe(driver)

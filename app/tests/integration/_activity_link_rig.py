@@ -22,12 +22,12 @@ from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterator
+    from collections.abc import AsyncIterator, Awaitable, Iterator
     from pathlib import Path
 
     from neo4j import AsyncDriver
@@ -69,7 +69,7 @@ async def wipe(driver: AsyncDriver, user_uid: str, mark: str) -> None:
         )
 
 
-def _app(skuel_app: Any) -> tuple[Any, Any]:  # boundary: fasthtml-app
+def _app(skuel_app: FastHTMLApp) -> tuple[FastHTMLApp, Awaitable[None]]:
     from fasthtml.common import fast_app
 
     from scripts.dev.bootstrap import _wire_all_routes
@@ -89,7 +89,7 @@ def _app(skuel_app: Any) -> tuple[Any, Any]:  # boundary: fasthtml-app
 
 @asynccontextmanager
 async def signed_in_client(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
     user_uid: str,
     mark: str,
 ) -> AsyncIterator[httpx.AsyncClient]:

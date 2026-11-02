@@ -34,7 +34,7 @@ from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.helpers.lateral_routes_client import without_timestamp
@@ -154,7 +154,7 @@ async def _seed_owned(
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def driver(skuel_app) -> AsyncDriver:
+async def driver(skuel_app: FastHTMLApp) -> AsyncDriver:
     """Two users, each owning one active goal and one daily habit."""
     graph: AsyncDriver = skuel_app.state.services.neo4j_driver
     await _wipe(graph)
@@ -180,7 +180,7 @@ async def driver(skuel_app) -> AsyncDriver:
     await _wipe(graph)
 
 
-def _app(skuel_app):
+def _app(skuel_app: FastHTMLApp) -> FastHTMLApp:
     from fasthtml.common import fast_app
 
     from adapters.inbound.orchestration_routes import create_orchestration_routes
@@ -197,7 +197,7 @@ def _app(skuel_app):
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def client(skuel_app, driver):
+async def client(skuel_app: FastHTMLApp, driver):
     """An HTTP client signed in as ``CALLER``, carrying a CSRF cookie and header."""
     token = mint_token()
     async with httpx.AsyncClient(
@@ -211,7 +211,7 @@ async def client(skuel_app, driver):
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def signed_out(skuel_app, driver):
+async def signed_out(skuel_app: FastHTMLApp, driver):
     """An HTTP client with no session, carrying a CSRF cookie and header."""
     token = mint_token()
     async with httpx.AsyncClient(
@@ -224,7 +224,7 @@ async def signed_out(skuel_app, driver):
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def composed_signed_out(skuel_app, driver):
+async def composed_signed_out(skuel_app: FastHTMLApp, driver):
     """An HTTP client over the composed app itself, with no session."""
     token = mint_token()
     async with httpx.AsyncClient(

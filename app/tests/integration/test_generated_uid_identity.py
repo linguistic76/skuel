@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from neo4j.exceptions import ConstraintError
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.persistence.neo4j.neo4j_schema_manager import UID_UNIQUE_LABELS
 from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import default_group_uid
@@ -47,7 +48,9 @@ async def _rows(
 
 
 class TestUidConstraints:
-    async def test_every_uid_label_outside_entity_and_user_is_constrained(self, skuel_app) -> None:
+    async def test_every_uid_label_outside_entity_and_user_is_constrained(
+        self, skuel_app: FastHTMLApp
+    ) -> None:
         driver: AsyncDriver = skuel_app.state.services.neo4j_driver
         constraints = await _rows(
             driver,
@@ -68,7 +71,7 @@ class TestUidConstraints:
         )
         assert plain == []
 
-    async def test_a_second_group_on_one_uid_is_refused(self, skuel_app) -> None:
+    async def test_a_second_group_on_one_uid_is_refused(self, skuel_app: FastHTMLApp) -> None:
         driver: AsyncDriver = skuel_app.state.services.neo4j_driver
         await _rows(driver, "CREATE (:Group {uid: $uid, name: 'one'})", uid=GROUP_UID)
         try:

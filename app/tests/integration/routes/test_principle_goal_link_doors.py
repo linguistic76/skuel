@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.neo_labels import NeoLabel
@@ -226,7 +227,7 @@ _DOOR_IDS = [door.label for door in DOORS]
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
 async def env(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> AsyncIterator[Env]:
     async with signed_in_client(skuel_app, CALLER, MARK) as client:
