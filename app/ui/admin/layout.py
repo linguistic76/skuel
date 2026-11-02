@@ -3,7 +3,7 @@
 Uses SidebarPage for consistent navigation with all other SKUEL sidebar pages.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -43,7 +43,7 @@ ADMIN_SIDEBAR_ITEMS: list[SidebarItem] = [
 
 
 def create_admin_page(
-    content: Any,
+    content: FT,
     active_section: str = "",
     admin_username: str = "",
     title: str = "Admin Dashboard",

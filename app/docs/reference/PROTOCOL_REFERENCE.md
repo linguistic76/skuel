@@ -575,18 +575,20 @@ class VisualizationOperations(Protocol):
 ### Usage in Route Files
 
 ```python
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 
 if TYPE_CHECKING:
     from core.ports.sharing_protocols import SharingOperations
     from core.ports.user_entry_protocols import UserEntryOperations
 
 def create_user_entry_sharing_routes(
-    _app: Any,
-    rt: Any,
-    sharing_service: "SharingOperations",
-    core_service: "UserEntryOperations | None" = None,
-) -> list[Any]:
+    _app: FastHTMLApp,
+    rt: RouteDecorator,
+    sharing_service: SharingOperations,
+    core_service: UserEntryOperations | None = None,
+) -> None:
     # MyPy verifies .share(), .share_with_group() etc. exist
     ...
 ```

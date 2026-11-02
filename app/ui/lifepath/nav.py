@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -20,7 +20,7 @@ LIFEPATH_SIDEBAR_ITEMS: list[SidebarItem] = [
 
 def lifepath_sidebar_page(
     active_page: str,
-    content: Any,
+    content: FT,
     request: Request,
     extra_scripts: list[str] | None = None,
 ) -> FT:

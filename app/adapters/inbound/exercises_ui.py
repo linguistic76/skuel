@@ -14,7 +14,7 @@ from fasthtml.common import FT, Div, FtResponse, P
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import ui_boundary_handler
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.utils.logging import get_logger
 from ui.components import ButtonT
@@ -33,7 +33,7 @@ logger = get_logger("skuel.routes.exercises.ui")
 # ============================================================================
 
 
-def create_exercises_ui_routes(app, rt, exercises_service) -> None:
+def create_exercises_ui_routes(app: FastHTMLApp, rt: RouteDecorator, exercises_service) -> None:
     """Create the learner's exercise page and its content fragment."""
 
     @app.get("/exercises/get")

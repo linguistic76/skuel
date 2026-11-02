@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-24
+updated: 2026-11-01
 ---
 
 # Service Architecture: File Organization & Topology
@@ -402,7 +402,7 @@ rule enforcing one, and none should be added:
   `ActivityUIConfig.dual_track_assess` / `.list_categories` document
   `goals_service.intelligence.assess_progress_dual_track` and
   `goals_service.search.list_user_categories` **as their field values**
-  (`adapters/inbound/activity_ui_factory.py:75-89`).
+  (`adapters/inbound/activity_ui_factory.py:111-125`).
 - **The composition root subscribes `handle_*` methods directly.** That is published
   architecture, not a bypass — see
   [LEARNING_PROGRESS_EVENT_CHAIN.md](LEARNING_PROGRESS_EVENT_CHAIN.md) § Bootstrap Wiring,

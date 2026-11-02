@@ -42,7 +42,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import parse_date_param_strict, refuse_malformed
 
 if TYPE_CHECKING:
@@ -181,7 +181,7 @@ def _calendar_shell(
 # ============================================================================
 
 
-def create_calendar_ui_routes(_app, rt, calendar_service):
+def create_calendar_ui_routes(_app: FastHTMLApp, rt: RouteDecorator, calendar_service):
     """Register calendar page and HTMX fragment routes."""
 
     @rt("/cal")

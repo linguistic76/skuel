@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import make_service_getter
 from adapters.inbound.auth.roles import UserRole, require_role
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.ports import ActivityTemplateOperations
 from core.utils.logging import get_logger
 from ui.teaching.templates_panel import PANEL_DOMAINS, render_templates_panel
@@ -34,8 +34,8 @@ logger = get_logger("skuel.routes.templates_ui")
 
 
 def create_templates_ui_routes(
-    _app: Any,
-    rt: Any,
+    _app: FastHTMLApp,
+    rt: RouteDecorator,
     services: Services | None,
 ) -> None:
     """Register the teacher-facing template panel route.

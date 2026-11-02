@@ -23,6 +23,7 @@ from typing import Any
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.form_helpers import read_json_body
 from adapters.inbound.route_factories import (
     parse_int_param_strict,
@@ -42,8 +43,8 @@ logger = get_logger("skuel.routes.transcription_api")
 
 
 def create_transcription_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     transcription_service: TranscriptionService,
 ) -> None:
     """

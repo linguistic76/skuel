@@ -6,12 +6,12 @@ Activity Domain row. The whole user context is built for it, so only the
 Tasks+ sidebar asks and nothing is emitted that no row would swap in.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fasthtml.common import FT, Div, Span
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.activities.badges import CountBadge, HealthIndicator
 from ui.activities.domain_stats_config import DOMAIN_STATS_CONFIG
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.sidebar_badges")
 
 
-def setup_sidebar_badges_routes(rt: Any, services: Services) -> None:
+def setup_sidebar_badges_routes(rt: RouteDecorator, services: Services) -> None:
     """Register the Tasks+ sidebar badges endpoint."""
 
     if services.user is None:

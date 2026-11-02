@@ -18,6 +18,7 @@ __version__ = "1.0"
 
 
 import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -30,6 +31,7 @@ from adapters.inbound.boundary import (
     install_malformed_body_guard,
 )
 from adapters.inbound.csrf import CSRFMiddleware
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.middleware import (
     RequestIDMiddleware,
     RequestTimingMiddleware,
@@ -49,12 +51,6 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.infrastructure.monitoring import PrometheusMetrics
 
-try:
-    from starlette.applications import ASGIApp
-except ImportError:
-    # Fallback if starlette types aren't available
-    ASGIApp = Any
-
 logger = get_logger("skuel.bootstrap")
 
 # Module-level handle for the graph-health poller so the task isn't
@@ -69,8 +65,8 @@ class AppContainer:
     Contains everything needed to run SKUEL with explicit dependencies.
     """
 
-    app: Any  # FastHTML app
-    rt: Any  # FastHTML router
+    app: FastHTMLApp
+    rt: RouteDecorator
     services: Services  # Business services (includes SearchRouter)
     config: UnifiedConfig  # Application configuration
     prometheus_metrics: Any  # Prometheus metrics
@@ -482,8 +478,8 @@ async def _compose_services(
 
 
 async def _wire_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     services: Services,
     config: UnifiedConfig,
     prometheus_metrics: Any,
@@ -497,7 +493,7 @@ def _create_web_app(
     _config: UnifiedConfig,
     graph_auth: GraphAuthOperations,
     static_directory: str | None = None,
-) -> tuple[Any, Any]:
+) -> tuple[FastHTMLApp, RouteDecorator]:
     """
     Create FastHTML app with headers but no routes yet.
 
@@ -621,8 +617,8 @@ def _create_web_app(
 
 
 async def _wire_all_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     services: Services,
     _config: UnifiedConfig,
     prometheus_metrics: Any,
@@ -900,7 +896,7 @@ async def _wire_all_routes(
     if services.cross_domain_analytics:
         from adapters.inbound.analytics_api import register_analytics_routes
 
-        register_analytics_routes(app, services)
+        register_analytics_routes(rt, services.cross_domain_analytics)
 
     from adapters.inbound.ai_routes import create_ai_routes
 
@@ -1014,7 +1010,7 @@ async def shutdown_skuel(container: AppContainer) -> None:
         raise
 
 
-async def skuel_lifespan(app):
+async def skuel_lifespan(app: FastHTMLApp) -> AsyncIterator[None]:
     """
     Lifespan async generator for the SKUEL application.
 

@@ -38,7 +38,7 @@ from fasthtml.common import FtResponse
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_body, read_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import (
@@ -128,8 +128,8 @@ def _status_payload(user: User) -> AdminUserStatusPayload:
 
 
 def create_admin_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     user_service: Any,
     graph_auth: GraphAuthOperations | None = None,
 ) -> None:

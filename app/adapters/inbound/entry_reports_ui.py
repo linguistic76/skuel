@@ -36,7 +36,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import refuse
 from core.utils.logging import get_logger
@@ -53,7 +53,7 @@ logger = get_logger("skuel.routes.entry_reports")
 
 
 def create_entry_reports_ui_routes(
-    _app: Any,
+    _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: Any = None,
 ) -> None:

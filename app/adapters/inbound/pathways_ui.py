@@ -12,6 +12,7 @@ from typing import Any
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import refuse
 from core.utils.logging import get_logger
@@ -29,7 +30,7 @@ logger = get_logger("skuel.ui.pathways")
 
 
 def create_pathways_ui_routes(
-    _app: Any, rt: Any, _primary_service: Any, orchestrator: Any = None
+    _app: FastHTMLApp, rt: RouteDecorator, _primary_service: Any, orchestrator: Any = None
 ) -> None:
     """Create UI routes for pathway browsing and progress tracking."""
 

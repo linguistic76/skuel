@@ -16,7 +16,7 @@ from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT
 from ui.layouts.base_page import BasePage
@@ -35,8 +35,8 @@ logger = get_logger("skuel.routes.notifications.ui")
 
 
 def create_notifications_ui_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     notification_service: NotificationService,
 ) -> None:
     """Create UI routes for notifications."""

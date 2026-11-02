@@ -28,7 +28,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
 from ui.gradebook.summary import GRADEBOOK_TITLE
@@ -43,7 +43,7 @@ logger = get_logger("skuel.routes.revised_exercises_ui")
 
 
 def create_revised_exercises_ui_routes(
-    _app: Any,
+    _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: Any = None,
 ) -> None:

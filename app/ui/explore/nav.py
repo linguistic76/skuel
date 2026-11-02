@@ -130,7 +130,7 @@ def _build_section(
 
 
 def render_explore_sidebar_page(
-    content: Any,
+    content: FT,
     sidebar_data: dict[str, Any] | None,
     request: Request,
     page_title: str = "Explore",

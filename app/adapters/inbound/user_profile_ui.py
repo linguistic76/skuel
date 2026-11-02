@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.patterns.error_banner import render_error_banner
@@ -43,7 +43,7 @@ _WALL_LIMIT = 100
 _LOAD_FAILED = "Could not load your shared items. Please try again."
 
 
-def setup_user_profile_routes(rt: Any, services: Services) -> None:
+def setup_user_profile_routes(rt: RouteDecorator, services: Services) -> None:
     """Register the Shared page routes.
 
     Args:

@@ -212,7 +212,7 @@ Button("Close", **{"x-on:click": close_expr})  # type: ignore[arg-type]  # fasth
 
 #### What does NOT need a `# boundary:` tag
 
-- **`app` / `rt` parameters in route factories.** Use the protocols from `fasthtml_types.py`. Lifting `app: Any` to `app: FastHTMLApp` is migration work, not a boundary.
+- **`app` / `rt` parameters in route factories.** Use the protocols from `fasthtml_types.py` — `tests/unit/adapters/test_route_param_types.py` fails on an `rt` / `app` under `adapters/inbound` (or in `scripts/dev/bootstrap.py`, which builds them) typed `Any` or left bare, and checks each protocol member against a real `fast_app()`. ASGI middleware takes `app: ASGIApp` (`starlette.types`).
 - **Route handler returns rendering HTML.** `from fasthtml.common import FT` gives a real class (`fastcore.xml.FT`) that type-checks. `Result[FT]` is correct; `Result[Any]` with `# boundary: fasthtml FT component` is now obsolete framing.
 - **Route handlers that delegate to a typed service.** `events_service.update_event(...)` returns `Result[Event]` — the route wrapper should too. Using `Result[Any]` here is Category A (lazy), not Category C.
 

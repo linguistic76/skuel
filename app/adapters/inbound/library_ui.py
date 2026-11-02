@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
-from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -183,7 +183,7 @@ def render_resource_list(resources: list[Any]) -> Div:
 
 
 def create_library_ui_routes(
-    _app: Any,
+    _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: LibraryOrchestrator,
 ) -> None:

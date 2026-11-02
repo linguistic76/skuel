@@ -426,7 +426,7 @@ def SidebarNav(
 
 
 def SidebarPage(
-    content: Any,
+    content: FT,
     items: list[SidebarItem],
     active: str,
     title: str,

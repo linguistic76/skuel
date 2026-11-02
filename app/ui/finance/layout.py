@@ -3,7 +3,7 @@
 Uses SidebarPage for consistent navigation with all other SKUEL sidebar pages.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -19,7 +19,7 @@ FINANCE_SIDEBAR_ITEMS: list[SidebarItem] = [
 
 
 def create_finance_page(
-    content: Any,
+    content: FT,
     active_section: str = "",
     title: str = "Finance Hub",
     request: Request | None = None,

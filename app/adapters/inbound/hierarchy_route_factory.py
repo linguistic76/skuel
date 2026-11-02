@@ -28,7 +28,7 @@ from pydantic import BaseModel
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import read_json_body
 from core.models.type_hints import UserUID
 from core.models.update_contracts import RawChanges, SupportsToChanges, SupportsToIntent
@@ -60,8 +60,8 @@ class HierarchyRouteFactory:
 
     def __init__(
         self,
-        app: Any,
-        rt: Any,
+        app: FastHTMLApp,
+        rt: RouteDecorator,
         domain: str,  # "goals", "habits", etc.
         service: HierarchicalService,
         entity_name: str,  # "Goal", "Habit", etc.

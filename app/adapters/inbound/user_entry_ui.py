@@ -39,7 +39,7 @@ from starlette.responses import FileResponse, Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import status_for_error, ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import is_not_found, refuse
 from adapters.outbound.user_entry_renderer import entry_download_filename, render_user_entry_md
@@ -187,7 +187,7 @@ def _to_history_dict(entry: UserEntry) -> dict[str, Any]:
 
 
 def create_user_entry_ui_routes(
-    _app: Any,
+    _app: FastHTMLApp,
     rt: RouteDecorator,
     user_entry_service: UserEntryService,
     *,

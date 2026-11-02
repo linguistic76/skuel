@@ -15,7 +15,7 @@ from starlette.datastructures import FormData
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.boundary import result_to_response
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from core.services.ps_engagement.engagement import Engagement
 from core.services.ps_engagement.ps_engagement_service import (
@@ -131,8 +131,8 @@ def render_engagement_actions(uid: str, engagement: Engagement | None) -> Any:
 
 
 def create_path_steps_ui_routes(
-    _app: Any,
-    rt: Any,
+    _app: FastHTMLApp,
+    rt: RouteDecorator,
     ps_service: PsService,
     ps_engagement_service: PsEngagementService | None = None,
     tasks_service: Any = None,

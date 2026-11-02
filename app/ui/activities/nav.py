@@ -21,7 +21,7 @@ Usage:
     )
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fasthtml.common import Div
 
@@ -60,7 +60,7 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
 
 
 def render_activity_sidebar_page(
-    content: Any,
+    content: FT,
     active: str,
     request: Request | None = None,
     extra_css: list[str] | None = None,

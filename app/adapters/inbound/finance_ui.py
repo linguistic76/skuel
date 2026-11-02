@@ -15,7 +15,7 @@ __version__ = "4.0"
 from typing import Any
 
 from adapters.inbound.auth import make_service_getter, require_admin
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.finance import create_finance_page
 
@@ -27,7 +27,9 @@ logger = get_logger("skuel.routes.finance.ui")
 # ============================================================================
 
 
-def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None) -> None:
+def create_finance_ui_routes(
+    _app: FastHTMLApp, rt: RouteDecorator, finance_service, user_service: Any = None
+) -> None:
     """
     Create Finance Hub UI routes.
 
