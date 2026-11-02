@@ -25,7 +25,7 @@ from starlette.responses import JSONResponse, Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import result_to_response
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE, llm_quota_allowed
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
@@ -373,7 +373,7 @@ def unresolved_ai_route_specs(specs: list[AIRouteSpec]) -> list[str]:
     return unresolved
 
 
-def create_ai_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
+def create_ai_routes(rt: RouteDecorator, services: Services) -> None:
     """Create routes for AI-powered domain features.
 
     Every spec's ``method_name`` must resolve on its domain's AI class before any

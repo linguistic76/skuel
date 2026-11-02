@@ -179,7 +179,6 @@ def _make_harness(
     monkeypatch.setattr("adapters.inbound.insights_ui.BasePage", _identity_page)
 
     create_insights_ui_routes(
-        None,
         rt,
         store,
         user_service=user_service,
@@ -201,7 +200,7 @@ class TestRegistration:
         }
         services[absent] = None
         with pytest.raises(ValueError, match=absent):
-            create_insights_ui_routes(None, rt, MagicMock(), **services)
+            create_insights_ui_routes(rt, MagicMock(), **services)
 
 
 class TestTheDoor:

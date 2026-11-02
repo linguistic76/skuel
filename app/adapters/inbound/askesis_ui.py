@@ -12,7 +12,7 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import safe_form_string
 from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE, llm_quota_allowed
 from core.config.intelligence_tier import IntelligenceTier
@@ -30,7 +30,6 @@ logger = get_logger("skuel.ui.askesis")
 
 
 def create_askesis_ui_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     _askesis_service: Any,
     intelligence_tier: IntelligenceTier | None = None,

@@ -11,7 +11,7 @@ Security:
 from typing import Any
 
 from adapters.inbound.auth import make_service_getter, require_admin
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from ui.ingestion import build_ingestion_dashboard
@@ -21,7 +21,6 @@ logger = get_logger("skuel.routes.ingestion_ui")
 
 
 def create_ingestion_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     unified_ingestion,
     user_service=None,
@@ -30,7 +29,6 @@ def create_ingestion_ui_routes(
     Create ingestion UI routes (admin dashboard).
 
     Args:
-        app: FastHTML app instance
         rt: Router instance
         unified_ingestion: The UnifiedIngestionService instance
         user_service: UserService instance for admin role checks

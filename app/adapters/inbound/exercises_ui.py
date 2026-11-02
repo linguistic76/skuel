@@ -14,7 +14,7 @@ from fasthtml.common import FT, Div, FtResponse, P
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import ui_boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.utils.logging import get_logger
 from ui.components import ButtonT
@@ -33,10 +33,10 @@ logger = get_logger("skuel.routes.exercises.ui")
 # ============================================================================
 
 
-def create_exercises_ui_routes(app: FastHTMLApp, rt: RouteDecorator, exercises_service) -> None:
+def create_exercises_ui_routes(rt: RouteDecorator, exercises_service) -> None:
     """Create the learner's exercise page and its content fragment."""
 
-    @app.get("/exercises/get")
+    @rt("/exercises/get", methods=["GET"])
     def exercise_detail(request: Request, uid: str, from_ps: str = "") -> FT:
         """Student-facing exercise detail page — shell renders immediately, content loads via HTMX.
 
@@ -72,7 +72,7 @@ def create_exercises_ui_routes(app: FastHTMLApp, rt: RouteDecorator, exercises_s
             active_page="library",
         )
 
-    @app.get("/exercises/get/content")
+    @rt("/exercises/get/content", methods=["GET"])
     @ui_boundary_handler("Error loading exercise", fragment_id="exercise-detail-content")
     async def exercise_detail_content_fragment(
         request: Request, uid: str, from_ps: str = ""

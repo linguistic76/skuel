@@ -22,7 +22,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import ui_boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import (
     parse_date_param_strict,
     parse_enum_param_strict,
@@ -103,12 +103,10 @@ def _weekly_summary_page(request: Request, content: FT) -> FT:
 # ============================================================================
 
 
-def create_analytics_ui_routes(
-    app: FastHTMLApp, rt: RouteDecorator, analytics_service: AnalyticsService
-) -> None:
+def create_analytics_ui_routes(rt: RouteDecorator, analytics_service: AnalyticsService) -> None:
     """Register analytics UI routes."""
 
-    @app.get("/ui/analytics")
+    @rt("/ui/analytics", methods=["GET"])
     def analytics_dashboard(
         request: Request,
     ) -> FT:
@@ -116,7 +114,7 @@ def create_analytics_ui_routes(
         require_authenticated_user(request)
         return render_analytics_dashboard(request)
 
-    @app.get("/ui/analytics/period-fields")
+    @rt("/ui/analytics/period-fields", methods=["GET"])
     def get_period_fields(request: Request) -> FT | str | Response:
         """The date inputs the picker's period needs (only a custom range has any)."""
         require_authenticated_user(request)
@@ -125,7 +123,7 @@ def create_analytics_ui_routes(
             return refuse_malformed(period.expect_error())
         return render_period_fields(period.value)
 
-    @app.get("/ui/analytics/view")
+    @rt("/ui/analytics/view", methods=["GET"])
     @ui_boundary_handler("Error generating analytics")
     async def view_analytics(request: Request) -> FT | Response:
         """The report for the picked domain and period, into the dashboard's result slot."""
@@ -181,7 +179,7 @@ def create_analytics_ui_routes(
             )
         return render_analytics_result(result.value)
 
-    @app.get("/ui/analytics/weekly-life-summary")
+    @rt("/ui/analytics/weekly-life-summary", methods=["GET"])
     @ui_boundary_handler("Could not load your weekly life summary", page=_weekly_summary_page)
     async def weekly_life_summary_ui(request: Request) -> FT | Response:
         """Weekly life summary page (ALL layers); ``start_date`` picks the week."""

@@ -23,7 +23,7 @@ from fasthtml.common import FT, H3, A, Div, Form, P
 
 from adapters.inbound.auth import make_service_getter
 from adapters.inbound.auth.roles import UserRole, require_role
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.entity_enums import EntityStatus
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -184,7 +184,6 @@ def _new_group_modal() -> Any:
 
 
 def create_teaching_ui_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: TeacherOrchestrator,
     user_service: Any,
@@ -194,7 +193,6 @@ def create_teaching_ui_routes(
     Create teaching UI routes for the teacher dashboard.
 
     Args:
-        _app: FastHTML application instance
         rt: Router instance
         orchestrator: TeacherOrchestrator for unified access to services
         user_service: UserService for role checks

@@ -111,7 +111,7 @@ def _events_client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, AsyncMo
         update_schema=crud.update_schema,
         uid_prefix=crud.uid_prefix,
         request_create_method=crud.request_create_method,
-    ).register_routes(app, rt)
+    ).register_routes(rt)
     return TestClient(app, cookies={"csrf_token": "tok"}), create_event
 
 

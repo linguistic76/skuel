@@ -80,7 +80,6 @@ def _make_harness(
         )
 
     create_path_steps_api_routes(
-        app,
         rt,
         ps_service,
         user_progress_service=user_progress_service,

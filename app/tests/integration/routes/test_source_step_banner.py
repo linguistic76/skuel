@@ -120,7 +120,7 @@ def _app(skuel_app):
     from adapters.inbound.tasks_routes import create_tasks_routes
 
     app, rt = fast_app(pico=False, default_hdrs=False, secret_key="nb2fr-source-step-test-key")
-    create_tasks_routes(app, rt, skuel_app.state.services)
+    create_tasks_routes(rt, skuel_app.state.services)
 
     @rt("/sign-in/{uid}")
     def sign_in(request: Request, uid: str) -> PlainTextResponse:

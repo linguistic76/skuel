@@ -48,7 +48,7 @@ from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.habits_service import HabitsService
 
@@ -61,7 +61,6 @@ def _insights_slot(message: str) -> FT:
 
 
 def create_habits_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     habits_service: HabitsService,
     connection_fetch_backend: ConnectionFetchOperations,
@@ -89,7 +88,7 @@ def create_habits_ui_routes(
         dual_track_label="Consistency",
         list_categories=habits_service.search.list_user_categories,
     )
-    create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(rt, config)
 
     @rt("/habits/insights-fragment")
     async def habit_insights_fragment(request: Request) -> Any:

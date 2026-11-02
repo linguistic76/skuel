@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-01
+updated: 2026-11-02
 ---
 
 # UI Development Guide
@@ -895,7 +895,7 @@ from ui.patterns.stats_grid import StatsGrid
 from ui.tokens import Spacing
 
 
-def create_example_routes(app, rt, services):
+def create_example_routes(rt, services):
     """Register example UI routes."""
 
     @rt("/example")

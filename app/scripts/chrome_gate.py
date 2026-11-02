@@ -103,19 +103,19 @@ import adapters.inbound.tasks_ui as tu
 
 auf.require_authenticated_user = fake_user
 tu.require_authenticated_user = fake_user
-tu.create_tasks_ui_routes(app, rt, MagicMock(), MagicMock())
+tu.create_tasks_ui_routes(rt, MagicMock(), MagicMock())
 
 # /events — the Events row lights on its own page
 import adapters.inbound.events_ui as ev
 
 ev.require_authenticated_user = fake_user
-ev.create_events_ui_routes(app, rt, MagicMock(), MagicMock())
+ev.create_events_ui_routes(rt, MagicMock(), MagicMock())
 
 # /gradebook
 import adapters.inbound.user_entry_ui as ue
 
 ue.require_authenticated_user = fake_user
-params = list(inspect.signature(ue.create_user_entry_ui_routes).parameters)[2:]
+params = list(inspect.signature(ue.create_user_entry_ui_routes).parameters)[1:]
 orch = MagicMock()
 orch.get_student_exchange_summaries = AsyncMock(
     return_value=Result.ok({"exercises": [], "other_feedback": []})
@@ -124,13 +124,13 @@ orch.get_activity_report_history = AsyncMock(return_value=Result.ok([]))
 orch.list_exercise_entries = AsyncMock(return_value=Result.ok([]))  # /submissions/history
 kw = {p: MagicMock() for p in params}
 kw["orchestrator"] = orch
-ue.create_user_entry_ui_routes(app, rt, **kw)
+ue.create_user_entry_ui_routes(rt, **kw)
 
 # /cal/week/<date>
 import adapters.inbound.calendar_ui as cu
 
 cu.require_authenticated_user = fake_user
-cu.create_calendar_ui_routes(app, rt, MagicMock())
+cu.create_calendar_ui_routes(rt, MagicMock())
 
 # /today
 import adapters.inbound.today_routes as tr
@@ -151,14 +151,14 @@ today_ctx = {
 }
 services = MagicMock()
 services.today_orchestrator.build_context = AsyncMock(return_value=Result.ok(today_ctx))
-tr.create_today_routes(app, rt, services)
+tr.create_today_routes(rt, services)
 
 # /settings
 import adapters.inbound.settings_routes as sr
 
 sr.require_authenticated_user = fake_user
 settings_services = MagicMock()
-sr.create_settings_routes(app, rt, settings_services)
+sr.create_settings_routes(rt, settings_services)
 
 # /admin — the real @require_admin route: the role gate fetches the user and
 # checks has_permission, so the mocked user service answers with an admin.
@@ -179,7 +179,7 @@ admin_user.title = "Mike"
 admin_orch = MagicMock()
 admin_orch.user_service.get_user = AsyncMock(return_value=Result.ok(admin_user))
 admin_orch.get_system_status = AsyncMock(return_value={"status": "healthy", "healthy": True})
-adu.create_admin_dashboard_routes(app, rt, admin_orch, MagicMock())
+adu.create_admin_dashboard_routes(rt, admin_orch, MagicMock())
 
 # The other three section landings' pages, so every ICON_NAV_ITEMS door is
 # rendered lit by its own section key: /library/exercises (Library sidebar,
@@ -191,8 +191,8 @@ import adapters.inbound.path_steps_ui as psu
 lu.require_authenticated_user = fake_user
 lib_orch = MagicMock()
 lib_orch.get_student_exercises_with_status = AsyncMock(return_value=Result.ok([]))
-lu.create_library_ui_routes(app, rt, lib_orch)
-psu.create_path_steps_ui_routes(app, rt, MagicMock())
+lu.create_library_ui_routes(rt, lib_orch)
+psu.create_path_steps_ui_routes(rt, MagicMock())
 
 # /explore/library — the Library door's own landing (key "explore", the other
 # member of the door's page_keys set); the Explore sidebar has no rows, so it
@@ -216,7 +216,7 @@ explore_orch.get_sidebar_data = AsyncMock(
         "understood_kus": [],
     }
 )
-eu.create_explore_ui_routes(app, rt, explore_orch, MagicMock())
+eu.create_explore_ui_routes(rt, explore_orch, MagicMock())
 
 # /teaching/students — the Teaching door's landing, a @require_role route:
 # the teacher and admin personas render it (the gate's user service answers
@@ -225,7 +225,7 @@ import adapters.inbound.teaching_ui as teu
 
 teach_user_service = MagicMock()
 teach_user_service.get_user = AsyncMock(return_value=Result.ok(admin_user))
-teu.create_teaching_ui_routes(app, rt, MagicMock(), teach_user_service)
+teu.create_teaching_ui_routes(rt, MagicMock(), teach_user_service)
 
 # /profile/shared — the shared-with-me inbox (the page + its list fragment
 # are the only /profile/* routes); it lights the inbox icon and nothing else.
@@ -244,7 +244,7 @@ pu.setup_user_profile_routes(rt, sharing_services)
 import adapters.inbound.analytics_ui as anu
 
 anu.require_authenticated_user = fake_user
-anu.create_analytics_ui_routes(app, rt, MagicMock())
+anu.create_analytics_ui_routes(rt, MagicMock())
 
 today = date.today()
 PAGES = {

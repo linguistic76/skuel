@@ -57,13 +57,12 @@ from core.utils.result_simplified import Errors, Result
 from ui.activities.principles_views import PrincipleCard
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.principles_service import PrinciplesService
 
 
 def create_principles_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     principles_service: PrinciplesService,
     connection_fetch_backend: ConnectionFetchOperations,

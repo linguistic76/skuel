@@ -59,8 +59,8 @@ def _make_request(user_uid: str, uid: str) -> SimpleNamespace:
     )
 
 
-def _collector() -> tuple[tuple[SimpleNamespace, RouteDecorator], dict[str, Handler]]:
-    """A stand-in app/rt pair that records path → handler."""
+def _collector() -> tuple[RouteDecorator, dict[str, Handler]]:
+    """A stand-in rt that records path → handler."""
     registered: dict[str, Handler] = {}
 
     def rt(path: str, methods: list[str] | None = None) -> Callable[[Handler], Handler]:
@@ -70,8 +70,7 @@ def _collector() -> tuple[tuple[SimpleNamespace, RouteDecorator], dict[str, Hand
 
         return decorator
 
-    app = SimpleNamespace(get=rt, post=rt, route=rt)
-    return (app, rt), registered
+    return rt, registered
 
 
 @pytest.fixture
@@ -94,8 +93,8 @@ def orchestrator(neo4j_driver) -> UserEntryOrchestrator:
 
 @pytest.fixture
 def handler(orchestrator: UserEntryOrchestrator) -> Handler:
-    (app, rt), registered = _collector()
-    create_entry_reports_ui_routes(app, rt, orchestrator)
+    rt, registered = _collector()
+    create_entry_reports_ui_routes(rt, orchestrator)
     return registered[DETAIL_PATH]
 
 

@@ -131,7 +131,7 @@ skills:
 
   - name: vis-network
     description: Expert guide to Vis.js Network for interactive graph visualization in SKUEL. Use when visualizing lateral relationships, building force-directed graphs, creating relationship network diagrams, or when the user mentions vis.js, graph visualization, relationship networks, interactive graphs, or lateral relationships.
-    last_reviewed: "2026-10-18"
+    last_reviewed: "2026-11-02"
     foundation: []
     dependencies: []
     library_package: null  # Self-hosted vendor library
@@ -151,7 +151,7 @@ skills:
 
   - name: fasthtml
     description: FastHTML - Python's server-rendered hypermedia framework
-    last_reviewed: "2026-11-01"
+    last_reviewed: "2026-11-02"
     foundation: [python]
     dependencies: [python]
     library_package: python-fasthtml
@@ -172,7 +172,7 @@ skills:
 
   - name: domain-route-config
     description: Configuration-driven route registration for *_routes.py files using DomainRouteConfig
-    last_reviewed: "2026-11-01"
+    last_reviewed: "2026-11-02"
     foundation: [fasthtml, python]
     dependencies: [fasthtml, python]
     library_package: null  # SKUEL pattern, not external library
@@ -228,7 +228,7 @@ skills:
 
   - name: skuel-ui
     description: SKUEL UI patterns — BasePage, components, navigation, sidebars, forms (self-contained)
-    last_reviewed: "2026-10-18"
+    last_reviewed: "2026-11-02"
     foundation: [fasthtml, ui-css, ui-browser, pydantic]
     dependencies: [fasthtml, ui-css, ui-browser, pydantic]
     library_package: null  # SKUEL pattern, not external library
@@ -247,7 +247,7 @@ skills:
 
   - name: ui-error-handling
     description: Expert guide for UI error handling patterns and user feedback
-    last_reviewed: "2026-10-17"
+    last_reviewed: "2026-11-02"
     foundation: [result-pattern, ui-css]
     dependencies: [result-pattern, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -263,7 +263,7 @@ skills:
 
   - name: ui-orchestrator
     description: Creating and wiring a UI Orchestrator to resolve Dependency Gravity in Hub pages
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-11-02"
     foundation: [skuel-ui, fasthtml]
     dependencies: [skuel-ui, fasthtml]
     library_package: null  # SKUEL pattern, not external library
@@ -400,7 +400,7 @@ skills:
 
   - name: result-pattern
     description: Result[T] error handling pattern
-    last_reviewed: "2026-10-17"
+    last_reviewed: "2026-11-02"
     foundation: [python]
     dependencies: [python]
     library_package: null  # SKUEL pattern, not external library
@@ -418,7 +418,7 @@ skills:
 
   - name: base-analytics-service
     description: BaseAnalyticsService for domain analytics
-    last_reviewed: "2026-10-16"
+    last_reviewed: "2026-11-02"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -440,7 +440,7 @@ skills:
 
   - name: base-ai-service
     description: BaseAIService for AI/LLM features (optional)
-    last_reviewed: "2026-10-13"
+    last_reviewed: "2026-11-02"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern]
     library_package: openai
@@ -474,7 +474,7 @@ skills:
 
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
-    last_reviewed: "2026-11-01"
+    last_reviewed: "2026-11-02"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     library_package: null  # SKUEL pattern, not external library

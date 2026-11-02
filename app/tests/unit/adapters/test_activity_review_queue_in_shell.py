@@ -76,7 +76,7 @@ def _client(
     monkeypatch.setattr(boundary, "get_settings", settings_stub(debug=False))
     orchestrator.user_service.get_user = AsyncMock(return_value=Result.ok(_caller(role)))
     app, rt = fast_app(pico=False, default_hdrs=False)
-    activity_review_ui.create_activity_review_ui_routes(app, rt, orchestrator)
+    activity_review_ui.create_activity_review_ui_routes(rt, orchestrator)
     return TestClient(_SignedInAdminChrome(app))
 
 

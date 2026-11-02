@@ -45,7 +45,7 @@ from ui.primitives import ButtonLink
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.models.shared.dual_track import DualTrackResult
     from core.models.type_hints import UserUID
     from core.ports import ConnectionFetchOperations
@@ -171,7 +171,6 @@ def _bare_banner(message: str) -> Div:
 
 
 def create_activity_ui_routes[E: ActivityEntity, L: StrEnum](
-    app: FastHTMLApp,
     rt: RouteDecorator,
     config: ActivityUIConfig[E, L],
 ) -> None:

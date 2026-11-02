@@ -26,7 +26,7 @@ from starlette.responses import RedirectResponse
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.config.settings import get_settings
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -53,7 +53,6 @@ def _queue_page(request: Request, content: FT) -> FT:
 
 
 def create_activity_review_ui_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: ActivityReviewOrchestrator,
 ) -> None:

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body, read_json_body
 from adapters.inbound.route_factories import parse_enum_param_strict, parse_int_param_strict
 from core.constants import QueryLimit
@@ -73,14 +73,12 @@ def parse_active_insight_filter(
 
 
 def create_insights_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     insight_store: InsightStore,
 ) -> None:
     """Create insights API routes.
 
     Args:
-        app: FastHTML app instance
         rt: Route decorator
         insight_store: InsightStore service for managing insights
     """

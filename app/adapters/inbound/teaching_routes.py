@@ -13,7 +13,7 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.teaching_api import create_teaching_api_routes
 from adapters.inbound.teaching_forms_ui import create_teaching_forms_ui_routes
@@ -40,14 +40,14 @@ TEACHING_API_CONFIG = DomainRouteConfig(
 )
 
 
-def create_teaching_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_teaching_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire teaching API + UI routes.
 
     API: DomainRouteConfig (mutations need TeacherReviewService directly)
     UI:  TeacherOrchestrator (read-model facade)
     """
     # 1. API routes via DomainRouteConfig
-    register_domain_routes(app, rt, services, TEACHING_API_CONFIG)
+    register_domain_routes(rt, services, TEACHING_API_CONFIG)
 
     if services:
         # Teaching UI requires the orchestrator — it is always constructed
@@ -61,7 +61,6 @@ def create_teaching_routes(app: FastHTMLApp, rt: RouteDecorator, services: Servi
 
         # 2. UI routes via TeacherOrchestrator
         create_teaching_ui_routes(
-            _app=app,
             rt=rt,
             orchestrator=orchestrator,
             user_service=services.user,
@@ -81,7 +80,6 @@ def create_teaching_routes(app: FastHTMLApp, rt: RouteDecorator, services: Servi
             )
 
         create_teaching_forms_ui_routes(
-            _app=app,
             rt=rt,
             form_template_service=form_templates,
             form_submission_service=form_submissions,

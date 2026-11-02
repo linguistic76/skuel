@@ -52,7 +52,7 @@ def _make_harness(
     if authenticated:
         monkeypatch.setattr("adapters.inbound.lifepath_api.require_authenticated_user", _fake_auth)
 
-    create_lifepath_api_routes(app, rt, service)
+    create_lifepath_api_routes(rt, service)
     return _Harness(client=TestClient(app), service=service)
 
 

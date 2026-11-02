@@ -42,8 +42,8 @@ from core.utils.result_simplified import Errors, Result
 _USER = "user_owner"
 _FOREIGN_UID = "task_not_mine"
 
-# Each registrar is (app, rt, service, connection_fetch_backend, ...) — the six differ in
-# their optional tail (extra services / a verifier), so the map is typed at the four
+# Each registrar is (rt, service, connection_fetch_backend, ...) — the six differ in
+# their optional tail (extra services / a verifier), so the map is typed at the three
 # positionals they share.
 _REGISTRARS: dict[str, Callable[..., Any]] = {  # boundary: six registrar signatures, one call shape
     "tasks": create_tasks_ui_routes,
@@ -90,7 +90,7 @@ def _client_for(domain: str, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClien
     )
     app, rt = fast_app(pico=False, default_hdrs=False)
     service = _refusing_service()
-    _REGISTRARS[domain](app, rt, service, _backend())
+    _REGISTRARS[domain](rt, service, _backend())
     return TestClient(app), service
 
 

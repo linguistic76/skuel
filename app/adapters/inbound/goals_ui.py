@@ -42,7 +42,7 @@ from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.goals_service import GoalsService
 
@@ -50,7 +50,6 @@ logger = get_logger("skuel.routes.goals_ui")
 
 
 def create_goals_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     goals_service: GoalsService,
     connection_fetch_backend: ConnectionFetchOperations,
@@ -76,7 +75,7 @@ def create_goals_ui_routes(
         dual_track_label="Progress",
         list_categories=goals_service.search.list_user_categories,
     )
-    create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(rt, config)
 
     # ------------------------------------------------------------------
     # Create form: GET /goals/create  +  POST /goals/create

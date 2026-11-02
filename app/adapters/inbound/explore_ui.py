@@ -28,7 +28,7 @@ from fasthtml.common import (
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import is_authenticated, require_authenticated_user
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import parse_int_param_strict, refuse_malformed
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import LearningLevel
@@ -157,7 +157,6 @@ def _library_cards(
 
 
 def create_explore_api_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: Any,
     search_router: SearchRouter | None,
@@ -257,7 +256,6 @@ def create_explore_api_routes(
 
 
 def create_explore_ui_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: Any,
     search_router: SearchRouter | None,

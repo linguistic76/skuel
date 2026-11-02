@@ -287,7 +287,7 @@ def _register(services: Any, vault_root: Any = None, llm_caller: Any = None) -> 
 
         return decorator
 
-    create_journals_routes(MagicMock(), rt_collector, services)
+    create_journals_routes(rt_collector, services)
     return registered
 
 

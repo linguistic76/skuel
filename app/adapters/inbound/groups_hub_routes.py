@@ -23,12 +23,11 @@ from core.models.enums.entity_enums import EntityType
 from core.services.groups.group_service import MAX_STUDENT_GROUPS
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from services_bootstrap._container import Services
 
 
 def create_groups_hub_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     services: Services,
 ) -> None:

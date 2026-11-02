@@ -81,7 +81,7 @@ def lateral_client(
         tasks,  # type: ignore[arg-type]
     )
     services = SimpleNamespace(lateral_orchestrator=orchestrator)
-    create_lateral_routes(app, rt, services)
+    create_lateral_routes(rt, services)
 
     @rt("/sign-in/{uid}")
     def sign_in(request: Request, uid: str) -> PlainTextResponse:

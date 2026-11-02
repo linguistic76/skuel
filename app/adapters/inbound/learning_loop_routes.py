@@ -30,7 +30,7 @@ from fasthtml.common import FT, Div, Script
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums import MasteryLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
@@ -130,7 +130,6 @@ def _make_ku_mastery_store(
 
 
 def create_learning_loop_detail_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: ExploreOrchestrator,
     *,
@@ -146,7 +145,6 @@ def create_learning_loop_detail_routes(
     learning state, and access exercises/submissions.
 
     Args:
-        _app: FastHTML application instance.
         rt: Route decorator.
         orchestrator: ExploreOrchestrator for cross-service reads.
         user_service: The viewer's mastery check-ins and role (the TEACHER+
@@ -545,7 +543,6 @@ def create_learning_loop_detail_routes(
 
 
 def create_learning_loop_fragment_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: ExploreOrchestrator,
     form_submission_service: FormSubmissionOperations | None = None,
@@ -553,7 +550,6 @@ def create_learning_loop_fragment_routes(
     """Register /learning-loop/* HTMX fragment routes.
 
     Args:
-        _app: FastHTML application instance.
         rt: Route decorator.
         orchestrator: ExploreOrchestrator for cross-service reads.
         form_submission_service: Optional — when present, enables inline form submission.
@@ -629,7 +625,6 @@ def create_learning_loop_fragment_routes(
 
 
 def create_learning_loop_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: ExploreOrchestrator,
     *,
@@ -645,7 +640,6 @@ def create_learning_loop_routes(
     This is the single entry point called by explore_routes.py.
     """
     create_learning_loop_detail_routes(
-        app,
         rt,
         orchestrator,
         user_service=user_service,
@@ -655,7 +649,7 @@ def create_learning_loop_routes(
         zpd_service=zpd_service,
     )
     create_learning_loop_fragment_routes(
-        app, rt, orchestrator, form_submission_service=form_submission_service
+        rt, orchestrator, form_submission_service=form_submission_service
     )
 
 

@@ -93,14 +93,13 @@ from core.utils.result_simplified import Errors, Result
 from ui.activities.habits_views import HabitCard
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.habits_service import HabitsService
     from core.services.principles_service import PrinciplesService
 
 
 def create_habits_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     habits_service: HabitsService,
     principles_service: PrinciplesService,

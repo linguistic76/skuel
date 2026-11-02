@@ -112,7 +112,7 @@ def handlers(neo4j_driver, owner_only_service: Any) -> dict[tuple[str, str], Any
         entity_name="Goal",
         domain_service=owner_only_service,
     )
-    factory.register_routes(MagicMock(), rt_collector)
+    factory.register_routes(rt_collector)
     return registered
 
 

@@ -63,7 +63,7 @@ def _make_harness(
             "adapters.inbound.transcription_api.require_authenticated_user", _fake_auth
         )
 
-    create_transcription_api_routes(app, rt, service)
+    create_transcription_api_routes(rt, service)
     return _Harness(client=TestClient(app), service=service)
 
 

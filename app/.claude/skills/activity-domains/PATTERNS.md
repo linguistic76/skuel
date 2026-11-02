@@ -20,7 +20,7 @@ Factory that wires tasks API and UI routes using DomainRouteConfig.
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
@@ -59,9 +59,9 @@ TASKS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_tasks_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_tasks_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire tasks API and UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, TASKS_CONFIG)
+    register_domain_routes(rt, services, TASKS_CONFIG)
 
 
 __all__ = ["create_tasks_routes"]
@@ -194,7 +194,7 @@ Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add doma
 ### Route file convention
 
 The six `adapters/inbound/{domain}_ui.py` files:
-- **List + detail:** build an `ActivityUIConfig` and call `create_activity_ui_routes(app, rt, config)`. The factory reads the query string by `filter_params` (ordered `(name, default)` pairs), fetches with `get_all(user_uid)`, filters with `filter_fn(items, *param_values)` from `core/utils/entity_filters.py`, and renders the filter bar from `FILTER_CONFIGS[domain]` (`ui/activities/filter_bar.py`). `list_categories` (Goals, Habits, Principles) merges the user's own categories into the filter bar.
+- **List + detail:** build an `ActivityUIConfig` and call `create_activity_ui_routes(rt, config)`. The factory reads the query string by `filter_params` (ordered `(name, default)` pairs), fetches with `get_all(user_uid)`, filters with `filter_fn(items, *param_values)` from `core/utils/entity_filters.py`, and renders the filter bar from `FILTER_CONFIGS[domain]` (`ui/activities/filter_bar.py`). `list_categories` (Goals, Habits, Principles) merges the user's own categories into the filter bar.
 - **Create/edit forms:** `POST /{domain}/create` and `POST /{domain}/edit?uid=` parse with `parse_form_body(request, {Domain}CreateRequest | {Domain}UpdateRequest)` (`adapters/inbound/form_helpers.py`), so Pydantic validates the form. A validation failure re-renders the form with `render_error_banner(err.display_message)`. The edit handler checks ownership with `verify_ownership` first, then writes `parsed.value.to_intent()` through the facade's `update_{domain}`.
 - **Forms** live in `ui/activities/{domain}_form.py` (`render_activity_form`).
 

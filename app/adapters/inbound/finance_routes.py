@@ -18,7 +18,7 @@ Version: 2.0 (Migrated to DomainRouteConfig pattern)
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.finance_api import create_finance_api_routes
 from adapters.inbound.finance_ui import create_finance_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -44,18 +44,17 @@ FINANCE_CONFIG = DomainRouteConfig(
 )
 
 
-def create_finance_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_finance_routes(rt: RouteDecorator, services: Services | None) -> None:
     """
     Wire finance API and UI routes using configuration-driven registration.
 
     SECURITY: All Finance routes require ADMIN role (enforced in route decorators).
 
     Args:
-        app: FastHTML app instance
         rt: Route decorator
         services: Service container with finance and user services
     """
-    register_domain_routes(app, rt, services, FINANCE_CONFIG)
+    register_domain_routes(rt, services, FINANCE_CONFIG)
 
 
 __all__ = ["create_finance_routes"]

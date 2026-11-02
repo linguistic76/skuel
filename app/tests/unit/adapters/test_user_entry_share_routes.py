@@ -58,7 +58,7 @@ def _make_harness(monkeypatch: pytest.MonkeyPatch, *, with_sharing: bool = True)
     sharing.candidates = AsyncMock(return_value=Result.ok(_CANDIDATES))
     sharing.wall_row = AsyncMock(return_value=Result.ok(None))
     monkeypatch.setattr("adapters.inbound.user_entry_api.require_authenticated_user", _fake_auth)
-    create_user_entry_api_routes(None, rt, entries, entry_sharing=sharing if with_sharing else None)
+    create_user_entry_api_routes(rt, entries, entry_sharing=sharing if with_sharing else None)
     return _Harness(client=TestClient(app), sharing=sharing)
 
 

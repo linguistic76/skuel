@@ -77,7 +77,7 @@ def _client(monkeypatch: pytest.MonkeyPatch, service: MagicMock) -> TestClient:
     monkeypatch.setattr(analytics_ui, "get_settings", settings_stub(debug=False))
     monkeypatch.setattr(boundary, "get_settings", settings_stub(debug=False))
     app, rt = fast_app(pico=False, default_hdrs=False)
-    analytics_ui.create_analytics_ui_routes(app, rt, service)
+    analytics_ui.create_analytics_ui_routes(rt, service)
     return TestClient(_SignedInChrome(app))
 
 
@@ -114,6 +114,20 @@ def test_each_page_lights_the_insights_section(monkeypatch: pytest.MonkeyPatch, 
 
     lit = re.findall(r'<a[^>]*aria-current="page"[^>]*>', page[: page.index('id="main-content"')])
     assert [re.search(r'href="([^"]*)"', tag).group(1) for tag in lit] == ["/insights"]  # type: ignore[union-attr]
+
+
+#: Every route the module registers — each a read, so each answers GET alone.
+ROUTES = [*PAGES, "/ui/analytics/period-fields", "/ui/analytics/view"]
+
+
+@pytest.mark.parametrize("path", ROUTES)
+def test_each_route_answers_get_and_refuses_post(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    client = _client(monkeypatch, _service())
+
+    assert client.get(path).status_code == 200
+    assert client.post(path).status_code == 405
 
 
 def test_the_alignment_page_is_folded_into_life_path(monkeypatch: pytest.MonkeyPatch) -> None:

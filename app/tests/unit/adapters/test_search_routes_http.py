@@ -21,7 +21,7 @@ def _app_and_router() -> tuple[FastHTML, MagicMock]:
     app, rt = fast_app()
     search_router = MagicMock()
     search_router.intelligent_search = AsyncMock()
-    create_search_api_routes(app, rt, search_router=search_router)
+    create_search_api_routes(rt, search_router=search_router)
     return app, search_router
 
 

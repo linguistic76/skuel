@@ -11,7 +11,7 @@ from fasthtml.common import FT
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import is_authenticated
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.system import render_404_page, render_login_landing_page
 
@@ -19,7 +19,6 @@ logger = get_logger("skuel.routes.system.ui")
 
 
 def create_system_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     system_service: Any,
     services: Any = None,
@@ -28,7 +27,6 @@ def create_system_ui_routes(
     Create system UI routes for the application.
 
     Args:
-        app: The FastHTML app instance
         rt: The router instance
         system_service: System service instance (unused but kept for consistency)
         services: Optional services container (unused)

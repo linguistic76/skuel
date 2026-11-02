@@ -75,7 +75,7 @@ def _make_client(
             _fake_admin_auth,
         )
 
-    create_admin_api_routes(app, rt, user_service, graph_auth=graph_auth)
+    create_admin_api_routes(rt, user_service, graph_auth=graph_auth)
     return TestClient(app), user_service
 
 

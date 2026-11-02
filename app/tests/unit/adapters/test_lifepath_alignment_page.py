@@ -115,7 +115,7 @@ def _client(
     analytics = MagicMock()
     analytics.calculate_life_path_alignment = AsyncMock(return_value=lived or Result.ok(LIVED))
     app, rt = fast_app(pico=False, default_hdrs=False)
-    lifepath_ui.create_lifepath_ui_routes(app, rt, lifepath, analytics)
+    lifepath_ui.create_lifepath_ui_routes(rt, lifepath, analytics)
     return TestClient(app), analytics
 
 

@@ -9,7 +9,7 @@ CRUDRouteFactory. A form is embedded in a PathStep by the content vault
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories import (
     CRUDRouteConfig,
     DomainRouteConfig,
@@ -40,11 +40,9 @@ FORM_TEMPLATES_CONFIG = DomainRouteConfig(
 )
 
 
-def create_form_templates_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
-) -> None:
+def create_form_templates_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire form template API routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, FORM_TEMPLATES_CONFIG)
+    register_domain_routes(rt, services, FORM_TEMPLATES_CONFIG)
 
 
 __all__ = ["create_form_templates_routes"]

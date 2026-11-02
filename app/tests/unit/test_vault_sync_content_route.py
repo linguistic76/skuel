@@ -66,7 +66,6 @@ def _routes(is_admin: bool) -> tuple[_RouteRegistry, MagicMock]:
     registry = _RouteRegistry()
     reconciler = MagicMock()
     create_vault_routes(
-        app=None,
         rt=registry,
         vault_reconciler=reconciler,
         user_service=_user_service(is_admin),

@@ -1,6 +1,6 @@
 ---
 title: UI Orchestrator Pattern
-updated: '2026-09-25'
+updated: '2026-11-02'
 category: patterns
 related_skills:
 - ui-orchestrator
@@ -200,7 +200,7 @@ Update the route registration to pass only the orchestrator:
 ```python
 # Before (Dependency Gravity):
 create_example_ui_routes(
-    app, rt,
+    rt,
     service_a=getattr(services, "a", None),
     service_b=getattr(services, "b", None),
     service_c=getattr(services, "c", None),
@@ -208,18 +208,18 @@ create_example_ui_routes(
 
 # After (Orchestrated):
 assert services.example_orchestrator is not None, "ExampleOrchestrator not initialised"
-create_example_ui_routes(app, rt, orchestrator=services.example_orchestrator)
+create_example_ui_routes(rt, orchestrator=services.example_orchestrator)
 ```
 
 ### 5. Refactor UI Factory
 
 ```python
 # Before:
-def create_example_ui_routes(_app, rt, service_a, service_b, service_c=None):
+def create_example_ui_routes(rt, service_a, service_b, service_c=None):
     ...
 
 # After:
-def create_example_ui_routes(_app, rt, orchestrator):
+def create_example_ui_routes(rt, orchestrator):
     ...
 ```
 

@@ -1,6 +1,6 @@
 ---
 title: FastHTML Route Registration Pattern
-updated: 2026-10-11
+updated: 2026-11-02
 category: patterns
 related_skills:
 - domain-route-config
@@ -44,7 +44,7 @@ The broken shape is a list collection around `@rt()`:
 
 ```python
 # BROKEN - causes 404 errors
-def create_domain_routes(_app, rt, service, user_service):
+def create_domain_routes(rt, service, user_service):
     routes = []  # <-- This is the problem
 
     @rt("/domain")
@@ -65,7 +65,7 @@ The `@rt()` decorator registers routes immediately when applied. The additional 
 ## Correct Pattern
 
 ```python
-def create_domain_routes(_app, rt, service, user_service):
+def create_domain_routes(rt, service, user_service):
     """Create domain routes."""
 
     get_user_service = make_service_getter(user_service)
@@ -105,7 +105,7 @@ A route factory returns `None`, whatever its layer:
 |-------|----------|
 | `create_{domain}_api_routes` / `create_{domain}_ui_routes` | `DomainRouteConfig.api_factory` / `ui_factory` are `Callable[..., None]` |
 | `register_domain_routes()` | returns `None`; a missing primary service is a warning and an early `return` |
-| `register_routes(app, rt)` on the route-factory classes (`crud`, `query`, `intelligence`, `analytics`, `lateral`) | returns `None` |
+| `register_routes(rt)` on the route-factory classes (`crud`, `query`, `intelligence`, `analytics`, `lateral`) | returns `None` |
 | a single-route helper (`_register_*_route`, `create_knowledge_patterns_api_route`) | applies `rt(path)(handler)` as a statement and returns nothing |
 | `create_{domain}_routes` in `*_routes.py` | returns `None`; bootstrap counts `app.routes` once for its summary log |
 
@@ -119,7 +119,7 @@ never from a return value.
 
 ```python
 # DO NOT USE THIS PATTERN
-def create_domain_routes(_app, rt, service, user_service):
+def create_domain_routes(rt, service, user_service):
     routes = []  # DON'T
 
     @rt("/domain")

@@ -76,7 +76,7 @@ def _client(entry: UserEntry) -> tuple[TestClient, MagicMock]:
     services.user = MagicMock()
     services.user_entry = user_entry
     services.calendar = calendar
-    create_journals_routes(app, rt, services)
+    create_journals_routes(rt, services)
     return TestClient(app), calendar
 
 

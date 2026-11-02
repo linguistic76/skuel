@@ -137,7 +137,7 @@ def group_handlers(group_backend: Any) -> dict[str, Any]:
         return decorator
 
     service = GroupService(backend=group_backend)
-    create_groups_api_routes(MagicMock(), rt_collector, service, MagicMock())
+    create_groups_api_routes(rt_collector, service, MagicMock())
     return registered
 
 
@@ -334,7 +334,6 @@ def forms_handlers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         return decorator
 
     tfu.create_teaching_forms_ui_routes(
-        MagicMock(),
         rt_collector,
         template_service,
         submission_service,
@@ -637,7 +636,6 @@ def forms_list_handlers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         return decorator
 
     tfu.create_teaching_forms_ui_routes(
-        MagicMock(),
         rt_collector,
         template_service,
         submission_service,

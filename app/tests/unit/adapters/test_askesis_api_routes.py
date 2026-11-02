@@ -74,7 +74,6 @@ def _make_harness(
         monkeypatch.setattr("adapters.inbound.askesis_api.require_authenticated_user", _fake_auth)
 
     create_askesis_api_routes(
-        app,
         rt,
         askesis_service,
         intelligence_tier=intelligence_tier,

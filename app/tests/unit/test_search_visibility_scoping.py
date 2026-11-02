@@ -970,7 +970,7 @@ class TestUnifiedRouteUserScope:
                 SimpleNamespace(query="Alpha", total_count=0, results_by_domain={}, top_results=[])
             )
         )
-        create_search_api_routes(app=MagicMock(), rt=registry, search_router=search_router)
+        create_search_api_routes(rt=registry, search_router=search_router)
         handler = registry.handlers[("/api/search/unified", "POST")]
 
         fake_request = attach_csrf(

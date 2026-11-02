@@ -63,7 +63,7 @@ def test_factory_refuses_to_register_without_its_verifier(
     rt = MagicMock()
 
     with pytest.raises(ValueError, match="without the service that verifies its owner"):
-        factory(MagicMock(), rt, MagicMock(), **verifiers)
+        factory(rt, MagicMock(), **verifiers)
 
     rt.assert_not_called()
 
@@ -77,5 +77,5 @@ def test_factory_registers_its_routes_with_its_verifier(
     factory: Factory, verifiers: Verifiers, routes: int
 ) -> None:
     rt = MagicMock()
-    factory(MagicMock(), rt, MagicMock(), **verifiers)
+    factory(rt, MagicMock(), **verifiers)
     assert rt.call_count == routes

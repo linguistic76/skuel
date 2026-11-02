@@ -19,7 +19,7 @@ Example Usage:
         habits_service=habits_service,  # For habit filter ownership
         supports_goal_filter=True,
     )
-    query_factory.register_routes(app, rt)
+    query_factory.register_routes(rt)
 
 This generates:
 - GET /api/tasks/user (auth required, returns user's own tasks)
@@ -37,7 +37,7 @@ from typing import Any, cast
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope, UserRole
 from core.models.type_hints import UserUID
@@ -114,7 +114,7 @@ class CommonQueryRouteFactory:
         self.verify_ownership = scope == ContentScope.USER_OWNED
         self.base_path = base_path or f"/api/{domain_name}"
 
-    def register_routes(self, _app: FastHTMLApp, rt: RouteDecorator) -> None:
+    def register_routes(self, rt: RouteDecorator) -> None:
         """Register all common query routes."""
         # Single user query route (handles both own data and admin queries)
         self._register_user_query_route(rt)

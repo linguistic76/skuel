@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-24
+updated: 2026-11-02
 ---
 
 # Data Flow Walkthrough: Following a Task Creation Request
@@ -52,7 +52,7 @@ crud_factory = CRUDRouteFactory(
 )
 
 # This creates: POST /api/tasks/create
-crud_factory.register_routes(app, rt)
+crud_factory.register_routes(rt)
 ```
 
 ### 1.2 Request Parsing via `parse_body()`

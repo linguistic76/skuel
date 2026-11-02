@@ -13,7 +13,7 @@ Version: 3.0 (Renamed from learning_routes.py)
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.path_steps_routes import PS_CONFIG
 from adapters.inbound.pathways_api import create_pathways_api_routes
 from adapters.inbound.pathways_ui import create_pathways_ui_routes
@@ -50,7 +50,7 @@ PATHWAYS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_pathways_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_pathways_routes(rt: RouteDecorator, services: Services | None) -> None:
     """
     Wire pathways API and UI routes using configuration-driven registration.
 
@@ -59,16 +59,15 @@ def create_pathways_routes(app: FastHTMLApp, rt: RouteDecorator, services: Servi
     2. PS (PathStep) routes - separate optional registration
 
     Args:
-        app: FastHTML app instance
         rt: Route decorator
         services: Service container with learning service
     """
 
     # Register main LP routes via DomainRouteConfig (soft-fail if service missing)
-    register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
+    register_domain_routes(rt, services, PATHWAYS_CONFIG)
 
     # Handle PS routes separately (soft-fail if ps service missing)
-    register_domain_routes(app, rt, services, PS_CONFIG)
+    register_domain_routes(rt, services, PS_CONFIG)
 
 
 __all__ = ["create_pathways_routes"]

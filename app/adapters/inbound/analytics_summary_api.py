@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import parse_date_param_strict, parse_int_param_strict
 from core.ports.query_types import LifePathSubstanceAlignment
 from core.utils.result_simplified import Errors, Result
@@ -40,13 +40,12 @@ if TYPE_CHECKING:
 
 
 def create_analytics_summary_api_routes(
-    app: FastHTMLApp, rt: RouteDecorator, analytics_service: AnalyticsService
+    rt: RouteDecorator, analytics_service: AnalyticsService
 ) -> None:
     """
     Create Analytics Summary API routes (read-only analytics).
 
     Args:
-        app: FastHTML application instance
         rt: Route decorator
         analytics_service: AnalyticsService facade instance
     """

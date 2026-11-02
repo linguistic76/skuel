@@ -47,7 +47,7 @@ def _handlers(graph_auth: MagicMock | None = None, user_service: MagicMock | Non
 
         return decorator
 
-    create_auth_ui_routes(MagicMock(), rt_collector, graph_auth or MagicMock(), user_service)
+    create_auth_ui_routes(rt_collector, graph_auth or MagicMock(), user_service)
     return registered
 
 

@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-11-01'
+updated: '2026-11-02'
 category: patterns
 related_skills:
 - domain-route-config
@@ -70,7 +70,7 @@ crud_factory = CRUDRouteFactory(
     uid_prefix="task",
     scope=ContentScope.USER_OWNED,  # Default - enforces ownership
 )
-crud_factory.register_routes(app, rt)
+crud_factory.register_routes(rt)
 
 # Curriculum domain (shared) — uses FormTemplate as example since
 # KU/PS/LP are created via ingestion, not CRUD
@@ -83,7 +83,7 @@ crud_factory = CRUDRouteFactory(
     scope=ContentScope.SHARED,  # Shared content, admin-only mutations
     require_role=UserRole.ADMIN,
 )
-crud_factory.register_routes(app, rt)
+crud_factory.register_routes(rt)
 ```
 
 ### Generated Routes
@@ -199,7 +199,7 @@ query_factory = CommonQueryRouteFactory(
     supports_goal_filter=True,
     supports_habit_filter=False,
 )
-query_factory.register_routes(app, rt)
+query_factory.register_routes(rt)
 ```
 
 Under `USER_OWNED` scope (the default) a filter turned on without its service is refused
@@ -255,7 +255,7 @@ intelligence_factory = IntelligenceRouteFactory(
     scope=ContentScope.USER_OWNED,           # Default - enforces ownership
     ownership_service=tasks_service,         # Must implement verify_ownership(uid, user_uid)
 )
-intelligence_factory.register_routes(app, rt)
+intelligence_factory.register_routes(rt)
 
 # For Curriculum Domains (shared content) — context + insights, no analytics route
 intelligence_factory = IntelligenceRouteFactory(
@@ -263,7 +263,7 @@ intelligence_factory = IntelligenceRouteFactory(
     domain_name="path-steps",
     scope=ContentScope.SHARED,               # Curriculum content is shared
 )
-intelligence_factory.register_routes(app, rt)
+intelligence_factory.register_routes(rt)
 ```
 
 ### Generated Routes

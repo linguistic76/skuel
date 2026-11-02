@@ -21,14 +21,14 @@ Engagement (learning_loop_routes.py):
 from typing import TYPE_CHECKING
 
 from adapters.inbound.explore_ui import create_explore_api_routes, create_explore_ui_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.learning_loop_routes import create_learning_loop_routes
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
 
 
-def create_explore_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
+def create_explore_routes(rt: RouteDecorator, services: Services) -> None:
     """Wire explore UI + API routes via ExploreOrchestrator."""
     if services.explore_orchestrator is None:
         raise RuntimeError("ExploreOrchestrator is required — check bootstrap wiring")
@@ -43,10 +43,9 @@ def create_explore_routes(app: FastHTMLApp, rt: RouteDecorator, services: Servic
     # the orchestrator supplies only per-user card decorations.
     search_router = services.search_router
 
-    create_explore_api_routes(app, rt, orchestrator=orchestrator, search_router=search_router)
-    create_explore_ui_routes(app, rt, orchestrator=orchestrator, search_router=search_router)
+    create_explore_api_routes(rt, orchestrator=orchestrator, search_router=search_router)
+    create_explore_ui_routes(rt, orchestrator=orchestrator, search_router=search_router)
     create_learning_loop_routes(
-        app,
         rt,
         orchestrator=orchestrator,
         ps_engagement_service=services.ps_engagement,

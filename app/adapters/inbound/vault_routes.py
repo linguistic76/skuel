@@ -38,7 +38,7 @@ from adapters.inbound.auth import (
 )
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.type_hints import UserUID
 from core.models.vault_request import ContentVaultSyncRequest
 from core.services.vault.vault_descriptor import VaultKind
@@ -66,7 +66,6 @@ logger = get_logger("skuel.routes.vault")
 
 
 def create_vault_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     vault_reconciler: VaultReconciler,
     user_service: Any,

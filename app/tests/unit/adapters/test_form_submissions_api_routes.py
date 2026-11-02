@@ -57,7 +57,7 @@ def _make_harness(
             "adapters.inbound.form_submissions_api.require_authenticated_user", _fake_auth
         )
 
-    create_form_submissions_api_routes(app, rt, service)
+    create_form_submissions_api_routes(rt, service)
     return _Harness(client=TestClient(app), submissions=service)
 
 

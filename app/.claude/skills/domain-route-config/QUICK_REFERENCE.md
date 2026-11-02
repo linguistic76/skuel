@@ -11,7 +11,7 @@ The highest-level convenience. Pre-populates CRUD, Query, and Intelligence route
 ```python
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
@@ -41,8 +41,8 @@ if TYPE_CHECKING:
 )
 
 
-def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
-    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+def create_{domain}_routes(rt: RouteDecorator, services: Services | None) -> None:
+    register_domain_routes(rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -66,7 +66,7 @@ Wires {Domain} API and UI routes using DomainRouteConfig pattern.
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -85,9 +85,9 @@ if TYPE_CHECKING:
 )
 
 
-def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_{domain}_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire {domain} API and UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -102,7 +102,7 @@ For domains with no UI pages (e.g., transcription, visualization).
 ```python
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
@@ -118,9 +118,9 @@ if TYPE_CHECKING:
 )
 
 
-def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_{domain}_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire {domain} API routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -135,7 +135,7 @@ For domains with no API factory of their own (e.g., Ku, Calendar). Simply omit `
 ```python
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
@@ -150,9 +150,9 @@ if TYPE_CHECKING:
 )
 
 
-def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_{domain}_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire {domain} UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -167,7 +167,7 @@ DomainRouteConfig for standard routes + manual registration for extras.
 ```python
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_extra_ui import create_{domain}_extra_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
@@ -188,14 +188,14 @@ logger = get_logger("skuel.routes.{domain}")
 )
 
 
-def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_{domain}_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire {domain} routes: standard via config, extras manually."""
     # Standard routes via DomainRouteConfig
-    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(rt, services, {DOMAIN}_CONFIG)
 
     # Extra routes registered manually (same null-guard pattern)
     if services and services.{domain}:
-        create_{domain}_extra_routes(app, rt, services.{domain})
+        create_{domain}_extra_routes(rt, services.{domain})
         logger.info(f"{Domain} extra routes registered")
 
 
@@ -211,7 +211,7 @@ For non-activity domains with CRUDRouteFactory. CRUD routes auto-generated, API 
 ```python
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
 from adapters.inbound.route_factories import (
@@ -244,8 +244,8 @@ if TYPE_CHECKING:
 )
 
 
-def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
-    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+def create_{domain}_routes(rt: RouteDecorator, services: Services | None) -> None:
+    register_domain_routes(rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]

@@ -73,7 +73,7 @@ def _services(goals_ai: object | None = None) -> SimpleNamespace:
 
 def _client(services: SimpleNamespace) -> TestClient:
     app, rt = fast_app()
-    create_ai_routes(app, rt, services)
+    create_ai_routes(rt, services)
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -118,7 +118,7 @@ def test_registration_refuses_a_spec_naming_no_method(monkeypatch: pytest.Monkey
     app, rt = fast_app()
 
     with pytest.raises(ValueError, match="no_such_method"):
-        create_ai_routes(app, rt, _services())
+        create_ai_routes(rt, _services())
 
     assert not any(route.path == "/api/tasks/ai/ghost" for route in app.routes)
 
@@ -183,7 +183,7 @@ def test_post_without_csrf_token_is_refused_before_the_gates(ledger: _QuotaLedge
 
 def test_every_registered_ai_route_is_post_only() -> None:
     app, rt = fast_app()
-    create_ai_routes(app, rt, _services())
+    create_ai_routes(rt, _services())
 
     ai_routes_registered = [
         route for route in app.routes if "/ai/" in route.path and route.path != "/api/ai/status"

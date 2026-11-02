@@ -200,7 +200,7 @@ class TasksIntelligenceService:
 ```python
 from adapters.inbound.boundary import boundary_handler
 
-def create_task_routes(_app, rt, services):
+def create_task_routes(rt, services):
 
     @rt("/api/tasks")
     @boundary_handler(success_status=201)

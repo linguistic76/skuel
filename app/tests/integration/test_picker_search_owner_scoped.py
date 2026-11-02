@@ -25,7 +25,6 @@ from __future__ import annotations
 from datetime import date
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 from fasthtml.common import to_xml
@@ -66,7 +65,7 @@ def _register_handler(services: Any) -> Any:
 
         return decorator
 
-    create_picker_routes(MagicMock(), rt_collector, services)
+    create_picker_routes(rt_collector, services)
     return registered["/api/picker/search"]
 
 

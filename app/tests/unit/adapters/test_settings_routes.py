@@ -53,7 +53,7 @@ def _handlers(user_service: _UserService) -> dict[str, Handler]:
 
         return register
 
-    create_settings_routes(SimpleNamespace(), rt, SimpleNamespace(user=user_service))
+    create_settings_routes(rt, SimpleNamespace(user=user_service))
     return registered
 
 

@@ -38,15 +38,15 @@ Usage:
         prometheus_metrics_attr="prometheus_metrics",
     )
 
-    def create_tasks_routes(app, rt, services):
-        register_domain_routes(app, rt, services, TASKS_CONFIG)
+    def create_tasks_routes(rt, services):
+        register_domain_routes(rt, services, TASKS_CONFIG)
 """
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.utils.logging import get_logger
@@ -136,9 +136,9 @@ class DomainRouteConfig:
         domain_name: Human-readable domain name for logging (e.g., "tasks", "goals")
         primary_service_attr: Attribute name on services container (e.g., "tasks", "goals")
         api_factory: Optional function to register API routes, called as
-            ``api_factory(app, rt, primary_service, **api_related)`` -> None
+            ``api_factory(rt, primary_service, **api_related)`` -> None
         ui_factory: Optional function to register UI routes, called as
-            ``ui_factory(app, rt, primary_service, **ui_related)`` -> None
+            ``ui_factory(rt, primary_service, **ui_related)`` -> None
         api_related_services: Mapping of {kwarg_name: container_attr} for API factory.
             Exactly the factory's own parameters: each key names one, each
             parameter without a default has a key, and the factory takes no
@@ -166,7 +166,6 @@ class DomainRouteConfig:
 
 
 def register_domain_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     services: Services | None,
     config: DomainRouteConfig,
@@ -186,7 +185,6 @@ def register_domain_routes(
     any manual routes.
 
     Args:
-        app: FastHTML application instance
         rt: Route decorator
         services: Services container
         config: Domain route configuration
@@ -259,7 +257,7 @@ def register_domain_routes(
             entity_converter=config.crud.entity_converter,
             prometheus_metrics=prometheus_metrics,
             request_create_method=config.crud.request_create_method,
-        ).register_routes(app, rt)
+        ).register_routes(rt)
 
     if config.query:
         CommonQueryRouteFactory(
@@ -271,7 +269,7 @@ def register_domain_routes(
             supports_goal_filter=config.query.supports_goal_filter,
             supports_habit_filter=config.query.supports_habit_filter,
             scope=ContentScope.USER_OWNED,
-        ).register_routes(app, rt)
+        ).register_routes(rt)
 
     if config.intelligence is not None:
         IntelligenceRouteFactory(
@@ -279,11 +277,11 @@ def register_domain_routes(
             domain_name=config.domain_name,
             ownership_service=primary_service,
             scope=config.intelligence.scope,
-        ).register_routes(app, rt)
+        ).register_routes(rt)
 
     # 4. Wire API routes (Status, Analytics, manual routes)
     if config.api_factory:
-        config.api_factory(app, rt, primary_service, **api_related)
+        config.api_factory(rt, primary_service, **api_related)
 
     # 5. Wire UI routes (optional)
     if config.ui_factory:
@@ -299,7 +297,7 @@ def register_domain_routes(
                 value = None
             ui_related[kwarg_name] = value
 
-        config.ui_factory(app, rt, primary_service, **ui_related)
+        config.ui_factory(rt, primary_service, **ui_related)
 
 
 # ============================================================================

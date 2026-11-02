@@ -51,9 +51,10 @@ class FastHTMLApp(Protocol):
     """
     Minimal protocol for the FastHTML application object.
 
-    FastHTML's app object inherits from Starlette. Most SKUEL route factories receive
-    it only to pass it on and register through `rt`; the few that read it use the
-    members below — `get` (GET-only routes), `router` (WebSocket), and
+    FastHTML's app object inherits from Starlette. Route factories register their HTTP
+    routes through `rt`; a function takes the app only to read one of the members
+    below (or to hand it to a function that does) — `router` (the WebSocket endpoint
+    `rt` cannot register), `state` (the lifespan's container) and
     `add_exception_handler`.
 
     Boundary note: FastHTML's app API is not stable enough to type fully without
@@ -74,10 +75,6 @@ class FastHTMLApp(Protocol):
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
         """ASGI interface."""
-        ...
-
-    def get(self, path: str) -> Any:
-        """Register a GET route handler (Starlette-style decorator)."""
         ...
 
     def add_exception_handler(

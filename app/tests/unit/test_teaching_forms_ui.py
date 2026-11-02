@@ -72,7 +72,7 @@ async def test_forms_list_unpacks_list_int_tuple(monkeypatch):
     service.list = AsyncMock(return_value=Result.ok(([_FakeTemplate("ft_1", "Survey")], 1)))
     service.count_submissions = AsyncMock(return_value=Result.ok(3))
 
-    tfu.create_teaching_forms_ui_routes(MagicMock(), _fake_rt, service, MagicMock(), MagicMock())
+    tfu.create_teaching_forms_ui_routes(_fake_rt, service, MagicMock(), MagicMock())
 
     # First registered route is teaching_forms_list. `current_user` is what
     # @require_role injects in production; the card count branches on it, so a
@@ -118,7 +118,7 @@ async def test_forms_list_does_not_render_a_failed_count_as_zero(monkeypatch):
         return_value=Result.fail(Errors.database(operation="count", message="Neo4j unavailable"))
     )
 
-    tfu.create_teaching_forms_ui_routes(MagicMock(), _fake_rt, service, MagicMock(), MagicMock())
+    tfu.create_teaching_forms_ui_routes(_fake_rt, service, MagicMock(), MagicMock())
 
     content = await captured[0](request=MagicMock(), current_user=_fake_teacher("user_teacher"))
 

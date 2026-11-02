@@ -78,7 +78,7 @@ def _make_client(
         )
 
     create_tasks_api_routes(
-        app, rt, tasks_service, goals_service, connection_fetch_backend=FakePageLinks()
+        rt, tasks_service, goals_service, connection_fetch_backend=FakePageLinks()
     )
     return TestClient(app), tasks_service, goals_service
 

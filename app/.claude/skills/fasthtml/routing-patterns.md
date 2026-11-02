@@ -41,8 +41,10 @@ CRUD read in the path-uid shape — there is no `GET /api/tasks/{uid}`.
 ### Basic Routing
 
 SKUEL always passes an explicit path — function-name routing (`@rt` with no argument) is
-not used, and the `@app.get(...)` spelling survives in two files only (`analytics_ui.py`,
-`exercises_ui.py`; `grep -rn '@app.get(' adapters/inbound/`).
+not used — and registers every HTTP route through `rt`. A route function takes the app only
+to read it (`create_device_routes` mounts its WebSocket on `app.router`, which `rt` cannot
+reach); `FastHTMLApp` carries no `get`, so mypy refuses `@app.get(...)`. A GET-only read is
+`@rt(path, methods=["GET"])`.
 
 ```python
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
@@ -249,8 +251,8 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 )
 
 
-def create_transcription_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
-    register_domain_routes(app, rt, services, TRANSCRIPTION_CONFIG)
+def create_transcription_routes(rt: RouteDecorator, services: Services | None) -> None:
+    register_domain_routes(rt, services, TRANSCRIPTION_CONFIG)
 ```
 
 See the `domain-route-config` skill for the three wiring patterns.

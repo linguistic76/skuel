@@ -52,7 +52,7 @@ from core.utils.result_simplified import Errors, Result
 from ui.activities.choices_views import ChoiceCard
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.choices_service import ChoicesService
     from core.services.goals_service import GoalsService
@@ -60,7 +60,6 @@ if TYPE_CHECKING:
 
 
 def create_choices_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     choices_service: ChoicesService,
     goals_service: GoalsService,

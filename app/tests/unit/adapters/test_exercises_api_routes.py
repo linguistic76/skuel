@@ -115,7 +115,6 @@ def _make_harness(
         monkeypatch.setattr("adapters.inbound.auth.roles.require_authenticated_user", _fake_auth)
 
     create_exercises_api_routes(
-        app,
         rt,
         exercises_service,
         entry_report_service,

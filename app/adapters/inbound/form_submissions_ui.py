@@ -17,7 +17,7 @@ from typing import Any
 from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import refuse
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT
@@ -34,7 +34,6 @@ logger = get_logger(__name__)
 
 
 def create_form_submissions_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     form_submission_service: Any,
     user_service: Any = None,

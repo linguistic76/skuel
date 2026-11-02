@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import read_json_body
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -37,7 +37,6 @@ logger = get_logger("skuel.routes.ingestion")
 
 
 def create_ingestion_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     unified_ingestion: IngestionOperations,
     user_service=None,
@@ -47,7 +46,6 @@ def create_ingestion_api_routes(
     Create the ingestion dashboard's API routes.
 
     Args:
-        app: FastHTML app instance
         rt: Router instance
         unified_ingestion: The UnifiedIngestionService instance — the surface's
             registration gate (DomainRouteConfig passes it as the primary

@@ -100,7 +100,7 @@ def _client(
     query_only = dataclasses.replace(
         config, crud=None, intelligence=None, ui_factory=None, api_factory=_noop_api_factory
     )
-    register_domain_routes(app, rt, services, query_only)
+    register_domain_routes(rt, services, query_only)
     return TestClient(app), read, anchors[_FILTERS[anchor]]
 
 

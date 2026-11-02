@@ -85,7 +85,6 @@ def _make_client(
     # user_service is asserted at wiring time (fail-fast) — a mock satisfies it;
     # these tests only exercise the field/hierarchy/link routes.
     create_goals_api_routes(
-        app,
         rt,
         goals_service,
         principles_service,

@@ -118,11 +118,11 @@ def about(): return Titled("About")         # GET /about
 @rt("/custom/path")
 def handler(): return "Response"
 
-# HTTP methods
-@app.get("/users")
+# HTTP methods — SKUEL registers every HTTP route through rt, never app.get/app.post
+@rt("/users", methods=["GET"])
 def get_users(): ...
 
-@app.post("/users")
+@rt("/users", methods=["POST"])
 def create_user(): ...
 ```
 
@@ -141,7 +141,7 @@ def search(q: str, limit: int = 10):
 # GET /search?q=hello&limit=5
 
 # Path parameters
-@app.get("/users/{user_id}")
+@rt("/users/{user_id}", methods=["GET"])
 def user_profile(user_id: int): return f"User {user_id}"
 
 # Enum constraints
@@ -154,7 +154,7 @@ def greet(nm: name): return f"Hello, {nm}!"
 
 ## SKUEL Route Wiring
 
-A SKUEL route module exposes a factory — `create_{domain}_api_routes(app, rt, ...)` /
+A SKUEL route module exposes a factory — `create_{domain}_api_routes(rt, ...)` /
 `create_{domain}_ui_routes(...)` — that defines and decorates its handlers and **returns
 `None`**. `@rt()` registers a handler the moment it decorates it; collecting handlers in a
 `routes = []` list and returning it loses the sub-routes (404) and warns nobody. The rule
@@ -164,7 +164,6 @@ a single-route helper — and bootstrap logs one route count from `app.routes`.
 ```python
 # adapters/inbound/pathways_api.py (abridged — its optional related services omitted)
 def create_pathways_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     learning_service: LpService,
 ) -> None:

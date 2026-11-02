@@ -41,14 +41,13 @@ from core.utils.result_simplified import Result
 from ui.activities.events_views import EventCard
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
 
 
 def create_events_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     events_service: EventsService,
     goals_service: GoalsService,

@@ -91,7 +91,7 @@ def _make_harness(
     if authenticated:
         monkeypatch.setattr("adapters.inbound.auth.roles.require_authenticated_user", _fake_auth)
 
-    create_system_api_routes(app, rt, system, user_service=user_service)
+    create_system_api_routes(rt, system, user_service=user_service)
     return _Harness(client=TestClient(app), system=system)
 
 

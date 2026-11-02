@@ -173,7 +173,7 @@ Edit `app/adapters/inbound/{name}_routes.py`:
 ```python
 # Before:
 create_{name}_ui_routes(
-    app, rt,
+    rt,
     service_a=getattr(services, "a", None),
     service_b=getattr(services, "b", None),
     service_c=getattr(services, "c", None),
@@ -181,7 +181,7 @@ create_{name}_ui_routes(
 
 # After:
 assert services.{name}_orchestrator is not None, "{Name}Orchestrator not initialised"
-create_{name}_ui_routes(app, rt, orchestrator=services.{name}_orchestrator)
+create_{name}_ui_routes(rt, orchestrator=services.{name}_orchestrator)
 ```
 
 Two wiring variants exist in the codebase — both acceptable:

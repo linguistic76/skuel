@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any, cast
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import read_json_body
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -60,7 +60,6 @@ def _engagement_to_dict(engagement: Any) -> dict[str, Any]:
 
 
 def create_ps_engagement_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     services: Services | None,
 ) -> None:

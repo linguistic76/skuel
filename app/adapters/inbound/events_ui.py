@@ -42,7 +42,7 @@ from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
@@ -52,7 +52,6 @@ logger = get_logger("skuel.routes.events_ui")
 
 
 def create_events_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     events_service: EventsService,
     connection_fetch_backend: ConnectionFetchOperations,
@@ -77,7 +76,7 @@ def create_events_ui_routes(
         detail_component=EventDetailView,
         create_href="/events/create",
     )
-    create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(rt, config)
 
     async def _resolve_picker_titles(
         habit_uid: str | None, goal_uid: str | None, user_uid: UserUID

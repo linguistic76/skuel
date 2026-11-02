@@ -132,7 +132,7 @@ def _factory(service: Any, **kwargs: Any) -> CapturingRT:
         update_schema=TaskUpdateRequest,
         uid_prefix="task",
         **kwargs,
-    ).register_routes(None, rt)
+    ).register_routes(rt)
     return rt
 
 
@@ -350,7 +350,7 @@ class TestRouteDoorCarriesLinkFields:
             update_schema=TaskUpdateRequest,
             uid_prefix="task",
             request_create_method="create_task",
-        ).register_routes(None, rt)
+        ).register_routes(rt)
 
         response = await rt.handlers["/api/tasks/create"](
             FactoryRequest(

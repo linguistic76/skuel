@@ -152,7 +152,6 @@ def _handler(
 ) -> Any:
     recorder = _RouteRecorder()
     create_learning_loop_detail_routes(
-        MagicMock(),
         recorder,  # type: ignore[arg-type]  # boundary: test double for RouteDecorator
         orchestrator=orchestrator or MagicMock(),
         user_service=MagicMock(),

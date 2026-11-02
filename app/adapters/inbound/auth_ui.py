@@ -37,7 +37,7 @@ from adapters.inbound.auth import (
     set_current_user,
 )
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import safe_form_bool, safe_form_string
 from adapters.inbound.rate_limit import rate_limited_ip
 from core.config.credential_store import get_credential
@@ -102,7 +102,6 @@ def _first_validation_error(e: ValidationError) -> str:
 
 
 def create_auth_ui_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     graph_auth: GraphAuthOperations,
     user_service: Any = None,
@@ -122,7 +121,6 @@ def create_auth_ui_routes(
     - POST /reset-password/submit - Process password reset
 
     Args:
-        app: FastHTML app instance
         rt: Route decorator
         graph_auth: Graph authentication service
         user_service: Optional user service

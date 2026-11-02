@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.ports.query_types import ChartJsConfig, GanttConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -39,7 +39,6 @@ logger = get_logger("skuel.routes.visualization_api")
 
 
 def create_visualization_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     visualization_service: VisualizationOperations,
 ) -> None:

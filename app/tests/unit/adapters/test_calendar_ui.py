@@ -95,7 +95,7 @@ def _make_calendar_item() -> CalendarItem:
 def routes_and_service():
     registry = _RouteRegistry()
     service = AsyncMock()
-    create_calendar_ui_routes(_app=None, rt=registry, calendar_service=service)
+    create_calendar_ui_routes(rt=registry, calendar_service=service)
     return registry, service
 
 

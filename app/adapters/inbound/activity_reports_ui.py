@@ -36,7 +36,7 @@ from starlette.responses import RedirectResponse, Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler, ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_form_body
 from adapters.inbound.route_factories import refuse
 from adapters.outbound.activity_report_renderer import (
@@ -122,7 +122,6 @@ async def _author_display_name(
 
 
 def create_activity_reports_ui_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: Any = None,
     progress_generator: ProgressReportOperations | None = None,
@@ -130,7 +129,6 @@ def create_activity_reports_ui_routes(
     """Create activity-report detail/request/generate/annotate/download routes.
 
     Args:
-        _app: FastHTML application instance
         rt: Router instance
         orchestrator: UserEntryOrchestrator (owner-scoped report reads + annotate)
         progress_generator: ProgressReportGenerator — the on-demand producer

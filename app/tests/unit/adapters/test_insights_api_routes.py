@@ -63,7 +63,7 @@ def _make_harness(
     if authenticated:
         monkeypatch.setattr("adapters.inbound.insights_api.require_authenticated_user", _fake_auth)
 
-    create_insights_api_routes(None, rt, store)
+    create_insights_api_routes(rt, store)
     return _Harness(client=TestClient(app), store=store)
 
 

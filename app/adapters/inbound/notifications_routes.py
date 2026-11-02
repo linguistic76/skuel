@@ -8,7 +8,7 @@ UI-only (no separate API factory needed — HTMX handles mutations).
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.notifications_ui import create_notifications_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
@@ -23,11 +23,9 @@ NOTIFICATIONS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_notifications_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
-) -> None:
+def create_notifications_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire notifications UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, NOTIFICATIONS_CONFIG)
+    register_domain_routes(rt, services, NOTIFICATIONS_CONFIG)
 
 
 __all__ = ["create_notifications_routes"]

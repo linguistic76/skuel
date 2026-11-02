@@ -23,7 +23,6 @@ def test_detail_and_fragment_routes_register_on_real_fasthtml() -> None:
     app, rt = fast_app()
 
     create_learning_loop_detail_routes(
-        app,
         rt,
         orchestrator=MagicMock(),
         user_service=MagicMock(),
@@ -31,7 +30,7 @@ def test_detail_and_fragment_routes_register_on_real_fasthtml() -> None:
         vector_search_service=MagicMock(),
         zpd_service=MagicMock(),
     )
-    create_learning_loop_fragment_routes(app, rt, orchestrator=MagicMock())
+    create_learning_loop_fragment_routes(rt, orchestrator=MagicMock())
 
     registered = {getattr(r, "path", None) for r in app.routes}
     assert "/explore/next-step/related" in registered

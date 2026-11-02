@@ -69,8 +69,8 @@ HABITS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_habits_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
-    register_domain_routes(app, rt, services, HABITS_CONFIG)
+def create_habits_routes(rt: RouteDecorator, services: Services | None) -> None:
+    register_domain_routes(rt, services, HABITS_CONFIG)
 ```
 
 ### Trade-offs
@@ -83,7 +83,7 @@ def create_habits_routes(app: FastHTMLApp, rt: RouteDecorator, services: Service
 
 ### When it breaks down
 
-The factory signature contract is rigid: `(app, rt, primary_service, **kwargs)`. If a factory needs something that isn't a service (e.g., a config object, a file path), that dependency doesn't fit the mapping model. In that case, either pass it through a service facade or fall back to a manual route file.
+The factory signature contract is rigid: `(rt, primary_service, **kwargs)`. If a factory needs something that isn't a service (e.g., a config object, a file path), that dependency doesn't fit the mapping model. In that case, either pass it through a service facade or fall back to a manual route file.
 
 ---
 
@@ -172,13 +172,13 @@ INSIGHTS_CONFIG = DomainRouteConfig(
     api_related_services={},
 )
 
-def create_insights_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_insights_routes(rt: RouteDecorator, services: Services | None) -> None:
     # Config handles the standard 80%
-    register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
+    register_domain_routes(rt, services, INSIGHTS_CONFIG)
 
     # Manual block handles the extra 20%
     if services and services.insight_store:
-        create_insights_history_routes(app, rt, services.insight_store)
+        create_insights_history_routes(rt, services.insight_store)
 ```
 
 ### Trade-offs
@@ -195,7 +195,7 @@ The manual block mirrors exactly what `register_domain_routes()` does for the pr
 
 ```python
 if services and services.{service_attr}:
-    create_extra_routes(app, rt, services.{service_attr})
+    create_extra_routes(rt, services.{service_attr})
 ```
 
 Two checks: `services` is not None (container exists), and the specific service attribute is not None (service was bootstrapped). Both are required.

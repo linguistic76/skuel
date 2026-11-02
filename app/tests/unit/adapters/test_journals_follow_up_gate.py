@@ -74,7 +74,7 @@ def _client_for(
     services.user = user_service
     services.journal = journal
     services.intelligence_tier = IntelligenceTier.FULL
-    create_journals_routes(app, rt, services)
+    create_journals_routes(rt, services)
     return TestClient(app), journal, user_service
 
 

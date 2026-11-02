@@ -65,7 +65,7 @@ def _crud_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         create_schema=_Schema,
         update_schema=_Schema,
         entity_converter=_to_entity,
-    ).register_routes(app, rt)
+    ).register_routes(rt)
     return TestClient(app, cookies=_COOKIES)
 
 
@@ -92,7 +92,7 @@ def test_pathways_progress_rejects_a_bad_body_with_400(monkeypatch: pytest.Monke
     app, rt = fast_app(pico=False, default_hdrs=False)
     monkeypatch.setattr(pathways_api, "require_authenticated_user", _fake_authenticated_user)
     pathways_api.create_pathways_api_routes(
-        app, rt, MagicMock(), MagicMock(), MagicMock(), ps_service=MagicMock()
+        rt, MagicMock(), MagicMock(), MagicMock(), ps_service=MagicMock()
     )
 
     response = TestClient(app, cookies=_COOKIES).post(
@@ -164,7 +164,7 @@ def _post_text(
         create_schema=create_schema,
         update_schema=update_schema,
         entity_converter=_to_dict_entity,
-    ).register_routes(app, rt)
+    ).register_routes(rt)
 
     if door == "create":
         path, body = f"/api/{domain}/create", {**required, field: value}

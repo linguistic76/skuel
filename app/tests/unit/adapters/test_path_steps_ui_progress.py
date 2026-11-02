@@ -79,7 +79,7 @@ def _client_for(mastery: MagicMock) -> TestClient:
     ps_service.mastery = mastery
     # ps_engagement_service / user_service / tasks_service omitted — those
     # route groups are skipped; only browser + learning-state routes register.
-    create_path_steps_ui_routes(app, rt, ps_service)
+    create_path_steps_ui_routes(rt, ps_service)
     return TestClient(app)
 
 

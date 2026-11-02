@@ -20,7 +20,7 @@ from typing import Any
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import read_json_body
 from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from adapters.inbound.result_helpers import require_found
@@ -38,7 +38,6 @@ DEFAULT_OUTPUT_DIR = "data/je_outputs"
 
 
 def create_batch_transcription_api_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     batch_transcription_service: Any,
     journal_batch: JournalBatchService,
@@ -49,7 +48,6 @@ def create_batch_transcription_api_routes(
     Create batch transcription API routes.
 
     Args:
-        _app: FastHTML app instance
         rt: Route decorator
         batch_transcription_service: BatchTranscriptionService
         journal_batch: canonical home of the je_in/je_out staging-folder layout —

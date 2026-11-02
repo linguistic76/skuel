@@ -42,15 +42,18 @@ malformed value is a 400, and an HTML route answers it with `refuse_malformed`.
 | Route | What it returns | On error |
 |-------|-----------------|----------|
 | `GET /{domain}` | Page shell inside the Tasks+ sidebar, with a loading placeholder | — (no fetch) |
-| `GET /{domain}/content` | Filter bar + list + stats bar, under `id="{domain}-content"` | `render_error_banner(error.display_message)` under the same id |
+| `GET /{domain}/content` | Filter bar + list + stats bar, under `id="{domain}-content"` | `render_error_banner()` with the failed read's `display_message`, under the same id |
 | `GET /{domain}/list-fragment` | The filtered list only, plus `HX-Push-Url` | the banner under `id="{singular}-list"` |
 | `GET /{domain}/detail` + its content fragment | The detail shell, then the owned entity | not-found / not-owned through the ownership read |
 
 ```python
 # The content fragment's error branch — the shape every Activity list shares
-error, all_items, filtered, connections_map, param_values = await _fetch_filtered(request)
-if error is not None:
-    return Div(render_error_banner(error.display_message), id=f"{domain}-content")
+read = await _fetch_filtered(request)  # Result[_FilteredView[E]]
+if read.is_error:
+    return Div(
+        render_error_banner(read.expect_error().display_message), id=f"{domain}-content"
+    )
+view = read.value  # all_items, filtered, connections_map, param_values
 ```
 
 The create/edit POSTs stay in the domain's `*_ui.py` — see Example 2.
@@ -151,7 +154,7 @@ failure lands where the content would have, and navigation still works:
 
 ```python
 # adapters/inbound/exercises_ui.py
-@app.get("/exercises/get/content")
+@rt("/exercises/get/content", methods=["GET"])
 @ui_boundary_handler("Error loading exercise", fragment_id="exercise-detail-content")
 async def exercise_detail_content_fragment(
     request: Request, uid: str, from_ps: str = ""
@@ -386,7 +389,7 @@ config = ActivityUIConfig(
     detail_component=TaskDetailView,
     create_href="/tasks/create",
 )
-create_activity_ui_routes(app, rt, config)
+create_activity_ui_routes(rt, config)
 ```
 
 The factory's content fragment checks the fetch's `Result`, renders a banner under

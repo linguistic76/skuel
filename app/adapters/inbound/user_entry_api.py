@@ -32,7 +32,7 @@ from starlette.datastructures import UploadFile
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body, read_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import is_not_found, parse_int_param_strict, refuse
@@ -80,7 +80,6 @@ class UnshareRoutePayload(TypedDict):
 
 
 def create_user_entry_api_routes(
-    _app: FastHTMLApp,
     rt: RouteDecorator,
     user_entry_service: UserEntryService,
     processing_service: UserEntryProcessingService | None = None,
@@ -90,7 +89,6 @@ def create_user_entry_api_routes(
     """Register UserEntry REST API routes.
 
     Args:
-        _app: FastHTML app instance
         rt: Route decorator
         user_entry_service: UserEntryService facade (required)
         processing_service: UserEntryProcessingService dispatcher (optional —

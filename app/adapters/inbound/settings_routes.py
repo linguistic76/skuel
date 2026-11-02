@@ -23,14 +23,13 @@ from ui.patterns.error_banner import render_error_banner
 from ui.settings import render_settings_page
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from adapters.inbound.fasthtml_types import RouteDecorator
     from services_bootstrap._container import Services
 
 logger = get_logger("skuel.routes.settings")
 
 
 def create_settings_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     services: Services,
 ) -> None:

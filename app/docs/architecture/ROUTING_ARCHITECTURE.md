@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-10-25
+updated: 2026-11-02
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -183,7 +183,7 @@ Content-Type: application/json
 ```python
 # File: /adapters/inbound/tasks_routes.py
 
-def create_tasks_routes(app, rt, services):
+def create_tasks_routes(rt, services):
     """
     Factory receives services container from bootstrap.
     Services container already has:
@@ -192,7 +192,7 @@ def create_tasks_routes(app, rt, services):
     tasks_service = services.tasks  # Extract service
 
     # Wire API routes
-    api_routes = create_tasks_api_routes(app, rt, tasks_service)
+    api_routes = create_tasks_api_routes(rt, tasks_service)
 
     return api_routes
 ```
@@ -410,7 +410,7 @@ All 6 Activity Domains have read-focused UI views: Tasks (`/tasks`), Goals (`/go
 
 from typing import Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
@@ -436,9 +436,9 @@ TASKS_CONFIG = create_activity_domain_route_config(
     prometheus_metrics_attr="prometheus_metrics",
 )
 
-def create_tasks_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
+def create_tasks_routes(rt: RouteDecorator, services: Services | None) -> None:
     """Wire tasks API and UI routes using configuration-driven registration."""
-    register_domain_routes(app, rt, services, TASKS_CONFIG)
+    register_domain_routes(rt, services, TASKS_CONFIG)
 ```
 
 **What `create_activity_domain_route_config` eliminates from `tasks_api.py`:**
@@ -513,7 +513,7 @@ from core.models.enums import ContentScope
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 
 def create_tasks_api_routes(
-    app, rt, tasks_service,
+    rt, tasks_service,
     user_service=None,
     goals_service=None,
     habits_service=None
@@ -529,7 +529,7 @@ def create_tasks_api_routes(
         uid_prefix="task",
         scope=ContentScope.USER_OWNED,
     )
-    crud_factory.register_routes(app, rt)
+    crud_factory.register_routes(rt)
     # Generates:
     #   POST /api/tasks/create
     #   GET  /api/tasks/get?uid=...
@@ -548,7 +548,7 @@ def create_tasks_api_routes(
         supports_habit_filter=True,
         scope=ContentScope.USER_OWNED,
     )
-    query_factory.register_routes(app, rt)
+    query_factory.register_routes(rt)
     # Generates:
     #   GET /api/tasks/mine
     #   GET /api/tasks/user?user_uid=... (admin only)
@@ -563,7 +563,7 @@ def create_tasks_api_routes(
         ownership_service=tasks_service,
         scope=ContentScope.USER_OWNED,
     )
-    intelligence_factory.register_routes(app, rt)
+    intelligence_factory.register_routes(rt)
     # Generates:
     #   GET /api/tasks/context?uid=...&depth=2
     #   GET /api/tasks/analytics?period_days=30
@@ -786,9 +786,9 @@ async def startup():
     app, rt = fast_app()
 
     # 4. Register routes (all domains)
-    create_tasks_routes(app, rt, services)
-    create_events_routes(app, rt, services)
-    create_habits_routes(app, rt, services)
+    create_tasks_routes(rt, services)
+    create_events_routes(rt, services)
+    create_habits_routes(rt, services)
     # ... all entity types
 
     # 5. Start server

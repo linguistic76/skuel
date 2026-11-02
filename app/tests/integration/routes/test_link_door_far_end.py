@@ -392,7 +392,7 @@ def _app(skuel_app):
         create_events_routes,
         create_tasks_routes,
     ):
-        create_routes(app, rt, services)
+        create_routes(rt, services)
 
     @rt("/sign-in/{uid}")
     def sign_in(request: Request, uid: str) -> PlainTextResponse:

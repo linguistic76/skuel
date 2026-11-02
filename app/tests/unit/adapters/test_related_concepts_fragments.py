@@ -191,7 +191,6 @@ def _related_handlers(vector_search_service: Any) -> tuple[Any, Any]:
     """Register the detail routes and return the (ku, ps) related handlers."""
     recorder = _RouteRecorder()
     create_learning_loop_detail_routes(
-        MagicMock(),
         recorder,  # type: ignore[arg-type]  # boundary: test double for RouteDecorator
         orchestrator=MagicMock(),
         user_service=MagicMock(),

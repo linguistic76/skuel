@@ -36,7 +36,7 @@ Usage:
         create_schema=TaskCreateRequest,
         update_schema=TaskUpdateRequest
     )
-    factory.register_routes(app, rt)
+    factory.register_routes(rt)
 
 Routes Generated (FastHTML pattern):
     - POST /api/{domain}/create - Create entity
@@ -61,7 +61,7 @@ from typing import Any, Protocol, TypedDict, TypeVar, cast
 from pydantic import BaseModel
 
 from adapters.inbound.auth.session import require_authenticated_user
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_body
 from adapters.inbound.route_factories.route_helpers import (
     check_required_role,
@@ -184,7 +184,7 @@ class CRUDRouteFactory[T]:
             create_schema=TaskCreateRequest,
             update_schema=TaskUpdateRequest
         )
-        factory.register_routes(app, rt)
+        factory.register_routes(rt)
     """
 
     def __init__(
@@ -346,12 +346,11 @@ class CRUDRouteFactory[T]:
             )(handler)
         )
 
-    def register_routes(self, _app: FastHTMLApp, rt: RouteDecorator) -> None:
+    def register_routes(self, rt: RouteDecorator) -> None:
         """
         Register all CRUD routes using FastHTML conventions.
 
         Args:
-            app: FastHTML application instance
             rt: Route decorator
 
         Registers (explicit base_path + suffix per route):

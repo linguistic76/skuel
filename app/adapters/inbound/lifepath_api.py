@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.lifepath_request import CaptureVisionRequest, DesignateLifePathRequest
 from core.ports.query_types import (
@@ -37,7 +37,6 @@ logger = get_logger("skuel.routes.lifepath.api")
 
 
 def create_lifepath_api_routes(
-    app: FastHTMLApp,
     rt: RouteDecorator,
     lifepath_service: LifePathOperations,
 ) -> None:
@@ -45,7 +44,6 @@ def create_lifepath_api_routes(
     Create LifePath API routes.
 
     Args:
-        app: FastHTML app instance
         rt: FastHTML route decorator
         lifepath_service: LifePath service facade
     """

@@ -150,7 +150,7 @@ def _register(lateral_service: Any, domain_service: Any, domain: str) -> dict[st
         entity_name="Goal" if domain == "goals" else "Path Step",
         domain_service=domain_service,
     )
-    factory.register_routes(MagicMock(), rt_collector)
+    factory.register_routes(rt_collector)
     return registered
 
 

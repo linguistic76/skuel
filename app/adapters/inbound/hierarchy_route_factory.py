@@ -12,7 +12,6 @@ The children reads (JSON + TreeNodeList fragment) come from
 
 Usage:
     HierarchyRouteFactory(
-        app=app,
         rt=rt,
         domain="goals",
         service=goals_service,
@@ -28,7 +27,7 @@ from pydantic import BaseModel
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import read_json_body
 from core.models.type_hints import UserUID
 from core.models.update_contracts import RawChanges, SupportsToChanges, SupportsToIntent
@@ -60,7 +59,6 @@ class HierarchyRouteFactory:
 
     def __init__(
         self,
-        app: FastHTMLApp,
         rt: RouteDecorator,
         domain: str,  # "goals", "habits", etc.
         service: HierarchicalService,
@@ -74,7 +72,6 @@ class HierarchyRouteFactory:
         Initialize hierarchy route factory.
 
         Args:
-            app: FastHTML app instance
             rt: FastHTML route decorator
             domain: Domain name (plural, e.g., "goals")
             service: Domain service instance
@@ -85,7 +82,6 @@ class HierarchyRouteFactory:
             remove_relationship_method: Method name for removing parent-child relationship
             get_parent_method: Method name for getting parent entity
         """
-        self.app = app
         self.rt = rt
         self.domain = domain
         self.service = service
