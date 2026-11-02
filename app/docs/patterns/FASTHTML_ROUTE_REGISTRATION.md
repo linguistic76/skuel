@@ -183,7 +183,7 @@ a handler list, and a hand-maintained number drifts. `scripts/dev/bootstrap.py`
 logs one summary after all wiring, from the application's own route table:
 
 ```python
-route_count = len(getattr(app, "routes", []))
+route_count = len(app.router.routes)
 logger.info(f"Route wiring complete: {route_count} routes registered")
 ```
 

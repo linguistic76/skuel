@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: '2026-11-01'
+updated: '2026-11-02'
 category: patterns
 related_skills:
 - result-pattern
@@ -498,7 +498,7 @@ def OverviewView(
 
 ```python
 @rt("/today")
-async def today_page(request: Request) -> Any:
+async def today_page(request: Request) -> Response | FT:
     user_uid = require_authenticated_user(request)
     context = await _get_user_context(user_uid)
 
