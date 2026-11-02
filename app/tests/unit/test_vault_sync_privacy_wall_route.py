@@ -4,7 +4,7 @@ The consent form and the sync page's "What SKUEL can see" panel must render the
 folder wall from the LIVE ``VaultReconciler.describe`` data — never hardcoded
 prose — so what the user consents to is what the allowlist actually enforces.
 
-Mirrors the fake-rt registry pattern from test_vault_sync_content_route.py.
+Handlers come from ``tests/helpers/route_collector.py``.
 """
 
 from __future__ import annotations
@@ -20,26 +20,8 @@ from core.ports.vault_bridge_protocol import VaultSyncStats
 from core.services.vault.vault_reconciler import VaultDescription
 from core.utils.result_simplified import Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.route_collector import route_collector
 from ui.vault.sync_fragments import privacy_wall_panel
-
-
-class _RouteRegistry:
-    """Capture handlers registered via @rt(path, methods=...)."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "POST"):
-        return self.handlers[(path, method.upper())]
 
 
 def _request(method: str = "POST", path: str = "/settings/vault/sync"):
@@ -59,13 +41,13 @@ _DOORWAYS = VaultDescription(
 class TestConsentFormShowsLiveWall:
     @pytest.mark.asyncio
     async def test_first_run_consent_form_lists_described_folders(self) -> None:
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         reconciler = MagicMock()
         reconciler.sync = AsyncMock(return_value=Result.ok(VaultSyncStats(first_run_notice=True)))
         reconciler.describe = AsyncMock(return_value=Result.ok(_DOORWAYS))
-        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
+        create_vault_routes(rt=rt, vault_reconciler=reconciler, user_service=MagicMock())
 
-        handler = registry.get("/settings/vault/sync", "POST")
+        handler = registry["/settings/vault/sync", "POST"]
         html = to_xml(await handler(_request()))
 
         reconciler.describe.assert_called_once()
@@ -80,12 +62,12 @@ class TestSyncPageRender:
 
     @pytest.mark.asyncio
     async def test_configured_vault_page_shows_wall_and_both_doors(self) -> None:
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         reconciler = MagicMock()
         reconciler.describe = AsyncMock(return_value=Result.ok(_DOORWAYS))
-        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
+        create_vault_routes(rt=rt, vault_reconciler=reconciler, user_service=MagicMock())
 
-        handler = registry.get("/submissions/sync", "GET")
+        handler = registry["/submissions/sync", "GET"]
         html = to_xml(await handler(_request(method="GET", path="/submissions/sync")))
 
         assert "Obsidian Sync" in html
@@ -99,14 +81,14 @@ class TestSyncPageRender:
 
     @pytest.mark.asyncio
     async def test_unconfigured_vault_page_says_nothing_is_read(self) -> None:
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         reconciler = MagicMock()
         reconciler.describe = AsyncMock(
             return_value=Result.ok(VaultDescription(vault_configured=False))
         )
-        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
+        create_vault_routes(rt=rt, vault_reconciler=reconciler, user_service=MagicMock())
 
-        handler = registry.get("/submissions/sync", "GET")
+        handler = registry["/submissions/sync", "GET"]
         html = to_xml(await handler(_request(method="GET", path="/submissions/sync")))
 
         assert "No personal vault is configured" in html

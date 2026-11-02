@@ -1,5 +1,5 @@
 """
-Device route tests (ADR-075 B2) — fake-rt pattern (see test_vault_sync_preview.py).
+Device route tests (ADR-075 B2) — handlers taken from ``route_collector()``.
 
 Covers: the one-time pairing-code fragment, HTMX revocation (including
 closing the live agent session), and the code-authenticated enrollment API's
@@ -25,6 +25,7 @@ from adapters.inbound.device_routes import create_device_routes
 from core.models.auth.device import Device, PairingCodeIssued
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 
 
 @pytest.fixture(autouse=True)
@@ -33,25 +34,6 @@ def _clean_registry():
     agent_channel_registry._sessions.clear()
     yield
     agent_channel_registry._sessions.clear()
-
-
-class _RouteRegistry:
-    """Capture handlers registered via @rt(path, methods=...)."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "POST"):
-        return self.handlers[(path, method.upper())]
 
 
 def _request(body: bytes = b"", form: dict | None = None):
@@ -75,11 +57,11 @@ def _device(uid: str = "device_ab12cd34", revoked: bool = False) -> Device:
     )
 
 
-def _routes(user_service) -> _RouteRegistry:
-    registry = _RouteRegistry()
+def _routes(user_service) -> RegisteredHandlers:
+    rt, registry = route_collector()
     # The WS route mounts on the app's starlette router, not through rt.
     app = SimpleNamespace(router=SimpleNamespace(routes=[]))
-    create_device_routes(app=app, rt=registry, user_service=user_service)
+    create_device_routes(app=app, rt=rt, user_service=user_service)
     return registry
 
 
@@ -103,7 +85,7 @@ class TestPairingCodeFragment:
                 )
             )
         )
-        handler = _routes(user_service).get("/settings/devices/pairing-code")
+        handler = _routes(user_service)["/settings/devices/pairing-code", "POST"]
 
         html = to_xml(await handler(_request()))
 
@@ -117,7 +99,7 @@ class TestPairingCodeFragment:
         user_service.create_device_pairing_code = AsyncMock(
             return_value=Result.fail(Errors.system("boom", operation="devices"))
         )
-        handler = _routes(user_service).get("/settings/devices/pairing-code")
+        handler = _routes(user_service)["/settings/devices/pairing-code", "POST"]
 
         html = to_xml(await handler(_request()))
 
@@ -135,7 +117,7 @@ class TestRevokeFragment:
         session = AgentSession(ws, user_uid="user_mike", device_uid="device_ab12cd34")  # type: ignore[arg-type]
         agent_channel_registry.register(session)
 
-        handler = _routes(user_service).get("/settings/devices/revoke")
+        handler = _routes(user_service)["/settings/devices/revoke", "POST"]
         html = to_xml(await handler(_request(form={"device_uid": "device_ab12cd34"})))
 
         user_service.revoke_device.assert_awaited_once_with("user_mike", "device_ab12cd34")
@@ -148,7 +130,7 @@ class TestRevokeFragment:
     async def test_missing_device_uid_is_rejected(self) -> None:
         user_service = MagicMock()
         user_service.revoke_device = AsyncMock()
-        handler = _routes(user_service).get("/settings/devices/revoke")
+        handler = _routes(user_service)["/settings/devices/revoke", "POST"]
 
         html = to_xml(await handler(_request(form={})))
 
@@ -161,7 +143,7 @@ class TestEnrollApi:
     async def test_happy_path_returns_201_with_device_uid(self) -> None:
         user_service = MagicMock()
         user_service.enroll_device = AsyncMock(return_value=Result.ok(_device()))
-        handler = _routes(user_service).get("/api/devices/enroll")
+        handler = _routes(user_service)["/api/devices/enroll", "POST"]
 
         body = json.dumps(
             {"code": "KAR3MWCS", "device_pubkey": "pk", "device_name": "mike-laptop"}
@@ -179,7 +161,7 @@ class TestEnrollApi:
         user_service.enroll_device = AsyncMock(
             return_value=Result.fail(Errors.not_found("Pairing code"))
         )
-        handler = _routes(user_service).get("/api/devices/enroll")
+        handler = _routes(user_service)["/api/devices/enroll", "POST"]
 
         body = json.dumps(
             {"code": "WRONGCOD", "device_pubkey": "pk", "device_name": "laptop"}
@@ -194,7 +176,7 @@ class TestEnrollApi:
     async def test_malformed_body_returns_400_without_touching_the_service(self) -> None:
         user_service = MagicMock()
         user_service.enroll_device = AsyncMock()
-        handler = _routes(user_service).get("/api/devices/enroll")
+        handler = _routes(user_service)["/api/devices/enroll", "POST"]
 
         response = await handler(_request(body=b"not-json"))
 
@@ -205,7 +187,7 @@ class TestEnrollApi:
     async def test_missing_fields_return_400(self) -> None:
         user_service = MagicMock()
         user_service.enroll_device = AsyncMock()
-        handler = _routes(user_service).get("/api/devices/enroll")
+        handler = _routes(user_service)["/api/devices/enroll", "POST"]
 
         response = await handler(_request(body=json.dumps({"code": "X"}).encode()))
 
@@ -218,7 +200,7 @@ class TestRevokeApi:
     async def test_unowned_device_returns_404_not_403(self) -> None:
         user_service = MagicMock()
         user_service.revoke_device = AsyncMock(return_value=Result.ok(False))
-        handler = _routes(user_service).get("/api/devices/{uid}/revoke")
+        handler = _routes(user_service)["/api/devices/{uid}/revoke", "POST"]
 
         response = await handler(_request(), uid="device_someone1")
 
@@ -232,7 +214,7 @@ class TestRevokeApi:
         session = AgentSession(ws, user_uid="user_mike", device_uid="device_ab12cd34")  # type: ignore[arg-type]
         agent_channel_registry.register(session)
 
-        handler = _routes(user_service).get("/api/devices/{uid}/revoke")
+        handler = _routes(user_service)["/api/devices/{uid}/revoke", "POST"]
         response = await handler(_request(), uid="device_ab12cd34")
 
         assert response.status_code == 200

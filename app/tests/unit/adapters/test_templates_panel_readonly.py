@@ -19,6 +19,7 @@ See: /docs/roadmap/done/activity-templates-vault-door.md
 from __future__ import annotations
 
 import asyncio
+import inspect
 from types import SimpleNamespace
 from typing import Any
 
@@ -27,6 +28,7 @@ from fasthtml.common import to_xml
 
 from core.models.enums import UserRole
 from core.utils.result_simplified import Result
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from ui.explore.ps_detail import render_ps_detail_content
 from ui.teaching.templates_panel import (
     PANEL_DOMAINS,
@@ -39,24 +41,13 @@ _PANEL_URL = f"/teaching/ps/{_PS_UID}/templates"
 _DOMAINS = ("task", "goal", "habit", "event", "choice", "principle")
 
 
-def _register(services: Any) -> tuple[list[str], dict[str, Any]]:
-    """Register the panel routes against ``services``; return paths + handlers."""
+def _register(services: Any) -> RegisteredHandlers:
+    """Register the panel routes against ``services``; return the doors they answer."""
     from adapters.inbound.templates_ui import create_templates_ui_routes
 
-    paths: list[str] = []
-    handlers: dict[str, Any] = {}
-
-    def rt(path: str, methods: list[str] | None = None) -> Any:
-        paths.append(path)
-
-        def _keep(handler: Any) -> Any:
-            handlers[path] = handler
-            return handler
-
-        return _keep
-
-    create_templates_ui_routes(rt, services)  # type: ignore[arg-type]
-    return paths, handlers
+    rt, handlers = route_collector()
+    create_templates_ui_routes(rt, services)
+    return handlers
 
 
 class _CountingService:
@@ -103,9 +94,9 @@ class TestPanelMount:
     def test_placeholder_targets_the_registered_fragment_route(self) -> None:
         """The placeholder's hx-get is the path ``templates_ui`` registers."""
         services = SimpleNamespace(**{f"{d}_templates": object() for d in _DOMAINS}, user=object())
-        paths, _ = _register(services)
+        handlers = _register(services)
 
-        assert paths == ["/teaching/ps/{ps_uid}/templates"]
+        assert {path for path, _ in handlers} == {"/teaching/ps/{ps_uid}/templates"}
         assert _PANEL_URL in to_xml(render_templates_panel_placeholder(_PS_UID))
 
 
@@ -155,10 +146,10 @@ class TestPanelReadsFanOut:
             **{f"{d}_templates": _CountingService(tracker) for d in _DOMAINS},
             user=object(),
         )
-        _, handlers = _register(services)
+        handlers = _register(services)
         # The role gate is exercised in TestPanelMount; reach the inner handler
         # (functools.wraps exposes it) so this test is about the fan-out alone.
-        inner = handlers["/teaching/ps/{ps_uid}/templates"].__wrapped__
+        inner = inspect.unwrap(handlers["/teaching/ps/{ps_uid}/templates", "GET"])
         request = SimpleNamespace(session={"user_uid": "user_test"}, query_params={})
 
         asyncio.run(inner(request, ps_uid=_PS_UID))

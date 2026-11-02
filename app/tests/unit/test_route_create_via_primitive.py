@@ -52,6 +52,7 @@ from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Result
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 
 USER_UID = "user_test"  # what FactoryRequest's session carries
 PRINCIPLE_UID = "principle:deep-work"
@@ -61,20 +62,6 @@ PREREQ_TASK = "task:read-the-paper"
 # ============================================================================
 # ROUTE-DRIVING INFRASTRUCTURE (same shape as test_adapter_less_crud_routes)
 # ============================================================================
-
-
-class CapturingRT:
-    """Records the handlers a factory registers, keyed by path."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[str, Any] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        def register(handler):
-            self.handlers[path] = handler
-            return handler
-
-        return register
 
 
 class FactoryRequest:
@@ -123,8 +110,8 @@ class RecordingService:
         return Result.ok(Task(uid="task:via-primitive", title=request.title, user_uid=user_uid))
 
 
-def _factory(service: Any, **kwargs: Any) -> CapturingRT:
-    rt = CapturingRT()
+def _factory(service: Any, **kwargs: Any) -> RegisteredHandlers:
+    rt, handlers = route_collector()
     CRUDRouteFactory(
         service=service,
         domain_name="tasks",
@@ -133,7 +120,7 @@ def _factory(service: Any, **kwargs: Any) -> CapturingRT:
         uid_prefix="task",
         **kwargs,
     ).register_routes(rt)
-    return rt
+    return handlers
 
 
 @pytest.mark.asyncio
@@ -143,9 +130,9 @@ class TestCreateRouteBinding:
         and the session user to the primitive — it does not convert, does not mint a
         uid, and never touches ``service.create``."""
         service = RecordingService()
-        rt = _factory(service, request_create_method="create_task")
+        handlers = _factory(service, request_create_method="create_task")
 
-        response = await rt.handlers["/api/tasks/create"](
+        response = await handlers["/api/tasks/create", "POST"](
             FactoryRequest(body={"title": "Through the primitive"})
         )
         body, status = extract_response(response)
@@ -163,9 +150,9 @@ class TestCreateRouteBinding:
         converts and calls ``service.create(entity)`` — the path every non-activity
         CRUD consumer stays on."""
         service = RecordingService()
-        rt = _factory(service)
+        handlers = _factory(service)
 
-        response = await rt.handlers["/api/tasks/create"](
+        response = await handlers["/api/tasks/create", "POST"](
             FactoryRequest(body={"title": "Through the entity door"})
         )
         body, status = extract_response(response)
@@ -342,7 +329,7 @@ class TestRouteDoorCarriesLinkFields:
 
         bus.subscribe(TaskCreated, _created)
 
-        rt = CapturingRT()
+        rt, handlers = route_collector()
         CRUDRouteFactory(
             service=facade,
             domain_name="tasks",
@@ -352,7 +339,7 @@ class TestRouteDoorCarriesLinkFields:
             request_create_method="create_task",
         ).register_routes(rt)
 
-        response = await rt.handlers["/api/tasks/create"](
+        response = await handlers["/api/tasks/create", "POST"](
             FactoryRequest(
                 body={
                     "title": "Deep work block",

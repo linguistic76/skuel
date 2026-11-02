@@ -14,28 +14,12 @@ from fastcore.xml import to_xml  # type: ignore[import-untyped]
 
 from adapters.inbound.user_entry_ui import create_user_entry_ui_routes
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.route_collector import route_collector
 
 _TARGETS = {
     "groups": [{"uid": "g_class", "name": "Physics 101"}],
     "people": [{"uid": "user_a", "username": "alice", "display_name": "Alice"}],
 }
-
-
-class _RouteRegistry:
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "GET"):
-        return self.handlers[(path, method.upper())]
 
 
 def _request(query: dict[str, str] | None = None) -> SimpleNamespace:
@@ -50,7 +34,7 @@ def _request(query: dict[str, str] | None = None) -> SimpleNamespace:
 
 
 def _handler(*, groups: list[SimpleNamespace] | None = None, targets=None, exercise=None):
-    registry = _RouteRegistry()
+    rt, registry = route_collector()
     orchestrator = SimpleNamespace(
         get_submit_target=AsyncMock(
             return_value=(
@@ -67,13 +51,13 @@ def _handler(*, groups: list[SimpleNamespace] | None = None, targets=None, exerc
         targets=AsyncMock(return_value=Result.ok(targets if targets is not None else _TARGETS))
     )
     create_user_entry_ui_routes(
-        registry,
+        rt,
         SimpleNamespace(),
         orchestrator=orchestrator,
         groups_service=groups_service,
         entry_sharing=sharing,
     )
-    return registry.get("/submissions/submit"), orchestrator, groups_service, sharing
+    return registry["/submissions/submit", "GET"], orchestrator, groups_service, sharing
 
 
 @pytest.mark.asyncio

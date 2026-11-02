@@ -206,25 +206,18 @@ class TestListRouteExposesNoSortKey:
         import inspect
 
         from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
+        from tests.helpers.route_collector import route_collector
 
-        registered: dict[str, object] = {}
-
-        def fake_rt(path: str):
-            def decorate(handler):
-                registered[path] = handler
-                return handler
-
-            return decorate
-
+        rt, registered = route_collector()
         factory = CRUDRouteFactory(
             service=MagicMock(),
             domain_name="tasks",
             create_schema=MagicMock(),
             update_schema=MagicMock(),
         )
-        factory._register_list_route(fake_rt)
+        factory._register_list_route(rt)
 
-        handler = registered["/api/tasks/list"]
+        handler = registered["/api/tasks/list", "GET"]
         params = set(inspect.signature(handler).parameters)
         assert "order_by" not in params
         assert "order_desc" not in params

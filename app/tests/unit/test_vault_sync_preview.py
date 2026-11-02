@@ -10,8 +10,7 @@ Two layers under test:
    Nothing is written to the graph or the vault; every path it surfaces is
    vault-relative (#525 sanitization policy).
 
-Route fragments follow the fake-rt registry pattern from
-test_vault_sync_privacy_wall_route.py (#526).
+Route fragments take their handlers from ``route_collector()``.
 """
 
 from __future__ import annotations
@@ -34,6 +33,7 @@ from core.services.vault.vault_reconciler import (
 )
 from core.utils.result_simplified import Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.route_collector import route_collector
 from ui.vault.sync_fragments import preview_fragment
 
 # ---------------------------------------------------------------------------
@@ -479,25 +479,6 @@ class TestPreviewFragmentIgnored:
 # ---------------------------------------------------------------------------
 
 
-class _RouteRegistry:
-    """Capture handlers registered via @rt(path, methods=...)."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "POST"):
-        return self.handlers[(path, method.upper())]
-
-
 def _request():
     request = SimpleNamespace()
     request.session = {"user_uid": "user_owner"}
@@ -509,7 +490,7 @@ def _request():
 class TestPreviewRoute:
     @pytest.mark.asyncio
     async def test_preview_fragment_reports_counts_and_sync_button(self) -> None:
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         reconciler = MagicMock()
         reconciler.preview = AsyncMock(
             return_value=Result.ok(
@@ -527,9 +508,9 @@ class TestPreviewRoute:
                 )
             )
         )
-        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
+        create_vault_routes(rt=rt, vault_reconciler=reconciler, user_service=MagicMock())
 
-        handler = registry.get("/settings/vault/preview", "POST")
+        handler = registry["/settings/vault/preview", "POST"]
         html = to_xml(await handler(_request()))
 
         assert "nothing has been changed" in html
@@ -542,7 +523,7 @@ class TestPreviewRoute:
 
     @pytest.mark.asyncio
     async def test_preview_first_run_notice_renders_consent_form(self) -> None:
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         reconciler = MagicMock()
         reconciler.preview = AsyncMock(
             return_value=Result.ok(VaultSyncPreview(first_run_notice=True))
@@ -552,9 +533,9 @@ class TestPreviewRoute:
                 VaultDescription(vault_configured=True, allowed_folders=("periodic_notes",))
             )
         )
-        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
+        create_vault_routes(rt=rt, vault_reconciler=reconciler, user_service=MagicMock())
 
-        handler = registry.get("/settings/vault/preview", "POST")
+        handler = registry["/settings/vault/preview", "POST"]
         html = to_xml(await handler(_request()))
 
         assert "Allow SKUEL to sync" in html
@@ -569,16 +550,16 @@ class TestPreviewRoute:
     async def test_preview_consent_route_reruns_preview_not_sync(self) -> None:
         # Kody #527: the preview-consent door grants consent then re-runs the
         # DRY-RUN preview; the real sync is never invoked.
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         reconciler = MagicMock()
         reconciler.grant_consent = AsyncMock(return_value=Result.ok(None))
         reconciler.preview = AsyncMock(
             return_value=Result.ok(VaultSyncPreview(would_ingest_count=1, would_ingest_new=1))
         )
         reconciler.sync = AsyncMock()
-        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
+        create_vault_routes(rt=rt, vault_reconciler=reconciler, user_service=MagicMock())
 
-        handler = registry.get("/settings/vault/preview/consent", "POST")
+        handler = registry["/settings/vault/preview/consent", "POST"]
         html = to_xml(await handler(_request()))
 
         reconciler.grant_consent.assert_awaited_once()
@@ -590,7 +571,7 @@ class TestPreviewRoute:
     async def test_zero_count_preview_with_warnings_is_not_in_sync(self) -> None:
         # Kody #527: a refused mass deletion must never hide behind an
         # "already in sync" header just because every count is zero.
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         reconciler = MagicMock()
         reconciler.preview = AsyncMock(
             return_value=Result.ok(
@@ -602,9 +583,9 @@ class TestPreviewRoute:
                 )
             )
         )
-        create_vault_routes(rt=registry, vault_reconciler=reconciler, user_service=MagicMock())
+        create_vault_routes(rt=rt, vault_reconciler=reconciler, user_service=MagicMock())
 
-        handler = registry.get("/settings/vault/preview", "POST")
+        handler = registry["/settings/vault/preview", "POST"]
         html = to_xml(await handler(_request()))
 
         assert "already in sync" not in html

@@ -109,9 +109,9 @@ A route factory returns `None`, whatever its layer:
 | a single-route helper (`_register_*_route`, `create_knowledge_patterns_api_route`) | applies `rt(path)(handler)` as a statement and returns nothing |
 | `create_{domain}_routes` in `*_routes.py` | returns `None`; bootstrap counts `app.router.routes` once for its summary log |
 
-A test that needs the handler a factory registered captures it from a fake `rt`
-(see `tests/unit/infrastructure/test_activity_field_api_factory.py`'s `_RouteRegistry`),
-never from a return value.
+A test that needs the handler a factory registered takes it from the stand-in `rt` that
+`route_collector()` (`tests/helpers/route_collector.py`) returns, by the door it answers
+(`registered["/api/tasks/create", "POST"]`), never from a return value.
 
 ---
 

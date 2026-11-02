@@ -48,6 +48,7 @@ from core.services.conversation import ConversationService
 from core.utils.result_simplified import ErrorCategory, Result
 from tests.fixtures.csrf import attach_csrf
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 # Two distinct owners — the whole point of guard 1 is cross-owner isolation.
@@ -337,7 +338,7 @@ class TestOptInPersistenceGuard:
             await session.run("MATCH (u:User {uid: $uid}) DETACH DELETE u", uid=_OWNER)
 
     @pytest_asyncio.fixture
-    def journal_handlers(self, neo4j_driver, clean_neo4j, monkeypatch) -> dict[str, Any]:
+    def journal_handlers(self, neo4j_driver, clean_neo4j, monkeypatch) -> RegisteredHandlers:
         """Register the journals routes with a REAL conversation store, LLM mocked."""
         from adapters.inbound.journals_routes import create_journals_routes
         from adapters.inbound.rate_limit import reset_buckets_for_testing
@@ -370,16 +371,9 @@ class TestOptInPersistenceGuard:
             build_production_backends(neo4j_driver)["conversation_backend"]
         )
 
-        registered: dict[str, Any] = {}
+        rt, registered = route_collector()
 
-        def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
-            def decorator(fn: Any) -> Any:
-                registered[path] = fn
-                return fn
-
-            return decorator
-
-        create_journals_routes(rt_collector, services)
+        create_journals_routes(rt, services)
         return registered
 
     async def _count(self, driver, query: str, **params) -> int:
@@ -395,7 +389,7 @@ class TestOptInPersistenceGuard:
         turns_q = "MATCH (t:ConversationTurn) RETURN count(t) AS n"
 
         # 1. Open a discussion (typed door). Ephemeral by default — zero nodes.
-        await journal_handlers["/journals/start"](
+        await journal_handlers["/journals/start", "POST"](
             request=_journal_request(_OWNER, {"raw_entry": "First thought."})
         )
         assert await self._count(neo4j_driver, sessions_q, u=_OWNER) == 0
@@ -408,7 +402,7 @@ class TestOptInPersistenceGuard:
                 {"role": ROLE_ASSISTANT, "content": "reply-1"},
             ]
         )
-        await journal_handlers["/journals/follow-up"](
+        await journal_handlers["/journals/follow-up", "POST"](
             request=_journal_request(_OWNER, {}),
             user_reply="Tell me more.",
             transcript_json=transcript,
@@ -425,7 +419,7 @@ class TestOptInPersistenceGuard:
                 {"role": ROLE_ASSISTANT, "content": "reply-2"},
             ]
         )
-        await journal_handlers["/journals/save"](
+        await journal_handlers["/journals/save", "POST"](
             request=_journal_request(_OWNER, {}),
             transcript_json=full,
             title="Saved discussion",
@@ -461,7 +455,7 @@ class TestOptInPersistenceGuard:
                 {"role": ROLE_ASSISTANT, "content": "assistant reply"},
             ]
         )
-        await journal_handlers["/journals/save"](
+        await journal_handlers["/journals/save", "POST"](
             request=_journal_request(_OWNER, {}), transcript_json=full, title="Round trip"
         )
 
@@ -479,7 +473,7 @@ class TestOptInPersistenceGuard:
 
         # Continue (GET route, HX fragment) rehydrates the workspace from the
         # stored turns AND lists the saved chat in the revisit sidebar.
-        continued = await journal_handlers["/journals/discussion/{session_id}"](
+        continued = await journal_handlers["/journals/discussion/{session_id}", "GET"](
             request=_journal_request(_OWNER, {}, hx=True), session_id=sid
         )
         html = to_xml(continued)
@@ -490,7 +484,7 @@ class TestOptInPersistenceGuard:
         assert f'data-discussion-row="{sid}"' in html
 
         # Delete (POST route) drops the whole subtree — session AND turns gone.
-        await journal_handlers["/journals/discussion/{session_id}/delete"](
+        await journal_handlers["/journals/discussion/{session_id}/delete", "POST"](
             request=_journal_request(_OWNER, {}), session_id=sid
         )
         assert (

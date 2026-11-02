@@ -24,6 +24,7 @@ from fasthtml.common import to_xml
 from starlette.exceptions import HTTPException
 
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.route_collector import route_collector
 
 
 def _make_request(user_uid: str | None = "user_mike") -> Any:
@@ -65,17 +66,10 @@ def handler(mock_services: Any) -> Any:
     """Register the picker route and return the handler callable."""
     from adapters.inbound.picker_routes import create_picker_routes
 
-    registered: dict[str, Any] = {}
+    rt, registered = route_collector()
 
-    def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
-        def decorator(fn: Any) -> Any:
-            registered[path] = fn
-            return fn
-
-        return decorator
-
-    create_picker_routes(rt_collector, mock_services)
-    return registered["/api/picker/search"]
+    create_picker_routes(rt, mock_services)
+    return registered["/api/picker/search", "GET"]
 
 
 def render(fragment: Any) -> str:

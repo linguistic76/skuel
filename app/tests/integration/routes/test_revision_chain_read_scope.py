@@ -47,6 +47,7 @@ from core.models.user.user import User
 from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
 from core.utils.result_simplified import Errors, Result
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 STUDENT_A = seed_user_uid("rcs_student_a")  # in the group IN_TEACHER owns
@@ -102,20 +103,6 @@ def _make_request(user_uid: str, **query_params: str) -> Any:
     )
 
 
-def _collector() -> tuple[Any, dict[str, Any]]:
-    """A stand-in rt that records path → registered handler."""
-    registered: dict[str, Any] = {}
-
-    def rt(path: str, *_a: Any, **_kw: Any) -> Any:
-        def decorator(fn: Any) -> Any:
-            registered[path] = fn
-            return fn
-
-        return decorator
-
-    return rt, registered
-
-
 @pytest.fixture
 def revised_service(neo4j_driver) -> RevisedExerciseService:
     backend = build_production_backends(neo4j_driver)["revised_exercise_backend"]
@@ -128,8 +115,8 @@ def report_backend(neo4j_driver) -> EntryReportBackend:
 
 
 @pytest.fixture
-def api_handlers(revised_service) -> dict[str, Any]:
-    rt, registered = _collector()
+def api_handlers(revised_service) -> RegisteredHandlers:
+    rt, registered = route_collector()
     create_revised_exercises_api_routes(rt, revised_service, user_service=_user_service())
     return registered
 
@@ -224,8 +211,10 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
         )
 
 
-async def _chain(handlers: dict[str, Any], user_uid: str, **params: str) -> list[dict[str, Any]]:
-    response = await handlers[CHAIN_PATH](_make_request(user_uid, **params))
+async def _chain(
+    handlers: RegisteredHandlers, user_uid: str, **params: str
+) -> list[dict[str, Any]]:
+    response = await handlers[CHAIN_PATH, "GET"](_make_request(user_uid, **params))
     assert getattr(response, "status_code", None) == 200
     payload = json.loads(response.body)
     assert isinstance(payload, list)

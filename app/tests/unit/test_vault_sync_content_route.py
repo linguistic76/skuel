@@ -5,7 +5,7 @@ directory-ingest path that replaced the retired POST /api/ingest/directory. It i
 admin-only and forwards to VaultReconciler.sync(VaultKind.CONTENT, ...), returning
 the VaultSyncStats dict.
 
-Mirrors the fake-rt registry pattern from the former test_ingest_directory_mode.py.
+Handlers come from ``tests/helpers/route_collector.py``.
 """
 
 from __future__ import annotations
@@ -23,25 +23,7 @@ from core.ports.vault_bridge_protocol import VaultSyncStats
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.result_simplified import Result
 from tests.fixtures.csrf import attach_csrf
-
-
-class _RouteRegistry:
-    """Capture handlers registered via @rt(path, methods=...)."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "POST"):
-        return self.handlers[(path, method.upper())]
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 
 
 def _user_service(is_admin: bool) -> MagicMock:
@@ -62,11 +44,11 @@ def _request(body: bytes = b""):
     return attach_csrf(request)
 
 
-def _routes(is_admin: bool) -> tuple[_RouteRegistry, MagicMock]:
-    registry = _RouteRegistry()
+def _routes(is_admin: bool) -> tuple[RegisteredHandlers, MagicMock]:
+    rt, registry = route_collector()
     reconciler = MagicMock()
     create_vault_routes(
-        rt=registry,
+        rt=rt,
         vault_reconciler=reconciler,
         user_service=_user_service(is_admin),
     )
@@ -79,7 +61,7 @@ class TestVaultSyncContentRoute:
         registry, reconciler = _routes(is_admin=True)
         reconciler.sync = AsyncMock(return_value=Result.ok(VaultSyncStats(entries_ingested=3)))
 
-        handler = registry.get("/api/vault/sync/content", "POST")
+        handler = registry["/api/vault/sync/content", "POST"]
         response = await handler(_request())
 
         assert response.status_code == 200
@@ -95,7 +77,7 @@ class TestVaultSyncContentRoute:
         registry, reconciler = _routes(is_admin=True)
         reconciler.sync = AsyncMock(return_value=Result.ok(VaultSyncStats(entries_ingested=5)))
 
-        handler = registry.get("/api/vault/sync/content", "POST")
+        handler = registry["/api/vault/sync/content", "POST"]
         response = await handler(_request(body=b'{"force": true}'))
 
         assert response.status_code == 200
@@ -106,7 +88,7 @@ class TestVaultSyncContentRoute:
         registry, reconciler = _routes(is_admin=True)
         reconciler.sync = AsyncMock()
 
-        handler = registry.get("/api/vault/sync/content", "POST")
+        handler = registry["/api/vault/sync/content", "POST"]
         response = await handler(_request(body=b"{not json"))
 
         assert response.status_code == 400
@@ -119,7 +101,7 @@ class TestVaultSyncContentRoute:
         registry, reconciler = _routes(is_admin=True)
         reconciler.sync = AsyncMock()
 
-        handler = registry.get("/api/vault/sync/content", "POST")
+        handler = registry["/api/vault/sync/content", "POST"]
         for body in (b'{"force": "true"}', b'{"force": "yes"}', b'{"force": 1}'):
             response = await handler(_request(body=body))
             assert response.status_code == 400, f"body {body!r} must be rejected"
@@ -130,7 +112,7 @@ class TestVaultSyncContentRoute:
         registry, reconciler = _routes(is_admin=False)
         reconciler.sync = AsyncMock()
 
-        handler = registry.get("/api/vault/sync/content", "POST")
+        handler = registry["/api/vault/sync/content", "POST"]
         with pytest.raises(HTTPException) as exc_info:
             await handler(_request())
 

@@ -81,7 +81,7 @@ def orchestrator(neo4j_driver) -> UserEntryOrchestrator:
 def handler(orchestrator: UserEntryOrchestrator) -> Handler:
     rt, registered = route_collector()
     create_entry_reports_ui_routes(rt, orchestrator)
-    return registered[DETAIL_PATH]
+    return registered[DETAIL_PATH, "GET"]
 
 
 @pytest.fixture

@@ -24,6 +24,7 @@ from fasthtml.common import to_xml
 from adapters.inbound.learning_loop_routes import create_learning_loop_detail_routes
 from core.models.zpd.zpd_assessment import ZPDAssessment
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.route_collector import route_collector
 from ui.explore.ps_detail import render_ps_detail_content, render_ps_next_step_related
 from ui.page_contexts import NextStepRelatedGroup, RelatedConceptChip
 
@@ -125,20 +126,6 @@ class TestPsDetailMount:
 # ============================================================================
 
 
-class _RouteRecorder:
-    """Fake ``rt`` decorator — records path → handler for direct invocation."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[str, Any] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None) -> Any:
-        def _register(handler: Any) -> Any:
-            self.handlers[path] = handler
-            return handler
-
-        return _register
-
-
 def _authed_request(user_uid: str | None = "user_test") -> SimpleNamespace:
     session: dict[str, str] = {"user_uid": user_uid} if user_uid else {}
     return SimpleNamespace(session=session)
@@ -150,16 +137,16 @@ def _handler(
     vector_search_service: Any,
     orchestrator: Any | None = None,
 ) -> Any:
-    recorder = _RouteRecorder()
+    rt, handlers = route_collector()
     create_learning_loop_detail_routes(
-        recorder,  # type: ignore[arg-type]  # boundary: test double for RouteDecorator
+        rt,
         orchestrator=orchestrator or MagicMock(),
         user_service=MagicMock(),
         context_intelligence=MagicMock(),
         vector_search_service=vector_search_service,
         zpd_service=zpd_service,
     )
-    return recorder.handlers["/explore/next-step/related"]
+    return handlers["/explore/next-step/related", "GET"]
 
 
 def _vector_service(neighbours: list[dict]) -> MagicMock:

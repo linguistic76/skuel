@@ -30,6 +30,7 @@ from starlette.exceptions import HTTPException
 
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -188,7 +189,7 @@ def mock_services() -> Any:
 
 
 @pytest.fixture
-def handlers(mock_services: Any, tmp_path: Any) -> dict[str, Any]:
+def handlers(mock_services: Any, tmp_path: Any) -> RegisteredHandlers:
     """Register the journals routes and return path → handler.
 
     Wires a REAL ``JournalBatchService`` (je_* folders under ``tmp_path``) so
@@ -258,7 +259,7 @@ def _text_upload(filename: str, content: bytes) -> Any:
     return UploadFile(file=io.BytesIO(content), filename=filename)
 
 
-def _register(services: Any, vault_root: Any = None, llm_caller: Any = None) -> dict[str, Any]:
+def _register(services: Any, vault_root: Any = None, llm_caller: Any = None) -> RegisteredHandlers:
     """Register journals routes against ``services`` → path → handler.
 
     Used by tests that customise a service the route closure captures at
@@ -278,31 +279,24 @@ def _register(services: Any, vault_root: Any = None, llm_caller: Any = None) -> 
         vault_root=vault_root,
     )
 
-    registered: dict[str, Any] = {}
+    rt, registered = route_collector()
 
-    def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
-        def decorator(fn: Any) -> Any:
-            registered[path] = fn
-            return fn
-
-        return decorator
-
-    create_journals_routes(rt_collector, services)
+    create_journals_routes(rt, services)
     return registered
 
 
 class TestJournalsStartZeroPersistence:
-    async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
+    async def test_unauthenticated_raises_401(self, handlers: RegisteredHandlers) -> None:
         request = _make_request(user_uid=None)
         with pytest.raises(HTTPException) as exc:
-            await handlers["/journals/start"](request=request)
+            await handlers["/journals/start", "POST"](request=request)
         assert exc.value.status_code == 401
 
     async def test_standard_opens_discussion_is_ephemeral_not_persisted(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         request = _make_request(form={"raw_entry": "What's on my mind today."})
-        response = await handlers["/journals/start"](request=request)
+        response = await handlers["/journals/start", "POST"](request=request)
 
         # Typed text opens a discussion (both tiers), not the DNWF staging.
         mock_services.journal.run_discussion.assert_awaited_once()
@@ -328,13 +322,13 @@ class TestJournalsStartZeroPersistence:
         assert "Save this chat" in html
 
     async def test_founder_opens_discussion_not_dnwf_staging(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         # Typed FOUNDER text opens a discussion too (ruling: typed = discussion);
         # the Scribe staging lives on the file/audio door, never here.
         mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
         request = _make_request(form={"raw_entry": "Founder brainstorm."})
-        response = await handlers["/journals/start"](request=request)
+        response = await handlers["/journals/start", "POST"](request=request)
 
         mock_services.journal.run_discussion.assert_awaited_once()
         mock_services.journal.run_stage1.assert_not_awaited()
@@ -344,7 +338,7 @@ class TestJournalsStartZeroPersistence:
         _assert_understanding_channel_untouched(mock_services)
 
     async def test_founder_shelf_selection_scopes_canon(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         # Checked shelf books → summon_canon on, scoped to those resource_uids;
         # the vault toggle rides its own flag. Any book checked means summon.
@@ -357,7 +351,7 @@ class TestJournalsStartZeroPersistence:
                 ("summon_vault", "true"),
             ]
         )
-        await handlers["/journals/start"](request=request)
+        await handlers["/journals/start", "POST"](request=request)
 
         _, kwargs = mock_services.journal.run_discussion.call_args
         assert kwargs["summon_canon"] is True
@@ -365,7 +359,7 @@ class TestJournalsStartZeroPersistence:
         assert kwargs["canon_book_uids"] == ["res_a", "res_b"]
 
     async def test_standard_forged_source_flags_are_ignored(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         # A non-FOUNDER can forge the POST flags; the route must drop them.
         request = _make_request(
@@ -375,7 +369,7 @@ class TestJournalsStartZeroPersistence:
                 ("summon_vault", "true"),
             ]
         )
-        await handlers["/journals/start"](request=request)
+        await handlers["/journals/start", "POST"](request=request)
 
         _, kwargs = mock_services.journal.run_discussion.call_args
         assert kwargs["summon_canon"] is False
@@ -383,10 +377,10 @@ class TestJournalsStartZeroPersistence:
         assert kwargs["canon_book_uids"] is None
 
     async def test_empty_entry_short_circuits_with_no_ai_and_no_persistence(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         request = _make_request(form={"raw_entry": "   "})
-        await handlers["/journals/start"](request=request)
+        await handlers["/journals/start", "POST"](request=request)
 
         mock_services.journal.run_discussion.assert_not_awaited()
         mock_services.journal.run_stage1.assert_not_awaited()
@@ -394,13 +388,13 @@ class TestJournalsStartZeroPersistence:
         _assert_understanding_channel_untouched(mock_services)
 
     async def test_ai_failure_still_persists_nothing(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         mock_services.journal.run_discussion = AsyncMock(
             return_value=Result.fail(Errors.integration("llm", "boom"))
         )
         request = _make_request(form={"raw_entry": "Trigger an AI failure."})
-        await handlers["/journals/start"](request=request)
+        await handlers["/journals/start", "POST"](request=request)
 
         # A failed discussion leaves no session (persist happens only post-LLM).
         _assert_no_discussion_persisted(mock_services)
@@ -411,7 +405,7 @@ class TestJournalsSaveOptIn:
     """`POST /journals/save` is the ONLY path into the store (ADR-078 §5 opt-in)."""
 
     async def test_save_persists_folded_pairs_not_understanding(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         import json
 
@@ -425,7 +419,7 @@ class TestJournalsSaveOptIn:
                 {"role": "assistant", "content": "Another reply."},
             ]
         )
-        response = await handlers["/journals/save"](
+        response = await handlers["/journals/save", "POST"](
             request=_make_request(form={}),
             transcript_json=transcript,
             title="My chat",
@@ -455,11 +449,11 @@ class TestJournalsSaveOptIn:
         assert "hx-swap-oob" in html
 
     async def test_save_empty_transcript_persists_nothing_and_spares_composer(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         # An empty / whitespace transcript has no pairs to save — nothing reaches
         # the store (guard 7: no session is created without real content).
-        response = await handlers["/journals/save"](
+        response = await handlers["/journals/save", "POST"](
             request=_make_request(form={}),
             transcript_json="",
             title="x",
@@ -477,7 +471,7 @@ class TestJournalsUploadZeroPersistence:
 
     async def test_single_text_file_writes_je_out_and_persists_nothing(
         self,
-        handlers: dict[str, Any],
+        handlers: RegisteredHandlers,
         mock_services: Any,
         tmp_path: Any,
     ) -> None:
@@ -491,7 +485,7 @@ class TestJournalsUploadZeroPersistence:
                 ("workspace_target", "1"),
             ]
         )
-        response = await handlers["/journals/upload"](request=request)
+        response = await handlers["/journals/upload", "POST"](request=request)
 
         mock_services.journal.run_compiled.assert_awaited_once()
         assert (tmp_path / "je_out" / "reflection_out.md").read_text() == "# Compiled output"
@@ -511,7 +505,7 @@ class TestJournalsUploadZeroPersistence:
 
     async def test_single_upload_without_workspace_does_not_retarget(
         self,
-        handlers: dict[str, Any],
+        handlers: RegisteredHandlers,
         mock_services: Any,
     ) -> None:
         # The /submissions/journal form omits workspace_target → the result must
@@ -523,7 +517,7 @@ class TestJournalsUploadZeroPersistence:
                 ("processing_mode", "instructions_only"),
             ]
         )
-        response = await handlers["/journals/upload"](request=request)
+        response = await handlers["/journals/upload", "POST"](request=request)
 
         # Returned as a bare fragment (FT), not an HX-Retarget HTMLResponse.
         from starlette.responses import HTMLResponse
@@ -532,14 +526,14 @@ class TestJournalsUploadZeroPersistence:
         _assert_understanding_channel_untouched(mock_services)
 
     async def test_no_file_persists_nothing(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         request = _make_upload_request([("processing_mode", "instructions_only")])
-        await handlers["/journals/upload"](request=request)
+        await handlers["/journals/upload", "POST"](request=request)
         _assert_understanding_channel_untouched(mock_services)
 
     async def test_duplicate_output_stem_batch_is_rejected(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         # Two files with the same STEM (note.txt / note.md) map to the same
         # je_out/ output, so the batch is rejected loudly rather than silently
@@ -551,7 +545,7 @@ class TestJournalsUploadZeroPersistence:
                 ("processing_mode", "instructions_only"),
             ]
         )
-        response = await handlers["/journals/upload"](request=request)
+        response = await handlers["/journals/upload", "POST"](request=request)
 
         from fasthtml.common import to_xml
 
@@ -576,7 +570,7 @@ class TestJournalsUploadZeroPersistence:
                 ("processing_mode", "transcribe_only"),
             ]
         )
-        response = await registered["/journals/upload"](request=request)
+        response = await registered["/journals/upload", "POST"](request=request)
 
         from fasthtml.common import to_xml
 
@@ -602,7 +596,7 @@ class TestJournalsUploadZeroPersistence:
                 ("processing_mode", "surprise_mode"),
             ]
         )
-        response = await registered["/journals/upload"](request=request)
+        response = await registered["/journals/upload", "POST"](request=request)
 
         from fasthtml.common import to_xml
 
@@ -621,7 +615,7 @@ class TestJournalsUploadZeroPersistence:
         registered = _register(mock_services, vault_root=tmp_path)
 
         request = _make_upload_request([("processing_mode", "surprise_mode")])
-        response = await registered["/journals/folder-process"](request=request)
+        response = await registered["/journals/folder-process", "POST"](request=request)
 
         from fasthtml.common import to_xml
 
@@ -640,7 +634,7 @@ class TestJournalsUploadZeroPersistence:
         registered = _register(mock_services, vault_root=tmp_path)
 
         request = _make_upload_request([("file", _text_upload("memo.mp3", b"audio"))])
-        await registered["/journals/upload"](request=request)
+        await registered["/journals/upload", "POST"](request=request)
 
         mock_services.batch_transcription.transcribe_one.assert_awaited_once()
         assert (tmp_path / "je_out" / "memo.txt").read_text() == "a transcript"
@@ -662,7 +656,7 @@ class TestJournalsUploadZeroPersistence:
                 ("processing_mode", "transcribe_and_instructions"),
             ]
         )
-        response = await registered["/journals/upload"](request=request)
+        response = await registered["/journals/upload", "POST"](request=request)
 
         from fasthtml.common import to_xml
 
@@ -696,7 +690,7 @@ class TestJournalsUploadZeroPersistence:
         registered = _register(mock_services, vault_root=tmp_path, llm_caller=llm)
 
         request = _make_upload_request([("processing_mode", "transcribe_and_instructions")])
-        await registered["/journals/folder-process"](request=request)
+        await registered["/journals/folder-process", "POST"](request=request)
 
         _, kwargs = mock_services.batch_transcription.transcribe_batch.call_args
         assert kwargs.get("skip_existing") is False
@@ -724,7 +718,7 @@ class TestJournalsUploadZeroPersistence:
                 ("processing_mode", "transcribe_only"),
             ]
         )
-        response = await registered["/journals/upload"](request=request)
+        response = await registered["/journals/upload", "POST"](request=request)
 
         from fasthtml.common import to_xml
 
@@ -903,7 +897,7 @@ class TestJournalExemplarInjection:
                 ("processing_mode", "instructions_only"),
             ]
         )
-        await registered["/journals/upload"](request=request)
+        await registered["/journals/upload", "POST"](request=request)
 
         llm.generate.assert_awaited_once()
         _, kwargs = llm.generate.call_args
@@ -928,7 +922,7 @@ class TestJournalExemplarInjection:
                 ("processing_mode", "instructions_only"),
             ]
         )
-        await registered["/journals/upload"](request=request)
+        await registered["/journals/upload", "POST"](request=request)
 
         _, kwargs = llm.generate.call_args
         # No exemplar block header injected when the folders are absent.
@@ -940,10 +934,10 @@ class TestSuggestActivitiesZeroPersistence:
     """`POST /journals/suggest-activities` takes content in the body, stores nothing."""
 
     async def test_content_body_runs_bridge_and_persists_nothing(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         request = _make_request(form={"content": "Ship the site by Friday."})
-        await handlers["/journals/suggest-activities"](request=request)
+        await handlers["/journals/suggest-activities", "POST"](request=request)
 
         mock_services.journal.suggest_activities.assert_awaited_once()
         # No stored entry is read or written.
@@ -951,11 +945,11 @@ class TestSuggestActivitiesZeroPersistence:
         _assert_understanding_channel_untouched(mock_services)
 
     async def test_core_tier_returns_inert_panel_and_persists_nothing(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         mock_services.journal = None
         request = _make_request(form={"content": "anything"})
-        response = await handlers["/journals/suggest-activities"](request=request)
+        response = await handlers["/journals/suggest-activities", "POST"](request=request)
 
         assert response is not None
         _assert_understanding_channel_untouched(mock_services)
@@ -980,25 +974,25 @@ class TestJournalsAITierGate:
         )
 
     async def test_registered_blocked_on_start(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         from fasthtml.common import to_xml
 
         self._as_registered(mock_services)
         request = _make_request(form={"raw_entry": "Costs money."})
-        response = await handlers["/journals/start"](request=request)
+        response = await handlers["/journals/start", "POST"](request=request)
 
         assert "paid subscription" in to_xml(response)
         mock_services.journal.run_discussion.assert_not_awaited()
         _assert_no_discussion_persisted(mock_services)
 
     async def test_registered_blocked_on_follow_up(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         from fasthtml.common import to_xml
 
         self._as_registered(mock_services)
-        response = await handlers["/journals/follow-up"](
+        response = await handlers["/journals/follow-up", "POST"](
             request=_make_request(form={}), user_reply="More please."
         )
 
@@ -1006,7 +1000,7 @@ class TestJournalsAITierGate:
         mock_services.journal.run_follow_up.assert_not_awaited()
 
     async def test_registered_blocked_on_upload(
-        self, handlers: dict[str, Any], mock_services: Any, tmp_path: Any
+        self, handlers: RegisteredHandlers, mock_services: Any, tmp_path: Any
     ) -> None:
         from fasthtml.common import to_xml
 
@@ -1017,35 +1011,35 @@ class TestJournalsAITierGate:
                 ("processing_mode", "instructions_only"),
             ]
         )
-        response = await handlers["/journals/upload"](request=request)
+        response = await handlers["/journals/upload", "POST"](request=request)
 
         assert "paid subscription" in to_xml(response)
         mock_services.journal.run_compiled.assert_not_awaited()
         assert not (tmp_path / "je_out" / "reflection_out.md").exists()
 
     async def test_registered_blocked_on_folder_process(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         from fasthtml.common import to_xml
 
         self._as_registered(mock_services)
         request = _make_request(form={"processing_mode": "transcribe_only"})
-        response = await handlers["/journals/folder-process"](request=request)
+        response = await handlers["/journals/folder-process", "POST"](request=request)
 
         assert "paid subscription" in to_xml(response)
 
     async def test_registered_gets_inert_suggestions_panel(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         self._as_registered(mock_services)
         request = _make_request(form={"content": "Ship the site."})
-        response = await handlers["/journals/suggest-activities"](request=request)
+        response = await handlers["/journals/suggest-activities", "POST"](request=request)
 
         assert response is not None
         mock_services.journal.suggest_activities.assert_not_awaited()
 
     async def test_failed_user_lookup_fails_secure(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         # The gate cannot be evaluated → deny rather than allow.
         from fasthtml.common import to_xml
@@ -1054,17 +1048,17 @@ class TestJournalsAITierGate:
             return_value=Result.fail(Errors.database("get_user", "down"))
         )
         request = _make_request(form={"raw_entry": "Costs money."})
-        response = await handlers["/journals/start"](request=request)
+        response = await handlers["/journals/start", "POST"](request=request)
 
         assert "paid subscription" in to_xml(response)
         mock_services.journal.run_discussion.assert_not_awaited()
 
     async def test_member_passes_the_gate(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         # Fixture default: MEMBER on a FULL system — the AI call goes through.
         request = _make_request(form={"raw_entry": "A paid member writes."})
-        await handlers["/journals/start"](request=request)
+        await handlers["/journals/start", "POST"](request=request)
 
         mock_services.journal.run_discussion.assert_awaited_once()
 
@@ -1089,7 +1083,7 @@ class TestJournalsDailyLlmQuota:
         mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
 
     async def test_founder_stage1_at_quota_is_denied(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         from fasthtml.common import to_xml
 
@@ -1099,7 +1093,7 @@ class TestJournalsDailyLlmQuota:
         self._as_founder(mock_services)
         self._consume_quota_units(LLMQuota.DAILY_LIMIT)
 
-        response = await handlers["/journals/stage1"](
+        response = await handlers["/journals/stage1", "POST"](
             request=_make_request(), raw_entry="Costs money."
         )
 
@@ -1107,21 +1101,23 @@ class TestJournalsDailyLlmQuota:
         mock_services.journal.run_stage1.assert_not_awaited()
 
     async def test_founder_stage1_records_one_unit(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         from adapters.inbound.rate_limit import llm_quota_allowed
         from core.constants import LLMQuota
 
         self._as_founder(mock_services)
 
-        await handlers["/journals/stage1"](request=_make_request(), raw_entry="Costs money.")
+        await handlers["/journals/stage1", "POST"](
+            request=_make_request(), raw_entry="Costs money."
+        )
 
         mock_services.journal.run_stage1.assert_awaited_once()
         self._consume_quota_units(LLMQuota.DAILY_LIMIT - 1)
         assert llm_quota_allowed(seed_user_uid("mike")) is False
 
     async def test_upload_invalid_utf8_burns_no_quota(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         from fasthtml.common import to_xml
 
@@ -1136,7 +1132,7 @@ class TestJournalsDailyLlmQuota:
                 ("processing_mode", "instructions_only"),
             ]
         )
-        response = await handlers["/journals/upload"](request=request)
+        response = await handlers["/journals/upload", "POST"](request=request)
 
         assert "valid UTF-8" in to_xml(response)
         # The decode rejection fired before the quota check — the final unit
@@ -1172,7 +1168,7 @@ class TestJournalsDailyLlmQuota:
                 ("processing_mode", "surprise_mode"),
             ]
         )
-        response = await registered["/journals/upload"](request=request)
+        response = await registered["/journals/upload", "POST"](request=request)
 
         assert "Unknown processing mode" in to_xml(response)
         # Rejected at the form boundary, before the quota gate — the final unit

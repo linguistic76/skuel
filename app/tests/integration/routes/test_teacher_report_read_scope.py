@@ -55,6 +55,7 @@ from core.services.report.entry_report_service import EntryReportService
 from core.services.report.teacher_review_service import TeacherReviewService
 from core.utils.result_simplified import Errors, Result
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 STUDENT = seed_user_uid("trs_student")
@@ -106,20 +107,6 @@ def _make_request(user_uid: str) -> Any:
     )
 
 
-def _collector() -> tuple[Any, dict[str, Any]]:
-    """A stand-in rt that records path → registered handler."""
-    registered: dict[str, Any] = {}
-
-    def rt(path: str, *_a: Any, **_kw: Any) -> Any:
-        def decorator(fn: Any) -> Any:
-            registered[path] = fn
-            return fn
-
-        return decorator
-
-    return rt, registered
-
-
 @pytest.fixture
 def review_service(neo4j_driver) -> TeacherReviewService:
     """Real service over a real user_entry backend.
@@ -147,8 +134,8 @@ def entry_report_service(neo4j_driver) -> EntryReportService:
 
 
 @pytest.fixture
-def ui_handlers(review_service, entry_report_service) -> dict[str, Any]:
-    rt, registered = _collector()
+def ui_handlers(review_service, entry_report_service) -> RegisteredHandlers:
+    rt, registered = route_collector()
     orchestrator = TeacherOrchestrator(review_service)
     create_teaching_ui_routes(
         rt,
@@ -160,8 +147,8 @@ def ui_handlers(review_service, entry_report_service) -> dict[str, Any]:
 
 
 @pytest.fixture
-def api_handlers(review_service, entry_report_service) -> dict[str, Any]:
-    rt, registered = _collector()
+def api_handlers(review_service, entry_report_service) -> RegisteredHandlers:
+    rt, registered = route_collector()
     create_teaching_api_routes(
         rt,
         review_service,
@@ -243,7 +230,7 @@ class TestReportDownloadScope:
     """The report .md download is owner-scoped, not merely teacher-gated."""
 
     async def test_in_group_teacher_downloads_the_file(self, api_handlers, seeded) -> None:
-        handler = api_handlers[DOWNLOAD_PATH]
+        handler = api_handlers[DOWNLOAD_PATH, "GET"]
         response = await handler(_make_request(IN_TEACHER), report_uid=REPORT_UID)
         assert isinstance(response, FileResponse), (
             "the authoring classroom's teacher must still get the feedback file"
@@ -251,7 +238,7 @@ class TestReportDownloadScope:
         assert str(response.path) == seeded
 
     async def test_out_of_group_teacher_gets_404(self, api_handlers, seeded) -> None:
-        handler = api_handlers[DOWNLOAD_PATH]
+        handler = api_handlers[DOWNLOAD_PATH, "GET"]
         response = await handler(_make_request(OUT_TEACHER), report_uid=REPORT_UID)
         # A denied read must not reach the client as a 200 success (it may be
         # cached); it is a real 404, identical to a nonexistent report.
@@ -260,7 +247,7 @@ class TestReportDownloadScope:
 
     async def test_missing_report_is_404_too(self, api_handlers, seeded) -> None:
         """The refusal is indistinguishable from a genuinely missing report."""
-        handler = api_handlers[DOWNLOAD_PATH]
+        handler = api_handlers[DOWNLOAD_PATH, "GET"]
         response = await handler(_make_request(IN_TEACHER), report_uid="er.does-not-exist")
         assert getattr(response, "status_code", None) == 404
 
@@ -275,14 +262,14 @@ class TestReviewFragmentScope:
     submission-detail read establishes access."""
 
     async def test_in_group_teacher_sees_feedback(self, ui_handlers, seeded) -> None:
-        handler = ui_handlers[CONTENT_PATH]
+        handler = ui_handlers[CONTENT_PATH, "GET"]
         markup = to_xml(await handler(_make_request(IN_TEACHER), uid=SUB_UID))
         assert SECRET_FEEDBACK in markup, (
             "the reviewing teacher must still see the submission's feedback history"
         )
 
     async def test_out_of_group_teacher_sees_nothing(self, ui_handlers, seeded) -> None:
-        handler = ui_handlers[CONTENT_PATH]
+        handler = ui_handlers[CONTENT_PATH, "GET"]
         markup = to_xml(await handler(_make_request(OUT_TEACHER), uid=SUB_UID))
         assert SECRET_FEEDBACK not in markup, (
             "a teacher outside the classroom must not read the feedback history"
@@ -299,12 +286,12 @@ class TestReviewPanelScope:
     """The inline review panel gates its feedback-history read the same way."""
 
     async def test_in_group_teacher_sees_feedback(self, api_handlers, seeded) -> None:
-        handler = api_handlers[PANEL_PATH]
+        handler = api_handlers[PANEL_PATH, "GET"]
         markup = to_xml(await handler(_make_request(IN_TEACHER), uid=SUB_UID))
         assert SECRET_FEEDBACK in markup
 
     async def test_out_of_group_teacher_sees_nothing(self, api_handlers, seeded) -> None:
-        handler = api_handlers[PANEL_PATH]
+        handler = api_handlers[PANEL_PATH, "GET"]
         markup = to_xml(await handler(_make_request(OUT_TEACHER), uid=SUB_UID))
         assert SECRET_FEEDBACK not in markup
 
@@ -344,7 +331,7 @@ class TestReviewShowsTheStudentsWork:
     teacher it was submitted to, and to no one else."""
 
     def _handler(self, ui_handlers, api_handlers, path: str, surface: str) -> Any:
-        return (ui_handlers if surface == "ui" else api_handlers)[path]
+        return (ui_handlers if surface == "ui" else api_handlers)[path, "GET"]
 
     async def test_the_teacher_reads_the_work_and_its_version(
         self, ui_handlers, api_handlers, seeded, path, surface

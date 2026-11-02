@@ -49,6 +49,7 @@ from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.result_simplified import Result
 from tests.helpers.faceted_capture import CapturedQuery, run_faceted
+from tests.helpers.route_collector import route_collector
 
 # ============================================================================
 # 1. Clause builder
@@ -943,35 +944,21 @@ class TestAdvancedSearchScoping:
 # ============================================================================
 
 
-class _RouteRegistry:
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], Any] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-
 class TestUnifiedRouteUserScope:
     @pytest.mark.asyncio
     async def test_route_builds_request_with_caller_uid(self) -> None:
         from adapters.inbound.search_routes import create_search_api_routes
         from tests.fixtures.csrf import attach_csrf
 
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         search_router = MagicMock()
         search_router.advanced_search = AsyncMock(
             return_value=Result.ok(
                 SimpleNamespace(query="Alpha", total_count=0, results_by_domain={}, top_results=[])
             )
         )
-        create_search_api_routes(rt=registry, search_router=search_router)
-        handler = registry.handlers[("/api/search/unified", "POST")]
+        create_search_api_routes(rt=rt, search_router=search_router)
+        handler = registry["/api/search/unified", "POST"]
 
         fake_request = attach_csrf(
             SimpleNamespace(

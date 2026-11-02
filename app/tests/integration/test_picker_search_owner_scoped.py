@@ -34,6 +34,7 @@ from core.models.enums import EntityStatus
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.event.event import Event
 from core.models.principle.principle import Principle
+from tests.helpers.route_collector import route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 # The picker route always speaks to the authenticated owner; use a user that
@@ -56,17 +57,10 @@ def _register_handler(services: Any) -> Any:
     """Register the real picker route and return the handler callable."""
     from adapters.inbound.picker_routes import create_picker_routes
 
-    registered: dict[str, Any] = {}
+    rt, registered = route_collector()
 
-    def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
-        def decorator(fn: Any) -> Any:
-            registered[path] = fn
-            return fn
-
-        return decorator
-
-    create_picker_routes(rt_collector, services)
-    return registered["/api/picker/search"]
+    create_picker_routes(rt, services)
+    return registered["/api/picker/search", "GET"]
 
 
 def _picker_services(services: Any) -> Any:

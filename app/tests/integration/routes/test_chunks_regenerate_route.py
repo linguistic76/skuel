@@ -1,7 +1,7 @@
 """Integration test: POST /api/chunks/regenerate against real Neo4j.
 
 Exercises the route closure end-to-end:
-- Captured via fake `rt` decorator (same pattern as tests/unit/test_chunks_regenerate_route.py)
+- Captured via ``route_collector()`` (``tests/helpers/route_collector.py``)
 - Wrapped in require_admin + csrf_protected + boundary_handler (the real decorators)
 - Backed by a real BatchChunkingService against the Neo4j testcontainer
 
@@ -34,24 +34,8 @@ from core.utils.result_simplified import Result
 from tests.fixtures.csrf import attach_csrf
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 from tests.helpers.production_backends import build_ingestion_service, build_production_backends
+from tests.helpers.route_collector import route_collector
 from tests.helpers.seed_uids import seed_user_uid
-
-
-class _RouteRegistry:
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "POST"):
-        return self.handlers[(path, method.upper())]
 
 
 class _DriverConnection:
@@ -156,15 +140,15 @@ async def test_regenerate_route_replaces_stale_chunks(neo4j_driver):
             event_bus=None,
         )
 
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         create_ingestion_api_routes(
-            rt=registry,
+            rt=rt,
             unified_ingestion=MagicMock(),
             user_service=_admin_user_service(),
             batch_chunking_service=batch_service,
         )
 
-        handler = registry.get("/api/chunks/regenerate", "POST")
+        handler = registry["/api/chunks/regenerate", "POST"]
         response = await handler(
             _admin_request(json_body={"parent_uids": [parent_uid], "force": False})
         )

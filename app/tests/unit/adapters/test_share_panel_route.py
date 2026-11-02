@@ -16,6 +16,7 @@ from fastcore.xml import to_xml  # type: ignore[import-untyped]
 
 from adapters.inbound.user_entry_ui import create_user_entry_ui_routes
 from core.utils.result_simplified import Result
+from tests.helpers.route_collector import route_collector
 
 _CANDIDATES = {
     "groups": [{"uid": "g_class", "name": "Physics 101"}, {"uid": "g_other", "name": "Chess"}],
@@ -24,23 +25,6 @@ _CANDIDATES = {
     "shared_user_uids": [],
     "reviewer_group_uids": ["g_class"],
 }
-
-
-class _RouteRegistry:
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "GET"):
-        return self.handlers[(path, method.upper())]
 
 
 def _request() -> SimpleNamespace:
@@ -56,12 +40,12 @@ def _request() -> SimpleNamespace:
 
 @pytest.fixture
 def handler():
-    registry = _RouteRegistry()
+    rt, registry = route_collector()
     sharing = SimpleNamespace(candidates=AsyncMock(return_value=Result.ok(_CANDIDATES)))
     create_user_entry_ui_routes(
-        registry, SimpleNamespace(), orchestrator=SimpleNamespace(), entry_sharing=sharing
+        rt, SimpleNamespace(), orchestrator=SimpleNamespace(), entry_sharing=sharing
     )
-    return registry.get("/gradebook/{uid}/share-panel")
+    return registry["/gradebook/{uid}/share-panel", "GET"]
 
 
 def _checkbox(html: str, value: str) -> str:

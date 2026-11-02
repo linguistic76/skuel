@@ -23,6 +23,7 @@ from adapters.inbound.orchestration_routes import (
     create_habit_event_routes,
     create_principle_alignment_routes,
 )
+from tests.helpers.route_collector import Door, route_collector
 
 if TYPE_CHECKING:
     from core.ports.service_protocols import OwnershipVerifier
@@ -39,12 +40,38 @@ _REFUSED: tuple[tuple[Factory, Verifiers], ...] = (
     (create_principle_alignment_routes, {"goals": MagicMock(), "habits": None}),
 )
 
-# (factory, its verifiers, the routes it registers)
-_REGISTERED: tuple[tuple[Factory, Verifiers, int], ...] = (
-    (create_goal_task_routes, {"goals": MagicMock()}, 2),
-    (create_habit_event_routes, {"habits": MagicMock()}, 2),
-    (create_goals_intelligence_routes, {"goals": MagicMock()}, 3),
-    (create_principle_alignment_routes, {"goals": MagicMock(), "habits": MagicMock()}, 5),
+# (factory, its verifiers, the doors it registers)
+_REGISTERED: tuple[tuple[Factory, Verifiers, set[Door]], ...] = (
+    (
+        create_goal_task_routes,
+        {"goals": MagicMock()},
+        {("/goals/generate-tasks", "POST"), ("/goals/task-templates", "GET")},
+    ),
+    (
+        create_habit_event_routes,
+        {"habits": MagicMock()},
+        {("/habits/event-templates", "GET"), ("/habits/schedule-events", "POST")},
+    ),
+    (
+        create_goals_intelligence_routes,
+        {"goals": MagicMock()},
+        {
+            ("/goals/habit-impact", "GET"),
+            ("/goals/predict-success", "GET"),
+            ("/goals/risk-assessment", "GET"),
+        },
+    ),
+    (
+        create_principle_alignment_routes,
+        {"goals": MagicMock(), "habits": MagicMock()},
+        {
+            ("/principles/goal-alignment", "GET"),
+            ("/principles/habit-alignment", "GET"),
+            ("/principles/list", "GET"),
+            ("/principles/motivational-profile", "GET"),
+            ("/principles/suggest-actions", "GET"),
+        },
+    ),
 )
 
 
@@ -60,22 +87,22 @@ def _missing(verifiers: Verifiers) -> str:
 def test_factory_refuses_to_register_without_its_verifier(
     factory: Factory, verifiers: Verifiers
 ) -> None:
-    rt = MagicMock()
+    rt, registered = route_collector()
 
     with pytest.raises(ValueError, match="without the service that verifies its owner"):
         factory(rt, MagicMock(), **verifiers)
 
-    rt.assert_not_called()
+    assert not registered
 
 
 @pytest.mark.parametrize(
-    ("factory", "verifiers", "routes"),
+    ("factory", "verifiers", "doors"),
     _REGISTERED,
     ids=[factory.__name__ for factory, _, _ in _REGISTERED],
 )
 def test_factory_registers_its_routes_with_its_verifier(
-    factory: Factory, verifiers: Verifiers, routes: int
+    factory: Factory, verifiers: Verifiers, doors: set[Door]
 ) -> None:
-    rt = MagicMock()
+    rt, registered = route_collector()
     factory(rt, MagicMock(), **verifiers)
-    assert rt.call_count == routes
+    assert set(registered) == doors

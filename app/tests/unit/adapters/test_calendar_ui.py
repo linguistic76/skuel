@@ -1,6 +1,6 @@
 """Smoke tests for calendar_ui HTMX/UI route handlers.
 
-We capture handlers through a fake `rt` decorator and exercise the HTMX content
+We capture handlers through ``route_collector()`` and exercise the HTMX content
 fragments (month/week/day grids, where the service interaction happens) and the
 item-details modal (the "read" code path).
 
@@ -28,6 +28,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.route_collector import route_collector
 
 
 def _render(response) -> str:
@@ -41,23 +42,6 @@ def _render(response) -> str:
 # ============================================================================
 # Test infrastructure
 # ============================================================================
-
-
-class _RouteRegistry:
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "GET"):
-        return self.handlers[(path, method.upper())]
 
 
 def _make_request(*, user_uid: str = "user_smoke", form_data=None, query_params=None):
@@ -93,9 +77,9 @@ def _make_calendar_item() -> CalendarItem:
 
 @pytest.fixture
 def routes_and_service():
-    registry = _RouteRegistry()
+    rt, registry = route_collector()
     service = AsyncMock()
-    create_calendar_ui_routes(rt=registry, calendar_service=service)
+    create_calendar_ui_routes(rt=rt, calendar_service=service)
     return registry, service
 
 
@@ -116,7 +100,7 @@ def test_expected_routes_are_registered(routes_and_service) -> None:
         ("/cal/habit/{habit_uid}/complete", "POST"),
     ]
     for key in expected:
-        assert key in registry.handlers, f"missing handler: {key}"
+        assert key in registry, f"missing handler: {key}"
 
 
 # ============================================================================
@@ -131,7 +115,7 @@ class TestMonthContentFragment:
         service.get_calendar_view = AsyncMock(
             return_value=Result.ok(_make_calendar_data(items=[_make_calendar_item()]))
         )
-        handler = registry.get("/cal/month/{year}/{month}/content")
+        handler = registry["/cal/month/{year}/{month}/content", "GET"]
         response = await handler(_make_request(), year=2026, month=5)
 
         rendered = _render(response)
@@ -171,7 +155,7 @@ class TestMonthContentFragment:
                 )
             )
         )
-        handler = registry.get("/cal/month/{year}/{month}/content")
+        handler = registry["/cal/month/{year}/{month}/content", "GET"]
         response = await handler(_make_request(), year=2026, month=5)
         assert "Lead-in item" in _render(response)
 
@@ -181,7 +165,7 @@ class TestMonthContentFragment:
         service.get_calendar_view = AsyncMock(
             return_value=Result.fail(Errors.database("calendar.view", "boom"))
         )
-        handler = registry.get("/cal/month/{year}/{month}/content")
+        handler = registry["/cal/month/{year}/{month}/content", "GET"]
         response = await handler(_make_request(), year=2026, month=5)
         # Wraps the error_response inside a Div with id="calendar-month-content"
         rendered = _render(response)
@@ -193,7 +177,7 @@ class TestWeekContentFragment:
     async def test_success(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_calendar_view = AsyncMock(return_value=Result.ok(_make_calendar_data()))
-        handler = registry.get("/cal/week/{date_str}/content")
+        handler = registry["/cal/week/{date_str}/content", "GET"]
         response = await handler(_make_request(), date_str="2026-05-20")
         rendered = _render(response)
         assert "calendar-week-content" in rendered
@@ -205,7 +189,7 @@ class TestWeekContentFragment:
     async def test_invalid_date_falls_back_to_today(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_calendar_view = AsyncMock(return_value=Result.ok(_make_calendar_data()))
-        handler = registry.get("/cal/week/{date_str}/content")
+        handler = registry["/cal/week/{date_str}/content", "GET"]
         response = await handler(_make_request(), date_str="not-a-date")
         # Did not crash; service was still called.
         assert service.get_calendar_view.await_count == 1
@@ -222,7 +206,7 @@ class TestItemDetailsModal:
     async def test_found_returns_modal(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
-        handler = registry.get("/cal/item-details/{item_id}")
+        handler = registry["/cal/item-details/{item_id}", "GET"]
         response = await handler(_make_request(), item_id="cal_event_1")
         # Returns a modal containing the item title.
         assert "Smoke item" in _render(response)
@@ -235,7 +219,7 @@ class TestItemDetailsModal:
         shows THAT day, never a server-side reconstruction from today."""
         registry, service = routes_and_service
         service.get_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
-        handler = registry.get("/cal/item-details/{item_id}")
+        handler = registry["/cal/item-details/{item_id}", "GET"]
         await handler(_make_request(query_params={"date": "2026-05-19"}), item_id="habit-habit_1")
         service.get_item.assert_awaited_once_with(
             "user_smoke", "habit-habit_1", on_date=date(2026, 5, 19)
@@ -245,7 +229,7 @@ class TestItemDetailsModal:
     async def test_invalid_date_query_param_is_a_bare_400(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
-        handler = registry.get("/cal/item-details/{item_id}")
+        handler = registry["/cal/item-details/{item_id}", "GET"]
         response = await handler(
             _make_request(query_params={"date": "not-a-date"}), item_id="habit-habit_1"
         )
@@ -256,7 +240,7 @@ class TestItemDetailsModal:
     async def test_missing_date_query_param_is_no_date(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
-        handler = registry.get("/cal/item-details/{item_id}")
+        handler = registry["/cal/item-details/{item_id}", "GET"]
         await handler(_make_request(), item_id="habit-habit_1")
         assert service.get_item.await_args.kwargs["on_date"] is None
 
@@ -264,7 +248,7 @@ class TestItemDetailsModal:
     async def test_missing_returns_error_modal(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_item = AsyncMock(return_value=Result.ok(None))
-        handler = registry.get("/cal/item-details/{item_id}")
+        handler = registry["/cal/item-details/{item_id}", "GET"]
         response = await handler(_make_request(), item_id="missing")
         assert "Calendar item not found" in _render(response)
 
@@ -292,7 +276,7 @@ class TestItemReschedule:
         date-only, so the service receives midnight of that day."""
         registry, service = routes_and_service
         service.reschedule_item = AsyncMock(return_value=Result.ok(_rescheduled_task_item()))
-        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        handler = registry["/cal/item/{item_id}/reschedule", "POST"]
         response = await handler(
             _make_request(form_data={"new_date": "2026-08-14"}), item_id="task-task_1"
         )
@@ -312,7 +296,7 @@ class TestItemReschedule:
     async def test_event_reschedule_combines_date_and_time(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.reschedule_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
-        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        handler = registry["/cal/item/{item_id}/reschedule", "POST"]
         response = await handler(
             _make_request(form_data={"new_date": "2026-08-14", "new_time": "10:30"}),
             item_id="event-event_1",
@@ -327,7 +311,7 @@ class TestItemReschedule:
     async def test_event_missing_time_rejected(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.reschedule_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
-        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        handler = registry["/cal/item/{item_id}/reschedule", "POST"]
         response = await handler(
             _make_request(form_data={"new_date": "2026-08-14"}), item_id="event-event_1"
         )
@@ -339,7 +323,7 @@ class TestItemReschedule:
     async def test_invalid_date_rejected(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.reschedule_item = AsyncMock(return_value=Result.ok(_rescheduled_task_item()))
-        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        handler = registry["/cal/item/{item_id}/reschedule", "POST"]
         response = await handler(
             _make_request(form_data={"new_date": "not-a-date"}), item_id="task-task_1"
         )
@@ -357,7 +341,7 @@ class TestItemReschedule:
                 Errors.not_found("Task", "task_x", reason="not owned by caller")
             )
         )
-        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        handler = registry["/cal/item/{item_id}/reschedule", "POST"]
         response = await handler(
             _make_request(form_data={"new_date": "2026-08-14"}), item_id="task-task_x"
         )
@@ -369,7 +353,7 @@ class TestItemReschedule:
         """Habits recur — they don't reschedule. Rejected before the service."""
         registry, service = routes_and_service
         service.reschedule_item = AsyncMock(return_value=Result.ok(_rescheduled_task_item()))
-        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        handler = registry["/cal/item/{item_id}/reschedule", "POST"]
         response = await handler(
             _make_request(form_data={"new_date": "2026-08-14"}), item_id="habit-habit_1"
         )
@@ -393,7 +377,7 @@ class TestItemReschedule:
                 )
             )
         )
-        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        handler = registry["/cal/item/{item_id}/reschedule", "POST"]
         response = await handler(
             _make_request(form_data={"new_date": "2026-08-12", "new_time": "23:30"}),
             item_id="event-event_1",
@@ -411,7 +395,7 @@ class TestItemReschedule:
         service.reschedule_item = AsyncMock(
             return_value=Result.fail(Errors.database("calendar.reschedule", "boom"))
         )
-        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        handler = registry["/cal/item/{item_id}/reschedule", "POST"]
         response = await handler(
             _make_request(form_data={"new_date": "2026-08-14"}), item_id="task-task_1"
         )
@@ -436,7 +420,7 @@ class TestHabitComplete:
         registry, service = routes_and_service
         service.record_habit_occurrence = AsyncMock(return_value=Result.ok(SimpleNamespace()))
         yesterday = (today_in(current_zone()) - timedelta(days=1)).isoformat()
-        handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
+        handler = registry["/cal/habit/{habit_uid}/complete", "POST"]
         response = await handler(
             _make_request(form_data={"on_date": yesterday}), habit_uid="habit_1"
         )
@@ -456,7 +440,7 @@ class TestHabitComplete:
         service.record_habit_occurrence = AsyncMock(
             return_value=Result.fail(Errors.not_found(resource="Habit", identifier="habit_x"))
         )
-        handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
+        handler = registry["/cal/habit/{habit_uid}/complete", "POST"]
         response = await handler(
             _make_request(form_data={"on_date": today_in(current_zone()).isoformat()}),
             habit_uid="habit_x",
@@ -471,7 +455,7 @@ class TestHabitComplete:
         registry, service = routes_and_service
         service.record_habit_occurrence = AsyncMock(return_value=Result.ok(SimpleNamespace()))
         tomorrow = (today_in(current_zone()) + timedelta(days=1)).isoformat()
-        handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
+        handler = registry["/cal/habit/{habit_uid}/complete", "POST"]
         response = await handler(
             _make_request(form_data={"on_date": tomorrow}), habit_uid="habit_1"
         )
@@ -483,7 +467,7 @@ class TestHabitComplete:
     async def test_missing_on_date_rejected(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.record_habit_occurrence = AsyncMock(return_value=Result.ok(SimpleNamespace()))
-        handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
+        handler = registry["/cal/habit/{habit_uid}/complete", "POST"]
         response = await handler(_make_request(form_data={}), habit_uid="habit_1")
 
         assert response.status_code == 400
@@ -496,7 +480,7 @@ class TestHabitComplete:
             return_value=Result.fail(Errors.database("habits.complete", "boom"))
         )
         today_iso = today_in(current_zone()).isoformat()
-        handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
+        handler = registry["/cal/habit/{habit_uid}/complete", "POST"]
         response = await handler(
             _make_request(form_data={"on_date": today_iso}), habit_uid="habit_1"
         )
@@ -528,7 +512,7 @@ class TestPageShells:
         binding — a kind hidden on the week (shared browser key) would
         otherwise apply here with no control left to lift it."""
         registry, _service = routes_and_service
-        handler = registry.get("/cal/month/{year}/{month}")
+        handler = registry["/cal/month/{year}/{month}", "GET"]
         html = _render_page(handler(_make_request(), year=2026, month=9))
         assert "September 2026" in html
         assert 'hx-get="/cal/month/2026/9/content"' in html
@@ -541,7 +525,7 @@ class TestPageShells:
 
     def test_week_shell_binds_the_legend_and_its_controller(self, routes_and_service) -> None:
         registry, _service = routes_and_service
-        handler = registry.get("/cal/week/{date_str}")
+        handler = registry["/cal/week/{date_str}", "GET"]
         html = _render_page(handler(_make_request(), date_str="2026-09-09"))
         assert 'hx-get="/cal/week/2026-09-09/content"' in html
         assert 'x-data="calendarLegend"' in html
@@ -553,7 +537,7 @@ class TestReportPill:
 
     def test_month_toolbar_opens_the_request_form(self, routes_and_service) -> None:
         registry, _service = routes_and_service
-        handler = registry.get("/cal/month/{year}/{month}")
+        handler = registry["/cal/month/{year}/{month}", "GET"]
         html = _render_page(handler(_make_request(), year=2026, month=9))
         assert "Report for September" in html
         assert 'href="/submit-activity-report"' in html
@@ -561,7 +545,7 @@ class TestReportPill:
 
     def test_week_toolbar_opens_the_request_form(self, routes_and_service) -> None:
         registry, _service = routes_and_service
-        handler = registry.get("/cal/week/{date_str}")
+        handler = registry["/cal/week/{date_str}", "GET"]
         html = _render_page(handler(_make_request(), date_str="2026-09-09"))
         assert "Report for W37" in html
         assert 'href="/submit-activity-report"' in html

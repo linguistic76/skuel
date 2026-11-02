@@ -23,6 +23,7 @@ from adapters.inbound.route_factories.domain_route_factory import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
+from tests.helpers.route_collector import route_collector
 
 # ============================================================================
 # Helpers
@@ -127,7 +128,9 @@ def test_crud_config_triggers_factory(mock_crud: MagicMock):
         crud=crud_cfg,
     )
 
-    register_domain_routes("rt", services, config)
+    rt, _ = route_collector()
+
+    register_domain_routes(rt, services, config)
 
     mock_crud.assert_called_once()
     kwargs = mock_crud.call_args[1]
@@ -137,7 +140,7 @@ def test_crud_config_triggers_factory(mock_crud: MagicMock):
     assert kwargs["update_schema"] is _FakeUpdateSchema
     assert kwargs["uid_prefix"] == "task"
     assert kwargs["prometheus_metrics"] is None
-    mock_crud.return_value.register_routes.assert_called_once_with("rt")
+    mock_crud.return_value.register_routes.assert_called_once_with(rt)
 
 
 @patch("adapters.inbound.route_factories.query_route_factory.CommonQueryRouteFactory")
@@ -159,7 +162,9 @@ def test_query_config_triggers_factory(mock_query: MagicMock):
         query=QueryRouteConfig(supports_goal_filter=True, supports_habit_filter=False),
     )
 
-    register_domain_routes("rt", services, config)
+    rt, _ = route_collector()
+
+    register_domain_routes(rt, services, config)
 
     mock_query.assert_called_once()
     kwargs = mock_query.call_args[1]
@@ -169,7 +174,7 @@ def test_query_config_triggers_factory(mock_query: MagicMock):
     assert kwargs["habits_service"] is None
     assert kwargs["supports_goal_filter"] is True
     assert kwargs["supports_habit_filter"] is False
-    mock_query.return_value.register_routes.assert_called_once_with("rt")
+    mock_query.return_value.register_routes.assert_called_once_with(rt)
 
 
 @patch("adapters.inbound.route_factories.intelligence_route_factory.IntelligenceRouteFactory")
@@ -185,13 +190,15 @@ def test_intelligence_config_triggers_factory(mock_intel: MagicMock):
         intelligence=IntelligenceRouteConfig(),
     )
 
-    register_domain_routes("rt", services, config)
+    rt, _ = route_collector()
+
+    register_domain_routes(rt, services, config)
 
     mock_intel.assert_called_once()
     kwargs = mock_intel.call_args[1]
     assert kwargs["intelligence_service"] is primary.intelligence
     assert kwargs["ownership_service"] is primary
-    mock_intel.return_value.register_routes.assert_called_once_with("rt")
+    mock_intel.return_value.register_routes.assert_called_once_with(rt)
 
 
 @patch("adapters.inbound.route_factories.intelligence_route_factory.IntelligenceRouteFactory")
@@ -241,7 +248,9 @@ def test_all_three_configs_called_in_order(mock_crud, mock_query, mock_intel):
         intelligence=IntelligenceRouteConfig(),
     )
 
-    register_domain_routes("rt", services, config)
+    rt, _ = route_collector()
+
+    register_domain_routes(rt, services, config)
 
     # CRUD → Query → Intelligence → api_factory
     assert call_order == [
@@ -272,7 +281,9 @@ def test_prometheus_metrics_attr_resolves_from_services(mock_crud: MagicMock):
         ),
     )
 
-    register_domain_routes("rt", services, config)
+    rt, _ = route_collector()
+
+    register_domain_routes(rt, services, config)
 
     kwargs = mock_crud.call_args[1]
     assert kwargs["prometheus_metrics"] is prom
@@ -297,7 +308,9 @@ def test_no_sub_configs_only_api_factory_called():
         api_factory=api_factory,
     )
 
-    register_domain_routes("rt", services, config)
+    rt, _ = route_collector()
+
+    register_domain_routes(rt, services, config)
     assert called == ["api_factory"]
 
 
@@ -319,7 +332,9 @@ def test_none_primary_service_early_return():
         ),
     )
 
-    register_domain_routes("rt", services, config)
+    rt, _ = route_collector()
+
+    register_domain_routes(rt, services, config)
     assert called == []
 
 
@@ -441,7 +456,9 @@ def test_full_roundtrip_factory_to_register(mock_crud, mock_query, mock_intel):
         prometheus_metrics_attr="prometheus_metrics",
     )
 
-    register_domain_routes("rt", services, config)
+    rt, _ = route_collector()
+
+    register_domain_routes(rt, services, config)
 
     # All three factories instantiated
     mock_crud.assert_called_once()
@@ -486,7 +503,8 @@ def test_api_factory_receives_its_mapping_as_keywords():
     )
 
     # No sub-configs — goes straight to api_factory with its related services
-    register_domain_routes("rt", services, config)
+    rt, _ = route_collector()
+    register_domain_routes(rt, services, config)
 
     assert received_kwargs["user_service"] == "user_svc"
     assert received_kwargs["goals_service"] == "goals-svc"

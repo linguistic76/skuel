@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-30
+updated: 2026-11-02
 ---
 
 # Deferred Work
@@ -246,6 +246,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Gutter Census Reads No Spacing From Hand-Written CSS
 
 [Gutter Census Reads No Spacing From Hand-Written CSS](gutter-census-css-rule-spacing.md) — The page-gutter census reads padding and margin from class tokens only; a hand-written stylesheet rule that spaced a body's edge would pass it. Nine classes get spacing that way today, none at an edge; waits on the first that lands at one.
+
+## Route Wrappers Erase a Handler's Type
+
+[Route Wrappers Erase a Handler's Type](route-wrappers-erase-handler-types.md) — `rt` keeps a decorated handler's parameters and return type, but every wrapper directly under it erases at least the return type (`csrf_protected`, the role gates and `rate_limited_ip` the parameters too); 161 of 510 handlers reach `rt` fully typed. Nothing reads the bound name today; waits on the first reader.
 
 ## Review Schedule
 

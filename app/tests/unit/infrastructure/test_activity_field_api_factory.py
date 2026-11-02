@@ -27,25 +27,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
 from tests.helpers.page_links_fake import FakePageLinks, page_link
-
-
-class _RouteRegistry:
-    """Capture handlers registered via ``@rt(path, methods=...)``."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], Any] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "POST"):
-        return self.handlers[(path, method.upper())]
+from tests.helpers.route_collector import route_collector
 
 
 @dataclass
@@ -106,10 +88,10 @@ def _status_config(*, service: Any, update_status: Any, **kwargs: Any) -> Activi
 
 def _register(config: ActivityFieldApiConfig, field: str = "status") -> Any:
     """Register routes against a fake registry and return one field handler."""
-    rt = _RouteRegistry()
+    rt, registered = route_collector()
     create_activity_field_api_routes(rt, config)
-    assert len(rt.handlers) == len(config.fields)
-    return rt.get(f"/api/{config.domain_name}/{{uid}}/{field}", "POST")
+    assert len(registered) == len(config.fields)
+    return registered[f"/api/{config.domain_name}/{{uid}}/{field}", "POST"]
 
 
 # ============================================================================
@@ -118,7 +100,7 @@ def _register(config: ActivityFieldApiConfig, field: str = "status") -> Any:
 
 
 def test_registers_post_route_per_field_at_expected_paths() -> None:
-    rt = _RouteRegistry()
+    rt, registered = route_collector()
     service = SimpleNamespace(verify_ownership=AsyncMock())
 
     create_activity_field_api_routes(
@@ -135,13 +117,13 @@ def test_registers_post_route_per_field_at_expected_paths() -> None:
         ),
     )
 
-    assert ("/api/goals/{uid}/status", "POST") in rt.handlers
-    assert ("/api/goals/{uid}/priority", "POST") in rt.handlers
+    assert ("/api/goals/{uid}/status", "POST") in registered
+    assert ("/api/goals/{uid}/priority", "POST") in registered
 
 
 def test_handlers_get_distinct_names_per_domain_and_field() -> None:
     """FastHTML derives route names from ``__name__`` — collisions are ambiguity."""
-    rt = _RouteRegistry()
+    rt, registered = route_collector()
     service = SimpleNamespace(verify_ownership=AsyncMock())
 
     create_activity_field_api_routes(
@@ -155,7 +137,7 @@ def test_handlers_get_distinct_names_per_domain_and_field() -> None:
         ),
     )
 
-    names = {h.__name__ for h in rt.handlers.values()}
+    names = {h.__name__ for h in registered.values()}
     assert names == {"update_tasks_status", "update_tasks_priority"}
 
 
