@@ -12,6 +12,7 @@ Tests are automatically skipped if credentials are missing.
 
 import pytest
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 
@@ -26,7 +27,7 @@ _skip_without_credentials = pytest.mark.skipif(
 
 @_skip_without_credentials
 @pytest.mark.asyncio
-async def test_askesis_service_wiring(skuel_app):
+async def test_askesis_service_wiring(skuel_app: FastHTMLApp):
     """Test that askesis service is created with all RAG dependencies.
 
     NOTE: Requires running Neo4j instance. If this test fails with connection
@@ -91,7 +92,7 @@ async def test_askesis_service_wiring(skuel_app):
 
 @_skip_without_credentials
 @pytest.mark.asyncio
-async def test_askesis_answer_method_signature(skuel_app):
+async def test_askesis_answer_method_signature(skuel_app: FastHTMLApp):
     """Test that answer_user_question has correct signature.
 
     NOTE: Requires running Neo4j instance.
@@ -116,7 +117,7 @@ async def test_askesis_answer_method_signature(skuel_app):
 
 @_skip_without_credentials
 @pytest.mark.asyncio
-async def test_askesis_rag_pipeline_end_to_end(skuel_app, enrolled_user_with_lp):
+async def test_askesis_rag_pipeline_end_to_end(skuel_app: FastHTMLApp, enrolled_user_with_lp):
     """End-to-end test of RAG pipeline for user enrolled in a Learning Path.
 
     Uses enrolled_user_with_lp so the pipeline runs past the LP enrollment gate.

@@ -565,7 +565,7 @@ route objects to collect, so every layer returns `None`:
 - **`register_domain_routes()`** returns `None`; a missing primary service is a warning
   and an early `return`.
 - **Top-level orchestrators** (`create_{domain}_routes` called from `bootstrap.py`)
-  return `None` — bootstrap counts `app.routes` for its summary log.
+  return `None` — bootstrap counts `app.router.routes` for its summary log.
 
 A helper that registers one route (`_register_*_route`) is the same: it applies
 `rt(path)(handler)` as a statement and returns nothing.

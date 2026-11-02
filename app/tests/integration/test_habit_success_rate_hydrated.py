@@ -38,6 +38,7 @@ import pytest_asyncio
 import time_machine
 from neo4j import AsyncDriver
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 from core.constants import HabitConsistencyWindow
@@ -165,7 +166,7 @@ async def _sweep(driver: AsyncDriver) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def services(skuel_app) -> AsyncIterator[_Composed]:
+async def services(skuel_app: FastHTMLApp) -> AsyncIterator[_Composed]:
     composed = skuel_app.state.services
     assert composed.habits and composed.goals and composed.neo4j_driver
     services = _Composed(composed.habits, composed.goals, composed.neo4j_driver)

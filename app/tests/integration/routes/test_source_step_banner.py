@@ -26,7 +26,7 @@ from neo4j import AsyncDriver
 from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import PublicationState
@@ -73,7 +73,7 @@ async def _wipe(driver: AsyncDriver) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def driver(skuel_app) -> AsyncDriver:
+async def driver(skuel_app: FastHTMLApp) -> AsyncDriver:
     """One user, four steps (two published, two draft), one task naming each — and one
     naming a step that does not exist."""
     graph: AsyncDriver = skuel_app.state.services.neo4j_driver
@@ -114,7 +114,7 @@ async def driver(skuel_app) -> AsyncDriver:
     await _wipe(graph)
 
 
-def _app(skuel_app):
+def _app(skuel_app: FastHTMLApp) -> FastHTMLApp:
     from fasthtml.common import fast_app
 
     from adapters.inbound.tasks_routes import create_tasks_routes
@@ -131,7 +131,7 @@ def _app(skuel_app):
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def client(skuel_app, driver):
+async def client(skuel_app: FastHTMLApp, driver):
     """An HTTP client signed in as ``CALLER``."""
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=_app(skuel_app)), base_url="http://test"

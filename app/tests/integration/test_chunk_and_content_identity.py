@@ -23,6 +23,7 @@ import pytest_asyncio
 from neo4j import AsyncDriver, Record
 from neo4j.exceptions import ConstraintError
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
@@ -288,7 +289,9 @@ class TestReadersStartAtTheEntity:
 
 
 class TestChunkUidConstraints:
-    async def test_the_app_constrains_chunk_uids_and_a_re_chunk_passes(self, skuel_app) -> None:
+    async def test_the_app_constrains_chunk_uids_and_a_re_chunk_passes(
+        self, skuel_app: FastHTMLApp
+    ) -> None:
         driver: AsyncDriver = skuel_app.state.services.neo4j_driver
         constraints = await _rows(
             driver,

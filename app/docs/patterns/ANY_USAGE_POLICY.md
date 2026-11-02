@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-01
+updated: 2026-11-02
 ---
 
 # Any Usage Policy
@@ -161,14 +161,14 @@ node_data: dict[str, Any]  # boundary: neo4j-primitives — raw record from driv
 
 ### FastHTML boundary surfaces
 
-FastHTML/fastcore present four distinct surfaces, and `Any` is justified at only two of them. The other two have typed alternatives — `Result[Any]` and `app: Any` / `rt: Any` show up there as regressions, not boundaries.
+FastHTML/fastcore present four distinct surfaces, and `Any` is justified at only one of them — FT element internals. The other three have typed alternatives — `Result[Any]`, `app: Any` / `rt: Any` and an `Any` in an ASGI signature show up there as regressions, not boundaries.
 
 | Surface | Typed alternative | `# boundary:` tag |
 |---------|-------------------|--------------------|
 | `app` / `rt` route-factory params | `FastHTMLApp` / `RouteDecorator` protocols | *none — protocol IS the boundary* |
 | Route handler return | `Result[FT]` for HTML fragments; `Result[Goal]` etc. for models | *none — the concrete type IS the contract* |
 | FT element internals (`*c`, `**kwargs`) | none — HTML is structurally heterogeneous | `# boundary: fasthtml-elements` |
-| ASGI plumbing (`scope/receive/send`) | none — Starlette doesn't export usable types | `# boundary: fasthtml-app` |
+| ASGI plumbing (`scope/receive/send`) | `Scope` / `Receive` / `Send` / `ASGIApp` from `starlette.types` | *none — Starlette's types ARE the boundary* |
 | The role-decorator-injected `current_user: Any = None` | none that fails closed — see below | `# boundary: injected-user` (tagged once, at the contract in `roles.py`) |
 
 #### `# boundary: fasthtml-elements`
@@ -192,10 +192,6 @@ handlers and refuses any other spelling at decoration, so the tag lives once, at
 `adapters/inbound/auth/roles.py`, not on each of the handler sites (ANN401 is bought out for
 `adapters/**`). See [AUTH_PATTERNS.md § Pattern 3](AUTH_PATTERNS.md).
 
-#### `# boundary: fasthtml-app`
-
-The `FastHTMLApp` protocol in `adapters/inbound/fasthtml_types.py` captures the minimal interface SKUEL calls. The `Any` in its `__call__(scope, receive, send)` signature is the ASGI boundary — Starlette doesn't expose usable types for those three parameters.
-
 #### `# type: ignore[arg-type]  # fasthtml dynamic-attr splat`
 
 A fifth, narrower case — an **`arg-type` ignore**, not an `Any` annotation. MonsterUI component factories (`Button`, `Input`, `Select`, …) declare typed keyword slots (`disabled: bool`, `size: Size | None`). Splatting a dynamic attribute dict — `**{"x-on:click": expr}` — spills its `str` values onto those typed slots, so mypy reports `arg-type` ("expected bool"). Most dynamic attrs have a kwarg form and must use it: plain-hyphen (`hx_get=`, not `**{"hx-get": …}`) and HTMX event handlers (`hx_on__after_request=`, since `__`→`--` and htmx treats `hx-on--evt` as `hx-on::evt`). Only **Alpine** colon / at / dot attributes (`x-on:click`, `:class`, `@click.outside`) cannot be expressed as a FastHTML kwarg — Alpine parses on the colon and has no dash alias, so the splat is the only correct render. Tag those, and only those:
@@ -213,7 +209,8 @@ Button("Close", **{"x-on:click": close_expr})  # type: ignore[arg-type]  # fasth
 #### What does NOT need a `# boundary:` tag
 
 - **`app` / `rt` parameters in route factories.** Use the protocols from `fasthtml_types.py` — `tests/unit/adapters/test_route_param_types.py` fails on an `rt` / `app` under `adapters/inbound` (or in `scripts/dev/bootstrap.py`, which builds them) typed `Any` or left bare, and checks each protocol member against a real `fast_app()`. ASGI middleware takes `app: ASGIApp` (`starlette.types`).
-- **Route handler returns rendering HTML.** `from fasthtml.common import FT` gives a real class (`fastcore.xml.FT`) that type-checks. `Result[FT]` is correct; `Result[Any]` with `# boundary: fasthtml FT component` is now obsolete framing.
+- **ASGI plumbing.** `FastHTMLApp.__call__` takes `Scope` / `Receive` / `Send` (`starlette.types`) and its `router` is a `starlette.routing.Router` — httpx's `ASGITransport`, Starlette's `TestClient` and uvicorn all accept it. A test holding the bootstrapped app (`skuel_app`, or an app a fixture builds) types it `FastHTMLApp`; `tests/unit/adapters/test_route_param_types.py` fails on one that does not, and on a boundary tag excusing an `Any` here anywhere in the repo.
+- **Route handler returns rendering HTML.** `from fasthtml.common import FT` gives a real class (`fastcore.xml.FT`) that type-checks. `Result[FT]` is correct; `Result[Any]` with `# boundary: fasthtml FT component` is now obsolete framing. A handler that answers a page or a `Response` is `-> Response | FT`, with `FT` imported at runtime: FastHTML evaluates a handler's annotations when it registers the route. Never `-> Response` alone on a handler that can return FT — FastHTML takes a `Response` class as the return annotation to mean "build this class from the return value", so `Response(ft)` fails with a 500. mypy cannot see it (fasthtml publishes no types, so FT reads as `Any`).
 - **Route handlers that delegate to a typed service.** `events_service.update_event(...)` returns `Result[Event]` — the route wrapper should too. Using `Result[Any]` here is Category A (lazy), not Category C.
 
 ### `# boundary: error-metadata`

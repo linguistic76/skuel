@@ -15,12 +15,13 @@ data can hold one.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.inbound.rate_limit import reset_buckets_for_testing
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
@@ -89,7 +90,7 @@ async def _set_admin(driver: AsyncDriver) -> None:
         )
 
 
-def _anonymous(app: Any) -> httpx.AsyncClient:  # boundary: fasthtml-app
+def _anonymous(app: FastHTMLApp) -> httpx.AsyncClient:
     token = mint_token()
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
@@ -127,7 +128,7 @@ async def _activate(
     return minted.status_code, reset_status, signed_in.status_code
 
 
-async def test_boot_creates_no_system_account(skuel_app: Any) -> None:  # boundary: fasthtml-app
+async def test_boot_creates_no_system_account(skuel_app: FastHTMLApp) -> None:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     services = skuel_app.state.services
     try:
@@ -148,7 +149,7 @@ async def test_boot_creates_no_system_account(skuel_app: Any) -> None:  # bounda
 
 
 async def test_admin_cannot_activate_a_system_account(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> None:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     services = skuel_app.state.services

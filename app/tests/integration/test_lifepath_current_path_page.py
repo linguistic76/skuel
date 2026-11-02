@@ -17,10 +17,11 @@ the capture door, so no tier's theme extraction decides what the themes are.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.services.lifepath.lifepath_service import LifePathService
@@ -71,7 +72,7 @@ async def _page(client: httpx.AsyncClient) -> str:
 
 
 async def test_a_chosen_path_the_revised_vision_misses_is_still_shown_once(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> None:
     services = skuel_app.state.services
     lifepath = services.lifepath
@@ -107,7 +108,7 @@ async def test_a_chosen_path_the_revised_vision_misses_is_still_shown_once(
 
 
 async def test_a_chosen_path_now_a_draft_is_still_shown_and_its_page_opens(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> None:
     """The search hides a draft; the learner's own path is read by its uid, shown with no
     note, and its link leads to the path's page — the detail read has no publication gate."""

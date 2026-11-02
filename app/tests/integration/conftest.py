@@ -19,6 +19,7 @@ from unittest.mock import AsyncMock
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from adapters.persistence.neo4j.graph_driver import (
     DATA_MIGRATIONS,
     open_async_driver,
@@ -197,9 +198,11 @@ async def skuel_app(skuel_app_container):
     keychain the stored value is what the driver sends (and the container
     ignores); the env value fills a store-less process (CI).
 
-    Consumers: the Askesis integration modules, the RAG data fixtures below
-    (which write through the app's driver, i.e. into this graph), and
-    ``test_skuel_app_fixture.py`` — this guard, kept as a permanent test.
+    Consumers: every integration module that drives the composed app — its
+    routes, its services or its driver (each takes ``skuel_app: FastHTMLApp``),
+    the RAG data fixtures below (which write through the app's driver, i.e. into
+    this graph), and ``test_skuel_app_fixture.py`` — this guard, kept as a
+    permanent test.
     """
     from core.config.settings import reload_config
     from scripts.dev.bootstrap import bootstrap_skuel
@@ -878,7 +881,7 @@ async def count_relationships(neo4j_driver):
 
 
 @pytest_asyncio.fixture
-async def populated_test_data(skuel_app):
+async def populated_test_data(skuel_app: FastHTMLApp):
     """
     Populate Neo4j with test data for RAG tests.
 
@@ -991,7 +994,7 @@ async def populated_test_data(skuel_app):
 
 
 @pytest_asyncio.fixture
-async def enrolled_user_with_lp(skuel_app):
+async def enrolled_user_with_lp(skuel_app: FastHTMLApp):
     """
     Populate Neo4j with the minimum graph for Askesis's guided pipeline to activate.
 

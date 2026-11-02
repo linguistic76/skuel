@@ -16,11 +16,12 @@ real upload door; the teacher requests the revision at the real review door.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.helpers.seed_uids import seed_user_uid
@@ -150,7 +151,7 @@ class World:
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
 async def world(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> AsyncIterator[World]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver

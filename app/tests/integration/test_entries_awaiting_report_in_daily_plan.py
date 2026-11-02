@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.helpers.seed_uids import seed_user_uid
@@ -86,7 +87,7 @@ class Env:
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
 async def env(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> AsyncIterator[Env]:
     async with signed_in_client(skuel_app, USER, MARK) as client:
         services = skuel_app.state.services

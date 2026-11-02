@@ -31,7 +31,7 @@ import pytest_asyncio
 from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.helpers.seed_uids import seed_user_uid
@@ -63,7 +63,7 @@ _UIDS = [USER, KU, PS, LP, *(uid for _, _, uid in ACTIVITY_ANCHORS.values())]
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def seeded_graph(skuel_app):
+async def seeded_graph(skuel_app: FastHTMLApp):
     """One LearningPath holding one PathStep that uses one Ku, and one owned
     entity per Activity domain."""
     driver = skuel_app.state.services.neo4j_driver
@@ -104,7 +104,7 @@ async def seeded_graph(skuel_app):
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def client(skuel_app, seeded_graph):
+async def client(skuel_app: FastHTMLApp, seeded_graph):
     """An HTTP client over the nine routed domains' routes, signed in as ``USER``."""
     from fasthtml.common import fast_app
 
@@ -149,9 +149,9 @@ class TestCurriculumHasNoAnalyticsRoute:
 
     @pytest.mark.parametrize("domain", sorted(CURRICULUM_ANCHORS))
     async def test_the_composed_app_registers_no_analytics_path(
-        self, skuel_app, domain: str
+        self, skuel_app: FastHTMLApp, domain: str
     ) -> None:
-        paths = {getattr(route, "path", None) for route in skuel_app.routes}
+        paths = {getattr(route, "path", None) for route in skuel_app.router.routes}
 
         assert f"/api/{domain}/analytics" not in paths
         assert f"/api/{domain}/context" in paths
@@ -194,8 +194,10 @@ class TestActivityRouteSet:
         assert response.status_code == 200, response.text
 
     @pytest.mark.parametrize("domain", ACTIVITY_DOMAINS)
-    async def test_the_composed_app_registers_all_three(self, skuel_app, domain: str) -> None:
-        paths = {getattr(route, "path", None) for route in skuel_app.routes}
+    async def test_the_composed_app_registers_all_three(
+        self, skuel_app: FastHTMLApp, domain: str
+    ) -> None:
+        paths = {getattr(route, "path", None) for route in skuel_app.router.routes}
 
         assert {
             f"/api/{domain}/analytics",

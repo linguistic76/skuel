@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.utils.timestamp_helpers import today_in
@@ -45,7 +46,7 @@ MARK = "cogload"
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def client(skuel_app) -> AsyncIterator[httpx.AsyncClient]:
+async def client(skuel_app: FastHTMLApp) -> AsyncIterator[httpx.AsyncClient]:
     async with signed_in_client(skuel_app, USER, MARK) as http:
         yield http
 
@@ -109,7 +110,7 @@ async def test_a_day_with_tasks_but_no_risk_answers_no_risk(client: httpx.AsyncC
     assert body["overload_risks"] == []
 
 
-async def test_a_signed_out_request_is_refused(skuel_app) -> None:
+async def test_a_signed_out_request_is_refused(skuel_app: FastHTMLApp) -> None:
     """The route reads the caller's tasks — it has no answer without a caller."""
     async with signed_in_client(skuel_app, USER + "_out", MARK + "out") as http:
         http.cookies.clear()

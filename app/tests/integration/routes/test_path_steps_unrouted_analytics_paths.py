@@ -25,6 +25,7 @@ import httpx
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 
@@ -41,7 +42,7 @@ UNROUTED_PATHS = ("/api/path-steps/analytics/summary", "/api/path-steps/graph/st
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def seeded_step(skuel_app):
+async def seeded_step(skuel_app: FastHTMLApp):
     """One PathStep, as the content-vault ingest writes the fields the stats read."""
     driver = skuel_app.state.services.neo4j_driver
     async with driver.session() as session:
@@ -59,7 +60,7 @@ async def seeded_step(skuel_app):
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def client(skuel_app, seeded_step):
+async def client(skuel_app: FastHTMLApp, seeded_step):
     """An HTTP client over the PathStep routes as the bootstrap registers them."""
     from fasthtml.common import fast_app
 
@@ -76,8 +77,10 @@ async def client(skuel_app, seeded_step):
 
 class TestUnroutedAnalyticsPaths:
     @pytest.mark.parametrize("path", UNROUTED_PATHS)
-    async def test_the_composed_app_registers_no_such_path(self, skuel_app, path: str) -> None:
-        paths = {getattr(route, "path", None) for route in skuel_app.routes}
+    async def test_the_composed_app_registers_no_such_path(
+        self, skuel_app: FastHTMLApp, path: str
+    ) -> None:
+        paths = {getattr(route, "path", None) for route in skuel_app.router.routes}
 
         assert path not in paths
         assert "/api/path-steps/stats" in paths

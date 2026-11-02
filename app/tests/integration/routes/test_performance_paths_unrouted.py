@@ -8,11 +8,12 @@ proves the 404s come from unrouted paths, not from a client that cannot reach th
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.helpers.seed_uids import seed_user_uid
@@ -56,7 +57,7 @@ async def _set_admin(driver: AsyncDriver, uid: str) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def admin(skuel_app: Any) -> AsyncIterator[httpx.AsyncClient]:  # boundary: fasthtml-app
+async def admin(skuel_app: FastHTMLApp) -> AsyncIterator[httpx.AsyncClient]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     async with signed_in_client(skuel_app, ADMIN, MARK) as client:
         await _set_admin(driver, ADMIN)

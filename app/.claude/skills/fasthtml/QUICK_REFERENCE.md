@@ -31,7 +31,7 @@ def create_domain_routes(rt: RouteDecorator, service: TasksService) -> None:
     # NO routes = [] / routes.append(...) — @rt() already registered it
 ```
 
-**When to use**: All route wiring. A route factory returns `None` at every layer. Collecting the handlers in `routes = []` and returning the list leaves the sub-routes unregistered (404, no startup warning) — the documented anti-pattern (`docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`); bootstrap logs one count from `app.routes`.
+**When to use**: All route wiring. A route factory returns `None` at every layer. Collecting the handlers in `routes = []` and returning the list leaves the sub-routes unregistered (404, no startup warning) — the documented anti-pattern (`docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`); bootstrap logs one count from `app.router.routes`.
 
 ### UI page route with layout wrapper
 
@@ -108,7 +108,7 @@ found = require_found(result, "Entity", uid)                      # adapters/inb
 | Hand-assembled `<link>` tags / `NotStr` full documents | `BasePage`/`AuthPage` — CSS/JS load through `build_head()` |
 | A CRUD read with the uid in the path | Query params (`/api/tasks/get?uid=`) — the path-uid shape is for per-entity action doors (`POST /api/tasks/{uid}/status`), not for `get`/`update`/`delete` |
 | `await BasePage(...)` | It's a plain `def` returning FT — awaiting it raises `TypeError` |
-| Untyped `*c: Any, **kwargs: Any` without annotation | Add `# boundary: fasthtml-elements` (ASGI plumbing: `# boundary: fasthtml-app`) |
+| Untyped `*c: Any, **kwargs: Any` without annotation | Add `# boundary: fasthtml-elements` (ASGI plumbing needs no tag: `starlette.types`) |
 | Quoted annotation `"Type"` / `Optional["Type"]` | Unquoted `Type \| None` — PEP 649 defers evaluation, UP037 is live. A `@rt()` handler's types must be REAL imports: FastHTML evaluates the signature at registration, so a `TYPE_CHECKING`-only name there is a bootstrap `NameError` |
 
 ---

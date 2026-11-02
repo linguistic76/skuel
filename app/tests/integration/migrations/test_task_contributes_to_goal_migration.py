@@ -43,6 +43,7 @@ import pytest
 import pytest_asyncio
 from structlog.testing import capture_logs
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.entity_enums import EntityType
@@ -714,7 +715,7 @@ RECONCILE_MARK = "zzztctgrec"
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def app_client(
-    skuel_app: Any,  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
 ) -> AsyncIterator[httpx.AsyncClient]:
     if IntelligenceTier.from_env().ai_enabled and not get_credential("OPENAI_API_KEY"):
         pytest.skip("FULL tier cannot bootstrap without OPENAI_API_KEY")
@@ -726,7 +727,7 @@ async def app_client(
 
 class TestReconcile:
     async def test_the_reconciler_finds_a_stale_goal_closes_it_and_then_finds_nothing(
-        self, skuel_app, app_client
+        self, skuel_app: FastHTMLApp, app_client
     ) -> None:
         """A contribution written with no announcement (the migration's own re-type) leaves
         the stored tally behind; the reconciler lists the goal, writes it, and is idle."""

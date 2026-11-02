@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.helpers.seed_uids import seed_user_uid
@@ -108,7 +109,7 @@ async def _curriculum(client: httpx.AsyncClient) -> dict[str, Any]:  # boundary:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def learner(skuel_app: Any) -> AsyncIterator[httpx.AsyncClient]:  # boundary: fasthtml-app
+async def learner(skuel_app: FastHTMLApp) -> AsyncIterator[httpx.AsyncClient]:
     driver = skuel_app.state.services.neo4j_driver
     async with signed_in_client(skuel_app, LEARNER, MARK) as client:
         await _seed_curriculum(driver)
@@ -157,8 +158,8 @@ def _stat(page: str, label: str) -> str:
 
 
 async def test_a_learner_with_no_paths_reads_a_zero_section(
-    skuel_app: Any,
-) -> None:  # boundary: fasthtml-app
+    skuel_app: FastHTMLApp,
+) -> None:
     """The positive control: a learner with nothing enrolled reads every figure as zero,
     not an absent section."""
     async with signed_in_client(skuel_app, EMPTY_LEARNER, EMPTY_MARK) as client:
