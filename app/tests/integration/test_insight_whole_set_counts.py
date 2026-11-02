@@ -126,7 +126,7 @@ def _request(path: str) -> SimpleNamespace:
 
 
 async def _chart(store: InsightStore, path: str) -> tuple[list[str], list[int]]:
-    response = await _route_handlers(store)[path](_request(path))
+    response = await _route_handlers(store)[path, "GET"](_request(path))
     assert response.status_code == 200, response.body
     data = json.loads(response.body)["data"]
     return data["labels"], data["datasets"][0]["data"]

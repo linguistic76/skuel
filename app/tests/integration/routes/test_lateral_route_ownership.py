@@ -40,6 +40,7 @@ from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 OWNER = seed_user_uid("owner")
@@ -133,16 +134,9 @@ def owner_only_service() -> Any:
     return service
 
 
-def _register(lateral_service: Any, domain_service: Any, domain: str) -> dict[str, Any]:
+def _register(lateral_service: Any, domain_service: Any, domain: str) -> RegisteredHandlers:
     """Build the factory's routes and return path → handler."""
-    registered: dict[str, Any] = {}
-
-    def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
-        def decorator(fn: Any) -> Any:
-            registered[path] = fn
-            return fn
-
-        return decorator
+    rt, registered = route_collector()
 
     factory = LateralRouteFactory(
         domain=domain,
@@ -150,34 +144,34 @@ def _register(lateral_service: Any, domain_service: Any, domain: str) -> dict[st
         entity_name="Goal" if domain == "goals" else "Path Step",
         domain_service=domain_service,
     )
-    factory.register_routes(rt_collector)
+    factory.register_routes(rt)
     return registered
 
 
 @pytest.fixture
-def owned_handlers(mock_backend: Any, owner_only_service: Any) -> dict[str, Any]:
+def owned_handlers(mock_backend: Any, owner_only_service: Any) -> RegisteredHandlers:
     """Routes for a user-owned domain (goals) — ownership enforced."""
     service = LateralRelationshipService(backend=mock_backend)
     return _register(service, owner_only_service, "goals")
 
 
 @pytest.fixture
-def curriculum_handlers(mock_backend: Any) -> dict[str, Any]:
+def curriculum_handlers(mock_backend: Any) -> RegisteredHandlers:
     """Routes for shared curriculum (ps) — ``domain_service`` is None."""
     service = LateralRelationshipService(backend=mock_backend)
     return _register(service, None, "ps")
 
 
-def _chain(handlers: dict[str, Any], domain: str) -> Any:
-    return handlers[f"/api/{domain}/{{uid}}/lateral/chain"]
+def _chain(handlers: RegisteredHandlers, domain: str) -> Any:
+    return handlers[f"/api/{domain}/{{uid}}/lateral/chain", "GET"]
 
 
-def _compare(handlers: dict[str, Any], domain: str) -> Any:
-    return handlers[f"/api/{domain}/{{uid}}/lateral/alternatives/compare"]
+def _compare(handlers: RegisteredHandlers, domain: str) -> Any:
+    return handlers[f"/api/{domain}/{{uid}}/lateral/alternatives/compare", "GET"]
 
 
-def _graph(handlers: dict[str, Any], domain: str) -> Any:
-    return handlers[f"/api/{domain}/{{uid}}/lateral/graph"]
+def _graph(handlers: RegisteredHandlers, domain: str) -> Any:
+    return handlers[f"/api/{domain}/{{uid}}/lateral/graph", "GET"]
 
 
 # ============================================================================
@@ -189,7 +183,7 @@ class TestForeignEntityIsNotFound:
     """Each route must refuse another user's entity as 404, never 403."""
 
     async def test_chain_foreign_entity_404(
-        self, owned_handlers: dict[str, Any], mock_backend: Any
+        self, owned_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         response = await _chain(owned_handlers, "goals")(
             request=_make_request(INTRUDER), uid=OWNED_UID
@@ -200,7 +194,7 @@ class TestForeignEntityIsNotFound:
         mock_backend.get_blocking_chain.assert_not_awaited()
 
     async def test_comparison_foreign_entity_404(
-        self, owned_handlers: dict[str, Any], mock_backend: Any
+        self, owned_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         response = await _compare(owned_handlers, "goals")(
             request=_make_request(INTRUDER), uid=OWNED_UID
@@ -210,7 +204,7 @@ class TestForeignEntityIsNotFound:
         mock_backend.get_alternatives_comparison.assert_not_awaited()
 
     async def test_graph_foreign_entity_404(
-        self, owned_handlers: dict[str, Any], mock_backend: Any
+        self, owned_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         response = await _graph(owned_handlers, "goals")(
             request=_make_request(INTRUDER), uid=OWNED_UID
@@ -220,7 +214,7 @@ class TestForeignEntityIsNotFound:
         mock_backend.get_relationship_graph.assert_not_awaited()
 
     async def test_foreign_and_missing_are_indistinguishable(
-        self, owned_handlers: dict[str, Any], owner_only_service: Any
+        self, owned_handlers: RegisteredHandlers, owner_only_service: Any
     ) -> None:
         """The response must not reveal WHICH failure occurred.
 
@@ -249,7 +243,7 @@ class TestForeignEntityIsNotFound:
         assert "forbidden" not in json.dumps(foreign_body).lower()
 
     async def test_verifier_is_called_with_the_requesting_user(
-        self, owned_handlers: dict[str, Any], owner_only_service: Any
+        self, owned_handlers: RegisteredHandlers, owner_only_service: Any
     ) -> None:
         """The route must pass the session user — not a default or None."""
         await _chain(owned_handlers, "goals")(request=_make_request(INTRUDER), uid=OWNED_UID)
@@ -266,7 +260,7 @@ class TestOwnerStillSucceeds:
     """Threading the verifier must not break the legitimate case."""
 
     async def test_chain_owner_gets_fragment(
-        self, owned_handlers: dict[str, Any], mock_backend: Any
+        self, owned_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         response = await _chain(owned_handlers, "goals")(
             request=_make_request(OWNER), uid=OWNED_UID
@@ -277,7 +271,7 @@ class TestOwnerStillSucceeds:
         assert b"Blocker" in bytes(response.body)
 
     async def test_comparison_owner_gets_fragment(
-        self, owned_handlers: dict[str, Any], mock_backend: Any
+        self, owned_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         response = await _compare(owned_handlers, "goals")(
             request=_make_request(OWNER), uid=OWNED_UID
@@ -288,7 +282,7 @@ class TestOwnerStillSucceeds:
         assert b"Alternative" in bytes(response.body)
 
     async def test_graph_owner_gets_nodes_and_edges(
-        self, owned_handlers: dict[str, Any], mock_backend: Any
+        self, owned_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         response = await _graph(owned_handlers, "goals")(
             request=_make_request(OWNER), uid=OWNED_UID
@@ -302,7 +296,7 @@ class TestOwnerStillSucceeds:
         assert payload["nodes"][0]["url"] is not None
 
     async def test_comparison_renders_the_built_in_criteria(
-        self, owned_handlers: dict[str, Any]
+        self, owned_handlers: RegisteredHandlers
     ) -> None:
         """The comparison table shows timeframe / difficulty / resources.
 
@@ -341,7 +335,7 @@ class TestRouteThreadsTheVerifier:
     """
 
     @pytest.fixture
-    def spy(self, owner_only_service: Any) -> tuple[Any, dict[str, Any]]:
+    def spy(self, owner_only_service: Any) -> tuple[Any, RegisteredHandlers]:
         lateral = MagicMock()
         lateral.get_blocking_chain = AsyncMock(
             return_value=Result.ok(
@@ -361,7 +355,7 @@ class TestRouteThreadsTheVerifier:
         return lateral, _register(lateral, owner_only_service, "goals")
 
     async def test_chain_passes_user_and_verifier(
-        self, spy: tuple[Any, dict[str, Any]], owner_only_service: Any
+        self, spy: tuple[Any, RegisteredHandlers], owner_only_service: Any
     ) -> None:
         lateral, handlers = spy
         await _chain(handlers, "goals")(request=_make_request(OWNER), uid=OWNED_UID)
@@ -371,7 +365,7 @@ class TestRouteThreadsTheVerifier:
         assert kwargs == {"user_uid": OWNER, "domain_service": owner_only_service}
 
     async def test_comparison_passes_user_and_verifier(
-        self, spy: tuple[Any, dict[str, Any]], owner_only_service: Any
+        self, spy: tuple[Any, RegisteredHandlers], owner_only_service: Any
     ) -> None:
         lateral, handlers = spy
         await _compare(handlers, "goals")(request=_make_request(OWNER), uid=OWNED_UID)
@@ -381,7 +375,7 @@ class TestRouteThreadsTheVerifier:
         assert kwargs == {"user_uid": OWNER, "domain_service": owner_only_service}
 
     async def test_graph_passes_user_and_verifier(
-        self, spy: tuple[Any, dict[str, Any]], owner_only_service: Any
+        self, spy: tuple[Any, RegisteredHandlers], owner_only_service: Any
     ) -> None:
         lateral, handlers = spy
         await _graph(handlers, "goals")(
@@ -455,7 +449,7 @@ class TestCurriculumRemainsPublic:
     """KU/PS/LP are shared content: no verifier, no 404 for a non-owner."""
 
     async def test_a_non_curriculum_anchor_is_404(
-        self, curriculum_handlers: dict[str, Any], mock_backend: Any
+        self, curriculum_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         """The uid in the URL must be curriculum; anything else reads as missing."""
         mock_backend.check_entity_exists.return_value = Result.ok([{"entity_count": 0}])
@@ -475,7 +469,7 @@ class TestCurriculumRemainsPublic:
         mock_backend.get_relationship_graph.assert_not_awaited()
 
     async def test_chain_public_for_any_user(
-        self, curriculum_handlers: dict[str, Any], mock_backend: Any
+        self, curriculum_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         response = await _chain(curriculum_handlers, "ps")(
             request=_make_request(INTRUDER), uid="ps.math.algebra"
@@ -485,7 +479,7 @@ class TestCurriculumRemainsPublic:
         mock_backend.get_blocking_chain.assert_awaited_once()
 
     async def test_comparison_public_for_any_user(
-        self, curriculum_handlers: dict[str, Any], mock_backend: Any
+        self, curriculum_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         response = await _compare(curriculum_handlers, "ps")(
             request=_make_request(INTRUDER), uid="ps.math.algebra"
@@ -495,7 +489,7 @@ class TestCurriculumRemainsPublic:
         mock_backend.get_alternatives_comparison.assert_awaited_once()
 
     async def test_graph_public_for_any_user(
-        self, curriculum_handlers: dict[str, Any], mock_backend: Any
+        self, curriculum_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         response = await _graph(curriculum_handlers, "ps")(
             request=_make_request(INTRUDER), uid="ps.math.algebra"
@@ -505,7 +499,7 @@ class TestCurriculumRemainsPublic:
         mock_backend.get_relationship_graph.assert_awaited_once()
 
     async def test_knowledge_dependency_view_still_works(
-        self, curriculum_handlers: dict[str, Any], mock_backend: Any
+        self, curriculum_handlers: RegisteredHandlers, mock_backend: Any
     ) -> None:
         """The Explore sidebar graph: ``?types=REQUIRES_KNOWLEDGE,ENABLES_KNOWLEDGE``.
 
@@ -526,7 +520,7 @@ class TestCurriculumRemainsPublic:
         assert set(type_filter.split("|")) == {"REQUIRES_KNOWLEDGE", "ENABLES_KNOWLEDGE"}
 
     async def test_invalid_relationship_type_still_400s(
-        self, curriculum_handlers: dict[str, Any]
+        self, curriculum_handlers: RegisteredHandlers
     ) -> None:
         """Validation ordering is unchanged for the no-verifier path."""
         response = await _graph(curriculum_handlers, "ps")(
@@ -542,7 +536,7 @@ class TestCurriculumRemainsPublic:
 
 
 class TestUnauthenticated:
-    async def test_chain_requires_a_session(self, owned_handlers: dict[str, Any]) -> None:
+    async def test_chain_requires_a_session(self, owned_handlers: RegisteredHandlers) -> None:
         from starlette.exceptions import HTTPException
 
         with pytest.raises(HTTPException) as exc:

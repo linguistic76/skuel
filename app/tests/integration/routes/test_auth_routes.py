@@ -20,6 +20,7 @@ from starlette.datastructures import FormData
 
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 _PASSWORD = "password123"
@@ -34,20 +35,15 @@ _REGISTRATION_FORM = {
 }
 
 
-def _handlers(graph_auth: MagicMock | None = None, user_service: MagicMock | None = None) -> dict:
+def _handlers(
+    graph_auth: MagicMock | None = None, user_service: MagicMock | None = None
+) -> RegisteredHandlers:
     """The auth UI handlers, keyed by path."""
     from adapters.inbound.auth_ui import create_auth_ui_routes
 
-    registered: dict = {}
+    rt, registered = route_collector()
 
-    def rt_collector(path: str, *_a, **_kw):
-        def decorator(fn):
-            registered[path] = fn
-            return fn
-
-        return decorator
-
-    create_auth_ui_routes(rt_collector, graph_auth or MagicMock(), user_service)
+    create_auth_ui_routes(rt, graph_auth or MagicMock(), user_service)
     return registered
 
 
@@ -130,7 +126,7 @@ class TestRegistrationRefusals:
     ) -> None:
         graph_auth = _graph_auth()
 
-        response = await _handlers(graph_auth)["/register/submit"](
+        response = await _handlers(graph_auth)["/register/submit", "POST"](
             request=_post("/register/submit", {**_REGISTRATION_FORM, **override})
         )
 
@@ -144,7 +140,7 @@ class TestRegistrationRefusals:
         )
         request = _post("/register/submit", _REGISTRATION_FORM)
 
-        response = await _handlers(graph_auth)["/register/submit"](request=request)
+        response = await _handlers(graph_auth)["/register/submit", "POST"](request=request)
 
         assert "An account with this email already exists" in to_xml(response)
         graph_auth.sign_in.assert_not_awaited()
@@ -165,7 +161,9 @@ class TestLoginSubmit:
             session={"user_uid": seed_user_uid("previous"), "stale": "x"},
         )
 
-        response = await _handlers(graph_auth, user_service)["/login/submit"](request=request)
+        response = await _handlers(graph_auth, user_service)["/login/submit", "POST"](
+            request=request
+        )
 
         assert response.status_code == 303
         assert response.headers["location"] == "/today"
@@ -185,7 +183,9 @@ class TestLoginSubmit:
         )
         request = _post("/login/submit", {"username": "alice", "password": _PASSWORD})
 
-        response = await _handlers(graph_auth, user_service)["/login/submit"](request=request)
+        response = await _handlers(graph_auth, user_service)["/login/submit", "POST"](
+            request=request
+        )
 
         user_service.get_user_by_username.assert_awaited_once_with("alice")
         assert graph_auth.sign_in.await_args.kwargs["email"] == "alice@example.com"
@@ -197,7 +197,9 @@ class TestLoginSubmit:
         user_service.get_user_by_username = AsyncMock(return_value=Result.ok(None))
         request = _post("/login/submit", {"username": "ghost", "password": _PASSWORD})
 
-        response = await _handlers(graph_auth, user_service)["/login/submit"](request=request)
+        response = await _handlers(graph_auth, user_service)["/login/submit", "POST"](
+            request=request
+        )
 
         graph_auth.sign_in.assert_not_awaited()
         assert "Invalid username or password" in to_xml(response)
@@ -214,7 +216,7 @@ class TestLoginSubmit:
             session={"user_uid": seed_user_uid("previous")},
         )
 
-        response = await _handlers(graph_auth)["/login/submit"](request=request)
+        response = await _handlers(graph_auth)["/login/submit", "POST"](request=request)
 
         assert "Invalid email or password" in to_xml(response)
         assert request.session == {"user_uid": seed_user_uid("previous")}
@@ -222,7 +224,7 @@ class TestLoginSubmit:
     async def test_blank_password_is_refused_before_sign_in(self) -> None:
         graph_auth = _graph_auth()
 
-        response = await _handlers(graph_auth)["/login/submit"](
+        response = await _handlers(graph_auth)["/login/submit", "POST"](
             request=_post("/login/submit", {"username": "alice@example.com", "password": ""})
         )
 
@@ -317,13 +319,13 @@ class TestRedirectBehavior:
     def test_auth_pages_send_an_authenticated_visitor_to_today(
         self, path: str, is_admin: bool
     ) -> None:
-        response = _handlers()[path](request=self._authenticated_request(is_admin))
+        response = _handlers()[path, "GET"](request=self._authenticated_request(is_admin))
         assert response.status_code == 303
         assert response.headers["location"] == "/today"
 
     async def test_logout_redirects_to_login(self) -> None:
         request = SimpleNamespace(session={}, client=None, headers={})
-        response = await _handlers()["/logout"](request=request)
+        response = await _handlers()["/logout", "GET"](request=request)
         assert response.status_code == 303
         assert response.headers["location"] == "/login"
 
@@ -359,7 +361,7 @@ class TestInviteCodeGate:
         graph_auth = _graph_auth()
         handlers = _handlers(graph_auth)
 
-        response = await handlers["/register/submit"](request=self._submit_request())
+        response = await handlers["/register/submit", "POST"](request=self._submit_request())
 
         graph_auth.sign_up.assert_awaited_once()
         assert response.status_code == 303  # → /login?registered=true
@@ -369,7 +371,7 @@ class TestInviteCodeGate:
         graph_auth = _graph_auth()
         handlers = _handlers(graph_auth)
 
-        response = await handlers["/register/submit"](
+        response = await handlers["/register/submit", "POST"](
             request=self._submit_request(invite_code="wrong")
         )
 
@@ -383,7 +385,7 @@ class TestInviteCodeGate:
         graph_auth = _graph_auth()
         handlers = _handlers(graph_auth)
 
-        response = await handlers["/register/submit"](request=self._submit_request())
+        response = await handlers["/register/submit", "POST"](request=self._submit_request())
 
         graph_auth.sign_up.assert_not_awaited()
         assert "Invalid invite code" in to_xml(response)
@@ -393,7 +395,7 @@ class TestInviteCodeGate:
         graph_auth = _graph_auth()
         handlers = _handlers(graph_auth)
 
-        response = await handlers["/register/submit"](
+        response = await handlers["/register/submit", "POST"](
             request=self._submit_request(invite_code="sekrit")
         )
 
@@ -406,7 +408,7 @@ class TestInviteCodeGate:
         handlers = _handlers(_graph_auth())
         request = SimpleNamespace(method="GET", session={}, headers={}, cookies={})
 
-        assert 'name="invite_code"' not in to_xml(handlers["/register"](request=request))
+        assert 'name="invite_code"' not in to_xml(handlers["/register", "GET"](request=request))
 
         monkeypatch.setenv("SIGNUP_INVITE_CODE", "sekrit")
-        assert 'name="invite_code"' in to_xml(handlers["/register"](request=request))
+        assert 'name="invite_code"' in to_xml(handlers["/register", "GET"](request=request))

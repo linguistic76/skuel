@@ -16,24 +16,8 @@ from fastcore.xml import to_xml  # type: ignore[import-untyped]
 
 from adapters.inbound.user_entry_ui import create_user_entry_ui_routes
 from core.utils.result_simplified import Result
+from tests.helpers.route_collector import route_collector
 from ui.activities.nav import ACTIVITY_SIDEBAR_TITLE
-
-
-class _RouteRegistry:
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "GET"):
-        return self.handlers[(path, method.upper())]
 
 
 def _make_request(user_uid: str = "user_gradebook") -> SimpleNamespace:
@@ -61,15 +45,15 @@ def shell_as_dict(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def gradebook_handler():
-    registry = _RouteRegistry()
+    rt, registry = route_collector()
     orchestrator = SimpleNamespace(
         get_student_exchange_summaries=AsyncMock(
             return_value=Result.ok({"exercises": [], "other_feedback": []})
         ),
         get_activity_report_history=AsyncMock(return_value=Result.ok([])),
     )
-    create_user_entry_ui_routes(registry, SimpleNamespace(), orchestrator=orchestrator)
-    return registry.get("/gradebook")
+    create_user_entry_ui_routes(rt, SimpleNamespace(), orchestrator=orchestrator)
+    return registry["/gradebook", "GET"]
 
 
 def _anchors_to(html: str, href: str) -> list[str]:

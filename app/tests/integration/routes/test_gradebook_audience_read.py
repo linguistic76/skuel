@@ -24,14 +24,13 @@ mocked backend would only prove that the route calls a method.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
-from fasthtml.common import FT, FtResponse, to_xml
+from fasthtml.common import FtResponse, to_xml
 from starlette.responses import Response
 
 from adapters.inbound.user_entry_ui import create_user_entry_ui_routes
@@ -39,7 +38,7 @@ from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 from core.services.user_entry.user_entry_service import UserEntryService
 from core.utils.result_simplified import Result
 from tests.helpers.production_backends import build_production_backends
-from tests.helpers.route_collector import route_collector
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -68,7 +67,6 @@ OWNER_NAME = "Alice Ardent"
 DETAIL_PATH = "/gradebook/{uid}"
 DOWNLOAD_PATH = "/gradebook/{uid}/download"
 
-Handler = Callable[..., Awaitable[FT | FtResponse | Response]]
 
 _SEED = """
 MERGE (alice:User {uid: $alice}) SET alice.is_active = true
@@ -202,9 +200,9 @@ async def handlers(neo4j_driver: Any) -> Any:
     await backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)
 
 
-async def _open(handlers: dict[str, Handler], user_uid: str, uid: str) -> tuple[int, str]:
+async def _open(handlers: RegisteredHandlers, user_uid: str, uid: str) -> tuple[int, str]:
     """Render the detail page as the given user → (status, markup)."""
-    response = await handlers[DETAIL_PATH](
+    response = await handlers[DETAIL_PATH, "GET"](
         request=_make_request(user_uid, f"/gradebook/{uid}"), uid=uid
     )
     if isinstance(response, FtResponse):
@@ -212,8 +210,8 @@ async def _open(handlers: dict[str, Handler], user_uid: str, uid: str) -> tuple[
     return 200, to_xml(response)
 
 
-async def _download(handlers: dict[str, Handler], user_uid: str, uid: str) -> Response:
-    response = await handlers[DOWNLOAD_PATH](
+async def _download(handlers: RegisteredHandlers, user_uid: str, uid: str) -> Response:
+    response = await handlers[DOWNLOAD_PATH, "GET"](
         request=_make_request(user_uid, f"/gradebook/{uid}/download"), uid=uid
     )
     assert isinstance(response, Response)

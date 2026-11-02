@@ -36,6 +36,7 @@ from core.services.lateral_relationships.lateral_relationship_service import (
 )
 from core.utils.result_simplified import Errors, Result
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -84,27 +85,13 @@ def owner_only_service() -> Any:
 
 
 @pytest.fixture
-def handlers(neo4j_driver, owner_only_service: Any) -> dict[tuple[str, str], Any]:
-    """Real routes over a real backend, keyed by (path, method).
-
-    Keying on the pair matters: ``POST`` and ``GET`` share the
-    ``/lateral/alternatives`` path, so a path-only collector would silently
-    keep whichever registered last.
-    """
+def handlers(neo4j_driver, owner_only_service: Any) -> RegisteredHandlers:
+    """Real routes over a real backend; ``POST`` and ``GET`` share the
+    ``/lateral/alternatives`` path, so each lookup names its method."""
     backend = build_production_backends(neo4j_driver)["lateral_relationship_backend"]
     service = LateralRelationshipService(backend=backend)
 
-    registered: dict[tuple[str, str], Any] = {}
-
-    def rt_collector(path: str, *_a: Any, **kwargs: Any) -> Any:
-        methods = kwargs.get("methods") or ["GET"]
-
-        def decorator(fn: Any) -> Any:
-            for method in methods:
-                registered[(path, method)] = fn
-            return fn
-
-        return decorator
+    rt, registered = route_collector()
 
     factory = LateralRouteFactory(
         domain="goals",
@@ -112,16 +99,16 @@ def handlers(neo4j_driver, owner_only_service: Any) -> dict[tuple[str, str], Any
         entity_name="Goal",
         domain_service=owner_only_service,
     )
-    factory.register_routes(rt_collector)
+    factory.register_routes(rt)
     return registered
 
 
-def _create(handlers: dict[tuple[str, str], Any]) -> Any:
-    return handlers[("/api/goals/{uid}/lateral/alternatives", "POST")]
+def _create(handlers: RegisteredHandlers) -> Any:
+    return handlers["/api/goals/{uid}/lateral/alternatives", "POST"]
 
 
-def _compare(handlers: dict[tuple[str, str], Any]) -> Any:
-    return handlers[("/api/goals/{uid}/lateral/alternatives/compare", "GET")]
+def _compare(handlers: RegisteredHandlers) -> Any:
+    return handlers["/api/goals/{uid}/lateral/alternatives/compare", "GET"]
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -147,7 +134,7 @@ async def two_goals(neo4j_driver):
         )
 
 
-async def _author_alternative(handlers: dict[tuple[str, str], Any], **criteria: str) -> Any:
+async def _author_alternative(handlers: RegisteredHandlers, **criteria: str) -> Any:
     """POST the real create route with the three criteria."""
     return await _create(handlers)(
         request=_make_request(OWNER, method="POST"),
@@ -161,9 +148,7 @@ async def _author_alternative(handlers: dict[tuple[str, str], Any], **criteria: 
 class TestAuthoredCriteriaReachTheTable:
     """POST → Neo4j → GET → rendered HTML, with nothing mocked in between."""
 
-    async def test_all_three_criteria_render(
-        self, handlers: dict[tuple[str, str], Any], two_goals
-    ) -> None:
+    async def test_all_three_criteria_render(self, handlers: RegisteredHandlers, two_goals) -> None:
         """The whole point: what an author types is what the grid shows."""
         created = await _author_alternative(
             handlers,
@@ -185,7 +170,7 @@ class TestAuthoredCriteriaReachTheTable:
         assert AUTHORED_RESOURCES in body
 
     async def test_unauthored_criterion_stays_na_and_writes_no_property(
-        self, handlers: dict[tuple[str, str], Any], two_goals, neo4j_driver
+        self, handlers: RegisteredHandlers, two_goals, neo4j_driver
     ) -> None:
         """Omitting a criterion must leave the edge clean, not store "".
 
@@ -218,7 +203,7 @@ class TestAuthoredCriteriaReachTheTable:
         assert b"N/A" in bytes(response.body)
 
     async def test_edge_carries_created_by_but_table_does_not(
-        self, handlers: dict[tuple[str, str], Any], two_goals, neo4j_driver
+        self, handlers: RegisteredHandlers, two_goals, neo4j_driver
     ) -> None:
         """#877's guard, proved against the real graph rather than a stub row.
 
@@ -259,7 +244,7 @@ class TestCriteriaDescribeOneEndpoint:
     """
 
     async def test_far_endpoint_does_not_inherit_the_criteria(
-        self, handlers: dict[tuple[str, str], Any], two_goals
+        self, handlers: RegisteredHandlers, two_goals
     ) -> None:
         """Authored on A→B, B's page must not attribute them to A."""
         await _author_alternative(
@@ -282,7 +267,7 @@ class TestCriteriaDescribeOneEndpoint:
         assert "N/A" in body
 
     async def test_authoring_end_still_shows_them(
-        self, handlers: dict[tuple[str, str], Any], two_goals
+        self, handlers: RegisteredHandlers, two_goals
     ) -> None:
         """The gate must not suppress the side that authored them."""
         await _author_alternative(handlers, timeframe=AUTHORED_TIMEFRAME)
@@ -303,7 +288,7 @@ class TestReverseSubmissionDoesNotDuplicate:
     """
 
     async def test_alternative_appears_once_after_both_sides_author(
-        self, handlers: dict[tuple[str, str], Any], two_goals, neo4j_driver
+        self, handlers: RegisteredHandlers, two_goals, neo4j_driver
     ) -> None:
         await _author_alternative(handlers, timeframe=AUTHORED_TIMEFRAME)
         # The far entity now asserts the same pairing about the first one.
@@ -348,7 +333,7 @@ class TestReverseSubmissionDoesNotDuplicate:
         assert "the reverse timeframe" not in body
 
     async def test_each_side_sees_criteria_authored_about_the_other(
-        self, handlers: dict[tuple[str, str], Any], two_goals
+        self, handlers: RegisteredHandlers, two_goals
     ) -> None:
         """Both directions authored: each page shows the other's criteria."""
         await _author_alternative(handlers, timeframe=AUTHORED_TIMEFRAME)
@@ -378,7 +363,7 @@ class TestResubmitClearsBlankedCriteria:
     """
 
     async def test_blanking_a_criterion_removes_it(
-        self, handlers: dict[tuple[str, str], Any], two_goals, neo4j_driver
+        self, handlers: RegisteredHandlers, two_goals, neo4j_driver
     ) -> None:
         await _author_alternative(
             handlers,
@@ -413,7 +398,7 @@ class TestOwnershipIsUnchanged:
     """The writer must not loosen the read gate #877 and its predecessor set."""
 
     async def test_foreign_reader_still_gets_404(
-        self, handlers: dict[tuple[str, str], Any], two_goals
+        self, handlers: RegisteredHandlers, two_goals
     ) -> None:
         await _author_alternative(handlers, timeframe=AUTHORED_TIMEFRAME)
 

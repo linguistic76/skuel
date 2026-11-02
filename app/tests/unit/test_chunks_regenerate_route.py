@@ -4,7 +4,7 @@ Covers the route handler wired in ingestion_api.py — admin gate, JSON
 validation, error mapping, and the conditional registration based on whether
 batch_chunking_service is wired.
 
-Mirrors the fake-rt registry pattern from tests/unit/adapters/test_calendar_ui.py.
+Handlers come from ``tests/helpers/route_collector.py``.
 """
 
 from __future__ import annotations
@@ -22,28 +22,7 @@ from core.models.enums import UserRole
 from core.services.chunks.batch_chunking_service import RegenerationStats
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
-
-
-class _RouteRegistry:
-    """Capture handlers registered via @rt(path, methods=...)."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "POST"):
-        return self.handlers[(path, method.upper())]
-
-    def has(self, path: str, method: str = "POST") -> bool:
-        return (path, method.upper()) in self.handlers
+from tests.helpers.route_collector import route_collector
 
 
 def _admin_user_service() -> MagicMock:
@@ -105,27 +84,27 @@ class TestRegenerateChunksRequest:
 
 class TestFactoryWiring:
     def test_route_registered_when_service_present(self) -> None:
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         ingestion = MagicMock()
         batch_service = MagicMock()
         create_ingestion_api_routes(
-            rt=registry,
+            rt=rt,
             unified_ingestion=ingestion,
             user_service=_admin_user_service(),
             batch_chunking_service=batch_service,
         )
-        assert registry.has("/api/chunks/regenerate", "POST")
+        assert ("/api/chunks/regenerate", "POST") in registry
 
     def test_route_skipped_when_service_none(self) -> None:
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         ingestion = MagicMock()
         create_ingestion_api_routes(
-            rt=registry,
+            rt=rt,
             unified_ingestion=ingestion,
             user_service=_admin_user_service(),
             batch_chunking_service=None,
         )
-        assert not registry.has("/api/chunks/regenerate", "POST")
+        assert ("/api/chunks/regenerate", "POST") not in registry
 
 
 # ============================================================================
@@ -135,11 +114,11 @@ class TestFactoryWiring:
 
 @pytest.fixture
 def admin_routes_and_service():
-    registry = _RouteRegistry()
+    rt, registry = route_collector()
     user_service = _admin_user_service()
     batch_service = MagicMock()
     create_ingestion_api_routes(
-        rt=registry,
+        rt=rt,
         unified_ingestion=MagicMock(),
         user_service=user_service,
         batch_chunking_service=batch_service,
@@ -162,7 +141,7 @@ class TestRegenerateRouteHappyPath:
         )
         batch_service.regenerate_chunks = AsyncMock(return_value=Result.ok(stats))
 
-        handler = registry.get("/api/chunks/regenerate", "POST")
+        handler = registry["/api/chunks/regenerate", "POST"]
         request = _request_with_session(
             session={"user_uid": "user_admin"},
             json_body={"parent_uids": ["ku_a", "ku_b"], "force": False},
@@ -186,7 +165,7 @@ class TestRegenerateRouteHappyPath:
         registry, batch_service = admin_routes_and_service
         batch_service.regenerate_chunks = AsyncMock(return_value=Result.ok(RegenerationStats()))
 
-        handler = registry.get("/api/chunks/regenerate", "POST")
+        handler = registry["/api/chunks/regenerate", "POST"]
         request = _request_with_session(
             session={"user_uid": "user_admin"},
             json_body={"force": True},
@@ -204,7 +183,7 @@ class TestRegenerateRouteValidation:
         registry, batch_service = admin_routes_and_service
         batch_service.regenerate_chunks = AsyncMock()
 
-        handler = registry.get("/api/chunks/regenerate", "POST")
+        handler = registry["/api/chunks/regenerate", "POST"]
         request = _request_with_session(
             session={"user_uid": "user_admin"},
             json_body={"force": ["not", "a", "bool"]},
@@ -229,7 +208,7 @@ class TestRegenerateRouteServiceFailure:
             )
         )
 
-        handler = registry.get("/api/chunks/regenerate", "POST")
+        handler = registry["/api/chunks/regenerate", "POST"]
         request = _request_with_session(
             session={"user_uid": "user_admin"},
             json_body={"parent_uids": None, "force": False},
@@ -243,14 +222,14 @@ class TestRegenerateRouteServiceFailure:
 class TestRegenerateRouteAdminGate:
     @pytest.mark.asyncio
     async def test_unauthenticated_raises_401(self) -> None:
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         create_ingestion_api_routes(
-            rt=registry,
+            rt=rt,
             unified_ingestion=MagicMock(),
             user_service=_admin_user_service(),
             batch_chunking_service=MagicMock(),
         )
-        handler = registry.get("/api/chunks/regenerate", "POST")
+        handler = registry["/api/chunks/regenerate", "POST"]
         request = _request_with_session(session={})  # no user_uid
 
         with pytest.raises(HTTPException) as exc_info:
@@ -259,14 +238,14 @@ class TestRegenerateRouteAdminGate:
 
     @pytest.mark.asyncio
     async def test_non_admin_user_raises_403(self) -> None:
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         create_ingestion_api_routes(
-            rt=registry,
+            rt=rt,
             unified_ingestion=MagicMock(),
             user_service=_non_admin_user_service(),
             batch_chunking_service=MagicMock(),
         )
-        handler = registry.get("/api/chunks/regenerate", "POST")
+        handler = registry["/api/chunks/regenerate", "POST"]
         request = _request_with_session(
             session={"user_uid": "user_member"},
             json_body={"force": False},

@@ -100,7 +100,7 @@ class TestActiveRouteOverNativeStamps:
         types = await _value_types(neo4j_driver, "created_at")
         assert types["insight.utc.native-created"].startswith("ZONED DATETIME"), types
 
-        response = await _route_handlers(store)[ACTIVE_PATH](_request())
+        response = await _route_handlers(store)[ACTIVE_PATH, "GET"](_request())
 
         assert response.status_code == 200, response.body
         payload = json.loads(response.body)

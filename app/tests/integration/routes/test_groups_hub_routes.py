@@ -23,6 +23,7 @@ from starlette.exceptions import HTTPException
 from core.models.enums.entity_enums import EntityType
 from core.models.group.group import create_group
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 
@@ -51,7 +52,7 @@ def mock_services() -> Any:
 
 
 @pytest.fixture
-def handlers(mock_services: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+def handlers(mock_services: Any, monkeypatch: pytest.MonkeyPatch) -> RegisteredHandlers:
     """Register /groups hub routes on a collector rt and return them.
 
     Patches ui.layouts.base_page.BasePage to a lightweight sync stub so we
@@ -68,16 +69,9 @@ def handlers(mock_services: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, A
 
     from adapters.inbound.groups_hub_routes import create_groups_hub_routes
 
-    registered: dict[str, Any] = {}
+    rt, registered = route_collector()
 
-    def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
-        def decorator(fn: Any) -> Any:
-            registered[path] = fn
-            return fn
-
-        return decorator
-
-    create_groups_hub_routes(rt_collector, mock_services)
+    create_groups_hub_routes(rt, mock_services)
     return registered
 
 
@@ -87,18 +81,18 @@ def handlers(mock_services: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, A
 
 
 class TestGroupsHub:
-    async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
+    async def test_unauthenticated_raises_401(self, handlers: RegisteredHandlers) -> None:
         request = _make_request(user_uid=None)
         with pytest.raises(HTTPException) as exc:
-            await handlers["/groups"](request=request)
+            await handlers["/groups", "GET"](request=request)
         assert exc.value.status_code == 401
 
     async def test_empty_renders_hub_without_calling_sharing(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         """Student with zero student-role groups still renders (empty state)."""
         request = _make_request()
-        response = await handlers["/groups"](request=request)
+        response = await handlers["/groups", "GET"](request=request)
 
         assert response["__base_page__"] is True
         assert response["title"] == "Groups"
@@ -107,11 +101,11 @@ class TestGroupsHub:
         mock_services.sharing.get_shared_with_me.assert_not_called()
 
     async def test_filters_by_student_role(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         """Finding #6: hub must pass role='student' so TA edges don't eat the cap."""
         request = _make_request()
-        await handlers["/groups"](request=request)
+        await handlers["/groups", "GET"](request=request)
 
         call = mock_services.groups.get_user_groups.await_args
         assert call.kwargs.get("role") == "student", (
@@ -119,31 +113,31 @@ class TestGroupsHub:
         )
 
     async def test_populated_defaults_to_first_group(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         g1 = _make_group("group.a", "Physics 101")
         g2 = _make_group("group_b", "Chemistry 101")
         mock_services.groups.get_user_groups = AsyncMock(return_value=Result.ok([g1, g2]))
 
         request = _make_request()
-        response = await handlers["/groups"](request=request)
+        response = await handlers["/groups", "GET"](request=request)
 
         assert response["__base_page__"] is True
 
     async def test_invalid_group_query_param_falls_back_to_first(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         """?group=does_not_exist must not crash — the hub picks the first tab."""
         g1 = _make_group("group.a", "Physics 101")
         mock_services.groups.get_user_groups = AsyncMock(return_value=Result.ok([g1]))
 
         request = _make_request()
-        response = await handlers["/groups"](request=request, group="group_missing")
+        response = await handlers["/groups", "GET"](request=request, group="group_missing")
 
         assert response["__base_page__"] is True
 
     async def test_service_error_treated_as_empty(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         """Backend failure must not surface as 500 — degrade to empty state."""
         mock_services.groups.get_user_groups = AsyncMock(
@@ -151,7 +145,7 @@ class TestGroupsHub:
         )
 
         request = _make_request()
-        response = await handlers["/groups"](request=request)
+        response = await handlers["/groups", "GET"](request=request)
 
         assert response["__base_page__"] is True
 
@@ -162,16 +156,16 @@ class TestGroupsHub:
 
 
 class TestGroupsSharedPreview:
-    async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
+    async def test_unauthenticated_raises_401(self, handlers: RegisteredHandlers) -> None:
         request = _make_request(user_uid=None)
         with pytest.raises(HTTPException) as exc:
-            await handlers["/api/groups/{group_uid}/shared/preview"](
+            await handlers["/api/groups/{group_uid}/shared/preview", "GET"](
                 request=request, group_uid="group.a"
             )
         assert exc.value.status_code == 401
 
     async def test_non_member_gets_empty_fragment_not_403(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         """The audience fragment inside the one reader is the access guard —
         non-members get an empty result, not an authorization error. The route
@@ -180,14 +174,14 @@ class TestGroupsSharedPreview:
         mock_services.sharing.get_shared_with_me = AsyncMock(return_value=Result.ok([]))
 
         request = _make_request()
-        response = await handlers["/api/groups/{group_uid}/shared/preview"](
+        response = await handlers["/api/groups/{group_uid}/shared/preview", "GET"](
             request=request, group_uid="group.not-a-member"
         )
 
         assert response is not None
 
     async def test_member_with_entries_returns_list_fragment(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         from core.models.entity_dto import EntityDTO
 
@@ -206,7 +200,7 @@ class TestGroupsSharedPreview:
         mock_services.sharing.get_shared_with_me = AsyncMock(return_value=Result.ok(records))
 
         request = _make_request()
-        response = await handlers["/api/groups/{group_uid}/shared/preview"](
+        response = await handlers["/api/groups/{group_uid}/shared/preview", "GET"](
             request=request, group_uid="group.a"
         )
 
@@ -220,14 +214,14 @@ class TestGroupsSharedPreview:
         )
 
     async def test_service_error_yields_empty_fragment(
-        self, handlers: dict[str, Any], mock_services: Any
+        self, handlers: RegisteredHandlers, mock_services: Any
     ) -> None:
         mock_services.sharing.get_shared_with_me = AsyncMock(
             return_value=Result.fail(Errors.database(operation="query", message="boom"))
         )
 
         request = _make_request()
-        response = await handlers["/api/groups/{group_uid}/shared/preview"](
+        response = await handlers["/api/groups/{group_uid}/shared/preview", "GET"](
             request=request, group_uid="group.a"
         )
 
@@ -247,23 +241,16 @@ class TestGroupsSharedPreview:
 
         from adapters.inbound.groups_hub_routes import create_groups_hub_routes
 
-        registered: dict[str, Any] = {}
-
-        def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
-            def decorator(fn: Any) -> Any:
-                registered[path] = fn
-                return fn
-
-            return decorator
+        rt, registered = route_collector()
 
         degraded_services = MagicMock()
         degraded_services.groups = MagicMock()
         degraded_services.groups.get_user_groups = AsyncMock(return_value=Result.ok([]))
         degraded_services.sharing = None
 
-        create_groups_hub_routes(rt_collector, degraded_services)
+        create_groups_hub_routes(rt, degraded_services)
 
-        response = await registered["/api/groups/{group_uid}/shared/preview"](
+        response = await registered["/api/groups/{group_uid}/shared/preview", "GET"](
             request=_make_request(), group_uid="group.a"
         )
         assert response is not None

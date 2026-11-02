@@ -234,14 +234,16 @@ def _next_query(markup: str) -> dict[str, str] | None:
 
 async def _walk(handlers: RegisteredHandlers, **query: str) -> list[list[str]]:
     """The page, then every load-more the page's own trigger leads to, until the end."""
-    page = await handlers["/insights"](_request("/insights", **query))
+    page = await handlers["/insights", "GET"](_request("/insights", **query))
     markup = to_xml(page)
     pages = [_listed(markup)]
     next_query = _next_query(markup)
     while next_query is not None:
         assert len(pages) <= 5, "load-more never reached the end"
         fragment = to_xml(
-            await handlers["/insights/load-more"](_request("/insights/load-more", **next_query))
+            await handlers["/insights/load-more", "GET"](
+                _request("/insights/load-more", **next_query)
+            )
         )
         listed = _listed(fragment)
         if not listed:
@@ -295,9 +297,9 @@ class TestThePageAndLoadMore:
     async def test_the_subtitle_counts_every_match_not_the_page(self, store, monkeypatch) -> None:
         handlers = _handlers(store, monkeypatch)
 
-        unfiltered = to_xml(await handlers["/insights"](_request("/insights")))
+        unfiltered = to_xml(await handlers["/insights", "GET"](_request("/insights")))
         filtered = to_xml(
-            await handlers["/insights"](_request("/insights", type="difficulty_pattern"))
+            await handlers["/insights", "GET"](_request("/insights", type="difficulty_pattern"))
         )
 
         assert "30 active insights" in unfiltered
@@ -320,7 +322,7 @@ class TestThePageAndLoadMore:
     ) -> None:
         handlers = _handlers(store, monkeypatch)
         for path in ("/insights", "/insights/load-more", "/api/insights/active"):
-            response = await handlers[path](_request(path, **query))
+            response = await handlers[path, "GET"](_request(path, **query))
             assert isinstance(response, Response), (path, response)
             assert response.status_code == 400, (path, response.body)
 
@@ -334,7 +336,7 @@ class TestTheActiveApi:
     async def test_count_is_the_whole_matching_total_and_insights_the_page(
         self, store, monkeypatch
     ) -> None:
-        handler = _handlers(store, monkeypatch)["/api/insights/active"]
+        handler = _handlers(store, monkeypatch)["/api/insights/active", "GET"]
 
         whole = json.loads((await handler(_request("/api/insights/active", limit="5"))).body)
         low = json.loads(
@@ -357,7 +359,7 @@ class TestTheActiveApi:
 
 class TestStats:
     async def test_critical_and_high_count_active_insights_only(self, store, monkeypatch) -> None:
-        handler = _handlers(store, monkeypatch)["/api/insights/stats"]
+        handler = _handlers(store, monkeypatch)["/api/insights/stats", "GET"]
 
         stats = json.loads((await handler(_request("/api/insights/stats"))).body)
 
@@ -369,7 +371,9 @@ class TestStats:
 
     async def test_the_stats_page_names_domains_as_all_time(self, store, monkeypatch) -> None:
         page = to_xml(
-            await _handlers(store, monkeypatch)["/insights/stats"](_request("/insights/stats"))
+            await _handlers(store, monkeypatch)["/insights/stats", "GET"](
+                _request("/insights/stats")
+            )
         )
 
         assert "Domains you&#x27;ve had insights in" in page or (

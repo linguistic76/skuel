@@ -24,6 +24,7 @@ from adapters.inbound.learning_loop_routes import create_learning_loop_detail_ro
 from core.config.unified_config import VectorSearchConfig
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.route_collector import route_collector
 from ui.explore.ku_detail import render_ku_related_concepts
 from ui.explore.ps_detail import render_ps_related_concepts
 from ui.page_contexts import RelatedConceptChip
@@ -173,33 +174,19 @@ async def test_find_related_concepts_missing_embedding_is_not_found() -> None:
 # ============================================================================
 
 
-class _RouteRecorder:
-    """Fake ``rt`` decorator — records path → handler for direct invocation."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[str, Any] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None) -> Any:
-        def _register(handler: Any) -> Any:
-            self.handlers[path] = handler
-            return handler
-
-        return _register
-
-
 def _related_handlers(vector_search_service: Any) -> tuple[Any, Any]:
     """Register the detail routes and return the (ku, ps) related handlers."""
-    recorder = _RouteRecorder()
+    rt, handlers = route_collector()
     create_learning_loop_detail_routes(
-        recorder,  # type: ignore[arg-type]  # boundary: test double for RouteDecorator
+        rt,
         orchestrator=MagicMock(),
         user_service=MagicMock(),
         context_intelligence=MagicMock(),
         vector_search_service=vector_search_service,
     )
     return (
-        recorder.handlers["/explore/ku/{uid}/related"],
-        recorder.handlers["/explore/ps/{uid}/related"],
+        handlers["/explore/ku/{uid}/related", "GET"],
+        handlers["/explore/ps/{uid}/related", "GET"],
     )
 
 

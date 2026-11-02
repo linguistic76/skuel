@@ -19,26 +19,13 @@ from starlette.exceptions import HTTPException
 from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
 from core.models.enums import ContentScope
 from core.utils.result_simplified import Result
+from tests.helpers.route_collector import route_collector
 
 
 def _get_request() -> SimpleNamespace:
     """Minimal request shape: the CSRF wrapper reads .method (GET = safe); the route
     reads ``limit`` / ``offset`` from the query string."""
     return SimpleNamespace(method="GET", query_params={})
-
-
-class _MockRouter:
-    """Route decorator stand-in that records registered handlers by path."""
-
-    def __init__(self) -> None:
-        self.routes: dict[str, Any] = {}
-
-    def __call__(self, path: str):
-        def decorator(func):
-            self.routes[path] = func
-            return func
-
-        return decorator
 
 
 class _RecordingHandler:
@@ -78,7 +65,7 @@ async def test_user_owned_search_authenticates_and_threads_user(
 ) -> None:
     handler = _RecordingHandler()
     factory = _make_factory(ContentScope.USER_OWNED, handler)
-    router = _MockRouter()
+    rt, handlers = route_collector()
 
     def _fake_auth(request: Any) -> str:
         return "user_owner"
@@ -88,8 +75,8 @@ async def test_user_owned_search_authenticates_and_threads_user(
         _fake_auth,
     )
 
-    factory._register_search_route(router)
-    search = router.routes["/api/tasks/search"]
+    factory._register_search_route(rt)
+    search = handlers["/api/tasks/search", "GET"]
 
     response = await search(_get_request(), query="alpha")
 
@@ -101,7 +88,7 @@ async def test_user_owned_search_authenticates_and_threads_user(
 async def test_shared_search_passes_anonymous_user(monkeypatch: pytest.MonkeyPatch) -> None:
     handler = _RecordingHandler()
     factory = _make_factory(ContentScope.SHARED, handler)
-    router = _MockRouter()
+    rt, handlers = route_collector()
 
     def _explode(request: Any) -> str:
         raise AssertionError("SHARED search must not require authentication")
@@ -111,8 +98,8 @@ async def test_shared_search_passes_anonymous_user(monkeypatch: pytest.MonkeyPat
         _explode,
     )
 
-    factory._register_search_route(router)
-    search = router.routes["/api/tasks/search"]
+    factory._register_search_route(rt)
+    search = handlers["/api/tasks/search", "GET"]
 
     response = await search(_get_request(), query="alpha")
 
@@ -127,7 +114,7 @@ async def test_user_owned_search_refuses_unauthenticated(
     """The auth gate runs BEFORE the handler — an anonymous caller never reaches it."""
     handler = _RecordingHandler()
     factory = _make_factory(ContentScope.USER_OWNED, handler)
-    router = _MockRouter()
+    rt, handlers = route_collector()
 
     def _refuse(request: Any) -> str:
         raise HTTPException(401, "Authentication required")
@@ -137,8 +124,8 @@ async def test_user_owned_search_refuses_unauthenticated(
         _refuse,
     )
 
-    factory._register_search_route(router)
-    search = router.routes["/api/tasks/search"]
+    factory._register_search_route(rt)
+    search = handlers["/api/tasks/search", "GET"]
 
     with pytest.raises(HTTPException):
         await search(_get_request(), query="alpha")
@@ -163,11 +150,11 @@ async def test_the_window_is_read_from_the_query_string(
     a 404 from a typed parameter."""
     handler = _RecordingHandler()
     factory = _make_factory(ContentScope.SHARED, handler)
-    router = _MockRouter()
-    factory._register_search_route(router)
+    rt, handlers = route_collector()
+    factory._register_search_route(rt)
 
     request = SimpleNamespace(method="GET", query_params=query)
-    await router.routes["/api/tasks/search"](request, query="alpha")
+    await handlers["/api/tasks/search", "GET"](request, query="alpha")
 
     assert (handler.calls[0]["limit"], handler.calls[0]["offset"]) == window
 
@@ -181,11 +168,11 @@ async def test_an_unreadable_window_is_refused(query: dict[str, str]) -> None:
     the search handler is not called."""
     handler = _RecordingHandler()
     factory = _make_factory(ContentScope.SHARED, handler)
-    router = _MockRouter()
-    factory._register_search_route(router)
+    rt, handlers = route_collector()
+    factory._register_search_route(rt)
 
     request = SimpleNamespace(method="GET", query_params=query)
-    response = await router.routes["/api/tasks/search"](request, query="alpha")
+    response = await handlers["/api/tasks/search", "GET"](request, query="alpha")
 
     assert response.status_code == 400
     assert handler.calls == []

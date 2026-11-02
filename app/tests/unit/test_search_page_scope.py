@@ -59,6 +59,7 @@ from core.models.search.filter_enums import BodyFoldStatus, SearchSortOrder
 from core.models.search_request import FacetCount, SearchRequest, SearchResponse
 from core.orchestrator.search_router import CURRICULUM_FACET_DOMAINS, SearchRouter
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from ui.explore.cards import LIBRARY_DEFAULT_SORT
 from ui.search.components import (
     _ENTITY_TYPE_OPTIONS,
@@ -440,32 +441,16 @@ class TestScopedBodyChunks:
 # ============================================================================
 
 
-class _RouteRegistry:
-    """Capture handlers by (path, method) instead of registering with FastHTML."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], Any] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None) -> Any:
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func: Any) -> Any:
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-
 class TestRouteWiring:
     @staticmethod
     def _handler_and_router() -> tuple[Any, MagicMock]:
-        registry = _RouteRegistry()
+        rt, registry = route_collector()
         search_router = MagicMock()
         search_router.faceted_search = AsyncMock(
             return_value=Result.ok(SearchResponse(results=[], total=0, limit=20, offset=0))
         )
-        create_search_api_routes(rt=registry, search_router=search_router)
-        return registry.handlers[("/search/results", "GET")], search_router
+        create_search_api_routes(rt=rt, search_router=search_router)
+        return registry["/search/results", "GET"], search_router
 
     @staticmethod
     def _authenticated_request() -> SimpleNamespace:
@@ -785,16 +770,16 @@ class TestFacetVocabularyWiring:
     """
 
     @staticmethod
-    def _handlers_and_router() -> tuple[dict[tuple[str, str], Any], MagicMock]:
-        registry = _RouteRegistry()
+    def _handlers_and_router() -> tuple[RegisteredHandlers, MagicMock]:
+        rt, registry = route_collector()
         search_router = MagicMock()
         search_router.list_nous_subtopics = AsyncMock(return_value=Result.ok(["breath"]))
         search_router.nous_subtopic_map = AsyncMock(return_value=Result.ok({"body": ["breath"]}))
         search_router.list_tags = AsyncMock(return_value=Result.ok([]))
         ku_service = MagicMock()
         ku_service.list_nous_topics = AsyncMock(return_value=Result.ok(["body"]))
-        create_search_api_routes(rt=registry, search_router=search_router, ku_service=ku_service)
-        return registry.handlers, search_router
+        create_search_api_routes(rt=rt, search_router=search_router, ku_service=ku_service)
+        return registry, search_router
 
     @staticmethod
     def _authenticated_request(path: str) -> SimpleNamespace:
@@ -810,7 +795,7 @@ class TestFacetVocabularyWiring:
     async def test_the_render_gate_is_fetched_at_the_page_scope(self) -> None:
         handlers, search_router = self._handlers_and_router()
 
-        await handlers[("/search", "GET")](self._authenticated_request("/search"))
+        await handlers["/search", "GET"](self._authenticated_request("/search"))
 
         assert search_router.list_nous_subtopics.await_args.args == (SEARCH_PAGE_FACET_DOMAINS,)
 
@@ -818,7 +803,7 @@ class TestFacetVocabularyWiring:
     async def test_the_options_are_fetched_at_the_page_scope(self) -> None:
         handlers, search_router = self._handlers_and_router()
 
-        await handlers[("/search/subtopics", "GET")](
+        await handlers["/search/subtopics", "GET"](
             self._authenticated_request("/search/subtopics"), nous="body"
         )
 

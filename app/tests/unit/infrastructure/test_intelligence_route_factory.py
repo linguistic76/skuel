@@ -17,11 +17,13 @@ from unittest.mock import patch
 import pytest
 from starlette.responses import JSONResponse
 
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.route_factories.intelligence_route_factory import (
     IntelligenceRouteFactory,
 )
 from core.models.enums import ContentScope, Domain
 from core.utils.result_simplified import Result
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 
 # ============================================================================
 # AUTH MOCK - Auto-applied to all tests
@@ -197,24 +199,6 @@ class MockRequest:
         return self._json_data
 
 
-class MockRouter:
-    """Mock route decorator."""
-
-    def __init__(self):
-        self.routes = {}
-
-    def __call__(self, path: str, methods: list[str]):
-        def decorator(func):
-            self.routes[f"{methods[0]}:{path}"] = func
-            return func
-
-        return decorator
-
-    def get_route(self, method: str, path: str):
-        """Get registered route handler."""
-        return self.routes.get(f"{method}:{path}")
-
-
 @pytest.fixture
 def mock_service() -> MockIntelligenceService:
     """Fixture providing mock intelligence service."""
@@ -222,9 +206,19 @@ def mock_service() -> MockIntelligenceService:
 
 
 @pytest.fixture
-def mock_router() -> MockRouter:
-    """Fixture providing mock router."""
-    return MockRouter()
+def collected() -> tuple[RouteDecorator, RegisteredHandlers]:
+    """A stand-in ``rt`` and the doors it records."""
+    return route_collector()
+
+
+@pytest.fixture
+def rt(collected: tuple[RouteDecorator, RegisteredHandlers]) -> RouteDecorator:
+    return collected[0]
+
+
+@pytest.fixture
+def handlers(collected: tuple[RouteDecorator, RegisteredHandlers]) -> RegisteredHandlers:
+    return collected[1]
 
 
 class AllowAllOwnership:
@@ -291,14 +285,14 @@ def test_factory_shared_scope_needs_no_ownership_service(mock_service):
 # ============================================================================
 
 
-def test_register_routes_all_enabled(intelligence_factory, mock_router):
+def test_register_routes_all_enabled(intelligence_factory, rt, handlers):
     """Test all routes registered when all features enabled."""
-    intelligence_factory.register_routes(rt=mock_router)
+    intelligence_factory.register_routes(rt=rt)
 
     # Verify all routes registered
-    assert "GET:/api/goals/analytics" in mock_router.routes
-    assert "GET:/api/goals/context" in mock_router.routes
-    assert "GET:/api/goals/insights" in mock_router.routes
+    assert ("/api/goals/analytics", "GET") in handlers
+    assert ("/api/goals/context", "GET") in handlers
+    assert ("/api/goals/insights", "GET") in handlers
 
 
 # ============================================================================
@@ -307,11 +301,11 @@ def test_register_routes_all_enabled(intelligence_factory, mock_router):
 
 
 @pytest.mark.asyncio
-async def test_analytics_route_success(intelligence_factory, mock_router, mock_service):
+async def test_analytics_route_success(intelligence_factory, rt, handlers, mock_service):
     """Test analytics route with valid parameters."""
-    intelligence_factory.register_routes(rt=mock_router)
+    intelligence_factory.register_routes(rt=rt)
 
-    analytics_handler = mock_router.get_route("GET", "/api/goals/analytics")
+    analytics_handler = handlers["/api/goals/analytics", "GET"]
     assert analytics_handler is not None
 
     # period_days rides the query string
@@ -333,11 +327,11 @@ async def test_analytics_route_success(intelligence_factory, mock_router, mock_s
 
 
 @pytest.mark.asyncio
-async def test_analytics_route_default_period(intelligence_factory, mock_router, mock_service):
+async def test_analytics_route_default_period(intelligence_factory, rt, handlers, mock_service):
     """Test analytics route uses default period_days."""
-    intelligence_factory.register_routes(rt=mock_router)
+    intelligence_factory.register_routes(rt=rt)
 
-    analytics_handler = mock_router.get_route("GET", "/api/goals/analytics")
+    analytics_handler = handlers["/api/goals/analytics", "GET"]
 
     # Mock request - no period_days passed, uses default
     request = MockRequest()
@@ -359,11 +353,11 @@ async def test_analytics_route_default_period(intelligence_factory, mock_router,
 
 
 @pytest.mark.asyncio
-async def test_context_route_success(intelligence_factory, mock_router, mock_service):
+async def test_context_route_success(intelligence_factory, rt, handlers, mock_service):
     """Test context route retrieves entity with graph context."""
-    intelligence_factory.register_routes(rt=mock_router)
+    intelligence_factory.register_routes(rt=rt)
 
-    context_handler = mock_router.get_route("GET", "/api/goals/context")
+    context_handler = handlers["/api/goals/context", "GET"]
     assert context_handler is not None
 
     # depth rides the query string; uid is bound by FastHTML
@@ -385,11 +379,11 @@ async def test_context_route_success(intelligence_factory, mock_router, mock_ser
 
 
 @pytest.mark.asyncio
-async def test_context_route_default_depth(intelligence_factory, mock_router, mock_service):
+async def test_context_route_default_depth(intelligence_factory, rt, handlers, mock_service):
     """Test context route uses default depth."""
-    intelligence_factory.register_routes(rt=mock_router)
+    intelligence_factory.register_routes(rt=rt)
 
-    context_handler = mock_router.get_route("GET", "/api/goals/context")
+    context_handler = handlers["/api/goals/context", "GET"]
 
     # Mock request - only uid, depth uses default
     request = MockRequest()
@@ -411,11 +405,11 @@ async def test_context_route_default_depth(intelligence_factory, mock_router, mo
 
 
 @pytest.mark.asyncio
-async def test_insights_route_success(intelligence_factory, mock_router, mock_service):
+async def test_insights_route_success(intelligence_factory, rt, handlers, mock_service):
     """Test insights route retrieves domain-specific insights."""
-    intelligence_factory.register_routes(rt=mock_router)
+    intelligence_factory.register_routes(rt=rt)
 
-    insights_handler = mock_router.get_route("GET", "/api/goals/insights")
+    insights_handler = handlers["/api/goals/insights", "GET"]
     assert insights_handler is not None
 
     # min_confidence rides the query string; uid is bound by FastHTML
@@ -438,11 +432,11 @@ async def test_insights_route_success(intelligence_factory, mock_router, mock_se
 
 
 @pytest.mark.asyncio
-async def test_insights_route_default_confidence(intelligence_factory, mock_router, mock_service):
+async def test_insights_route_default_confidence(intelligence_factory, rt, handlers, mock_service):
     """Test insights route uses default min_confidence."""
-    intelligence_factory.register_routes(rt=mock_router)
+    intelligence_factory.register_routes(rt=rt)
 
-    insights_handler = mock_router.get_route("GET", "/api/goals/insights")
+    insights_handler = handlers["/api/goals/insights", "GET"]
 
     # Mock request - only uid, min_confidence uses default
     request = MockRequest()
@@ -460,21 +454,17 @@ async def test_insights_route_default_confidence(intelligence_factory, mock_rout
 
 @pytest.mark.asyncio
 async def test_an_unreadable_query_value_is_refused(
-    intelligence_factory, mock_router, mock_service
+    intelligence_factory, rt, handlers, mock_service
 ):
     """A value the handler cannot read is a 400 — never its default, a 404 or a 500 —
     and the service is not called."""
-    intelligence_factory.register_routes(rt=mock_router)
+    intelligence_factory.register_routes(rt=rt)
     bad = {"period_days": "soon", "depth": "deep", "min_confidence": "very"}
 
     responses = [
-        await mock_router.get_route("GET", "/api/goals/analytics")(MockRequest(query_params=bad)),
-        await mock_router.get_route("GET", "/api/goals/context")(
-            MockRequest(query_params=bad), uid="goal:bad"
-        ),
-        await mock_router.get_route("GET", "/api/goals/insights")(
-            MockRequest(query_params=bad), uid="goal:bad"
-        ),
+        await handlers["/api/goals/analytics", "GET"](MockRequest(query_params=bad)),
+        await handlers["/api/goals/context", "GET"](MockRequest(query_params=bad), uid="goal:bad"),
+        await handlers["/api/goals/insights", "GET"](MockRequest(query_params=bad), uid="goal:bad"),
     ]
 
     assert [extract_response(response)[1] for response in responses] == [400, 400, 400]
@@ -538,7 +528,7 @@ def test_a_user_owned_factory_refuses_each_curriculum_service():
 # ============================================================================
 
 
-def test_shared_scope_registers_no_analytics_route(mock_router):
+def test_shared_scope_registers_no_analytics_route(rt, handlers):
     """A SHARED factory registers context and insights and nothing else."""
     factory = IntelligenceRouteFactory(
         intelligence_service=MockSharedIntelligenceService(),
@@ -546,15 +536,17 @@ def test_shared_scope_registers_no_analytics_route(mock_router):
         scope=ContentScope.SHARED,
     )
 
-    factory.register_routes(rt=mock_router)
+    factory.register_routes(rt=rt)
 
-    assert set(mock_router.routes) == {
-        "GET:/api/path-steps/context",
-        "GET:/api/path-steps/insights",
+    assert set(handlers) == {
+        ("/api/path-steps/context", "GET"),
+        ("/api/path-steps/insights", "GET"),
     }
 
 
-def test_shared_scope_has_no_analytics_route_whatever_the_service_offers(mock_service, mock_router):
+def test_shared_scope_has_no_analytics_route_whatever_the_service_offers(
+    mock_service, rt, handlers
+):
     """Scope decides, not the service: a SHARED factory over a service that has
     get_performance_analytics registers no analytics route."""
     factory = IntelligenceRouteFactory(
@@ -563,12 +555,12 @@ def test_shared_scope_has_no_analytics_route_whatever_the_service_offers(mock_se
         scope=ContentScope.SHARED,
     )
 
-    factory.register_routes(rt=mock_router)
+    factory.register_routes(rt=rt)
 
     assert factory.analytics_service is None
-    assert "GET:/api/pathways/analytics" not in mock_router.routes
-    assert "GET:/api/pathways/context" in mock_router.routes
-    assert "GET:/api/pathways/insights" in mock_router.routes
+    assert ("/api/pathways/analytics", "GET") not in handlers
+    assert ("/api/pathways/context", "GET") in handlers
+    assert ("/api/pathways/insights", "GET") in handlers
 
 
 def test_user_owned_service_without_analytics_refuses_to_construct():
@@ -635,7 +627,7 @@ def test_factory_without_ownership_verification(mock_service):
 
 @pytest.mark.asyncio
 async def test_context_route_with_ownership_verification(
-    mock_router, mock_service, mock_ownership_service
+    rt, handlers, mock_service, mock_ownership_service
 ):
     """Test context route verifies ownership when enabled."""
     factory = IntelligenceRouteFactory(
@@ -644,9 +636,9 @@ async def test_context_route_with_ownership_verification(
         scope=ContentScope.USER_OWNED,
         ownership_service=mock_ownership_service,
     )
-    factory.register_routes(rt=mock_router)
+    factory.register_routes(rt=rt)
 
-    context_handler = mock_router.get_route("GET", "/api/goals/context")
+    context_handler = handlers["/api/goals/context", "GET"]
     request = MockRequest()
 
     # Request owned entity - should succeed
@@ -660,7 +652,7 @@ async def test_context_route_with_ownership_verification(
 
 
 @pytest.mark.asyncio
-async def test_context_route_ownership_denied(mock_router, mock_service, mock_ownership_service):
+async def test_context_route_ownership_denied(rt, handlers, mock_service, mock_ownership_service):
     """Test context route returns 404 when user doesn't own entity."""
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
@@ -668,9 +660,9 @@ async def test_context_route_ownership_denied(mock_router, mock_service, mock_ow
         scope=ContentScope.USER_OWNED,
         ownership_service=mock_ownership_service,
     )
-    factory.register_routes(rt=mock_router)
+    factory.register_routes(rt=rt)
 
-    context_handler = mock_router.get_route("GET", "/api/goals/context")
+    context_handler = handlers["/api/goals/context", "GET"]
     request = MockRequest()
 
     # Request unowned entity - should fail with 404
@@ -690,16 +682,16 @@ async def test_context_route_ownership_denied(mock_router, mock_service, mock_ow
 
 
 @pytest.mark.asyncio
-async def test_context_route_skips_ownership_for_shared_content(mock_router, mock_service):
+async def test_context_route_skips_ownership_for_shared_content(rt, handlers, mock_service):
     """Test context route skips ownership check for shared content."""
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
         domain_name="knowledge",
         scope=ContentScope.SHARED,
     )
-    factory.register_routes(rt=mock_router)
+    factory.register_routes(rt=rt)
 
-    context_handler = mock_router.get_route("GET", "/api/knowledge/context")
+    context_handler = handlers["/api/knowledge/context", "GET"]
     request = MockRequest()
 
     # Request any entity - no ownership check
@@ -714,7 +706,7 @@ async def test_context_route_skips_ownership_for_shared_content(mock_router, moc
 
 @pytest.mark.asyncio
 async def test_insights_route_with_ownership_verification(
-    mock_router, mock_service, mock_ownership_service
+    rt, handlers, mock_service, mock_ownership_service
 ):
     """Test insights route verifies ownership when enabled."""
     factory = IntelligenceRouteFactory(
@@ -723,9 +715,9 @@ async def test_insights_route_with_ownership_verification(
         scope=ContentScope.USER_OWNED,
         ownership_service=mock_ownership_service,
     )
-    factory.register_routes(rt=mock_router)
+    factory.register_routes(rt=rt)
 
-    insights_handler = mock_router.get_route("GET", "/api/goals/insights")
+    insights_handler = handlers["/api/goals/insights", "GET"]
     request = MockRequest()
 
     # Request owned entity - should succeed
@@ -738,7 +730,7 @@ async def test_insights_route_with_ownership_verification(
 
 
 @pytest.mark.asyncio
-async def test_insights_route_ownership_denied(mock_router, mock_service, mock_ownership_service):
+async def test_insights_route_ownership_denied(rt, handlers, mock_service, mock_ownership_service):
     """Test insights route returns 404 when user doesn't own entity."""
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
@@ -746,9 +738,9 @@ async def test_insights_route_ownership_denied(mock_router, mock_service, mock_o
         scope=ContentScope.USER_OWNED,
         ownership_service=mock_ownership_service,
     )
-    factory.register_routes(rt=mock_router)
+    factory.register_routes(rt=rt)
 
-    insights_handler = mock_router.get_route("GET", "/api/goals/insights")
+    insights_handler = handlers["/api/goals/insights", "GET"]
     request = MockRequest()
 
     # Request unowned entity - should fail with 404

@@ -71,7 +71,7 @@ def default_zone(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
 
 
 async def _editor(user_service: _UserService) -> str:
-    return to_xml(await _handlers(user_service)["/settings/content"](_Request()))
+    return to_xml(await _handlers(user_service)["/settings/content", "GET"](_Request()))
 
 
 def _zone_options(html: str) -> list[tuple[str, str, bool]]:
@@ -160,7 +160,7 @@ _FORM: dict[str, str] = {
 async def _post(
     user_service: _UserService, form: dict[str, str]
 ) -> Any:  # boundary: FT or Response
-    return await _handlers(user_service)["/settings/save"](_Request(form, method="POST"))
+    return await _handlers(user_service)["/settings/save", "POST"](_Request(form, method="POST"))
 
 
 class TestSaveDoor:

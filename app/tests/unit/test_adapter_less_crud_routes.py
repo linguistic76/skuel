@@ -26,6 +26,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
 from core.models.enums import EntityStatus, Priority
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 
 
 def extract_response(response: JSONResponse) -> tuple[dict, int]:
@@ -719,20 +720,6 @@ async def test_multi_domain_coverage():
 # the real ConversionServiceV2 converter path.
 
 
-class CapturingRT:
-    """Records the handlers a factory registers, keyed by path."""
-
-    def __init__(self):
-        self.handlers: dict[str, Any] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        def register(handler):
-            self.handlers[path] = handler
-            return handler
-
-        return register
-
-
 class FactoryRequest:
     """Mock request satisfying auth + CSRF + JSON-body needs of real factory handlers."""
 
@@ -787,7 +774,7 @@ class EchoTaskService:
         return Result.ok((tasks, 7))
 
 
-def _real_task_factory(service: Any) -> tuple[CRUDRouteFactory, CapturingRT]:
+def _real_task_factory(service: Any) -> tuple[CRUDRouteFactory, RegisteredHandlers]:
     from core.models.task.task_request import (
         TaskCreateRequest as RealTaskCreateRequest,
     )
@@ -802,21 +789,21 @@ def _real_task_factory(service: Any) -> tuple[CRUDRouteFactory, CapturingRT]:
         update_schema=RealTaskUpdateRequest,
         uid_prefix="task",
     )
-    rt = CapturingRT()
+    rt, handlers = route_collector()
     factory.register_routes(rt)
-    return factory, rt
+    return factory, handlers
 
 
 @pytest.mark.asyncio
 async def test_real_factory_create_returns_201_with_entity_json():
     """The registered create handler must serialize the created Task to JSON."""
     service = EchoTaskService()
-    _, rt = _real_task_factory(service)
+    _, handlers = _real_task_factory(service)
 
     request = FactoryRequest(
         method="POST", body={"title": "Real factory create", "description": "regression"}
     )
-    response = await rt.handlers["/api/tasks/create"](request)
+    response = await handlers["/api/tasks/create", "POST"](request)
     body, status = extract_response(response)
 
     assert status == 201
@@ -836,9 +823,9 @@ async def test_real_factory_create_returns_201_with_entity_json():
 async def test_real_factory_list_returns_paginated_payload():
     """The registered list handler must unpack (items, total) into a JSON payload."""
     service = EchoTaskService()
-    _, rt = _real_task_factory(service)
+    _, handlers = _real_task_factory(service)
 
-    response = await rt.handlers["/api/tasks/list"](FactoryRequest(method="GET"))
+    response = await handlers["/api/tasks/list", "GET"](FactoryRequest(method="GET"))
     body, status = extract_response(response)
 
     assert status == 200
@@ -856,9 +843,9 @@ async def test_real_factory_delete_cascades_for_owned_entities():
     delete could never succeed from this route — it 422'd unconditionally.
     """
     service = EchoTaskService()
-    _, rt = _real_task_factory(service)
+    _, handlers = _real_task_factory(service)
 
-    response = await rt.handlers["/api/tasks/delete"](
+    response = await handlers["/api/tasks/delete", "POST"](
         FactoryRequest(method="POST"), uid="task:doomed"
     )
     body, status = extract_response(response)

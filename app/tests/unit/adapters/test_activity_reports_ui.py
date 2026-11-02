@@ -28,23 +28,7 @@ from core.utils.zone_context import current_zone_var
 from tests.fixtures.csrf import attach_csrf
 from tests.helpers.forced_zone import forced_zone
 from tests.helpers.laptop_clock import laptop_wall
-
-
-class _RouteRegistry:
-    def __init__(self) -> None:
-        self.handlers: dict[tuple[str, str], object] = {}
-
-    def __call__(self, path: str, methods: list[str] | None = None):
-        method = (methods[0] if methods else "GET").upper()
-
-        def decorator(func):
-            self.handlers[(path, method)] = func
-            return func
-
-        return decorator
-
-    def get(self, path: str, method: str = "GET"):
-        return self.handlers[(path, method.upper())]
+from tests.helpers.route_collector import route_collector
 
 
 def _make_request(
@@ -92,12 +76,10 @@ def _body(response) -> str:
 
 @pytest.fixture
 def registry_orchestrator_generator():
-    registry = _RouteRegistry()
+    rt, registry = route_collector()
     orchestrator = AsyncMock()
     generator = AsyncMock()
-    create_activity_reports_ui_routes(
-        registry, orchestrator=orchestrator, progress_generator=generator
-    )
+    create_activity_reports_ui_routes(rt, orchestrator=orchestrator, progress_generator=generator)
     return registry, orchestrator, generator
 
 
@@ -113,7 +95,7 @@ def test_producer_routes_are_registered(registry_orchestrator_generator) -> None
         ("/api/activity-reports/annotate", "POST"),
         ("/activity-reports/md", "GET"),
     ]:
-        assert key in registry.handlers, key
+        assert key in registry, key
 
 
 # ============================================================================
@@ -128,7 +110,7 @@ class TestGenerate:
     ) -> None:
         registry, _, generator = registry_orchestrator_generator
         generator.generate = AsyncMock(return_value=Result.ok(_report()))
-        handler = registry.get("/api/reports/progress/generate", "POST")
+        handler = registry["/api/reports/progress/generate", "POST"]
 
         response = await handler(
             _make_request(form_data={"time_period": "30d", "depth": "summary"})
@@ -155,7 +137,7 @@ class TestGenerate:
                 Errors.business("cooldown", "A report was generated 12 minutes ago")
             )
         )
-        handler = registry.get("/api/reports/progress/generate", "POST")
+        handler = registry["/api/reports/progress/generate", "POST"]
 
         response = await handler(_make_request(form_data={"time_period": "7d"}))
 
@@ -165,7 +147,7 @@ class TestGenerate:
     @pytest.mark.asyncio
     async def test_malformed_body_is_400(self, registry_orchestrator_generator) -> None:
         registry, _, generator = registry_orchestrator_generator
-        handler = registry.get("/api/reports/progress/generate", "POST")
+        handler = registry["/api/reports/progress/generate", "POST"]
 
         response = await handler(_make_request(form_data={"time_period": "last-tuesday"}))
 
@@ -175,7 +157,7 @@ class TestGenerate:
     @pytest.mark.asyncio
     async def test_missing_csrf_is_refused(self, registry_orchestrator_generator) -> None:
         registry, _, generator = registry_orchestrator_generator
-        handler = registry.get("/api/reports/progress/generate", "POST")
+        handler = registry["/api/reports/progress/generate", "POST"]
         request = _make_request(form_data={"time_period": "7d"})
         request.headers = {}
 
@@ -199,7 +181,7 @@ class TestAnnotate:
         orchestrator.annotate_activity_report = AsyncMock(
             return_value=Result.ok({"uid": "r1", "annotation_mode": "additive"})
         )
-        handler = registry.get("/api/activity-reports/annotate", "POST")
+        handler = registry["/api/activity-reports/annotate", "POST"]
 
         response = await handler(
             _make_request(
@@ -229,7 +211,7 @@ class TestAnnotate:
                 Errors.validation("user_annotation required for additive mode")
             )
         )
-        handler = registry.get("/api/activity-reports/annotate", "POST")
+        handler = registry["/api/activity-reports/annotate", "POST"]
 
         response = await handler(
             _make_request(form_data={"uid": "r1", "annotation_mode": "additive"})
@@ -244,7 +226,7 @@ class TestAnnotate:
         orchestrator.annotate_activity_report = AsyncMock(
             return_value=Result.fail(Errors.not_found("ActivityReport", "r9"))
         )
-        handler = registry.get("/api/activity-reports/annotate", "POST")
+        handler = registry["/api/activity-reports/annotate", "POST"]
 
         response = await handler(
             _make_request(
@@ -267,7 +249,7 @@ class TestDownload:
     ) -> None:
         registry, orchestrator, _ = registry_orchestrator_generator
         orchestrator.get_activity_report = AsyncMock(return_value=Result.ok(_report()))
-        handler = registry.get("/activity-reports/md", "GET")
+        handler = registry["/activity-reports/md", "GET"]
 
         response = await handler(
             _make_request(method="GET", query_params={"uid": "activity_report_abc123"})
@@ -300,7 +282,7 @@ class TestDownload:
         monkeypatch.setattr(
             "adapters.inbound.activity_reports_ui.render_activity_report_md", _record_render
         )
-        handler = registry.get("/activity-reports/md", "GET")
+        handler = registry["/activity-reports/md", "GET"]
 
         response = await handler(_make_request(method="GET", query_params={"uid": "r9"}))
 
@@ -311,7 +293,7 @@ class TestDownload:
     @pytest.mark.asyncio
     async def test_missing_uid_is_404(self, registry_orchestrator_generator) -> None:
         registry, orchestrator, _ = registry_orchestrator_generator
-        handler = registry.get("/activity-reports/md", "GET")
+        handler = registry["/activity-reports/md", "GET"]
 
         response = await handler(_make_request(method="GET", query_params={}))
 
@@ -390,7 +372,7 @@ class TestAnnotateModes:
         orchestrator.annotate_activity_report = AsyncMock(
             return_value=Result.ok({"uid": "r1", "annotation_mode": "revision"})
         )
-        handler = registry.get("/api/activity-reports/annotate", "POST")
+        handler = registry["/api/activity-reports/annotate", "POST"]
 
         await handler(
             _make_request(
@@ -405,7 +387,7 @@ class TestAnnotateModes:
     @pytest.mark.asyncio
     async def test_unknown_mode_is_400(self, registry_orchestrator_generator) -> None:
         registry, orchestrator, _ = registry_orchestrator_generator
-        handler = registry.get("/api/activity-reports/annotate", "POST")
+        handler = registry["/api/activity-reports/annotate", "POST"]
 
         response = await handler(
             _make_request(
@@ -426,7 +408,7 @@ class TestDownloadFailures:
         orchestrator.get_activity_report = AsyncMock(
             return_value=Result.fail(Errors.database("get_activity_report", "graph unreachable"))
         )
-        handler = registry.get("/activity-reports/md", "GET")
+        handler = registry["/activity-reports/md", "GET"]
 
         response = await handler(_make_request(method="GET", query_params={"uid": "r1"}))
 
@@ -460,7 +442,7 @@ class TestSubmitActivityReportShell:
         self, registry_orchestrator_generator, prompt_pages
     ):
         registry, _, _ = registry_orchestrator_generator
-        handler = registry.get("/submit-activity-report")
+        handler = registry["/submit-activity-report", "GET"]
 
         page = handler(_make_request(method="GET"))
 
@@ -479,7 +461,7 @@ class TestForPeriodGenerate:
         generator.generate = AsyncMock(
             return_value=Result.ok(_report(uid="ar_new", time_period="2026-01"))
         )
-        handler = registry.get("/activity-reports/for", "POST")
+        handler = registry["/activity-reports/for", "POST"]
 
         response = await handler(_make_request(form_data={"time_period": "2026-01"}))
 
@@ -495,7 +477,7 @@ class TestForPeriodGenerate:
         generator.generate = AsyncMock(
             return_value=Result.fail(Errors.business("report_cooldown", "Wait an hour."))
         )
-        handler = registry.get("/activity-reports/for", "POST")
+        handler = registry["/activity-reports/for", "POST"]
 
         page = await handler(_make_request(form_data={"time_period": "2026-01"}))
 
@@ -518,7 +500,7 @@ class TestForPeriodGenerate:
         generator.generate = AsyncMock(
             return_value=Result.fail(Errors.business("report_cooldown", "Wait an hour."))
         )
-        handler = registry.get("/activity-reports/for", "POST")
+        handler = registry["/activity-reports/for", "POST"]
         after_the_week = datetime(2026, 9, 14, 10, 0, tzinfo=UTC).timestamp()
         token = current_zone_var.set(ZoneInfo("America/Vancouver"))
         try:
@@ -535,7 +517,7 @@ class TestForPeriodGenerate:
         self, registry_orchestrator_generator
     ):
         registry, _, generator = registry_orchestrator_generator
-        handler = registry.get("/activity-reports/for", "POST")
+        handler = registry["/activity-reports/for", "POST"]
 
         response = await handler(_make_request(form_data={"time_period": "someday"}))
 
@@ -545,7 +527,7 @@ class TestForPeriodGenerate:
     @pytest.mark.asyncio
     async def test_missing_csrf_is_refused(self, registry_orchestrator_generator):
         registry, _, generator = registry_orchestrator_generator
-        handler = registry.get("/activity-reports/for", "POST")
+        handler = registry["/activity-reports/for", "POST"]
         request = SimpleNamespace(
             session={"user_uid": "user_reports"},
             url=SimpleNamespace(path="/activity-reports/for"),
