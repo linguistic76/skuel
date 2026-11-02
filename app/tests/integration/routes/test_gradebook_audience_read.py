@@ -34,12 +34,12 @@ import pytest_asyncio
 from fasthtml.common import FT, FtResponse, to_xml
 from starlette.responses import Response
 
-from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.inbound.user_entry_ui import create_user_entry_ui_routes
 from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 from core.services.user_entry.user_entry_service import UserEntryService
 from core.utils.result_simplified import Result
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.route_collector import route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -150,19 +150,6 @@ def _make_request(user_uid: str, path: str) -> SimpleNamespace:
     )
 
 
-def _collector() -> tuple[RouteDecorator, dict[str, Handler]]:
-    registered: dict[str, Handler] = {}
-
-    def rt(path: str, methods: list[str] | None = None) -> Callable[[Handler], Handler]:
-        def decorator(fn: Handler) -> Handler:
-            registered[path] = fn
-            return fn
-
-        return decorator
-
-    return rt, registered
-
-
 @pytest_asyncio.fixture
 async def handlers(neo4j_driver: Any) -> Any:
     """Seed the matrix; yield the two registered handlers over the real read."""
@@ -209,7 +196,7 @@ async def handlers(neo4j_driver: Any) -> Any:
         return_value=Result.ok(False)
     )
 
-    rt, registered = _collector()
+    rt, registered = route_collector()
     create_user_entry_ui_routes(rt, entries, orchestrator=orchestrator)
     yield registered
     await backend.execute_query(_CLEANUP, _CLEANUP_PARAMS)

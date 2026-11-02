@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
@@ -27,6 +26,7 @@ from adapters.inbound.insights_api import create_insights_api_routes
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.services.insight.insight_store import InsightStore
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
@@ -36,8 +36,6 @@ ACTIVE_COUNT = 230
 IMPACTS = [InsightImpact.CRITICAL, InsightImpact.HIGH, InsightImpact.MEDIUM, InsightImpact.LOW]
 TYPES = [InsightType.DIFFICULTY_PATTERN, InsightType.LEARNING_PROGRESS, InsightType.KNOWLEDGE_GAP]
 DOMAINS = ["habits", "tasks", "goals"]
-
-Handler = Callable[..., Awaitable[Any]]
 
 
 def _insight(uid: str, n: int, **fields: Any) -> PersistedInsight:
@@ -110,16 +108,8 @@ async def store(neo4j_driver, clean_neo4j) -> InsightStore:
     return store
 
 
-def _route_handlers(store: InsightStore) -> dict[str, Handler]:
-    registered: dict[str, Handler] = {}
-
-    def rt(path: str, methods: list[str] | None = None) -> Callable[[Handler], Handler]:
-        def decorator(fn: Handler) -> Handler:
-            registered[path] = fn
-            return fn
-
-        return decorator
-
+def _route_handlers(store: InsightStore) -> RegisteredHandlers:
+    rt, registered = route_collector()
     create_insights_api_routes(rt, store)
     return registered
 

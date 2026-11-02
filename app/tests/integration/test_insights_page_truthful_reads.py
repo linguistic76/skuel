@@ -18,7 +18,6 @@ from __future__ import annotations
 import html
 import json
 import re
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -37,6 +36,7 @@ from core.constants import QueryLimit
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.services.insight.insight_store import InsightStore
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
@@ -44,8 +44,6 @@ pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration
 USER = seed_user_uid("insight_truthful")
 OTHER = seed_user_uid("insight_truthful_other")
 PAGE = 10
-
-Handler = Callable[..., Awaitable[Any]]
 
 _IMPACTS = [InsightImpact.CRITICAL, InsightImpact.HIGH, InsightImpact.MEDIUM, InsightImpact.LOW]
 _DOMAINS = ["habits", "tasks", "goals", "user_entry", "choices"]
@@ -171,16 +169,9 @@ async def store(neo4j_driver, clean_neo4j) -> InsightStore:
     return store
 
 
-def _handlers(store: InsightStore, monkeypatch: pytest.MonkeyPatch) -> dict[str, Handler]:
+def _handlers(store: InsightStore, monkeypatch: pytest.MonkeyPatch) -> RegisteredHandlers:
     """Register the real insight UI + API routes on a recorder; path → handler."""
-    registered: dict[str, Handler] = {}
-
-    def rt(path: str, methods: list[str] | None = None) -> Callable[[Handler], Handler]:
-        def decorator(fn: Handler) -> Handler:
-            registered[path] = fn
-            return fn
-
-        return decorator
+    rt, registered = route_collector()
 
     def _as_user(_request: Any) -> str:
         return USER
@@ -241,7 +232,7 @@ def _next_query(markup: str) -> dict[str, str] | None:
     return dict(parse_qsl(urlsplit(html.unescape(hx_get.group(1))).query))
 
 
-async def _walk(handlers: dict[str, Handler], **query: str) -> list[list[str]]:
+async def _walk(handlers: RegisteredHandlers, **query: str) -> list[list[str]]:
     """The page, then every load-more the page's own trigger leads to, until the end."""
     page = await handlers["/insights"](_request("/insights", **query))
     markup = to_xml(page)

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 from typing import Any
 
@@ -22,8 +21,8 @@ from starlette.datastructures import FormData
 from adapters.inbound.settings_routes import create_settings_routes
 from core.models.user import UserPreferences, create_user
 from core.utils.result_simplified import Result
+from tests.helpers.route_collector import RegisteredHandlers, route_collector
 
-Handler = Callable[..., Awaitable[Any]]
 CSRF = "tok-settings"
 
 
@@ -43,16 +42,8 @@ class _UserService:
         return Result.ok(self.user)
 
 
-def _handlers(user_service: _UserService) -> dict[str, Handler]:
-    registered: dict[str, Handler] = {}
-
-    def rt(path: str, methods: list[str] | None = None) -> Callable[[Handler], Handler]:
-        def register(fn: Handler) -> Handler:
-            registered[path] = fn
-            return fn
-
-        return register
-
+def _handlers(user_service: _UserService) -> RegisteredHandlers:
+    rt, registered = route_collector()
     create_settings_routes(rt, SimpleNamespace(user=user_service))
     return registered
 

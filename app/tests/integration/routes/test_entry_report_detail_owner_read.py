@@ -27,11 +27,11 @@ import pytest
 from fasthtml.common import FT, FtResponse, to_xml
 
 from adapters.inbound.entry_reports_ui import create_entry_reports_ui_routes
-from adapters.inbound.fasthtml_types import RouteDecorator
 from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 from core.services.report.entry_report_service import EntryReportService
 from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.route_collector import route_collector
 from tests.helpers.seed_uids import seed_user_uid
 
 STUDENT = seed_user_uid("erd_student")
@@ -59,20 +59,6 @@ def _make_request(user_uid: str, uid: str) -> SimpleNamespace:
     )
 
 
-def _collector() -> tuple[RouteDecorator, dict[str, Handler]]:
-    """A stand-in rt that records path → handler."""
-    registered: dict[str, Handler] = {}
-
-    def rt(path: str, methods: list[str] | None = None) -> Callable[[Handler], Handler]:
-        def decorator(fn: Handler) -> Handler:
-            registered[path] = fn
-            return fn
-
-        return decorator
-
-    return rt, registered
-
-
 @pytest.fixture
 def orchestrator(neo4j_driver) -> UserEntryOrchestrator:
     """The real report read over the real backends — only Neo4j is a container."""
@@ -93,7 +79,7 @@ def orchestrator(neo4j_driver) -> UserEntryOrchestrator:
 
 @pytest.fixture
 def handler(orchestrator: UserEntryOrchestrator) -> Handler:
-    rt, registered = _collector()
+    rt, registered = route_collector()
     create_entry_reports_ui_routes(rt, orchestrator)
     return registered[DETAIL_PATH]
 
