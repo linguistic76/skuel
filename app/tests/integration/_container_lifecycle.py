@@ -2,8 +2,9 @@
 How this suite starts a Neo4j testcontainer: sized for the test graphs, and reaped.
 
 Two guarantees, one builder. Every integration Neo4j container
-(``conftest``'s shared one, the app fixture's own, the APOC-lockdown suite's)
-goes through ``bounded_neo4j_container``, so both hold by construction:
+(``conftest``'s shared one, its per-module scratch one, the app fixture's own,
+the APOC-lockdown suite's) goes through ``bounded_neo4j_container``, so both hold
+by construction:
 
 1. **The JVM is sized for the graphs it will hold, not for the host.** Left
    unset, the Neo4j image sizes heap and page cache from the machine's RAM,
