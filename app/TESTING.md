@@ -158,10 +158,12 @@ The **integration tier is serial, by ruling**, and so is every mode that holds i
 (`./dev test`, `./dev test-integration`, `./dev test-quick`): its session-scoped fixtures
 are three Neo4j testcontainers (two in `conftest.py`, the APOC-lockdown suite's third)
 plus one app boot, and under xdist a session fixture is built on every worker whose
-assigned files request it — with `--dist loadfile` the shared container on nearly every
-worker, the app container and its boot only on the worker(s) that receive the three modules
-requesting `skuel_app` (the two Askesis modules and the fixture guard), the lockdown container once — so N workers cost up to N container sets and never
-less than N shared containers. Each container's JVM is **sized for the test graphs, not for the host**:
+assigned files request it. `--dist loadfile` hands each worker whole files as it frees up, so
+a fixture many modules request comes up on nearly every worker: the shared container (most
+modules) and the app container with its boot (every module that drives the composed app takes
+`skuel_app`, about a fifth of them). Only the lockdown container is built once, and a
+module-scoped scratch container lives only while its module runs — so N workers cost about
+N × (the shared container + the app container + an app boot). Each container's JVM is **sized for the test graphs, not for the host**:
 `bounded_neo4j_container()` (`tests/integration/_container_lifecycle.py`) pins 128m
 initial / 512m max heap and a 128m page cache, measured at ~2.8 GiB for the three
 together at the tier's peak (the busy shared container ~1.4 GiB, the other two ~0.6–0.9)
