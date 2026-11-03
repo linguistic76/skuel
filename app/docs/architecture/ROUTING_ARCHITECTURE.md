@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-11-02
+updated: 2026-11-03
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -228,8 +228,10 @@ async def create_task_route(request):
 
     # 5. Return Result[T]
     # @boundary_handler converts to HTTP response:
-    #   - Result.ok(task) → ({"success": True, "data": task}, 200)
-    #   - Result.fail(error) → ({"success": False, "error": ...}, 400)
+    #   - Result.ok(task) → JSONResponse(task) at the success status (200 unless
+    #     boundary_handler(success_status=...) names another)
+    #   - Result.fail(error) → JSONResponse(error.to_client_dict()) at the status
+    #     the error's category maps to (400 validation, 404 not found, ...)
     return result
 ```
 

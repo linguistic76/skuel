@@ -1,6 +1,6 @@
 ---
 title: Hierarchy Components Guide
-updated: '2026-10-18'
+updated: '2026-11-03'
 category: patterns
 related_skills:
 - skuel-ui
@@ -316,6 +316,13 @@ To use hierarchy components, your domain must provide these API endpoints:
 
 **Implementation:** Handled by `HierarchyRouteFactory` — no per-domain code needed.
 
+**Refusals** (all three routes): each handler answers through `boundary_handler`, so a
+refusal is the client error JSON (`{"category", "code", "message", ...}`) at its status —
+400 for a missing `new_parent_uid` / `title` / `uids`, 404 for a node the caller does not
+own, the error's own for a failed write. `SKUEL.postJson` rejects on it and toasts the
+`message`. A handler never returns a `(body, status)` tuple: FastHTML renders that as an
+HTML page at 200.
+
 The route handler verifies ownership of both nodes, then delegates to `_move_node()` which orchestrates the three-step operation (get old parent → remove old relationship → create new relationship). Cycle prevention is handled inside the service's `create_sub*_relationship` method.
 
 ```python
@@ -337,14 +344,16 @@ The route handler verifies ownership of both nodes, then delegates to `_move_nod
 
 **Response:**
 ```json
-{"success": true, "title": "New Title", "uid": "goal_abc"}
+{"success": true, "message": "Goal updated", "uid": "goal_abc", "title": "New Title"}
 ```
 
 **Implementation:**
 
 ```python
 @rt("/api/goals/{uid}", methods=["PATCH"])
-async def update_goal(request: Request, uid: str):
+@csrf_protected
+@boundary_handler()
+async def update_goal(request: Request, uid: str) -> Result[NodeUpdatedPayload]:
     user_uid = require_authenticated_user(request)
 
     # Parse body
@@ -352,20 +361,20 @@ async def update_goal(request: Request, uid: str):
     title = body.get("title")
 
     if not title:
-        return {"success": False, "error": "title required"}, 400
+        return Result.fail(Errors.validation("title is required", field="title"))  # 400
 
     # Verify ownership
     ownership_result = await goals_service.verify_ownership(uid, user_uid)
     if ownership_result.is_error:
-        return {"success": False, "error": "Not found"}, 404
+        return Result.fail(ownership_result)  # 404
 
     # Update — build the typed intent (ADR-066), not a raw dict
     result = await goals_service.update(uid, GoalUpdateIntent(title=title))
 
     if result.is_error:
-        return {"success": False, "error": str(result.error)}, 400
+        return Result.fail(result)
 
-    return {"success": True, "title": title, "uid": uid}
+    return Result.ok({"success": True, "message": "Goal updated", "uid": uid, "title": title})
 ```
 
 ### POST /api/{domain}/bulk-delete
@@ -390,7 +399,9 @@ async def update_goal(request: Request, uid: str):
 
 ```python
 @rt("/api/goals/bulk-delete", methods=["POST"])
-async def bulk_delete(request: Request):
+@csrf_protected
+@boundary_handler()
+async def bulk_delete(request: Request) -> Result[BulkDeletedPayload]:
     user_uid = require_authenticated_user(request)
 
     # Parse body
@@ -398,16 +409,16 @@ async def bulk_delete(request: Request):
     uids = body.get("uids", [])
 
     if not uids:
-        return {"success": False, "error": "uids required"}, 400
+        return Result.fail(Errors.validation("uids is required", field="uids"))  # 400
 
     deleted_count = 0
-    errors = []
+    errors: list[str] = []
 
     for uid in uids:
         # Verify ownership
         ownership_result = await goals_service.verify_ownership(uid, user_uid)
         if ownership_result.is_error:
-            errors.append(f"{uid}: Not found")
+            errors.append(f"{uid}: Not found or access denied")
             continue
 
         # Delete
@@ -417,11 +428,9 @@ async def bulk_delete(request: Request):
         else:
             deleted_count += 1
 
-    return {
-        "success": len(errors) == 0,
-        "deleted_count": deleted_count,
-        "errors": errors,
-    }
+    return Result.ok(
+        {"success": len(errors) == 0, "deleted_count": deleted_count, "errors": errors}
+    )
 ```
 
 ---
