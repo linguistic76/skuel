@@ -7,17 +7,15 @@ from typing import TYPE_CHECKING
 from fasthtml.common import Div
 
 from ui.components import ButtonT
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from adapters.inbound.fasthtml_types import Request
 
 
-def render_404_page(request: Request) -> FT:
+def render_404_page(request: Request) -> HtmlDocument:
     """The not-found page, in the page shell."""
     return BasePage(
         Div(

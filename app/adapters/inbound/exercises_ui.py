@@ -19,7 +19,7 @@ from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.utils.logging import get_logger
 from ui.components import ButtonT
 from ui.exercises.detail import render_exercise_student_detail
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
@@ -37,7 +37,7 @@ def create_exercises_ui_routes(rt: RouteDecorator, exercises_service) -> None:
     """Create the learner's exercise page and its content fragment."""
 
     @rt("/exercises/get", methods=["GET"])
-    def exercise_detail(request: Request, uid: str, from_ps: str = "") -> FT:
+    def exercise_detail(request: Request, uid: str, from_ps: str = "") -> HtmlDocument:
         """Student-facing exercise detail page — shell renders immediately, content loads via HTMX.
 
         The shell reads nothing, so it carries no boundary of its own: the read is

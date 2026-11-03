@@ -52,7 +52,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
+    from ui.layouts.base_page import HtmlDocument
 
 APP_ROOT = Path(__file__).resolve().parent.parent
 STATIC_DIR = APP_ROOT / "static"
@@ -171,7 +171,7 @@ def _assert_registry_in_sync() -> str | None:
     return None
 
 
-def _render_js_smoke_fixture() -> FT:
+def _render_js_smoke_fixture() -> HtmlDocument:
     """Build a hermetic page that mounts every skuel.js registry component.
 
     Uses the real ``build_head()`` bundle so the registration timing matches
@@ -309,7 +309,7 @@ window.addEventListener('load', function () {
 """
 
 
-def _render_authed_chrome_fixture() -> FT:
+def _render_authed_chrome_fixture() -> HtmlDocument:
     """Real authed-layout chrome (BasePage STANDARD + navbar) + htmx lifecycle.
 
     The other fixtures are bare Html shells, so exceptions carried by the shared
@@ -342,7 +342,7 @@ def _render_authed_chrome_fixture() -> FT:
     return BasePage(content, title="Authed Chrome Smoke", is_authenticated=True)
 
 
-def _render_knowledge_health_fixture() -> FT:
+def _render_knowledge_health_fixture() -> HtmlDocument:
     """The /admin/knowledge-health page in the real admin sidebar chrome (ADR-080).
 
     Renders the full admin document (SidebarPage → build_head → skuel.js) around a
@@ -401,7 +401,7 @@ def _render_knowledge_health_fixture() -> FT:
     )
 
 
-def _render_enroll_failure_fixture() -> FT:
+def _render_enroll_failure_fixture() -> HtmlDocument:
     """Hermetic page for the enroll-failure surfacing pipeline (G7 totality).
 
     Mounts toastManager + the ps-detail ``pathstep`` component, then drives
@@ -462,7 +462,7 @@ def render_pages() -> dict[str, str]:
 
     pages: dict[str, str] = {}
     for name, render in renderers.items():
-        html = to_xml(render())
+        html: str = to_xml(render())
         if not html.lstrip()[:15].lower().startswith("<!doctype"):
             html = "<!doctype html>\n" + html
         pages[name] = html

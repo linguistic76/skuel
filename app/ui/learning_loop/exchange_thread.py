@@ -18,7 +18,7 @@ import operator
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from fasthtml.common import H3, A, Div, P, Span
+from fasthtml.common import FT, H3, A, Div, P, Span
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import ReportSource
@@ -26,8 +26,6 @@ from core.utils.timestamp_helpers import EARLIEST_INSTANT, instant_of
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from core.ports.query_types import (
         ExchangeThread,
         ExchangeThreadEntry,
@@ -70,7 +68,7 @@ def _item_card(
     body: FT | str = "",
     badge: FT | str = "",
     trailing: FT | str = "",
-) -> Div:
+) -> FT:
     """One thread item: kind + timestamp header, title, optional body + link (+ a trailing action)."""
     when = _when(created_at)
     link: FT | str = ""
@@ -105,7 +103,7 @@ def _body_block(text: str | None) -> FT | str:
     )
 
 
-def _entry_item(entry: ExchangeThreadEntry, viewer_is_teacher: bool) -> Div:
+def _entry_item(entry: ExchangeThreadEntry, viewer_is_teacher: bool) -> FT:
     """A submission in the thread, linked to the viewer's action surface."""
     revision = entry.get("revision")
     if entry.get("via_revised_uid"):
@@ -144,7 +142,7 @@ def _entry_item(entry: ExchangeThreadEntry, viewer_is_teacher: bool) -> Div:
     )
 
 
-def _report_item(report: ExchangeThreadReport, viewer_is_teacher: bool) -> Div:
+def _report_item(report: ExchangeThreadReport, viewer_is_teacher: bool) -> FT:
     """A feedback report in the thread, body falling back across both fields."""
     is_ai = report.get("processor_type") == ReportSource.LLM.value
     kind = "AI Feedback" if is_ai else "Feedback"
@@ -169,7 +167,7 @@ def _report_item(report: ExchangeThreadReport, viewer_is_teacher: bool) -> Div:
     )
 
 
-def _revision_item(revision: ExchangeThreadRevision) -> Div:
+def _revision_item(revision: ExchangeThreadRevision) -> FT:
     """A revision request in the thread — same detail surface for both viewers."""
     number = revision.get("revision_number")
     label = EntityType.REVISED_EXERCISE.get_display_name()
@@ -185,12 +183,12 @@ def _revision_item(revision: ExchangeThreadRevision) -> Div:
     )
 
 
-def render_exchange_thread(thread: ExchangeThread, viewer_uid: str) -> Div:
+def render_exchange_thread(thread: ExchangeThread, viewer_uid: str) -> FT:
     """Full /exchange page content: header + the interleaved chronological thread."""
     student_uid = thread["student_uid"]
     viewer_is_teacher = viewer_uid != student_uid
 
-    items: list[tuple[datetime, Div]] = []
+    items: list[tuple[datetime, FT]] = []
     for entry in thread["entries"]:
         items.append((_sort_key(entry.get("created_at")), _entry_item(entry, viewer_is_teacher)))
     for report in thread["reports"]:
@@ -241,7 +239,7 @@ def render_exchange_thread(thread: ExchangeThread, viewer_uid: str) -> Div:
     )
 
 
-def render_exchange_not_found() -> Div:
+def render_exchange_not_found() -> FT:
     """The one not-found shape for /exchange — denial and absence look identical."""
     return Div(
         PageHeader("Exchange"),

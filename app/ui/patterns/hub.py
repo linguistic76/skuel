@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from fasthtml.common import H2, A, Div, P, Span
+from fasthtml.common import FT, H2, A, Div, P, Span
 
 from core.ports.query_types import OrganizerResult
 from ui.components import ButtonT, Icon
@@ -22,8 +22,6 @@ from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from fasthtml.common import FT
 
 
 @dataclass(frozen=True)
@@ -37,9 +35,9 @@ class HubCardData:
     badge: str | int | None = None
 
 
-def HubCard(card: HubCardData) -> A:
+def HubCard(card: HubCardData) -> FT:
     """Single hub card — icon + title + description + optional badge, wrapped in <A>."""
-    title_row_items: list[Span] = [
+    title_row_items: list[FT] = [
         Span(card.icon, cls="text-xl"),
         Span(card.name, cls="text-base font-semibold text-foreground"),
     ]
@@ -64,7 +62,7 @@ def MocCard(
     href: str,
     icon: str,
     icon_bg: str = "bg-muted",
-) -> A:
+) -> FT:
     """MOC root-page card — icon tile + title + description, wrapped in <A>.
 
     Used by the MOC hub roots (/library, /submissions, /gradebook) to link
@@ -88,7 +86,7 @@ def MocCard(
     )
 
 
-def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> Div:
+def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> FT:
     """Section header + responsive card grid.
 
     Args:
@@ -103,7 +101,7 @@ def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> Di
     }
     grid_cls = col_classes.get(cols, col_classes[2])
 
-    parts: list[Span | Div] = []
+    parts: list[FT | FT] = []
     if title is not None:
         parts.append(
             Span(
@@ -139,10 +137,10 @@ def HubPreviewCard(
     href: str,
     badge: FT | None = None,
     description: str | None = None,
-) -> A:
+) -> FT:
     """Compact preview card — entity title first, optional description snippet
     and badge in a meta row below, links to detail."""
-    parts: list[Span | Div | FT] = [
+    parts: list[FT | FT | FT] = [
         Span(
             title,
             cls="text-sm font-semibold text-foreground line-clamp-1 leading-snug",
@@ -168,12 +166,12 @@ def HubPreviewCard(
     )
 
 
-def HubPreviewGrid(cards: list[A]) -> Div:
+def HubPreviewGrid(cards: list[FT]) -> FT:
     """Responsive preview card grid — 2 columns on mobile, 3 on sm+."""
     return Div(*cards, cls="grid grid-cols-2 sm:grid-cols-3 gap-2")
 
 
-def HubPreviewEmpty(domain: str) -> Div:
+def HubPreviewEmpty(domain: str) -> FT:
     """Empty state for a preview block."""
     return Div(
         P(f"No {domain} yet", cls="text-sm text-foreground/40 text-center py-3"),
@@ -183,7 +181,7 @@ def HubPreviewEmpty(domain: str) -> Div:
 _HUB_BLOCK_CLS = "pb-5 mb-5 border-b border-border last:border-b-0 last:mb-0 last:pb-0"
 
 
-def _preview_panel(block: HubBlockData, trigger: str) -> Div:
+def _preview_panel(block: HubBlockData, trigger: str) -> FT:
     """HTMX lazy-loaded card area — self-loading when preview_url set, OOB target otherwise.
 
     ``intersect once`` only fires when the panel gains a layout box in the
@@ -205,7 +203,7 @@ def _preview_panel(block: HubBlockData, trigger: str) -> Div:
     )
 
 
-def HubDomainBlock(block: HubBlockData) -> Div:
+def HubDomainBlock(block: HubBlockData) -> FT:
     """A single domain block: colored header + HTMX lazy-loaded preview area."""
     return Div(
         # Domain header — icon + title + "View all" link
@@ -233,7 +231,7 @@ def HubDomainBlock(block: HubBlockData) -> Div:
     )
 
 
-def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
+def HubDomainBlockList(blocks: list[HubBlockData]) -> FT:
     """Vertical stack of domain blocks."""
     return Div(*[HubDomainBlock(b) for b in blocks])
 

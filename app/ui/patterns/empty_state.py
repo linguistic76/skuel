@@ -6,7 +6,7 @@ content, along with optional actions to create the first item.
 
 from typing import Any
 
-from fasthtml.common import Div, P
+from fasthtml.common import FT, Div, P
 
 from ui.components import ButtonT
 from ui.layout import Stack
@@ -21,7 +21,7 @@ def EmptyState(
     icon: str | None = None,
     cls: str = "",
     **kwargs: Any,
-) -> Div:
+) -> FT:
     """Empty state display with optional call-to-action.
 
     Args:

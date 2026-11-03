@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-11-02'
+updated: '2026-11-03'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -143,7 +143,7 @@ def EntityRelationshipsSection(
     show_alternatives: bool = True,
     show_graph: bool = True,
     authoring: bool = False,
-) -> Div:
+) -> FT:
     """Unified relationships section for entity detail pages.
 
     Each subsection is an AccordionItem inside one Accordion(multiple=True).

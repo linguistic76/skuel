@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 
 from core.models.enums import NotificationType
 from core.models.enums.entity_enums import EntityType

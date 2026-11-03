@@ -36,7 +36,7 @@ import json
 import secrets
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, Div, Form, Input, P, Span
+from fasthtml.common import FT, H3, Div, Form, Input, P, Span
 from pydantic import ValidationError
 from starlette.routing import WebSocketRoute
 from starlette.websockets import WebSocketDisconnect
@@ -130,7 +130,7 @@ def _fmt(ts: Any) -> str:
     return ts.strftime("%Y-%m-%d %H:%M UTC") if ts is not None else "never"
 
 
-def _pairing_button(label: str = "Generate pairing code") -> Form:
+def _pairing_button(label: str = "Generate pairing code") -> FT:
     """HTMX form that mints a pairing code and swaps it into the pairing area."""
     return Form(
         Button(label, type="submit"),
@@ -140,7 +140,7 @@ def _pairing_button(label: str = "Generate pairing code") -> Form:
     )
 
 
-def _pairing_code_fragment(issued: PairingCodeIssued) -> Div:
+def _pairing_code_fragment(issued: PairingCodeIssued) -> FT:
     """The one-time reveal: the raw code exists only in this response."""
     return Div(
         Div(
@@ -161,7 +161,7 @@ def _pairing_code_fragment(issued: PairingCodeIssued) -> Div:
     )
 
 
-def _device_row(device: Device) -> Div:
+def _device_row(device: Device) -> FT:
     """One device: name, timestamps, revoked badge or revoke button."""
     if device.is_revoked:
         action: Any = Span(
@@ -190,7 +190,7 @@ def _device_row(device: Device) -> Div:
     )
 
 
-def _devices_list(devices: list[Device]) -> Div:
+def _devices_list(devices: list[Device]) -> FT:
     """The device table fragment — swap target for revocation."""
     if not devices:
         body: tuple[Any, ...] = (
@@ -206,7 +206,7 @@ def _devices_list(devices: list[Device]) -> Div:
     )
 
 
-def _devices_error(message: str) -> Div:
+def _devices_error(message: str) -> FT:
     """Error fragment for the devices list swap target."""
     return Div(P(message, cls="text-error text-sm"), id="devices-list")
 

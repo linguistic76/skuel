@@ -36,7 +36,7 @@ from fasthtml.common import H3, A, Button, Div, Li, Nav, P, Script, Span, Ul
 
 from ui.components import Icon
 from ui.feedback import Badge, BadgeT
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.page_types import PageType
 
 if TYPE_CHECKING:
@@ -449,7 +449,7 @@ def SidebarPage(
     extra_scripts: list[str] | None = None,
     content_max_width: str = "max-w-6xl",
     badges: bool = False,
-) -> FT:
+) -> HtmlDocument:
     """Create a full page with collapsible sidebar navigation.
 
     Desktop: Fixed sidebar (collapsible) + content area with left margin.

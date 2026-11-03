@@ -170,6 +170,9 @@ python_version = "3.14"
 # PRAGMATIC STRICTNESS: Strict where it matters, lenient for models
 strict = false  # Use per-module overrides instead
 explicit_package_bases = true
+# Local stubs (typings/) for the fastcore/fasthtml names first-party code imports — FastHTML
+# ships no py.typed. Pyright reads the same directory (stubPath below).
+mypy_path = "$MYPY_CONFIG_FILE_DIR/typings"
 
 # Pydantic plugin - teaches MyPy how to handle Field(default=...) properly
 # This eliminates ~400 false-positive "missing argument" errors for Pydantic models
@@ -293,7 +296,9 @@ warn_return_any = false
 disallow_any_generics = false
 
 [[tool.mypy.overrides]]
-# UI modules - lenient (no py.typed markers in fasthtml/fastcore).
+# UI modules - lenient. warn_return_any stays off: ui's own FT factories (ui/components,
+# ui/primitives) still return Any, and turning it on reports the functions declared to
+# return FT that hand one back (59 in 31 files when measured).
 # warn_unreachable=true: ui/ doesn't construct domain models, so it avoids
 # the __post_init__ sentinel + Neo4j JSON-string patterns that make
 # warn_unreachable unworkable in core/models/*. See pyproject.toml:154.
@@ -354,7 +359,6 @@ warn_return_any = true
 # External dependencies that may not have full typing
 module = [
     "neo4j.*",
-    "fasthtml.*",
     "openai.*",
     "deepgram.*",
     "anthropic.*",
@@ -454,11 +458,11 @@ init_typed = true
 # what actually pays for itself on this codebase.
 #
 # Invoke: `./dev quality` (gating) or `./dev typecheck-strict` (pyright alone).
-# Baseline as of 2026-05-19: 0 errors, ~872 warnings — entirely reportArgumentType
-# from MonsterUI / FastHTML missing-py.typed framework noise. All other warning
-# categories (reportCallIssue, reportReturnType, reportAssignmentType, etc.) are
-# at 0; the 78 real-signal warnings present on 2026-05-18 were resolved by
-# fixing the underlying type issues, not by suppression.
+# Baseline: 0 errors, ~105 warnings — mostly the neo4j driver's `LiteralString | Query`
+# query parameter (reportArgumentType + reportCallIssue, ~57) and the `WarningLogger`
+# protocol (~28). FastHTML adds none: its tags are typed through typings/ (stubPath),
+# where every tag returns FT. Re-count with `uv run pyright --outputjson`, grouped by
+# rule and message.
 # See: docs/patterns/linter_rules.md § Pyright
 
 [tool.pyright]
@@ -477,6 +481,7 @@ exclude = [
 ]
 pythonVersion = "3.14"
 pythonPlatform = "Linux"
+stubPath = "typings"
 typeCheckingMode = "basic"
 useLibraryCodeForTypes = true
 reportMissingTypeStubs = "none"
@@ -488,7 +493,7 @@ reportPossiblyUnboundVariable = "error"
 reportInvalidStringEscapeSequence = "error"
 reportInvalidTypeArguments = "error"
 
-# Warnings — useful signal but framework-noisy (MonsterUI Button etc.)
+# Warnings — useful signal, kept below error while the baseline above stands
 reportArgumentType = "warning"
 reportCallIssue = "warning"
 reportReturnType = "warning"
@@ -501,7 +506,8 @@ reportOptionalOperand = "warning"
 reportUnusedExpression = "warning"
 reportRedeclaration = "warning"
 
-# Silenced — Result[T] noise + FastHTML/MonsterUI lack py.typed markers
+# Silenced — Result[T] noise + untyped framework code (FastHTML ships no py.typed;
+# typings/ types only the names first-party code imports)
 reportUnknownVariableType = "none"
 reportUnknownMemberType = "none"
 reportUnknownArgumentType = "none"
@@ -889,6 +895,12 @@ fixable = ["ALL"]
 # UI component files - PascalCase function names are intentional (FastHTML convention)
 "ui/*.py" = ["N802", "RUF001", "RUF002"]              # Shared UI components use PascalCase + Unicode icons
 "ui/**/*.py" = ["F405", "N802", "RUF001", "RUF002", "RUF012", "ARG001", "ARG002", "ANN", "PERF401"]  # UI: PascalCase + Unicode + class defaults
+# Local type stubs transcribe FastHTML's API as it is: PascalCase tag functions (one
+# named `I`), and `Any` for what a tag genuinely takes — any child, any attribute — and
+# for the names the stubs leave untyped: permanent boundaries (ANY_USAGE_POLICY tier C),
+# not ledger debt. With ANN401 waived, tests/unit/test_fasthtml_stubs.py holds every stub
+# line naming `Any` to its `# boundary: fasthtml-elements` / `fasthtml-untyped` tag.
+"typings/**/*.pyi" = ["ANN401", "N802", "E743"]
 
 # Examples are documentation (Phase 8.1)
 "examples/**/*.py" = ["ANN", "T201", "ARG", "E731", "RUF001"]  # Examples can use lambdas + Unicode

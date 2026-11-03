@@ -15,21 +15,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import (
-    H3,
-    Div,
-    Form,
-    Li,
-    P,
-    Span,
-    Ul,
-)
+from fasthtml.common import FT, H3, Div, Form, Li, P, Span, Ul
 
 from core.services.vault.vault_reconciler import VaultDescription, VaultSyncPreview
 from ui.components import Button, ButtonT, Loading
 
 
-def sync_button(label: str = "Sync", spinner_id: str = "vault-spinner") -> Form:
+def sync_button(label: str = "Sync", spinner_id: str = "vault-spinner") -> FT:
     """HTMX form that triggers vault sync and swaps the results area.
 
     The label is direction-neutral because the run is: ``/settings/vault/sync``
@@ -50,7 +42,7 @@ def sync_button(label: str = "Sync", spinner_id: str = "vault-spinner") -> Form:
     )
 
 
-def preview_button(label: str = "Preview sync", spinner_id: str = "vault-preview-spinner") -> Form:
+def preview_button(label: str = "Preview sync", spinner_id: str = "vault-preview-spinner") -> FT:
     """HTMX form for the dry-run preview — secondary styling, same results target."""
     return Form(
         Button(
@@ -86,7 +78,7 @@ def _read_scope_phrase(description: VaultDescription) -> tuple[Any, ...]:
     return ("No folders are currently synced from this vault, so SKUEL will read nothing",)
 
 
-def privacy_wall_panel(description: VaultDescription) -> Div:
+def privacy_wall_panel(description: VaultDescription) -> FT:
     """The visible privacy wall: exactly which folders a sync may read."""
     if description.allowed_folders:
         scope: Any = Ul(
@@ -115,7 +107,7 @@ def consent_form(
     *,
     post_to: str = "/settings/vault/consent",
     button_label: str = "Allow and sync",
-) -> Div:
+) -> FT:
     """Fragment shown when first_run_notice is True.
 
     Consent covers BOTH directions of the sync (read + write) — nothing is
@@ -167,7 +159,7 @@ def consent_form(
     )
 
 
-def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
+def sync_stats_fragment(stats_dict: dict[str, Any]) -> FT:
     """Fragment shown after a sync ran.
 
     "Sync complete" ONLY when the run was clean (G10) — failed files,
@@ -348,7 +340,7 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     )
 
 
-def sync_error_fragment(message: str) -> Div:
+def sync_error_fragment(message: str) -> FT:
     """Fragment shown when sync fails."""
     return Div(
         P(f"Sync failed: {message}", cls="text-error text-sm"),
@@ -358,7 +350,7 @@ def sync_error_fragment(message: str) -> Div:
     )
 
 
-def preview_error_fragment(message: str) -> Div:
+def preview_error_fragment(message: str) -> FT:
     """Fragment shown when the dry-run preview fails."""
     return Div(
         P(f"Preview failed: {message}", cls="text-error text-sm"),
@@ -384,7 +376,7 @@ def _example_list(examples: tuple[str, ...], total: int) -> Any:
 _SET_ASIDE_HINT = "no type: field — not ingestible; add a type to opt one in"
 
 
-def preview_fragment(preview: VaultSyncPreview) -> Div:
+def preview_fragment(preview: VaultSyncPreview) -> FT:
     """Dry-run report: what a sync WOULD do — nothing has been written yet."""
     items: list[Any] = [
         Li(

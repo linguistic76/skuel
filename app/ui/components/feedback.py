@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Any
 
-from fasthtml.common import Div, Span
+from fasthtml.common import FT, Div, Span
 
 from ui.components._util import _cls
 
@@ -46,7 +46,7 @@ _LOADING_SIZES: dict[str, str] = {
 
 def Alert(
     *c: Any, variant: AlertT = AlertT.info, cls: str = "", **kwargs: Any
-) -> Any:  # boundary: fasthtml-elements
+) -> FT:  # boundary: fasthtml-elements
     """Semantic alert box with icon-and-text layout.
 
     The live-region role follows the variant: an error or warning is

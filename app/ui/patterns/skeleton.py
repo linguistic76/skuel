@@ -16,12 +16,12 @@ Usage:
     )
 """
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 
 from ui.components import Card
 
 
-def SkeletonCard() -> Div:
+def SkeletonCard() -> FT:
     """Animated skeleton for card loading state.
 
     Returns:
@@ -38,7 +38,7 @@ def SkeletonCard() -> Div:
     )
 
 
-def SkeletonList(count: int = 3) -> Div:
+def SkeletonList(count: int = 3) -> FT:
     """Skeleton for list loading state.
 
     Args:
@@ -53,7 +53,7 @@ def SkeletonList(count: int = 3) -> Div:
     )
 
 
-def SkeletonStats() -> Div:
+def SkeletonStats() -> FT:
     """Skeleton for stats/metrics loading state.
 
     Returns:
@@ -85,7 +85,7 @@ def SkeletonStats() -> Div:
     )
 
 
-def SkeletonTable(rows: int = 5) -> Div:
+def SkeletonTable(rows: int = 5) -> FT:
     """Skeleton for table loading state.
 
     Args:
@@ -119,7 +119,7 @@ def SkeletonTable(rows: int = 5) -> Div:
     )
 
 
-def SkeletonSidebarItem() -> Div:
+def SkeletonSidebarItem() -> FT:
     """Skeleton for profile sidebar domain item.
 
     Returns:
@@ -142,7 +142,7 @@ def SkeletonSidebarItem() -> Div:
     )
 
 
-def SkeletonSidebar(domain_count: int = 7) -> Div:
+def SkeletonSidebar(domain_count: int = 7) -> FT:
     """Skeleton for profile sidebar with multiple domain items.
 
     Args:
@@ -166,7 +166,7 @@ def SkeletonSidebar(domain_count: int = 7) -> Div:
     )
 
 
-def SkeletonDomainView() -> Div:
+def SkeletonDomainView() -> FT:
     """Skeleton for domain-specific view (stats + item list).
 
     Returns:
@@ -196,7 +196,7 @@ def SkeletonDomainView() -> Div:
     )
 
 
-def SkeletonLines(count: int = 3) -> Div:
+def SkeletonLines(count: int = 3) -> FT:
     """Skeleton for lightweight inline loading states (panels, lists, tree nodes).
 
     Args:

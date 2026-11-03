@@ -19,7 +19,7 @@ Usage:
     )
 """
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 
 from core.models.type_hints import EntityUID
 from ui.components import Accordion, AccordionItem
@@ -38,7 +38,7 @@ def EntityRelationshipsSection(
     show_alternatives: bool = True,
     show_graph: bool = True,
     authoring: bool = False,
-) -> Div:
+) -> FT:
     """Unified relationships section for entity detail pages.
 
     Args:

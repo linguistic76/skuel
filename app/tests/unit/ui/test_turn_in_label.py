@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 
 from adapters.inbound.user_entry_ui import _to_history_dict
 from core.models.enums.entity_enums import EntityType

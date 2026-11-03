@@ -66,6 +66,9 @@ jobs:
             py:
               - 'app/**/*.py'
               - 'app/pyproject.toml'
+              # The local type stubs (mypy_path / Pyright stubPath): a stub-only edit
+              # changes what both checkers see, and the drift pin reads them.
+              - 'app/typings/**'
               - 'app/uv.lock'
               # Generated artifacts: a hand edit of one alone must still
               # trigger the unit-test drift guard that rejects it.

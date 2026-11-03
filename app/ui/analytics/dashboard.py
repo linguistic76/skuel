@@ -10,7 +10,7 @@ from core.models.enums import AnalyticsDomain, AnalyticsPeriod
 from ui.analytics.domain_metrics import render_metrics_cards
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.forms import Input, Select
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from core.models.analytics.analytics import AnalyticsSummary
 
 
-def render_analytics_dashboard(request: Request) -> FT:
+def render_analytics_dashboard(request: Request) -> HtmlDocument:
     """The analytics dashboard page: pick a domain and a period, and the result
     loads into the page below the form."""
     body = Div(

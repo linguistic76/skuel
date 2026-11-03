@@ -119,7 +119,7 @@ def _render_search_layout(
     nous_subtopics: list[str],
     all_tags: list[str],
     ask_enabled: bool = False,
-) -> Div:
+) -> FT:
     """
     Horizontal search layout: query box, a compact filter bar, then full-width results.
 
@@ -260,7 +260,7 @@ def _bar_label(text: str, *, fr: str) -> Any:
     )
 
 
-def _primary_field(label_text: str, control: Any, *, fr: str) -> Div:
+def _primary_field(label_text: str, control: Any, *, fr: str) -> FT:
     """Label + control column in the primary filter row."""
     return Div(
         _bar_label(label_text, fr=fr),
@@ -748,7 +748,7 @@ def _educational_level_options() -> list[tuple[str, str]]:
     ]
 
 
-def _context_field(name: str, label_text: str, options: list[tuple[str, str]]) -> Div:
+def _context_field(name: str, label_text: str, options: list[tuple[str, str]]) -> FT:
     """One Tier 2 context filter: label + select, visible per Alpine filter group.
 
     Disabled whenever it is hidden, and for the same reason the scope facets
@@ -769,7 +769,7 @@ def _context_field(name: str, label_text: str, options: list[tuple[str, str]]) -
     )
 
 
-def _render_context_filters() -> Div:
+def _render_context_filters() -> FT:
     """
     Render Tier 2: Context filters, keyed to whichever scope facet is active.
 
@@ -834,7 +834,7 @@ def _filter_checkbox(name: str, label_text: str, *, tight: bool = False) -> Any:
     )
 
 
-def _advanced_group(title: str, checkboxes: list[Any], badge: Any = None) -> Div:
+def _advanced_group(title: str, checkboxes: list[Any], badge: Any = None) -> FT:
     """Titled column of boolean facets in the advanced filter grid."""
     return Div(
         Div(
@@ -881,7 +881,7 @@ def _semantic_search_checkboxes() -> list[Any]:
     return [_filter_checkbox(name, label, tight=True) for name, label in filters]
 
 
-def _render_active_filter_badges() -> Div:
+def _render_active_filter_badges() -> FT:
     """
     Render active filter badges with clear buttons.
 
@@ -922,7 +922,7 @@ def _render_active_filter_badges() -> Div:
     )
 
 
-def _render_search_input(ask_enabled: bool = False) -> Div:
+def _render_search_input(ask_enabled: bool = False) -> FT:
     """
     Render the main search input, with an optional "Ask" verb beside "Find".
 
@@ -1275,7 +1275,7 @@ def _render_graph_context(context: dict) -> Any | None:
 # ============================================================================
 
 
-def render_empty_search_prompt() -> Div:
+def render_empty_search_prompt() -> FT:
     """Render the empty state prompt for search."""
     return EmptyState(
         "Search or pick a filter to begin",
@@ -1286,7 +1286,7 @@ def render_empty_search_prompt() -> Div:
     )
 
 
-def render_search_error(message: str, error_type: str = "error") -> Div:
+def render_search_error(message: str, error_type: str = "error") -> FT:
     """Render a search error message."""
     from ui.feedback import Alert, AlertT
 

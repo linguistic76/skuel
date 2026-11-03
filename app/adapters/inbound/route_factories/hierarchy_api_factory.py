@@ -29,7 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypedDict, TypeVar
 
-from fasthtml.common import Div, Span
+from fasthtml.common import FT, Div, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -152,7 +152,7 @@ def _register_children_json_route(
     rt(f"/api/{config.domain_name}/children", methods=["GET"])(boundary_handler()(children))
 
 
-def tree_error_row(message: str) -> Div:
+def tree_error_row(message: str) -> FT:
     """A TreeNodeList row that carries an error message instead of children."""
     return Div(Span(message, cls="text-error text-sm"), cls="px-2 py-1")
 

@@ -50,7 +50,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any, get_args, get_origin
 
-from fasthtml.common import H3, A, Div, Li, P, Span, Ul
+from fasthtml.common import FT, H3, A, Div, Li, P, Span, Ul
 
 from core.utils.logging import get_logger
 from core.utils.timestamp_helpers import shown_in
@@ -142,7 +142,7 @@ class FieldRendererMapper:
         return FieldRendererMapper._render_fallback
 
     @staticmethod
-    def _render_enum(value: Enum) -> Span:
+    def _render_enum(value: Enum) -> FT:
         """Render enum value as a badge"""
         from ui.enum_helpers import get_status_badge_class
 
@@ -153,7 +153,7 @@ class FieldRendererMapper:
         return Badge(str(display), variant=None, cls=badge_cls)
 
     @staticmethod
-    def _render_list(value: list) -> Div:
+    def _render_list(value: list) -> FT:
         """Render list as bullet points"""
         if not value:
             return Span("—", cls="text-muted-foreground italic")
@@ -162,7 +162,7 @@ class FieldRendererMapper:
         return Ul(*items, cls="list-disc list-inside text-foreground/80")
 
     @staticmethod
-    def _render_dict(value: dict) -> Div:
+    def _render_dict(value: dict) -> FT:
         """Render dict as key-value pairs"""
         if not value:
             return Span("—", cls="text-muted-foreground italic")
@@ -178,19 +178,19 @@ class FieldRendererMapper:
         return Div(*items, cls="space-y-1")
 
     @staticmethod
-    def _render_date(value: date) -> Span:
+    def _render_date(value: date) -> FT:
         """Render date in readable format"""
         formatted = value.strftime("%B %d, %Y")
         return Span(formatted, cls="text-foreground/80")
 
     @staticmethod
-    def _render_datetime(value: datetime) -> Span:
+    def _render_datetime(value: datetime) -> FT:
         """Render datetime with time"""
         formatted = shown_in(value, current_zone()).strftime("%B %d, %Y at %I:%M %p")
         return Span(formatted, cls="text-foreground/80")
 
     @staticmethod
-    def _render_boolean(value: bool) -> Span:
+    def _render_boolean(value: bool) -> FT:
         """Render boolean as badge"""
         if value:
             return Badge("✓ Yes", variant=BadgeT.success)
@@ -198,7 +198,7 @@ class FieldRendererMapper:
             return Badge("✗ No", variant=BadgeT.ghost)
 
     @staticmethod
-    def _render_number(value: float) -> Span:
+    def _render_number(value: float) -> FT:
         """Render number with formatting"""
         if isinstance(value, int):
             return Span(str(value), cls="text-foreground/80 font-mono")
@@ -206,17 +206,17 @@ class FieldRendererMapper:
             return Span(f"{value:.2f}", cls="text-foreground/80 font-mono")
 
     @staticmethod
-    def _render_none(_value: Any) -> Span:
+    def _render_none(_value: Any) -> FT:
         """Render None value as placeholder"""
         return Span("—", cls="text-muted-foreground italic")
 
     @staticmethod
-    def _render_fallback(value: Any) -> P:
+    def _render_fallback(value: Any) -> FT:
         """Render unknown type as string"""
         return P(str(value), cls="text-foreground/80")
 
     @staticmethod
-    def _render_string(value: str) -> P:
+    def _render_string(value: str) -> FT:
         """Render string with truncation if too long"""
         if len(value) > 200:
             return P(
@@ -322,7 +322,7 @@ class CardGenerator:
         subtitle: str | Any | None = None,
         metadata: list[Any] | None = None,
         extra: Any | None = None,
-    ) -> Div:
+    ) -> FT:
         """
         Generate display card from dataclass or dict introspection.
 
@@ -510,7 +510,7 @@ class CardGenerator:
         subtitle: str | Any | None = None,
         metadata: list[Any] | None = None,
         extra: Any | None = None,
-    ) -> Div:
+    ) -> FT:
         """Generate a list of display cards from multiple instances."""
         cards = [
             CardGenerator.from_dataclass(
@@ -541,7 +541,7 @@ class CardGenerator:
         title_field: str | None = None,
         subtitle: str | Any | None = None,
         metadata: list[Any] | None = None,
-    ) -> Div:
+    ) -> FT:
         """Generate a compact card (minimal styling, fewer details)."""
         return CardGenerator.from_dataclass(
             instance,
@@ -555,7 +555,7 @@ class CardGenerator:
         )
 
     @staticmethod
-    def detailed_card(instance: Any, exclude_fields: list[str] | None = None) -> Div:
+    def detailed_card(instance: Any, exclude_fields: list[str] | None = None) -> FT:
         """Generate a detailed card (shows all non-excluded fields)."""
         return CardGenerator.from_dataclass(
             instance,

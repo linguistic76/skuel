@@ -6,7 +6,7 @@ after the page chrome has been painted.
 See: docs/patterns/SHELL_FIRST_PAGE_PATTERN.md
 """
 
-from fasthtml.common import Div, Span
+from fasthtml.common import FT, Div, Span
 
 
 def content_loading_placeholder(
@@ -15,7 +15,7 @@ def content_loading_placeholder(
     *,
     loading_text: str = "Loading...",
     swap: str = "outerHTML",
-) -> Div:
+) -> FT:
     """HTMX div that fires a fragment request on page load.
 
     Renders an animated skeleton shimmer (``animate-pulse`` bars) while the

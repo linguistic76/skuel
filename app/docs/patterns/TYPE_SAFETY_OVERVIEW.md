@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-02
+updated: 2026-11-03
 ---
 
 # Type Safety Architecture Overview
@@ -88,7 +88,7 @@ def create_tasks_api_routes(
 - 100% protocol compliance — all 7 `BaseService` mixins verified by TYPE_CHECKING blocks
 - 29 automated compliance tests (run: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`)
 - Zero `Any` fields in the `Services` dataclass — all 72 fields typed
-- ~170 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026). 0 `Result[Any]` remain in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed. Route handlers: 0 `Result[Any]` across 27 API files (2 intentional `# boundary:` for FastHTML FT components)
+- ~170 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026). 0 `Result[Any]` remain in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed. Route handlers: 0 `Result[Any]` across the API files
 - 159 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 138 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types, context intelligence, graph entity, curriculum structure, curriculum backend Cypher returns, PS backend result types, lateral relationship backend returns, life path nested types, review queue results, journal cleanup stats)
 - **Search protocol generics** — all 6 extended search protocols (`TasksSearchOperations`, `GoalsSearchOperations`, etc.) parameterized with their domain model type (`Task`, `Goal`, `Event`, `Choice`, `Habit`, `Principle`), not `Entity`. Eliminates `# type: ignore[return-value]` in facade delegation methods
 
@@ -138,7 +138,8 @@ async def find_by_filters(filters: FilterParams) -> list[Entity]: ...
 **FastHTML boundary** — centralized in `adapters/inbound/fasthtml_types.py`:
 ```python
 from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request
-# FastHTML has no type stubs; these Protocols capture what SKUEL actually calls
+# FastHTML ships no types: these Protocols capture what SKUEL calls on the app and rt.
+# FT and the tag functions are typed by the local stubs in typings/.
 ```
 
 **Protocol layer adoption (March 2026):**
@@ -176,8 +177,9 @@ parameters (previously `Any`). 30 missing return type annotations added to servi
 *Phase 6 — Route handler returns:* All 27 `*_api.py` route files narrowed from `Result[Any]` to
 specific types (267 → 2). Route handlers now declare exact payload types (`Result[Task]`,
 `Result[ContextDashboard]`, `Result[list[Goal]]`, etc.). ~20 cross-type error propagation sites
-fixed using `Result.fail(result)` instead of bare `return result`. The 2 remaining `Result[Any]`
-are intentional `# boundary:` annotations for FastHTML FT components without type stubs.
+fixed using `Result.fail(result)` instead of bare `return result`. The 2 that remained were
+`# boundary:` annotations for FastHTML FT components; both are gone, and `FT` is a real type
+through the local stubs in `typings/`.
 
 **See:** `docs/patterns/ANY_USAGE_POLICY.md` (complete policy with quick-reference table)
 

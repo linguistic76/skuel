@@ -18,7 +18,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Annotated, Any, Union, get_args, get_origin
 
-from fasthtml.common import H3, Div, Form, Option, P
+from fasthtml.common import FT, H3, Div, Form, Option, P
 from fasthtml.common import Input as FTInput
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -478,7 +478,7 @@ class FormGenerator:
         help_text: str | None = None,
         label_override: str | None = None,
         placeholder_override: str | None = None,
-    ) -> Div:
+    ) -> FT:
         """Generate a single form field with label, widget, help text, and error display."""
         label_text = label_override or FieldWidgetMapper.get_field_label(field_name, field_info)
         is_required = field_info.is_required()
@@ -524,7 +524,7 @@ class FormGenerator:
         widget: Any,
         is_required: bool,
         help_text: str | None,
-    ) -> Div:
+    ) -> FT:
         """Wrap a widget in form-control with label, optional help text, and error display."""
         children: list[Any] = [
             Label(label_text, required=is_required),

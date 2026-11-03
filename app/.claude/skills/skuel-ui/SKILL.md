@@ -187,7 +187,7 @@ written out for one domain.
 ```python
 # ✅ CORRECT: shell returns immediately, content fills in via HTMX
 @rt("/tasks")
-def tasks_page(request: Request) -> FT:
+def tasks_page(request: Request) -> HtmlDocument:
     require_authenticated_user(request)
     content = Div(
         PageHeader("Tasks", subtitle="Manage your daily work"),
@@ -220,7 +220,7 @@ from adapters.inbound.route_factories import refuse, refuse_not_found
 from ui.patterns.error_banner import render_slot_error
 
 @rt("/tasks/detail")
-def task_detail_page(request: Request) -> FT:
+def task_detail_page(request: Request) -> HtmlDocument:
     require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
     if not uid:
@@ -253,7 +253,7 @@ async def task_detail_content_fragment(request: Request) -> FT | FtResponse:
 
 ```python
 @rt("/explore/ku/{uid}")
-def explore_ku_detail(request: Request, uid: str) -> FT:
+def explore_ku_detail(request: Request, uid: str) -> HtmlDocument:
     content = Div(
         Script(src="/static/js/ku-reading.js"),  # registers the Alpine factory before the fragment arrives
         content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content"),

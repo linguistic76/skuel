@@ -18,7 +18,7 @@ Data shape: PathStepSubmissionRow TypedDict (core/ports/query_types.py).
 
 from typing import Any
 
-from fasthtml.common import H3, A, Div, P, Span
+from fasthtml.common import FT, H3, A, Div, P, Span
 
 from core.ports.query_types import PathStepSubmissionRow
 from ui.feedback import Badge, BadgeT, StatusBadge
@@ -52,7 +52,7 @@ def _status_badge(status: str | None) -> Any:
     return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
-def _submission_row(sub: PathStepSubmissionRow) -> Div:
+def _submission_row(sub: PathStepSubmissionRow) -> FT:
     """Single submission row with status badge and action links."""
     title = sub["title"] or sub["uid"]
     exercise_note = TurnInNote(sub.get("exercise_title"), sub.get("revision")) or None
@@ -94,7 +94,7 @@ def _submission_row(sub: PathStepSubmissionRow) -> Div:
     )
 
 
-def render_ps_submissions(submissions: list[PathStepSubmissionRow]) -> Div:
+def render_ps_submissions(submissions: list[PathStepSubmissionRow]) -> FT:
     """Render submissions for a PathStep or an empty state."""
     if not submissions:
         return EmptyState(
@@ -110,7 +110,7 @@ def render_ps_submissions(submissions: list[PathStepSubmissionRow]) -> Div:
     return Div(count_note, Div(*rows))
 
 
-def render_ps_submissions_and_feedback(rows: list[PathStepSubmissionRow]) -> Div:
+def render_ps_submissions_and_feedback(rows: list[PathStepSubmissionRow]) -> FT:
     """Render both submissions and feedback sections for a PathStep.
 
     Composes the submissions list and feedback list into a single fragment,

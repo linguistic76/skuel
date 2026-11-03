@@ -19,7 +19,7 @@ Usage:
 import json
 from typing import Any
 
-from fasthtml.common import Div, Form, Option, P, Pre, Span
+from fasthtml.common import FT, Div, Form, Option, P, Pre, Span
 
 from core.services.prereq_suggestion_service import (
     EdgeChoice,
@@ -43,7 +43,7 @@ class AdminPrereqComponents:
     """Components for the prerequisite-edge suggestion queue."""
 
     @staticmethod
-    def render_page(judge_available: bool) -> Div:
+    def render_page(judge_available: bool) -> FT:
         """The queue page shell: explanation, generate button, empty queue target."""
         judge_line = (
             "Each pair is classified by the LLM judge (prerequisite direction, "
@@ -86,7 +86,7 @@ class AdminPrereqComponents:
         )
 
     @staticmethod
-    def render_queue(run: PrereqSuggestionRun) -> Div:
+    def render_queue(run: PrereqSuggestionRun) -> FT:
         """The generated suggestion list (HTMX fragment for #prereq-queue)."""
         if not run.suggestions:
             detail = (

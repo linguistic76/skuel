@@ -23,14 +23,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
-from fasthtml.common import H2, H4, A, Button, Div, P, Span
+from fasthtml.common import FT, H2, H4, A, Button, Div, P, Span
 
 from core.models.user_entry.audience import GROUP_PREFIX, USER_PREFIX
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from fasthtml.common import FT
 
     from core.ports.query_types import SharedByMeItem, SharedWithMeItem
 
@@ -230,7 +228,7 @@ def shared_items_content(items: Sequence[SharedWithMeItem], filtered: bool = Fal
 # ============================================================================
 
 
-def _stop_sharing_chip(entry_uid: str, value: str, label: str) -> Span:
+def _stop_sharing_chip(entry_uid: str, value: str, label: str) -> FT:
     """One audience chip with its × Stop sharing control."""
     return Span(
         label,
@@ -261,14 +259,14 @@ def _stop_sharing_chip(entry_uid: str, value: str, label: str) -> Span:
     )
 
 
-def WallRow(item: SharedByMeItem) -> Div:
+def WallRow(item: SharedByMeItem) -> FT:
     """One of the viewer's shared entries with its review badges and audience chips."""
     entity = item["entity"]
     uid = entity.uid
     title = entity.title or uid
     when = format_relative_time(item.get("last_shared_at"))
     badges = review_badges(item["review"])
-    chips: list[Span] = [
+    chips: list[FT] = [
         _stop_sharing_chip(uid, f"{GROUP_PREFIX}{g['uid']}", g["name"] or g["uid"])
         for g in item["groups"]
     ]
@@ -309,7 +307,7 @@ def wall_content(items: Sequence[SharedByMeItem]) -> FT:
 # ============================================================================
 
 
-def SharedPage(items: Sequence[SharedWithMeItem], wall: Sequence[SharedByMeItem]) -> Div:
+def SharedPage(items: Sequence[SharedWithMeItem], wall: Sequence[SharedByMeItem]) -> FT:
     """Full Shared page content: header, Shared with you (filter bar + grid), Your wall."""
     return Div(
         PageHeader(SHARED_PAGE_TITLE, subtitle=SHARED_WITH_YOU_SUBTITLE),

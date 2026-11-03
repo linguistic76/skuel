@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from fasthtml.common import Div
 
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -66,7 +67,7 @@ def render_activity_sidebar_page(
     extra_css: list[str] | None = None,
     title: str = ACTIVITY_SIDEBAR_TITLE,
     content_max_width: str = "max-w-6xl",
-) -> FT:
+) -> HtmlDocument:
     """Wrap content in Activity Domain sidebar page.
 
     Every page under this sidebar is a Tasks+ page, so every one lights the
@@ -103,7 +104,7 @@ def render_activity_sidebar_error(
     active: str,
     request: Request | None = None,
     title: str = ACTIVITY_SIDEBAR_TITLE,
-) -> FT:
+) -> HtmlDocument:
     """A whole Activity sidebar page whose only content is an error banner.
 
     The terminal state of every activity guard that has nothing left to render —

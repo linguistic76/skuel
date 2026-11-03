@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from fasthtml.common import Div, P, Span
+from fasthtml.common import FT, Div, P, Span
 
 from core.models.enums.notification_enums import NotificationType
 from ui.components import Button, ButtonT, Card, CardBody
@@ -53,7 +53,7 @@ def notification_href(notif: Notification) -> str | None:
 # ============================================================================
 
 
-def render_notification_card(notif: Notification) -> Div:
+def render_notification_card(notif: Notification) -> FT:
     """Render a single notification card."""
     ntype = notif.notification_type
     if ntype is None:
@@ -117,7 +117,7 @@ def render_notification_card(notif: Notification) -> Div:
     )
 
 
-def render_notification_empty_state() -> Div:
+def render_notification_empty_state() -> FT:
     """Show when there are no notifications."""
     return Card(
         EmptyState("No notifications", description="You're all caught up!", icon="🔔"),

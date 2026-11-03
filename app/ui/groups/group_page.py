@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from fasthtml.common import Div, P
+from fasthtml.common import FT, Div, P
 
 from ui.components import ButtonT
 from ui.groups.shared_preview import GroupSharedPreviewList
@@ -31,7 +31,7 @@ def GroupSharesPage(
     group_name: str,
     records: Sequence[SharedWithMeItem],
     group_uid: str,
-) -> Div:
+) -> FT:
     """Full list of peer shares for one group.
 
     Args:
@@ -40,7 +40,7 @@ def GroupSharesPage(
             ``UnifiedSharingService.get_shared_with_me(via=group_uid)``.
         group_uid: UID of the group — the "Back to Groups" link reopens its tab.
     """
-    body: Div
+    body: FT
     if records:
         body = GroupSharedPreviewList(records)
     else:
@@ -66,7 +66,7 @@ def GroupSharesPage(
     )
 
 
-def GroupSharesNotAvailable() -> Div:
+def GroupSharesNotAvailable() -> FT:
     """404-equivalent view — the viewer isn't a member or the group is gone.
 
     Same surface whether the group uid is wrong, the group is deactivated, or

@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-10-25
+updated: 2026-11-03
 category: patterns
 related_skills:
 - python
@@ -895,11 +895,11 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 
 ```python
 # BAD — caller cls= collides with the hardcoded one
-def SmallText(text: str, **kwargs: Any) -> Span:
+def SmallText(text: str, **kwargs: Any) -> FT:
     return Span(text, cls="text-sm", **kwargs)   # SmallText("x", cls="y") -> TypeError
 
 # GOOD — explicit cls param, merged into the base classes
-def SmallText(text: str, cls: str = "", **kwargs: Any) -> Span:
+def SmallText(text: str, cls: str = "", **kwargs: Any) -> FT:
     return Span(text, cls=f"text-sm {cls}".strip(), **kwargs)
 ```
 

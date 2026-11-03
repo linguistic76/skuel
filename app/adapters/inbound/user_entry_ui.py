@@ -64,7 +64,7 @@ from ui.gradebook.summary import (
     render_other_feedback_group,
 )
 from ui.layout import Size
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.learning_loop.entry_body import EntryBody
 from ui.learning_loop.report import render_activity_report_list, render_yours_list
 from ui.learning_loop.turn_in_label import turn_in_label
@@ -304,7 +304,7 @@ def create_user_entry_ui_routes(
     # SUBMIT — the one Submit page (/submissions/submit)
     # =========================================================================
 
-    def _submit_page_error(message: str, *, request: Request) -> FT:
+    def _submit_page_error(message: str, *, request: Request) -> HtmlDocument:
         """The Submit page with only an error banner — the rendered refusal's body."""
         return render_submissions_sidebar_page(
             content=render_error_banner(message), active="submit", request=request
@@ -921,7 +921,7 @@ def create_user_entry_ui_routes(
                 cls="mt-6",
             )
 
-        share_button: Div | None = (
+        share_button: FT | None = (
             ShareButton(uid, open=bool(share), preselect=preselect or None)
             if entry_sharing is not None
             else None

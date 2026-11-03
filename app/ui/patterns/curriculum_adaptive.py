@@ -95,7 +95,7 @@ def AdaptiveKUCard(step: PathStep, prerequisites_met: bool = True) -> FT:
     )
 
 
-def SELJourneyOverview(journey: LearningJourney) -> Div:
+def SELJourneyOverview(journey: LearningJourney) -> FT:
     """Complete SEL journey overview showing progress across all 5 categories."""
     next_category = journey.get_next_recommended_category()
 

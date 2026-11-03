@@ -113,7 +113,7 @@ placeholder, and the chart arrives in the HTMX fragment that replaces it:
 
 ```python
 @rt("/lifepath/alignment")
-def alignment_dashboard(request: Request) -> FT:
+def alignment_dashboard(request: Request) -> HtmlDocument:
     """Alignment dashboard — shell only, content loads via HTMX."""
     require_authenticated_user(request)
     content = content_loading_placeholder(

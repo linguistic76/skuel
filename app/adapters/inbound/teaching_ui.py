@@ -88,10 +88,10 @@ _QUEUE_VIEWS: dict[str, str] = {
 _QUEUE_DEFAULT_VIEW = "needs-review"
 
 
-def _queue_view_tabs(active: str) -> Div:
+def _queue_view_tabs(active: str) -> FT:
     """Link tab pair switching the queue between its two views (full-page GET)."""
 
-    def _tab(label: str, view_id: str, href: str) -> A:
+    def _tab(label: str, view_id: str, href: str) -> FT:
         is_active = view_id == active
         return A(
             label,
@@ -657,7 +657,7 @@ def create_teaching_ui_routes(
         user_uid = UserUID(current_user.uid)
         pending, revision, completed, _ = await _get_bucketed_submissions(user_uid, uid)
 
-        def _make_fragment(slug: str, rows: list[SubmissionRow], empty_label: str) -> Div:
+        def _make_fragment(slug: str, rows: list[SubmissionRow], empty_label: str) -> FT:
             if not rows:
                 content: Any = HubPreviewEmpty(empty_label)
             else:

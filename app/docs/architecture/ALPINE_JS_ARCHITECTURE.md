@@ -2,7 +2,7 @@
 related_skills:
 - chartjs
 - ui-browser
-updated: 2026-10-25
+updated: 2026-11-03
 ---
 # Alpine.js Architecture
 ## Related Skills
@@ -262,10 +262,10 @@ sharing a key stay in lockstep; `toggle()` mirrors it to
 Alpine directives are passed as `**kwargs` in FastHTML components:
 
 ```python
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 from ui.components import Button, ButtonT
 
-def my_component() -> Div:
+def my_component() -> FT:
     return Div(
         Button(
             "Toggle",

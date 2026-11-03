@@ -40,7 +40,7 @@ from ui.analytics import (
     render_period_fields,
     render_weekly_life_summary,
 )
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.patterns.error_banner import render_error_banner
 
 logger = get_logger("skuel.routes.analytics.ui")
@@ -93,7 +93,7 @@ def _read_custom_range(request: Request) -> Result[tuple[date, date]]:
     return Result.ok((start.value, end.value))
 
 
-def _weekly_summary_page(request: Request, content: FT) -> FT:
+def _weekly_summary_page(request: Request, content: FT) -> HtmlDocument:
     """The weekly life summary's shell, for its result, its refusal and its crash alike."""
     return BasePage(content, title="Weekly Life Summary", request=request, active_page="insights")
 
@@ -109,7 +109,7 @@ def create_analytics_ui_routes(rt: RouteDecorator, analytics_service: AnalyticsS
     @rt("/ui/analytics", methods=["GET"])
     def analytics_dashboard(
         request: Request,
-    ) -> FT:
+    ) -> HtmlDocument:
         """Analytics dashboard."""
         require_authenticated_user(request)
         return render_analytics_dashboard(request)
@@ -181,7 +181,7 @@ def create_analytics_ui_routes(rt: RouteDecorator, analytics_service: AnalyticsS
 
     @rt("/ui/analytics/weekly-life-summary", methods=["GET"])
     @ui_boundary_handler("Could not load your weekly life summary", page=_weekly_summary_page)
-    async def weekly_life_summary_ui(request: Request) -> FT | Response:
+    async def weekly_life_summary_ui(request: Request) -> HtmlDocument | Response:
         """Weekly life summary page (ALL layers); ``start_date`` picks the week."""
         user_uid = require_authenticated_user(request)
         start_date = parse_date_param_strict(

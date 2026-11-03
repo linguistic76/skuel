@@ -13,7 +13,7 @@ TEACHER role required for all endpoints.
 import json
 from typing import TYPE_CHECKING, Any, Protocol
 
-from fasthtml.common import FT, A, Div, FtResponse, Small, Span, to_xml
+from fasthtml.common import A, Div, FtResponse, Small, Span, to_xml
 from starlette.responses import HTMLResponse, Response
 
 from adapters.inbound.auth import make_service_getter
@@ -26,6 +26,7 @@ from core.utils.result_simplified import ErrorCategory
 from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
@@ -214,7 +215,7 @@ def create_teaching_forms_ui_routes(
         template_result = await form_template_service.get(uid)
         if template_result.is_error:
 
-            def render_refusal(message: str) -> FT:
+            def render_refusal(message: str) -> HtmlDocument:
                 content = Div(PageHeader("Form Submissions"), render_error_banner(message))
                 return render_teaching_sidebar_page(content, active="forms", request=request)
 

@@ -16,18 +16,16 @@ from typing import TYPE_CHECKING
 from fasthtml.common import A, Div
 
 from core.utils.auth_context import current_auth_state
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.navbar import insights_row, role_nav_rows, signout_row
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from adapters.inbound.fasthtml_types import Request
 
 
-def render_settings_page(request: Request) -> FT:
+def render_settings_page(request: Request) -> HtmlDocument:
     """The settings page: phone chrome rows, then the preferences editor
     loaded from ``/settings/content``.
 

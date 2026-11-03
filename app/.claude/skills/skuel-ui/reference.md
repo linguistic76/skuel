@@ -586,7 +586,7 @@ message.
 ```python
 @rt("/tasks/create", methods=["POST"])
 @csrf_protected
-async def task_create_submit(request: Request) -> FT | RedirectResponse:
+async def task_create_submit(request: Request) -> HtmlDocument | RedirectResponse:
     user_uid = require_authenticated_user(request)
 
     parsed = await parse_form_body(request, TaskCreateRequest)

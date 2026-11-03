@@ -19,6 +19,7 @@ from core.models.user.user_request import UserPreferencesFormRequest
 from core.utils.logging import get_logger
 from core.utils.type_converters import get_enum_value
 from core.utils.zone_context import default_zone
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.error_banner import render_error_banner
 from ui.settings import render_settings_page
 
@@ -40,7 +41,7 @@ def create_settings_routes(
         raise RuntimeError("UserService is required for settings routes")
 
     @rt("/settings")
-    def settings_page(request: Request) -> FT:
+    def settings_page(request: Request) -> HtmlDocument:
         """User settings page — shell renders immediately, content loads via HTMX."""
         require_authenticated_user(request)
         return render_settings_page(request)

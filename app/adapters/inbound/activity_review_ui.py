@@ -40,6 +40,7 @@ from ui.activity_review import (
 from ui.activity_review.types import DOMAIN_CHOICES
 from ui.components import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
@@ -47,7 +48,7 @@ from ui.patterns.page_header import PageHeader
 logger = get_logger("skuel.routes.activity_review.ui")
 
 
-def _queue_page(request: Request, content: FT) -> FT:
+def _queue_page(request: Request, content: FT) -> HtmlDocument:
     """The review queue's shell, for its queue, its failed read and its crash alike."""
     return activity_review_sidebar_page("queue", content, request, page_title="Review Queue")
 
@@ -71,7 +72,9 @@ def create_activity_review_ui_routes(
     @rt("/activity-review/queue")
     @require_admin(get_user_service)
     @ui_boundary_handler("Could not load the review queue", page=_queue_page)
-    async def activity_review_queue_page(request: Request, current_user: Any = None) -> FT:
+    async def activity_review_queue_page(
+        request: Request, current_user: Any = None
+    ) -> HtmlDocument:
         """Admin queue: pending review requests from users.
 
         A failed read is a banner in the queue's shell, never an empty queue.

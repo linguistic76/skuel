@@ -4,7 +4,7 @@ says whether it is partial, and offers the one explicit refresh."""
 from __future__ import annotations
 
 import pytest
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 
 from core.models.enums.pipeline import ReportSource
 from core.models.report.activity_report import ActivityReport

@@ -6,13 +6,13 @@ Status and count badges swapped into the Tasks+ sidebar rows by
 
 from typing import Any
 
-from fasthtml.common import Span
+from fasthtml.common import FT, Span
 
 from core.services.user.domain_health import DomainStatus
 from ui.feedback import Badge, BadgeT
 
 
-def HealthIndicator(status: str) -> Span:
+def HealthIndicator(status: str) -> FT:
     """
     Health status indicator dot.
 

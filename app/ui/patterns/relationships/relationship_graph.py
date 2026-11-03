@@ -32,7 +32,7 @@ Color Scheme:
 - SIBLING → Purple (#8B5CF6)
 """
 
-from fasthtml.common import H3, Div, Option, P
+from fasthtml.common import FT, H3, Div, Option, P
 
 from core.constants import GraphDepth
 from core.models.type_hints import EntityUID
@@ -45,7 +45,7 @@ def RelationshipGraphView(
     entity_uid: EntityUID,
     entity_type: str,
     depth: int = 2,
-) -> Div:
+) -> FT:
     """Interactive force-directed graph using Vis.js Network.
 
     Args:

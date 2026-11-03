@@ -56,7 +56,7 @@ def TreeView(
     draggable: bool = True,
     cls: str = "",
     **kwargs: Any,
-) -> Div:
+) -> FT:
     """
     Render root of tree view.
 
@@ -128,7 +128,7 @@ def _render_tree_node(
     editable: bool = True,
     href: str | None = None,
     badge: FT | None = None,
-) -> Div:
+) -> FT:
     """
     Render a single tree node with all features.
 
@@ -291,7 +291,7 @@ def TreeNodeList(
     draggable: bool = True,
     editable: bool = True,
     **kwargs: Any,
-) -> Div:
+) -> FT:
     """
     Render a list of tree nodes (used by HTMX lazy loading).
 

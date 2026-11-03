@@ -22,7 +22,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 from starlette.exceptions import HTTPException
 
 from core.models.enums import EntityStatus

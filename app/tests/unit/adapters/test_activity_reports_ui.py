@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 import time_machine
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 
 from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
 from adapters.outbound.activity_report_renderer import (

@@ -33,6 +33,7 @@ from adapters.inbound.form_helpers import FORM_MEDIA_TYPES, media_type_of
 from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.error_banner import render_error_banner
 
 logger = logging.getLogger(__name__)
@@ -213,7 +214,7 @@ def boundary_handler(
 #: A page route's shell: the builder its success path calls, handed the request
 #: and the page's content (``BasePage`` with its ``active_page``, or a section's
 #: sidebar page through a small named function).
-PageShell = Callable[[Request, FT], FT]
+PageShell = Callable[[Request, FT], HtmlDocument]
 
 
 def ui_boundary_handler(
@@ -255,7 +256,7 @@ def ui_boundary_handler(
         async def progress_list_fragment(request: Request) -> FT:
             ...  # body needs no try/except scaffolding
 
-        def _summary_page(request: Request, content: FT) -> FT:
+        def _summary_page(request: Request, content: FT) -> HtmlDocument:
             return BasePage(content, title="Summary", request=request, active_page="insights")
 
         @rt("/summary")
@@ -280,7 +281,7 @@ def ui_boundary_handler(
                 f"`{REQUEST_PARAM}`, which the handler does not take"
             )
 
-        def render_failure(exc: Exception, *args: P.args, **kwargs: P.kwargs) -> FT:
+        def render_failure(exc: Exception, *args: P.args, **kwargs: P.kwargs) -> FT | HtmlDocument:
             banner = render_error_banner(
                 message,
                 technical_details=str(exc),

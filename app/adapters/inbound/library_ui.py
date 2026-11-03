@@ -17,7 +17,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Div, P, Span
+from fasthtml.common import FT, A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
@@ -75,7 +75,7 @@ def _sub_status_badge(status: str | None) -> Any:
     return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
-def _submission_item(sub: UserEntry) -> Div:
+def _submission_item(sub: UserEntry) -> FT:
     """Single row for a user's exercise submission."""
     status = sub.status.value
 
@@ -101,7 +101,7 @@ def _submission_item(sub: UserEntry) -> Div:
     )
 
 
-def render_submissions_list(submissions: list[UserEntry]) -> Div:
+def render_submissions_list(submissions: list[UserEntry]) -> FT:
     """Render the user's exercise submissions for the Library Submissions tab."""
     if not submissions:
         return EmptyState(
@@ -122,7 +122,7 @@ def render_submissions_list(submissions: list[UserEntry]) -> Div:
 # ============================================================================
 
 
-def render_resource_list(resources: list[Any]) -> Div:
+def render_resource_list(resources: list[Any]) -> FT:
     """Render the Resource entity list."""
     if not resources:
         return EmptyState(

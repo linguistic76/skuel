@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-09-22
+updated: 2026-11-03
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -54,7 +54,7 @@ class HubCardData:
 ### HubCard
 
 ```python
-def HubCard(card: HubCardData) -> A:
+def HubCard(card: HubCardData) -> FT:
     """Single hub card — icon + title + description + optional badge, wrapped in <A>."""
 ```
 
@@ -63,7 +63,7 @@ Renders a clickable card with icon, title, description, and optional badge pill.
 ### HubSection
 
 ```python
-def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> Div:
+def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> FT:
     """Section header + responsive card grid."""
 ```
 
@@ -73,7 +73,7 @@ def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> Di
 ### MocCard
 
 ```python
-def MocCard(title: str, description: str, href: str, icon: str, icon_bg: str = "bg-muted") -> A:
+def MocCard(title: str, description: str, href: str, icon: str, icon_bg: str = "bg-muted") -> FT:
     """MOC root-page card — icon tile + title + description, wrapped in <A>."""
 ```
 
@@ -92,10 +92,10 @@ class HubBlockData:
     preview_url: str | None = None  # HTMX endpoint; None = OOB-populated by a combined endpoint
     view_all_href: str | None = None  # Override for "View all →"; falls back to href
 
-def HubDomainBlock(block: HubBlockData) -> Div:
+def HubDomainBlock(block: HubBlockData) -> FT:
     """A single domain block: colored header + HTMX lazy-loaded preview area."""
 
-def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
+def HubDomainBlockList(blocks: list[HubBlockData]) -> FT:
     """Vertical stack of domain blocks."""
 ```
 
@@ -225,14 +225,14 @@ def StudentHub(student_name, student_uid):
 ```python
 def HubPreviewCard(
     title: str, href: str, badge: FT | None = None, description: str | None = None
-) -> A:
+) -> FT:
     """Compact preview card — entity title first, optional description snippet
     (line-clamp-2) and badge in a meta row below."""
 
-def HubPreviewGrid(cards: list[A]) -> Div:
+def HubPreviewGrid(cards: list[FT]) -> FT:
     """3-column grid of preview cards."""
 
-def HubPreviewEmpty(domain: str) -> Div:
+def HubPreviewEmpty(domain: str) -> FT:
     """Empty state for a preview block."""
 ```
 

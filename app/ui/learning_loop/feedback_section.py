@@ -20,7 +20,7 @@ Data shape: PathStepSubmissionRow TypedDict (core/ports/query_types.py).
 
 from typing import Any
 
-from fasthtml.common import Div, Span
+from fasthtml.common import FT, Div, Span
 
 from core.ports.query_types import PathStepSubmissionRow
 from ui.components import ButtonT
@@ -44,7 +44,7 @@ def _outcome_badge(outcome: str) -> Any:
     return Badge("Reviewed", variant=BadgeT.info, size=Size.sm)
 
 
-def _feedback_row(sub: PathStepSubmissionRow) -> Div:
+def _feedback_row(sub: PathStepSubmissionRow) -> FT:
     """Single feedback row with outcome badge and action link."""
     outcome = (sub.get("report_outcome") or "").lower()
 
@@ -70,7 +70,7 @@ def _feedback_row(sub: PathStepSubmissionRow) -> Div:
     )
 
 
-def render_ps_feedback(submissions: list[PathStepSubmissionRow]) -> Div:
+def render_ps_feedback(submissions: list[PathStepSubmissionRow]) -> FT:
     """Render feedback for submissions that have reports, or an empty state."""
     with_reports = [s for s in submissions if s.get("report_uid")]
 

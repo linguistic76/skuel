@@ -16,6 +16,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
+    FT,
     H1,
     A,
     Article,
@@ -47,8 +48,6 @@ from ui.patterns.relationships import EntityRelationshipsSection
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    from fasthtml.common import FT
-
     from ui.page_contexts import RelatedConceptChip
 
 _COLUMN_CLS = "mx-auto max-w-[700px] px-4 sm:px-6 pt-6 sm:pt-9 pb-28"
@@ -58,7 +57,7 @@ _COLUMN_CLS = "mx-auto max-w-[700px] px-4 sm:px-6 pt-6 sm:pt-9 pb-28"
 # ---------------------------------------------------------------------------
 
 
-def render_ku_not_found(uid: str) -> Div:
+def render_ku_not_found(uid: str) -> FT:
     """Render the not-found state for a Ku detail fragment."""
     return render_entity_not_found(
         entity_label="Knowledge unit",
@@ -82,7 +81,7 @@ def render_ku_detail_content(
     mastery_checkins: list[dict] | None = None,
     resources: list[dict] | None = None,
     show_related: bool = False,
-) -> Div:
+) -> FT:
     """Reading-first Ku detail content fragment.
 
     Serves as the HTMX fragment for GET /explore/ku/{uid}/content.

@@ -30,7 +30,7 @@ Routes:
 
 import calendar as cal
 from datetime import date, datetime, time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fasthtml.common import (
     H2,
@@ -44,9 +44,6 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import parse_date_param_strict, refuse_malformed
-
-if TYPE_CHECKING:
-    from fasthtml.common import FT
 from core.models.enums.entity_enums import EntityType
 from core.models.event.calendar_models import CalendarView, parse_calendar_item_uid
 from core.utils.logging import get_logger
@@ -76,6 +73,7 @@ from ui.calendar.components import (
 )
 from ui.components import Button, ButtonT
 from ui.journals.period_links import period_link
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.modal import AlpineModal
 
@@ -87,7 +85,7 @@ logger = get_logger("skuel.routes.calendar")
 # ============================================================================
 
 
-def _wrap_calendar_page(request: Request, content: Any, title: str, active: str) -> Any:
+def _wrap_calendar_page(request: Request, content: Any, title: str, active: str) -> HtmlDocument:
     """Wrap calendar content in the shared activity sidebar page (same as Today).
 
     ``active`` highlights the view's sidebar link ("weekly" / "monthly");
@@ -134,7 +132,7 @@ def _calendar_shell(
     content_id: str,
     report_kind: str,
     report_anchor: date,
-) -> FT:
+) -> HtmlDocument:
     """Assemble the shared calendar chrome (header + toolbar) around an HTMX-loaded grid.
 
     ``report_kind`` / ``report_anchor`` name the calendar period this view shows

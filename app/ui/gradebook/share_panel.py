@@ -48,7 +48,7 @@ _NOBODY_TO_SHARE_WITH = (
 )
 
 
-def ShareButton(entry_uid: str, *, open: bool = False, preselect: str | None = None) -> Div:
+def ShareButton(entry_uid: str, *, open: bool = False, preselect: str | None = None) -> FT:
     """The "Share" button and its modal, for the entry's owner.
 
     Args:
@@ -106,7 +106,7 @@ def ShareButton(entry_uid: str, *, open: bool = False, preselect: str | None = N
 
 def AudienceCheckbox(
     value: str, label: str, *, shared: bool, preselected: bool = False, hint: str | None = None
-) -> Div:
+) -> FT:
     """One ``audience`` checkbox row in the vocabulary — the Share panel's and the Submit page's.
 
     An already-shared target is checked and disabled; a preselected one checked.
@@ -165,7 +165,7 @@ def SharePanelForm(
     outcome: ShareOutcome | None = None,
     error: str | None = None,
     preselect: str | None = None,
-) -> Div:
+) -> FT:
     """The modal body: candidates as checkboxes, posting the chosen vocabulary values.
 
     ``preselect=reviewers`` checks the offered groups the entry was submitted

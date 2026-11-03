@@ -25,7 +25,7 @@ Layout (2 alternatives):
 
 from typing import Any
 
-from fasthtml.common import H3, Div, Table, Tbody, Td, Th, Thead, Tr
+from fasthtml.common import FT, H3, Div, Table, Tbody, Td, Th, Thead, Tr
 
 from core.models.type_hints import EntityUID
 from ui.components import Card, CardBody
@@ -33,7 +33,7 @@ from ui.feedback import Badge, BadgeT
 from ui.patterns.skeleton import SkeletonLines
 
 
-def AlternativesComparisonGrid(entity_uid: EntityUID, entity_type: str) -> Div:
+def AlternativesComparisonGrid(entity_uid: EntityUID, entity_type: str) -> FT:
     """Side-by-side comparison table for alternative entities.
 
     Args:
@@ -58,7 +58,7 @@ def AlternativesComparisonGrid(entity_uid: EntityUID, entity_type: str) -> Div:
     )
 
 
-def render_alternatives_fragment(alternatives: list[dict[str, Any]]) -> Div:
+def render_alternatives_fragment(alternatives: list[dict[str, Any]]) -> FT:
     """Render alternatives as comparison table (called by HTMX endpoint).
 
     Args:

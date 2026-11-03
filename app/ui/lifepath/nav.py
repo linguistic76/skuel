@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ def lifepath_sidebar_page(
     content: FT,
     request: Request,
     extra_scripts: list[str] | None = None,
-) -> FT:
+) -> HtmlDocument:
     """Create sidebar page for LifePath routes.
 
     Args:

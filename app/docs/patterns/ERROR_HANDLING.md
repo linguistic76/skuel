@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: '2026-11-02'
+updated: '2026-11-03'
 category: patterns
 related_skills:
 - result-pattern
@@ -475,7 +475,7 @@ def OverviewView(
     context: UserContext,
     daily_plan: "DailyWorkPlan | None" = None,  # Optional
     alignment: "LifePathAlignment | None" = None,
-) -> Div:
+) -> FT:
     if daily_plan is None:
         return Div(P("Loading..."))  # Fallback UI
 
@@ -484,7 +484,7 @@ def OverviewView(
     context: UserContext,
     daily_plan: "DailyWorkPlan",  # Required
     alignment: "LifePathAlignment",  # Required
-) -> Div:
+) -> FT:
     # Component expects data - if None reaches here, it's a bug
     return Div(
         _daily_work_plan_card(daily_plan),

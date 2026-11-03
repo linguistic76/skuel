@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-02
+updated: 2026-11-03
 ---
 
 # Any Usage Policy
@@ -161,24 +161,40 @@ node_data: dict[str, Any]  # boundary: neo4j-primitives — raw record from driv
 
 ### FastHTML boundary surfaces
 
-FastHTML/fastcore present four distinct surfaces, and `Any` is justified at only one of them — FT element internals. The other three have typed alternatives — `Result[Any]`, `app: Any` / `rt: Any` and an `Any` in an ASGI signature show up there as regressions, not boundaries.
+FastHTML/fastcore present these surfaces, and `Any` is justified at two of them — FT element internals, and the names the local stubs leave untyped. The others have typed alternatives — `Result[Any]`, `app: Any` / `rt: Any`, a tag name as an annotation and an `Any` in an ASGI signature show up there as regressions, not boundaries.
 
 | Surface | Typed alternative | `# boundary:` tag |
 |---------|-------------------|--------------------|
 | `app` / `rt` route-factory params | `FastHTMLApp` / `RouteDecorator` protocols | *none — protocol IS the boundary* |
 | Route handler return | `Result[FT]` for HTML fragments; `Result[Goal]` etc. for models | *none — the concrete type IS the contract* |
+| A tag's result, a page | `FT` (every tag function returns one); `HtmlDocument` for a full page | *none — `typings/` types them* |
 | FT element internals (`*c`, `**kwargs`) | none — HTML is structurally heterogeneous | `# boundary: fasthtml-elements` |
+| A FastHTML name the stubs in `typings/` do not declare | declare it in the stub when first-party code needs its type | `# boundary: fasthtml-untyped` (in `typings/` only) |
 | ASGI plumbing (`scope/receive/send`) | `Scope` / `Receive` / `Send` / `ASGIApp` from `starlette.types` | *none — Starlette's types ARE the boundary* |
 | The role-decorator-injected `current_user: Any = None` | none that fails closed — see below | `# boundary: injected-user` (tagged once, at the contract in `roles.py`) |
 
 #### `# boundary: fasthtml-elements`
 
-FastHTML HTML element factories (`Div`, `Span`, `CardBody`, etc.) accept variadic children and arbitrary HTML attributes. HTML structure is inherently dynamic; a complete TypedDict for all HTML attributes would be impractical.
+FastHTML HTML element factories (`Div`, `Span`, `CardBody`, etc.) accept variadic children and arbitrary HTML attributes. HTML structure is inherently dynamic; a complete TypedDict for all HTML attributes would be impractical. The tag covers those parameters only: what a factory builds is an `FT`.
 
 ```python
-def CardBody(*c: Any, cls: str = "", **kwargs: Any) -> Any:
+def CardBody(*c: Any, cls: str = "", **kwargs: Any) -> FT:
     # boundary: fasthtml-elements — html children and attrs are structurally dynamic
 ```
+
+The stubs in `typings/` carry the same tag on every `Any` that stands for a child, an
+attribute or a renderable tree (`FT.children`, `FT.attrs`, each tag's `*c` / `**kwargs`).
+
+#### `# boundary: fasthtml-untyped`
+
+The stubs in `typings/` type only the FastHTML names first-party code imports. Each stub
+module ends in `def __getattr__(name: str) -> Any`, so every other name stays `Any`
+explicitly rather than failing to resolve; `NotStr`'s `__getattr__` (it delegates to the
+`str` it wraps) is the same kind. These carry `# boundary: fasthtml-untyped`, and the tag
+lives in `typings/` only. ruff's ANN401 is waived for `typings/`, so
+`tests/unit/test_fasthtml_stubs.py` is what holds every stub line naming `Any` to one of the
+two tags. When first-party code starts to use an untyped name, declare it in the stub:
+the same test then holds the declaration to the installed package.
 
 #### `# boundary: injected-user`
 
@@ -210,7 +226,7 @@ Button("Close", **{"x-on:click": close_expr})  # type: ignore[arg-type]  # fasth
 
 - **`app` / `rt` parameters in route factories.** Use the protocols from `fasthtml_types.py` — `tests/unit/adapters/test_route_param_types.py` fails on an `rt` / `app` under `adapters/inbound` (or in `scripts/dev/bootstrap.py`, which builds them) typed `Any` or left bare, and checks each protocol member against a real `fast_app()`. ASGI middleware takes `app: ASGIApp` (`starlette.types`). `rt(path)` returns `Callable[[Callable[P, R]], Callable[P, R]]`: the name a decorated handler binds calls like the handler, and the same test checks that the real `rt` passes every argument on and returns the handler's own result. A wrapper between `rt` and the handler keeps only what its own annotation keeps — `csrf_protected` hands `rt` `Callable[..., Awaitable[Any]]`. No first-party code reads the name a decorated handler binds yet, so that erasure is [deferred to its first reader](../roadmap/route-wrappers-erase-handler-types.md). A test that calls registered handlers directly takes them from `route_collector()` (`tests/helpers/route_collector.py`), the one stand-in `rt`. It records one door per method FastHTML registers, a lookup names its method (`registered[path, "GET"]`), and its return annotation is where mypy checks it against the protocol — tests run with `arg-type` off, so a stand-in handed to a route function is checked nowhere else. `tests/unit/test_route_collector.py` fails on a hand-written stand-in, on a mock bound as `rt`, and on anything else handed to a route function it can name.
 - **ASGI plumbing.** `FastHTMLApp.__call__` takes `Scope` / `Receive` / `Send` (`starlette.types`) and its `router` is a `starlette.routing.Router` — httpx's `ASGITransport`, Starlette's `TestClient` and uvicorn all accept it. A test holding the bootstrapped app (`skuel_app`, or an app a fixture builds) types it `FastHTMLApp`; `tests/unit/adapters/test_route_param_types.py` fails on one that does not, and on a boundary tag excusing an `Any` here anywhere in the repo.
-- **Route handler returns rendering HTML.** `from fasthtml.common import FT` gives a real class (`fastcore.xml.FT`) that type-checks. `Result[FT]` is correct; `Result[Any]` with `# boundary: fasthtml FT component` is now obsolete framing. A handler that answers a page or a `Response` is `-> Response | FT`, with `FT` imported at runtime: FastHTML evaluates a handler's annotations when it registers the route. Never `-> Response` alone on a handler that can return FT — FastHTML takes a `Response` class as the return annotation to mean "build this class from the return value", so `Response(ft)` fails with a 500. mypy cannot see it (fasthtml publishes no types, so FT reads as `Any`).
+- **Route handler returns rendering HTML.** `FT` is a real type to mypy and Pyright. FastHTML ships no types, so the local stubs in `typings/` (mypy's `mypy_path`, Pyright's `stubPath`) declare `fastcore.xml.FT` and every tag function as returning one: `Div()` is an `FT`, and a tag function is never an annotation (`-> Div` is a mypy `valid-type` error; write `-> FT`). A full page is `HtmlDocument` (`ui/layouts/base_page.py`): `Html()`, and so `BasePage`, `SidebarPage` and every section's page wrapper, returns the doctype tag and the `html` element as a pair, never one `FT`. `Result[FT]` is correct; `Result[Any]` with `# boundary: fasthtml FT component` is obsolete framing. A handler that answers a page or a `Response` is `-> Response | FT` (or `| HtmlDocument`), with every name imported at runtime: FastHTML evaluates a handler's annotations when it registers the route. Never `-> Response` alone on a handler that can return FT — FastHTML takes a `Response` class as the return annotation to mean "build this class from the return value", so `Response(ft)` fails with a 500. mypy refuses it (`return-value`: got `FT`, expected `Response`). `tests/unit/test_fasthtml_stubs.py` holds the stubs to the installed FastHTML: every tag declared, every declaration true of the runtime.
 - **Route handlers that delegate to a typed service.** `events_service.update_event(...)` returns `Result[Event]` — the route wrapper should too. Using `Result[Any]` here is Category A (lazy), not Category C.
 
 ### `# boundary: error-metadata`

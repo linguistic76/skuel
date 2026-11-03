@@ -8,7 +8,7 @@ Alert, Badge, Loading, Progress, RadialProgress — pure Tailwind, no MonsterUI.
 from enum import StrEnum
 from typing import Any
 
-from fasthtml.common import Div, Span
+from fasthtml.common import FT, Div, Span
 
 from ui.components import Alert as _SKUELAlert
 from ui.components import Loading as _SKUELLoading
@@ -81,7 +81,7 @@ def Alert(
     cls: str = "",
     variant: AlertT = AlertT.info,
     **kwargs: Any,
-) -> Any:
+) -> FT:
     """Semantic alert box.
 
     Args:

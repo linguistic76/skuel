@@ -4,10 +4,10 @@ Shows a named setting with enabled/disabled status. Useful for any
 entity or system with user-configurable behavior.
 """
 
-from fasthtml.common import Div, P, Span
+from fasthtml.common import FT, Div, P, Span
 
 
-def SettingToggle(name: str, description: str, enabled: bool = True) -> Div:
+def SettingToggle(name: str, description: str, enabled: bool = True) -> FT:
     """Toggle setting display with status.
 
     Args:

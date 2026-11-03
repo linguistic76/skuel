@@ -22,12 +22,12 @@ Each field spec is a dict with:
 
 from typing import Any
 
-from fasthtml.common import Div, Option, P
+from fasthtml.common import FT, Div, Option, P
 
 from ui.forms.components import Checkbox, Input, Label, Select, Textarea
 
 
-def build_field_from_schema(spec: dict[str, Any]) -> Div:
+def build_field_from_schema(spec: dict[str, Any]) -> FT:
     """Build a single form field from a schema spec dict."""
     name = spec["name"]
     label_text = spec["label"]

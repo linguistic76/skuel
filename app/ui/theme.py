@@ -14,7 +14,7 @@ Usage:
 
 from typing import Any
 
-from fasthtml.common import Link, Script
+from fasthtml.common import FT, Link, Script
 
 # Version constants for self-hosted dependencies
 HTMX_VERSION = "1.9.10"
@@ -87,7 +87,7 @@ def pwa_headers(
     )
 
 
-def dark_mode_script() -> Script:
+def dark_mode_script() -> FT:
     """Dark mode restore + toggle — class-based (Tailwind 'dark' on html element).
 
     Wired into build_head() so it runs before CSS paints (no theme flash).
