@@ -428,7 +428,7 @@ The `orchestrator.lateral_service` property is the single documented layering ex
 from ui.patterns.relationships import EntityRelationshipsSection
 
 @rt("/tasks/{uid}")
-async def task_detail_page(request: Any, uid: str) -> Any:
+async def task_detail_page(request: Request, uid: str) -> HtmlDocument:
     # ... existing detail page code ...
 
     content = Div(

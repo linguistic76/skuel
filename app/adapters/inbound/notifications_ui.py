@@ -10,16 +10,16 @@ Layout: Standard BasePage (no sidebar needed — simple list view).
 See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.notifications import render_notification_card, render_notification_empty_state
 from ui.patterns.page_header import PageHeader
 
@@ -44,7 +44,7 @@ def create_notifications_ui_routes(
         return notification_service
 
     @rt("/notifications")
-    async def notifications_page(request: Request) -> Any:
+    async def notifications_page(request: Request) -> HtmlDocument:
         """Notifications list page."""
         user_uid = require_authenticated_user(request)
 
@@ -60,7 +60,7 @@ def create_notifications_ui_routes(
             subtitle=f"{unread_count} unread" if unread_count > 0 else "All caught up",
         )
 
-        mark_all_btn = ""
+        mark_all_btn: FT | str = ""
         if unread_count > 0:
             mark_all_btn = Button(
                 "Mark all as read",
@@ -89,7 +89,7 @@ def create_notifications_ui_routes(
 
     @rt("/notifications/{notification_uid}/read", methods=["POST"])
     @csrf_protected
-    async def mark_notification_read(request: Request, notification_uid: str) -> Any:
+    async def mark_notification_read(request: Request, notification_uid: str) -> FT | str:
         """Mark a single notification as read. Returns updated card via HTMX."""
         user_uid = require_authenticated_user(request)
 
@@ -109,7 +109,7 @@ def create_notifications_ui_routes(
 
     @rt("/notifications/read-all", methods=["POST"])
     @csrf_protected
-    async def mark_all_read(request: Request) -> Any:
+    async def mark_all_read(request: Request) -> FT:
         """Mark all notifications as read. Returns updated list via HTMX."""
         user_uid = require_authenticated_user(request)
 

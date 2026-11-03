@@ -498,7 +498,7 @@ def OverviewView(
 
 ```python
 @rt("/today")
-async def today_page(request: Request) -> Response | FT:
+async def today_page(request: Request) -> HtmlDocument | Response:
     user_uid = require_authenticated_user(request)
     context = await _get_user_context(user_uid)
 

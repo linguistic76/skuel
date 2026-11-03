@@ -28,7 +28,7 @@ import json
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, P, Span
+from fasthtml.common import FT, Div, P, Span
 from pydantic import ValidationError
 
 from adapters.inbound.auth import (
@@ -45,6 +45,7 @@ from core.services.vault.vault_descriptor import VaultKind
 from core.services.vault.vault_reconciler import VaultDescription
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns import PageHeader
 from ui.vault.sync_fragments import (
     consent_form,
@@ -114,7 +115,7 @@ def create_vault_routes(
     # ------------------------------------------------------------------
 
     @rt("/submissions/sync")
-    async def submissions_sync_page(request: Request) -> Any:
+    async def submissions_sync_page(request: Request) -> HtmlDocument:
         """Vault sync page under the Submissions MOC — shows the privacy wall."""
         user_uid = require_authenticated_user(request)
 
@@ -168,7 +169,7 @@ def create_vault_routes(
 
     @rt("/settings/vault/sync", methods=["POST"])
     @csrf_protected
-    async def vault_sync_htmx(request: Request) -> Any:
+    async def vault_sync_htmx(request: Request) -> FT:
         """HTMX endpoint: run sync, return HTML results fragment."""
         user_uid = require_authenticated_user(request)
 
@@ -185,7 +186,7 @@ def create_vault_routes(
 
     @rt("/settings/vault/preview", methods=["POST"])
     @csrf_protected
-    async def vault_preview_htmx(request: Request) -> Any:
+    async def vault_preview_htmx(request: Request) -> FT:
         """HTMX endpoint: dry-run preview — reports what a sync WOULD do, writes nothing."""
         user_uid = require_authenticated_user(request)
 
@@ -209,7 +210,7 @@ def create_vault_routes(
 
     @rt("/settings/vault/preview/consent", methods=["POST"])
     @csrf_protected
-    async def vault_preview_consent_htmx(request: Request) -> Any:
+    async def vault_preview_consent_htmx(request: Request) -> FT:
         """HTMX endpoint: grant sync consent then run the DRY-RUN preview.
 
         The preview-first flow must stay a preview across the consent hop —
@@ -229,7 +230,7 @@ def create_vault_routes(
 
     @rt("/settings/vault/consent", methods=["POST"])
     @csrf_protected
-    async def vault_consent_htmx(request: Request) -> Any:
+    async def vault_consent_htmx(request: Request) -> FT:
         """HTMX endpoint: grant write consent then run sync, return results fragment."""
         user_uid = require_authenticated_user(request)
 

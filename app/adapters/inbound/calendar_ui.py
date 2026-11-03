@@ -33,6 +33,7 @@ from datetime import date, datetime, time
 from typing import Any
 
 from fasthtml.common import (
+    FT,
     H2,
     Div,
     P,
@@ -185,21 +186,21 @@ def create_calendar_ui_routes(rt: RouteDecorator, calendar_service):
     @rt("/cal")
     def calendar_today(
         request: Request,
-    ) -> Any:
+    ) -> RedirectResponse:
         """Entry point — redirect to current month calendar view."""
         require_authenticated_user(request)
         today = today_in(current_zone())
         return RedirectResponse(f"/cal/month/{today.year}/{today.month}", status_code=302)
 
     @rt("/cal/month")
-    def calendar_month_current(request: Request) -> Any:
+    def calendar_month_current(request: Request) -> RedirectResponse:
         """Sidebar "Monthly" link — redirect to the current month."""
         require_authenticated_user(request)
         today = today_in(current_zone())
         return RedirectResponse(f"/cal/month/{today.year}/{today.month}", status_code=302)
 
     @rt("/cal/week")
-    def calendar_week_current(request: Request) -> Any:
+    def calendar_week_current(request: Request) -> RedirectResponse:
         """Sidebar "Weekly" link — redirect to the current week."""
         require_authenticated_user(request)
         return RedirectResponse(
@@ -207,7 +208,7 @@ def create_calendar_ui_routes(rt: RouteDecorator, calendar_service):
         )
 
     @rt("/cal/month/{year}/{month}")
-    def calendar_month(request: Request, year: int, month: int) -> Any:
+    def calendar_month(request: Request, year: int, month: int) -> HtmlDocument:
         """Month view shell — renders chrome immediately, grid loads via HTMX."""
         require_authenticated_user(request)
         month_name = cal.month_name[month]
@@ -228,7 +229,7 @@ def create_calendar_ui_routes(rt: RouteDecorator, calendar_service):
         )
 
     @rt("/cal/month/{year}/{month}/content")
-    async def calendar_month_content(request: Request, year: int, month: int) -> Any:
+    async def calendar_month_content(request: Request, year: int, month: int) -> FT:
         """HTMX fragment: month grid.
 
         Fetches the full visible grid range (Monday on/before the 1st through
@@ -257,7 +258,7 @@ def create_calendar_ui_routes(rt: RouteDecorator, calendar_service):
         )
 
     @rt("/cal/week/{date_str}")
-    def calendar_week(request: Request, date_str: str) -> Any:
+    def calendar_week(request: Request, date_str: str) -> HtmlDocument:
         """Week view shell — renders chrome immediately, grid loads via HTMX."""
         require_authenticated_user(request)
         try:
@@ -280,7 +281,7 @@ def create_calendar_ui_routes(rt: RouteDecorator, calendar_service):
         )
 
     @rt("/cal/week/{date_str}/content")
-    async def calendar_week_content(request: Request, date_str: str) -> Any:
+    async def calendar_week_content(request: Request, date_str: str) -> FT:
         """HTMX fragment: week grid."""
         user_uid = require_authenticated_user(request)
         try:
@@ -310,7 +311,7 @@ def create_calendar_ui_routes(rt: RouteDecorator, calendar_service):
     # =========================================================================
 
     @rt("/cal/item-details/{item_id}")
-    async def calendar_item_details_modal(request: Request, item_id: str) -> Any:
+    async def calendar_item_details_modal(request: Request, item_id: str) -> FT | Response:
         """
         HTMX endpoint for calendar item details modal.
 
@@ -354,7 +355,7 @@ def create_calendar_ui_routes(rt: RouteDecorator, calendar_service):
 
     @rt("/cal/item/{item_id}/reschedule", methods=["POST"])
     @csrf_protected
-    async def calendar_item_reschedule(request: Request, item_id: str) -> Any:
+    async def calendar_item_reschedule(request: Request, item_id: str) -> FT | Response:
         """Move a task or event to a new date (item-details modal).
 
         The modal posts form field ``new_date`` (tasks are date-only) plus
@@ -427,7 +428,7 @@ def create_calendar_ui_routes(rt: RouteDecorator, calendar_service):
 
     @rt("/cal/habit/{habit_uid}/complete", methods=["POST"])
     @csrf_protected
-    async def calendar_habit_complete(request: Request, habit_uid: str) -> Any:
+    async def calendar_habit_complete(request: Request, habit_uid: str) -> FT | Response:
         """Record a habit completion for a specific day (item-details modal).
 
         The modal posts its occurrence day as form field ``on_date``; future

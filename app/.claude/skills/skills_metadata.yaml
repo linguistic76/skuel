@@ -131,7 +131,7 @@ skills:
 
   - name: vis-network
     description: Expert guide to Vis.js Network for interactive graph visualization in SKUEL. Use when visualizing lateral relationships, building force-directed graphs, creating relationship network diagrams, or when the user mentions vis.js, graph visualization, relationship networks, interactive graphs, or lateral relationships.
-    last_reviewed: "2026-11-02"
+    last_reviewed: "2026-11-03"
     foundation: []
     dependencies: []
     library_package: null  # Self-hosted vendor library
@@ -151,7 +151,7 @@ skills:
 
   - name: fasthtml
     description: FastHTML - Python's server-rendered hypermedia framework
-    last_reviewed: "2026-11-02"
+    last_reviewed: "2026-11-03"
     foundation: [python]
     dependencies: [python]
     library_package: python-fasthtml
@@ -228,7 +228,7 @@ skills:
 
   - name: skuel-ui
     description: SKUEL UI patterns — BasePage, components, navigation, sidebars, forms (self-contained)
-    last_reviewed: "2026-11-02"
+    last_reviewed: "2026-11-03"
     foundation: [fasthtml, ui-css, ui-browser, pydantic]
     dependencies: [fasthtml, ui-css, ui-browser, pydantic]
     library_package: null  # SKUEL pattern, not external library
@@ -247,7 +247,7 @@ skills:
 
   - name: ui-error-handling
     description: Expert guide for UI error handling patterns and user feedback
-    last_reviewed: "2026-11-02"
+    last_reviewed: "2026-11-03"
     foundation: [result-pattern, ui-css]
     dependencies: [result-pattern, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -400,7 +400,7 @@ skills:
 
   - name: result-pattern
     description: Result[T] error handling pattern
-    last_reviewed: "2026-11-02"
+    last_reviewed: "2026-11-03"
     foundation: [python]
     dependencies: [python]
     library_package: null  # SKUEL pattern, not external library

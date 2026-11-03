@@ -9,8 +9,9 @@ in pathways_routes.py. This file contains only domain-specific manual routes
 
 __version__ = "4.0"
 
-from typing import Any
+from typing import Any, Never
 
+from fasthtml.common import FT, FtResponse
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -197,7 +198,7 @@ def create_pathways_api_routes(
         return await learning_service.get_optimal_path_recommendation(user_uid)
 
     @rt("/api/lp/{uid}/children", methods=["GET"])
-    async def lp_children_fragment(request: Request, uid: str) -> Any:
+    async def lp_children_fragment(request: Request, uid: str) -> FT | FtResponse | Response:
         """The step tree's lazy load: a learning path's steps, or a path step's Kus.
 
         ``parent_depth`` (query, default 0) is the depth of the node whose children
@@ -232,7 +233,7 @@ def create_pathways_api_routes(
     @rt("/api/pathways/enroll/{uid}", methods=["POST"])
     @csrf_protected
     @boundary_handler()
-    async def enroll_in_path_route(request: Request, uid: str) -> Any:
+    async def enroll_in_path_route(request: Request, uid: str) -> Result[Never] | Response:
         """Enroll the authenticated user in a learning path.
 
         Errors convert to proper HTTP error responses via boundary_handler;

@@ -18,7 +18,7 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div, FtResponse
 from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
@@ -89,7 +89,7 @@ def create_tasks_ui_routes(
     # ------------------------------------------------------------------
 
     @rt("/tasks/create", methods=["GET"])
-    def task_create_page(request: Request) -> Any:
+    def task_create_page(request: Request) -> HtmlDocument:
         """Render the new-task form."""
         require_authenticated_user(request)
         content = Div(
@@ -146,7 +146,7 @@ def create_tasks_ui_routes(
         return None
 
     @rt("/tasks/edit", methods=["GET"])
-    async def task_edit_page(request: Request) -> Any:
+    async def task_edit_page(request: Request) -> HtmlDocument | FtResponse:
         """Render the edit form prefilled from an existing task."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -179,7 +179,7 @@ def create_tasks_ui_routes(
 
     @rt("/tasks/edit", methods=["POST"])
     @csrf_protected
-    async def task_edit_submit(request: Request) -> Any:
+    async def task_edit_submit(request: Request) -> HtmlDocument | FtResponse | RedirectResponse:
         """Validate the form, apply updates, redirect to the detail page."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -246,7 +246,7 @@ def create_tasks_ui_routes(
     # ------------------------------------------------------------------
 
     @rt("/tasks/subtasks", methods=["GET"])
-    async def subtasks_fragment(request: Request) -> Any:
+    async def subtasks_fragment(request: Request) -> FT | Response:
         """HTMX fragment: parent breadcrumb + child rows + quick-add form."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -279,7 +279,7 @@ def create_tasks_ui_routes(
 
     @rt("/tasks/subtasks/add", methods=["POST"])
     @csrf_protected
-    async def subtasks_add(request: Request) -> Any:
+    async def subtasks_add(request: Request) -> FT | Response:
         """Create a sub-task inline and return the refreshed subtask fragment."""
         user_uid = require_authenticated_user(request)
 
@@ -317,14 +317,14 @@ def create_tasks_ui_routes(
     # Dependency fragments (DEPENDS_ON): GET read + POST add/remove
     # ------------------------------------------------------------------
 
-    async def _dependencies_view(uid: str, user_uid: UserUID, error: str | None = None) -> Any:
+    async def _dependencies_view(uid: str, user_uid: UserUID, error: str | None = None) -> FT:
         """Fetch the task's owner-scoped DEPENDS_ON neighbours and render the fragment."""
         neighbors = await tasks_service.get_task_dependency_neighbors(uid, user_uid)
         value = neighbors.value if neighbors.is_ok else {"depends_on": [], "required_by": []}
         return DependencyListFragment(uid, value, error=error)
 
     @rt("/tasks/{uid}/dependencies", methods=["GET"])
-    async def dependencies_fragment(request: Request, uid: str) -> Any:
+    async def dependencies_fragment(request: Request, uid: str) -> FT | Response:
         """HTMX fragment: this task's DEPENDS_ON neighbours (both directions)."""
         user_uid = require_authenticated_user(request)
         owned = await tasks_service.verify_ownership(uid, user_uid)
@@ -336,7 +336,7 @@ def create_tasks_ui_routes(
 
     @rt("/tasks/{uid}/dependencies/add", methods=["POST"])
     @csrf_protected
-    async def dependencies_add(request: Request, uid: str) -> Any:
+    async def dependencies_add(request: Request, uid: str) -> FT | Response:
         """Add a ``(this)-[:DEPENDS_ON]->(target)`` edge, guarding ownership + cycles."""
         user_uid = require_authenticated_user(request)
         form = await request.form()
@@ -366,7 +366,7 @@ def create_tasks_ui_routes(
 
     @rt("/tasks/{uid}/dependencies/remove", methods=["POST"])
     @csrf_protected
-    async def dependencies_remove(request: Request, uid: str) -> Any:
+    async def dependencies_remove(request: Request, uid: str) -> FT | Response:
         """Remove a DEPENDS_ON edge, guarding ownership of both endpoints."""
         user_uid = require_authenticated_user(request)
         form = await request.form()

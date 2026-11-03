@@ -25,7 +25,7 @@ from fasthtml.common import (
     P,
     Script,
 )
-from starlette.responses import RedirectResponse
+from starlette.responses import JSONResponse, RedirectResponse, Response
 
 from adapters.inbound.auth import is_authenticated, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
@@ -35,6 +35,7 @@ from core.models.enums.learning_enums import LearningLevel
 from core.models.search.filter_enums import SearchSortOrder
 from core.models.search_request import SearchRequest
 from core.utils.logging import get_logger
+from ui.layouts.base_page import HtmlDocument
 
 if TYPE_CHECKING:
     from core.orchestrator.search_router import SearchRouter
@@ -131,14 +132,14 @@ def _library_cards(
     pinned_uids: set[str],
     learning_states: dict[str, str],
     offset: int,
-) -> list[Any]:
+) -> list[FT]:
     """Bare cards + Load-more sentinel for one library page.
 
     Bare (no grid wrapper) because every consumer swaps innerHTML into — or
     appends within — the ``#explore-grid`` container; a wrapped response would
     nest grid-in-grid. The sentinel is omitted on a short page (no next page).
     """
-    cards: list[Any] = [
+    cards: list[FT] = [
         render_explore_card(
             record,
             learning_state=learning_states.get(str(record.get("uid", "")), ""),
@@ -177,7 +178,7 @@ def create_explore_api_routes(
         nous: str = "",
         nous_subtopic: str = "",
         learning_level: str = "",
-    ) -> Any:
+    ) -> FT | tuple[FT, ...] | Response:
         """One library page of bare cards (+ Load-more sentinel) for HTMX swap.
 
         ``offset`` is read from the query string. The Load-more sentinel mints it,
@@ -233,7 +234,7 @@ def create_explore_api_routes(
         return render_explore_subtopic_inner(subtopics)
 
     @rt("/api/explore/graph")
-    async def explore_graph(request: Request) -> Any:
+    async def explore_graph(request: Request) -> JSONResponse:
         """Return the user's learning universe as Vis.js {nodes, edges} JSON."""
         from starlette.responses import JSONResponse
 
@@ -271,7 +272,7 @@ def create_explore_ui_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore")
-    def explore_index(request: Request) -> Any:
+    def explore_index(request: Request) -> HtmlDocument:
         """Explore reading surface — shell renders immediately, plan loads via HTMX.
 
         exploreReading.js is loaded here (in the full-page shell, before Alpine's
@@ -292,7 +293,7 @@ def create_explore_ui_routes(
         )
 
     @rt("/explore/content")
-    async def explore_reading_content(request: Request) -> Any:
+    async def explore_reading_content(request: Request) -> FT:
         """HTMX fragment: reading plan content for /explore."""
         user_uid = require_authenticated_user(request) if is_authenticated(request) else None
         plan = await orchestrator.get_reading_plan(user_uid)
@@ -306,7 +307,7 @@ def create_explore_ui_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore/read/{uid}")
-    def explore_read_ku(request: Request, uid: str) -> Any:
+    def explore_read_ku(request: Request, uid: str) -> RedirectResponse:
         """KU reader — forwards to the Ku detail page."""
         return RedirectResponse(url=f"/explore/ku/{uid}", status_code=302)
 
@@ -315,7 +316,7 @@ def create_explore_ui_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore/graph")
-    def explore_graph_page(request: Request) -> Any:
+    def explore_graph_page(request: Request) -> HtmlDocument:
         """Full-page learning graph — the user's knowledge universe."""
         content = Div(
             Div(
@@ -355,7 +356,7 @@ def create_explore_ui_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore/library")
-    async def explore_library(request: Request, tag: str = "") -> Any:
+    async def explore_library(request: Request, tag: str = "") -> HtmlDocument:
         """Full knowledge catalog — bento card grid with search."""
         user_uid = require_authenticated_user(request) if is_authenticated(request) else None
         sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
@@ -375,7 +376,7 @@ def create_explore_ui_routes(
         )
 
     @rt("/explore/library/content")
-    async def explore_library_content(request: Request, tag: str = "") -> Any:
+    async def explore_library_content(request: Request, tag: str = "") -> FT:
         """HTMX fragment: bento card grid with search panel.
 
         First page via SearchRouter.faceted_search (same path as

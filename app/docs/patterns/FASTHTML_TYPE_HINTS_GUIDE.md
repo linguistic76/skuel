@@ -1,6 +1,6 @@
 ---
 title: FastHTML Type Hints Pattern Guide
-updated: '2026-10-18'
+updated: '2026-11-03'
 category: patterns
 related_skills:
 - ui-browser
@@ -54,6 +54,14 @@ request (`data |= dict(conn.query_params)`), so `await request.json()` hands bac
 `?uid=` in place of the body's `uid`. A route reads a JSON body through
 `form_helpers.read_json_body` (the body's bytes) — `parse_json_body` / `parse_body` do.
 
+The return annotation is read too. FastHTML evaluates the handler's whole signature when
+it registers the route, so a name the module binds only under `TYPE_CHECKING` is a
+`NameError` at boot. A single `Response` subclass there means "build this class from the
+returned value": a returned `Response` passes through (an `FtResponse` renders itself into
+one first), anything else becomes `Response(value)` — a returned `FT` is a 500. Any other
+annotation (a union, an alias such as `HtmlDocument`, `FT` itself) is not a `Response`
+subclass and changes nothing.
+
 ---
 
 ## SKUEL's Rules
@@ -80,6 +88,13 @@ request (`data |= dict(conn.query_params)`), so `await request.json()` hands bac
    `tests/unit/adapters/test_request_input_census.py` holds every registered handler to
    this.
 5. **Never `await request.json()`** — `read_json_body(request)` (see above).
+6. **A handler declares the narrowest type it returns**, FT first in a union (`-> FT`,
+   `-> HtmlDocument | FtResponse`, `-> FT | Response`, `-> Result[T]` under
+   `boundary_handler`), every name imported at runtime. mypy checks it against the body —
+   `return Div()` under `-> Response` is a `return-value` error.
+   `tests/unit/adapters/test_route_handler_returns.py` fails on a registered handler that
+   declares none, `Any` or `Result[Any]` ([ANY_USAGE_POLICY.md](ANY_USAGE_POLICY.md)
+   § FastHTML boundary surfaces).
 
 ---
 

@@ -2,10 +2,14 @@
 HierarchyRouteFactory - Tree-Manipulation API Routes for Hierarchical Domains
 ==============================================================================
 
-Provides HTMX-friendly endpoints for all hierarchical domains:
+Provides JSON endpoints for all hierarchical domains:
 - POST /api/{domain}/{uid}/move - Move node to new parent
 - PATCH /api/{domain}/{uid} - Update node (inline edit)
 - POST /api/{domain}/bulk-delete - Delete multiple nodes
+
+Each answers through ``boundary_handler``: a refusal is a JSON error with its status
+(400 a malformed body, 404 a node the caller does not own), which ``SKUEL.postJson``
+rejects on and toasts.
 
 The children reads (JSON + TreeNodeList fragment) come from
 ``create_activity_hierarchy_api_routes`` in ``route_factories/hierarchy_api_factory.py``.
@@ -21,17 +25,42 @@ Usage:
 See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 """
 
-from typing import Any, Protocol
+from typing import Any, Protocol, TypedDict
 
 from pydantic import BaseModel
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import read_json_body
 from core.models.type_hints import UserUID
 from core.models.update_contracts import RawChanges, SupportsToChanges, SupportsToIntent
 from core.utils.result_simplified import Errors, Result
+
+
+class NodeMovedPayload(TypedDict):
+    """``POST /api/{domain}/{uid}/move`` — the node is under its new parent."""
+
+    success: bool
+    message: str
+
+
+class NodeUpdatedPayload(TypedDict):
+    """``PATCH /api/{domain}/{uid}`` — the node's new title."""
+
+    success: bool
+    message: str
+    uid: str
+    title: str
+
+
+class BulkDeletedPayload(TypedDict):
+    """``POST /api/{domain}/bulk-delete`` — how many went, and why each other one did not."""
+
+    success: bool
+    deleted_count: int
+    errors: list[str]
 
 
 class HierarchicalService(Protocol):
@@ -146,7 +175,8 @@ class HierarchyRouteFactory:
 
         @self.rt(f"/api/{self.domain}/{{uid}}/move", methods=["POST"])
         @csrf_protected
-        async def move_node(request: Request, uid: str) -> Any:
+        @boundary_handler()
+        async def move_node(request: Request, uid: str) -> Result[NodeMovedPayload]:
             """Move node to new parent (drag-and-drop)."""
             user_uid = require_authenticated_user(request)
 
@@ -154,32 +184,32 @@ class HierarchyRouteFactory:
             new_parent_uid = body.get("new_parent_uid")
 
             if not new_parent_uid:
-                return {"success": False, "error": "new_parent_uid required"}, 400
+                return Result.fail(
+                    Errors.validation("new_parent_uid is required", field="new_parent_uid")
+                )
 
             # Verify ownership of both nodes
             ownership_result = await self.service.verify_ownership(uid, user_uid)
             if ownership_result.is_error:
-                return {"success": False, "error": "Not found or access denied"}, 404
+                return Result.fail(ownership_result)
 
             parent_ownership_result = await self.service.verify_ownership(new_parent_uid, user_uid)
             if parent_ownership_result.is_error:
-                return {"success": False, "error": "Parent not found or access denied"}, 404
+                return Result.fail(parent_ownership_result)
 
             move_result = await self._move_node(uid, new_parent_uid)
             if move_result.is_error:
-                return {"success": False, "error": str(move_result.error)}, 400
+                return Result.fail(move_result)
 
-            return {
-                "success": True,
-                "message": f"{self.entity_name} moved successfully",
-            }
+            return Result.ok({"success": True, "message": f"{self.entity_name} moved successfully"})
 
     def _create_update_node_route(self) -> None:
         """PATCH /api/{domain}/{uid} - Update node title (inline editing)."""
 
         @self.rt(f"/api/{self.domain}/{{uid}}", methods=["PATCH"])
         @csrf_protected
-        async def update_node(request: Request, uid: str) -> Any:
+        @boundary_handler()
+        async def update_node(request: Request, uid: str) -> Result[NodeUpdatedPayload]:
             """Update node title (inline editing)."""
             user_uid = require_authenticated_user(request)
 
@@ -188,12 +218,12 @@ class HierarchyRouteFactory:
             title = body.get("title")
 
             if not title:
-                return {"success": False, "error": "title required"}, 400
+                return Result.fail(Errors.validation("title is required", field="title"))
 
             # Verify ownership
             ownership_result = await self.service.verify_ownership(uid, user_uid)
             if ownership_result.is_error:
-                return {"success": False, "error": "Not found or access denied"}, 404
+                return Result.fail(ownership_result)
 
             # Build the typed update value (ADR-066): *UpdateRequest → *UpdateIntent.
             schema = self.update_schema(title=title)
@@ -207,24 +237,24 @@ class HierarchyRouteFactory:
             result = await self.service.update(uid, updates)
 
             if result.is_error:
-                return {
-                    "success": False,
-                    "error": str(result.error),
-                }, 400
+                return Result.fail(result)
 
-            return {
-                "success": True,
-                "message": f"{self.entity_name} updated",
-                "uid": uid,
-                "title": title,
-            }
+            return Result.ok(
+                {
+                    "success": True,
+                    "message": f"{self.entity_name} updated",
+                    "uid": uid,
+                    "title": title,
+                }
+            )
 
     def _create_bulk_delete_route(self) -> None:
         """POST /api/{domain}/bulk-delete - Delete multiple nodes."""
 
         @self.rt(f"/api/{self.domain}/bulk-delete", methods=["POST"])
         @csrf_protected
-        async def bulk_delete(request: Request) -> Any:
+        @boundary_handler()
+        async def bulk_delete(request: Request) -> Result[BulkDeletedPayload]:
             """Delete multiple nodes (multi-select)."""
             user_uid = require_authenticated_user(request)
 
@@ -233,10 +263,10 @@ class HierarchyRouteFactory:
             uids = body.get("uids", [])
 
             if not uids:
-                return {"success": False, "error": "uids required"}, 400
+                return Result.fail(Errors.validation("uids is required", field="uids"))
 
             deleted_count = 0
-            errors = []
+            errors: list[str] = []
 
             for uid in uids:
                 # Verify ownership
@@ -252,8 +282,10 @@ class HierarchyRouteFactory:
                 else:
                     deleted_count += 1
 
-            return {
-                "success": len(errors) == 0,
-                "deleted_count": deleted_count,
-                "errors": errors,
-            }
+            return Result.ok(
+                {
+                    "success": len(errors) == 0,
+                    "deleted_count": deleted_count,
+                    "errors": errors,
+                }
+            )

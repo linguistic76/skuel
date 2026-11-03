@@ -52,7 +52,7 @@ from ui.enum_helpers import (
 )
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_links import entity_detail_href
@@ -69,7 +69,7 @@ def render_search_page_with_navbar(
     nous_subtopics: list[str] | None = None,
     all_tags: list[str] | None = None,
     ask_enabled: bool = False,
-) -> Any:
+) -> HtmlDocument:
     """
     Main search page with horizontal filters above the search bar.
 
@@ -1055,7 +1055,7 @@ def _results_headline(response: SearchResponse) -> str:
     return f"{shown} result{'s' if shown != 1 else ''}"
 
 
-def render_search_results(response: SearchResponse) -> Any:
+def render_search_results(response: SearchResponse) -> FT:
     """Render search results with calm design — top-N, no pagination."""
     if not response.has_results():
         return Div(

@@ -17,8 +17,9 @@ These pins can:
   ``common`` stub imports from a module is, at runtime, that module's own object, so a
   tag FastHTML moves into ``xtend`` fails here instead of keeping a stale shape.
 * **A stub class declares only what the runtime class has.** Every member the stubs
-  declare on ``FT`` and ``NotStr`` exists on a real instance (read statically:
-  ``FT.__getattr__`` answers any name).
+  declare on ``FT``, ``NotStr`` and ``FtResponse`` exists on a real instance (read
+  statically: ``FT.__getattr__`` answers any name), and ``FtResponse``'s constructor and
+  ``__response__`` accept what their declarations say.
 * **Every ``Any`` says why.** ruff's ANN401 is waived for ``typings/``, so this is the
   check that each stub line naming ``Any`` carries its boundary: ``fasthtml-elements``
   (a child, an attribute, a renderable tree) or ``fasthtml-untyped`` (a name the stubs do
@@ -42,9 +43,10 @@ from typing import Any
 import fastcore.xml as fastcore_xml
 import fasthtml.common as fasthtml_common
 import fasthtml.components as fasthtml_components
+import fasthtml.core as fasthtml_core
 import fasthtml.xtend as fasthtml_xtend
 from fastcore.xml import FT, Safe, ft, to_xml
-from fasthtml.common import Html, NotStr
+from fasthtml.common import FtResponse, Html, NotStr
 
 STUBS = Path(__file__).resolve().parents[2] / "typings"
 
@@ -72,6 +74,10 @@ def _functions(module: ast.Module) -> dict[str, list[ast.FunctionDef]]:
 
 def _class(module: ast.Module, name: str) -> ast.ClassDef:
     return next(n for n in module.body if isinstance(n, ast.ClassDef) and n.name == name)
+
+
+def _methods(stub_class: ast.ClassDef) -> dict[str, ast.FunctionDef]:
+    return {n.name: n for n in stub_class.body if isinstance(n, ast.FunctionDef)}
 
 
 def _runtime_tags(module: ModuleType, builder: Any) -> set[str]:
@@ -321,7 +327,7 @@ def test_the_declared_results_hold() -> None:
 
 
 def test_common_reexports_each_name_from_where_it_lives() -> None:
-    required = COMPONENT_TAGS | FASTCORE_TAGS | {"FT", "to_xml", "NotStr", "Html"}
+    required = COMPONENT_TAGS | FASTCORE_TAGS | {"FT", "to_xml", "NotStr", "Html", "FtResponse"}
     defects = common_origin_defects(_stub("fasthtml/common.pyi"), fasthtml_common, required)
     assert defects == []
 
@@ -329,12 +335,24 @@ def test_common_reexports_each_name_from_where_it_lives() -> None:
 def test_stub_classes_declare_only_runtime_members() -> None:
     defects = class_member_defects(_class(_stub("fastcore/xml.pyi"), "FT"), ft("div"))
     defects += class_member_defects(_class(_stub("fastcore/basics.pyi"), "NotStr"), NotStr("x"))
+    defects += class_member_defects(
+        _class(_stub("fasthtml/core.pyi"), "FtResponse"), FtResponse("x")
+    )
     assert defects == []
+
+
+def test_ft_response_methods_accept_what_they_declare() -> None:
+    methods = _methods(_class(_stub("fasthtml/core.pyi"), "FtResponse"))
+    assert set(methods) == {"__init__", "__response__"}
+    defects = signature_defects(methods["__init__"], FtResponse)
+    defects += signature_defects(methods["__response__"], FtResponse("x").__response__)
+    assert defects == []
+    assert fasthtml_core.FtResponse is FtResponse
 
 
 def test_every_any_in_the_stubs_says_why() -> None:
     stubs = sorted(STUBS.rglob("*.pyi"))
-    assert len(stubs) == 7
+    assert len(stubs) == 8
     untagged = {
         str(path.relative_to(STUBS)): lines
         for path in stubs

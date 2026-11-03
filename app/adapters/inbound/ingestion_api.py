@@ -69,7 +69,9 @@ def create_ingestion_api_routes(
         @csrf_protected
         @require_admin(get_user_service)
         @boundary_handler()
-        async def regenerate_chunks_route(request: Request, current_user: Any = None):
+        async def regenerate_chunks_route(
+            request: Request, current_user: Any = None
+        ) -> Result[dict[str, Any]]:
             """
             Regenerate :ContentChunk nodes for :Content parents.
 

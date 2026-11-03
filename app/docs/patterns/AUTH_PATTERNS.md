@@ -259,7 +259,7 @@ anonymous reader from a signed-in one (`learning_loop_routes.py`):
 from adapters.inbound.auth import get_current_user
 
 @rt("/explore/ps/{uid}/content")
-async def explore_ps_content_fragment(request: Request, uid: str) -> Any:
+async def explore_ps_content_fragment(request: Request, uid: str) -> FT:
     user_uid = get_current_user(request)  # session read, no DB call; None when anonymous
     ...
 ```

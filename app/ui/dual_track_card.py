@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H4, Div, Form, Li, Option, P, Span, Ul
+from fasthtml.common import FT, H4, Div, Form, Li, Option, P, Span, Ul
 
 from core.constants import DualTrackCheckin
 from core.models.shared.dual_track import DualTrackResult
@@ -139,7 +139,7 @@ def render_dual_track_result(
     label: str,
     result: DualTrackResult[Any],
     checkins: tuple[dict[str, Any], ...] | list[dict[str, Any]],
-) -> Any:
+) -> FT:
     """The HTMX fragment returned after a per-entity self-rating: the gap card
     plus the refreshed trend (which now includes the just-stored check-in)."""
     return Div(

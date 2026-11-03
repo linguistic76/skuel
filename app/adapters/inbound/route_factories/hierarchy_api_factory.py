@@ -29,7 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypedDict, TypeVar
 
-from fasthtml.common import FT, Div, Span
+from fasthtml.common import FT, Div, FtResponse, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -162,7 +162,9 @@ def _register_children_fragment_route(
 ) -> None:
     children_endpoint = f"/api/{config.domain_name}/{{uid}}/children"
 
-    async def children_fragment(request: Request, uid: str, parent_depth: int = 0) -> Any:
+    async def children_fragment(
+        request: Request, uid: str, parent_depth: int = 0
+    ) -> FT | FtResponse:
         """Children as a TreeNodeList fragment for HTMX lazy loading.
 
         ``parent_depth`` is the depth of the parent node (children render at

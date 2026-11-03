@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
-from fasthtml.common import Div, P, Span
+from fasthtml.common import FT, Div, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -48,7 +48,7 @@ from ui.insights.hub_cards import (
     render_synergies_card,
     render_unblock_first_card,
 )
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
@@ -60,8 +60,6 @@ from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Iterable
-
-    from fasthtml.common import FT
 
     from core.services.ku_service import KuService
     from core.services.user.intelligence import (
@@ -284,7 +282,7 @@ def create_insights_ui_routes(
         raise ValueError(f"Insights UI routes require the hub services; missing: {missing}")
 
     @rt("/insights")
-    async def insights_dashboard(request):
+    async def insights_dashboard(request) -> HtmlDocument | Response:
         """Display active insights dashboard with filtering."""
         user_uid = require_authenticated_user(request)
 
@@ -426,7 +424,7 @@ def create_insights_ui_routes(
         )
 
     @rt("/insights/stats")
-    async def insights_stats(request):
+    async def insights_stats(request) -> HtmlDocument:
         """Display insight statistics page."""
         user_uid = require_authenticated_user(request)
 
@@ -483,7 +481,7 @@ def create_insights_ui_routes(
         )
 
     @rt("/insights/hub/{question}")
-    async def insights_hub_card(request: Request, question: str):
+    async def insights_hub_card(request: Request, question: str) -> FT | Response:
         """HTMX fragment: one Insights card — a hub method's answer for the caller.
 
         Builds the hub from the caller's rich context (``get_rich_unified_context``,
@@ -505,7 +503,7 @@ def create_insights_ui_routes(
         return await _ANSWERS[asked](hub, context, ku_service)
 
     @rt("/insights/load-more")
-    async def load_more_insights(request):
+    async def load_more_insights(request) -> FT | Response:
         """HTMX endpoint for progressive loading.
 
         Loads next batch of insights for infinite scroll.

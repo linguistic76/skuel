@@ -7,9 +7,9 @@ Routes:
 - GET /api/personal-header — HTMX fragment: Focus + Velocity header
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -26,7 +26,7 @@ def create_home_routes(
     """Register shared HTMX fragments used by every page."""
 
     @rt("/api/navbar/notification-badge")
-    async def notification_badge_fragment(request: Request) -> Any:
+    async def notification_badge_fragment(request: Request) -> FT:
         """HTMX fragment: notification bell with lazy-loaded unread count."""
         from ui.layouts.navbar import _notification_button
 
@@ -44,7 +44,7 @@ def create_home_routes(
         )
 
     @rt("/api/personal-header")
-    async def personal_header_fragment(request: Request) -> Any:
+    async def personal_header_fragment(request: Request) -> FT:
         """HTMX fragment: Focus + Velocity header (lazy-loaded to avoid the MEGA-QUERY blocking page render)."""
         user_uid = require_authenticated_user(request)
         user_service = services.user

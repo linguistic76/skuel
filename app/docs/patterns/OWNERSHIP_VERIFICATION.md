@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-10-24'
+updated: '2026-11-03'
 category: patterns
 related_skills:
 - activity-domains
@@ -220,7 +220,7 @@ A page that needs the entity calls the service's `verify_ownership` directly (it
 
 ```python
 @rt("/tasks/edit", methods=["GET"])
-async def task_edit_page(request: Request) -> Any:
+async def task_edit_page(request: Request) -> HtmlDocument | FtResponse:
     user_uid = require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
     ...
@@ -240,7 +240,7 @@ domain's `verify_ownership`):
 
 ```python
 @rt(f"/{domain}/detail/content")
-async def detail_content_fragment(request: Request) -> Any:
+async def detail_content_fragment(request: Request) -> FT | FtResponse:
     user_uid = require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
     slot = partial(render_slot_error, f"{singular}-detail-content")

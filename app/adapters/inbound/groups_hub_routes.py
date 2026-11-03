@@ -17,10 +17,13 @@ read, so the feed lists no forms.
 
 from typing import TYPE_CHECKING, Any
 
+from fasthtml.common import FT
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.models.enums.entity_enums import EntityType
 from core.services.groups.group_service import MAX_STUDENT_GROUPS
+from ui.layouts.base_page import HtmlDocument
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import RouteDecorator
@@ -34,7 +37,7 @@ def create_groups_hub_routes(
     """Register the /groups hub page and its HTMX preview endpoint."""
 
     @rt("/groups")
-    async def groups_hub(request: Request, group: str | None = None) -> Any:
+    async def groups_hub(request: Request, group: str | None = None) -> HtmlDocument:
         """Tabbed hub showing content shared with each of a student's groups."""
         user_uid = require_authenticated_user(request)
         from ui.groups.hub import GroupsHub
@@ -63,7 +66,7 @@ def create_groups_hub_routes(
         )
 
     @rt("/api/groups/{group_uid}/shared/preview")
-    async def groups_shared_preview(request: Request, group_uid: str) -> Any:
+    async def groups_shared_preview(request: Request, group_uid: str) -> FT:
         """HTMX fragment: peer UserEntries shared with one group."""
         user_uid = require_authenticated_user(request)
         from ui.groups.shared_preview import GroupSharedPreviewList
@@ -81,7 +84,7 @@ def create_groups_hub_routes(
         return GroupSharedPreviewList(records)
 
     @rt("/groups/{group_uid}")
-    async def group_shares_page(request: Request, group_uid: str) -> Any:
+    async def group_shares_page(request: Request, group_uid: str) -> HtmlDocument:
         """Full list of peer UserEntries shared with one group."""
         user_uid = require_authenticated_user(request)
         from ui.groups.group_page import GroupSharesNotAvailable, GroupSharesPage

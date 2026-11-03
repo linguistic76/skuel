@@ -15,7 +15,7 @@ from core.utils.logging import get_logger
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select
 from ui.insights.insight_card import InsightCard
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.format_date import format_date
@@ -68,7 +68,7 @@ def create_insights_history_routes(
     """
 
     @rt("/insights/history")
-    async def insights_history_page(request):
+    async def insights_history_page(request) -> HtmlDocument:
         """Display insight action history (dismissed and actioned insights)."""
         user_uid = require_authenticated_user(request)
 

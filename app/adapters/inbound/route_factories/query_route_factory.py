@@ -41,6 +41,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope, UserRole
 from core.models.type_hints import UserUID
+from core.models.user_owned_entity import UserOwnedEntity
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -57,6 +58,13 @@ class CommonQueryRouteFactory:
     - Status filter queries (auth required)
 
     Security aligned with the CRUDRouteFactory patterns.
+
+    Each route resolves its service method by name (``getattr``), so mypy cannot see
+    what the call returns. Where an activity facade has the method
+    (``get_user_{domain}``, ``find_{domain}``, ``get_{domain}_for_goal`` /
+    ``_for_habit``), it returns ``Result[list[<its entity>]]``, each entity a
+    ``UserOwnedEntity``; the routes' ``cast`` states that. A name the facade lacks
+    answers the route's system error.
     """
 
     def __init__(
@@ -150,7 +158,7 @@ class CommonQueryRouteFactory:
         @boundary_handler()
         async def get_user_entities_route(
             request: Request, user_uid: UserUID | None = None
-        ) -> Result[Any]:
+        ) -> Result[list[UserOwnedEntity]]:
             # Get {domain} for a user.
             # Always require authentication
             auth_user_uid = require_authenticated_user(request)
@@ -200,7 +208,7 @@ class CommonQueryRouteFactory:
                     )
                 )
 
-            return cast("Result[Any]", await method(target_user_uid))
+            return cast("Result[list[UserOwnedEntity]]", await method(target_user_uid))
 
     def _register_status_filter_route(self, rt: RouteDecorator) -> None:
         """
@@ -216,7 +224,9 @@ class CommonQueryRouteFactory:
 
         @rt(f"{self.base_path}/by-status")
         @boundary_handler()
-        async def get_by_status_route(request: Request, status: str) -> Result[Any]:
+        async def get_by_status_route(
+            request: Request, status: str
+        ) -> Result[list[UserOwnedEntity]]:
             # Get {domain} filtered by status.
             # Require authentication
             user_uid = require_authenticated_user(request)
@@ -235,7 +245,8 @@ class CommonQueryRouteFactory:
 
             # Include user_uid in filter to ensure ownership
             return cast(
-                "Result[Any]", await method(filters={"status": status, "user_uid": user_uid})
+                "Result[list[UserOwnedEntity]]",
+                await method(filters={"status": status, "user_uid": user_uid}),
             )
 
     def _register_goal_filter_route(self, rt: RouteDecorator) -> None:
@@ -255,7 +266,9 @@ class CommonQueryRouteFactory:
 
         @rt(f"{self.base_path}/goal")
         @boundary_handler()
-        async def get_for_goal_route(request: Request, goal_uid: str) -> Result[Any]:
+        async def get_for_goal_route(
+            request: Request, goal_uid: str
+        ) -> Result[list[UserOwnedEntity]]:
             # Get {domain} related to a goal.
             # Require authentication
             user_uid = require_authenticated_user(request)
@@ -279,7 +292,7 @@ class CommonQueryRouteFactory:
                     )
                 )
 
-            return cast("Result[Any]", await method(goal_uid, user_uid=user_uid))
+            return cast("Result[list[UserOwnedEntity]]", await method(goal_uid, user_uid=user_uid))
 
     def _register_habit_filter_route(self, rt: RouteDecorator) -> None:
         """
@@ -298,7 +311,9 @@ class CommonQueryRouteFactory:
 
         @rt(f"{self.base_path}/habit")
         @boundary_handler()
-        async def get_for_habit_route(request: Request, habit_uid: str) -> Result[Any]:
+        async def get_for_habit_route(
+            request: Request, habit_uid: str
+        ) -> Result[list[UserOwnedEntity]]:
             # Get {domain} related to a habit.
             # Require authentication
             user_uid = require_authenticated_user(request)
@@ -322,7 +337,7 @@ class CommonQueryRouteFactory:
                     )
                 )
 
-            return cast("Result[Any]", await method(habit_uid, user_uid=user_uid))
+            return cast("Result[list[UserOwnedEntity]]", await method(habit_uid, user_uid=user_uid))
 
 
 __all__ = ["CommonQueryRouteFactory"]

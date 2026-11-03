@@ -10,6 +10,8 @@ orchestrator, and wrap the page trees from ``ui/pathways/pages.py`` and
 
 from typing import Any
 
+from fasthtml.common import FT, FtResponse
+
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import RouteDecorator
@@ -17,7 +19,7 @@ from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import refuse
 from core.utils.logging import get_logger
 from ui.curriculum import lp_detail
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.page_types import PageType
 from ui.pathways import pages
 from ui.pathways.components import (
@@ -35,7 +37,7 @@ def create_pathways_ui_routes(
     """Create UI routes for pathway browsing and progress tracking."""
 
     @rt("/pathways")
-    def pathways_dashboard(request) -> Any:
+    def pathways_dashboard(request) -> HtmlDocument:
         """Main pathways dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         return BasePage(
@@ -47,7 +49,7 @@ def create_pathways_ui_routes(
         )
 
     @rt("/pathways/content")
-    async def pathways_dashboard_content(request) -> Any:
+    async def pathways_dashboard_content(request) -> FT:
         """HTMX fragment: pathways dashboard body."""
         user_uid = require_authenticated_user(request)
         summary_result = await orchestrator.get_dashboard_summary(user_uid)
@@ -58,7 +60,7 @@ def create_pathways_ui_routes(
         return pages.dashboard_content(active_paths, to_learning_stats(summary))
 
     @rt("/pathways/browse")
-    def browse_learning_paths(request) -> Any:
+    def browse_learning_paths(request) -> HtmlDocument:
         """Browse learning paths — shell only, content loads via HTMX."""
         return BasePage(
             content=pages.browse_shell(),
@@ -69,7 +71,7 @@ def create_pathways_ui_routes(
         )
 
     @rt("/pathways/browse/content")
-    async def browse_learning_paths_content(request) -> Any:
+    async def browse_learning_paths_content(request) -> FT:
         """HTMX fragment: browse learning paths body."""
         available_paths: list[dict[str, Any]] = []
         paths_result = await orchestrator.list_all_paths(limit=50)
@@ -78,7 +80,7 @@ def create_pathways_ui_routes(
         return pages.browse_content(available_paths)
 
     @rt("/pathways/steps")
-    async def browse_path_steps(request) -> Any:
+    async def browse_path_steps(request) -> HtmlDocument:
         """Browse available path steps."""
         require_authenticated_user(request)
 
@@ -95,7 +97,7 @@ def create_pathways_ui_routes(
 
     @rt("/api/pathways/filter-paths", methods=["POST"])
     @csrf_protected
-    async def filter_learning_paths(request) -> Any:
+    async def filter_learning_paths(request) -> FT:
         """Filter learning paths by difficulty, domain, and duration."""
         form_data = await request.form()
         difficulty = form_data.get("difficulty", "all")
@@ -112,7 +114,7 @@ def create_pathways_ui_routes(
         return pages.paths_grid(paths, empty_message="No learning paths match your filters.")
 
     @rt("/pathways/analytics")
-    def learning_analytics(request) -> Any:
+    def learning_analytics(request) -> HtmlDocument:
         """Learning analytics dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         return BasePage(
@@ -124,7 +126,7 @@ def create_pathways_ui_routes(
         )
 
     @rt("/pathways/analytics/content")
-    async def learning_analytics_content(request) -> Any:
+    async def learning_analytics_content(request) -> FT:
         """HTMX fragment: learning analytics body."""
         user_uid = require_authenticated_user(request)
         analytics_result = await orchestrator.get_learning_analytics(user_uid)
@@ -132,7 +134,7 @@ def create_pathways_ui_routes(
         return pages.analytics_content(analytics)
 
     @rt("/lp/{uid}")
-    def lp_detail_view(request, uid: str) -> Any:
+    def lp_detail_view(request, uid: str) -> HtmlDocument:
         """Learning path detail — shell only, the body loads via HTMX. Public:
         shared curriculum reads for every visitor."""
         return BasePage(
@@ -144,7 +146,7 @@ def create_pathways_ui_routes(
         )
 
     @rt("/lp/{uid}/content")
-    async def lp_detail_content(request, uid: str) -> Any:
+    async def lp_detail_content(request, uid: str) -> FT | FtResponse:
         """HTMX fragment: the path, the step tree, and — for a signed-in viewer —
         their progress or Enroll. A uid that names no learning path is the 404."""
         user_uid = get_current_user(request)

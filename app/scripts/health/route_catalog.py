@@ -4,7 +4,10 @@ Route catalog — the application's registered URL paths, for the docs health ch
 ONE catalog, two readers: ``dead_doc_links.py`` (is this leading-slash citation an
 application URL rather than a missing repo file?) and ``route_claims.py`` (does this
 route the doc describes exist?). Both consume :func:`runtime_catalog`; neither keeps a
-URL list of its own, because a catalog copy is a catalog that rots.
+URL list of its own, because a catalog copy is a catalog that rots. The wired routes
+themselves (:func:`runtime_routes`) have one more reader: the unit pin that every
+handler declares what it returns (``tests/unit/adapters/test_route_handler_returns.py``)
+reads, per route, the signature FastHTML evaluated at registration.
 
 Why the catalog is read from the RUNTIME route table
 -----------------------------------------------------
@@ -72,6 +75,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from starlette.routing import BaseRoute
 
 ROOT = Path(__file__).parent.parent.parent  # /home/mike/skuel/app
 
@@ -221,7 +226,7 @@ class RouteCatalog:
         return len(segs) == 2 and segs[1] in self._deep_last_segments
 
 
-async def _wire_onto_bare_app() -> dict[str, frozenset[str]]:
+async def _wire_onto_bare_app() -> tuple[BaseRoute, ...]:
     # Imported here, not at module top: the routes tree pulls in the whole
     # composition root, and the readers that import this module must stay cheap
     # until a catalog is actually asked for.
@@ -242,14 +247,19 @@ async def _wire_onto_bare_app() -> dict[str, frozenset[str]]:
         contextlib.redirect_stderr(sink),
     ):
         await bootstrap._wire_all_routes(app, rt, services, MagicMock(), MagicMock())
-    table: dict[str, frozenset[str]] = {}
-    for route in app.routes:
-        path = getattr(route, "path", None)
-        if not path or CATCH_ALL_MARKER in path:
-            continue
-        verbs = frozenset(m.upper() for m in (getattr(route, "methods", None) or ()))
-        table[path] = table.get(path, frozenset()) | verbs
-    return table
+    return tuple(app.routes)
+
+
+@cache
+def runtime_routes() -> tuple[BaseRoute, ...]:
+    """Every route the application registers, wired onto a bare ``fast_app()`` once
+    per process — the union over intelligence tiers (every service is a truthy mock).
+
+    FastHTML evaluates each handler's signature as it registers it, so a handler
+    annotation naming a name the module binds only under ``TYPE_CHECKING`` fails
+    here with the ``NameError`` a boot would raise.
+    """
+    return asyncio.run(_wire_onto_bare_app())
 
 
 @cache
@@ -261,7 +271,14 @@ def runtime_route_table() -> dict[str, frozenset[str]]:
     catch-all stripped as bootstrap strips it, cached for the process. No database,
     no credentials, no environment: the wiring needs none of them.
     """
-    return asyncio.run(_wire_onto_bare_app())
+    table: dict[str, frozenset[str]] = {}
+    for route in runtime_routes():
+        path = getattr(route, "path", None)
+        if not path or CATCH_ALL_MARKER in path:
+            continue
+        verbs = frozenset(m.upper() for m in (getattr(route, "methods", None) or ()))
+        table[path] = table.get(path, frozenset()) | verbs
+    return table
 
 
 def runtime_route_paths() -> frozenset[str]:

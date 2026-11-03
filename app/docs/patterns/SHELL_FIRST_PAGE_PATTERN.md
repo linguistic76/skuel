@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Shell-First Page Loading"
-updated: 2026-10-04
+updated: 2026-11-03
 status: current
 category: patterns
 tags: [ui, htmx, performance, page-load]
@@ -26,7 +26,7 @@ Before this pattern, route handlers blocked on Neo4j queries before returning an
 **Before (blocks on DB):**
 ```python
 @rt("/domain")
-async def domain_page(request: Request) -> Any:
+async def domain_page(request: Request) -> HtmlDocument:
     user_uid = require_authenticated_user(request)
     result = await some_service.get_data(user_uid)   # BLOCKS — browser sees nothing
     return SomeSidebarPage(Div(PageHeader(...), DataComponent(result.value)), ...)
@@ -35,7 +35,7 @@ async def domain_page(request: Request) -> Any:
 **After (shell-first):**
 ```python
 @rt("/domain")
-def domain_page(request: Request) -> Any:
+def domain_page(request: Request) -> HtmlDocument:
     require_authenticated_user(request)               # auth only, no DB
     content = Div(
         PageHeader("Domain"),
@@ -44,7 +44,7 @@ def domain_page(request: Request) -> Any:
     return SomeSidebarPage(content, ...)              # returns in ~50ms
 
 @rt("/domain/content")
-async def domain_content_fragment(request: Request) -> Any:
+async def domain_content_fragment(request: Request) -> FT:
     user_uid = require_authenticated_user(request)
     result = await some_service.get_data(user_uid)   # DB work here, after paint
     return Div(DataComponent(result.value), id="domain-content")
@@ -120,7 +120,7 @@ The fragment does all the work the shell deferred:
 
 ```python
 @rt("/tasks/detail")
-def task_detail_page(request: Request) -> Any:
+def task_detail_page(request: Request) -> HtmlDocument:
     require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
     if not uid:
@@ -133,7 +133,7 @@ def task_detail_page(request: Request) -> Any:
     return render_activity_sidebar_page(content, active="tasks", request=request)
 
 @rt("/tasks/detail/content")
-async def task_detail_content_fragment(request: Request) -> Any:
+async def task_detail_content_fragment(request: Request) -> FT:
     user_uid = require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
     task_result = await tasks_service.get_task(uid)
@@ -150,12 +150,12 @@ async def task_detail_content_fragment(request: Request) -> Any:
 
 ```python
 @rt("/explore/ku/{uid}")
-def explore_ku_detail(request: Request, uid: str) -> Any:
+def explore_ku_detail(request: Request, uid: str) -> HtmlDocument:
     content = content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content")
     return render_explore_sidebar_page(content=content, sidebar_data=None, request=request)
 
 @rt("/explore/ku/{uid}/content")
-async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
+async def explore_ku_content_fragment(request: Request, uid: str) -> FT:
     ku_result = await orchestrator.get_ku(uid)
     if ku_result.is_error:
         return Div(render_error_banner(f"Not found: {uid}"), ButtonLink("← Back", href="/explore"), id="ku-detail-content")

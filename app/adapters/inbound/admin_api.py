@@ -159,7 +159,7 @@ def create_admin_api_routes(
         request: Request,
         current_user: Any = None,
         role: str | None = None,
-    ):
+    ) -> Result[list[dict[str, Any]]]:
         """
         List all users (ADMIN only).
 
@@ -199,7 +199,7 @@ def create_admin_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         # Convert users to JSON-serializable format
         users = result.value or []
@@ -231,7 +231,7 @@ def create_admin_api_routes(
         request: Request,
         uid: str,
         current_user: Any = None,
-    ):
+    ) -> Result[dict[str, Any]]:
         """
         Get detailed user information (ADMIN only).
 
@@ -243,7 +243,7 @@ def create_admin_api_routes(
         """
         found = require_found(await user_service.get_user(uid), "User", uid)
         if found.is_error:
-            return found
+            return Result.fail(found)
 
         user = found.value
         return Result.ok(
@@ -398,7 +398,7 @@ def create_admin_api_routes(
         request: Request,
         uid: str,
         current_user: Any = None,
-    ):
+    ) -> Result[dict[str, Any]]:
         """
         Hard-delete a user and every OWNS-linked entity (ADMIN only, GDPR erasure).
 
@@ -454,7 +454,7 @@ def create_admin_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         deleted_count = result.value or 0
         logger.warning(
@@ -481,7 +481,7 @@ def create_admin_api_routes(
         request: Request,
         uid: str,
         current_user: Any = None,
-    ):
+    ) -> Result[dict[str, str]]:
         """
         Generate a password reset token for a user (ADMIN only).
 
@@ -515,7 +515,7 @@ def create_admin_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         token = result.value
         return Result.ok(

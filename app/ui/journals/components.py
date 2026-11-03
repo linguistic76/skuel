@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fasthtml.common import H4, H5, Code, Div, P, Span, Template
+from fasthtml.common import FT, H4, H5, Code, Div, P, Span, Template
 
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Alert, AlertT
@@ -15,7 +15,7 @@ def render_upload_status(
     je_input_uid: str | None = None,
     is_error: bool = False,
     status_id: str = "upload-status",
-) -> Any:
+) -> FT:
     """Render upload status as HTML fragment for HTMX swap.
 
     ``status_id`` lets callers target a non-default swap id; ``je_input_uid`` is

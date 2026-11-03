@@ -7,7 +7,7 @@ UI routes for Askesis AI assistant — three-column chat surface.
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import P
+from fasthtml.common import FT, P
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -21,6 +21,7 @@ from core.models.search_request import SearchRequest
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
 from ui.askesis import render_askesis_page, render_assistant_message, render_user_message
+from ui.layouts.base_page import HtmlDocument
 
 if TYPE_CHECKING:
     from core.orchestrator.search_router import SearchRouter
@@ -91,7 +92,7 @@ def create_askesis_ui_routes(
         return result.value or {}
 
     @rt("/askesis")
-    async def askesis_home(request: Request) -> Any:
+    async def askesis_home(request: Request) -> HtmlDocument:
         """Full Askesis chat surface.
 
         Optional ``?question=`` / ``?nous=`` carry the /search "Ask" handoff:
@@ -135,30 +136,30 @@ def create_askesis_ui_routes(
     @rt("/askesis/new-chat")
     def askesis_new_chat(
         request: Request,
-    ) -> Any:
+    ) -> RedirectResponse:
         return RedirectResponse("/askesis", status_code=302)
 
     @rt("/askesis/history")
     def askesis_history(
         request: Request,
-    ) -> Any:
+    ) -> RedirectResponse:
         return RedirectResponse("/askesis", status_code=302)
 
     @rt("/askesis/analytics")
     def askesis_analytics(
         request: Request,
-    ) -> Any:
+    ) -> RedirectResponse:
         return RedirectResponse("/askesis", status_code=302)
 
     @rt("/askesis/settings")
     def askesis_settings(
         request: Request,
-    ) -> Any:
+    ) -> RedirectResponse:
         return RedirectResponse("/askesis", status_code=302)
 
     @rt("/askesis/api/submit", methods=["POST"])
     @csrf_protected
-    async def submit_message(request: Request) -> Any:
+    async def submit_message(request: Request) -> FT | tuple[FT, FT]:
         """Handle message submission (HTMX endpoint) — returns styled user + AI bubbles."""
         user_uid = require_authenticated_user(request)
 

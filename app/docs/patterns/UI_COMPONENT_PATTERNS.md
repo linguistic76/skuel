@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-11-01'
+updated: '2026-11-03'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -1152,7 +1152,7 @@ from adapters.inbound.route_factories import refuse
 from ui.patterns.error_banner import render_error_banner
 
 @rt("/tasks/{uid}")
-async def task_detail_view(request, uid: str) -> Any:
+async def task_detail_view(request: Request, uid: str) -> HtmlDocument | FtResponse:
     user_uid = require_authenticated_user(request)
     owned = await tasks_service.verify_ownership(uid, user_uid)
     if owned.is_error:

@@ -20,6 +20,8 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+from fasthtml.common import FT
+
 from adapters.inbound.auth import make_service_getter
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
@@ -92,7 +94,7 @@ def create_templates_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def templates_panel_fragment(
         request: Request, ps_uid: str, current_user: Any = None
-    ) -> Any:
+    ) -> FT:
         attached = await _gather_attached(ps_uid)
         return render_templates_panel(ps_uid, attached)
 

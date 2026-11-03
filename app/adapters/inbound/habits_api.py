@@ -408,7 +408,7 @@ def create_habits_api_routes(
     # ================================================================
 
     @rt("/api/habits/export")
-    async def habit_export(request: Request) -> Any:
+    async def habit_export(request: Request) -> Response:
         """Download completion history as CSV or JSON.
 
         Query params:

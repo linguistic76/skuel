@@ -32,6 +32,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
 from ui.gradebook.summary import GRADEBOOK_TITLE
+from ui.layouts.base_page import HtmlDocument
 from ui.learning_loop.revised_exercise import render_revised_exercise_detail
 
 logger = get_logger("skuel.routes.revised_exercises_ui")
@@ -58,7 +59,7 @@ def create_revised_exercises_ui_routes(
     # ========================================================================
 
     @rt("/revised-exercises/detail")
-    async def revised_exercise_detail(request: Request) -> Any:
+    async def revised_exercise_detail(request: Request) -> HtmlDocument:
         """Revision detail view — full instructions, feedback points, rationale."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "").strip()

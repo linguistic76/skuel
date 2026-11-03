@@ -33,6 +33,7 @@ from typing import Any
 
 from fasthtml.common import (
     Div,
+    FtResponse,
 )
 
 from adapters.inbound.auth import require_authenticated_user
@@ -42,6 +43,7 @@ from adapters.inbound.route_factories import refuse
 from core.utils.logging import get_logger
 from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
 from ui.gradebook.summary import GRADEBOOK_TITLE
+from ui.layouts.base_page import HtmlDocument
 from ui.learning_loop.report import render_entry_report_detail
 
 logger = get_logger("skuel.routes.entry_reports")
@@ -68,7 +70,7 @@ def create_entry_reports_ui_routes(
     # ========================================================================
 
     @rt("/entry-reports/detail")
-    async def entry_report_detail(request: Request) -> Any:
+    async def entry_report_detail(request: Request) -> HtmlDocument | FtResponse:
         """Exercise report detail view — full feedback content and outcome."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "").strip()

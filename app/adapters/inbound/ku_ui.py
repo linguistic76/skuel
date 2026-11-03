@@ -15,6 +15,7 @@ import json
 from typing import Any
 
 from fasthtml.common import (
+    FT,
     H3,
     Div,
     P,
@@ -37,7 +38,7 @@ logger = get_logger("skuel.routes.ku.ui")
 # =============================================================================
 
 
-def _ku_learning_buttons(uid: str, is_studying: bool, is_understood: bool) -> Any:
+def _ku_learning_buttons(uid: str, is_studying: bool, is_understood: bool) -> FT:
     """Render progressive learning state buttons for a Ku.
 
     States: Not started → Studying → Understood (no regression).
@@ -164,7 +165,7 @@ def create_ku_ui_routes(
 
     @rt("/api/ku/{uid}/mark-studying", methods=["POST"])
     @csrf_protected
-    async def mark_ku_as_studying(request: Request, uid: str) -> Any:
+    async def mark_ku_as_studying(request: Request, uid: str) -> FT:
         """Mark Ku as studying. Returns updated learning buttons for HTMX swap.
 
         Enforces a limit of 5 simultaneously studying Kus.
@@ -187,7 +188,7 @@ def create_ku_ui_routes(
 
     @rt("/api/ku/{uid}/mark-understood", methods=["POST"])
     @csrf_protected
-    async def mark_ku_as_understood(request: Request, uid: str) -> Any:
+    async def mark_ku_as_understood(request: Request, uid: str) -> FT:
         """Mark Ku as understood. Returns updated learning buttons for HTMX swap."""
         user_uid = require_authenticated_user(request)
         result = await ku_service.mark_as_understood(user_uid, uid)

@@ -16,9 +16,9 @@ expose no single-UID cross-domain fields, so no EntityPicker widgets are wired.
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from fasthtml.common import FT, Div
+from fasthtml.common import FT, Div, FtResponse
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
@@ -44,6 +44,7 @@ from ui.activities.nav import (
     render_activity_sidebar_error,
     render_activity_sidebar_page,
 )
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -91,7 +92,7 @@ def create_habits_ui_routes(
     create_activity_ui_routes(rt, config)
 
     @rt("/habits/insights-fragment")
-    async def habit_insights_fragment(request: Request) -> Any:
+    async def habit_insights_fragment(request: Request) -> FT | FtResponse:
         """HTMX fragment: Atomic Habits pattern insights for one habit.
 
         Ownership is enforced inside analyze_patterns (verify_ownership →
@@ -112,7 +113,7 @@ def create_habits_ui_routes(
         return HabitInsightsSection(result.value)
 
     @rt("/habits/create", methods=["GET"])
-    def habit_create_page(request: Request) -> Any:
+    def habit_create_page(request: Request) -> HtmlDocument:
         """Render the new-habit form."""
         require_authenticated_user(request)
         content = Div(PageHeader("New Habit"), HabitCreateForm(), cls="space-y-6")
@@ -120,7 +121,7 @@ def create_habits_ui_routes(
 
     @rt("/habits/create", methods=["POST"])
     @csrf_protected
-    async def habit_create_submit(request: Request) -> Any:
+    async def habit_create_submit(request: Request) -> HtmlDocument | RedirectResponse:
         """Validate the form, create the habit, redirect to its detail page."""
         user_uid = require_authenticated_user(request)
 
@@ -149,7 +150,7 @@ def create_habits_ui_routes(
         return RedirectResponse(f"/habits/detail?uid={result.value.uid}", status_code=303)
 
     @rt("/habits/edit", methods=["GET"])
-    async def habit_edit_page(request: Request) -> Any:
+    async def habit_edit_page(request: Request) -> HtmlDocument | FtResponse:
         """Render the edit form prefilled from an existing habit."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -178,7 +179,7 @@ def create_habits_ui_routes(
 
     @rt("/habits/edit", methods=["POST"])
     @csrf_protected
-    async def habit_edit_submit(request: Request) -> Any:
+    async def habit_edit_submit(request: Request) -> HtmlDocument | FtResponse | RedirectResponse:
         """Validate the form, apply updates, redirect to the detail page."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

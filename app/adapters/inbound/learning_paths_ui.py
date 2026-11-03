@@ -13,7 +13,7 @@ from fasthtml.common import FT, Div
 
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.loading import content_loading_placeholder
@@ -29,7 +29,7 @@ def create_learning_paths_ui_routes(
     """Register learning paths UI routes."""
 
     @rt("/learning-paths")
-    def learning_paths_browser(request: Request) -> Any:
+    def learning_paths_browser(request: Request) -> HtmlDocument:
         """Learning Paths browser — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Learning Paths", subtitle="Ordered sequences of path step collections"),
@@ -44,7 +44,7 @@ def create_learning_paths_ui_routes(
         )
 
     @rt("/learning-paths/content")
-    async def learning_paths_content_fragment(request: Request) -> Any:
+    async def learning_paths_content_fragment(request: Request) -> FT:
         """HTMX fragment: learning paths list."""
         lp_service = services.lp
         items: list[Any] = []

@@ -9,8 +9,9 @@ Detail view lives at /explore/ps/{uid} (explore_ui.py).
 
 from typing import Any
 
-from fasthtml.common import A, Div, P, Span
+from fasthtml.common import FT, A, Div, P, Span
 from starlette.datastructures import FormData
+from starlette.responses import Response
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.boundary import result_to_response
@@ -29,7 +30,7 @@ from ui.components import Button, ButtonT
 from ui.explore.ps_completion_review import render_review_error, render_review_form
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
@@ -82,7 +83,7 @@ def _parse_review_form(form: FormData) -> dict[str, ReviewDecision]:
     return review
 
 
-def render_engagement_actions(uid: str, engagement: Engagement | None) -> Any:
+def render_engagement_actions(uid: str, engagement: Engagement | None) -> FT:
     """Render the Engage/Complete/Abandon button group for a PathStep.
 
     The group's outer div carries id="ps-engagement-actions" — HTMX handlers
@@ -154,7 +155,7 @@ def create_path_steps_ui_routes(
     # ========================================================================
 
     @rt("/path-steps")
-    def path_steps_browser(request: Request) -> Any:
+    def path_steps_browser(request: Request) -> HtmlDocument:
         """PathSteps browser — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Path Steps", subtitle="Curriculum content units (composed of Kus)"),
@@ -169,7 +170,7 @@ def create_path_steps_ui_routes(
         )
 
     @rt("/path-steps/content")
-    async def path_steps_content_fragment(request: Request) -> Any:
+    async def path_steps_content_fragment(request: Request) -> FT:
         """HTMX fragment: PathStep list, with enrollment badges for the current user."""
         result = await ps_service.list_steps(limit=50)
         items: list[Any] = []
@@ -192,7 +193,7 @@ def create_path_steps_ui_routes(
 
     @rt("/api/path-steps/{uid}/start", methods=["POST"])
     @csrf_protected
-    async def start_step(request: Request, uid: str) -> Any:
+    async def start_step(request: Request, uid: str) -> FT:
         """Start a path step (mark as in-progress). Returns updated button HTML.
 
         Enforces a limit of 2 simultaneously enrolled PathSteps.
@@ -224,7 +225,7 @@ def create_path_steps_ui_routes(
 
     @rt("/api/path-steps/{uid}/mark-read", methods=["POST"])
     @csrf_protected
-    async def mark_step_as_read(request: Request, uid: str) -> Any:
+    async def mark_step_as_read(request: Request, uid: str) -> FT:
         """Mark path step as read. Returns updated button HTML."""
         user_uid = require_authenticated_user(request)
 
@@ -247,7 +248,7 @@ def create_path_steps_ui_routes(
 
     @rt("/api/path-steps/{uid}/bookmark", methods=["POST"])
     @csrf_protected
-    async def toggle_step_bookmark(request: Request, uid: str) -> Any:
+    async def toggle_step_bookmark(request: Request, uid: str) -> FT:
         """Toggle path step bookmark. Returns updated button HTML."""
         user_uid = require_authenticated_user(request)
 
@@ -278,7 +279,7 @@ def create_path_steps_ui_routes(
 
     @rt("/explore/ps/{uid}/progress", methods=["POST"])
     @csrf_protected
-    async def update_ps_progress(request: Request, uid: str) -> Any:
+    async def update_ps_progress(request: Request, uid: str) -> FT | Response:
         """Advance PathStep learning state. Called by ps-detail.js (hx-swap=none).
 
         state=learning, review=false → new enrollment (mark_in_progress, cap enforced, fires PathStepEnrolled)
@@ -329,7 +330,7 @@ def create_path_steps_ui_routes(
 
     @rt("/explore/ps/{uid}/bookmark", methods=["POST"])
     @csrf_protected
-    async def update_ps_bookmark(request: Request, uid: str) -> Any:
+    async def update_ps_bookmark(request: Request, uid: str) -> FT | Response:
         """Set PathStep bookmark to explicit state. Called by ps-detail.js (hx-swap=none).
 
         Reads on=true|false from the form and applies it directly — idempotent
@@ -353,7 +354,7 @@ def create_path_steps_ui_routes(
 
         @rt("/explore/ps/{uid}/engage", methods=["POST"])
         @csrf_protected
-        async def engage_path_step(request: Request, uid: str) -> Any:
+        async def engage_path_step(request: Request, uid: str) -> FT:
             """Open an engagement with this PathStep. Returns updated action group."""
             user_uid = require_authenticated_user(request)
             result = await ps_engagement_service.engage_pathstep(user_uid, uid)
@@ -367,7 +368,7 @@ def create_path_steps_ui_routes(
 
         @rt("/explore/ps/{uid}/abandon", methods=["POST"])
         @csrf_protected
-        async def abandon_path_step(request: Request, uid: str) -> Any:
+        async def abandon_path_step(request: Request, uid: str) -> FT:
             """Abandon the active engagement. Returns updated action group."""
             user_uid = require_authenticated_user(request)
             result = await ps_engagement_service.abandon_pathstep(user_uid, uid)
@@ -380,7 +381,7 @@ def create_path_steps_ui_routes(
             return render_engagement_actions(uid, None)
 
         @rt("/explore/ps/{uid}/engagement-actions")
-        async def get_engagement_actions(request: Request, uid: str) -> Any:
+        async def get_engagement_actions(request: Request, uid: str) -> FT:
             """Re-render the engagement-actions group from current state.
 
             Used by the review form's Cancel button to bail out without
@@ -392,7 +393,7 @@ def create_path_steps_ui_routes(
             return render_engagement_actions(uid, engagement)
 
         @rt("/explore/ps/{uid}/complete-review")
-        async def get_complete_review(request: Request, uid: str) -> Any:
+        async def get_complete_review(request: Request, uid: str) -> FT:
             """Fetch the inline review form for the active engagement."""
             user_uid = require_authenticated_user(request)
             active = require_found(
@@ -411,7 +412,7 @@ def create_path_steps_ui_routes(
 
         @rt("/explore/ps/{uid}/complete", methods=["POST"])
         @csrf_protected
-        async def complete_path_step(request: Request, uid: str) -> Any:
+        async def complete_path_step(request: Request, uid: str) -> FT:
             """Apply the keep/discard review and close the engagement."""
             user_uid = require_authenticated_user(request)
             form = await request.form()
@@ -432,7 +433,7 @@ def create_path_steps_ui_routes(
     if tasks_service is not None:
 
         @rt("/explore/ps/{uid}/tasks")
-        async def get_ps_tasks_fragment(request: Request, uid: str) -> Any:
+        async def get_ps_tasks_fragment(request: Request, uid: str) -> FT:
             """HTMX fragment: tasks spawned from this PathStep for the current user.
 
             Returns compact task rows (status indicator + title link). Fires on
@@ -466,7 +467,7 @@ def create_path_steps_ui_routes(
     )
 
 
-def _ps_tasks_fragment(uid: str, tasks: list[Any]) -> Any:
+def _ps_tasks_fragment(uid: str, tasks: list[Any]) -> FT:
     """Replaceable HTMX fragment: tasks spawned from a PathStep for the current user.
 
     Returns a Div with id="ps-tasks-fragment" so HTMX outerHTML swap replaces

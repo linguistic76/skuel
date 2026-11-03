@@ -52,7 +52,7 @@ from ui.explore.ps_detail import (
     render_ps_not_found,
     render_ps_related_concepts,
 )
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.page_types import PageType
 from ui.learning_loop.embedded_forms import (
     render_embedded_forms,
@@ -168,7 +168,7 @@ def create_learning_loop_detail_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore/ku/{uid}")
-    def explore_ku_detail(request: Request, uid: str) -> Any:
+    def explore_ku_detail(request: Request, uid: str) -> HtmlDocument:
         """Ku reading page — shell loads immediately, content arrives via HTMX.
 
         ku-reading.js must be loaded in the shell, before Alpine's deferred
@@ -188,7 +188,7 @@ def create_learning_loop_detail_routes(
         )
 
     @rt("/explore/ku/{uid}/content")
-    async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
+    async def explore_ku_content_fragment(request: Request, uid: str) -> FT:
         """HTMX fragment: Ku reading content with status and mastery check-in."""
         user_uid = get_current_user(request)
 
@@ -311,7 +311,7 @@ def create_learning_loop_detail_routes(
 
     @rt("/explore/ku/{uid}/mastery-checkin", methods=["POST"])
     @csrf_protected
-    async def explore_ku_mastery_checkin(request: Request, uid: str) -> Any:
+    async def explore_ku_mastery_checkin(request: Request, uid: str) -> FT:
         """HTMX POST: run + persist a Knowledge mastery dual-track check-in.
 
         POST + ``@csrf_protected`` because it mutates — appends a per-(user, Ku)
@@ -359,7 +359,7 @@ def create_learning_loop_detail_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore/ps/{uid}")
-    def explore_ps_detail(request: Request, uid: str) -> Any:
+    def explore_ps_detail(request: Request, uid: str) -> HtmlDocument:
         """PathStep detail page — reading-first, no sidebar.
 
         Shell loads ps-detail.js (Alpine factory) immediately, before Alpine's
@@ -379,7 +379,7 @@ def create_learning_loop_detail_routes(
         )
 
     @rt("/explore/ps/{uid}/content")
-    async def explore_ps_content_fragment(request: Request, uid: str) -> Any:
+    async def explore_ps_content_fragment(request: Request, uid: str) -> FT:
         """HTMX fragment: PathStep detail content with learning state and learning loop."""
         user_uid = get_current_user(request)
 
@@ -556,7 +556,7 @@ def create_learning_loop_fragment_routes(
     """
 
     @rt("/learning-loop/ps/{ps_uid}/exercises")
-    async def get_ps_exercises(request: Request, ps_uid: str) -> Any:
+    async def get_ps_exercises(request: Request, ps_uid: str) -> FT:
         """HTMX fragment: exercises for a PathStep with submission/feedback status."""
         user_uid = require_authenticated_user(request)
         result = await orchestrator.get_exercises_for_path_step_with_status(ps_uid, user_uid)
@@ -565,7 +565,7 @@ def create_learning_loop_fragment_routes(
         return render_exercise_list(result.value or [], from_ps=ps_uid)
 
     @rt("/learning-loop/ps/{ps_uid}/submissions-and-feedback")
-    async def get_ps_submissions_and_feedback(request: Request, ps_uid: str) -> Any:
+    async def get_ps_submissions_and_feedback(request: Request, ps_uid: str) -> FT:
         """HTMX fragment: user's submissions + feedback for this PathStep."""
         user_uid = require_authenticated_user(request)
         result = await orchestrator.get_submissions_for_path_step(user_uid, ps_uid)
@@ -574,7 +574,7 @@ def create_learning_loop_fragment_routes(
         return render_ps_submissions_and_feedback(result.value or [])
 
     @rt("/learning-loop/ps/{ps_uid}/forms")
-    async def get_ps_embedded_forms(request: Request, ps_uid: str) -> Any:
+    async def get_ps_embedded_forms(request: Request, ps_uid: str) -> FT:
         """HTMX fragment: FormTemplates embedded in this PathStep (authenticated)."""
         require_authenticated_user(request)
         result = await orchestrator.get_forms_for_path_step(ps_uid)
@@ -583,7 +583,7 @@ def create_learning_loop_fragment_routes(
 
     @rt("/learning-loop/ps/{ps_uid}/forms/{template_uid}/submit", methods=["POST"])
     @csrf_protected
-    async def submit_embedded_form(request: Request, ps_uid: str, template_uid: str) -> Any:
+    async def submit_embedded_form(request: Request, ps_uid: str, template_uid: str) -> FT:
         """HTMX POST: submit an inline form embedded in a PathStep."""
         if form_submission_service is None:
             return render_inline_error("Form submission is unavailable")

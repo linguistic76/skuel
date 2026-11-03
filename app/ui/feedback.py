@@ -99,7 +99,7 @@ def Badge(
     variant: BadgeT | None = BadgeT.primary,
     size: Size | None = None,
     **kwargs: Any,
-) -> Any:
+) -> FT:
     """Badge/pill component using Tailwind utility classes.
 
     Args:

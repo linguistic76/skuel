@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, H4, Div, Form, P
+from fasthtml.common import FT, H3, H4, Div, Form, P
 
 from core.models.enums import (
     DecisionQualityLevel,
@@ -130,7 +130,7 @@ def render_checkin_results(
     results: list[tuple[str, str, DualTrackResult[Any]]],
     errors: list[str],
     checkins_by_dimension: dict[str, list[dict[str, Any]]],
-) -> Any:
+) -> FT:
     """Render the result fragment after a submit: per dimension, a gap card plus
     its refreshed trend (which now includes the just-stored check-in)."""
     if not results and not errors:

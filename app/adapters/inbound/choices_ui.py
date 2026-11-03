@@ -14,9 +14,9 @@ detail page rather than at create time.
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from fasthtml.common import Div
+from fasthtml.common import Div, FtResponse
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
@@ -36,6 +36,7 @@ from ui.activities.nav import (
     render_activity_sidebar_error,
     render_activity_sidebar_page,
 )
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -72,7 +73,7 @@ def create_choices_ui_routes(
     create_activity_ui_routes(rt, config)
 
     @rt("/choices/create", methods=["GET"])
-    def choice_create_page(request: Request) -> Any:
+    def choice_create_page(request: Request) -> HtmlDocument:
         """Render the new-choice form."""
         require_authenticated_user(request)
         content = Div(PageHeader("New Choice"), ChoiceCreateForm(), cls="space-y-6")
@@ -80,7 +81,7 @@ def create_choices_ui_routes(
 
     @rt("/choices/create", methods=["POST"])
     @csrf_protected
-    async def choice_create_submit(request: Request) -> Any:
+    async def choice_create_submit(request: Request) -> HtmlDocument | RedirectResponse:
         """Validate the form, create the choice, redirect to its detail page."""
         user_uid = require_authenticated_user(request)
 
@@ -109,7 +110,7 @@ def create_choices_ui_routes(
         return RedirectResponse(f"/choices/detail?uid={result.value.uid}", status_code=303)
 
     @rt("/choices/edit", methods=["GET"])
-    async def choice_edit_page(request: Request) -> Any:
+    async def choice_edit_page(request: Request) -> HtmlDocument | FtResponse:
         """Render the edit form prefilled from an existing choice."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -138,7 +139,7 @@ def create_choices_ui_routes(
 
     @rt("/choices/edit", methods=["POST"])
     @csrf_protected
-    async def choice_edit_submit(request: Request) -> Any:
+    async def choice_edit_submit(request: Request) -> HtmlDocument | FtResponse | RedirectResponse:
         """Validate the form, apply updates, redirect to the detail page."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

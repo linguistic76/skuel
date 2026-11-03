@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 # FT must be a RUNTIME import in route modules — @rt resolves handler
 # annotations at registration time (#601: TYPE_CHECKING-only FT kills bootstrap).
 from fasthtml.common import FT
+from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -41,6 +42,7 @@ from core.models.search_request import SEARCH_LIMIT_MAX, SearchRequest
 from core.orchestrator.search_router import CURRICULUM_FACET_DOMAINS
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.result_simplified import Errors, Result
+from ui.layouts.base_page import HtmlDocument
 from ui.search.components import (
     render_empty_search_prompt,
     render_nous_subtopic_inner,
@@ -158,7 +160,7 @@ def create_search_api_routes(
         return bool(get_user_intelligence_tier(intelligence_tier, caller.value.role).ai_enabled)
 
     @rt("/search")
-    async def search_page(request: Request) -> Any:
+    async def search_page(request: Request) -> HtmlDocument:
         """Main search page with unified BasePage layout."""
         user_uid = require_authenticated_user(request)
 
@@ -290,7 +292,7 @@ def create_search_api_routes(
         enable_semantic_boost: str | None = None,
         enable_learning_aware: str | None = None,
         prefer_unmastered: str | None = None,
-    ) -> Any:
+    ) -> FT | Response:
         """Execute search and return HTML results. Requires authentication.
 
         ``limit`` is read from the query string (default 20; one that does not read,

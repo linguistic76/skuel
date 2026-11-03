@@ -9,7 +9,7 @@ fragments from already-fetched data.
 
 from typing import Any
 
-from fasthtml.common import Div, P
+from fasthtml.common import FT, Div, P
 
 from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.pathways.components import (
@@ -37,7 +37,7 @@ def dashboard_shell() -> Any:
     )
 
 
-def dashboard_content_error(message: str) -> Any:
+def dashboard_content_error(message: str) -> FT:
     """G7: an all-zeros dashboard on a query failure reads as "you have no
     paths" — render the error instead of a fabricated empty state."""
     return Div(
@@ -46,7 +46,7 @@ def dashboard_content_error(message: str) -> Any:
     )
 
 
-def dashboard_content(active_paths: list[ActivePathData], stats: LearningStatsData) -> Any:
+def dashboard_content(active_paths: list[ActivePathData], stats: LearningStatsData) -> FT:
     """HTMX fragment: pathways dashboard body."""
     if active_paths:
         paths_section = Div(
@@ -169,7 +169,7 @@ def browse_shell() -> Any:
     )
 
 
-def browse_content(available_paths: list[dict[str, Any]]) -> Any:
+def browse_content(available_paths: list[dict[str, Any]]) -> FT:
     """HTMX fragment: browse learning paths body."""
     return Div(
         Card(
@@ -189,7 +189,7 @@ def browse_content(available_paths: list[dict[str, Any]]) -> Any:
 
 def paths_grid(
     paths: list[dict[str, Any]], empty_message: str = "No learning paths available yet."
-) -> Any:
+) -> FT:
     """Browser-card grid over path display dicts (shared by browse + filter)."""
     if paths:
         return Div(
@@ -237,7 +237,7 @@ def analytics_shell() -> Any:
     )
 
 
-def analytics_content(analytics: dict[str, Any]) -> Any:
+def analytics_content(analytics: dict[str, Any]) -> FT:
     """HTMX fragment: learning analytics body."""
     concepts_mastered = analytics.get("concepts_mastered", 0)
     in_progress = analytics.get("in_progress", 0)

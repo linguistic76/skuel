@@ -85,7 +85,7 @@ def create_today_routes(
 
     def _render_today(
         request: Request, ctx_result: Result[TodayPageContext]
-    ) -> Response | HtmlDocument:
+    ) -> HtmlDocument | Response:
         """Render a built day-view context, or a 500 shell on build failure."""
         if ctx_result.is_error:
             logger.warning(
@@ -108,14 +108,14 @@ def create_today_routes(
         )
 
     @rt("/today")
-    async def today_page(request: Request) -> Response | HtmlDocument:
+    async def today_page(request: Request) -> HtmlDocument | Response:
         """Render the day view for the live current day."""
         user_uid = require_authenticated_user(request)
         ctx_result = await orchestrator.build_context(user_uid)
         return _render_today(request, ctx_result)
 
     @rt("/today/{date_str}")
-    async def today_page_dated(request: Request, date_str: str) -> Response | HtmlDocument:
+    async def today_page_dated(request: Request, date_str: str) -> HtmlDocument | Response:
         """Render the day lens for an arbitrary date (Prev/Next navigation).
 
         An unparseable ``date_str`` degrades to the current day rather than 404 —
@@ -130,7 +130,7 @@ def create_today_routes(
         return _render_today(request, ctx_result)
 
     @rt("/today/{date_str}/habits")
-    async def today_habits_fragment(request: Request, date_str: str) -> Response | FT:
+    async def today_habits_fragment(request: Request, date_str: str) -> FT | Response:
         """HTMX fragment: the day's habit chips, re-fetched on ``calendar-refresh``.
 
         The per-day complete door (``POST /cal/habit/{uid}/complete``) answers

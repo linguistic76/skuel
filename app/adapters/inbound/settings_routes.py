@@ -90,7 +90,7 @@ def create_settings_routes(
 
     @rt("/settings/save", methods=["POST"])
     @csrf_protected
-    async def save_settings(request: Request) -> Any:
+    async def save_settings(request: Request) -> FT | Response:
         """Save user preferences from form submission.
 
         Every field is validated before anything is written: a value the editor

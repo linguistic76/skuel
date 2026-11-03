@@ -12,6 +12,8 @@ __version__ = "2.0"
 
 from typing import TYPE_CHECKING, Any
 
+from starlette.responses import Response
+
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
@@ -156,7 +158,9 @@ def create_finance_api_routes(
 
     @rt("/api/invoices/pdf")
     @require_admin(get_user_service)
-    async def download_invoice_pdf_route(request: Request, uid: str, current_user: Any = None):
+    async def download_invoice_pdf_route(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Response:
         """Download invoice as PDF (admin only)"""
         from starlette.responses import Response
 

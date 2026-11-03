@@ -24,6 +24,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
+from ui.layouts.base_page import HtmlDocument
 
 if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
@@ -198,7 +199,7 @@ def create_library_ui_routes(
     # ========================================================================
 
     @rt("/library")
-    def library_moc(request: Request) -> Any:
+    def library_moc(request: Request) -> HtmlDocument:
         """Library MOC — links to all 4 sub-pages, no sidebar."""
         require_authenticated_user(request)
 
@@ -249,7 +250,7 @@ def create_library_ui_routes(
     # ========================================================================
 
     @rt("/library/exercises")
-    async def library_exercises(request: Request) -> Any:
+    async def library_exercises(request: Request) -> FT | HtmlDocument:
         """Exercises with submission/feedback status via group membership."""
         user_uid = require_authenticated_user(request)
 
@@ -271,7 +272,7 @@ def create_library_ui_routes(
     # ========================================================================
 
     @rt("/library/submissions")
-    async def library_submissions(request: Request) -> Any:
+    async def library_submissions(request: Request) -> FT | HtmlDocument:
         """User's exercise submissions."""
         user_uid = require_authenticated_user(request)
 
@@ -293,7 +294,7 @@ def create_library_ui_routes(
     # ========================================================================
 
     @rt("/library/resources")
-    async def library_resources(request: Request) -> Any:
+    async def library_resources(request: Request) -> FT | HtmlDocument:
         """Admin-curated Resource entity list. Public: shared content."""
         result = await orchestrator.list_resources()
         if result.is_error:
@@ -313,7 +314,7 @@ def create_library_ui_routes(
     # ========================================================================
 
     @rt("/library/resources/get")
-    async def library_resource_detail(request: Request, uid: str = "") -> Any:
+    async def library_resource_detail(request: Request, uid: str = "") -> HtmlDocument:
         """Per-Resource descriptor page — the citation click destination.
 
         PUBLIC read: Resource is SHARED/CURATED content, so this matches the
@@ -349,7 +350,7 @@ def create_library_ui_routes(
     # ========================================================================
 
     @rt("/library/ku")
-    async def library_ku(request: Request) -> Any:
+    async def library_ku(request: Request) -> FT | HtmlDocument:
         """Ku the user has bookmarked (PINNED relationship)."""
         user = get_current_user(request)
         if not user:
@@ -411,7 +412,7 @@ def create_library_ui_routes(
     # ========================================================================
 
     @rt("/library/path-steps")
-    def library_path_steps(request: Request) -> Any:
+    def library_path_steps(request: Request) -> HtmlDocument:
         """Path Steps the user is enrolled in — shell renders immediately, content loads via HTMX."""
         return render_library_sidebar_page(
             content=Div(
@@ -426,7 +427,7 @@ def create_library_ui_routes(
         )
 
     @rt("/library/path-steps/content")
-    async def library_path_steps_content(request: Request) -> Any:
+    async def library_path_steps_content(request: Request) -> FT:
         """HTMX fragment: enrolled Path Steps content."""
         user = get_current_user(request)
         if not user:
@@ -436,7 +437,7 @@ def create_library_ui_routes(
             )
         return await _build_path_steps_fragment(user)
 
-    async def _build_path_steps_fragment(user: UserUID) -> Any:
+    async def _build_path_steps_fragment(user: UserUID) -> FT:
         """Build the enrolled Path Steps fragment content."""
         result = await orchestrator.get_enrolled_path_steps(user)
         if result.is_error:

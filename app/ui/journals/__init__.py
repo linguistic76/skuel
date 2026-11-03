@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
+    FT,
     A,
     Button,
     Div,
@@ -167,7 +168,7 @@ def SessionBackedComposer(
     summon_vault: bool = False,
     model: str = DEFAULT_CHAT_MODEL,
     model_options: list[tuple[str, str]] | None = None,
-) -> Any:
+) -> FT:
     """Just the session-backed composer (``id=journal-composer``) — the *Save* swap.
 
     ``POST /journals/save`` swaps this in for the ephemeral composer once a chat
@@ -247,7 +248,7 @@ def _Composer(
     summon_vault: bool = False,
     model: str = DEFAULT_CHAT_MODEL,
     model_options: list[tuple[str, str]] | None = None,
-) -> Any:
+) -> FT:
     """Sticky follow-up form pinned at the bottom of #journal-workspace.
 
     Two memory shapes, selected by ``session_id`` (ADR-078 §5):
@@ -466,7 +467,7 @@ def TranscriptReviewFragment(transcript: str, title: str) -> Any:
     )
 
 
-def Stage1Fragment(raw_entry: str, title: str, scribe_output: str) -> Any:
+def Stage1Fragment(raw_entry: str, title: str, scribe_output: str) -> FT:
     """Fragment returned after Stage 1 — Scribe completes."""
     return Div(
         Card(
@@ -500,7 +501,7 @@ def Stage2Fragment(
     title: str,
     scribe_output: str,
     thought_partner_output: str,
-) -> Any:
+) -> FT:
     """Fragment returned after Stage 2 — Thought Partner completes."""
     return Div(
         Card(
@@ -538,7 +539,7 @@ def Stage3Fragment(
     transcript_json: str = "",
     summon_canon: bool = False,
     summon_vault: bool = False,
-) -> Any:
+) -> FT:
     """Fragment returned after Stage 3 — What Is Related completes.
 
     Includes an ephemeral follow-up composer (ADR-078 §5) so the user can keep
@@ -830,7 +831,7 @@ def FollowUpFragment(
     mode: JournalMode,
     sources: tuple[CanonSource, ...] | None = None,
     transcript_json: str | None = None,
-) -> Any:
+) -> tuple[FT, ...]:
     """Returned by the follow-up route — appended to #journal-thread via beforeend.
 
     Returns the chat bubbles (main swap). ``sources`` (canon draws) render as a
@@ -846,7 +847,7 @@ def FollowUpFragment(
       hidden field with the grown ``{role, content}`` transcript.
     """
     label = f"Journal Response — {mode.display_label()}"
-    oob_inputs: tuple[Any, ...] = ()
+    oob_inputs: tuple[FT, ...] = ()
     if transcript_json is not None:
         oob_inputs = (
             Input(
@@ -866,7 +867,7 @@ def FollowUpFragment(
     )
 
 
-def FollowUpErrorFragment(message: str) -> Any:
+def FollowUpErrorFragment(message: str) -> FT:
     """Error notification appended to #journal-thread when a follow-up call fails.
 
     Unlike ErrorFragment, this carries no id and no workspace-level swap — it is
@@ -881,7 +882,7 @@ def FollowUpErrorFragment(message: str) -> Any:
     )
 
 
-def ErrorFragment(message: str) -> Any:
+def ErrorFragment(message: str) -> FT:
     """Error state fragment for any stage failure."""
     return Div(
         Card(
@@ -984,7 +985,7 @@ def SuggestedActivitiesPanel(
     *,
     unavailable: bool = False,
     error: bool = False,
-) -> Any:
+) -> FT:
     """Inner content of the suggestions panel — copyable, domain-tagged DSL lines.
 
     States: bridge-unavailable note (CORE tier, or FULL without an OpenAI key),

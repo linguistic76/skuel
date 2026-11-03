@@ -65,7 +65,7 @@ def create_activity_review_ui_routes(
     @rt("/activity-review")
     def activity_review_landing(
         request: Request,
-    ) -> Any:
+    ) -> RedirectResponse:
         """Redirect to queue."""
         return RedirectResponse("/activity-review/queue", status_code=303)
 
@@ -116,7 +116,7 @@ def create_activity_review_ui_routes(
         current_user: Any = None,
         subject_uid: str = "",
         time_period: str = "7d",
-    ) -> Any:
+    ) -> HtmlDocument:
         """Admin review form: load snapshot, write feedback, submit."""
         snapshot_display = Div(
             P(
@@ -146,7 +146,7 @@ def create_activity_review_ui_routes(
         subject_uid: str = "",
         time_period: str = "7d",
         domains: list[str] | None = None,
-    ) -> Any:
+    ) -> FT:
         """HTMX fragment: load and display activity snapshot for admin review."""
         if not subject_uid:
             return render_inline_error("Please enter a user UID")
@@ -204,7 +204,7 @@ def create_activity_review_ui_routes(
         feedback_text: str = "",
         time_period: str = "7d",
         domains: list[str] | None = None,
-    ) -> Any:
+    ) -> FT:
         """HTMX fragment: admin submits written activity feedback."""
         admin_uid = UserUID(current_user.uid)
 

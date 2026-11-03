@@ -16,7 +16,7 @@ Every denial serves the same rendered not-found page with a REAL 404 status
 
 from typing import TYPE_CHECKING
 
-from fasthtml.common import FT, FtResponse, to_xml
+from fasthtml.common import FtResponse, to_xml
 from starlette.responses import HTMLResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -25,7 +25,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import refuse_not_found
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.learning_loop.exchange_thread import (
     render_exchange_not_found,
     render_exchange_thread,
@@ -44,7 +44,7 @@ def create_exchange_ui_routes(rt: RouteDecorator, orchestrator: UserEntryOrchest
     @rt("/exchange")
     async def exchange_thread_page(
         request: Request, exercise: str = "", student: str = ""
-    ) -> FT | FtResponse | HTMLResponse:
+    ) -> HtmlDocument | FtResponse | HTMLResponse:
         """The exchange thread for (viewer-or-student, exercise) — read-only."""
         user_uid = require_authenticated_user(request)
 

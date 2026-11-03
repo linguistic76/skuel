@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-24
+updated: 2026-11-03
 ---
 
 # A/B Testing Infrastructure
@@ -100,7 +100,7 @@ Example: SearchRouter with A/B testing
 
 ```python
 # In search route
-async def search_results(request: Request, query: str) -> Any:
+async def search_results(request: Request, query: str) -> FT:
     user_uid = require_authenticated_user(request)
 
     # Check test group

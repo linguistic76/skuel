@@ -2,6 +2,7 @@ from enum import StrEnum
 from typing import Any
 
 import fasthtml.common as fh
+from fasthtml.common import FT
 
 from ui.components._util import _cls
 
@@ -56,11 +57,11 @@ class ButtonT(StrEnum):
 
 
 def Button(
-    *c: Any,
+    *c: Any,  # boundary: fasthtml-elements
     cls: str | tuple = ButtonT.default,
     size: str = "md",
-    **kwargs: Any,
-) -> Any:  # boundary: fasthtml-elements
+    **kwargs: Any,  # boundary: fasthtml-elements
+) -> FT:
     """Styled button. Always has usable geometry via the size= kwarg default.
 
     Args:

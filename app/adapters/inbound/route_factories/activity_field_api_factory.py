@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from fastcore.xml import to_xml
+from fasthtml.common import FT, FtResponse
 from starlette.responses import HTMLResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -36,8 +37,6 @@ from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
-
-    from fasthtml.common import FT
 
     from adapters.inbound.fasthtml_types import RouteDecorator
     from core.models.enums.neo_labels import NeoLabel
@@ -119,7 +118,7 @@ def _register_field_route[T](
     spec: FieldUpdateSpec[T],
 ) -> None:
 
-    async def update_field(request: Request, uid: str) -> Any:
+    async def update_field(request: Request, uid: str) -> FT | FtResponse | HTMLResponse:
         user_uid = require_authenticated_user(request)
 
         ownership_error = await verify_entity_ownership(

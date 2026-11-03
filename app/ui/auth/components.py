@@ -13,7 +13,7 @@ app's normal layout.
 
 from typing import Any
 
-from fasthtml.common import H1, A, Div, Form, P, Span, Strong
+from fasthtml.common import FT, H1, A, Div, Form, P, Span, Strong
 
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms.components import Checkbox, Input, LabelInput
@@ -32,7 +32,7 @@ def _error_banner(error_message: str | None) -> Any:
     )
 
 
-def _auth_card(*children: Any, max_width: str = "max-w-md") -> Any:
+def _auth_card(*children: Any, max_width: str = "max-w-md") -> FT:
     """Card container for fragment auth pages (forgot-password, success, etc.)."""
     return Div(
         Card(
@@ -268,7 +268,7 @@ class AuthComponents:
         )
 
     @staticmethod
-    def render_login_error(error_message: str) -> Any:
+    def render_login_error(error_message: str) -> FT:
         """Render login error page (fragment within app layout)."""
         return _auth_card(
             Div(
@@ -288,7 +288,7 @@ class AuthComponents:
         )
 
     @staticmethod
-    def render_forgot_password_form(error_message: str | None = None) -> Any:
+    def render_forgot_password_form(error_message: str | None = None) -> FT:
         """Render forgot password email form (fragment within app layout)."""
         return _auth_card(
             Div(
@@ -334,7 +334,7 @@ class AuthComponents:
     def render_reset_password_page(
         error_message: str | None = None,
         token: str = "",
-    ) -> Any:
+    ) -> FT:
         """Render password reset form (fragment within app layout)."""
         return _auth_card(
             Div(
@@ -384,7 +384,7 @@ class AuthComponents:
         )
 
     @staticmethod
-    def render_reset_password_success() -> Any:
+    def render_reset_password_success() -> FT:
         """Render password reset success page (fragment within app layout)."""
         return _auth_card(
             Div(
@@ -400,7 +400,7 @@ class AuthComponents:
         )
 
     @staticmethod
-    def render_password_reset_sent(email: str) -> Any:
+    def render_password_reset_sent(email: str) -> FT:
         """Render password reset email sent page (fragment within app layout)."""
         return _auth_card(
             Div(

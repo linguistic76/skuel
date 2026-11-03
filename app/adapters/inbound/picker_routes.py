@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Li
+from fasthtml.common import FT, Li
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
@@ -67,7 +67,7 @@ def create_picker_routes(rt: RouteDecorator, services: Services) -> None:
         q: str = "",
         exclude_uid: str = "",
         exclude_descendants_of: str = "",
-    ) -> Any:
+    ) -> tuple[FT, ...]:
         """Return a fragment of <li> options for the picker dropdown."""
         user_uid = require_authenticated_user(request)
 
@@ -151,7 +151,7 @@ async def _build_exclusion_set(
     return excluded
 
 
-def _render_results(entities: list[DomainModelProtocol]) -> Any:
+def _render_results(entities: list[DomainModelProtocol]) -> tuple[FT, ...]:
     """Render entities as a Ul of selectable Li options."""
     items = [
         Li(
@@ -182,7 +182,7 @@ def _render_results(entities: list[DomainModelProtocol]) -> Any:
     return tuple(items)
 
 
-def _empty_results(*, message: str) -> Any:
+def _empty_results(*, message: str) -> tuple[FT]:
     """Return a single disabled-option fragment for error / unsupported states."""
     return (
         Li(
