@@ -318,7 +318,7 @@ banner.
 # adapters/inbound/tasks_ui.py
 @rt("/tasks/create", methods=["POST"])
 @csrf_protected
-async def task_create_submit(request: Request) -> FT | RedirectResponse:
+async def task_create_submit(request: Request) -> HtmlDocument | RedirectResponse:
     """Validate the form, create the task, redirect to its detail page."""
     user_uid = require_authenticated_user(request)
 

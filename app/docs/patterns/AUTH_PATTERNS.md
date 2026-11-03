@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-10-30'
+updated: '2026-11-03'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -316,7 +316,7 @@ session) — the navbar never imports `adapters.inbound.auth`:
 from ui.layouts.base_page import BasePage
 
 @rt("/library")
-async def library_page(request: Request) -> FT:
+async def library_page(request: Request) -> HtmlDocument:
     return BasePage(
         content=content,
         title="Library",

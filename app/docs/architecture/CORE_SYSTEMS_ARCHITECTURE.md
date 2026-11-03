@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-31
+updated: 2026-11-03
 ---
 
 # Core Systems Architecture
@@ -125,7 +125,7 @@ from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import refuse
 from ui.layouts.base_page import BasePage
 
-def _ku_page(request: Request, content: FT, title: str = "Knowledge") -> FT:
+def _ku_page(request: Request, content: FT, title: str = "Knowledge") -> HtmlDocument:
     """The Ku page's shell — its success and its crash both render through it."""
     return BasePage(content, title=title, request=request, active_page="library")
 

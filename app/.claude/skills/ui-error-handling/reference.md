@@ -188,7 +188,7 @@ the page through it, so a sidebar page keeps its sidebar and the section stays l
 
 ```python
 # adapters/inbound/activity_review_ui.py
-def _queue_page(request: Request, content: FT) -> FT:
+def _queue_page(request: Request, content: FT) -> HtmlDocument:
     return activity_review_sidebar_page("queue", content, request, page_title="Review Queue")
 
 @rt("/activity-review/queue")
