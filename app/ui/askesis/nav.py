@@ -1,9 +1,9 @@
 """Askesis page wrapper — renders the chat shell inside BasePage(CUSTOM)."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ui.askesis.chat import render_askesis_shell
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.page_types import PageType
 
 if TYPE_CHECKING:
@@ -21,7 +21,7 @@ def render_askesis_page(
     initial_nous: str = "",
     initial_nous_subtopic: str = "",
     model_options: list[tuple[str, str]] | None = None,
-) -> Any:
+) -> HtmlDocument:
     """Render the Askesis chat surface within the SKUEL BasePage shell.
 
     ``initial_question`` / ``initial_nous`` / ``initial_nous_subtopic`` carry the

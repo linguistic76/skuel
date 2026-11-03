@@ -7,7 +7,7 @@ Pure rendering functions for exercise detail and transparency views.
 
 from typing import Any
 
-from fasthtml.common import H4, Div, P, Span
+from fasthtml.common import FT, H4, Div, P, Span
 
 from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
@@ -16,7 +16,7 @@ from ui.primitives import ButtonLink
 from ui.user_entry.forms import submit_page_href
 
 
-def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
+def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> FT:
     """Student-facing exercise detail page body.
 
     Shows title, description, metadata badges, form field preview,

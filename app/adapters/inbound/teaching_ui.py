@@ -30,7 +30,7 @@ from core.utils.logging import get_logger
 from ui.alpine import js_literal
 from ui.components import Button, ButtonT, Icon
 from ui.forms import LabelInput, LabelTextArea
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
@@ -226,7 +226,7 @@ def create_teaching_ui_routes(
 
     @rt("/teaching/queue")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_queue_page(request: Request, current_user: Any = None) -> Any:
+    async def teaching_queue_page(request: Request, current_user: Any = None) -> HtmlDocument:
         """Review queue — needs-review (default) and waiting-for-resubmit views."""
         user_uid = UserUID(current_user.uid)
 
@@ -279,7 +279,9 @@ def create_teaching_ui_routes(
 
     @rt("/teaching/review/{uid}")
     @require_role(UserRole.TEACHER, get_user_service)
-    def teaching_review_detail(request: Request, uid: str, current_user: Any = None) -> Any:
+    def teaching_review_detail(
+        request: Request, uid: str, current_user: Any = None
+    ) -> HtmlDocument:
         """Review detail — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Review Submission"),
@@ -295,7 +297,7 @@ def create_teaching_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_review_detail_content_fragment(
         request: Request, uid: str, current_user: Any = None
-    ) -> Any:
+    ) -> FT:
         """HTMX fragment: review detail with submission content + feedback history + forms."""
         user_uid = UserUID(current_user.uid)
 
@@ -358,7 +360,7 @@ def create_teaching_ui_routes(
 
     @rt("/teaching/students")
     @require_role(UserRole.TEACHER, get_user_service)
-    def teaching_students_page(request: Request, current_user: Any = None) -> Any:
+    def teaching_students_page(request: Request, current_user: Any = None) -> HtmlDocument:
         """Students page — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Students", subtitle="Students who have submitted work"),
@@ -372,7 +374,7 @@ def create_teaching_ui_routes(
 
     @rt("/teaching/students/content")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_students_content_fragment(request: Request, current_user: Any = None) -> Any:
+    async def teaching_students_content_fragment(request: Request, current_user: Any = None) -> FT:
         """HTMX fragment: students list."""
         user_uid = UserUID(current_user.uid)
 
@@ -409,7 +411,9 @@ def create_teaching_ui_routes(
 
     @rt("/teaching/students/{uid}")
     @require_role(UserRole.TEACHER, get_user_service)
-    def teaching_student_hub_page(request: Request, uid: str, current_user: Any = None) -> Any:
+    def teaching_student_hub_page(
+        request: Request, uid: str, current_user: Any = None
+    ) -> HtmlDocument:
         """Student hub — shell renders immediately, content loads via HTMX."""
         return BasePage(
             content=content_loading_placeholder(
@@ -424,7 +428,7 @@ def create_teaching_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_student_hub_content_fragment(
         request: Request, uid: str, current_user: Any = None
-    ) -> Any:
+    ) -> FT:
         """HTMX fragment: student hub with resolved display name."""
         user_uid = UserUID(current_user.uid)
         result = await orchestrator.get_student_submissions(teacher_uid=user_uid, student_uid=uid)
@@ -445,7 +449,7 @@ def create_teaching_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_student_submissions_page(
         request: Request, uid: str, current_user: Any = None
-    ) -> Any:
+    ) -> HtmlDocument:
         """Student submissions — sidebar-driven sections for submissions + KU progress.
 
         Sections: Needs Review | Revision Requested | Completed | KU Progress
@@ -526,7 +530,7 @@ def create_teaching_ui_routes(
 
     @rt("/teaching/groups")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_groups_page(request: Request, current_user: Any = None) -> Any:
+    async def teaching_groups_page(request: Request, current_user: Any = None) -> HtmlDocument:
         """Groups page — teacher's groups with student and exercise counts."""
         user_uid = UserUID(current_user.uid)
 
@@ -588,7 +592,7 @@ def create_teaching_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_group_detail_page(
         request: Request, uid: str, current_user: Any = None
-    ) -> Any:
+    ) -> HtmlDocument:
         """Group detail page — members with submission progress stats."""
         user_uid = UserUID(current_user.uid)
 
@@ -680,7 +684,7 @@ def create_teaching_ui_routes(
 
     @rt("/api/teaching/students/{uid}/ku/preview")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def student_ku_preview(request: Request, uid: str, current_user: Any = None) -> Any:
+    async def student_ku_preview(request: Request, uid: str, current_user: Any = None) -> FT:
         """HTMX fragment: top 3 KU progress items for student hub preview."""
         user_uid = UserUID(current_user.uid)
         ku_detail = await orchestrator.get_student_ku_detail(teacher_uid=user_uid, student_uid=uid)

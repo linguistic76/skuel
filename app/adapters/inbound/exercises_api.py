@@ -9,6 +9,8 @@ exercise's required knowledge, and the worksheet download.
 
 from typing import Any
 
+from starlette.responses import Response
+
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
@@ -217,7 +219,7 @@ def create_exercises_api_routes(
         )
 
     @rt("/api/exercises/md")
-    async def download_exercise_md(request, uid: str) -> Any:
+    async def download_exercise_md(request, uid: str) -> Response:
         """Download an exercise as a Markdown worksheet (.md)."""
         from starlette.responses import Response
 

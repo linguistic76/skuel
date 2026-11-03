@@ -36,7 +36,7 @@ def create_system_ui_routes(
     """
 
     @rt("/")
-    def home(request: Request) -> Any:
+    def home(request: Request) -> HtmlDocument | RedirectResponse:
         """Root — the landing is /today for every authenticated role (the
         post-login redirect and the PWA start_url resolve to the same page,
         ADR-058); anonymous visitors get the login landing."""

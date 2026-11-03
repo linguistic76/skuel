@@ -74,7 +74,7 @@ def render_notification_card(notif: Notification) -> FT:
         ButtonLink("View →", href=link_href, cls=ButtonT.ghost, size="xs") if link_href else ""
     )
 
-    mark_read_btn = ""
+    mark_read_btn: FT | str = ""
     if not is_read:
         mark_read_btn = Button(
             "Mark read",

@@ -15,9 +15,9 @@ picker, so no EntityPicker widgets are wired here.
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from fasthtml.common import Div
+from fasthtml.common import Div, FtResponse
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
@@ -38,6 +38,7 @@ from ui.activities.nav import (
 )
 from ui.activities.principles_form import PrincipleCreateForm, PrincipleEditForm
 from ui.activities.principles_views import PrincipleDetailView, PrincipleList, PrincipleStatsBar
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -83,7 +84,7 @@ def create_principles_ui_routes(
     create_activity_ui_routes(rt, config)
 
     @rt("/principles/create", methods=["GET"])
-    def principle_create_page(request: Request) -> Any:
+    def principle_create_page(request: Request) -> HtmlDocument:
         """Render the new-principle form."""
         require_authenticated_user(request)
         content = Div(PageHeader("New Principle"), PrincipleCreateForm(), cls="space-y-6")
@@ -91,7 +92,7 @@ def create_principles_ui_routes(
 
     @rt("/principles/create", methods=["POST"])
     @csrf_protected
-    async def principle_create_submit(request: Request) -> Any:
+    async def principle_create_submit(request: Request) -> HtmlDocument | RedirectResponse:
         """Validate the form, create the principle, redirect to its detail page."""
         user_uid = require_authenticated_user(request)
 
@@ -120,7 +121,7 @@ def create_principles_ui_routes(
         return RedirectResponse(f"/principles/detail?uid={result.value.uid}", status_code=303)
 
     @rt("/principles/edit", methods=["GET"])
-    async def principle_edit_page(request: Request) -> Any:
+    async def principle_edit_page(request: Request) -> HtmlDocument | FtResponse:
         """Render the edit form prefilled from an existing principle."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -149,7 +150,9 @@ def create_principles_ui_routes(
 
     @rt("/principles/edit", methods=["POST"])
     @csrf_protected
-    async def principle_edit_submit(request: Request) -> Any:
+    async def principle_edit_submit(
+        request: Request,
+    ) -> HtmlDocument | FtResponse | RedirectResponse:
         """Validate the form, apply updates, redirect to the detail page."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

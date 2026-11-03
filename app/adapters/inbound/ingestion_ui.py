@@ -15,7 +15,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from ui.ingestion import build_ingestion_dashboard
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 
 logger = get_logger("skuel.routes.ingestion_ui")
 
@@ -41,7 +41,7 @@ def create_ingestion_ui_routes(
 
     @rt("/ingest")
     @require_admin(get_user_service)
-    def ingest_dashboard(request: Request, current_user: Any = None):
+    def ingest_dashboard(request: Request, current_user: Any = None) -> HtmlDocument:
         """Unified ingestion dashboard UI. Requires ADMIN role."""
         return BasePage(
             build_ingestion_dashboard(vault_path=str(get_settings().vault.ingestion_path)),

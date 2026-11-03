@@ -9,7 +9,7 @@ from fasthtml.common import H1, H2, A, Div, Form, P, Span
 
 from ui.components import Button, ButtonT, Icon
 from ui.forms.components import LabelInput
-from ui.layouts.base_page import AuthPage
+from ui.layouts.base_page import AuthPage, HtmlDocument
 from ui.primitives import ButtonLink
 
 
@@ -27,7 +27,7 @@ def _landing_feature_item(text: str) -> Any:
     )
 
 
-def render_login_landing_page() -> Any:
+def render_login_landing_page() -> HtmlDocument:
     """Render the landing page with login form for unauthenticated users.
 
     Split layout: branded hero on left (desktop), login card on right.

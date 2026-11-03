@@ -20,7 +20,8 @@ import secrets
 from typing import TYPE_CHECKING, Any
 
 import starlette.datastructures
-from starlette.responses import FileResponse
+from fasthtml.common import FT
+from starlette.responses import FileResponse, Response
 
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
@@ -110,7 +111,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/review/{uid}/report", methods=["POST"])
     @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
-    async def submit_feedback(request: Request, uid: str, current_user: Any = None) -> Any:
+    async def submit_feedback(request: Request, uid: str, current_user: Any = None) -> FT:
         """Submit a .md feedback file as the teacher report for a student submission."""
         from fasthtml.common import Div, P
 
@@ -148,7 +149,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/review/{uid}/revision", methods=["POST"])
     @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
-    async def request_revision(request: Request, uid: str, current_user: Any = None) -> Any:
+    async def request_revision(request: Request, uid: str, current_user: Any = None) -> FT:
         """Request revision for a student submission with structured feedback.
 
         Files EntryReport + RevisedExercise atomically. The service reads the
@@ -203,7 +204,7 @@ def create_teaching_api_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def download_report_file(
         request: Request, report_uid: str, current_user: Any = None
-    ) -> Any:
+    ) -> Response:
         """Download the .md feedback file attached to an EntryReport.
 
         Owner-scoped, not just teacher-gated: ``get_report_file_path`` returns a
@@ -240,7 +241,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/review/{uid}/approve", methods=["POST"])
     @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
-    async def approve_report(request: Request, uid: str, current_user: Any = None) -> Any:
+    async def approve_report(request: Request, uid: str, current_user: Any = None) -> FT:
         """Approve a student report."""
         from fasthtml.common import Div, P
 
@@ -277,7 +278,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/review/{uid}/panel", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def get_review_panel(request: Request, uid: str, current_user: Any = None) -> Any:
+    async def get_review_panel(request: Request, uid: str, current_user: Any = None) -> FT:
         """Return the inline review panel for a row on the per-student page.
 
         Loaded by HTMX on first expand of a submission row: the same review body
@@ -382,7 +383,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/submissions/{uid}/delete", methods=["POST"])
     @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
-    async def delete_submission(request: Request, uid: str, current_user: Any = None) -> Any:
+    async def delete_submission(request: Request, uid: str, current_user: Any = None) -> FT | str:
         """Delete a student UserEntry (teacher action).
 
         Authorized when the entry asks this teacher for feedback (see

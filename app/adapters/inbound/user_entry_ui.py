@@ -100,7 +100,7 @@ def _status_value(entry: UserEntry) -> str:
     return str(status) if status else "submitted"
 
 
-def _render_entry_responses(responses: list[dict[str, Any]]) -> Any:
+def _render_entry_responses(responses: list[dict[str, Any]]) -> FT:
     """Render the "Responses" section for an entry detail page (ADR-069).
 
     HTMX swap target ``#entry-responses`` — re-rendered after a new response is
@@ -247,7 +247,7 @@ def create_user_entry_ui_routes(
     # =========================================================================
 
     @rt("/submissions")
-    def submissions_moc(request: Request) -> Any:
+    def submissions_moc(request: Request) -> HtmlDocument:
         """Submissions MOC — links to all 5 sub-pages, no sidebar."""
         require_authenticated_user(request)
 
@@ -311,7 +311,7 @@ def create_user_entry_ui_routes(
         )
 
     @rt("/submissions/submit")
-    async def submissions_submit_page(request: Request) -> Any:
+    async def submissions_submit_page(request: Request) -> HtmlDocument | FtResponse:
         """The Submit page: the upload form, preselecting ``?exercise_uid=`` when carried.
 
         The PS learning-loop and exercise "Submit →" links arrive here with
@@ -377,7 +377,7 @@ def create_user_entry_ui_routes(
     # =========================================================================
 
     @rt("/submissions/journal")
-    async def submissions_journal_page(request: Request) -> Any:
+    async def submissions_journal_page(request: Request) -> HtmlDocument:
         """Journal file-upload UX — alternative entry point to /journals."""
         user_uid = require_authenticated_user(request)
 
@@ -414,7 +414,7 @@ def create_user_entry_ui_routes(
     # =========================================================================
 
     @rt("/submissions/history")
-    async def submissions_history(request: Request) -> Any:
+    async def submissions_history(request: Request) -> HtmlDocument:
         """Submission history page."""
         user_uid = require_authenticated_user(request)
 
@@ -444,7 +444,7 @@ def create_user_entry_ui_routes(
 
     @rt("/submissions/history/delete", methods=["POST"])
     @csrf_protected
-    async def delete_submission(request: Request, uid: str) -> Any:
+    async def delete_submission(request: Request, uid: str) -> FT | FtResponse:
         """Delete a user-owned UserEntry (blocked when feedback exists)."""
         user_uid = require_authenticated_user(request)
 
@@ -473,7 +473,7 @@ def create_user_entry_ui_routes(
     # =========================================================================
 
     @rt("/submissions/knowledge")
-    async def submissions_knowledge(request: Request) -> Any:
+    async def submissions_knowledge(request: Request) -> HtmlDocument:
         """Knowledge notes with their knowledge chips.
 
         The review surface for eager grounding writes (ruling 2026-07-11):
@@ -511,7 +511,7 @@ def create_user_entry_ui_routes(
     # =========================================================================
 
     @rt("/submit/journals/{uid}/download")
-    async def download_journal(request: Request, uid: str) -> Any:
+    async def download_journal(request: Request, uid: str) -> FT | FileResponse:
         """Ownership-verified download of a journal entry's source file."""
         try:
             user_uid = require_authenticated_user(request)
@@ -544,7 +544,7 @@ def create_user_entry_ui_routes(
 
     @rt("/api/entry-reports/respond", methods=["POST"])
     @csrf_protected
-    async def respond_to_entry(request: Request, entry_uid: str = "") -> Any:
+    async def respond_to_entry(request: Request, entry_uid: str = "") -> FT:
         """Generate an LLM reflective response to the user's own journal entry.
 
         Owner-only (the orchestrator/service does the ownership-verified fetch
@@ -586,7 +586,9 @@ def create_user_entry_ui_routes(
     # =========================================================================
 
     @rt("/gradebook")
-    async def gradebook_page(request: Request, status: str = "all", source: str = "all") -> Any:
+    async def gradebook_page(
+        request: Request, status: str = "all", source: str = "all"
+    ) -> HtmlDocument:
         """GradeBook — feedback received, one exchange line per exercise."""
         user_uid = require_authenticated_user(request)
         status, source = normalize_exchange_filters(status, source)
@@ -651,7 +653,7 @@ def create_user_entry_ui_routes(
     # fragment path from being swallowed by the catch-all detail route.
     @rt("/gradebook/lines")
     @ui_boundary_handler("Error loading exchanges", fragment_id=EXCHANGE_SECTION_ID)
-    async def gradebook_lines(request: Request, status: str = "all", source: str = "all") -> Any:
+    async def gradebook_lines(request: Request, status: str = "all", source: str = "all") -> FT:
         """HTMX fragment: exchange lines re-rendered for a chip/source change."""
         user_uid = require_authenticated_user(request)
         status, source = normalize_exchange_filters(status, source)
@@ -730,7 +732,7 @@ def create_user_entry_ui_routes(
     @rt("/gradebook/{uid}")
     async def submission_detail(
         request: Request, uid: str, share: str = "", preselect: str = ""
-    ) -> FT | FtResponse:
+    ) -> HtmlDocument | FtResponse:
         """Submission detail — the owner's page, or the recipient card.
 
         One audience read (``read_visibility`` OWNER_OR_AUDIENCE, ADR-088 §5)

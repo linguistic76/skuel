@@ -26,6 +26,8 @@ Security:
 
 from typing import TYPE_CHECKING, Any
 
+from fasthtml.common import FT
+
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
@@ -35,6 +37,7 @@ from ui.admin import pages
 from ui.admin.layout import create_admin_page
 from ui.admin.prereq_views import AdminPrereqComponents
 from ui.admin.types import UserCardData
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
@@ -77,7 +80,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin")
     @require_admin(get_user_service)
-    async def admin_overview(request: Request, current_user: Any = None):
+    async def admin_overview(request: Request, current_user: Any = None) -> HtmlDocument:
         """Admin dashboard overview with key stats."""
         system_status = await orchestrator.get_system_status()
 
@@ -95,7 +98,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/batch-transcribe")
     @require_admin(get_user_service)
-    def admin_batch_transcribe(request: Request, current_user: Any = None):
+    def admin_batch_transcribe(request: Request, current_user: Any = None) -> HtmlDocument:
         """Batch audio→text transcription console.
 
         Renders the Alpine-driven panel that drives
@@ -120,7 +123,7 @@ def create_admin_dashboard_routes(
         current_user: Any = None,
         role: str | None = None,
         status: str | None = None,
-    ):
+    ) -> HtmlDocument:
         """
         User management page with list view.
 
@@ -171,7 +174,7 @@ def create_admin_dashboard_routes(
         current_user: Any = None,
         role: str | None = None,
         status: str | None = None,
-    ):
+    ) -> FT:
         """HTMX partial for filtered user list — just the table for the swap."""
         role_filter_str, active_only = _parse_user_filters(role, status)
 
@@ -186,7 +189,9 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/users/{uid}")
     @require_admin(get_user_service)
-    async def admin_user_detail(request: Request, uid: str, current_user: Any = None):
+    async def admin_user_detail(
+        request: Request, uid: str, current_user: Any = None
+    ) -> HtmlDocument:
         """User detail view — account details, stats, and the account card (role + status)."""
         user_uid = UserUID(uid)
         result = await orchestrator.get_user(user_uid)
@@ -223,7 +228,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/analytics")
     @require_admin(get_user_service)
-    async def admin_analytics(request: Request, current_user: Any = None):
+    async def admin_analytics(request: Request, current_user: Any = None) -> HtmlDocument:
         """Analytics dashboard with user and activity stats."""
         analytics_data = await orchestrator.get_analytics_data()
 
@@ -241,7 +246,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/knowledge-health")
     @require_admin(get_user_service)
-    async def admin_knowledge_health(request: Request, current_user: Any = None):
+    async def admin_knowledge_health(request: Request, current_user: Any = None) -> HtmlDocument:
         """Structural-health gauge over the knowledge subgraph (ADR-080)."""
         health_result = await orchestrator.get_knowledge_health()
 
@@ -265,7 +270,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/prereq-suggestions")
     @require_admin(get_user_service)
-    def admin_prereq_suggestions(request: Request, current_user: Any = None) -> Any:
+    def admin_prereq_suggestions(request: Request, current_user: Any = None) -> HtmlDocument:
         """Prerequisite-edge suggestion queue — generate, review, copy each ready Edge YAML."""
         return create_admin_page(
             content=pages.prereq_suggestions_page(prereq_suggestions.judge_available),
@@ -278,7 +283,7 @@ def create_admin_dashboard_routes(
     @rt("/admin/prereq-suggestions/generate", methods=["POST"])
     @csrf_protected
     @require_admin(get_user_service)
-    async def admin_prereq_generate(request: Request, current_user: Any = None) -> Any:
+    async def admin_prereq_generate(request: Request, current_user: Any = None) -> FT:
         """HTMX: run the full pipeline (candidates → judge), return the queue fragment.
 
         Suggestions are EPHEMERAL — computed on demand, held in the returned
@@ -296,7 +301,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/system")
     @require_admin(get_user_service)
-    async def admin_system(request: Request, current_user: Any = None):
+    async def admin_system(request: Request, current_user: Any = None) -> HtmlDocument:
         """System health dashboard."""
         health_data = await orchestrator.get_full_health_status()
 

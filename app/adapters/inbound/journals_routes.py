@@ -21,6 +21,7 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from fasthtml.common import FT
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -55,6 +56,7 @@ from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 from ui.journals.components import render_upload_status as render_journal_upload_status
+from ui.layouts.base_page import HtmlDocument
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import RouteDecorator
@@ -95,7 +97,7 @@ def _grounding_dials(summon_canon: str, summon_vault: str) -> Result[tuple[bool,
     return Result.ok((canon.value, vault.value))
 
 
-def _render_batch_report(report: BatchRunReport, status_id: str) -> Any:
+def _render_batch_report(report: BatchRunReport, status_id: str) -> FT:
     """Render a ``BatchRunReport`` as the upload-status fragment."""
     return render_journal_upload_status(
         "completed" if report.ok else "error",
@@ -118,7 +120,7 @@ async def _process_single_upload(
     journal_batch: JournalBatchService,
     summon_canon: bool = False,
     summon_vault: bool = False,
-) -> Any:
+) -> FT | HTMLResponse:
     """Process one uploaded file to ``je_out/`` and return an inline fragment.
 
     Zero-persistence (ADR-073): no ``UserEntry`` is created. Text files compile
@@ -137,7 +139,7 @@ async def _process_single_upload(
         """The source→output opening pair (Option A) as a structured transcript."""
         return serialize_transcript([(ROLE_USER, source_text), (ROLE_ASSISTANT, output)])
 
-    def _workspace(fragment: Any) -> Any:
+    def _workspace(fragment: FT) -> FT | HTMLResponse:
         # Success fragments are rooted at ``#journal-workspace``. On the
         # ``/journals`` landing (``retarget_workspace``) the form posts with
         # ``hx_target="#upload-status"`` (right panel), so retarget to the centre
@@ -346,7 +348,7 @@ def create_journals_routes(
     # ------------------------------------------------------------------
 
     @rt("/journals", methods=["GET"])
-    async def journals_page(request: Request) -> Any:
+    async def journals_page(request: Request) -> FT | HtmlDocument | Response:
         user_uid = require_authenticated_user(request)
 
         from ui.journals.chat_page import JournalsLandingPage
@@ -403,7 +405,7 @@ def create_journals_routes(
     @rt("/journals/start", methods=["POST"])
     @csrf_protected
     @rate_limited(per_user=10, window_s=60)
-    async def journals_start(request: Request) -> Any:
+    async def journals_start(request: Request) -> FT | HTMLResponse:
         """Open a journal discussion on typed text and return it inline.
 
         Zero-persistence (ADR-073): the journal is a private workshop — nothing is
@@ -427,7 +429,7 @@ def create_journals_routes(
         from core.models.enums.user_enums import JournalMode
         from ui.journals import StandardResponseFragment
 
-        def _err(msg: str) -> Any:
+        def _err(msg: str) -> FT:
             return _Div(_P(msg, cls="text-sm text-error"), id="start-status")
 
         user_uid = require_authenticated_user(request)
@@ -533,7 +535,7 @@ def create_journals_routes(
     @rt("/journals/upload", methods=["POST"])
     @csrf_protected
     @rate_limited(per_user=10, window_s=60)
-    async def journals_upload(request: Request) -> Any:
+    async def journals_upload(request: Request) -> FT | HTMLResponse:
         """HTMX endpoint for journal file upload — zero-persistence (ADR-073).
 
         Three processing modes driven by the ``processing_mode`` form field:
@@ -694,7 +696,7 @@ def create_journals_routes(
     @rt("/journals/folder-process", methods=["POST"])
     @csrf_protected
     @rate_limited(per_user=5, window_s=60)
-    async def journals_folder_process(request: Request) -> Any:
+    async def journals_folder_process(request: Request) -> FT:
         """HTMX endpoint: process every file in je_in/ with the selected pipeline.
 
         Zero-persistence (ADR-073): scans the user's own je_in/ folder, writes
@@ -748,7 +750,7 @@ def create_journals_routes(
     # ------------------------------------------------------------------
 
     @rt("/journals/je-out/{filename}", methods=["GET"])
-    def journals_download_output(request: Request, filename: str) -> Any:
+    def journals_download_output(request: Request, filename: str) -> Response:
         """Serve a journal output from je_out/ as a file download.
 
         je_out/ is the user's own, flat, local staging folder (ADR-073): outputs
@@ -842,7 +844,7 @@ def create_journals_routes(
         return await _open_daily_note(request, target_date)
 
     @rt("/journals/weekly/{year}/{week}", methods=["GET"])
-    async def journal_weekly_note(request: Request, year: int, week: int) -> Any:
+    async def journal_weekly_note(request: Request, year: int, week: int) -> Response:
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
@@ -854,7 +856,7 @@ def create_journals_routes(
         return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
 
     @rt("/journals/monthly/{year}/{month}", methods=["GET"])
-    async def journal_monthly_note(request: Request, year: int, month: int) -> Any:
+    async def journal_monthly_note(request: Request, year: int, month: int) -> Response:
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
@@ -867,7 +869,7 @@ def create_journals_routes(
         return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
 
     @rt("/journals/quarterly/{year}/{quarter}", methods=["GET"])
-    async def journal_quarterly_note(request: Request, year: int, quarter: int) -> Any:
+    async def journal_quarterly_note(request: Request, year: int, quarter: int) -> Response:
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
@@ -884,7 +886,7 @@ def create_journals_routes(
         return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
 
     @rt("/journals/yearly/{year}", methods=["GET"])
-    async def journal_yearly_note(request: Request, year: int) -> Any:
+    async def journal_yearly_note(request: Request, year: int) -> Response:
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
@@ -902,7 +904,7 @@ def create_journals_routes(
 
     @rt("/journals/{entry_uid}/note", methods=["POST"])
     @csrf_protected
-    async def journal_save_note(request: Request, entry_uid: str) -> Any:
+    async def journal_save_note(request: Request, entry_uid: str) -> FT:
         """Save edited periodic-note content. Returns the #note-save-status fragment."""
         from fasthtml.common import P as _P
 
@@ -944,7 +946,7 @@ def create_journals_routes(
     @rt("/journals/suggest-activities", methods=["POST"])
     @csrf_protected
     @rate_limited(per_user=20, window_s=60)
-    async def journals_suggest_activities(request: Request) -> Any:
+    async def journals_suggest_activities(request: Request) -> FT:
         from ui.journals import SuggestedActivitiesPanel
 
         user_uid = require_authenticated_user(request)
@@ -992,7 +994,7 @@ def create_journals_routes(
     # ------------------------------------------------------------------
 
     @rt("/journals/discussion/{session_id}", methods=["GET"])
-    async def journal_continue(request: Request, session_id: str) -> Any:
+    async def journal_continue(request: Request, session_id: str) -> FT | HtmlDocument | Response:
         """Continue an owned discussion — rehydrate the workspace from stored turns."""
         from ui.journals import DiscussionThreadFragment
         from ui.journals.chat_page import JournalsLandingPage
@@ -1060,7 +1062,7 @@ def create_journals_routes(
 
     @rt("/journals/discussion/{session_id}/delete", methods=["POST"])
     @csrf_protected
-    async def journal_discussion_delete(request: Request, session_id: str) -> Any:
+    async def journal_discussion_delete(request: Request, session_id: str) -> Response:
         """Delete an owned discussion (session + all turns). Removes the row."""
         user_uid = require_authenticated_user(request)
         result = await conversation_service.delete_session(session_id, user_uid)
@@ -1073,7 +1075,7 @@ def create_journals_routes(
         return HTMLResponse("")
 
     @rt("/journals/discussion/{session_id}/export", methods=["GET"])
-    async def journal_discussion_export(request: Request, session_id: str) -> Any:
+    async def journal_discussion_export(request: Request, session_id: str) -> Response:
         """Export an owned discussion as a markdown transcript download (ADR-078 §8)."""
         user_uid = require_authenticated_user(request)
         session_result = await conversation_service.get_session(session_id, user_uid)
@@ -1094,7 +1096,9 @@ def create_journals_routes(
 
     @rt("/journals/discussion/{session_id}/rename", methods=["POST"])
     @csrf_protected
-    async def journal_discussion_rename(request: Request, session_id: str, title: str = "") -> Any:
+    async def journal_discussion_rename(
+        request: Request, session_id: str, title: str = ""
+    ) -> FT | Response:
         """Rename an owned discussion; re-render the revisit-list row."""
         from ui.journals.chat_page import DiscussionRow
 
@@ -1113,7 +1117,7 @@ def create_journals_routes(
     # ------------------------------------------------------------------
 
     @rt("/journals/{entry_uid}", methods=["GET"])
-    async def journal_chat(request: Request, entry_uid: str) -> Any:
+    async def journal_chat(request: Request, entry_uid: str) -> HtmlDocument | Response:
         """Periodic-note page (daily / weekly / monthly / quarterly / yearly).
 
         Journal *sessions* are zero-persistence (ADR-073) — they render inline on
@@ -1200,7 +1204,7 @@ def create_journals_routes(
         summon_vault: str = "",
         canon_book_uids: str = "",
         model: str = "",
-    ) -> Any:
+    ) -> FT | tuple[FT, ...] | Response:
         """Continue a journal conversation.
 
         Two memory models, selected by ``session_id`` (ADR-078 §5):
@@ -1379,7 +1383,7 @@ def create_journals_routes(
         summon_vault: str = "",
         canon_book_uids: str = "",
         model: str = "",
-    ) -> Any:
+    ) -> tuple[FT, FT] | Response:
         """Save this chat — the single explicit persistence gesture (ADR-078 §5).
 
         Promotes the current ephemeral ``transcript_json`` accumulator into an
@@ -1397,7 +1401,7 @@ def create_journals_routes(
         from ui.journals import FollowUpErrorFragment, SessionBackedComposer
         from ui.journals.chat_page import discussions_revisit_panel
 
-        def _save_error(msg: str) -> Any:
+        def _save_error(msg: str) -> HTMLResponse:
             # Retarget the error to the thread (append) rather than let the Save
             # button's #journal-composer/outerHTML swap replace the composer — a
             # failed save must leave the textarea + transcript_json intact so the
@@ -1478,7 +1482,7 @@ def create_journals_routes(
         request: Request,
         raw_entry: str,
         title: str = "",
-    ) -> Any:
+    ) -> FT:
         from ui.journals import ErrorFragment, Stage1Fragment
 
         user_uid = require_authenticated_user(request)
@@ -1522,7 +1526,7 @@ def create_journals_routes(
         review_notes: str = "",
         summon_canon: str = "",
         summon_vault: str = "",
-    ) -> Any:
+    ) -> FT | Response:
         from ui.journals import ErrorFragment, Stage2Fragment
 
         user_uid = require_authenticated_user(request)
@@ -1576,7 +1580,7 @@ def create_journals_routes(
         review_notes: str = "",
         summon_canon: str = "",
         summon_vault: str = "",
-    ) -> Any:
+    ) -> FT | Response:
         from ui.journals import ErrorFragment, Stage3Fragment
 
         user_uid = require_authenticated_user(request)

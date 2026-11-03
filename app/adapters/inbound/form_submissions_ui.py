@@ -14,14 +14,14 @@ Routes:
 from functools import partial
 from typing import Any
 
-from fasthtml.common import A, Div, P, Span
+from fasthtml.common import FT, A, Div, FtResponse, P, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import refuse
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_slot_error
@@ -41,7 +41,7 @@ def create_form_submissions_ui_routes(
     """Create form submission UI routes."""
 
     @rt("/my-forms")
-    def my_forms_page(request: Request) -> Any:
+    def my_forms_page(request: Request) -> HtmlDocument:
         """Shell: returns immediately; content fills via HTMX."""
         require_authenticated_user(request)
         return BasePage(
@@ -55,7 +55,7 @@ def create_form_submissions_ui_routes(
         )
 
     @rt("/my-forms/content")
-    async def my_forms_content(request: Request) -> Any:
+    async def my_forms_content(request: Request) -> FT:
         """Fragment: fetches and renders the submission list."""
         user_uid = require_authenticated_user(request)
 
@@ -100,7 +100,7 @@ def create_form_submissions_ui_routes(
         return Div(inner, id="my-forms-content")
 
     @rt("/my-forms/detail")
-    def form_submission_detail(request: Request) -> Any:
+    def form_submission_detail(request: Request) -> HtmlDocument:
         """Shell: validates UID, returns immediately; content fills via HTMX."""
         require_authenticated_user(request)
         uid = request.query_params.get("uid")
@@ -123,7 +123,7 @@ def create_form_submissions_ui_routes(
         )
 
     @rt("/my-forms/detail/content")
-    async def form_submission_detail_content(request: Request) -> Any:
+    async def form_submission_detail_content(request: Request) -> FT | FtResponse:
         """Fragment: fetches and renders the submission detail."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

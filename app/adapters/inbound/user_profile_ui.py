@@ -11,7 +11,7 @@ section (``/today``, ``/library``, ``/submissions``, ``/gradebook``). Stop
 sharing posts to ``/api/user-entries/{uid}/unshare`` (``user_entry_api.py``).
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 # FT imported at runtime: FastHTML resolves handler signature annotations at
 # registration, so a TYPE_CHECKING-only import would kill bootstrap.
@@ -19,6 +19,7 @@ from fasthtml.common import FT, Div
 
 from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
+from ui.layouts.base_page import HtmlDocument
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
@@ -56,7 +57,7 @@ def setup_user_profile_routes(rt: RouteDecorator, services: Services) -> None:
     sharing_service = services.sharing
 
     @rt("/profile/shared")
-    async def profile_shared(request: Request) -> Any:
+    async def profile_shared(request: Request) -> HtmlDocument:
         """The Shared page: *Shared with you* and *Your wall*.
 
         Both sides are the share links' record (ADR-088 §3): the first lists

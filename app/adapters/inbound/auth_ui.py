@@ -26,7 +26,7 @@ Date: 2026-01-21
 import secrets
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import to_xml
+from fasthtml.common import FT, to_xml
 from pydantic import SecretStr, ValidationError
 from starlette.responses import HTMLResponse, RedirectResponse
 
@@ -52,7 +52,7 @@ from core.utils.logging import get_logger
 
 # Import auth components
 from ui.auth.components import AuthComponents
-from ui.layouts.base_page import AuthPage
+from ui.layouts.base_page import AuthPage, HtmlDocument
 
 if TYPE_CHECKING:
     from core.ports import GraphAuthOperations
@@ -133,7 +133,7 @@ def create_auth_ui_routes(
     # REGISTRATION
     # ========================================================================
 
-    def _registration_page(error_message: str | None = None) -> Any:
+    def _registration_page(error_message: str | None = None) -> HtmlDocument:
         """The registration page with the invite-code input when the gate is on."""
         return AuthPage(
             AuthComponents.render_registration_page(
@@ -146,7 +146,7 @@ def create_auth_ui_routes(
     @rt("/register")
     def register_page(
         request: Request,
-    ) -> Any:
+    ) -> HtmlDocument | RedirectResponse:
         """Show registration page"""
         # If already logged in, redirect to the landing
         if is_authenticated(request):
@@ -157,7 +157,7 @@ def create_auth_ui_routes(
     @rt("/register/submit", methods=["POST"])
     @csrf_protected
     @rate_limited_ip(bucket="register", per_ip=5, window_s=300)
-    async def register_submit(request: Request) -> Any:
+    async def register_submit(request: Request) -> HtmlDocument | RedirectResponse:
         """Process registration with graph-native auth"""
         logger.info("POST /register/submit - Registration form submitted")
         try:
@@ -267,7 +267,7 @@ def create_auth_ui_routes(
     @rt("/login")
     def login_page(
         request: Request,
-    ) -> Any:
+    ) -> HTMLResponse | RedirectResponse:
         """Show login page"""
         # If already logged in, redirect to the landing
         if is_authenticated(request):
@@ -284,7 +284,7 @@ def create_auth_ui_routes(
     @rt("/login/submit", methods=["POST"])
     @csrf_protected
     @rate_limited_ip(bucket="login", per_ip=10, window_s=60)
-    async def login_submit(request: Request) -> Any:
+    async def login_submit(request: Request) -> FT | HtmlDocument | RedirectResponse:
         """Process login with graph-native auth"""
         try:
             form_data = await request.form()
@@ -379,14 +379,14 @@ def create_auth_ui_routes(
     @rt("/forgot-password", methods=["GET"])
     def forgot_password_page(
         _request: Request,
-    ) -> Any:
+    ) -> FT:
         """Show forgot password email form"""
         return AuthComponents.render_forgot_password_form()
 
     @rt("/forgot-password", methods=["POST"])
     @csrf_protected
     @rate_limited_ip(bucket="forgot-password", per_ip=5, window_s=300)
-    async def forgot_password_submit(request: Request) -> Any:
+    async def forgot_password_submit(request: Request) -> FT:
         """Process forgot password request — send reset email"""
         form_data = await request.form()
         email = safe_form_string(form_data.get("email"))
@@ -410,7 +410,7 @@ def create_auth_ui_routes(
     # ========================================================================
 
     @rt("/reset-password")
-    def reset_password_page(request: Request, token: str = "") -> Any:
+    def reset_password_page(request: Request, token: str = "") -> FT | RedirectResponse:
         """Show reset password form where users enter token and new password"""
         # If already logged in, redirect to the landing
         if is_authenticated(request):
@@ -421,7 +421,7 @@ def create_auth_ui_routes(
     @rt("/reset-password/submit", methods=["POST"])
     @csrf_protected
     @rate_limited_ip(bucket="reset-password", per_ip=5, window_s=300)
-    async def reset_password_submit(request: Request) -> Any:
+    async def reset_password_submit(request: Request) -> FT:
         """Process password reset with token"""
         try:
             form_data = await request.form()
@@ -481,7 +481,7 @@ def create_auth_ui_routes(
     # ========================================================================
 
     @rt("/logout")
-    async def logout(request: Request) -> Any:
+    async def logout(request: Request) -> RedirectResponse:
         """Process logout - invalidate session in Neo4j and clear cookie"""
         user_uid = get_current_user(request)
         session = getattr(request, "session", None)

@@ -13,6 +13,7 @@ Endpoints:
 """
 
 from datetime import datetime
+from typing import Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -42,7 +43,7 @@ def register_analytics_routes(
 
     @rt("/api/analytics/learning-velocity")
     @boundary_handler()
-    async def learning_velocity(request: Request):
+    async def learning_velocity(request: Request) -> Result[dict[str, Any]]:
         """
         Get learning velocity metrics for the signed-in user.
 
@@ -82,7 +83,7 @@ def register_analytics_routes(
                 }
             )
 
-        return result
+        return Result.fail(result)
 
     # ========================================================================
     # PRODUCTIVITY ANALYTICS
@@ -90,7 +91,7 @@ def register_analytics_routes(
 
     @rt("/api/analytics/productivity")
     @boundary_handler()
-    async def productivity_metrics(request: Request):
+    async def productivity_metrics(request: Request) -> Result[dict[str, Any]]:
         """
         Get the signed-in user's productivity analytics from task completions.
 
@@ -143,7 +144,7 @@ def register_analytics_routes(
 
     @rt("/api/analytics/habit-consistency")
     @boundary_handler()
-    async def habit_consistency_metrics(request: Request):
+    async def habit_consistency_metrics(request: Request) -> Result[dict[str, Any]]:
         """
         Get the signed-in user's habit consistency analytics.
 
@@ -194,7 +195,7 @@ def register_analytics_routes(
 
     @rt("/api/analytics/dashboard")
     @boundary_handler()
-    async def analytics_dashboard(request: Request):
+    async def analytics_dashboard(request: Request) -> Result[dict[str, Any]]:
         """Get combined analytics dashboard for user."""
         user_uid = require_authenticated_user(request)
 

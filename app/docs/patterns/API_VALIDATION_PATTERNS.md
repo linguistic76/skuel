@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: '2026-11-01'
+updated: '2026-11-03'
 category: patterns
 related_skills:
 - pydantic
@@ -189,7 +189,7 @@ from adapters.inbound.form_helpers import parse_form_body
 @rt("/api/teaching/review/{uid}/revision", methods=["POST"])
 @csrf_protected
 @require_role(UserRole.TEACHER, get_user_service)
-async def request_revision(request: Request, uid: str, current_user: Any = None) -> Any:
+async def request_revision(request: Request, uid: str, current_user: Any = None) -> FT:
     parsed = await parse_form_body(request, RequestRevisionRequest)
     if parsed.is_error:
         return Div(P(parsed.expect_error().message, cls="text-sm text-error"))

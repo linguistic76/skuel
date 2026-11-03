@@ -20,7 +20,7 @@ async def dismiss_insight(request: Request, uid: str) -> Result[FT]:
     return Result.ok(FragmentComponent())
 ```
 
-**When to use**: Every state-changing API route — explicit `methods=["POST"]`, CSRF, boundary, `Result[FT]` fragment return (`Result[Any]` in a handler is a regression).
+**When to use**: Every state-changing API route — explicit `methods=["POST"]`, CSRF, boundary, `Result[FT]` fragment return. Every handler declares the narrowest type it returns (`FT`, `HtmlDocument`, `FtResponse`, a `Response` class, `Result[T]`; FT first in a union), each name a runtime import; none, `Any` or `Result[Any]` fails `tests/unit/adapters/test_route_handler_returns.py`.
 
 ### Route registration — decorator registers IMMEDIATELY
 

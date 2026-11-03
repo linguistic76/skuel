@@ -57,6 +57,7 @@ from core.models.auth.device_request import DeviceEnrollRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.components import Button, ButtonT
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns import PageHeader
 
 if TYPE_CHECKING:
@@ -338,7 +339,7 @@ def create_device_routes(
     # ------------------------------------------------------------------
 
     @rt("/settings/devices")
-    async def devices_page(request: Request) -> Any:
+    async def devices_page(request: Request) -> HtmlDocument:
         """Settings → Devices: list, pair, revoke (ADR-075 Decision 2)."""
         user_uid = require_authenticated_user(request)
         from ui.layouts.base_page import BasePage
@@ -374,7 +375,7 @@ def create_device_routes(
 
     @rt("/settings/devices/pairing-code", methods=["POST"])
     @csrf_protected
-    async def pairing_code_htmx(request: Request) -> Any:
+    async def pairing_code_htmx(request: Request) -> FT:
         """HTMX: mint a one-time pairing code and show it ONCE."""
         user_uid = require_authenticated_user(request)
         result = await user_service.create_device_pairing_code(user_uid)
@@ -387,7 +388,7 @@ def create_device_routes(
 
     @rt("/settings/devices/revoke", methods=["POST"])
     @csrf_protected
-    async def revoke_device_htmx(request: Request) -> Any:
+    async def revoke_device_htmx(request: Request) -> FT:
         """HTMX: revoke a device, close its live session, refresh the list."""
         user_uid = require_authenticated_user(request)
         form_data = await request.form()

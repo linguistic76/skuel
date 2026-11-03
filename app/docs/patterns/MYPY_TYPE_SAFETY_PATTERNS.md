@@ -1,6 +1,6 @@
 ---
 title: MyPy Type Safety Patterns - Systematic Error Reduction
-updated: 2026-11-02
+updated: 2026-11-03
 category: patterns
 related_skills:
 - python
@@ -31,7 +31,7 @@ Every mypy error falls into one of five categories. Fix the root cause, not the 
 | Root Cause | Symptom | Pattern to Use |
 |------------|---------|----------------|
 | Missing type annotations | `no-any-return` errors | [TYPE_CHECKING Pattern](#1-type_checking-pattern) |
-| Incorrect return types | `return-value` errors | [Union Return Types](#2-union-return-types) |
+| Incorrect return types | `return-value` errors | [A Route's Status Comes From a Response](#2-a-routes-status-comes-from-a-response-not-a-tuple) |
 | Protocol signature mismatches | `call-arg` errors | [Protocol Synchronization](#3-protocol-synchronization) |
 | Missing protocol methods | `attr-defined` errors | [Protocol Completeness](#4-protocol-completeness) |
 | Unsafe nullable access | `union-attr` errors | [Nullable Guards](#5-nullable-guards) |
@@ -142,83 +142,51 @@ In SKUEL's codebase:
 
 ---
 
-## 2. Union Return Types
+## 2. A Route's Status Comes From a Response, Not a Tuple
 
-**Problem:** FastHTML routes return both `dict` (success) and `tuple[dict, int]` (error with status code), but are typed as only `dict[str, Any]`
+**Problem:** A handler that returns `{"error": ...}, 400` type-checks once it is annotated `dict[str, Any] | tuple[dict[str, Any], int]` — but FastHTML does not read a tuple as (body, status). It renders the tuple as page content and answers **200**, so `SKUEL.postJson` resolves and the client reports a refusal as success.
 
-**Solution:** Use union types to support both return patterns
+**Solution:** Return a `Result` through `@boundary_handler` — the error's category sets the status (`Errors.validation` 400, `Errors.not_found` 404, …) and the body is the client error dict — and annotate the handler `Result[T]`. A handler that must build its own response returns a `JSONResponse(..., status_code=...)`.
 
-### ❌ Before (Type Error)
-
-```python
-@rt("/api/tasks/{uid}/lateral/blocking", methods=["GET"])
-async def get_blocking(request: Request, uid: str) -> dict[str, Any]:
-    """Get entities that block this entity."""
-    result = await lateral_service.get_blocking_goals(uid, user_uid)
-
-    if result.is_error:
-        # ERROR: Incompatible return value type
-        # (got "tuple[dict[str, object], int]", expected "dict[str, Any]")
-        return {"success": False, "error": str(result.error)}, 400
-
-    return {
-        "success": True,
-        "blocking": result.value,
-    }
-```
-
-**Problem:** Return type doesn't match actual behavior - FastHTML routes commonly return tuples for error cases
-
-### ✅ After (Union Type)
+### ❌ Before (renders as HTML 200)
 
 ```python
-@rt("/api/tasks/{uid}/lateral/blocking", methods=["GET"])
-async def get_blocking(
-    request: Request, uid: str
-) -> dict[str, Any] | tuple[dict[str, Any], int]:  # ← Union type
-    """Get entities that block this entity."""
-    result = await lateral_service.get_blocking_goals(uid, user_uid)
-
-    if result.is_error:
-        return {"success": False, "error": str(result.error)}, 400  # ✅ Valid
-
-    return {
-        "success": True,
-        "blocking": result.value,
-    }  # ✅ Also valid
+@rt("/api/goals/{uid}", methods=["PATCH"])
+@csrf_protected
+async def update_node(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
+    title = (await read_json_body(request)).get("title")
+    if not title:
+        return {"success": False, "error": "title required"}, 400  # a 200 page, not a 400
+    ...
 ```
 
-### Pattern Template
+### ✅ After (`Result` through `boundary_handler`)
 
 ```python
-# For routes that return error tuples with status codes
-async def api_route(
-    request: Request, uid: str
-) -> dict[str, Any] | tuple[dict[str, Any], int]:
-    """Route that may return dict or tuple."""
+class NodeUpdatedPayload(TypedDict):
+    success: bool
+    title: str
 
-    if error_condition:
-        return {"error": "..."}, 400  # Tuple with status
 
-    return {"success": True, "data": ...}  # Plain dict
+@rt("/api/goals/{uid}", methods=["PATCH"])
+@csrf_protected
+@boundary_handler()
+async def update_node(request: Request, uid: str) -> Result[NodeUpdatedPayload]:
+    user_uid = require_authenticated_user(request)
+    title = (await read_json_body(request)).get("title")
+    if not title:
+        return Result.fail(Errors.validation("title is required", field="title"))  # 400
+    owned = await goals_service.verify_ownership(uid, user_uid)
+    if owned.is_error:
+        return Result.fail(owned)  # 404 for a node the caller does not own
+    ...
+    return Result.ok({"success": True, "title": title})
 ```
 
-### Alternative: Remove Type Hint
-
-If the route has complex return patterns, removing the type hint is also valid:
-
-```python
-async def complex_route(request: Request):  # No return type
-    """Route with complex return logic."""
-    # FastHTML handles the return type inference
-```
-
-### Impact
-
-In SKUEL's codebase:
-- **38 errors fixed** across 2 route factory files
-- **59% reduction** in `return-value` errors (64 → 26)
-- **Files updated:** lateral_route_factory.py, lateral_routes.py, insights_api.py
+Every handler declares what it returns — a bare signature is not an alternative:
+`tests/unit/adapters/test_route_handler_returns.py` fails on a registered handler that
+declares no return type, `Any` or `Result[Any]` ([ANY_USAGE_POLICY.md](ANY_USAGE_POLICY.md)
+§ FastHTML boundary surfaces).
 
 ---
 
@@ -824,11 +792,12 @@ if TYPE_CHECKING:
 def create_routes(service: Service) -> None:  # unquoted — PEP 649, UP037
     ...
 
-# return-value → Union return types
-async def route() -> dict[str, Any] | tuple[dict[str, Any], int]:
+# return-value → a status comes from a Response, never a (body, status) tuple
+@boundary_handler()
+async def route(request: Request) -> Result[Payload]:
     if error:
-        return {"error": "..."}, 400
-    return {"success": True}
+        return Result.fail(Errors.validation("..."))  # 400
+    return Result.ok(payload)
 
 # call-arg → Protocol synchronization
 # Update protocol to match implementation exactly

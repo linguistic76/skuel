@@ -14,7 +14,7 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Button, Div, Form, P, Span
+from fasthtml.common import FT, A, Button, Div, Form, P, Span
 from fasthtml.common import Input as FTInput
 
 from core.utils.period_keys import (
@@ -54,7 +54,7 @@ def JournalsLandingPage(
     sessions: list[ConversationSession] | None = None,
     workspace: Any = None,
     model_options: list[tuple[str, str]] | None = None,
-) -> Any:
+) -> FT:
     """3-column journal landing page — Claude.ai project-view style.
 
     Left: collapsible sidebar (New Journal + the revisit list of past
@@ -537,7 +537,7 @@ def _sb_identity_footer(user: User) -> Any:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def discussions_revisit_panel(sessions: list[ConversationSession], *, oob: bool = False) -> Any:
+def discussions_revisit_panel(sessions: list[ConversationSession], *, oob: bool = False) -> FT:
     """Scrollable list of the user's owned discussions (revisit, ADR-078).
 
     Carries a stable ``id=journal-discussions-panel`` so ``POST /journals/save``
@@ -571,7 +571,7 @@ def discussions_revisit_panel(sessions: list[ConversationSession], *, oob: bool 
     )
 
 
-def DiscussionRow(session: ConversationSession) -> Any:
+def DiscussionRow(session: ConversationSession) -> FT:
     """One revisit-list row: title link + hover actions (rename/export/delete).
 
     Inline rename toggles an Alpine ``editing`` flag local to the row; the rename

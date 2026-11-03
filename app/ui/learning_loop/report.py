@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Any
 
 from fasthtml.common import (
+    FT,
     H3,
     H4,
     A,
@@ -1120,7 +1121,7 @@ def render_progress_report_card(report: Any) -> Any:
     )
 
 
-def render_progress_report_list(items: list[Any]) -> Any:
+def render_progress_report_list(items: list[Any]) -> FT:
     """Render the full list of progress reports (HTMX swap target)."""
     if not items:
         return Div(

@@ -153,7 +153,7 @@ def users_list_page(
     )
 
 
-def users_table_fragment(users_data: list[Any]) -> Any:
+def users_table_fragment(users_data: list[Any]) -> FT:
     """HTMX partial: the filtered user table."""
     return Div(
         AdminUIComponents.render_users_table(users_data),
@@ -161,7 +161,7 @@ def users_table_fragment(users_data: list[Any]) -> Any:
     )
 
 
-def users_table_error_fragment(message: str) -> Any:
+def users_table_error_fragment(message: str) -> FT:
     """HTMX partial: user-table load failure."""
     return Div(
         render_error_banner("Failed to load user list", message),

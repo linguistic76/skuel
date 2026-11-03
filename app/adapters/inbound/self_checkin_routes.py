@@ -18,7 +18,7 @@ from __future__ import annotations
 import functools
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -32,7 +32,7 @@ from core.models.enums import (
 from core.models.shared.dual_track import DualTrackResult
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from ui.layouts.base_page import BasePage
+from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.page_types import PageType
 from ui.patterns.page_header import PageHeader
 from ui.self_checkin import render_checkin_form, render_checkin_history, render_checkin_results
@@ -101,7 +101,7 @@ def create_self_checkin_routes(
     user_service = services.user
 
     @rt("/self-checkin")
-    async def self_checkin_page(request: Request) -> Any:
+    async def self_checkin_page(request: Request) -> HtmlDocument:
         """Render the self-rating page (form + empty results slot + check-in history)."""
         user_uid = require_authenticated_user(request)
         checkins = await _load_checkins(services, user_uid)
@@ -125,7 +125,7 @@ def create_self_checkin_routes(
 
     @rt("/self-checkin/results", methods=["POST"])
     @csrf_protected
-    async def self_checkin_results(request: Request) -> Any:
+    async def self_checkin_results(request: Request) -> FT:
         """HTMX POST: run + persist the selected dual-track assessments, render gaps.
 
         POST (not GET) because it mutates — each rated dimension persists a check-in

@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import (
     FT,
     Div,
+    FtResponse,
     P,
     Span,
 )
@@ -140,7 +141,7 @@ def create_activity_reports_ui_routes(
     # ========================================================================
 
     @rt("/submit-activity-report")
-    def submit_activity_report_page(request: Request) -> Any:
+    def submit_activity_report_page(request: Request) -> HtmlDocument:
         """Submit a request to generate an activity report."""
         require_authenticated_user(request)
 
@@ -163,7 +164,7 @@ def create_activity_reports_ui_routes(
     # PERIOD REPORT — the detail page's "Regenerate" for one calendar period
     # ========================================================================
 
-    def _period_prompt_page(request: Request, token: str, *, note: str) -> Response | HtmlDocument:
+    def _period_prompt_page(request: Request, token: str, *, note: str) -> HtmlDocument | Response:
         """The period's "not generated" state — the refusal and the offer to try
         again — or 400 for a token no vocabulary names."""
         now = now_utc()
@@ -192,7 +193,7 @@ def create_activity_reports_ui_routes(
 
     @rt("/activity-reports/for", methods=["POST"])
     @csrf_protected
-    async def generate_activity_report_for_period(request: Request) -> Response | HtmlDocument:
+    async def generate_activity_report_for_period(request: Request) -> HtmlDocument | Response:
         """Mint one calendar period's report — the detail page's "Regenerate".
 
         Url-encoded ``time_period``; a token outside the vocabulary is 400. A
@@ -227,7 +228,7 @@ def create_activity_reports_ui_routes(
     # ========================================================================
 
     @rt("/activity-reports/detail")
-    def activity_report_detail(request: Request) -> Any:
+    def activity_report_detail(request: Request) -> HtmlDocument:
         """Activity report detail — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         uid = request.query_params.get("uid", "").strip()
@@ -252,7 +253,7 @@ def create_activity_reports_ui_routes(
         )
 
     @rt("/activity-reports/detail/content")
-    async def activity_report_detail_content(request: Request) -> Any:
+    async def activity_report_detail_content(request: Request) -> FT | FtResponse:
         """HTMX fragment: activity report detail body."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "").strip()
@@ -411,7 +412,7 @@ def create_activity_reports_ui_routes(
 
     @rt("/reports/progress-list")
     @ui_boundary_handler("Error loading progress reports", fragment_id="progress-list")
-    async def progress_list_fragment(request: Request) -> Any:
+    async def progress_list_fragment(request: Request) -> FT:
         """HTMX fragment: progress reports."""
         user_uid = require_authenticated_user(request)
         if not orchestrator:

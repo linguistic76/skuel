@@ -18,6 +18,7 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.finance import create_finance_page
+from ui.layouts.base_page import HtmlDocument
 
 logger = get_logger("skuel.routes.finance.ui")
 
@@ -53,7 +54,7 @@ def create_finance_ui_routes(rt: RouteDecorator, finance_service, user_service: 
 
     @rt("/finance/invoices")
     @require_admin(get_user_service)
-    async def finance_invoices(request: Request, current_user: Any = None) -> Any:
+    async def finance_invoices(request: Request, current_user: Any = None) -> HtmlDocument:
         """Invoice management page with list and create form."""
         logger.info(f"Finance invoices accessed by {current_user.uid}")
 

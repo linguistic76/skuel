@@ -9,7 +9,7 @@ Alpine: { sidebarOpen } on shell root; { sourcesOpen } per AI message.
 import json
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Button, Div, Form, Option, P, Span, Template, Textarea
+from fasthtml.common import FT, A, Button, Div, Form, Option, P, Span, Template, Textarea
 from fasthtml.common import Input as FTInput
 
 from ui.canon import CanonSourcesBlock
@@ -113,7 +113,7 @@ def render_askesis_shell(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def render_user_message(text: str) -> Any:
+def render_user_message(text: str) -> FT:
     """Right-aligned user bubble — appended to #thread-messages via HTMX beforeend."""
     return Div(
         Div(
@@ -128,7 +128,7 @@ def render_assistant_message(
     text: str,
     sources: list[dict] | None = None,
     canon_sources: tuple[CanonSource, ...] | None = None,
-) -> Any:
+) -> FT:
     """Left-aligned AI message with avatar, optional sources accordion, and action bar.
 
     ``canon_sources`` (ADR-077) renders the shared ``CanonSourcesBlock`` — the

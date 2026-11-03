@@ -1,4 +1,4 @@
-"""Types for fasthtml.common: FT, to_xml and every tag.
+"""Types for fasthtml.common: FT, to_xml, FtResponse and every tag.
 
 Each name is imported from the module it comes from at runtime
 (tests/unit/test_fasthtml_stubs.py checks the identity); every other name stays Any.
@@ -130,6 +130,7 @@ from fasthtml.components import (
     Video,
     Wbr,
 )
+from fasthtml.core import FtResponse
 from fasthtml.xtend import (
     A,
     Form,
@@ -180,6 +181,7 @@ __all__ = [
     "Figure",
     "Footer",
     "Form",
+    "FtResponse",
     "H1",
     "H2",
     "H3",

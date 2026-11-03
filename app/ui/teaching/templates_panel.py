@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import H3, H4, Code, Div, Li, P, Span, Ul
+from fasthtml.common import FT, H3, H4, Code, Div, Li, P, Span, Ul
 
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
@@ -40,7 +40,7 @@ PANEL_DOMAINS: tuple[tuple[str, str], ...] = (
 def render_templates_panel(
     ps_uid: str,
     attached: dict[str, list[dict[str, Any]]],
-) -> Any:
+) -> FT:
     """Render the read-only templates panel for a PathStep.
 
     Args:

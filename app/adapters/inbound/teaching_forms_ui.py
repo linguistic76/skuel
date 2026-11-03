@@ -108,7 +108,7 @@ def create_teaching_forms_ui_routes(
 
     @rt("/teaching/forms")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_forms_list(request: Request, current_user: Any = None) -> Any:
+    async def teaching_forms_list(request: Request, current_user: Any = None) -> HtmlDocument:
 
         result = await form_template_service.list(limit=200, order_by="created_at", order_desc=True)
         if result.is_error:
@@ -197,7 +197,7 @@ def create_teaching_forms_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_forms_detail(
         request: Request, uid: str = "", current_user: Any = None
-    ) -> Any:
+    ) -> HtmlDocument | FtResponse:
 
         if not uid:
             content = Div(
@@ -313,7 +313,7 @@ def create_teaching_forms_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_forms_submission_detail(
         request: Request, uid: str = "", current_user: Any = None
-    ) -> Any:
+    ) -> HtmlDocument | FtResponse | Response:
         if not uid:
             content = Div(
                 PageHeader("Submission Detail"),

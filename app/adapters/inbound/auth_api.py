@@ -18,7 +18,7 @@ Date: 2026-01-21
 
 from typing import Any
 
-from fasthtml.common import H1, Div, P, Pre
+from fasthtml.common import FT, H1, Div, P, Pre
 
 from adapters.inbound.auth import (
     get_current_user,
@@ -59,7 +59,7 @@ def create_auth_api_routes(
 
     @rt("/debug-session")
     @require_admin(get_user_service)
-    def debug_session(request: Request, current_user: Any = None) -> Any:
+    def debug_session(request: Request, current_user: Any = None) -> FT:
         """
         Debug session state.
 
@@ -81,7 +81,7 @@ def create_auth_api_routes(
 
     @rt("/whoami")
     @require_admin(get_user_service)
-    def whoami(request: Request, current_user: Any = None) -> Any:
+    def whoami(request: Request, current_user: Any = None) -> FT:
         """
         Show current user info.
 
