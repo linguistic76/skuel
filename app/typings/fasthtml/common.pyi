@@ -269,4 +269,4 @@ __all__ = [
 ]
 
 # Every name this stub does not declare stays Any, explicitly.
-def __getattr__(name: str) -> Any: ...
+def __getattr__(name: str) -> Any: ...  # boundary: fasthtml-untyped

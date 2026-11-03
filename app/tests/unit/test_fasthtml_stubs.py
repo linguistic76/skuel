@@ -19,6 +19,10 @@ These pins can:
 * **A stub class declares only what the runtime class has.** Every member the stubs
   declare on ``FT`` and ``NotStr`` exists on a real instance (read statically:
   ``FT.__getattr__`` answers any name).
+* **Every ``Any`` says why.** ruff's ANN401 is waived for ``typings/``, so this is the
+  check that each stub line naming ``Any`` carries its boundary: ``fasthtml-elements``
+  (a child, an attribute, a renderable tree) or ``fasthtml-untyped`` (a name the stubs do
+  not type: a module's ``__getattr__`` fallback, ``NotStr``'s delegation to its ``str``).
 
 Each pin's checker is exercised by controls that plant the defect it exists to find.
 """
@@ -29,6 +33,8 @@ import ast
 import functools
 import importlib
 import inspect
+import io
+import tokenize
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any
@@ -41,6 +47,10 @@ from fastcore.xml import FT, Safe, ft, to_xml
 from fasthtml.common import Html, NotStr
 
 STUBS = Path(__file__).resolve().parents[2] / "typings"
+
+# The two boundaries a stub's ``Any`` may stand for (ANY_USAGE_POLICY.md § FastHTML).
+BOUNDARY_TAGS = ("# boundary: fasthtml-elements", "# boundary: fasthtml-untyped")
+_ELEMENTS = "  # boundary: fasthtml-elements"
 
 # A stub module's ``__getattr__`` keeps every undeclared name ``Any``; it is no claim
 # about a runtime function.
@@ -216,6 +226,20 @@ def common_origin_defects(stub: ast.Module, runtime_common: Any, required: set[s
     return defects
 
 
+def untagged_any_lines(text: str) -> list[int]:
+    """Lines naming ``Any`` (outside imports, comments and strings) that carry no boundary tag."""
+    tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
+    named = {tok.start[0] for tok in tokens if tok.type == tokenize.NAME and tok.string == "Any"}
+    comments = {tok.start[0]: tok.string for tok in tokens if tok.type == tokenize.COMMENT}
+    lines = text.splitlines()
+    return [
+        n
+        for n in sorted(named)
+        if not lines[n - 1].lstrip().startswith(("from ", "import "))
+        and not comments.get(n, "").startswith(BOUNDARY_TAGS)
+    ]
+
+
 def class_member_defects(stub_class: ast.ClassDef, instance: object) -> list[str]:
     """Every member the stub class declares is on the real instance, read without ``__getattr__``."""
     declared = [
@@ -308,6 +332,17 @@ def test_stub_classes_declare_only_runtime_members() -> None:
     assert defects == []
 
 
+def test_every_any_in_the_stubs_says_why() -> None:
+    stubs = sorted(STUBS.rglob("*.pyi"))
+    assert len(stubs) == 7
+    untagged = {
+        str(path.relative_to(STUBS)): lines
+        for path in stubs
+        if (lines := untagged_any_lines(path.read_text()))
+    }
+    assert untagged == {}
+
+
 # --- controls: each checker finds the defect it exists to find ---------------------
 
 
@@ -319,7 +354,9 @@ def _edited(relative: str, old: str, new: str) -> ast.Module:
 
 def test_control_a_missing_tag_is_found() -> None:
     stub = _edited(
-        "fasthtml/components.pyi", "def HxPartial(*c: Any, **kwargs: Any) -> FT: ...\n", ""
+        "fasthtml/components.pyi",
+        "def HxPartial(*c: Any, **kwargs: Any) -> FT: ..." + _ELEMENTS + "\n",
+        "",
     )
     assert tag_set_defects(stub, COMPONENT_TAGS) == ["HxPartial: a tag at runtime, not declared"]
 
@@ -327,8 +364,8 @@ def test_control_a_missing_tag_is_found() -> None:
 def test_control_a_tag_that_is_not_one_is_found() -> None:
     stub = _edited(
         "fasthtml/components.pyi",
-        "def Div(*c: Any, **kwargs: Any) -> FT: ...\n",
-        "def Div(*c: Any, **kwargs: Any) -> FT: ...\ndef Bogus(*c: Any, **kwargs: Any) -> FT: ...\n",
+        "def Div(*c: Any, **kwargs: Any) -> FT: ...",
+        "def Div(*c: Any, **kwargs: Any) -> FT: ...\ndef Bogus(*c: Any, **kwargs: Any) -> FT: ...",
     )
     assert tag_set_defects(stub, COMPONENT_TAGS) == ["Bogus: declared as a tag, not one at runtime"]
 
@@ -336,8 +373,8 @@ def test_control_a_tag_that_is_not_one_is_found() -> None:
 def test_control_a_tag_declared_with_another_result_is_found() -> None:
     stub = _edited(
         "fasthtml/components.pyi",
-        "def Span(*c: Any, **kwargs: Any) -> FT: ...\n",
-        "def Span(*c: Any, **kwargs: Any) -> str: ...\n",
+        "def Span(*c: Any, **kwargs: Any) -> FT: ...",
+        "def Span(*c: Any, **kwargs: Any) -> str: ...",
     )
     assert tag_set_defects(stub, COMPONENT_TAGS) == [
         "Span: declared, but not as (*c: Any, **kwargs: Any) -> FT"
@@ -414,3 +451,13 @@ def test_control_a_class_member_the_runtime_lacks_is_found() -> None:
     assert class_member_defects(_class(stub, "FT"), ft("div")) == [
         "FT.rerender: declared, absent at runtime"
     ]
+
+
+def test_control_an_untagged_or_mistagged_any_is_found() -> None:
+    text = (STUBS / "fasthtml/components.pyi").read_text()
+    line = "def Div(*c: Any, **kwargs: Any) -> FT: ..." + _ELEMENTS
+    number = text.splitlines().index(line) + 1
+    untagged = text.replace(line, "def Div(*c: Any, **kwargs: Any) -> FT: ...")
+    mistagged = text.replace(line, "def Div(*c: Any, **kwargs: Any) -> FT: ...  # boundary: html")
+    assert untagged_any_lines(untagged) == [number]
+    assert untagged_any_lines(mistagged) == [number]

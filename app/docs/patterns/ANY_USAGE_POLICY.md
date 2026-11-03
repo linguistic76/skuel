@@ -161,7 +161,7 @@ node_data: dict[str, Any]  # boundary: neo4j-primitives — raw record from driv
 
 ### FastHTML boundary surfaces
 
-FastHTML/fastcore present four distinct surfaces, and `Any` is justified at only one of them — FT element internals. The other three have typed alternatives — `Result[Any]`, `app: Any` / `rt: Any` and an `Any` in an ASGI signature show up there as regressions, not boundaries.
+FastHTML/fastcore present these surfaces, and `Any` is justified at two of them — FT element internals, and the names the local stubs leave untyped. The others have typed alternatives — `Result[Any]`, `app: Any` / `rt: Any`, a tag name as an annotation and an `Any` in an ASGI signature show up there as regressions, not boundaries.
 
 | Surface | Typed alternative | `# boundary:` tag |
 |---------|-------------------|--------------------|
@@ -169,6 +169,7 @@ FastHTML/fastcore present four distinct surfaces, and `Any` is justified at only
 | Route handler return | `Result[FT]` for HTML fragments; `Result[Goal]` etc. for models | *none — the concrete type IS the contract* |
 | A tag's result, a page | `FT` (every tag function returns one); `HtmlDocument` for a full page | *none — `typings/` types them* |
 | FT element internals (`*c`, `**kwargs`) | none — HTML is structurally heterogeneous | `# boundary: fasthtml-elements` |
+| A FastHTML name the stubs in `typings/` do not declare | declare it in the stub when first-party code needs its type | `# boundary: fasthtml-untyped` (in `typings/` only) |
 | ASGI plumbing (`scope/receive/send`) | `Scope` / `Receive` / `Send` / `ASGIApp` from `starlette.types` | *none — Starlette's types ARE the boundary* |
 | The role-decorator-injected `current_user: Any = None` | none that fails closed — see below | `# boundary: injected-user` (tagged once, at the contract in `roles.py`) |
 
@@ -180,6 +181,20 @@ FastHTML HTML element factories (`Div`, `Span`, `CardBody`, etc.) accept variadi
 def CardBody(*c: Any, cls: str = "", **kwargs: Any) -> FT:
     # boundary: fasthtml-elements — html children and attrs are structurally dynamic
 ```
+
+The stubs in `typings/` carry the same tag on every `Any` that stands for a child, an
+attribute or a renderable tree (`FT.children`, `FT.attrs`, each tag's `*c` / `**kwargs`).
+
+#### `# boundary: fasthtml-untyped`
+
+The stubs in `typings/` type only the FastHTML names first-party code imports. Each stub
+module ends in `def __getattr__(name: str) -> Any`, so every other name stays `Any`
+explicitly rather than failing to resolve; `NotStr`'s `__getattr__` (it delegates to the
+`str` it wraps) is the same kind. These carry `# boundary: fasthtml-untyped`, and the tag
+lives in `typings/` only. ruff's ANN401 is waived for `typings/`, so
+`tests/unit/test_fasthtml_stubs.py` is what holds every stub line naming `Any` to one of the
+two tags. When first-party code starts to use an untyped name, declare it in the stub:
+the same test then holds the declaration to the installed package.
 
 #### `# boundary: injected-user`
 

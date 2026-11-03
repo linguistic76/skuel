@@ -896,8 +896,10 @@ fixable = ["ALL"]
 "ui/*.py" = ["N802", "RUF001", "RUF002"]              # Shared UI components use PascalCase + Unicode icons
 "ui/**/*.py" = ["F405", "N802", "RUF001", "RUF002", "RUF012", "ARG001", "ARG002", "ANN", "PERF401"]  # UI: PascalCase + Unicode + class defaults
 # Local type stubs transcribe FastHTML's API as it is: PascalCase tag functions (one
-# named `I`), and `Any` for what a tag genuinely takes — any child, any attribute —
-# a permanent boundary (ANY_USAGE_POLICY tier C), not ledger debt.
+# named `I`), and `Any` for what a tag genuinely takes — any child, any attribute — and
+# for the names the stubs leave untyped: permanent boundaries (ANY_USAGE_POLICY tier C),
+# not ledger debt. With ANN401 waived, tests/unit/test_fasthtml_stubs.py holds every stub
+# line naming `Any` to its `# boundary: fasthtml-elements` / `fasthtml-untyped` tag.
 "typings/**/*.pyi" = ["ANN401", "N802", "E743"]
 
 # Examples are documentation (Phase 8.1)
