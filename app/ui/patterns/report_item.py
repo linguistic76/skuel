@@ -7,7 +7,7 @@ via ``EntryReportService.list_for_submission``.
 
 from typing import Any
 
-from fasthtml.common import A, Div, P, Span
+from fasthtml.common import FT, A, Div, P, Span
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import ReportSource
@@ -17,7 +17,7 @@ from ui.layout import Size
 from ui.patterns.format_date import format_date
 
 
-def render_report_item(report: EntryReport) -> Div:
+def render_report_item(report: EntryReport) -> FT:
     """Render a single typed EntryReport as a history card."""
     author = report.user_uid or "Author"
     content = report.processed_content or ""

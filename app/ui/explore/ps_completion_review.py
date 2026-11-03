@@ -16,7 +16,7 @@ Defaults pinned 2026-05-11:
 
 from __future__ import annotations
 
-from fasthtml.common import H4, Div, Form, Input, P, Span
+from fasthtml.common import FT, H4, Div, Form, Input, P, Span
 
 from core.services.ps_engagement.ps_engagement_service import ReviewItem
 from ui.components import Button, ButtonT
@@ -27,7 +27,7 @@ from ui.layout import Size
 _ENGAGEMENT_ACTIONS_ID = "ps-engagement-actions"
 
 
-def render_review_form(uid: str, items: list[ReviewItem]) -> Div:
+def render_review_form(uid: str, items: list[ReviewItem]) -> FT:
     """Render the inline review form for a PathStep completion.
 
     Each row carries a hidden ``template_uids`` field (collected on submit)
@@ -42,7 +42,7 @@ def render_review_form(uid: str, items: list[ReviewItem]) -> Div:
     return Div(body, id=_ENGAGEMENT_ACTIONS_ID, cls="border border-border rounded-md p-4")
 
 
-def render_review_error(uid: str, message: str) -> Div:
+def render_review_error(uid: str, message: str) -> FT:
     """Render the review panel for an error case (Neo4j down, service failure).
 
     Keeps the same wrapper id so the failed POST swaps in place; gives the
@@ -67,7 +67,7 @@ def render_review_error(uid: str, message: str) -> Div:
     )
 
 
-def _empty_review_body(uid: str) -> Div:
+def _empty_review_body(uid: str) -> FT:
     """Engaged but nothing spawned (edge case — empty template set on PS).
 
     Surface an explicit message and let the student close the engagement with
@@ -105,7 +105,7 @@ def _empty_review_body(uid: str) -> Div:
     )
 
 
-def _populated_review_body(uid: str, items: list[ReviewItem]) -> Div:
+def _populated_review_body(uid: str, items: list[ReviewItem]) -> FT:
     rows = [_review_row(item) for item in items]
     return Div(
         H4("Review: What to keep?", cls="text-base font-semibold mb-1"),
@@ -141,7 +141,7 @@ def _populated_review_body(uid: str, items: list[ReviewItem]) -> Div:
     )
 
 
-def _review_row(item: ReviewItem) -> Div:
+def _review_row(item: ReviewItem) -> FT:
     """One template's keep/discard row + the hidden template_uid carry-field."""
     checkbox_name = f"keep_{item.template_uid}"
     return Div(

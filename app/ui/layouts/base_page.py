@@ -25,6 +25,7 @@ Usage:
 from typing import TYPE_CHECKING
 
 from fasthtml.common import (
+    FT,
     A,
     Body,
     Button,
@@ -50,9 +51,11 @@ from ui.layouts.page_types import PAGE_CONFIG, PageType
 from ui.theme import dark_mode_script, pwa_headers, skuel_headers
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from adapters.inbound.fasthtml_types import Request
+
+# A full page: the doctype tag and the `html` element. `Html()` returns this pair
+# unless it is told `doctype=False`, so a page is never one FT.
+type HtmlDocument = tuple[FT, FT]
 
 # Cache SKUEL headers at import time (output.css + HTMX + Alpine + main.css + skuel.js).
 _SKUEL_HEADERS = skuel_headers()
@@ -153,7 +156,7 @@ def BasePage(
     user_display_name: str = "",
     is_authenticated: bool = True,
     is_admin: bool = False,
-) -> FT:
+) -> HtmlDocument:
     """Unified page wrapper for consistent UX across SKUEL.
 
     Provides:
@@ -310,7 +313,7 @@ def BasePage(
 def AuthPage(
     content: FT,
     title: str = "SKUEL",
-) -> FT:
+) -> HtmlDocument:
     """Lightweight page wrapper for unauthenticated pages (login, register).
 
     Loads the full SKUEL CSS stack via build_head() but renders no navbar,

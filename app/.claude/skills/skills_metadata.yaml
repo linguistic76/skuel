@@ -155,7 +155,7 @@ skills:
     foundation: [python]
     dependencies: [python]
     library_package: python-fasthtml
-    library_version: "0.14.12"
+    library_version: "0.14.14"
     primary_docs:
       - /docs/patterns/FASTHTML_ROUTE_REGISTRATION.md
       - /docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md

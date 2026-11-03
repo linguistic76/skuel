@@ -7,12 +7,12 @@ System UI routes for the root landing and error pages.
 
 from typing import Any
 
-from fasthtml.common import FT
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import is_authenticated
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
+from ui.layouts.base_page import HtmlDocument
 from ui.system import render_404_page, render_login_landing_page
 
 logger = get_logger("skuel.routes.system.ui")
@@ -47,7 +47,7 @@ def create_system_ui_routes(
         return render_login_landing_page()
 
     @rt("/404")
-    def not_found(request: Request) -> FT:
+    def not_found(request: Request) -> HtmlDocument:
         """404 Not Found page."""
         return render_404_page(request)
 

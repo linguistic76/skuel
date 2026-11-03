@@ -7,7 +7,7 @@ block of UserEntry content peers shared with the group (the *Shared with
 you* reader narrowed to that group).
 """
 
-from fasthtml.common import Button, Div
+from fasthtml.common import FT, Button, Div
 
 from core.models.group.group import Group
 from ui.alpine import js_literal
@@ -46,7 +46,7 @@ def _group_block(group: Group) -> HubBlockData:
 _FOCUS_ACTIVE_TAB = "$nextTick(() => document.getElementById('groups-tab-' + activeTab).focus())"
 
 
-def _tab_button(group: Group) -> Button:
+def _tab_button(group: Group) -> FT:
     uid = group.uid
     cond = f"activeTab === {js_literal(uid)}"
     return Button(
@@ -65,7 +65,7 @@ def _tab_button(group: Group) -> Button:
     )
 
 
-def _tab_panel(group: Group) -> Div:
+def _tab_panel(group: Group) -> FT:
     return Div(
         HubDomainBlock(_group_block(group)),
         role="tabpanel",
@@ -76,7 +76,7 @@ def _tab_panel(group: Group) -> Div:
     )
 
 
-def GroupsHub(groups: list[Group], active_group_uid: str | None) -> Div:
+def GroupsHub(groups: list[Group], active_group_uid: str | None) -> FT:
     """Tabbed hub showing content shared with each of a student's groups.
 
     Args:

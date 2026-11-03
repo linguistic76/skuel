@@ -26,7 +26,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fasthtml.common import Div, fast_app
+from fasthtml.common import FT, Div, fast_app
 from starlette.testclient import TestClient
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
@@ -84,13 +84,13 @@ def _client() -> TestClient:
     async def get_owned(uid: str, user_uid: str) -> Result[_Item]:
         return Result.ok(_ITEMS[0])
 
-    def list_component(filtered: list[_Item], connections_map: dict[str, Any]) -> Div:
+    def list_component(filtered: list[_Item], connections_map: dict[str, Any]) -> FT:
         return Div(*[Div(i.uid) for i in filtered], id="task-list")
 
-    def stats_component(all_items: list[_Item]) -> Div:
+    def stats_component(all_items: list[_Item]) -> FT:
         return Div(f"total:{len(all_items)}")
 
-    def detail_component(entity: _Item, connections: list[Any]) -> Div:
+    def detail_component(entity: _Item, connections: list[Any]) -> FT:
         return Div("detail")
 
     config = ActivityUIConfig(

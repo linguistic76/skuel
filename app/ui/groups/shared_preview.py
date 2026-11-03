@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from fasthtml.common import A, Div, P, Span
+from fasthtml.common import FT, A, Div, P, Span
 
 from ui.patterns.relative_time import format_relative_time
 
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import SharedWithMeItem
 
 
-def _preview_tile(item: SharedWithMeItem) -> A:
+def _preview_tile(item: SharedWithMeItem) -> FT:
     entity = item["entity"]
     title = entity.title or "Untitled entry"
     author = item.get("shared_by") or ""
@@ -50,7 +50,7 @@ def _preview_tile(item: SharedWithMeItem) -> A:
     )
 
 
-def GroupSharedPreviewList(records: Sequence[SharedWithMeItem]) -> Div:
+def GroupSharedPreviewList(records: Sequence[SharedWithMeItem]) -> FT:
     """Render the preview list for one group's Recent Shares block.
 
     Args:

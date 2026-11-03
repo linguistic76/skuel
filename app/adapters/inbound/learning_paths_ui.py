@@ -9,7 +9,7 @@ Routes:
 
 from typing import Any
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
@@ -58,7 +58,7 @@ def create_learning_paths_ui_routes(
         return Div(_entity_list(items), id="learning-paths-content")
 
 
-def _entity_list(items: list[Any]) -> Div:
+def _entity_list(items: list[Any]) -> FT:
     """Render a list of learning path entities using CardGenerator."""
     if not items:
         return EmptyState(title="No learning paths found")

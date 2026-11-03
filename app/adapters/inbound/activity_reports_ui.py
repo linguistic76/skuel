@@ -55,6 +55,7 @@ from core.utils.timestamp_helpers import now_utc
 from core.utils.zone_context import current_zone
 from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
 from ui.gradebook.summary import GRADEBOOK_TITLE
+from ui.layouts.base_page import HtmlDocument
 from ui.learning_loop.report import (
     render_activity_report_detail,
     render_progress_report_list,
@@ -88,7 +89,7 @@ def _status_note(message: str, *, ok: bool) -> FT:
     return P(message, cls=f"text-sm {tone}", role="status")
 
 
-def _progress_list_refresh() -> Div:
+def _progress_list_refresh() -> FT:
     """Out-of-band re-fetch of the recent-reports list after a generation."""
     return Div(
         Span("Refreshing recent reports…", cls="sr-only"),
@@ -162,7 +163,7 @@ def create_activity_reports_ui_routes(
     # PERIOD REPORT — the detail page's "Regenerate" for one calendar period
     # ========================================================================
 
-    def _period_prompt_page(request: Request, token: str, *, note: str) -> Response | FT:
+    def _period_prompt_page(request: Request, token: str, *, note: str) -> Response | HtmlDocument:
         """The period's "not generated" state — the refusal and the offer to try
         again — or 400 for a token no vocabulary names."""
         now = now_utc()
@@ -191,7 +192,7 @@ def create_activity_reports_ui_routes(
 
     @rt("/activity-reports/for", methods=["POST"])
     @csrf_protected
-    async def generate_activity_report_for_period(request: Request) -> Response | FT:
+    async def generate_activity_report_for_period(request: Request) -> Response | HtmlDocument:
         """Mint one calendar period's report — the detail page's "Regenerate".
 
         Url-encoded ``time_period``; a token outside the vocabulary is 400. A

@@ -9,7 +9,7 @@ intelligence services based on user behavior patterns.
 
 from typing import Any
 
-from fasthtml.common import H3, Div, Form, Li, P, Span, Strong, Ul
+from fasthtml.common import FT, H3, Div, Form, Li, P, Span, Strong, Ul
 
 from core.models.insight.persisted_insight import InsightImpact, PersistedInsight
 from ui.alpine import alpine_call
@@ -48,7 +48,7 @@ def _entity_detail_href(insight: PersistedInsight) -> str | None:
     return entity_detail_href(_DOMAIN_ENTITY_TYPE.get(insight.domain), insight.entity_uid)
 
 
-def InsightCard(insight: PersistedInsight) -> Div:
+def InsightCard(insight: PersistedInsight) -> FT:
     """Render a single insight with dismiss/action buttons.
 
     Args:
@@ -193,7 +193,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
     )
 
 
-def DismissedInsightMessage() -> Div:
+def DismissedInsightMessage() -> FT:
     """Message shown when an insight is dismissed."""
     return Div(
         Alert(
@@ -204,7 +204,7 @@ def DismissedInsightMessage() -> Div:
     )
 
 
-def InsightDetailModal(insight: PersistedInsight) -> Div:
+def InsightDetailModal(insight: PersistedInsight) -> FT:
     """Modal dialog for viewing detailed insight information.
 
     Shows:

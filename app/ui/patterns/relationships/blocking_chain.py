@@ -25,14 +25,14 @@ Layout:
 
 from typing import Any
 
-from fasthtml.common import H3, Div, Span
+from fasthtml.common import FT, H3, Div, Span
 
 from core.models.type_hints import EntityUID
 from ui.components import Card, CardBody
 from ui.patterns.skeleton import SkeletonLines
 
 
-def BlockingChainView(entity_uid: EntityUID, entity_type: str) -> Div:
+def BlockingChainView(entity_uid: EntityUID, entity_type: str) -> FT:
     """Vertical flow chart showing transitive blocking chain.
 
     Args:
@@ -66,7 +66,7 @@ def BlockingChainView(entity_uid: EntityUID, entity_type: str) -> Div:
     )
 
 
-def render_chain_fragment(chain_data: dict[str, Any]) -> Div:
+def render_chain_fragment(chain_data: dict[str, Any]) -> FT:
     """Render loaded chain data as HTML fragment (called by HTMX endpoint).
 
     Args:

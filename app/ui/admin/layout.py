@@ -5,6 +5,7 @@ Uses SidebarPage for consistent navigation with all other SKUEL sidebar pages.
 
 from typing import TYPE_CHECKING
 
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
@@ -48,7 +49,7 @@ def create_admin_page(
     admin_username: str = "",
     title: str = "Admin Dashboard",
     request: Request | None = None,
-) -> FT:
+) -> HtmlDocument:
     """Create an admin dashboard page using the unified SidebarPage pattern.
 
     Args:

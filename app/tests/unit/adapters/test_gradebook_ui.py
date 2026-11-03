@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 
 from adapters.inbound.user_entry_ui import create_user_entry_ui_routes
 from core.utils.result_simplified import Result

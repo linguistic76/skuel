@@ -44,7 +44,7 @@ def render_explore_card(
     item: dict[str, Any],
     learning_state: str = "",
     is_pinned: bool = False,
-) -> Div:
+) -> FT:
     """Render a single explore card for bento grid layout.
 
     Args:
@@ -180,7 +180,7 @@ def render_load_more(next_offset: int) -> FT:
     )
 
 
-def _tag_chip(tag: str, active_tag: str, in_overflow: bool) -> Span:
+def _tag_chip(tag: str, active_tag: str, in_overflow: bool) -> FT:
     """One clickable tag chip; overflow chips render x-cloaked behind the expander."""
     overflow_attrs: dict[str, str | bool] = (
         {"x-show": "showAllTags", "x-cloak": True} if in_overflow else {}
@@ -278,7 +278,7 @@ def render_explore_search_panel(
     nous_topics: list[str] | None = None,
     nous_subtopics: list[str] | None = None,
     active_tag: str = "",
-) -> Div:
+) -> FT:
     """Search + filter panel for the explore index.
 
     Adapts the /search facet bar to the public curriculum catalog: TYPE (Ku /

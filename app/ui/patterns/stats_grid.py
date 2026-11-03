@@ -7,7 +7,7 @@ dashboards. They show counts, totals, and trends in a compact format.
 from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import Div, Span
+from fasthtml.common import FT, Div, Span
 
 from ui.components import Card, CardBody
 from ui.layout import Grid
@@ -33,7 +33,7 @@ def StatCard(
     color: str | None = None,
     href: str | None = None,
     **kwargs: Any,
-) -> Div:
+) -> FT:
     """Single statistic card.
 
     Args:
@@ -98,7 +98,7 @@ def StatCard(
     return card
 
 
-def IconStat(label: str, value: str | int, icon: str, color_class: str = "") -> Div:
+def IconStat(label: str, value: str | int, icon: str, color_class: str = "") -> FT:
     """Compact centered stat tile with an emoji/icon, label, and value.
 
     Distinct from StatCard: no Card wrapper, icon-led, centered — meant to sit
@@ -129,7 +129,7 @@ def StatsGrid(
     stats: list[StatItem],
     cols: int = 4,
     **kwargs: Any,
-) -> Div:
+) -> FT:
     """Grid of statistic cards.
 
     Args:

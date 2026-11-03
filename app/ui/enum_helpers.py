@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from fasthtml.common import Div, Span
+from fasthtml.common import FT, Div, Span
 
 from core.models.enums import (
     ActivityType,
@@ -235,7 +235,7 @@ def get_time_icon(time_of_day: str) -> str:
 # ============================================================================
 
 
-def render_priority_badge(priority: str | Priority) -> Span:
+def render_priority_badge(priority: str | Priority) -> FT:
     """Render priority as styled badge component."""
     if isinstance(priority, str):
         try:
@@ -248,7 +248,7 @@ def render_priority_badge(priority: str | Priority) -> Span:
     return Badge(label, variant=None, cls=badge_class)
 
 
-def render_status_badge(status: str | EntityStatus) -> Span:
+def render_status_badge(status: str | EntityStatus) -> FT:
     """Render status as styled badge component."""
     if isinstance(status, str):
         try:
@@ -261,7 +261,7 @@ def render_status_badge(status: str | EntityStatus) -> Span:
     return Badge(label, variant=None, cls=badge_class)
 
 
-def render_status_chip(status: str | EntityStatus) -> Span:
+def render_status_chip(status: str | EntityStatus) -> FT:
     """Render status as styled chip with color indicator."""
     if isinstance(status, str):
         try:
@@ -278,7 +278,7 @@ def render_status_chip(status: str | EntityStatus) -> Span:
     )
 
 
-def render_trend_indicator(trend: str, value: float | None = None) -> Div:
+def render_trend_indicator(trend: str, value: float | None = None) -> FT:
     """Render trend with icon, color, and optional value."""
     color = get_trend_color(trend)
     icon = get_trend_icon(trend)
@@ -292,7 +292,7 @@ def render_trend_indicator(trend: str, value: float | None = None) -> Div:
     return Div(*content, cls="trend-indicator flex items-center gap-2")
 
 
-def render_completion_badge(status: str | CompletionStatus) -> Span:
+def render_completion_badge(status: str | CompletionStatus) -> FT:
     """Render completion status as badge with emoji."""
     if isinstance(status, str):
         try:
@@ -316,7 +316,7 @@ def render_completion_badge(status: str | CompletionStatus) -> Span:
 
 def render_entity_metadata(
     priority: str | Priority, status: str | EntityStatus, due_date: str | None = None
-) -> Div:
+) -> FT:
     """Render combined metadata display for tasks/events/habits."""
     components = [render_priority_badge(priority), render_status_chip(status)]
 

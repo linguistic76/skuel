@@ -45,16 +45,16 @@ page = BasePage(
 )
 ```
 
-**When to use**: Every authenticated page. `BasePage` is a plain function returning the page FT — return it; there is nothing to `await`. Unauthenticated flows (login/register/landing) use `AuthPage(content, title=...)` — no navbar/chrome.
+**When to use**: Every authenticated page. `BasePage` is a plain function returning the page (`HtmlDocument`: `Html()`'s doctype + `html` pair) — return it; there is nothing to `await`. Unauthenticated flows (login/register/landing) use `AuthPage(content, title=...)` — no navbar/chrome.
 
 ### FT component factory (typed boundary)
 
 ```python
-def stat_card(*content: Any, cls: str = "") -> Any:  # boundary: fasthtml-elements
+def stat_card(*content: Any, cls: str = "") -> FT:  # boundary: fasthtml-elements
     return Div(*content, cls=f"rounded-lg border p-4 {cls}".strip())
 ```
 
-**When to use**: Any FT helper. FastHTML ships no `py.typed`, so `*c: Any, **kwargs: Any` needs the `# boundary: fasthtml-elements` comment. The explicit `cls: str = ""` parameter + merge is the SKUEL024-safe shape — hardcoding `cls=` while splatting `**kwargs` raises `TypeError: multiple values for 'cls'`.
+**When to use**: Any FT helper. FastHTML ships no `py.typed`, so `*c: Any, **kwargs: Any` needs the `# boundary: fasthtml-elements` comment; the return is `FT` (the local stubs in `typings/` make every tag return one), never a tag name such as `Div`, which mypy refuses as a type. The explicit `cls: str = ""` parameter + merge is the SKUEL024-safe shape — hardcoding `cls=` while splatting `**kwargs` raises `TypeError: multiple values for 'cls'`.
 
 ### Two route shapes: query-param reads, path-uid actions
 

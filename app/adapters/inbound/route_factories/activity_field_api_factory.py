@@ -24,7 +24,7 @@ import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 from starlette.responses import HTMLResponse
 
 from adapters.inbound.auth import require_authenticated_user

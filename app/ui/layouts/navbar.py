@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Div, Nav, Span
+from fasthtml.common import FT, A, Div, Nav, Span
 
 from core.utils.auth_context import current_auth_state
 from ui.components import Icon
@@ -65,7 +65,7 @@ _INSIGHTS_ICON_BREAKPOINT_CLS = "inline-flex sm:hidden md:inline-flex"
 _INSIGHTS_ROW_BREAKPOINT_CLS = "hidden sm:flex md:hidden"
 
 
-def _nav_link(label: str, href: str, *, is_active: bool, extra_cls: str = "") -> A:
+def _nav_link(label: str, href: str, *, is_active: bool, extra_cls: str = "") -> FT:
     """Desktop text nav link with active state."""
     active_cls = "bg-accent text-accent-foreground"
     inactive_cls = "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -73,7 +73,7 @@ def _nav_link(label: str, href: str, *, is_active: bool, extra_cls: str = "") ->
     return A(label, href=href, cls=cls, **({"aria-current": "page"} if is_active else {}))
 
 
-def _signout_button() -> A:
+def _signout_button() -> FT:
     """Sign-out icon button — desktop only.
 
     It is the one top-bar icon whose destination is an action rather than a
@@ -98,7 +98,7 @@ _SETTINGS_ROW_CLS = (
 )
 
 
-def signout_row() -> A:
+def signout_row() -> FT:
     """Sign out — the phone's only door, since the navbar icon is desktop-only.
 
     ``sm:hidden`` mirrors ``_signout_button``'s ``hidden sm:inline-flex``:
@@ -114,7 +114,7 @@ def signout_row() -> A:
     )
 
 
-def insights_row() -> A:
+def insights_row() -> FT:
     """Insights — the door across the band where the top bar has no room for its icon.
 
     ``hidden sm:flex md:hidden`` mirrors ``_insights_button``'s
@@ -129,7 +129,7 @@ def insights_row() -> A:
     )
 
 
-def role_nav_rows(*, is_admin: bool, is_teacher: bool) -> list[A]:
+def role_nav_rows(*, is_admin: bool, is_teacher: bool) -> list[FT]:
     """The role-gated section doors as rows for /settings below lg.
 
     The centre links carry ``MAIN_NAV_ITEMS`` at lg+ and the bottom nav
@@ -143,7 +143,7 @@ def role_nav_rows(*, is_admin: bool, is_teacher: bool) -> list[A]:
     ]
 
 
-def _notification_button(unread_count: int = 0) -> A:
+def _notification_button(unread_count: int = 0) -> FT:
     """Notification bell icon link (to /notifications) with optional unread badge."""
     button_content: list[Any] = [
         Span("View notifications", cls="sr-only"),
@@ -186,7 +186,7 @@ def _avatar_hue(name: str) -> int:
     return h
 
 
-def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
+def _avatar_circle(current_user: str, fallback: str = "U") -> FT:
     """Colored avatar circle with the user's initial.
 
     The hue is the user's; the lightness is the theme's. The style carries only the hue,
@@ -207,7 +207,7 @@ def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
     )
 
 
-def _shared_inbox_button(active_page: str) -> A:
+def _shared_inbox_button(active_page: str) -> FT:
     """Inbox icon linking to /profile/shared — the Shared page: shared with you, and your wall."""
     is_active = active_page == "shared"
     color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
@@ -220,7 +220,7 @@ def _shared_inbox_button(active_page: str) -> A:
     )
 
 
-def _askesis_button(active_page: str) -> A:
+def _askesis_button(active_page: str) -> FT:
     """Flame icon linking to /askesis — the ZPD-aware practice companion."""
     is_active = active_page == "askesis"
     color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
@@ -233,7 +233,7 @@ def _askesis_button(active_page: str) -> A:
     )
 
 
-def _insights_button(active_page: str) -> A:
+def _insights_button(active_page: str) -> FT:
     """Lightbulb icon linking to /insights — the Insights section (its pages and
     the analytics pages pass ``"insights"``, so the icon stays lit across them).
 
@@ -253,7 +253,7 @@ def _insights_button(active_page: str) -> A:
     )
 
 
-def _account_button(current_user: str, active_page: str) -> A:
+def _account_button(current_user: str, active_page: str) -> FT:
     """Avatar circle linking to /settings — the account page (preferences,
     devices, and on phones the sign-out and role rows)."""
     is_active = active_page == "settings"
@@ -267,7 +267,7 @@ def _account_button(current_user: str, active_page: str) -> A:
     )
 
 
-def _auth_buttons() -> Div:
+def _auth_buttons() -> FT:
     """Login/signup buttons for unauthenticated users."""
     return Div(
         A(
@@ -290,7 +290,7 @@ def create_navbar(
     active_page: str = "",
     is_admin: bool = False,
     is_teacher: bool = False,
-) -> Nav:
+) -> FT:
     """
     Create the slim top navigation bar — the same bar for every role.
 
@@ -362,7 +362,7 @@ def create_navbar(
     )
 
 
-def _bottom_nav_tab(item: IconNavItem, active_page: str) -> A:
+def _bottom_nav_tab(item: IconNavItem, active_page: str) -> FT:
     """One tab: icon over label — the label IS the accessible name."""
     is_active = item.lights(active_page)
     color_cls = "text-primary" if is_active else "text-muted-foreground"
@@ -379,7 +379,7 @@ def _bottom_nav_tab(item: IconNavItem, active_page: str) -> A:
     )
 
 
-def create_bottom_nav(is_authenticated: bool = False, active_page: str = "") -> Nav:
+def create_bottom_nav(is_authenticated: bool = False, active_page: str = "") -> FT:
     """
     Create the phone-only fixed bottom navigation bar.
 
@@ -414,7 +414,7 @@ def create_bottom_nav(is_authenticated: bool = False, active_page: str = "") -> 
 def create_navbar_for_request(
     request: Request,
     active_page: str = "",
-) -> Nav:
+) -> FT:
     """
     Create top navbar with automatic user/role detection from the
     middleware-set auth context (AuthContextMiddleware mirrors the session
@@ -443,7 +443,7 @@ def create_navbar_for_request(
 def create_bottom_nav_for_request(
     request: Request,
     active_page: str = "",
-) -> Nav:
+) -> FT:
     """
     Create the phone bottom nav with automatic auth detection from the
     middleware-set auth context (request kept so routes need no changes).

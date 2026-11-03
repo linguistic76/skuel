@@ -22,7 +22,7 @@ Data shape: ExerciseStatusRow TypedDict (core/ports/query_types.py).
 
 from typing import Any
 
-from fasthtml.common import A, Div, P, Span
+from fasthtml.common import FT, A, Div, P, Span
 
 from core.ports.query_types import ExerciseStatusRow
 from ui.components import ButtonT
@@ -64,7 +64,7 @@ def exercise_status_key(row: ExerciseStatusRow) -> str:
     return "not_submitted"
 
 
-def exercise_action_link(row: ExerciseStatusRow, from_ps: str | None = None) -> A:
+def exercise_action_link(row: ExerciseStatusRow, from_ps: str | None = None) -> FT:
     """Return the primary action link for an exercise row.
 
     Args:
@@ -107,7 +107,7 @@ def exercise_action_link(row: ExerciseStatusRow, from_ps: str | None = None) -> 
     )
 
 
-def exercise_item(row: ExerciseStatusRow, from_ps: str | None = None) -> Div:
+def exercise_item(row: ExerciseStatusRow, from_ps: str | None = None) -> FT:
     """Single row for an exercise showing submission/feedback status."""
     snippet = (row["description"] or "")[:120]
     if len(row["description"] or "") > 120:
@@ -137,7 +137,7 @@ def exercise_item(row: ExerciseStatusRow, from_ps: str | None = None) -> Div:
     )
 
 
-def render_exercise_list(exercises: list[ExerciseStatusRow], from_ps: str | None = None) -> Div:
+def render_exercise_list(exercises: list[ExerciseStatusRow], from_ps: str | None = None) -> FT:
     """Render exercises with submission/feedback status.
 
     Args:

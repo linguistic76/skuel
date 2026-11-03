@@ -1,6 +1,6 @@
 ---
 title: MyPy Zero-Error Strategy - From Pragmatic Acceptance to Clean Baseline
-updated: 2026-08-09
+updated: 2026-11-03
 category: patterns
 related_skills: []
 related_docs:
@@ -80,10 +80,10 @@ optional_parameters: set[str] = field(default_factory=set)
 from neo4j import AsyncDriver
 ```
 
-**Why:** External libraries (neo4j, fasthtml, etc.) don't provide type stubs
+**Why:** External libraries (neo4j, openai, etc.) don't provide type stubs
 
 **Count:** ~165 errors
-**Status:** **RESOLVED** — via `follow_imports = "skip"` for external libraries without stubs in `pyproject.toml` overrides.
+**Status:** **RESOLVED** — via `follow_imports = "skip"` for external libraries without stubs in `pyproject.toml` overrides. FastHTML is typed instead: local stubs in `typings/` (`mypy_path`) declare `FT` and every tag function, and `tests/unit/test_fasthtml_stubs.py` holds them to the installed package.
 
 ---
 

@@ -13,7 +13,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fasthtml.common import Div, fast_app
+from fasthtml.common import FT, Div, fast_app
 from starlette.testclient import TestClient
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
@@ -36,15 +36,15 @@ def _keep_all(items: list[_Item], status: str) -> list[_Item]:
     return list(items)
 
 
-def _list_component(filtered: list[_Item], connections_map: dict[str, Any]) -> Div:
+def _list_component(filtered: list[_Item], connections_map: dict[str, Any]) -> FT:
     return Div(id="event-list")
 
 
-def _stats_component(all_items: list[_Item]) -> Div:
+def _stats_component(all_items: list[_Item]) -> FT:
     return Div()
 
 
-def _detail_component(entity: _Item, connections: list[Any]) -> Div:
+def _detail_component(entity: _Item, connections: list[Any]) -> FT:
     return Div("detail")
 
 

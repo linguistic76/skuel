@@ -7,18 +7,7 @@ UI components for the Invoice section of the Finance Hub.
 
 from typing import Any
 
-from fasthtml.common import (
-    H3,
-    A,
-    Button,
-    Div,
-    Form,
-    Label,
-    Option,
-    Script,
-    Span,
-    Template,
-)
+from fasthtml.common import FT, H3, A, Button, Div, Form, Label, Option, Script, Span, Template
 from fasthtml.common import Input as FTInput
 
 from ui.components import Input, Select, TextArea
@@ -34,7 +23,7 @@ class InvoiceViews:
     """Invoice section UI components."""
 
     @staticmethod
-    def render_invoices_list(invoices: list[InvoiceRow], stats: InvoiceStats) -> Div:
+    def render_invoices_list(invoices: list[InvoiceRow], stats: InvoiceStats) -> FT:
         """
         Render the invoice list page with stats and create form.
 
@@ -72,7 +61,7 @@ class InvoiceViews:
         )
 
     @staticmethod
-    def _render_stats_cards(stats: InvoiceStats) -> Div:
+    def _render_stats_cards(stats: InvoiceStats) -> FT:
         """Render invoice statistics cards."""
         overdue_color = "error" if stats.overdue_count > 0 else "success"
         return StatsGrid(
@@ -88,7 +77,7 @@ class InvoiceViews:
         )
 
     @staticmethod
-    def _render_filter_bar() -> Div:
+    def _render_filter_bar() -> FT:
         """Render filter controls."""
         return Div(
             # Type filter
@@ -130,7 +119,7 @@ class InvoiceViews:
         )
 
     @staticmethod
-    def _render_invoice_table(invoices: list[InvoiceRow]) -> Div:
+    def _render_invoice_table(invoices: list[InvoiceRow]) -> FT:
         """Render invoice table."""
         if not invoices:
             return Div(
@@ -218,7 +207,7 @@ class InvoiceViews:
         )
 
     @staticmethod
-    def _render_create_form() -> Div:
+    def _render_create_form() -> FT:
         """Render the create invoice form."""
         return Div(
             H3("Create Invoice", cls="text-lg font-semibold mb-4"),
@@ -345,7 +334,7 @@ class InvoiceViews:
         )
 
     @staticmethod
-    def _render_line_item_row(index: int | str, *, removable: bool = False) -> Div:
+    def _render_line_item_row(index: int | str, *, removable: bool = False) -> FT:
         """Render one line item row; an added row (``removable``) carries a remove button."""
         return Div(
             Div(

@@ -44,6 +44,7 @@ from core.utils.neo4j_temporal import convert_neo4j_date
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from ui.layouts.base_page import HtmlDocument
 from ui.today.membership import (
     DUE_FIELD,
     SCHEDULED_FIELD,
@@ -82,7 +83,9 @@ def create_today_routes(
     assert tasks is not None, "TasksService not wired in Services container"
     assert calendar is not None, "CalendarService not wired in Services container"
 
-    def _render_today(request: Request, ctx_result: Result[TodayPageContext]) -> Response | FT:
+    def _render_today(
+        request: Request, ctx_result: Result[TodayPageContext]
+    ) -> Response | HtmlDocument:
         """Render a built day-view context, or a 500 shell on build failure."""
         if ctx_result.is_error:
             logger.warning(
@@ -105,14 +108,14 @@ def create_today_routes(
         )
 
     @rt("/today")
-    async def today_page(request: Request) -> Response | FT:
+    async def today_page(request: Request) -> Response | HtmlDocument:
         """Render the day view for the live current day."""
         user_uid = require_authenticated_user(request)
         ctx_result = await orchestrator.build_context(user_uid)
         return _render_today(request, ctx_result)
 
     @rt("/today/{date_str}")
-    async def today_page_dated(request: Request, date_str: str) -> Response | FT:
+    async def today_page_dated(request: Request, date_str: str) -> Response | HtmlDocument:
         """Render the day lens for an arbitrary date (Prev/Next navigation).
 
         An unparseable ``date_str`` degrades to the current day rather than 404 —

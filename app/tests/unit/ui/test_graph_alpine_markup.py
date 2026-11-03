@@ -25,6 +25,7 @@ from core.models.type_hints import EntityUID
 from ui.explore.cards import render_explore_search_panel
 from ui.explore.graph import ExploreGraphView
 from ui.explore.nav import render_explore_sidebar_page
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.relationships.relationship_graph import RelationshipGraphView
 
 FIXTURES = Path(__file__).resolve().parents[2] / "js" / "fixtures"
@@ -49,11 +50,11 @@ def _walk(node: object) -> Iterator[FT]:
             yield from _walk(child)
 
 
-def _component_roots(tree: FT) -> list[FT]:
+def _component_roots(tree: FT | HtmlDocument) -> list[FT]:
     return [el for el in _walk(tree) if str(el.attrs.get("x-data", "")).startswith(COMPONENTS)]
 
 
-def _rendered_surfaces() -> dict[str, FT]:
+def _rendered_surfaces() -> dict[str, FT | HtmlDocument]:
     return {
         "RelationshipGraphView": RelationshipGraphView(EntityUID("task_abc"), "tasks"),
         "ExploreGraphView standalone": ExploreGraphView(mode="hub"),

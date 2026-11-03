@@ -86,7 +86,7 @@ _NO_BOOST = {"hx-boost": "false"}
 # ============================================================================
 
 
-def _legend_swatch(item_type: CalendarItemType) -> HtmlButton:
+def _legend_swatch(item_type: CalendarItemType) -> FT:
     """One kind-swatch, styled as a visible control (bordered pill).
 
     The border + hover ring + tooltip make the long-standing filter/spotlight
@@ -148,7 +148,7 @@ def create_calendar_legend(view: CalendarView) -> FT | None:
     return create_kind_legend(VIEW_SPECS[view].members)
 
 
-def create_kind_legend(kinds: Iterable[CalendarItemType]) -> Div:
+def create_kind_legend(kinds: Iterable[CalendarItemType]) -> FT:
     """The legend for an explicit swatch set, pair-grouped (``_LEGEND_PAIRS``).
 
     ``create_calendar_legend`` passes a view's admitted kinds; the day view
@@ -174,7 +174,7 @@ def create_kind_legend(kinds: Iterable[CalendarItemType]) -> Div:
     return Div(*groups, cls="flex items-center gap-4 flex-wrap")
 
 
-def create_calendar_header(title: str, view: CalendarView) -> Div:
+def create_calendar_header(title: str, view: CalendarView) -> FT:
     """Period title (left) and, for views with more than one kind, the legend.
 
     The title steps down on phones — "Week of Jun 30 – Jul 6" at 40px is wider
@@ -187,7 +187,7 @@ def create_calendar_header(title: str, view: CalendarView) -> Div:
     )
 
 
-def _nav_button(label: str, href: str, icon_name: str, *, trailing: bool = False) -> A:
+def _nav_button(label: str, href: str, icon_name: str, *, trailing: bool = False) -> FT:
     """A bordered nav pill with a leading (or trailing) Lucide chevron."""
     icon = Icon(icon_name, cls="w-[15px] h-[15px]")
     text = Span(label)
@@ -202,7 +202,7 @@ def _nav_button(label: str, href: str, icon_name: str, *, trailing: bool = False
     )
 
 
-def calendar_nav_cluster(prev_href: str, next_href: str, today_href: str) -> Div:
+def calendar_nav_cluster(prev_href: str, next_href: str, today_href: str) -> FT:
     """Prev/Now/Next pills, right-aligned (no margin).
 
     The recenter pill is labelled "Now" — the word "Today" belongs solely to the
@@ -239,7 +239,7 @@ def create_calendar_toolbar(
     *,
     report_href: str | None = None,
     report_label: str | None = None,
-) -> Div:
+) -> FT:
     """Prev/Now/Next toolbar row (Week/Month views), with the period's report door.
 
     Thin margin wrapper around :func:`calendar_nav_cluster`; the Today surface
@@ -441,7 +441,7 @@ def _opens_detail_modal(item: CalendarItem) -> bool:
     return True
 
 
-def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
+def _event_chip(item: CalendarItem, *, large: bool = False) -> FT:
     """An event chip colored by item type.
 
     Fill = type color at ~10% alpha (8-digit hex ``1a``); a 3px left accent bar +
@@ -530,7 +530,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
 # ============================================================================
 
 
-def create_month_grid(calendar_data: CalendarData, year: int, month: int) -> Div:
+def create_month_grid(calendar_data: CalendarData, year: int, month: int) -> FT:
     """Flat month grid: ISO-week rail + 7 day columns, one row per week.
 
     ``calendar_data`` spans the full visible grid (Monday on/before the 1st
@@ -628,7 +628,7 @@ def create_day_cell(
     *,
     is_current_month: bool,
     is_weekend: bool,
-) -> Div:
+) -> FT:
     """A single month-grid day cell: date number/pill + one chip per item.
 
     ALL of the day's items render (no truncation): the legend type filters hide
@@ -697,7 +697,7 @@ def create_day_cell(
 # ============================================================================
 
 
-def create_week_grid(calendar_data: CalendarData) -> Div:
+def create_week_grid(calendar_data: CalendarData) -> FT:
     """Seven day-column agenda cards (Mon–Sun), each listing its events as chips."""
     items_by_date = _items_by_date(calendar_data)
 
@@ -767,7 +767,7 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
 # ============================================================================
 
 
-def error_response(error_message: Any) -> Div:
+def error_response(error_message: Any) -> FT:
     """Create an error response UI for a failed calendar fetch."""
     return Div(
         Card(
@@ -795,7 +795,7 @@ def _format_datetime(dt: datetime) -> str:
 # ============================================================================
 
 
-def habit_day_state_line(done: bool, *, oob: bool = False) -> P:
+def habit_day_state_line(done: bool, *, oob: bool = False) -> FT:
     """That-day completion state line in the habit modal (``#habit-day-state``).
 
     One render truth shared by the modal and the habit-complete POST response:
@@ -830,7 +830,7 @@ def _is_terminal_task(item: CalendarItem) -> bool:
     return item.status is not None and item.status.is_terminal()
 
 
-def item_schedule_line(item: CalendarItem, *, oob: bool = False) -> P:
+def item_schedule_line(item: CalendarItem, *, oob: bool = False) -> FT:
     """The modal's schedule line for a task/event item (``#item-schedule-text``).
 
     One render truth shared by the modal and the reschedule POST response: on
@@ -863,7 +863,7 @@ def reschedule_form(
     date_value: str,
     time_value: str = "",
     error: str | None = None,
-) -> Form:
+) -> FT:
     """Inline reschedule control in the item-details modal (``#reschedule-form``).
 
     Posts form-encoded ``new_date`` (+ ``new_time`` for events) to
@@ -910,7 +910,7 @@ def reschedule_form(
     )
 
 
-def create_item_details_modal(item: CalendarItem) -> Div:
+def create_item_details_modal(item: CalendarItem) -> FT:
     """Render calendar item details as an HTMX modal fragment.
 
     Header = a type-colored dot + type pill + Lucide close; the body keeps the full

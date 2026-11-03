@@ -19,7 +19,7 @@ Usage:
 
 from typing import Any, ClassVar
 
-from fasthtml.common import A, Div, Form, Option, P, Span
+from fasthtml.common import FT, A, Div, Form, Option, P, Span
 
 from core.models.enums import UserRole
 from core.models.type_hints import UserUID
@@ -73,7 +73,7 @@ class AdminUIComponents:
         return Badge("Inactive", variant=BadgeT.ghost)
 
     @staticmethod
-    def render_user_status_badges(user: UserCardData, *, oob: bool = False) -> Div:
+    def render_user_status_badges(user: UserCardData, *, oob: bool = False) -> FT:
         """The role and active/inactive badges, in the page header's actions slot.
 
         With ``oob`` the element carries ``hx-swap-oob`` so an account action's
@@ -90,7 +90,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_role_change_form(user: UserCardData) -> Form:
+    def render_role_change_form(user: UserCardData) -> FT:
         """The role select + Save — posts to the admin API's role door.
 
         The response is the account card (``render_account_card``), swapped over
@@ -130,7 +130,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_account_card(user: UserCardData) -> Div:
+    def render_account_card(user: UserCardData) -> FT:
         """Role change + activate/deactivate for one user — the account actions card.
 
         Both actions target this card by id and swap it whole, so the form's
@@ -174,7 +174,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_user_stats(stats: dict) -> Div:
+    def render_user_stats(stats: dict) -> FT:
         """
         Render user statistics cards.
 
@@ -197,7 +197,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_role_filter(current_role: str | None = None) -> Div:
+    def render_role_filter(current_role: str | None = None) -> FT:
         """Render role filter dropdown."""
         roles = ["all", "admin", "teacher", "member", "registered"]
 
@@ -222,7 +222,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_status_filter(current_status: str | None = None) -> Div:
+    def render_status_filter(current_status: str | None = None) -> FT:
         """Render status filter dropdown."""
         statuses = ["all", "active", "inactive"]
 
@@ -247,7 +247,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_users_table(users: list[dict]) -> Div:
+    def render_users_table(users: list[dict]) -> FT:
         """Render users as a dense table with entity count columns.
 
         Args:
@@ -277,7 +277,7 @@ class AdminUIComponents:
             }
             return Td(v, cls=styles.get(k, ""))
 
-        def _count_value(count: int) -> Span:
+        def _count_value(count: int) -> FT:
             if count > 0:
                 return Span(str(count), cls="font-semibold")
             return Span("—", cls="text-foreground/30")
@@ -345,7 +345,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_user_activity_stats(stats: dict, user_uid: UserUID) -> Div:
+    def render_user_activity_stats(stats: dict, user_uid: UserUID) -> FT:
         """Render comprehensive activity, learning, and session stats for a user.
 
         Args:
@@ -435,7 +435,7 @@ class AdminAnalyticsComponents:
     PHASE_2_EVENT_TRIGGER: ClassVar[int] = 1000
 
     @staticmethod
-    def render_analytics_dashboard(analytics_data: dict) -> Div:
+    def render_analytics_dashboard(analytics_data: dict) -> FT:
         """
         Render full analytics dashboard.
 
@@ -472,7 +472,7 @@ class AdminAnalyticsComponents:
         )
 
     @staticmethod
-    def render_user_distribution(stats: dict) -> Div:
+    def render_user_distribution(stats: dict) -> FT:
         """
         Render user distribution by role as bar chart.
 
@@ -509,7 +509,7 @@ class AdminAnalyticsComponents:
         return Div(*bars)
 
     @staticmethod
-    def render_activity_stats(activity_data: dict) -> Div:
+    def render_activity_stats(activity_data: dict) -> FT:
         """
         Render activity statistics cards.
 
@@ -540,7 +540,7 @@ class AdminAnalyticsComponents:
         )
 
     @staticmethod
-    def render_search_gaps(gaps: list[dict], event_total: int) -> Div:
+    def render_search_gaps(gaps: list[dict], event_total: int) -> FT:
         """
         Render the zero/low-result search queue plus the running event total.
 
@@ -625,7 +625,7 @@ class AdminSystemComponents:
     }
 
     @staticmethod
-    def render_health_dashboard(health_data: dict) -> Div:
+    def render_health_dashboard(health_data: dict) -> FT:
         """
         Render system health dashboard.
 
@@ -654,7 +654,7 @@ class AdminSystemComponents:
         )
 
     @staticmethod
-    def render_overall_status(status: str) -> Div:
+    def render_overall_status(status: str) -> FT:
         """Render overall system status indicator."""
         bg_color = AdminSystemComponents.STATUS_COLORS.get(status, "bg-gray-400")
         text_color = AdminSystemComponents.STATUS_TEXT_COLORS.get(status, "text-muted-foreground")
@@ -675,7 +675,7 @@ class AdminSystemComponents:
         )
 
     @staticmethod
-    def render_component_health_card(name: str, data: dict) -> Div:
+    def render_component_health_card(name: str, data: dict) -> FT:
         """
         Render individual component health card.
 
@@ -711,7 +711,7 @@ class AdminSystemComponents:
         )
 
     @staticmethod
-    def render_components_grid(components: dict) -> Div:
+    def render_components_grid(components: dict) -> FT:
         """Render grid of component health cards."""
         if not components:
             return render_error_banner(
@@ -730,7 +730,7 @@ class AdminSystemComponents:
         )
 
     @staticmethod
-    def render_health_summary(summary: dict) -> Div:
+    def render_health_summary(summary: dict) -> FT:
         """Render health summary stats."""
         return StatsGrid(
             [
@@ -747,7 +747,7 @@ class AdminSystemComponents:
         )
 
 
-def _ku_state_section(title: str, badge_variant: BadgeT, kus: list[dict], date_field: str) -> Div:
+def _ku_state_section(title: str, badge_variant: BadgeT, kus: list[dict], date_field: str) -> FT:
     """Render a section of KUs grouped by learning state."""
     items = []
     for ku in kus:
@@ -797,7 +797,7 @@ class AdminLearningComponents:
     """Learning dashboard components for admin KU progression tracking."""
 
     @staticmethod
-    def render_ku_system_metrics(metrics: dict) -> Div:
+    def render_ku_system_metrics(metrics: dict) -> FT:
         """Render system-wide KU metrics cards."""
         if metrics.get("total_kus", 0) == 0:
             return Div(
@@ -839,7 +839,7 @@ class AdminLearningComponents:
         )
 
     @staticmethod
-    def render_user_progress_table(user_progress: list[dict]) -> Div:
+    def render_user_progress_table(user_progress: list[dict]) -> FT:
         """Render per-user KU progress as a table."""
         if not user_progress:
             return Div(
@@ -912,7 +912,7 @@ class AdminLearningComponents:
         )
 
     @staticmethod
-    def render_user_ku_summary(detail: dict) -> Div:
+    def render_user_ku_summary(detail: dict) -> FT:
         """Render summary stats for one user's KU progress.
 
         Its one caller (the teaching student page) says "no interactions" itself.
@@ -936,7 +936,7 @@ class AdminLearningComponents:
         )
 
     @staticmethod
-    def render_user_ku_detail_list(detail: dict) -> Div:
+    def render_user_ku_detail_list(detail: dict) -> FT:
         """Render detailed KU list with states for a user.
 
         Its one caller (the teaching student page) says "no interactions" itself.

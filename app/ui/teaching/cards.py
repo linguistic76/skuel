@@ -7,7 +7,7 @@ Summary card components for teaching views.
 
 from typing import Any
 
-from fasthtml.common import A, Div, P
+from fasthtml.common import FT, A, Div, P
 
 from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
@@ -28,7 +28,7 @@ def _display_title(item: QueueItem) -> str:
     return item.title or item.original_filename or "Untitled"
 
 
-def render_queue_item(item: QueueItem) -> Div:
+def render_queue_item(item: QueueItem) -> FT:
     """Render a single review queue item as a card."""
     title = _display_title(item)
     student_name = item.student_name or item.student_uid or "Unknown"
@@ -66,7 +66,7 @@ def render_queue_item(item: QueueItem) -> Div:
     )
 
 
-def render_student_summary_card(item: StudentSummary) -> Div:
+def render_student_summary_card(item: StudentSummary) -> FT:
     """Render a student card with submission counts and action buttons."""
     pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
 
@@ -98,7 +98,7 @@ def render_student_summary_card(item: StudentSummary) -> Div:
     )
 
 
-def render_student_name_row(student_name: str, student_uid: str) -> Div:
+def render_student_name_row(student_name: str, student_uid: str) -> FT:
     """Render a simple clickable student name row linking to the student hub."""
     return Div(
         A(
@@ -110,7 +110,7 @@ def render_student_name_row(student_name: str, student_uid: str) -> Div:
     )
 
 
-def render_class_card(item: ClassSummary) -> Div:
+def render_class_card(item: ClassSummary) -> FT:
     """Render a class (group) card with member/exercise/pending counts."""
     pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
     active_badge: Any = (

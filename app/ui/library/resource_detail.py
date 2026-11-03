@@ -16,9 +16,9 @@ pre-fetched Resource entity.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from fasthtml.common import H1, H2, A, Div, P, Section, Span
+from fasthtml.common import FT, H1, H2, A, Div, P, Section, Span
 
 from ui.components import Icon
 from ui.library.media_badge import media_badge
@@ -29,9 +29,6 @@ from ui.patterns.detail_nav import (
 )
 from ui.primitives import safe_external_url, section_label
 
-if TYPE_CHECKING:
-    from fasthtml.common import FT
-
 _COLUMN_CLS = "mx-auto max-w-[760px] px-5 pt-8 pb-20"
 
 
@@ -40,7 +37,7 @@ _COLUMN_CLS = "mx-auto max-w-[760px] px-5 pt-8 pb-20"
 # ---------------------------------------------------------------------------
 
 
-def render_resource_not_found(uid: str) -> Div:
+def render_resource_not_found(uid: str) -> FT:
     """Render the not-found state for a Resource detail page."""
     return render_entity_not_found(
         entity_label="Resource",
@@ -51,7 +48,7 @@ def render_resource_not_found(uid: str) -> Div:
     )
 
 
-def render_resource_detail(resource: Any, cited_by: tuple | list = ()) -> Div:
+def render_resource_detail(resource: Any, cited_by: tuple | list = ()) -> FT:
     """Rich descriptor card for one curated Resource — the citation destination.
 
     Args:

@@ -51,6 +51,7 @@ from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Re
 
 if TYPE_CHECKING:
     from core.ports.service_protocols import OwnershipVerifier
+    from ui.layouts.base_page import HtmlDocument
 
 logger = get_logger("skuel.routes.helpers")
 
@@ -220,7 +221,7 @@ async def require_owned_entity(
     return result.value, None
 
 
-def refuse_not_found(body: FT) -> FtResponse:
+def refuse_not_found(body: FT | HtmlDocument) -> FtResponse:
     """The rendered 404 — the body the learner sees, with the status intact.
 
     ``body`` is a full page (sidebar chrome + banner) or a fragment (the banner in
@@ -240,7 +241,7 @@ def refuse_not_found(body: FT) -> FtResponse:
     return FtResponse(body, status_code=404, headers={REFUSAL_HEADER: REFUSAL_RENDERED})
 
 
-def refuse_unavailable(body: FT, error: ErrorContext) -> FtResponse:
+def refuse_unavailable(body: FT | HtmlDocument, error: ErrorContext) -> FtResponse:
     """The rendered non-404 — an operational failure with the body the learner sees.
 
     The status is the error's own (503 for a database failure, 500 for a system
@@ -252,7 +253,9 @@ def refuse_unavailable(body: FT, error: ErrorContext) -> FtResponse:
     )
 
 
-def refuse(error: ErrorContext, render: Callable[[str], FT], entity_name: str) -> FtResponse:
+def refuse(
+    error: ErrorContext, render: Callable[[str], FT | HtmlDocument], entity_name: str
+) -> FtResponse:
     """A rendered refusal from a failed owner-scoped read, at the status the failure earns.
 
     ``render`` builds the body from a message — the page (``partial(

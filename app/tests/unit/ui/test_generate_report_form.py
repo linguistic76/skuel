@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 
 from ui.patterns.generate_report import (
     period_options,

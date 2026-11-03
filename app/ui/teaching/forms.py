@@ -283,7 +283,7 @@ def form_data_preview(form_data: dict[str, Any] | None, max_fields: int = 3) -> 
 def render_form_data_detail(
     form_data: dict[str, Any] | None,
     form_schema: tuple[dict[str, Any], ...] | None = None,
-) -> Div:
+) -> FT:
     """Render form_data as read-only key-value pairs, using schema labels if available."""
     if not form_data:
         return EmptyState("No form data")
@@ -308,7 +308,7 @@ def render_form_data_detail(
     return Div(*rows)
 
 
-def render_submission_metadata(submission: Any, template: Any | None) -> Div:
+def render_submission_metadata(submission: Any, template: Any | None) -> FT:
     """Metadata panel for a form submission detail page (template, submitted by, date)."""
     meta_items = [
         Div(
@@ -340,7 +340,7 @@ def render_submission_metadata(submission: Any, template: Any | None) -> Div:
 def render_form_responses_section(
     form_data: dict[str, Any] | None,
     form_schema: tuple[dict[str, Any], ...] | None = None,
-) -> Div:
+) -> FT:
     """Responses panel for a form submission detail page."""
     return Div(
         P("Responses", cls="text-base font-semibold mb-3"),

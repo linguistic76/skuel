@@ -5,12 +5,12 @@ pages use ``personal_header_placeholder()`` — an HTMX div that lazy-loads
 the header via ``GET /api/personal-header`` without blocking the page render.
 """
 
-from fasthtml.common import Div, Span
+from fasthtml.common import FT, Div, Span
 
 from core.services.user.unified_user_context import UserContext
 
 
-def personal_header_placeholder() -> Div:
+def personal_header_placeholder() -> FT:
     """HTMX placeholder that lazy-loads the Focus + Velocity header.
 
     Use this instead of ``personal_header(context)`` when you don't
@@ -25,12 +25,12 @@ def personal_header_placeholder() -> Div:
     )
 
 
-def personal_header(context: UserContext) -> Div:
+def personal_header(context: UserContext) -> FT:
     """Focus + Velocity compact header."""
     return Div(_focus_line(context), _velocity_line(context))
 
 
-def _focus_line(context: UserContext) -> Div:
+def _focus_line(context: UserContext) -> FT:
     """Current task focus — compact inline."""
     if not context.current_task_focus:
         return Div(
@@ -54,7 +54,7 @@ def _focus_line(context: UserContext) -> Div:
     )
 
 
-def _velocity_line(context: UserContext) -> Div:
+def _velocity_line(context: UserContext) -> FT:
     """Overall velocity — compact inline indicator."""
     total_velocity = sum(context.velocity_by_domain.values())
     total_time = sum(context.time_invested_hours_by_domain.values())

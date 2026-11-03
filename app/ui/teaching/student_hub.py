@@ -5,14 +5,14 @@ and KU progress data inline, matching the evolved hub pattern (Activities,
 GradeBook, Library).
 """
 
-from fasthtml.common import A, Div
+from fasthtml.common import FT, A, Div
 
 from ui.components import Icon
 from ui.patterns.hub import HubBlockData, HubDomainBlockList
 from ui.patterns.page_header import PageHeader
 
 
-def StudentHub(student_name: str, student_uid: str) -> Div:
+def StudentHub(student_name: str, student_uid: str) -> FT:
     """Student hub — 4 domain blocks with HTMX-loaded previews."""
     base_href = f"/teaching/students/{student_uid}/submissions"
     base_api = f"/api/teaching/students/{student_uid}"

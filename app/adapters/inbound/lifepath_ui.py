@@ -32,6 +32,7 @@ from core.ports.query_types import AlignmentDimensions, ChartJsConfig
 from core.utils.logging import get_logger
 from core.utils.palette import ChartColor, SemanticColor, rgba
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Result
+from ui.layouts.base_page import HtmlDocument
 from ui.lifepath import (
     lifepath_sidebar_page,
     render_alignment_dashboard,
@@ -84,7 +85,7 @@ def create_lifepath_ui_routes(
     """
 
     @rt("/lifepath")
-    def lifepath_dashboard(request: Request) -> FT:
+    def lifepath_dashboard(request: Request) -> HtmlDocument:
         """Main life path dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         content = content_loading_placeholder("/lifepath/content", "lifepath-dashboard-content")
@@ -106,7 +107,7 @@ def create_lifepath_ui_routes(
         )
 
     @rt("/lifepath/vision", methods=["GET"])
-    async def vision_capture_page(request: Request) -> FT:
+    async def vision_capture_page(request: Request) -> HtmlDocument:
         """Vision capture page: the saved vision in the form, ready to revise.
 
         A failed read is its banner and no form — an empty form would invite the
@@ -127,7 +128,7 @@ def create_lifepath_ui_routes(
 
     @rt("/lifepath/vision", methods=["POST"])
     @csrf_protected
-    async def process_vision_capture(request: Request) -> FT | RedirectResponse:
+    async def process_vision_capture(request: Request) -> HtmlDocument | RedirectResponse:
         """Capture the vision, then 303 to the recommendations its saved themes
         rebuild; a refused or unsaved vision is the form again, text kept."""
         user_uid = require_authenticated_user(request)
@@ -145,7 +146,7 @@ def create_lifepath_ui_routes(
         return RedirectResponse(url="/lifepath/vision/recommendations", status_code=303)
 
     @rt("/lifepath/vision/recommendations", methods=["GET"])
-    async def vision_recommendations_page(request: Request) -> FT | RedirectResponse:
+    async def vision_recommendations_page(request: Request) -> HtmlDocument | RedirectResponse:
         """Learning Paths recommended from the saved vision's themes, under the
         learner's designated path — shown whether the themes find it or not.
 
@@ -179,7 +180,7 @@ def create_lifepath_ui_routes(
 
     @rt("/lifepath/designate", methods=["POST"])
     @csrf_protected
-    async def designate_life_path(request: Request) -> FT | RedirectResponse:
+    async def designate_life_path(request: Request) -> HtmlDocument | RedirectResponse:
         """Designate an LP as the user's life path."""
         user_uid = require_authenticated_user(request)
 
@@ -198,7 +199,7 @@ def create_lifepath_ui_routes(
         return RedirectResponse(url="/lifepath/alignment", status_code=303)
 
     @rt("/lifepath/alignment")
-    def alignment_dashboard(request: Request) -> FT:
+    def alignment_dashboard(request: Request) -> HtmlDocument:
         """Alignment dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         content = content_loading_placeholder(

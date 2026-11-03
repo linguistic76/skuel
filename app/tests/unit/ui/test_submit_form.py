@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 
 from ui.user_entry.forms import (
     ALL_MY_TEACHERS,

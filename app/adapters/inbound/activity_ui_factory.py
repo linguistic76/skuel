@@ -36,6 +36,7 @@ from ui.activities.filter_bar import ActivityFilterBar, with_user_categories
 from ui.activities.nav import render_activity_sidebar_page
 from ui.components import ButtonT
 from ui.dual_track_card import render_dual_track_result
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner, render_slot_error
 from ui.patterns.loading import content_loading_placeholder
@@ -164,7 +165,7 @@ class _FilteredView[E]:
 # ============================================================================
 
 
-def _bare_banner(message: str) -> Div:
+def _bare_banner(message: str) -> FT:
     """The dual-track result slot's refusal body — a banner with no slot id (the card
     re-renders in place)."""
     return Div(render_error_banner(message))
@@ -224,7 +225,7 @@ def create_activity_ui_routes[E: ActivityEntity, L: StrEnum](
     )
 
     @rt(f"/{domain}")
-    def page(request: Request) -> FT:
+    def page(request: Request) -> HtmlDocument:
         """Main page shell — content loads via HTMX."""
         require_authenticated_user(request)
         # The shell and its content fragment are two separate HTTP requests:
@@ -313,7 +314,7 @@ def create_activity_ui_routes[E: ActivityEntity, L: StrEnum](
     # ------------------------------------------------------------------
 
     @rt(f"/{domain}/detail")
-    def detail_page(request: Request) -> FT:
+    def detail_page(request: Request) -> HtmlDocument:
         """Detail page shell — content loads via HTMX."""
         require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

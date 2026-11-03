@@ -74,7 +74,7 @@ def setup_user_profile_routes(rt: RouteDecorator, services: Services) -> None:
             # Outage ≠ empty: a failed read must never render as a blank page.
             failed = items_result if items_result.is_error else wall_result
             logger.error(f"Failed to load the Shared page: {failed.expect_error()}")
-            content: Div = Div(
+            content: FT = Div(
                 PageHeader(SHARED_PAGE_TITLE, subtitle=SHARED_WITH_YOU_SUBTITLE),
                 render_error_banner(_LOAD_FAILED),
             )

@@ -250,7 +250,7 @@ async def student_submissions_preview(request: Request, uid: str, current_user: 
     user_uid = UserUID(current_user.uid)  # the decorator authenticated and fetched the caller
     pending, revision, completed, _ = await _get_bucketed_submissions(user_uid, uid)
 
-    def _make_fragment(slug: str, rows: list[SubmissionRow], empty_label: str) -> Div:
+    def _make_fragment(slug: str, rows: list[SubmissionRow], empty_label: str) -> FT:
         content = HubPreviewGrid([...]) if rows else HubPreviewEmpty(empty_label)
         return Div(content, id=f"hub-panel-{slug}", hx_swap_oob="true")
 

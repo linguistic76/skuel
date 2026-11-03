@@ -7,7 +7,7 @@ Submission content display and row components for detail views.
 
 from typing import Any
 
-from fasthtml.common import H3, H4, Div, P, Span
+from fasthtml.common import FT, H3, H4, Div, P, Span
 
 from core.models.report.entry_report import EntryReport
 from ui.activities._shared import safe_id
@@ -29,7 +29,7 @@ from ui.teaching.types import (
 )
 
 
-def render_submission_content(detail: SubmissionDetail) -> Div:
+def render_submission_content(detail: SubmissionDetail) -> FT:
     """The submission card a teacher reviews: the student's work, in their words.
 
     Shows the entry's ``content`` — what the student wrote or uploaded as text
@@ -94,14 +94,14 @@ def render_submission_content(detail: SubmissionDetail) -> Div:
     )
 
 
-def render_report_item(report: EntryReport) -> Div:
+def render_report_item(report: EntryReport) -> FT:
     """Render a single typed EntryReport. Delegates to shared component."""
     from ui.patterns.report_item import render_report_item as _shared_render
 
     return _shared_render(report)
 
 
-def render_review_body(uid: str, detail: SubmissionDetail, history: list[EntryReport]) -> Div:
+def render_review_body(uid: str, detail: SubmissionDetail, history: list[EntryReport]) -> FT:
     """What a teacher reviews and does — the review page and the per-student panel.
 
     The student's work, the feedback already written on it, and the actions
@@ -124,7 +124,7 @@ def render_review_body(uid: str, detail: SubmissionDetail, history: list[EntryRe
 
 def render_review_panel_inline(
     uid: str, detail: SubmissionDetail | None, history: list[EntryReport]
-) -> Div:
+) -> FT:
     """Inline review panel — loaded by HTMX into a submission row's drawer.
 
     The same review body as the review page; a denied or missing submission is
@@ -141,7 +141,7 @@ def render_review_panel_inline(
     return Div(body, cls="mt-3 border-t border-border pt-3")
 
 
-def render_student_submission_inline_row(item: SubmissionRow) -> Div:
+def render_student_submission_inline_row(item: SubmissionRow) -> FT:
     """
     Submission row with clickable accordion header and HTMX-loaded review panel.
 
@@ -285,7 +285,7 @@ def render_student_detail_sections(
     completed: list[SubmissionRow],
     student_name: str,
     ku_detail: dict[str, Any] | None = None,
-) -> Div:
+) -> FT:
     """Section panels for student detail, controlled by Alpine `section` variable.
 
     The parent element must provide x-data with a `section` property.
@@ -309,7 +309,7 @@ def render_student_detail_sections(
     )
 
 
-def render_class_member_row(item: ClassMember) -> Div:
+def render_class_member_row(item: ClassMember) -> FT:
     """Render a member row in the class detail view."""
     pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
 

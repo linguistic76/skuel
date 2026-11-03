@@ -7,7 +7,7 @@ and swaps itself out with a success/error fragment.
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, H4, Div, Form, Option, P
+from fasthtml.common import FT, H3, H4, Div, Form, Option, P
 
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms import Label, LabelCheckbox, LabelInput, LabelTextArea, Select
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 def render_embedded_forms(
     forms: list[FormTemplate],
     ps_uid: str,
-) -> Div:
+) -> FT:
     """Render all FormTemplates embedded in a PathStep as inline forms."""
     if not forms:
         return Div()
@@ -34,7 +34,7 @@ def render_embedded_forms(
     )
 
 
-def render_embedded_forms_success(form: FormTemplate, ps_uid: str) -> Div:
+def render_embedded_forms_success(form: FormTemplate, ps_uid: str) -> FT:
     """Render a submission-confirmed card to replace the submitted form."""
     return Div(
         Card(
@@ -48,7 +48,7 @@ def render_embedded_forms_success(form: FormTemplate, ps_uid: str) -> Div:
     )
 
 
-def render_embedded_forms_error(form: FormTemplate, ps_uid: str, message: str) -> Div:
+def render_embedded_forms_error(form: FormTemplate, ps_uid: str, message: str) -> FT:
     """Render the form again with an error banner above it (preserves user input is lost — HTMX swap)."""
     return Div(
         render_inline_error(message),
@@ -57,7 +57,7 @@ def render_embedded_forms_error(form: FormTemplate, ps_uid: str, message: str) -
     )
 
 
-def _render_form(form: FormTemplate, ps_uid: str) -> Div:
+def _render_form(form: FormTemplate, ps_uid: str) -> FT:
     """Render a single FormTemplate as an HTMX-submittable inline form."""
     fields: list[Any] = [csrf_hidden_input()]
 

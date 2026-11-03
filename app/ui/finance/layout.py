@@ -5,6 +5,7 @@ Uses SidebarPage for consistent navigation with all other SKUEL sidebar pages.
 
 from typing import TYPE_CHECKING
 
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ def create_finance_page(
     active_section: str = "",
     title: str = "Finance Hub",
     request: Request | None = None,
-) -> FT:
+) -> HtmlDocument:
     """Create a finance hub page using the unified SidebarPage pattern.
 
     Args:

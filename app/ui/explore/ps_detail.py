@@ -16,20 +16,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import (
-    H1,
-    H2,
-    A,
-    Button,
-    Div,
-    Li,
-    NotStr,
-    P,
-    Section,
-    Span,
-    Template,
-    Ul,
-)
+from fasthtml.common import FT, H1, H2, A, Button, Div, Li, NotStr, P, Section, Span, Template, Ul
 
 from core.models.enums import UserRole
 from core.ports.query_types import UsedKuRow
@@ -44,8 +31,6 @@ from ui.primitives import section_label
 from ui.teaching.templates_panel import render_templates_panel_placeholder
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from ui.page_contexts import NextStepRelatedGroup, RelatedConceptChip
 
 _COLUMN_CLS = "mx-auto max-w-[760px] px-5 pt-8 pb-20"
@@ -56,7 +41,7 @@ _COLUMN_CLS = "mx-auto max-w-[760px] px-5 pt-8 pb-20"
 # ---------------------------------------------------------------------------
 
 
-def render_ps_not_found(uid: str) -> Div:
+def render_ps_not_found(uid: str) -> FT:
     """Render the not-found state for a PathStep detail fragment."""
     return render_entity_not_found(
         entity_label="Path step",
@@ -88,7 +73,7 @@ def render_ps_detail_content(
     toc_html: str = "",
     exercises: list[dict] | None = None,
     engagement: Any = None,
-) -> Div:
+) -> FT:
     """Reading-first PathStep detail content fragment.
 
     Serves as the HTMX fragment for GET /explore/ps/{uid}/content.

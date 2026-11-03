@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 
 from core.models.enums import TimeOfDay
 from core.models.enums.habit_enums import CompletionStatus

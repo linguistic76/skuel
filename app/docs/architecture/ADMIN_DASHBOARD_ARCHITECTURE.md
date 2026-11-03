@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-10-31
+updated: 2026-11-03
 status: current
 category: architecture
 tags:
@@ -519,7 +519,7 @@ ADMIN_SIDEBAR_ITEMS = [
 # ui/admin/views.py
 class AdminLogsComponents:
     @staticmethod
-    def render_log_entry(log: dict) -> Div:
+    def render_log_entry(log: dict) -> FT:
         ...
 ```
 

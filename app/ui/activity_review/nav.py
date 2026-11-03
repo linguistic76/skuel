@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
@@ -19,7 +20,7 @@ ACTIVITY_REVIEW_SIDEBAR_ITEMS = [
 
 def activity_review_sidebar_page(
     active: str, content: FT, request: Request, *, page_title: str
-) -> FT:
+) -> HtmlDocument:
     """Create sidebar page for Activity Review routes."""
     return SidebarPage(
         content=content,

@@ -28,7 +28,7 @@ The root carries ``relative``, the overlay's containing block.
 
 from typing import Any
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 
 from ui.alpine import js_literal
 
@@ -67,7 +67,7 @@ def chat_sidebar_set(open_: bool, remembered_key: str | None = None) -> str:
 def chat_sidebar(
     panel: list[Any],  # boundary: fasthtml-elements
     rail: list[Any],  # boundary: fasthtml-elements
-) -> Div:
+) -> FT:
     """The sidebar frame around a page's ``panel`` and ``rail`` (each a list of children)."""
     close_overlay = f"if (sidebarOpen && !{_WIDE}) sidebarOpen = false"
     return Div(
@@ -123,7 +123,7 @@ def chat_side_panel_toggle() -> dict[str, str | bool]:
 def chat_side_panel(
     content: list[Any],  # boundary: fasthtml-elements
     closes_on_swap_into: str | None = None,
-) -> Div:
+) -> FT:
     """The side panel frame around a page's ``content`` (a list of children).
 
     ``closes_on_swap_into`` names the element id whose htmx swap closes the panel: a

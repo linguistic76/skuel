@@ -14,7 +14,7 @@ surface in sync. See LATERAL_RELATIONSHIPS_VISUALIZATION.md § Authoring.
 
 from __future__ import annotations
 
-from fasthtml.common import Button, Div, Span
+from fasthtml.common import FT, Button, Div, Span
 
 from core.models.relationship_names import RelationshipName
 from core.ports.query_types import LateralRelationshipItem
@@ -61,7 +61,7 @@ def lateral_manage_container_id(entity_uid: str) -> str:
     return f"lateral-manage-{safe_id(entity_uid)}"
 
 
-def LateralManageContainer(entity_uid: str, entity_type: str) -> Div:
+def LateralManageContainer(entity_uid: str, entity_type: str) -> FT:
     """HTMX container that lazy-loads the flat edit list and refreshes on change.
 
     Reloads on ``load`` and on every ``relationships-changed`` event dispatched
@@ -78,7 +78,7 @@ def LateralManageContainer(entity_uid: str, entity_type: str) -> Div:
     )
 
 
-def _row(entity_uid: str, entity_type: str, item: LateralRelationshipItem) -> Div:
+def _row(entity_uid: str, entity_type: str, item: LateralRelationshipItem) -> FT:
     label = _DIRECTIONAL_LABELS.get(
         (item["type"], item.get("direction", "outgoing")),
         item["type"].replace("_", " ").title(),
@@ -121,7 +121,7 @@ def render_lateral_manage_fragment(
     entity_uid: str,
     entity_type: str,
     relationships: list[LateralRelationshipItem],
-) -> Div:
+) -> FT:
     """Render the flat, deletable list of an entity's direct lateral edges."""
     if not relationships:
         return Div(

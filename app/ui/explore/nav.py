@@ -26,6 +26,7 @@ from core.models.enums.entity_enums import EntityType
 from ui.alpine import alpine_call
 from ui.components import ButtonT
 from ui.explore.graph import ExploreGraphView
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.sidebar import SidebarPage
 from ui.primitives import ButtonLink
 
@@ -136,7 +137,7 @@ def render_explore_sidebar_page(
     page_title: str = "Explore",
     current_uid: str = "",
     current_entity_type: str = "",
-) -> FT:
+) -> HtmlDocument:
     """Wrap content in Explore sidebar page with graph hero + filtered lists.
 
     Args:

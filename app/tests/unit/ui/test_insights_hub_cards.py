@@ -9,7 +9,7 @@ record's domain; each empty state names the door that feeds the question.
 
 from __future__ import annotations
 
-from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from fastcore.xml import to_xml
 
 from core.models.context_types import (
     CrossDomainSynergy,

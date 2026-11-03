@@ -15,6 +15,7 @@ Usage:
 
 from typing import TYPE_CHECKING
 
+from ui.layouts.base_page import HtmlDocument
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
@@ -36,7 +37,7 @@ def render_teaching_sidebar_page(
     content: FT,
     active: str,
     request: Request | None = None,
-) -> FT:
+) -> HtmlDocument:
     """Wrap content in Teaching sidebar page.
 
     Args:

@@ -123,7 +123,7 @@ async def _seed_classroom(driver: Any) -> None:
 
 
 def _render(node: Any, names: dict[str, str]) -> str:
-    html = to_xml(node)
+    html: str = to_xml(node)
     for uid, name in names.items():
         html = html.replace(uid, name)
     return html

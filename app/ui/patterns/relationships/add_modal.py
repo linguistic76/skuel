@@ -22,7 +22,7 @@ own section.
 
 from __future__ import annotations
 
-from fasthtml.common import H3, Div, Form, Option, Span
+from fasthtml.common import FT, H3, Div, Form, Option, Span
 
 from core.models.relationship_names import RelationshipName
 from ui.components.button import Button, ButtonT
@@ -59,7 +59,7 @@ def _sub_form(
     rel_value: str,
     segment: str,
     *metadata_fields: object,
-) -> Div:
+) -> FT:
     """One lateral sub-form, shown only when the selector matches ``rel_value``."""
     return Div(
         Form(
@@ -81,7 +81,7 @@ def _sub_form(
     )
 
 
-def AddRelationshipModal(entity_uid: str, entity_type: str) -> Div:
+def AddRelationshipModal(entity_uid: str, entity_type: str) -> FT:
     """Render the "Add relationship" button + authoring modal for an entity.
 
     Args:

@@ -50,7 +50,7 @@ Usage::
 
 from typing import Any
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 
 
 def AlpineModal(
@@ -61,7 +61,7 @@ def AlpineModal(
     max_width: str = "max-w-md",
     scrollable: bool = False,
     id: str | None = None,
-) -> Div:
+) -> FT:
     """Alpine.js-controlled modal dialog with backdrop, transitions and focus handling.
 
     Args:
