@@ -37,8 +37,6 @@ RESPONSE_FIELDS = {
     ("UserSummaryView", "last_active_at"),
     ("UserServiceContextSchema", "session_start"),
     ("UserStatisticsSchema", "computed_at"),
-    ("TaskResponse", "created_at"),
-    ("TaskResponse", "updated_at"),
 }
 
 

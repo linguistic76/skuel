@@ -177,7 +177,7 @@ class TestDecorators:
         result = asyncio.run(method_needs_intel(service))
 
         assert result.is_error
-        assert "GraphIntelligenceService not available" in result.error.message
+        assert result.error.message == "GraphIntelligenceService not available"
 
     def test_requires_graph_intelligence_allows_with_intel(self):
         """Decorator allows when graph_intel is present."""

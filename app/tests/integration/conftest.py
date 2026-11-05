@@ -728,7 +728,6 @@ async def services(neo4j_driver, production_backends):
 
     ps_service = PsService(
         backend=ps_backend,
-        executor=query_executor,
         graph_intel=mock_graph_intel,
         ps_intelligence_backend=production_backends["ps_intelligence_backend"],
     )

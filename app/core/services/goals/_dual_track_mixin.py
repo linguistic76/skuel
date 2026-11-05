@@ -52,7 +52,7 @@ class _DualTrackMixin:
         Compares user self-assessment (vision) with system measurement (action)
         to generate perception gap analysis and insights.
 
-        Uses BaseIntelligenceService._dual_track_assessment() template (ADR-030).
+        Uses BaseAnalyticsService._dual_track_assessment() template (ADR-030).
         """
         return await self._dual_track_assessment(
             uid=goal_uid,

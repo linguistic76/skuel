@@ -165,7 +165,7 @@ class _AlignmentIntelligenceMixin:
         "The user's vision is understood via the words they use to communicate,
         the UserContext is determined via user's actions."
 
-        Uses BaseIntelligenceService._dual_track_assessment() template (ADR-030).
+        Uses BaseAnalyticsService._dual_track_assessment() template (ADR-030).
 
         Args:
             principle_uid: Principle UID to assess

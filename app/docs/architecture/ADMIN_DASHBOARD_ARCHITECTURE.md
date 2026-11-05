@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-11-03
+updated: 2026-11-05
 status: current
 category: architecture
 tags:
@@ -272,7 +272,7 @@ Result[dict[str, int]]  # Keys:
 }
 ```
 
-All methods use pure Cypher via `QueryExecutor` (no APOC — SKUEL001 compliant). Each returns `Result[T]` with proper error propagation.
+All methods read through those backends (pure Cypher, no APOC — SKUEL001 compliant). Each returns `Result[T]` with proper error propagation.
 
 ### AdminSystemComponents
 

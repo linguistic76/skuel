@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-10-16
+updated: 2026-11-05
 category: patterns
 related_skills: []
 related_docs:
@@ -545,7 +545,7 @@ def _build_direction_pattern(
 
 **Rule (Phase 9):** Domain backends call `self.execute_query()`. Services call named backend methods. Zero `self.driver.session()` calls in any `backends/` file.
 
-**Nuance:** This rule covers domain CRUD and domain-specific queries. Most cross-domain aggregation services (e.g., `UserProgressService`, `AdminStatsService`) now use typed standalone backends (Phase 13). Two exceptions remain using `QueryExecutor` directly: `user_context_queries.py` (MEGA-QUERY) and `CrossDomainQueryService` (targeted cross-domain reads). Infrastructure services like `Neo4jSchemaService` still use `execute_query` legitimately. Domain sub-services also use `self.backend.execute_query()` for complex one-off queries. See [query_architecture.md — `execute_query` in Services](query_architecture.md#execute_query-in-services--permitted-tiers) for the full tier breakdown.
+**Nuance:** This rule covers domain CRUD and domain-specific queries. Cross-domain aggregation services (e.g., `UserProgressService`, `AdminStatsService`, `CrossDomainQueryService`) use typed standalone backends. `user_context_queries.py`, the adapter that holds the MEGA-QUERY, takes `QueryExecutor` itself. Infrastructure services like `Neo4jSchemaService` still use `execute_query` legitimately. Domain sub-services also use `self.backend.execute_query()` for complex one-off queries. See [query_architecture.md — `execute_query` in Services](query_architecture.md#execute_query-in-services--permitted-tiers) for the full tier breakdown.
 
 ### Fail-Fast Alignment
 

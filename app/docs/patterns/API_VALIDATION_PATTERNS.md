@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: '2026-11-03'
+updated: '2026-11-05'
 category: patterns
 related_skills:
 - pydantic
@@ -628,7 +628,7 @@ core/models/{domain}/
 
 **Example (context-aware models dissolved into domain request files):**
 ```
-core/models/task/task_request.py      # TaskCreateRequest, TaskUpdateRequest, TaskStatusUpdateRequest
+core/models/task/task_request.py      # TaskCreateRequest, TaskUpdateRequest
 core/models/goal/goal_request.py      # ContextualGoalTaskGenerationRequest
 core/models/habit/habit_request.py    # ContextualHabitCompletionRequest
 core/models/auth/auth_request.py      # RegistrationRequest, LoginRequest, ResetPasswordRequest
@@ -868,22 +868,21 @@ if time_window_result.is_error:
 ### Optional JSON Fields with Defaults
 
 ```python
-class TaskStatusUpdateRequest(RequestBase):
-    # Required — the one field a status update cannot do without
-    status: EntityStatus = Field(description="New task status")
+class GroupCreateRequest(BaseModel):
+    # Required — the one field a group cannot do without
+    name: str = Field(..., min_length=1, max_length=200)
 
     # Optional with None (explicitly nullable)
-    notes: str | None = Field(default=None)
-    completion_date: date | None = Field(default=None)
-    actual_minutes: int | None = Field(default=None, ge=0)
+    description: str | None = Field(default=None, max_length=2000)
+    max_members: int | None = Field(default=None, ge=1, le=500)
 ```
 
 **Request Handling:**
 ```json
 // All valid:
-{"status": "completed"}                              // Uses all defaults
-{"status": "completed", "actual_minutes": 30}        // Partial
-{"status": "completed", "actual_minutes": 30, "notes": "..."}  // Full
+{"name": "Physics 101"}                              // Uses all defaults
+{"name": "Physics 101", "max_members": 30}           // Partial
+{"name": "Physics 101", "max_members": 30, "description": "..."}  // Full
 ```
 
 ---

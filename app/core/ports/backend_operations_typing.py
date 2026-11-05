@@ -9,8 +9,9 @@ Quick Decision Tree
 -------------------
 Ask: what does my service actually call on the backend?
 
-    Runs complex Cypher across multiple entity types?
-        → QueryExecutor        (most common focused protocol)
+    Needs a read of its own (cross-domain, aggregate)?
+        → its own *BackendOperations protocol in core/ports. The Cypher lives on the
+          backend in adapters/persistence/neo4j/; a service writes none (SKUEL021).
 
     Standard CRUD on a single domain entity type?
         → CrudOperations[T]    (get, create, update, delete, list)
@@ -31,7 +32,7 @@ Ask: what does my service actually call on the backend?
     Cross-domain neighborhood traversal (intelligence services)?
         → GraphTraversalOperations
 
-    Health monitoring or direct Cypher with health_check()?
+    Health monitoring with health_check()?
         → LowLevelOperations
 
     Full domain service (facade + sub-services)?
@@ -67,9 +68,8 @@ GraphTraversalOperations      traverse,                       ContextOperationsM
 LowLevelOperations            execute_query, health_check     Infrastructure / health routes
   (inherits QueryExecutor)
 
-QueryExecutor                 execute_query                   THE most-used focused protocol —
-                                                              cross-domain queries, MEGA-QUERY,
-                                                              lateral relationships, sharing
+QueryExecutor                 execute_query                   Backends in adapters/persistence/neo4j/,
+                                                              never a service (SKUEL021)
 
 BackendOperations[T]          All of the above                BaseService, domain facades
 
@@ -77,15 +77,9 @@ BackendOperations[T]          All of the above                BaseService, domai
 Real Examples from SKUEL Services
 ----------------------------------
 
-QueryExecutor — the most common focused protocol:
+QueryExecutor — what a backend below the boundary runs its Cypher on:
 
-    # Used by: PsGraphService,
-    #          UserContextQueryExecutor, UserStatsAggregator, ReportSharingService,
-    #          ProgressReportGenerator, Neo4jVectorSearchService,
-    #          EmbeddingsService, UserProgressService
-    #
-    # Note: LateralRelationshipService and TeacherReviewService migrated to
-    # typed backends (LateralRelationshipBackend, UserEntryBackend, etc.)
+    # Used by: EmbeddingsBackend, ConnectionFetchBackend, UserContextQueryExecutor
 
     from typing import TYPE_CHECKING
 
@@ -93,7 +87,7 @@ QueryExecutor — the most common focused protocol:
         from core.ports import QueryExecutor
         from core.utils.result_simplified import Result
 
-    class ExampleService:
+    class ExampleBackend:
         def __init__(self, executor: "QueryExecutor") -> None:
             self.executor = executor
 
@@ -103,9 +97,8 @@ QueryExecutor — the most common focused protocol:
                 {"uid": uid},
             )
 
-    # In bootstrap.py, satisfied by any backend or a standalone executor:
-    # service = ExampleService(executor=tasks_backend)
-    # service = ExampleService(executor=neo4j_query_executor)
+    # In services_bootstrap/_backends.py:
+    # backend = ExampleBackend(executor=query_executor)
 
 
 CrudOperations[T] — minimal CRUD dependency:
@@ -116,14 +109,14 @@ CrudOperations[T] — minimal CRUD dependency:
         from core.ports import CrudOperations
         from core.models.task.task import Task
 
-    class TaskStatusUpdater:
-        \"\"\"Only creates and reads tasks — no search, no graph ops.\"\"\"
+    class TaskRetitler:
+        \"\"\"Only reads and updates tasks — no search, no graph ops.\"\"\"
 
         def __init__(self, backend: "CrudOperations[Task]") -> None:
             self.backend = backend
 
-        async def mark_complete(self, uid: str) -> None:
-            await self.backend.update(uid, {"status": "completed"})
+        async def retitle(self, uid: str, title: str) -> None:
+            await self.backend.update(uid, {"title": title})
 
 
 RelationshipCrudOperations — creating graph edges:

@@ -374,8 +374,8 @@ See `/docs/guides/YAML_AUTHORING_GUIDE.md` for the field reference per entity ty
 `applies_knowledge` is stored **only** as the edge `(Task)-[:APPLIES_KNOWLEDGE]->(Ku)` —
 there is no `applies_knowledge_uids` property on the frozen models (ADR-035/ADR-065; do not
 reintroduce it). The string list survives
-*only* at the API boundary (`TaskCreateRequest`/`TaskUpdateRequest`/`TaskResponse`); the
-service layer translates it to/from edges.
+*only* on the request models (`TaskCreateRequest`/`TaskUpdateRequest`); the service layer
+writes it to edges.
 
 - **Write:** both create AND update must route `applies_knowledge_uids` to edge mutation.
   `TasksService.update_task` splits the edge-typed fields off the `TaskUpdateIntent`

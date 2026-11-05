@@ -1,10 +1,8 @@
 ---
-updated: 2026-11-02
+updated: 2026-11-05
 ---
 
 # Data Flow Walkthrough: Following a Task Creation Request
-
-*Last updated: 2026-01-29*
 
 ## Purpose
 
@@ -209,7 +207,7 @@ def task_create_request_to_dto(
 ```python
 # Mutable DTO with generated UID and timestamps
 task_dto: TaskDTO = TaskDTO(
-    uid="task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",  # Generated
+    uid="task_a1b2c3d4e5f67890",  # Generated
     user_uid="user_5f2c8e1a9b3d7046",
     title="Review Python decorators",
     description="Study decorators before the advanced class",
@@ -256,7 +254,7 @@ for ku_uid in request.prerequisite_knowledge_uids:
 ```cypher
 # Task node
 CREATE (task:Task {
-    uid: "task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    uid: "task_a1b2c3d4e5f67890",
     title: "Review Python decorators",
     user_uid: "user_5f2c8e1a9b3d7046",
     priority: "high",
@@ -298,7 +296,7 @@ async def create(self, entity: TaskDTO) -> Result[TaskDTO]:
     # Convert DTO to dictionary
     props = entity.to_dict()
     # {
-    #     "uid": "task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    #     "uid": "task_a1b2c3d4e5f67890",
     #     "user_uid": "user_5f2c8e1a9b3d7046",
     #     "title": "Review Python decorators",
     #     "priority": "high",  # Enum converted to string
@@ -338,7 +336,7 @@ def to_dict(self) -> dict:
 **Neo4j node created**:
 ```cypher
 (:Task {
-    uid: "task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    uid: "task_a1b2c3d4e5f67890",
     user_uid: "user_5f2c8e1a9b3d7046",
     title: "Review Python decorators",
     description: "Study decorators before the advanced class",
@@ -355,9 +353,9 @@ def to_dict(self) -> dict:
 
 ---
 
-## Stage 4: Read Path (Neo4j → Tier 2 → Tier 3 → Tier 1)
+## Stage 4: Read Path (Neo4j → Tier 2 → Tier 3 → JSON)
 
-When the client requests the task: `GET /api/tasks/get?uid=task.a1b2c3d4...`
+When the client requests the task: `GET /api/tasks/get?uid=task_a1b2c3d4e5f67890`
 
 ### 4.1 Neo4j → DTO (Tier 2)
 
@@ -376,7 +374,7 @@ async def get(self, uid: str) -> Result[TaskDTO]:
     record = result.records[0]
     node_dict = dict(record["n"])
     # {
-    #     "uid": "task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    #     "uid": "task_a1b2c3d4e5f67890",
     #     "user_uid": "user_5f2c8e1a9b3d7046",
     #     "title": "Review Python decorators",
     #     "priority": "high",  # String from Neo4j
@@ -420,166 +418,73 @@ def from_dict(cls, data: dict) -> TaskDTO:
 
 ### 4.3 DTO → Domain Model (Tier 2 → Tier 3)
 
-**File**: `/core/models/task/task.py:311`
+**File**: `/core/models/task/task.py` — `Task.from_dto`
 
 ```python
 @classmethod
-def from_dto(cls, dto: TaskDTO) -> Task:
-    """
-    Create immutable Task from mutable DTO.
-
-    Domain model (Tier 3) provides:
-    - Immutability (frozen dataclass)
-    - Business logic methods (is_overdue, urgency_score, etc.)
-    - No relationship lists (graph-native)
-    """
-
-    return cls(
-        uid=dto.uid,
-        user_uid=dto.user_uid,
-        title=dto.title,
-        description=dto.description,
-        due_date=dto.due_date,
-        priority=dto.priority,
-        status=dto.status,
-        duration_minutes=dto.duration_minutes,
-        tags=tuple(dto.tags),  # List → immutable tuple
-        created_at=dto.created_at,
-        updated_at=dto.updated_at,
-        # Note: Relationship UIDs NOT copied from DTO
-        # They're stored only as graph edges
-    )
+def from_dto(cls, dto: EntityDTO | TaskDTO) -> Task:
+    """Create Task from an EntityDTO or TaskDTO."""
+    return cls._from_dto(dto)
 ```
 
-**Tier 3 (Domain Model)**:
-```python
-task: Task = Task(
-    uid="task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    user_uid="user_5f2c8e1a9b3d7046",
-    title="Review Python decorators",
-    due_date=date(2026, 2, 5),
-    priority=Priority.HIGH,
-    status=EntityStatus.DRAFT,
-    tags=("python", "learning"),  # Immutable tuple
-    created_at=datetime(2026, 1, 29, 10, 30, 0),
-    # ...business logic methods available...
-)
+The domain model (Tier 3) is immutable (a frozen dataclass), carries the business logic
+methods, and holds no relationship lists: those are graph edges.
 
+```python
 # Business logic examples
 task.is_overdue()  # → False
-task.days_until_due()  # → 7
-task.urgency_score()  # → 6 (high priority + 7 days = moderate urgency)
-task.is_learning_task()  # → True (has knowledge relationships)
+task.get_days_remaining()  # → days until due_date, None if it has none
+task.learning_alignment_score()  # → 0.0 (no source path step, no mastery check)
 ```
 
-### 4.4 Fetch Relationships (GRAPH-NATIVE)
+### 4.4 Relationships Are Read Separately (GRAPH-NATIVE)
+
+The `Task` holds no relationship lists. A service that needs them reads the graph:
 
 ```python
-# Service layer fetches relationships separately
 rels: TaskRelationships = await TaskRelationships.fetch(
     task.uid,
-    tasks_service.relationships
+    tasks_service.relationships,
 )
 
-# TaskRelationships dataclass holds all relationship UIDs
+# TaskRelationships dataclass holds the relationship UIDs
 # rels.applies_knowledge_uids = ["ku.python-decorators"]
 # rels.prerequisite_knowledge_uids = ["ku.python-functions"]
 # rels.subtask_uids = []
 # rels.enables_task_uids = []
 ```
 
-### 4.5 Domain → Response (Tier 3 → Tier 1)
+### 4.5 Domain → JSON
 
-**File**: `/core/models/task/task_request.py:184-253`
+**File**: `/adapters/inbound/boundary.py`
 
-```python
-@classmethod
-def from_dto(cls, dto: TaskDTO, rels: TaskRelationships | None = None) -> TaskResponse:
-    """
-    Create API response from DTO + relationships.
-
-    This is the FINAL stage - data ready for JSON serialization.
-    """
-    from .task import Task
-
-    # Create domain model to use business logic
-    task = Task.from_dto(dto)
-
-    return cls(
-        # Scalar fields from DTO
-        uid=dto.uid,
-        title=dto.title,
-        due_date=dto.due_date,
-        priority=dto.priority,
-        status=dto.status,
-        created_at=dto.created_at,
-
-        # Relationship UIDs from rels parameter (graph-native)
-        applies_knowledge_uids=list(rels.applies_knowledge_uids) if rels else [],
-        prerequisite_knowledge_uids=list(rels.prerequisite_knowledge_uids) if rels else [],
-        subtask_uids=list(rels.subtask_uids) if rels else [],
-
-        # Computed fields from domain model (business logic)
-        is_overdue=task.is_overdue(),
-        days_until_due=task.days_until_due(),
-        urgency_score=task.urgency_score(),
-        is_learning_task=task.is_learning_task(),
-        progress_percentage=task.progress_percentage(),
-        learning_alignment_score=task.learning_alignment_score(),
-    )
-```
-
-**Tier 1 (Pydantic Response)**:
-```python
-response: TaskResponse = TaskResponse(
-    uid="task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    title="Review Python decorators",
-    due_date=date(2026, 2, 5),
-    priority=Priority.HIGH,
-    status=EntityStatus.DRAFT,
-    created_at=datetime(2026, 1, 29, 10, 30, 0),
-
-    # Relationship UIDs from graph
-    applies_knowledge_uids=["ku.python-decorators"],
-    prerequisite_knowledge_uids=["ku.python-functions"],
-
-    # Computed fields from business logic
-    is_overdue=False,
-    days_until_due=7,
-    urgency_score=6,
-    is_learning_task=True,
-    progress_percentage=0.0,
-    learning_alignment_score=0.45,
-)
-```
+There is no per-entity response model. A route returns `Result[Task]`, and `@boundary_handler`
+converts it: `result_to_response` puts the value through `jsonable_content`, which turns the
+frozen dataclass, its enums and its dates into plain JSON types.
 
 ### 4.6 HTTP Response
 
-```python
-# FastHTML automatically serializes Pydantic response → JSON
-return Result.ok(response)
+The body is every field of the `Task`, abridged here:
 
-# HTTP response body:
+```json
 {
-  "uid": "task.a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "uid": "task_a1b2c3d4e5f67890",
   "title": "Review Python decorators",
+  "entity_type": "task",
   "description": "Study decorators before the advanced class",
-  "due_date": "2026-02-05",
-  "priority": "high",
   "status": "draft",
-  "duration_minutes": 60,
+  "visibility": "private",
   "created_at": "2026-01-29T10:30:00",
   "updated_at": "2026-01-29T10:30:00",
-  "applies_knowledge_uids": ["ku.python-decorators"],
-  "prerequisite_knowledge_uids": ["ku.python-functions"],
-  "is_overdue": false,
-  "days_until_due": 7,
-  "urgency_score": 6,
-  "is_learning_task": true,
-  "progress_percentage": 0.0,
-  "learning_alignment_score": 0.45
+  "user_uid": "user_5f2c8e1a9b3d7046",
+  "priority": "high",
+  "due_date": "2026-02-05",
+  "duration_minutes": 60,
+  "completion_updates_goal": true
 }
 ```
+
+`applies_knowledge_uids` is not in the body: the request's list became edges.
 
 ---
 
@@ -591,8 +496,8 @@ USER CLIENT
      │ POST /api/tasks/create + JSON
      ▼
 ┌────────────────────────────────────────────┐
-│ TIER 1: Pydantic Request Model            │
-│ (External boundary - validation)          │
+│ TIER 1: Pydantic Request Model             │
+│ (External boundary - validation)           │
 │                                            │
 │ TaskCreateRequest                          │
 │ - Validates JSON structure                 │
@@ -602,8 +507,8 @@ USER CLIENT
                  │ Validated data
                  ▼
 ┌────────────────────────────────────────────┐
-│ TIER 2: DTO (Data Transfer Object)        │
-│ (Mutable - service layer operations)      │
+│ TIER 2: DTO (Data Transfer Object)         │
+│ (Mutable - service layer operations)       │
 │                                            │
 │ TaskDTO                                    │
 │ - Generate UID                             │
@@ -636,35 +541,23 @@ USER CLIENT
                  │
                  ▼
 ┌────────────────────────────────────────────┐
-│ GRAPH-NATIVE: Fetch Relationships          │
-│ (Separate graph query)                     │
-│                                            │
-│ TaskRelationships.fetch()                  │
-│ - applies_knowledge_uids                   │
-│ - prerequisite_knowledge_uids              │
-│ - subtask_uids, etc.                       │
-└────────────────┬───────────────────────────┘
-                 │
-                 ▼
-┌────────────────────────────────────────────┐
 │ TIER 3: Domain Model (Immutable)           │
 │ (Business logic - frozen dataclass)        │
 │                                            │
 │ Task.from_dto(dto)                         │
 │ - Immutable (frozen=True)                  │
 │ - Business logic methods                   │
-│ - is_overdue(), urgency_score(), etc.      │
+│ - is_overdue(), get_days_remaining(), etc. │
 └────────────────┬───────────────────────────┘
-                 │
+                 │ Result[Task]
                  ▼
 ┌────────────────────────────────────────────┐
-│ TIER 1: Pydantic Response Model            │
+│ HTTP BOUNDARY: @boundary_handler           │
 │ (External boundary - serialization)        │
 │                                            │
-│ TaskResponse.from_dto(dto, rels)           │
-│ - Scalar fields from DTO                   │
-│ - Relationship UIDs from rels              │
-│ - Computed fields from Task domain logic   │
+│ jsonable_content(task)                     │
+│ - Every field of the Task, JSON-safe       │
+│ - No relationship lists: those are edges   │
 └────────────────┬───────────────────────────┘
                  │ JSON response
                  ▼
@@ -691,7 +584,7 @@ USER CLIENT
 
 3. **Tier 3 (Domain)** - Business logic safety
    - Immutable (frozen dataclass) prevents accidental mutations
-   - Business logic methods (is_overdue, urgency_score, etc.)
+   - Business logic methods (is_overdue, get_days_remaining, etc.)
    - Type-safe via `DomainModelProtocol`
    - Used by intelligence services for calculations
 
@@ -722,7 +615,7 @@ knowledge_uids = rels.applies_knowledge_uids  # Fetched from graph
 | Persist | DTO | Neo4j dict | Store in database |
 | Read | Neo4j dict | DTO | Reconstitute from storage |
 | Business Logic | DTO | Domain Model | Use business logic methods |
-| Response | Domain + DTO + Rels | Pydantic Response | Return to client |
+| Response | Domain Model | JSON (`jsonable_content`) | Return to client |
 
 ---
 
@@ -737,13 +630,13 @@ knowledge_uids = rels.applies_knowledge_uids  # Fetched from graph
 # Get task from database → DTO (mutable)
 task_dto = await backend.get(uid)
 
-# Update status (requires mutability)
-task_dto.status = EntityStatus.COMPLETED
-task_dto.completion_date = today_in(current_zone())  # today in the user's zone
+# Update a field (requires mutability)
+task_dto.title = "Review decorators"
 task_dto.updated_at = datetime.now()
 
 # Persist changes — pass native Python types, backend auto-serializes
-await backend.update(uid, {"status": "completed", "metadata": {"reason": "done"}})
+# (a status change is not this write: it goes through update_with_status_guard, ADR-087)
+await backend.update(uid, {"title": "Review decorators", "metadata": {"reason": "renamed"}})
 # ↑ The dict is auto-serialized via to_neo4j_node() in _CrudMixin.update()
 #   dicts → JSON strings, enums → values, dates → ISO strings
 #   Services never call json.dumps() before backend.update().
@@ -764,19 +657,14 @@ If we used frozen domain models directly, we'd have to create a new instance for
 - Immutability is semantically important
 - Protocol-based generic code requires `DomainModelProtocol`
 
-### Q: Where do relationship UIDs come from in responses?
+### Q: Why does a response carry no `applies_knowledge_uids`?
 
-**A**: Graph queries, NOT stored in DTOs.
+**A**: The list belongs to the request. The service writes it as edges and the `Task` holds
+no copy, so the JSON has none. A service that needs the UIDs reads the graph:
 
 ```python
-# Service layer:
-dto = await backend.get(uid)  # Scalar fields only
-rels = await TaskRelationships.fetch(uid, relationships_service)  # Graph query
-
-# Response combines both:
-response = TaskResponse.from_dto(dto, rels)
-# response.applies_knowledge_uids ← from rels (graph query)
-# response.title ← from dto (scalar property)
+rels = await TaskRelationships.fetch(uid, tasks_service.relationships)
+rels.applies_knowledge_uids  # ← from the graph
 ```
 
 ---

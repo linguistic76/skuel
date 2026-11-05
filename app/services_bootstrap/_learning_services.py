@@ -23,7 +23,6 @@ def _create_learning_services(
     tier: IntelligenceTier,  # resolved once in compose_services — the single from_env() read
     event_bus: Any = None,
     prometheus_metrics: PrometheusMetrics | None = None,
-    query_executor: Any = None,
     activity_knowledge_intelligence: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
@@ -98,7 +97,6 @@ def _create_learning_services(
 
     ps_service = PsService(
         backend=knowledge_backend,
-        executor=query_executor,
         graph_intel=graph_intelligence,
         event_bus=event_bus,
         # Content and search dependencies

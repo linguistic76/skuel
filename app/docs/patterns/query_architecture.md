@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-10-24
+updated: 2026-11-05
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -667,7 +667,7 @@ In practice, `execute_query` appears in ~63 files. This is intentional — the r
 
 ### Tier 1: Always Permitted — Cross-Domain Aggregation
 
-Services that span multiple domains now use typed standalone backends (April 2026 migration). Two exceptions remain that inject `QueryExecutor` directly.
+Services that span multiple domains use typed standalone backends. `user_context_queries.py`, the adapter below the boundary that holds the MEGA-QUERY, takes `QueryExecutor` itself.
 
 | Service | Access Pattern | Why |
 |---------|---------------|-----|
@@ -676,7 +676,7 @@ Services that span multiple domains now use typed standalone backends (April 202
 | `LpIntelligenceService` | `self.backend` (`LpBackend`) | LP progression analytics across LP + User + KU |
 | `GraphIntelligenceService` | `self.backend` | Cross-domain graph traversal for context retrieval |
 | `user_context_queries.py` | `QueryExecutor` directly | MEGA-QUERY (full user state snapshot) |
-| `CrossDomainQueryService` | `QueryExecutor` directly | 9 targeted cross-domain reads (returns frozen typed dataclasses) |
+| `CrossDomainQueryService` | `self.backend` (`CrossDomainBackend`) | Targeted cross-domain reads (returns frozen typed dataclasses) |
 
 ### Tier 2: Always Permitted — Infrastructure Services
 

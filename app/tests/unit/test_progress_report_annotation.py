@@ -5,8 +5,11 @@ Unit Tests — ProgressReportGenerator annotation feedback loop
 Covers the previous-annotation feature in ProgressReportGenerator:
 1. _build_llm_prompt with previous_annotation → appended to rendered prompt
 2. _build_llm_prompt with no annotation → prompt unchanged (no reflection section)
-3. _fetch_previous_annotation empty result → returns None without crashing
+3. _fetch_previous_annotation → the prior report's annotation, None when there is none
 """
+
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -38,14 +41,10 @@ def _make_minimal_completions() -> dict:
     }
 
 
-def _make_generator() -> object:
+def _make_generator(report_backend: object = None) -> object:
     """ProgressReportGenerator with minimal constructor args (no LLM/DB)."""
-    from unittest.mock import AsyncMock, MagicMock
-
     from core.services.report.progress_report_generator import ProgressReportGenerator
-    from core.utils.result_simplified import Result
 
-    executor = MagicMock()
     activity_report_service = MagicMock()
     activity_report_service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
 
@@ -55,9 +54,9 @@ def _make_generator() -> object:
     context_builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
 
     return ProgressReportGenerator(
-        executor=executor,
         activity_report_service=activity_report_service,
         context_builder=context_builder,
+        report_backend=report_backend,
     )
 
 
@@ -105,32 +104,38 @@ def test_build_llm_prompt_no_annotation_unchanged() -> None:
     assert "Instructions for integrating this reflection" not in prompt
 
 
+def _report_backend(rows: list[dict[str, str]]) -> MagicMock:
+    backend = MagicMock()
+    backend.get_previous_annotation = AsyncMock(return_value=Result.ok(rows))
+    return backend
+
+
 @pytest.mark.asyncio
 async def test_fetch_previous_annotation_returns_none_on_empty() -> None:
-    """Empty result from executor → None (no crash, no KeyError)."""
-    from datetime import datetime
-    from unittest.mock import AsyncMock, MagicMock
+    """The backend read finds no prior report → None (no crash, no KeyError)."""
+    backend = _report_backend([])
+    generator = _make_generator(report_backend=backend)
 
-    from core.services.report.progress_report_generator import ProgressReportGenerator
-
-    executor = MagicMock()
-    executor.execute_query = AsyncMock(return_value=Result.ok([]))
-    activity_report_service = MagicMock()
-    activity_report_service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
-
-    mock_context = MagicMock()
-    mock_context.entities_rich = {}
-    context_builder = MagicMock()
-    context_builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
-
-    generator = ProgressReportGenerator(
-        executor=executor,
-        activity_report_service=activity_report_service,
-        context_builder=context_builder,
-    )
     result = await generator._fetch_previous_annotation(  # type: ignore[attr-defined]
         user_uid="user_test",
         current_period_start=datetime(2026, 3, 1),
     )
 
     assert result is None
+    backend.get_previous_annotation.assert_awaited_once_with(
+        user_uid="user_test", period_start="2026-03-01T00:00:00"
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_previous_annotation_returns_the_prior_annotation() -> None:
+    generator = _make_generator(
+        report_backend=_report_backend([{"annotation": "I was overcommitting."}])
+    )
+
+    result = await generator._fetch_previous_annotation(  # type: ignore[attr-defined]
+        user_uid="user_test",
+        current_period_start=datetime(2026, 3, 1),
+    )
+
+    assert result == "I was overcommitting."

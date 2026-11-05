@@ -281,7 +281,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
             driver: Neo4j async driver
             label: Node label - can be NeoLabel enum or string (e.g., NeoLabel.TASK, "Task")
             entity_class: Entity class for serialization (e.g., Task, Goal)
-            graph_intel: Optional GraphIntelligenceService for -4 queries
+            graph_intel: Optional GraphIntelligenceService
             validate_label: If True, validates label against NeoLabel enum (default: True)
             prometheus_metrics: PrometheusMetrics instance for database instrumentation
             default_filters: Properties automatically applied to all queries and new nodes.
@@ -341,7 +341,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         # UnifiedQueryBuilder for all query building
         self.query_builder = UnifiedQueryBuilder(executor=self)
 
-        intel_status = "with Phase 1-4" if graph_intel else "basic"
+        intel_status = "with graph intelligence" if graph_intel else "basic"
         metrics_status = "metrics-enabled" if prometheus_metrics else "no-metrics"
         labels_status = f"labels={self._create_labels}" if self.base_label else "single-label"
         self.logger.info(

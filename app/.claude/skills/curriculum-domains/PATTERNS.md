@@ -134,8 +134,8 @@ LP requires PsService injected at construction — the only cross-domain service
 
 ```python
 # In services_bootstrap/_learning_services.py (order matters!)
-ps_service = PsService(backend=knowledge_backend, executor=query_executor,
-                       graph_intel=graph_intelligence, event_bus=event_bus, ...)
+ps_service = PsService(backend=knowledge_backend, graph_intel=graph_intelligence,
+                       event_bus=event_bus, ...)
 learning_paths = LpService(
     backend=lp_backend,
     ps_service=ps_service,  # <- required

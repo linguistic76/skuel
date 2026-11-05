@@ -9,18 +9,13 @@ Uses:
 - Base classes from core.models.request_base for consistent configuration
 """
 
-from datetime import date, datetime
-from typing import Any
+from datetime import date
 
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic import Field, model_validator
 
 from core.models.enums import EntityStatus, Priority, RecurrencePattern
 from core.models.request_base import (
     CreateRequestBase,
-    FilterRequestBase,
-    ListResponseBase,
-    RequestBase,
-    ResponseBase,
     UpdateRequestBase,
 )
 from core.models.sentinels import UNSET, Unset
@@ -289,122 +284,3 @@ class TaskUpdateRequest(UpdateRequestBase):
                 "contributes_to_goal_uids", self.contributes_to_goal_uids
             ),
         )
-
-
-class TaskResponse(ResponseBase):
-    """External API response for a task."""
-
-    uid: str
-    title: str
-    description: str | None
-
-    # Dates and timing
-    due_date: date | None
-    scheduled_date: date | None
-    completion_date: date | None
-    created_at: datetime
-    updated_at: datetime
-
-    # Duration
-    duration_minutes: int
-    actual_minutes: int | None
-
-    # Status and priority
-    status: EntityStatus
-    priority: Priority
-
-    # Organization
-    project: str | None
-    assignee: str | None
-    tags: list[str]
-    parent_uid: str | None
-    subtask_uids: list[str]
-
-    # Recurrence
-    recurrence_pattern: RecurrencePattern | None
-    recurrence_end_date: date | None
-    recurrence_parent_uid: str | None
-
-    # Learning Integration
-    contributes_to_goal_uids: list[str]
-    reinforces_habit_uid: str | None
-    applies_knowledge_uids: list[str]
-    aligned_principle_uids: list[str]
-    goal_progress_contribution: float
-    knowledge_mastery_check: bool
-    habit_streak_maintainer: bool
-    prerequisite_knowledge_uids: list[str]
-    prerequisite_task_uids: list[str]
-    enables_task_uids: list[str]
-    scheduled_event_uid: str | None
-    completion_updates_goal: bool
-    completion_triggers_tasks: list[str]
-    completion_unlocks_knowledge: list[str]
-
-    # Computed fields
-    is_overdue: bool
-    is_recurring: bool
-    is_parent: bool
-    is_subtask: bool
-    is_learning_task: bool
-    is_habit_task: bool
-    is_milestone_task: bool
-    has_prerequisites: bool
-    days_until_due: int | None
-    progress_percentage: float
-    learning_alignment_score: float
-
-
-class TaskFilterRequest(FilterRequestBase):
-    """Request model for filtering tasks."""
-
-    status: EntityStatus | None = None
-    priority: Priority | None = None
-    project: str | None = None
-    tags: list[str] | None = None
-    due_date_from: date | None = None
-    due_date_to: date | None = None
-    assigned_to: str | None = None
-    overdue_only: bool = False
-    completed_only: bool = False
-
-
-class TaskAssignmentRequest(RequestBase):
-    """Request model for assigning tasks."""
-
-    assigned_to: str = Field(min_length=1, description="User to assign task to")
-    notes: str | None = Field(default=None, description="Assignment notes")
-    due_date: date | None = Field(default=None, description="Override due date for assignment")
-
-    # Shared validators (DRY pattern)
-    _validate_due_date = validate_future_date("due_date")
-
-
-class TaskStatusUpdateRequest(RequestBase):
-    """Request model for updating task status."""
-
-    status: EntityStatus = Field(description="New task status")
-    notes: str | None = Field(default=None, description="Status change notes")
-    completion_date: date | None = Field(
-        default=None, description="Completion date if marking complete"
-    )
-    actual_minutes: int | None = Field(default=None, ge=0, description="Actual time spent")
-
-    @field_validator("completion_date")
-    @classmethod
-    def validate_completion_date(cls, v, info: ValidationInfo) -> Any:
-        """Ensure completion date is provided when status is COMPLETED."""
-        if info.data.get("status") == EntityStatus.COMPLETED and not v:
-            v = today_in(current_zone())  # Default to today if not provided
-        return v
-
-
-class TaskListResponse(ListResponseBase):
-    """Response for listing multiple tasks."""
-
-    items: list[TaskResponse]
-
-    # Summary statistics
-    total_overdue: int
-    total_today: int
-    total_this_week: int

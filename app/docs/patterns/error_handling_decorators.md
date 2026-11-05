@@ -1,6 +1,6 @@
 ---
 title: Error Handling Decorators - DRY Pattern Guide
-updated: 2026-10-16
+updated: 2026-11-05
 category: patterns
 related_skills:
 - result-pattern
@@ -127,7 +127,7 @@ async def search(self, query: str) -> Result[list[Task]]:
 
 ## @requires_graph_intelligence
 
-For Phase 1-4 graph intelligence methods.
+For a method that needs `graph_intel`: when its service holds none, the method returns a system error instead of running.
 
 ```python
 from core.utils.decorators import requires_graph_intelligence

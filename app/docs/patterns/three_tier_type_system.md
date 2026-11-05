@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-10-25
+updated: 2026-11-05
 category: patterns
 related_skills:
 - python
@@ -351,11 +351,10 @@ reader hands Pydantic the raw value, and a bad one is a `ValidationError`, so a 
 
 **Optional Fields with Defaults:**
 ```python
-class TaskStatusUpdateRequest(RequestBase):
-    status: EntityStatus = Field(description="New task status")  # Required
-    notes: str | None = Field(default=None)  # Nullable
-    completion_date: date | None = Field(default=None)  # Nullable
-    actual_minutes: int | None = Field(default=None, ge=0)  # Nullable + constrained
+class GroupCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)  # Required
+    description: str | None = Field(default=None, max_length=2000)  # Nullable
+    max_members: int | None = Field(default=None, ge=1, le=500)  # Nullable + constrained
 ```
 
 See [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) for comprehensive validation patterns and examples.

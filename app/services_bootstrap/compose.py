@@ -156,7 +156,7 @@ async def compose_services(
         default_timeout = config.database.transaction_timeout or None  # 0 -> unbounded
         driver = TimedDriver(raw_driver, default_timeout=default_timeout)
 
-        # Create QueryExecutor adapter — THE single path for raw Cypher in core services
+        # QueryExecutor adapter — the backends below the boundary run their Cypher on it
         from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
         query_executor = Neo4jQueryExecutor(driver)
@@ -708,7 +708,6 @@ async def compose_services(
             tier=tier,  # single IntelligenceTier.from_env() read lives above
             event_bus=event_bus,  # Event-driven architecture
             prometheus_metrics=prometheus_metrics,  # Metrics instrumentation
-            query_executor=query_executor,
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         logger.info("✅ Learning services created")
@@ -1345,7 +1344,6 @@ async def compose_services(
 
         progress_generator = ProgressReportGenerator(
             report_backend=backends["activity_report_generator_backend"],
-            executor=query_executor,
             activity_report_service=activity_report_service,
             context_builder=context_builder,
             chat_port=openai_chat,

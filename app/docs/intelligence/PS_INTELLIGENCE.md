@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-30
+updated: 2026-11-05
 ---
 
 # PsIntelligenceService - Practice Integration & Guidance Assessment
@@ -431,7 +431,6 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.ls.intelligence
 ps_service = PsService(
     backend=ps_backend,
     graph_intel=graph_intelligence,
-    relationship_service=relationship_service,
     event_bus=event_bus,
 )
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-02
+updated: 2026-11-05
 ---
 
 # Deferred Work
@@ -250,6 +250,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Route Wrappers Erase a Handler's Type
 
 [Route Wrappers Erase a Handler's Type](route-wrappers-erase-handler-types.md) — `rt` keeps a decorated handler's parameters and return type, but every wrapper directly under it erases at least the return type (`csrf_protected`, the role gates and `rate_limited_ip` the parameters too); 161 of 510 handlers reach `rt` fully typed. Nothing reads the bound name today; waits on the first reader.
+
+## Request Models No Door Reads
+
+[Request Models No Door Reads](request-models-no-door-reads.md) — Pydantic models under `core/models` that no other Python file names; each waits on its own verdict, staged or retired, and the bloat detector's tiers do not cover models.
 
 ## Review Schedule
 

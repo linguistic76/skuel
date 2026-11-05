@@ -90,16 +90,6 @@ class UpdateRequestBase(RequestBase):
     request dict to `service.update`. See request-response-reference.md.
     """
     pass
-
-
-class FilterRequestBase(RequestBase):
-    """Base for GET filter/query requests"""
-    pass
-
-
-class ResponseBase(BaseModel):
-    """Base for all response models"""
-    model_config = ConfigDict(from_attributes=True)
 ```
 
 **Usage:**
@@ -392,7 +382,6 @@ from pydantic import ConfigDict
 
 # The bases hold the shared config (core/models/request_base.py):
 # RequestBase → ConfigDict() — Pydantic V2 defaults, so enums stay enum members
-# ResponseBase → ConfigDict(from_attributes=True)
 
 # A model that rejects unknown fields — core/models/transcription/transcription.py
 class TranscriptionCreateRequest(BaseModel):
@@ -427,8 +416,7 @@ connected_direction: Literal["outgoing", "incoming", "both"] = Field(default="ou
 
 An API route returns the frozen domain model — `Result[Task]` — and `@boundary_handler`
 serializes it (`jsonable_content` in `adapters/inbound/boundary.py`, via Pydantic's
-`to_jsonable_python`). There is no per-entity Pydantic response layer: `TaskResponse` and
-`TaskListResponse` exist in `task_request.py`, but no route builds them.
+`to_jsonable_python`). There is no per-entity Pydantic response layer.
 
 A Pydantic response model is for a payload that is not an entity — the search envelope:
 

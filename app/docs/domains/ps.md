@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-10-16
+updated: 2026-11-05
 status: current
 category: domains
 tags:
@@ -56,7 +56,6 @@ from core.services.ps_service import PsService
 # In services_bootstrap/_learning_services.py
 ps_service = PsService(
     backend=knowledge_backend,
-    executor=query_executor,
     graph_intel=graph_intelligence,  # REQUIRED
     event_bus=event_bus,
     ku_backend=atomic_ku_backend,

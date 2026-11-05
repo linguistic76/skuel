@@ -177,6 +177,16 @@ RENAMED: dict[str, str] = {
 # ── Deleted identifiers ──────────────────────────────────────────────────────
 # "deleted_identifier": "explanation / what replaced it"
 DELETED: dict[str, str] = {
+    # Task request models no route bound, and the bases only they inherited.
+    "TaskResponse": "deleted — a route returns Result[Task]; @boundary_handler serializes it (jsonable_content)",
+    "TaskListResponse": "deleted — a route returns the domain models; @boundary_handler serializes them (jsonable_content)",
+    "TaskFilterRequest": "deleted — no route bound it; the task list reads its filters from the query string",
+    "TaskStatusUpdateRequest": "deleted — POST /api/{domain}/{uid}/status reads form['status'] (create_activity_field_api_routes)",
+    "TaskAssignmentRequest": "deleted — TaskUpdateRequest.assignee assigns a task",
+    "FilterRequestBase": "deleted — a filter request inherits RequestBase",
+    "AnalyticsRequestBase": "deleted — an analytics request inherits RequestBase",
+    "ListResponseBase": "deleted — a route returns the domain models; a non-entity envelope is a plain BaseModel (SearchResponse)",
+    "ResponseBase": "deleted — a route returns the domain model; a non-entity envelope is a plain BaseModel (SearchResponse)",
     # The one audience vocabulary (ADR-088, Submit & Share arc PR 6a): the
     # create request carries ``audience`` (an ``AudienceSpec``); the raw
     # per-verb fields, the vault door's private parser and the pipeline's
@@ -549,6 +559,10 @@ _three_tier = (
     "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
 )
 _trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
+_future_completion = "closed record of the future-completion-date fix -- names the model it found dead, since deleted"
+_sharing_arc_bases = (
+    "closed Submit & Share arc record -- names the bases and inheritors it kept, since deleted"
+)
 _links_arc = "the Activity Links arc's record of the principle ↔ goal, principle ↔ choice, task ↔ goal and event ↔ principle collapses -- ADR-090, the arc document, ADR-090's INDEX row, the older ADRs that keep the names (ADR-001's 2025 single-query record, ADR-015's 2025-12 rich-query record and its amendment notes, ADR-057's Context paragraph, ADR-026's 2026-02 ingestion record), the closed case files in roadmap/done/ and the closed Cypher-vocabulary sweep name the edge types the arc retired"
 _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
 _m_kuuid = "migration record -- the January 2026 UID migration's inventory and test names the Ku minter the 2026-10-16 ADR-013 amendment retired"
@@ -818,14 +832,20 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/patterns/three_tier_type_system.md": {
         # These two move whenever the prose above them changes length. Re-derive
         # the anchors from the scanner's report, never by adding a diff delta.
-        (921, "KuType"): Allow(_three_tier),
-        (922, "KuStatus"): Allow(_three_tier),
+        (920, "KuType"): Allow(_three_tier),
+        (921, "KuStatus"): Allow(_three_tier),
     },
     # The arc's record, granted in bulk because naming the retired identifier IS the
     # finding. Every anchor re-derived from the scanner's own report (scan_file over the
     # file), never by adding a diff delta — the file is a closed record, so they hold.
     "docs/roadmap/done/submission-sharing-arc.md": {
         (437, "verify_teacher_has_group_access"): Allow(_review_gate_name),
+        (580, "ResponseBase"): Allow(_sharing_arc_bases),
+        (580, "ListResponseBase"): Allow(_sharing_arc_bases),
+        (581, "TaskResponse"): Allow(_sharing_arc_bases),
+    },
+    "docs/roadmap/done/task-update-future-completion-date.md": {
+        (43, "TaskStatusUpdateRequest"): Allow(_future_completion),
     },
     "docs/roadmap/done/docs-defiction-pass.md": {
         (62, "sel_routes"): Allow(_defiction),
