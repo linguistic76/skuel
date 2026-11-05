@@ -6,14 +6,10 @@ Provides base classes for request models to ensure consistent configuration
 and eliminate duplicate model_config declarations.
 
 Usage:
-    from core.models.request_base import RequestBase, FilterRequestBase
+    from core.models.request_base import CreateRequestBase
 
-    class TaskCreateRequest(RequestBase):
+    class TaskCreateRequest(CreateRequestBase):
         title: str = Field(min_length=1, max_length=200)
-        # ... no need for model_config
-
-    class TaskFilterRequest(FilterRequestBase):
-        status: EntityStatus | None = None
         # ... no need for model_config
 
 Benefits:
@@ -26,9 +22,6 @@ value (a ``datetime-local`` field, a JSON string without an offset) is a wall
 clock in the current zone, and the field holds the stored form of the instant
 it names (``from_wall_clock``). Every request model's ``datetime`` field is one
 (``tests/unit/models/test_client_datetime_fields.py``).
-
-Version: 1.0.0
-Date: November 28, 2025
 """
 
 from datetime import datetime
@@ -72,37 +65,6 @@ class RequestBase(BaseModel):
     )
 
 
-class FilterRequestBase(RequestBase):
-    """
-    Base class for filter/query request models.
-
-    Same configuration as RequestBase, but semantically distinct
-    to indicate these models are used for filtering/searching.
-
-    Example:
-        class TaskFilterRequest(FilterRequestBase):
-            status: EntityStatus | None = None
-            priority: Priority | None = None
-            due_date_from: date | None = None
-    """
-
-    pass
-
-
-class AnalyticsRequestBase(RequestBase):
-    """
-    Base class for analytics request models.
-
-    Provides common fields for analytics/reporting requests.
-
-    Example:
-        class HabitAnalyticsRequest(AnalyticsRequestBase):
-            include_predictions: bool = Field(default=False)
-    """
-
-    pass
-
-
 class UpdateRequestBase(RequestBase):
     """
     Base class for update request models.
@@ -133,38 +95,3 @@ class CreateRequestBase(RequestBase):
     """
 
     pass
-
-
-class ResponseBase(BaseModel):
-    """
-    Base class for response models.
-
-    Response models may need from_attributes=True for ORM-style serialization.
-
-    Example:
-        class TaskResponse(ResponseBase):
-            uid: str
-            title: str
-            created_at: datetime
-    """
-
-    model_config = ConfigDict(
-        from_attributes=True,
-        # Pydantic V2 serializes enums, dates, and datetimes automatically
-    )
-
-
-class ListResponseBase(ResponseBase):
-    """
-    Base class for paginated list responses.
-
-    Provides common pagination fields.
-
-    Example:
-        class TaskListResponse(ListResponseBase):
-            items: list[TaskResponse]
-    """
-
-    total: int
-    page: int = 1
-    page_size: int = 20

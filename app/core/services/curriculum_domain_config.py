@@ -138,7 +138,6 @@ def create_ps_sub_services(
     _chunking_service: Any | None,
     graph_intel: Any,
     event_bus: EventBusOperations | None,
-    _executor: Any | None = None,
     user_service: Any | None = None,
     _vector_search_service: Any | None = None,
     _embeddings_service: Any | None = None,
@@ -148,8 +147,8 @@ def create_ps_sub_services(
 
     Creation Order:
     1. UnifiedRelationshipService (backend, config, graph_intel)
-    2. PsIntelligenceService (backend, graph_intel, relationships, user_service)
-    3. PsCoreService (backend, event_bus)
+    2. PsIntelligenceService (backend, graph_intel, relationships, intelligence_backend)
+    3. PsCoreService (backend)
     4. PsSearchService (backend)
     5. PsGraphService (repo, graph_intel)
     6. PsSemanticService (repo, intelligence)
@@ -180,7 +179,7 @@ def create_ps_sub_services(
         event_bus=event_bus,
     )
 
-    # Step 2: Create intelligence BEFORE core (circular dependency)
+    # Step 2: Create intelligence (the semantic service takes it)
     intelligence = PsIntelligenceService(
         backend=backend,
         graph_intel=graph_intel,

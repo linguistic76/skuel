@@ -159,7 +159,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
     "tasks": ActivityDomainConfig(
         core_class=TasksCoreService,
         search_class=TasksSearchService,
-        intelligence_class=None,  # TasksService builds it (needs ku_inference_service)
+        intelligence_class=None,  # TasksService builds it (needs event_bus)
         event_handler_class=TaskEventHandlerService,
         learning_class=TasksLearningService,
         relationship_config=TASKS_CONFIG,
@@ -189,7 +189,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
     "events": ActivityDomainConfig(
         core_class=EventsCoreService,
         search_class=EventsSearchService,
-        intelligence_class=None,  # EventsService builds it (needs habit_integration)
+        intelligence_class=None,  # EventsService builds it (needs cross_domain_query)
         event_handler_class=EventEventHandlerService,
         learning_class=EventsLearningService,
         relationship_config=EVENTS_CONFIG,

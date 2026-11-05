@@ -1,6 +1,6 @@
 ---
 title: Knowledge Application Tracking
-updated: 2026-10-16
+updated: 2026-11-05
 category: patterns
 related_skills:
 - activity-domains
@@ -50,11 +50,10 @@ recommendations, substance scoring) that depend on it being a real edge.
 method key is `"knowledge"` (see `TASK_QUERY_SPECS` in
 `core/services/tasks/task_relationships.py`).
 
-> **`applies_knowledge_uids` *is* still a request/response field**
-> (`TaskCreateRequest`, `TaskUpdateRequest`, `TaskResponse`). That is correct: it is the
-> wire shape the API accepts and emits. The service layer translates that list into edges
-> on the way in, and reads edges back on the way out. The field lives at the *boundary*,
-> the edge lives at the *core*.
+> **`applies_knowledge_uids` *is* still a request field** (`TaskCreateRequest`,
+> `TaskUpdateRequest`). That is correct: it is the wire shape the API accepts. The service
+> layer translates that list into edges. A response carries the `Task`'s fields, so it has
+> no such list; a reader of the edges uses `TaskRelationships.fetch`.
 
 ---
 

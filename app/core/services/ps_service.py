@@ -165,7 +165,6 @@ class PsService:
     def __init__(
         self,
         backend: PsOperations | None = None,
-        executor: Any = None,
         graph_intel: Any = None,
         event_bus: Any = None,
         ai_service: PsAIService | None = None,
@@ -181,7 +180,6 @@ class PsService:
         Args:
             backend: PsOperations port — `PsBackend` at the composition root.
                 REQUIRED; `None` only so the fail-fast raise below can report it.
-            executor: Query executor (REQUIRED for persistence)
             graph_intel: GraphIntelligenceService (REQUIRED)
             event_bus: Event bus for domain events (optional)
             ai_service: Optional PsAIService for AI features
@@ -197,12 +195,6 @@ class PsService:
         if not backend:
             raise ValueError(
                 "PsService backend is REQUIRED. "
-                "SKUEL follows fail-fast architecture - all required dependencies "
-                "must be provided at initialization."
-            )
-        if not executor:
-            raise ValueError(
-                "PsService executor is REQUIRED. "
                 "SKUEL follows fail-fast architecture - all required dependencies "
                 "must be provided at initialization."
             )
@@ -224,7 +216,6 @@ class PsService:
             _chunking_service=chunking_service,
             graph_intel=graph_intel,
             event_bus=event_bus,
-            _executor=executor,
             user_service=user_service,
             _vector_search_service=vector_search_service,
             _embeddings_service=embeddings_service,
@@ -251,7 +242,6 @@ class PsService:
 
         # Store dependencies
         self.repo = backend
-        self.executor = executor
         self.event_bus = event_bus
         self.ku_backend = ku_backend
         self.user_service = user_service

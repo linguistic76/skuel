@@ -42,7 +42,7 @@ class TaskCreateRequest(CreateRequestBase):
         return self
 ```
 
-**When to use**: Every create body. Inherit `CreateRequestBase` / `UpdateRequestBase` / `FilterRequestBase` / `ResponseBase` from `core/models/request_base.py` — never redeclare `model_config`.
+**When to use**: Every create body. Inherit `CreateRequestBase` / `UpdateRequestBase` from `core/models/request_base.py` — never redeclare `model_config`.
 
 ### Field validator (V2 syntax — decorator + `@classmethod`)
 
@@ -100,7 +100,7 @@ def to_intent(self) -> TaskUpdateIntent:
 
 | Piece | Location | Purpose |
 |-------|----------|---------|
-| Base classes | `core/models/request_base.py` | `RequestBase`, `CreateRequestBase`, `UpdateRequestBase`, `FilterRequestBase`, `AnalyticsRequestBase`, `ResponseBase` (`from_attributes=True`), `ListResponseBase` |
+| Base classes | `core/models/request_base.py` | `RequestBase`, `CreateRequestBase`, `UpdateRequestBase` |
 | Shared validator factories | `core/models/validation_rules.py` | `validate_future_date`, `validate_required_string`, `validate_percentage`, `validate_recurrence_end_after_start`, `validate_list_no_duplicates`; the full list is in [validation-patterns.md](validation-patterns.md#available-validators) |
 | Update sentinels | `core/models/sentinels.py` | `UNSET` / `Unset` for partial-patch intents |
 | Intent contracts | `core/models/update_contracts.py` | `SupportsToIntent`, `SupportsToChanges`, `RawChanges` |
@@ -131,7 +131,7 @@ def to_intent(self) -> TaskUpdateIntent:
 | `None` vs absent confusion in updates | `model_fields_set` distinguishes them — absent → `UNSET`, explicit `None` → clear |
 | Enum objects leaking to persistence | `to_intent()` lowers enums to `.value`; `RawChanges` path runs `get_enum_value` |
 | `@model_validator(mode="before")` by default | Prefer `mode="after")` — fields are typed and validated |
-| Declaring `model_config` per model | Inherit from `request_base.py`; only `ResponseBase` needs `from_attributes=True` |
+| Declaring `model_config` per model | Inherit from `request_base.py` |
 | try/except `ValidationError` boilerplate in routes | `parse_body` / `parse_json_body` / `parse_form_body` return `Result[Model]` |
 | A "required/default when X" rule as a `field_validator` | It never runs for an omitted field — use `@model_validator(mode="after")` |
 

@@ -4,19 +4,15 @@ Service Decorators - Generic Error Handling and Validation
 
 This module provides reusable decorators for all SKUEL services.
 
-Extracted from base_service.py to promote reusability across the entire codebase.
-
 Core decorators:
 - with_error_handling: Generic try/except wrapper with error categorization
-- requires_graph_intelligence: Validates graph_intel availability for -4 methods
+- requires_graph_intelligence: Refuses a method when its service holds no graph_intel
 
 Philosophy:
 - Decorators are pure utilities (no service dependencies)
 - Error categorization uses type checking (not string matching)
 - Supports both async and sync functions
 - FAIL-FAST: No graceful degradation - errors should surface, not hide
-
-DRY Impact: These decorators eliminate ~500+ repetitive try/except patterns.
 """
 
 from __future__ import annotations
@@ -247,18 +243,9 @@ def with_error_handling(
 
 def requires_graph_intelligence(operation: str):
     """
-    Decorator for -4 graph intelligence methods.
+    Refuse a method with a system error when its service holds no ``graph_intel``.
 
-    Eliminates repetitive graph_intel availability checks across all services.
-    This pattern appears 38+ times in the codebase with identical implementation:
-
-    if not self.graph_intel:
-        return Result.fail(Errors.system(
-            message="GraphIntelligenceService not available - -4 queries disabled",
-            operation="method_name"
-        )))
-
-    Single decorator ensures consistency and reduces maintenance burden.
+    The service stores the dependency in its ``__init__`` as ``self.graph_intel``.
 
     Args:
         operation: Operation name for error messages
@@ -267,25 +254,11 @@ def requires_graph_intelligence(operation: str):
         Decorated function with automatic graph_intel validation
 
     Example:
-        # Before (repeated in every -4 method):
-        async def get_with_context(self, uid: str) -> Result:
-            if not self.graph_intel:
-                return Result.fail(Errors.system(
-                    message="GraphIntelligenceService not available - -4 queries disabled",
-                    operation="get_with_context"
-                )))
-            # ... method logic
-
-        # After (clean and declarative):
         from core.utils.decorators import requires_graph_intelligence
 
         @requires_graph_intelligence("get_with_context")
         async def get_with_context(self, uid: str) -> Result:
             # ... method logic only
-
-    Note:
-        Services that use -4 graph intelligence should store graph_intel
-        in their __init__ method (usually named graph_intel).
     """
 
     def decorator(func) -> Any:
@@ -295,7 +268,7 @@ def requires_graph_intelligence(operation: str):
             if not graph_intel:
                 return Result.fail(
                     Errors.system(
-                        message="GraphIntelligenceService not available - Phase 1-4 queries disabled",
+                        message="GraphIntelligenceService not available",
                         operation=operation,
                     )
                 )

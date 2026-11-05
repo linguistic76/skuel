@@ -200,7 +200,6 @@ atomic_ku_service = KuService(
 )
 ps_service = PsService(
     backend=knowledge_backend,
-    executor=query_executor,
     graph_intel=graph_intelligence,
     event_bus=event_bus,
     ku_backend=atomic_ku_backend,

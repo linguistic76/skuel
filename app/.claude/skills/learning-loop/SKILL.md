@@ -384,7 +384,7 @@ class ReportBackend(UniversalNeo4jBackend):
 
 # CORRECT — cross-domain aggregation uses UserContext.build_rich() (the MEGA-QUERY)
 class ProgressReportGenerator:
-    def __init__(self, executor: QueryExecutor, activity_report_service: ActivityReportService,
+    def __init__(self, activity_report_service: ActivityReportService,
                  context_builder: UserContextBuilder, ...):
         # context_builder.build_rich(user_uid, window=...) — the MEGA-QUERY with the
         # activity window on its six activity sections; entities_rich covers all Activity Domains

@@ -92,8 +92,7 @@ await tasks_service.update_task(uid, intent)
 
 A status change is not a request model. `create_activity_field_api_routes` registers
 `POST /api/{domain}/{uid}/status`, which reads `form["status"]`; the service validates the
-transition inside the status-guarded write (ADR-087). `TaskStatusUpdateRequest` exists in
-`task_request.py` but no route binds it.
+transition inside the status-guarded write (ADR-087).
 
 ### Query Parameters - GET
 
@@ -101,8 +100,8 @@ A handful of query params go through the `Result`-returning readers in
 `adapters/inbound/route_factories/route_helpers.py` (`parse_int_param_strict`,
 `parse_date_param_strict`, … — missing is the default, malformed a 400). A form with many checkbox/enum/optional-string facets builds
 its model with a `from_form_params()` classmethod — see
-[Methods on Request Models](#methods-on-request-models). `FilterRequestBase`
-(`core/models/request_base.py`) is the base for such models.
+[Methods on Request Models](#methods-on-request-models). `SearchRequest`
+(`core/models/search_request.py`) is the one such model.
 
 ## Response Models
 
@@ -110,8 +109,7 @@ its model with a `from_form_params()` classmethod — see
 
 An API route returns `Result[Task]` — the frozen domain model — and `@boundary_handler`
 serializes it (`jsonable_content` in `adapters/inbound/boundary.py`, via Pydantic's
-`to_jsonable_python`). There is no per-entity Pydantic response layer to convert through:
-`TaskResponse` / `TaskListResponse` exist in `task_request.py` but no route builds them.
+`to_jsonable_python`). There is no per-entity Pydantic response layer to convert through.
 
 A Pydantic response model earns its place when the payload is not an entity — the search
 envelope below.
@@ -164,13 +162,9 @@ class SearchResponse(BaseModel):
 ```python
 from pydantic import ConfigDict
 
-# The bases carry the shared config — core/models/request_base.py
+# The base carries the shared config — core/models/request_base.py
 class RequestBase(BaseModel):
     model_config = ConfigDict()  # Pydantic V2 defaults: enums stay enum members
-
-
-class ResponseBase(BaseModel):
-    model_config = ConfigDict(from_attributes=True)  # build from dataclass attributes
 
 
 # A model that rejects unknown fields — core/models/transcription/transcription.py

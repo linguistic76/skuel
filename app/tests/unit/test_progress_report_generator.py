@@ -36,14 +36,6 @@ pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 
 @pytest.fixture
-def mock_driver():
-    """Create a mock Neo4j driver."""
-    driver = MagicMock()
-    driver.execute_query = AsyncMock(return_value=Result.ok([]))
-    return driver
-
-
-@pytest.fixture
 def mock_activity_report_service():
     """Create a mock ActivityReportService."""
     service = MagicMock()
@@ -100,7 +92,6 @@ def mock_report_backend():
 
 @pytest.fixture
 def generator(
-    mock_driver,
     mock_activity_report_service,
     mock_context_builder,
     mock_insight_store,
@@ -109,7 +100,6 @@ def generator(
 ):
     """Create ProgressReportGenerator with mocked deps."""
     return ProgressReportGenerator(
-        executor=mock_driver,
         activity_report_service=mock_activity_report_service,
         context_builder=mock_context_builder,
         insight_store=mock_insight_store,

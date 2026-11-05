@@ -52,7 +52,6 @@ async def _mapped(services) -> dict:
     context_result = await builder.build_rich(_USER, window="7d")
     assert context_result.is_ok, context_result.error
     generator = ProgressReportGenerator(
-        executor=MagicMock(),
         activity_report_service=MagicMock(),
         context_builder=builder,
     )

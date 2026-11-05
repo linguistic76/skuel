@@ -46,9 +46,8 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
     This service is OPTIONAL - the app works without it.
     Provides enhanced features using LLM and embeddings.
 
-    Planned AI features:
+    AI features:
     - Semantic task similarity (find similar tasks by meaning)
-    - AI-generated task recommendations (context-aware suggestions)
     - Natural language task insights (AI-written explanations)
     - Smart task breakdown (AI suggests subtasks)
     - Intelligent prioritization (AI-assisted priority suggestions)
@@ -89,7 +88,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         )
 
     # ========================================================================
-    # SEMANTIC SIMILARITY (Future AI Feature)
+    # SEMANTIC SIMILARITY
     # ========================================================================
 
     async def find_similar_tasks(
@@ -133,7 +132,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         )
 
     # ========================================================================
-    # AI RECOMMENDATIONS (Future AI Feature)
+    # AI RECOMMENDATIONS
     # ========================================================================
 
     async def generate_task_breakdown(
@@ -216,7 +215,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         return await self._generate_insight("tasks_ai_insight", context=context, max_tokens=200)
 
     # ========================================================================
-    # INTELLIGENT PRIORITIZATION (Future AI Feature)
+    # INTELLIGENT PRIORITIZATION
     # ========================================================================
 
     async def suggest_priority(self, task_uid: str) -> Result[dict[str, Any]]:

@@ -11,24 +11,22 @@ This service is part of the refactored LpIntelligenceService architecture:
 - ContentQualityAssessor: Quality assessment and similarity
 - LpIntelligenceService: Facade coordinating all sub-services (THIS FILE)
 
-**January 2026 - LP Consolidation (ADR-031):**
-This service now includes methods previously in standalone sub-services:
+This service holds these methods directly (ADR-031):
 - Validation methods: validate_path_prerequisites, identify_path_blockers, get_optimal_path_recommendation
 - Analysis methods: analyze_path_knowledge_scope
 - Adaptive methods: find_learning_sequence, get_next_adaptive_step, get_recommended_path_steps
 
-**July 2026 - Path-analysis decomposition:**
-The directly-implemented validation + analysis block now lives in
-`_PathAnalysisMixin` (`_path_analysis_mixin.py`); this file is the shell —
+The validation + analysis block lives in `_PathAnalysisMixin`
+(`_path_analysis_mixin.py`); this file is the shell —
 __init__, protocol methods, sub-service delegation, and the adaptive block.
 See: /docs/patterns/SERVICE_DECOMPOSITION_RULE.md
 
-Architecture (January 2026 - Unified Pattern):
-- Extends BaseIntelligenceService[Any, Any] for standardization
+Architecture:
+- Extends BaseAnalyticsService[LpOperations, LearningPath]
 - Delegates learning state/content operations to sub-services
 - Provides validation, analysis, adaptive, and context methods directly
 - Acts as single entry point for ALL learning intelligence operations
-- Standalone service (not created by LpService facade)
+- Built by create_lp_sub_services() for the LpService facade
 """
 
 from __future__ import annotations
@@ -77,10 +75,9 @@ class LpIntelligenceService(
     It uses pure graph queries and Python calculations - no LLM or embeddings.
 
     Extends BaseAnalyticsService to follow unified analytics architecture
-    pattern (January 2026 - ADR-024, ADR-030).
+    pattern (ADR-024, ADR-030).
 
-    **January 2026 - LP Consolidation (ADR-031):**
-    This service consolidates ALL learning path intelligence operations:
+    This service consolidates ALL learning path intelligence operations (ADR-031):
     - Learning state analysis (via LearningStateAnalyzer sub-service)
     - Content recommendations (via LearningRecommendationEngine sub-service)
     - Content analysis (via ContentAnalyzer/ContentQualityAssessor sub-services)
@@ -96,7 +93,7 @@ class LpIntelligenceService(
     - Delegates state/content ops to 4 focused sub-services
     - Implements adaptive/context methods directly
     - Single entry point for ALL learning intelligence
-    - Standalone service (not created by LpService facade)
+    - Built by create_lp_sub_services() for the LpService facade
     - NO embeddings_service or llm_service (ADR-030)
     """
 
@@ -411,7 +408,7 @@ class LpIntelligenceService(
         )
 
     # ========================================================================
-    # ADAPTIVE OPERATIONS (January 2026 - Consolidated from LpAdaptiveService)
+    # ADAPTIVE OPERATIONS
     # ========================================================================
 
     @with_error_handling("find_learning_sequence", error_type="database", uid_param="start_uid")

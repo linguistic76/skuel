@@ -27,7 +27,6 @@ from core.models.goal.progress_history import ProgressHistoryEntry
 from core.models.principle.principle_types import AlignmentHistoryRecord
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
     from core.ports.llm_protocols import ChatCompletionPort
     from core.ports.report_protocols import ActivityReportGeneratorBackendOperations
     from core.services.analytics_service import AnalyticsService
@@ -101,25 +100,25 @@ class ProgressReportGenerator:
     and sending those stats as LLM context for qualitative analysis.
 
     Constructor dependencies:
-        executor: QueryExecutor for Cypher queries (annotation lookup only)
         activity_report_service: ActivityReportService for persisting ActivityReport entities
         context_builder: UserContextBuilder — build_rich(window=) populates entities_rich
-        openai_service: Optional OpenAI service (enables LLM generation)
+        chat_port: Optional ChatCompletionPort (enables LLM generation)
         insight_store: Optional InsightStore for referencing active insights
         event_bus: Optional EventBusOperations for publishing events
         analytics_service: Optional AnalyticsService for cross-domain intelligence
         knowledge_intelligence: Optional ActivityKnowledgeIntelligenceService
+        report_backend: Optional backend for the cooldown, previous-annotation and
+            habit-completion reads
 
-    When openai_service is provided:
+    When chat_port is provided:
         processor_type = LLM, processed_content = LLM-generated text
 
-    When openai_service is NOT provided:
+    When chat_port is NOT provided:
         processor_type = AUTOMATIC, processed_content = programmatic markdown
     """
 
     def __init__(
         self,
-        executor: QueryExecutor,
         activity_report_service: ActivityReportService,
         context_builder: UserContextBuilder,
         chat_port: ChatCompletionPort | None = None,
@@ -129,7 +128,6 @@ class ProgressReportGenerator:
         knowledge_intelligence: ActivityKnowledgeIntelligenceService | None = None,
         report_backend: ActivityReportGeneratorBackendOperations | None = None,
     ) -> None:
-        self.executor = executor
         self.activity_report_service = activity_report_service
         self.context_builder = context_builder
         self.chat_port = chat_port
