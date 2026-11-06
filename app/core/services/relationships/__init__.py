@@ -9,8 +9,6 @@ Configuration-driven approach to relationship services.
 1. **DomainRelationshipConfig** - Source of truth in ``core.models.relationship_registry``
 2. **UnifiedRelationshipService** - Generic service that uses configuration
 3. **Path-Aware Factory** - Creates typed path-aware entities from raw data
-4. **DomainRelationships** - Generic relationship data container
-5. **Extended Config** - Full specifications with query specs, link methods, etc.
 
 **Usage:**
 
@@ -29,13 +27,6 @@ await tasks_relationship_service.get_cross_domain_context(task_uid)
 ```
 """
 
-from core.services.relationships.extended_config import (
-    CrossContextSpec,
-    ExtendedRelationshipConfig,
-    PathAwareTypeSpec,
-    PlanningMethodSpec,
-    QuerySpec,
-)
 from core.services.relationships.path_aware_factory import (
     CROSS_CONTEXT_TYPE_MAP,
     PATH_AWARE_TYPE_MAP,
@@ -44,22 +35,11 @@ from core.services.relationships.path_aware_factory import (
     create_path_aware_entity,
     get_domain_from_label,
 )
-from core.services.relationships.relationships_container import (
-    DomainRelationships,
-)
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 __all__ = [
     "CROSS_CONTEXT_TYPE_MAP",
-    "CrossContextSpec",
-    # Relationship container
-    "DomainRelationships",
-    # Extended configuration
-    "ExtendedRelationshipConfig",
     "PATH_AWARE_TYPE_MAP",
-    "PathAwareTypeSpec",
-    "PlanningMethodSpec",
-    "QuerySpec",
     # Service
     "UnifiedRelationshipService",
     "create_cross_context",
