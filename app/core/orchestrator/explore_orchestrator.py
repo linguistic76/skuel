@@ -27,7 +27,11 @@ if TYPE_CHECKING:
     from core.models.forms.form_template import FormTemplate
     from core.models.shared.dual_track import DualTrackResult
     from core.ports.form_protocols import FormTemplateOperations
-    from core.ports.query_types import PsUserSubstanceResult, UsedKuRow
+    from core.ports.query_types import (
+        PsPrerequisiteStatusRow,
+        PsUserSubstanceResult,
+        UsedKuRow,
+    )
     from core.ports.relationship_backend_protocols import UserRelationshipOperations
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.ku_service import KuService
@@ -140,6 +144,12 @@ class ExploreOrchestrator:
     async def get_ps_learning_state(self, user_uid: UserUID, ps_uid: str) -> Result[Any]:
         """Get learning mastery state for a specific PathStep."""
         return await self._ps.mastery.get_learning_state(user_uid, ps_uid)
+
+    async def get_ps_prerequisite_statuses(
+        self, ps_uid: str, user_uid: UserUID | None
+    ) -> Result[list[PsPrerequisiteStatusRow]]:
+        """A step's published direct prerequisites, each with whether this reader completed it."""
+        return await self._ps.intelligence.get_prerequisite_statuses(ps_uid, user_uid)
 
     async def get_user_step_context(
         self, ps_uid: str, user_context: UserContext

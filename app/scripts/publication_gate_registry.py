@@ -178,6 +178,14 @@ SURFACES: tuple[Surface, ...] = (
         "Recommends steps the caller never named.",
     ),
     Surface(
+        "adapters.persistence.neo4j.ps_intelligence_backend",
+        "PsIntelligenceBackend.fetch_prerequisite_statuses",
+        Disposition.GATED,
+        "Names each prerequisite on the PathStep page. A draft neither shows nor counts: unlike "
+        "find_ready_to_learn's ranking, this list is what a learner is told to clear, and a "
+        "learner cannot clear what the list cannot name.",
+    ),
+    Surface(
         "adapters.persistence.neo4j._lp_progress_mixin",
         "_LpProgressMixin.get_paths_aligned_with_goal",
         Disposition.GATED,

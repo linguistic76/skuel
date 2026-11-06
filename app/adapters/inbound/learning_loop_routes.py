@@ -35,7 +35,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums import MasteryLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
-from core.ports.query_types import UsedKuRow
+from core.ports.query_types import PsPrerequisiteStatusRow, UsedKuRow
 from core.services.user.rich_context import rich_entity_titles
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
@@ -445,6 +445,19 @@ def create_learning_loop_detail_routes(
         if resources_result.is_ok and resources_result.value:
             resources = list(resources_result.value)
 
+        # What this step asks for first. A failed read leaves the section out, because
+        # the section's empty state says nothing blocks the step.
+        prerequisites: list[PsPrerequisiteStatusRow] | None = None
+        prerequisites_result = await orchestrator.get_ps_prerequisite_statuses(uid, user_uid)
+        if prerequisites_result.is_ok:
+            prerequisites = prerequisites_result.value
+        else:
+            logger.error(
+                "Blocking dependencies of %s: %s",
+                uid,
+                prerequisites_result.expect_error().message,
+            )
+
         # Render markdown
         content_html, toc_html = render_markdown_with_toc(content_body or "")
 
@@ -455,6 +468,7 @@ def create_learning_loop_detail_routes(
             toc_html=toc_html,
             kus=kus,
             resources=resources,
+            prerequisites=prerequisites,
             show_related=vector_search_service is not None,
             show_next_step_related=(
                 user_uid is not None

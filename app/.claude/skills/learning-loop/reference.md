@@ -70,7 +70,7 @@ The PathStep detail page at `/explore/ps/{uid}` (`learning_loop_routes.py`) is a
 column (`max-w-[760px]`, no sidebar; body rendered by `ui/explore/ps_detail.py`) matching the KU
 reader design language. Alpine component
 `pathstep` (in `static/js/ps-detail.js`) owns progress state (`not_started/learning/read`),
-bookmark toggle, and deps accordion. CSRF-protected mutation endpoints:
+bookmark toggle, and the "Blocking dependencies" accordion (seeded from `get_prerequisite_statuses`). CSRF-protected mutation endpoints:
 - `POST /explore/ps/{uid}/progress` (`state=learning|read`) — progress toggle (no TaskTemplates)
 - `POST /explore/ps/{uid}/bookmark` (`on=true|false`)
 - `GET /explore/ps/{uid}/applied` — HTMX fragment: how the signed-in reader has applied what the step teaches

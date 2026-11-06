@@ -9,7 +9,7 @@
  * would read undefined (uid='' broke Start learning, 2026-07-05).
  *
  * Owns: progress state (not_started → learning → read), bookmark
- * toggle, practice + deps accordion open/close.
+ * toggle, deps accordion open/close.
  *
  * All mutations POST via htmx.ajax() — skuel.js attaches X-CSRF-Token
  * to every htmx request automatically, so no manual token wiring needed.
@@ -30,9 +30,6 @@
       bookmarked: s.is_bookmarked || false,
       hasTaskTemplates: s.has_task_templates || false,
       blocking: s.blocking || [],
-      prevStep: s.prev_step || null,
-      nextStep: s.next_step || null,
-      practiceOpen: true,
       depsOpen: false,
       _syncedStatus: null,
 

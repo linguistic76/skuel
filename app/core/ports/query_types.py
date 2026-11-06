@@ -2220,6 +2220,19 @@ class PsEngagementCountsRow(TypedDict):
     mastered: int
 
 
+class PsPrerequisiteStatusRow(TypedDict):
+    """Row shape for fetch_prerequisite_statuses() — one published direct prerequisite.
+
+    ``completed`` is the reader's: marked as read or mastered, the same two edges the
+    PathStep page's hero card reads as Completed. With no reader it is False.
+    """
+
+    uid: str
+    title: str
+    entity_type: str
+    completed: bool
+
+
 class PsTaughtKuRow(TypedDict):
     """Row shape for fetch_taught_kus() — one row per taught KU.
 
@@ -4882,6 +4895,7 @@ __all__ = [
     "PsPrerequisiteStepUidsRow",
     "PsPracticeCountsRow",
     "PsGuidanceCountsRow",
+    "PsPrerequisiteStatusRow",
     "PsTaughtKuRow",
     # LP Intelligence Result Types
     "LpDomainInsights",

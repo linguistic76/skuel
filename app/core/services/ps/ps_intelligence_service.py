@@ -23,6 +23,7 @@ from core.ports.query_types import (
     PsKuSubstanceRow,
     PsPracticeCountsRow,
     PsPracticeSummaryResult,
+    PsPrerequisiteStatusRow,
     PsUserSubstanceResult,
     StepSubstance,
 )
@@ -251,6 +252,25 @@ class PsIntelligenceService(
             return Result.ok(True)  # No prerequisites = ready
         prereq_uids = set(records[0].get("prereq_uids") or [])
         return Result.ok(prereq_uids.issubset(completed_step_uids))
+
+    @with_error_handling("get_prerequisite_statuses", error_type="database", uid_param="ps_uid")
+    async def get_prerequisite_statuses(
+        self, ps_uid: str, user_uid: str | None
+    ) -> Result[list[PsPrerequisiteStatusRow]]:
+        """
+        A step's published direct prerequisites, each with whether this reader completed it.
+
+        Completed is marked as read or mastered, the rule the PathStep page's hero card
+        shows as Completed, so a step shown as Completed never blocks the next one. A
+        draft prerequisite is withheld. With no reader, none is completed.
+
+        Backend: PsIntelligenceBackend.fetch_prerequisite_statuses
+        """
+        backend_result = self._require_backend()
+        if backend_result.is_error:
+            return Result.fail(backend_result)
+
+        return await backend_result.value.fetch_prerequisite_statuses(ps_uid, user_uid)
 
     # ========================================================================
     # PRACTICE ANALYSIS

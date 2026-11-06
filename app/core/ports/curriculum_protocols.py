@@ -112,6 +112,7 @@ from core.ports.query_types import (
     PsKnowledgeSummaryResult,
     PsPracticeCountsRow,
     PsPracticeSummaryResult,
+    PsPrerequisiteStatusRow,
     PsPrerequisiteStepUidsRow,
     PsStepTaughtKuUidsRow,
     PsTaughtKuRow,
@@ -616,6 +617,12 @@ class PsIntelligenceBackendOperations(Protocol):
         self, ps_uid: str
     ) -> Result[list[PsPrerequisiteStepUidsRow]]:
         """Return a single row with ``prereq_uids`` (collected REQUIRES_STEP targets)."""
+        ...
+
+    async def fetch_prerequisite_statuses(
+        self, ps_uid: str, user_uid: str | None
+    ) -> Result[list[PsPrerequisiteStatusRow]]:
+        """Return a row per published direct prerequisite of a PathStep, ordered by title."""
         ...
 
     async def fetch_practice_counts(self, ps_uid: str) -> Result[list[PsPracticeCountsRow]]:
