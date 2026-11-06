@@ -88,10 +88,9 @@
 }
 
 /*
-  The default border color changed to `currentcolor` in Tailwind CSS v4; this
-  compatibility rule keeps bare `border` utilities rendering gray-200 as they
-  did with v3. Removing it requires an explicit border color utility on every
-  element that relies on the default.
+  The default border color is `currentcolor` in Tailwind CSS v4. A bare `border`
+  utility takes the theme's border token instead, so every element that sets no
+  border color follows light and dark.
 */
 @layer base {
   *,
@@ -99,7 +98,7 @@
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+    border-color: var(--color-border, currentcolor);
   }
 }
 
