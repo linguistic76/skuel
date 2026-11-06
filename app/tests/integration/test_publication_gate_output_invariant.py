@@ -203,6 +203,8 @@ CREATE (s_beyond:Entity:PathStep {uid: $step_beyond_draft, entity_type: 'path_st
                                   title: 'Step reached only through a draft', sequence: 1,
                                   created_at: '2026-01-01'})
 CREATE (s_draft)-[:REQUIRES_STEP]->(s_beyond)
+// STEP_PUBLISHED's dependents: STEP_REQUIRES_DRAFT, and this draft.
+CREATE (s_draft)-[:REQUIRES_STEP]->(s_pub)
 
 CREATE (lp_pub)-[:HAS_STEP]->(s_pub)
 CREATE (lp_pub)-[:HAS_STEP]->(s_draft)
@@ -535,6 +537,11 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
             "adapters.persistence.neo4j.query.cypher.crud_queries",
             "build_prerequisite_chain_query",
         ): partial(ps.prerequisite_chain_with_distance, STEP_REQUIRES_DRAFT, PREREQUISITE_EDGES),
+        # The same edges read the other way: a draft that requires this step stays unnamed.
+        (
+            "adapters.persistence.neo4j.backends.curriculum_backends",
+            "_dependent_steps_match",
+        ): partial(ps.find_next_steps, STEP_PUBLISHED, LIMIT),
         (
             "adapters.persistence.neo4j.connection_fetch_backend",
             "ConnectionFetchBackend.fetch_source_pathstep",
@@ -883,6 +890,10 @@ _COVERED_KEYS = (
     (
         "adapters.persistence.neo4j.query.cypher.crud_queries",
         "build_prerequisite_chain_query",
+    ),
+    (
+        "adapters.persistence.neo4j.backends.curriculum_backends",
+        "_dependent_steps_match",
     ),
     (
         "adapters.persistence.neo4j.connection_fetch_backend",

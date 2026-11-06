@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import EntityStatus
-from core.models.enums.curriculum_enums import PublicationState
+from core.models.enums.curriculum_enums import PublicationState, StepRecommendationType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import HasUID
@@ -431,11 +431,11 @@ class PsService:
         )
 
     async def get_enables(self, uid: str) -> Result[list[PathStep]]:
-        """Get entities enabled by this one."""
+        """Get the path steps that require this one."""
         return await self.graph.find_next_steps(uid=uid)
 
     async def get_step_dependencies(self, uid: str, limit: int = 10) -> Result[list[PathStep]]:
-        """Get entities that depend on this one."""
+        """Get the path steps that require this one, the first ``limit`` by title."""
         return await self.graph.find_next_steps(uid=uid, limit=limit)
 
     # ============================================================================
@@ -867,9 +867,11 @@ class PsService:
         if not entity:
             return Result.fail(Errors.not_found(resource="PathStep", identifier=uid))
         prereqs_result = await self.get_prerequisites(uid)
-        prereq_count = len(prereqs_result.value) if prereqs_result.is_ok else 0
-        deps_result = await self.get_step_dependencies(uid)
-        deps_count = len(deps_result.value) if deps_result.is_ok else 0
+        if prereqs_result.is_error:
+            return Result.fail(prereqs_result)
+        deps_count = await self.graph.count_next_steps(uid)
+        if deps_count.is_error:
+            return Result.fail(deps_count)
         return Result.ok(
             {
                 "uid": uid,
@@ -877,8 +879,8 @@ class PsService:
                 "domain": entity.domain.value if entity.domain else None,
                 "word_count": entity.word_count,
                 "tag_count": len(entity.tags or []),
-                "prerequisite_count": prereq_count,
-                "dependent_count": deps_count,
+                "prerequisite_count": len(prereqs_result.value),
+                "dependent_count": deps_count.value,
                 "created_at": entity.created_at.isoformat() if entity.created_at else None,
                 "updated_at": entity.updated_at.isoformat() if entity.updated_at else None,
             }
@@ -887,16 +889,18 @@ class PsService:
     async def get_step_recommendations(
         self,
         uid: str,
-        user_uid: UserUID | None = None,
-        recommendation_type: str = "learning",
+        recommendation_type: StepRecommendationType = StepRecommendationType.LEARNING,
     ) -> Result[list[PathStep]]:
-        """Get personalized step recommendations."""
-        if recommendation_type == "next":
+        """Where a reader could go from this step. The same answer for every reader.
+
+        ``NEXT`` and ``LEARNING`` are the steps that require this one, five and ten of
+        them. ``RELATED`` is its semantic neighbourhood.
+        """
+        if recommendation_type is StepRecommendationType.NEXT:
             return await self.graph.find_next_steps(uid=uid, limit=5)
-        elif recommendation_type == "related":
+        if recommendation_type is StepRecommendationType.RELATED:
             return await self.find_related_steps(uid, limit=10)
-        else:
-            return await self.graph.find_next_steps(uid=uid, limit=10)
+        return await self.graph.find_next_steps(uid=uid, limit=10)
 
     def list_step_domains(self) -> Result[list[str]]:
         """List all path step domains."""

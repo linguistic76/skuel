@@ -415,6 +415,15 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",
+        "_dependent_steps_match",
+        Disposition.GATED,
+        "The steps that require a named step, behind /api/path-steps/dependencies, "
+        "/recommendations and /stats' dependent_count. Direct, so the one node gated is the "
+        "dependent; the source is exempt, since the caller named it. A draft neither shows "
+        "nor counts, as on the prerequisite side. Measured through PsBackend.find_next_steps.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.curriculum_backends",
         "PsBackend.get_prioritized_steps",
         Disposition.GATED,
         "MIXED surface, same shape as get_user_paths_prioritized: the gate "

@@ -772,10 +772,12 @@ class PsOperations(
         """Find prerequisite chain."""
         ...
 
-    async def find_next_steps(
-        self, uid: str, limit: int
-    ) -> Result[list[dict[str, Any]]]:  # boundary: traversal via query/cypher/ builders
-        """Find entities that have this one as a prerequisite."""
+    async def find_next_steps(self, uid: str, limit: int) -> Result[list[PathStep]]:
+        """The published path steps that require this one, each once, in title order."""
+        ...
+
+    async def count_next_steps(self, uid: str) -> Result[int]:
+        """How many published path steps require this one, with no page limit."""
         ...
 
     # =========================================================================

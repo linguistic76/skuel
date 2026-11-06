@@ -640,6 +640,25 @@ DATETIME>`` cannot reach the comparison. Newest wins, not first-non-null —
 """
 
 
+def _dependent_steps_match() -> tuple[str, dict[str, str]]:
+    """The published path steps that require ``$uid``, by either prerequisite edge.
+
+    Bound to ``step``. A step holding both edges matches twice, so a caller reads it
+    ``DISTINCT``. The label is the scope, not a convenience: a Goal, a Task or an
+    Exercise may require a step too, and none of those is a step that builds on it.
+    A self-edge is left out, as the content-vault edge writer does not reject cycles.
+    The source is exempt from the gate: the caller named it.
+    """
+    published, published_params = build_publication_clause("step")
+    return (
+        f"""
+        MATCH (source:Entity {{uid: $uid}})<-[:REQUIRES_STEP|REQUIRES_KNOWLEDGE]-(step:PathStep)
+        WHERE step <> source AND {published}
+        """,
+        published_params,
+    )
+
+
 class PsBackend(
     _OrganizesMixin,
     _LearningStateMixin,
@@ -993,6 +1012,33 @@ class PsBackend(
         return Result.ok(
             [from_neo4j_node(record[node_key], PathStep) for record in (result.value or [])]
         )
+
+    async def find_next_steps(self, uid: str, limit: int) -> Result[list[PathStep]]:
+        """The published path steps that require this one, each once, in title order."""
+        match, params = _dependent_steps_match()
+        query = f"""
+        {match}
+        WITH DISTINCT step
+        ORDER BY step.title, step.uid
+        LIMIT $limit
+        RETURN step
+        """
+        return self._records_to_steps(
+            await self.execute_query(query, {"uid": uid, "limit": limit, **params}),
+            node_key="step",
+        )
+
+    async def count_next_steps(self, uid: str) -> Result[int]:
+        """How many published path steps require this one, with no page limit."""
+        match, params = _dependent_steps_match()
+        query = f"""
+        {match}
+        RETURN count(DISTINCT step) AS total
+        """
+        result = await self.execute_query(query, {"uid": uid, **params})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(int(result.value[0]["total"]))
 
     async def get_standalone_steps(self, limit: int = 50) -> Result[list[PathStep]]:
         """Get PathStep nodes not belonging to any learning path.
