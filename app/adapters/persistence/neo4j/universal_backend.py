@@ -437,37 +437,3 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
             params[f"_df_{k}"] = v
 
     # _is_driver_closed / _run_single / _run_records live on Neo4jSessionRunner.
-
-    # ============================================================================
-    # DYNAMIC PROTOCOL COMPLIANCE - A
-    # ============================================================================
-
-    def __getattr__(self, name: str) -> Any:
-        """
-        Dynamic protocol compliance for simple CRUD method name aliases.
-
-        Delegates domain-named methods to their universal equivalents:
-            - create_{domain}(entity)       → create(entity)
-            - get_{domain}_by_uid(uid)      → get(uid)
-            - update_{domain}(uid, updates) → update(uid, updates)
-            - delete_{domain}(uid)          → delete(uid)
-
-        Domain-specific methods (link_X_to_Y, get_user_X, archive_X, etc.)
-        have explicit implementations on domain backend subclasses.
-        """
-        if name.startswith("create_") and not name.endswith("_relationship"):
-            return self.create
-
-        if name.startswith("get_") and name.endswith("_by_uid"):
-            return self.get
-
-        if name.startswith("update_") and not name.startswith("update_user"):
-            return self.update
-
-        if name.startswith("delete_") and not name.startswith("delete_user"):
-            return self.delete
-
-        raise AttributeError(
-            f"'{type(self).__name__}' has no attribute '{name}'. "
-            f"Domain-specific methods require explicit implementation on the backend subclass."
-        )

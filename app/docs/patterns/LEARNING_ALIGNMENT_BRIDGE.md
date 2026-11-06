@@ -1,6 +1,6 @@
 ---
 title: LearningAlignmentBridge - Unified Learning Integration Pattern
-updated: '2026-10-11'
+updated: '2026-11-06'
 category: patterns
 related_skills: []
 related_docs:
@@ -55,8 +55,8 @@ The bridge once carried `create_with_learning_alignment()` and
 `create_batch_with_learning_alignment()`, wired to dict-based
 `backend.create_{domain}` doors. Three facts sank them together:
 
-1. **The doors never existed.** `backend.create_task` / `create_goal` / … resolve
-   through `UniversalNeo4jBackend.__getattr__` to `create(entity)`, which expects a
+1. **The doors never existed.** `backend.create_task` / `create_goal` / … resolved
+   through a dynamic alias on `UniversalNeo4jBackend` to `create(entity)`, which expects a
    DOMAIN MODEL. The bridge handed it `request.model_dump()` — a dict with no
    `uid` and no `user_uid` — so every real call persisted a corrupt uid-less,
    ownerless node and then raised converting it back. Only mock-based unit tests

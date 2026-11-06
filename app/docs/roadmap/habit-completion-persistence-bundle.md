@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-10-24
+updated: 2026-11-06
 status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -162,7 +162,7 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
 ⚠ **A third writer creates no node at all.** `POST /api/context/habit/complete` →
 `UserContextService.complete_habit_with_context` →
 `HabitsProgressService.complete_habit_with_quality` increments `total_completions`, advances
-`current_streak` / `best_streak` / `last_completed` via `backend.update_habit`, is the ONLY
+`current_streak` / `best_streak` / `last_completed` via `backend.update`, is the ONLY
 completion path that recalculates and persists **`success_rate`** (the consistency value habit
 enrichment, AI, pattern and scheduling readers consume — `record_completion` never touches it),
 and publishes `HabitCompleted` — without ever creating a `HabitCompletion`. Every node-derived

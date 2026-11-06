@@ -42,32 +42,24 @@ alone — ``PsIntelligenceService`` types ``self.backend`` against
 
 ``PsOperations`` is a BACKEND protocol, single-layer: it declares
 ``execute_query``, ``find_by``, ``list_steps_raw`` and the other persistence
-methods ``PsBackend`` satisfies, and the ``PsService`` facade shares only 16 of
-its 131 public callable names. A consumer that needs one read of the facade
+methods ``PsBackend`` satisfies, and the ``PsService`` facade shares few of its
+public callable names. A consumer that needs one read of the facade
 types against a narrow protocol such as ``EntityLookup``
 (``core/services/askesis/types.py``), never against ``PsOperations``.
 See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
 
 Protocol Hierarchy
 ------------------
-    CurriculumOperations[T] ← Base for all curriculum domains
+    CurriculumOperations[T] ← Base for the PS and LP backends
         ├── Inherits: BackendOperations[T] (CRUD, relationships, traversal)
-        ├── Inherits: GraphRelationshipOperations (get_related_uids, count_related)
-        │
-        └── Curriculum-Specific Methods:
-            ├── get_with_content() → Result[T]
-            ├── get_prerequisites() → Result[list[T]]
-            └── get_hierarchy() → Result[dict]
+        └── Inherits: GraphRelationshipOperations (get_related_uids, count_related)
 
-Domain-Specific Protocols:
-    PsOperations(CurriculumOperations[PathStep], Protocol):
-        ├── get_knowledge_uids() → Result[list[str]]
-        ├── get_path_steps() → Result[list[PathStep]]
-        └── get_practice_summary() → Result[dict]
+    PsOperations(CurriculumOperations[PathStep], Protocol)
+    LpOperations(CurriculumOperations[LearningPath], Protocol)
 
-    LpOperations(CurriculumOperations[LearningPath], Protocol):
-        ├── get_next_step() → Result[PathStep | None]
-        ├── calculate_progress() → Result[float]
+Each declares what its ``*Backend`` adapter defines and nothing more;
+``tests/unit/adapters/test_backend_protocol_conformance.py`` holds every domain
+backend to its protocol, so a member with no implementation fails there.
 
 Return Type Consistency
 -----------------------
@@ -111,7 +103,6 @@ from core.ports.query_types import (
     PsGuidanceCountsRow,
     PsKnowledgeSummaryResult,
     PsPracticeCountsRow,
-    PsPracticeSummaryResult,
     PsPrerequisiteStatusRow,
     PsPrerequisiteStepUidsRow,
     PsStepTaughtKuUidsRow,
@@ -157,117 +148,20 @@ class CurriculumOperations[T: "DomainModelProtocol"](
     BackendOperations[T], GraphRelationshipOperations, Protocol
 ):
     """
-    Base protocol for all curriculum domain backends (KU, PS, LP).
+    Base protocol for the PS and LP backends.
 
     Inherits:
         - BackendOperations[T]: Full CRUD, relationships, traversal, search
         - GraphRelationshipOperations: get_related_uids(), count_related()
 
-    Adds curriculum-specific methods that all three domains share:
-        - get_with_content(): Fetch entity with full content
-        - get_prerequisites(): Fetch prerequisite entities
-        - get_hierarchy(): Fetch hierarchical structure
+    Declares nothing of its own. ``KuOperations`` extends ``BackendOperations``
+    directly. A step's or path's content, prerequisites and hierarchy are read
+    through its service (``get_with_content``, ``get_prerequisites``) and its
+    registry keys, not through a method of this port.
 
     Type Parameter:
-        T: The domain model (Curriculum, PathStep, or LearningPath)
-
-    Design Rationale:
-        Curriculum domains share patterns that Activity domains don't need:
-        - Content retrieval (markdown, learning materials)
-        - Prerequisite chains (knowledge dependencies)
-        - Hierarchical structures (KU→PS→LP aggregation)
-
-        By inheriting BackendOperations, curriculum domains get ALL the same
-        capabilities as Activity domains (CRUD, relationships, search, traversal)
-        PLUS these curriculum-specific additions.
-
-    Example:
-        class KuUniversalBackend(UniversalNeo4jBackend[Ku], CurriculumOperations[Ku]):
-            async def get_with_content(self, uid: str) -> Result[Ku]:
-                # Implementation
-                ...
+        T: The domain model (PathStep or LearningPath)
     """
-
-    # =========================================================================
-    # CONTENT RETRIEVAL
-    # =========================================================================
-
-    async def get_with_content(self, uid: str) -> Result[tuple[T, str | None]]:
-        """
-        Get entity with full content loaded.
-
-        For curriculum entities, content may be stored separately or lazily loaded.
-        This method ensures the full content is retrieved.
-
-        Args:
-            uid: Entity UID
-
-        Returns:
-            Result[tuple[T, str | None]]: Entity and its content, or error
-        """
-        ...
-
-    # =========================================================================
-    # PREREQUISITE CHAINS
-    # =========================================================================
-
-    async def get_prerequisites(self, uid: str, depth: int = 3) -> Result[list[T]]:
-        """
-        Get prerequisite entities for this entity.
-
-        Traverses REQUIRES/PREREQUISITE relationships to find all entities
-        that must be mastered before this one.
-
-        Args:
-            uid: Entity UID
-            depth: Maximum prerequisite chain depth (default: 3)
-
-        Returns:
-            Result[list[T]]: Ordered list of prerequisites (foundational first)
-        """
-        ...
-
-    async def get_enables(self, uid: str, depth: int = 3) -> Result[list[T]]:
-        """
-        Get entities enabled by this entity.
-
-        Finds all entities that become accessible after mastering this one.
-
-        Args:
-            uid: Entity UID
-            depth: Maximum depth to traverse (default: 3)
-
-        Returns:
-            Result[list[T]]: Entities that this entity enables
-        """
-        ...
-
-    # =========================================================================
-    # HIERARCHICAL STRUCTURE
-    # =========================================================================
-    # boundary: get_hierarchy returns dict[str, Any] — shape varies by entity type
-    # (KU vs PS vs LP each return different hierarchy structures from Cypher).
-
-    async def get_hierarchy(self, uid: str) -> Result[dict[str, Any]]:
-        """
-        Get hierarchical structure for this entity.
-
-        Returns the entity's position in the curriculum hierarchy:
-        - For KU: Which PS and LP contain it
-        - For PS: Which LP contains it, which KUs it aggregates
-        - For LP: Its step sequence and knowledge coverage
-
-        Args:
-            uid: Entity UID
-
-        Returns:
-            Result[dict]: Hierarchical context including:
-                - parent_uids: UIDs of containing entities
-                - child_uids: UIDs of contained entities
-                - position: Sequence/order information
-                - aggregation: What this entity aggregates
-        """
-        ...
 
 
 # =============================================================================
@@ -680,16 +574,11 @@ class PsOperations(
     taken here (Mike's ruling, 2026-08-20: state the layer, don't rename).
 
     Type ``self.backend`` against this. Do NOT type a handle that receives the
-    ``PsService`` facade against it — ``PsService`` implements 8 of its 142
-    public callables. A collaborator that only needs to look an entity up wants
+    ``PsService`` facade against it — the facade implements few of its members. A
+    collaborator that only needs to look an entity up wants
     a narrow slice (see ``EntityLookup`` in ``core/services/askesis/types.py``),
     and one that needs the facade should say ``PsService`` (facades are
     concrete to their callers — CLAUDE.md § Protocol-Based Architecture).
-
-    Extends CurriculumOperations with PS-specific methods for:
-    - Knowledge aggregation (PS aggregates KUs)
-    - Practice integration (habits, tasks, events)
-    - Path integration (PS can be standalone or part of LP)
 
     Inherits two narrow backend slices so their signatures have one source:
     ``PsOrganizesBackendOperations`` (ORGANIZES) and
@@ -698,24 +587,6 @@ class PsOperations(
     Neo4j: PS nodes are :Entity:PathStep{entity_type='path_step'}
     UID Format: "ps.{namespace}.{slug}" (e.g., "ps.python.async-basics")
     """
-
-    # =========================================================================
-    # KNOWLEDGE AGGREGATION
-    # =========================================================================
-
-    async def get_knowledge_uids(self, uid: str) -> Result[list[str]]:
-        """
-        Get all KU UIDs aggregated by this step.
-
-        Returns both primary and supporting knowledge UIDs.
-
-        Args:
-            uid: PS UID
-
-        Returns:
-            Result[list[str]]: All KU UIDs in this step
-        """
-        ...
 
     # =========================================================================
     # KNOWLEDGE RELATIONSHIPS (CONTAINS_KNOWLEDGE edges — written at ingestion)
@@ -730,95 +601,6 @@ class PsOperations(
         ...
 
     # =========================================================================
-    # PRACTICE INTEGRATION
-    # =========================================================================
-
-    async def get_practice_summary(self, uid: str) -> Result[PsPracticeSummaryResult]:
-        """
-        Get practice integration summary for this step.
-
-        Returns counts of activity entities (habits, tasks, events, goals,
-        principles, choices) connected to this path step, plus total.
-        """
-        ...
-
-    async def get_practice_tasks(self, uid: str) -> Result[list[str]]:
-        """
-        Get task UIDs for practicing this step.
-
-        Args:
-            uid: PS UID
-
-        Returns:
-            Result[list[str]]: Task UIDs
-        """
-        ...
-
-    async def get_practice_habits(self, uid: str) -> Result[list[str]]:
-        """
-        Get habit UIDs that reinforce this step.
-
-        Args:
-            uid: PS UID
-
-        Returns:
-            Result[list[str]]: Habit UIDs
-        """
-        ...
-
-    async def get_practice_events(self, uid: str) -> Result[list[str]]:
-        """
-        Get event UIDs associated with this step.
-
-        Args:
-            uid: PS UID
-
-        Returns:
-            Result[list[str]]: Event UIDs
-        """
-        ...
-
-    # =========================================================================
-    # PATH INTEGRATION
-    # =========================================================================
-
-    async def get_path_steps(self, path_uid: str) -> Result[list[PathStep]]:
-        """
-        Get all steps for a learning path, in sequence order.
-
-        Args:
-            path_uid: LP UID
-
-        Returns:
-            Result[list[PathStep]]: Ordered list of steps
-        """
-        ...
-
-    async def get_parent_path(self, uid: str) -> Result[str | None]:
-        """
-        Get the parent LP UID for this step, if any.
-
-        Args:
-            uid: PS UID
-
-        Returns:
-            Result[str | None]: Parent LP UID or None if standalone
-        """
-        ...
-
-    async def is_standalone(self, uid: str) -> Result[bool]:
-        """
-        Check if this step exists independently (not part of a path).
-
-        Args:
-            uid: PS UID
-
-        Returns:
-            Result[bool]: True if standalone
-        """
-        ...
-
-    # =========================================================================
     # SEARCH QUERIES
     # =========================================================================
 
@@ -830,67 +612,6 @@ class PsOperations(
         self, user_uid: UserUID, limit: int = 20
     ) -> Result[list[PathStep]]:
         """Get PathStep nodes prioritized by user context."""
-        ...
-
-    # =========================================================================
-    # GUIDANCE INTEGRATION
-    # =========================================================================
-
-    async def get_guiding_principles(self, uid: str) -> Result[list[str]]:
-        """
-        Get principle UIDs that guide this step.
-
-        Args:
-            uid: PS UID
-
-        Returns:
-            Result[list[str]]: Principle UIDs
-        """
-        ...
-
-    async def get_informed_choices(self, uid: str) -> Result[list[str]]:
-        """
-        Get choice UIDs informed by this step.
-
-        Args:
-            uid: PS UID
-
-        Returns:
-            Result[list[str]]: Choice UIDs
-        """
-        ...
-
-    # =========================================================================
-    # SEMANTIC RELATIONSHIPS    # =========================================================================
-
-    async def get_semantic_links(self, uid: str) -> Result[list[str]]:
-        """Get semantically related entity UIDs."""
-        ...
-
-    async def get_related_by_domain(
-        self,
-        uid: str,
-        domain: str,
-    ) -> Result[list[PathStep]]:
-        """Get related PathSteps filtered by domain."""
-        ...
-
-    # NOTE: get_substance_score / get_substantiation_summary were deleted
-    # 2026-08-21 (substance-write-grain arc) — declared here since the initial
-    # commit, implemented by no backend, called by nobody; the universal
-    # backend's __getattr__ laundered the structural gap. Node-counter reads
-    # belong to the staged Curriculum model methods (see deferred-work.md
-    # § Per-Node Substance Counters), not to this port.
-
-    # =========================================================================
-    # CURRICULUM INTEGRATION    # =========================================================================
-
-    async def get_path_steps_using(self, uid: str) -> Result[list[str]]:
-        """Get PS UIDs that include this entity via USES_KU."""
-        ...
-
-    async def get_learning_paths_featuring(self, uid: str) -> Result[list[str]]:
-        """Get LP UIDs that feature this entity."""
         ...
 
     # =========================================================================
@@ -1292,68 +1013,6 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
     """
 
     # =========================================================================
-    # LP-SPECIFIC RETRIEVAL
-    # =========================================================================
-
-    async def get_lp(self, uid: str) -> Result[LearningPath]:
-        """
-        Get a Learning Path by UID.
-
-        Args:
-            uid: LP UID (e.g., "lp.python.fundamentals")
-
-        Returns:
-            Result[LearningPath]: The learning path or not-found error
-        """
-        ...
-
-    async def list_user_paths(
-        self,
-        user_uid: UserUID,
-        include_completed: bool = False,
-    ) -> Result[list[LearningPath]]:
-        """
-        Get all learning paths for a user.
-
-        Args:
-            user_uid: User UID
-            include_completed: Include completed paths
-
-        Returns:
-            Result[list[LearningPath]]: User's learning paths
-        """
-        ...
-
-    async def list_all_paths(
-        self,
-        limit: int | None = None,
-        offset: int = 0,
-    ) -> Result[list[LearningPath]]:
-        """
-        List all learning paths in the system, uid-ordered, with pagination.
-
-        Args:
-            limit: Maximum number of paths to return
-            offset: Number of paths to skip (for pagination)
-
-        Returns:
-            Result[list[LearningPath]]: All learning paths
-        """
-        ...
-
-    async def get_active_paths(self, user_uid: UserUID) -> Result[list[LearningPath]]:
-        """
-        Get in-progress learning paths for a user.
-
-        Args:
-            user_uid: User UID
-
-        Returns:
-            Result[list[LearningPath]]: Paths with progress but not completed
-        """
-        ...
-
-    # =========================================================================
     # STEP READS (HAS_STEP edges)
     # =========================================================================
 
@@ -1383,108 +1042,6 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
         offset: int = 0,
     ) -> Result[list[LearningPath]]:
         """List all paths uid-ordered, paginated, steps in ``metadata["steps"]``."""
-        ...
-
-    # =========================================================================
-    # STEP NAVIGATION
-    # =========================================================================
-
-    async def get_steps(self, uid: str) -> Result[list[PathStep]]:
-        """
-        Get all steps in this path, in sequence order.
-
-        Args:
-            uid: LP UID
-
-        Returns:
-            Result[list[PathStep]]: Ordered steps
-        """
-        ...
-
-    async def get_next_step(
-        self,
-        uid: str,
-        completed_step_uids: set[str],
-    ) -> Result[PathStep | None]:
-        """
-        Get the next step to complete in this path.
-
-        Args:
-            uid: LP UID
-            completed_step_uids: Set of already-completed step UIDs
-
-        Returns:
-            Result[PathStep | None]: Next step or None if path complete
-        """
-        ...
-
-    async def get_current_step(self, uid: str, user_uid: UserUID) -> Result[PathStep | None]:
-        """
-        Get the current in-progress step for a user.
-
-        Args:
-            uid: LP UID
-            user_uid: User UID
-
-        Returns:
-            Result[PathStep | None]: Current step or None
-        """
-        ...
-
-    # =========================================================================
-    # PROGRESS AND MASTERY
-    # =========================================================================
-
-    async def calculate_progress(self, uid: str, user_uid: UserUID) -> Result[float]:
-        """
-        Calculate overall path progress for a user.
-
-        Args:
-            uid: LP UID
-            user_uid: User UID
-
-        Returns:
-            Result[float]: Progress percentage (0.0-1.0)
-        """
-        ...
-
-    async def calculate_mastery(self, uid: str, user_uid: UserUID) -> Result[float]:
-        """
-        Calculate average mastery across all steps.
-
-        Args:
-            uid: LP UID
-            user_uid: User UID
-
-        Returns:
-            Result[float]: Average mastery (0.0-1.0)
-        """
-        ...
-
-    async def is_complete(self, uid: str, user_uid: UserUID) -> Result[bool]:
-        """
-        Check if path is complete for a user.
-
-        Args:
-            uid: LP UID
-            user_uid: User UID
-
-        Returns:
-            Result[bool]: True if all steps completed
-        """
-        ...
-
-    async def is_mastered(self, uid: str, user_uid: UserUID) -> Result[bool]:
-        """
-        Check if path is fully mastered (all steps meet threshold).
-
-        Args:
-            uid: LP UID
-            user_uid: User UID
-
-        Returns:
-            Result[bool]: True if all steps mastered
-        """
         ...
 
     # =========================================================================
@@ -1527,91 +1084,6 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
                 - total_unique_kus: distinct KUs across all steps
                 - kus_per_step: mean distinct KUs per step (breadth density)
                 - max_prerequisite_depth: longest REQUIRES_KNOWLEDGE chain
-        """
-        ...
-
-    # =========================================================================
-    # MOTIVATIONAL ALIGNMENT
-    # =========================================================================
-
-    async def get_aligned_goals(self, uid: str) -> Result[list[str]]:
-        """
-        Get goal UIDs this path supports.
-
-        Args:
-            uid: LP UID
-
-        Returns:
-            Result[list[str]]: Goal UIDs
-        """
-        ...
-
-    async def get_embodied_principles(self, uid: str) -> Result[list[str]]:
-        """
-        Get principle UIDs this path embodies.
-
-        Args:
-            uid: LP UID
-
-        Returns:
-            Result[list[str]]: Principle UIDs
-        """
-        ...
-
-    async def get_motivational_context(self, uid: str) -> Result[dict[str, Any]]:
-        """
-        Get complete motivational context for this path.
-
-        Returns:
-            Result[dict]: Context including:
-                - aligned_goals: Goal details
-                - embodied_principles: Principle details
-                - motivational_strength: Score (0.0-1.0)
-        """
-        ...
-
-    # =========================================================================
-    # MILESTONE MANAGEMENT
-    # =========================================================================
-
-    async def get_milestone_events(self, uid: str) -> Result[list[str]]:
-        """
-        Get milestone event UIDs for this path.
-
-        Args:
-            uid: LP UID
-
-        Returns:
-            Result[list[str]]: Milestone event UIDs
-        """
-        ...
-
-    async def get_checkpoint_schedule(self, uid: str) -> Result[list[int]]:
-        """
-        Get checkpoint week numbers for this path.
-
-        Args:
-            uid: LP UID
-
-        Returns:
-            Result[list[int]]: Week numbers for checkpoints
-        """
-        ...
-
-    async def get_next_checkpoint_week(
-        self,
-        uid: str,
-        current_week: int,
-    ) -> Result[int | None]:
-        """
-        Get the next checkpoint week after current week.
-
-        Args:
-            uid: LP UID
-            current_week: Current week number
-
-        Returns:
-            Result[int | None]: Next checkpoint week or None
         """
         ...
 

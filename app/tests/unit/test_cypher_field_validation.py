@@ -385,7 +385,6 @@ class TestLearningPathCatalogueExposesNoSortKey:
         owners = [
             _LpStepMixin.list_all_paths_with_steps,
             LpOperations.list_all_paths_with_steps,
-            LpOperations.list_all_paths,
             LpCoreService.list_all_paths,
         ]
         for owner in owners:

@@ -59,6 +59,7 @@ if TYPE_CHECKING:
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
+    from core.ports import KuOperations, LpOperations, PsOperations
 
 
 def _nous_subtopic_pairs_query(label: NeoLabel) -> tuple[str, dict[str, str]]:
@@ -1503,3 +1504,11 @@ class EmbeddingCoverageBackend:
             for entry in entries
         )
         return Result.ok(EmbeddingCoverage.from_label_counts(by_label))
+
+
+if TYPE_CHECKING:
+    # mypy holds each backend to the protocol its services type against, signatures
+    # included. Its runtime twin: tests/unit/adapters/test_backend_protocol_conformance.py.
+    _KU_IS_ITS_PROTOCOL: type[KuOperations] = KuBackend
+    _PS_IS_ITS_PROTOCOL: type[PsOperations] = PsBackend
+    _LP_IS_ITS_PROTOCOL: type[LpOperations] = LpBackend

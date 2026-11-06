@@ -67,13 +67,13 @@ async def test_manual_progress_update_stamps_last_progress_update() -> None:
     goal = _goal()
     backend = Mock()
     backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
-    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    backend.update = AsyncMock(return_value=Result.ok(goal))
     service = _progress_service(backend)
 
     result = await service.update_goal_progress(_GOAL, 40.0)
 
     assert result.is_ok
-    updates = backend.update_goal.await_args.args[1]
+    updates = backend.update.await_args.args[1]
     assert updates["progress_percentage"] == 40.0
     assert isinstance(updates["last_progress_update"], datetime)
 
@@ -84,13 +84,13 @@ async def test_re_posting_the_stored_figure_leaves_the_stamp_alone() -> None:
     goal = _goal(progress=40.0)
     backend = Mock()
     backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
-    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    backend.update = AsyncMock(return_value=Result.ok(goal))
     service = _progress_service(backend)
 
     result = await service.update_goal_progress(_GOAL, 40.0)
 
     assert result.is_ok
-    updates = backend.update_goal.await_args.args[1]
+    updates = backend.update.await_args.args[1]
     assert updates["progress_percentage"] == 40.0
     assert "last_progress_update" not in updates
 

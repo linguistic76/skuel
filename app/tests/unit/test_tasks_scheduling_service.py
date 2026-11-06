@@ -45,7 +45,6 @@ def mock_backend() -> Any:
     """Create a mock tasks backend."""
     backend = Mock()
     backend.create = AsyncMock(side_effect=_echo_create)
-    backend.create_task = AsyncMock()
     # Default: No relationships found (empty lists)
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
     backend.create_relationship = AsyncMock(return_value=Result.ok(True))

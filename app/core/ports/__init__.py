@@ -317,7 +317,7 @@ __all__ = [
     # Sub-protocols (for focused dependencies)
     "CrudOperations",  # Basic CRUD (8 methods)
     # ========== CURRICULUM OPERATION PROTOCOLS (5 - Dec 2025) ==========
-    "CurriculumOperations",  # Base protocol for KU, PS, LP, MOC
+    "CurriculumOperations",  # Base protocol for the PS and LP backends
     # ========== TYPE ALIASES (3) ==========
     "Direction",
     "DomainSearchOperations",

@@ -227,7 +227,7 @@ class HabitsProgressService:
             "total_completions": habit.total_completions + 1,
         }
 
-        update_result = await self.backend.update_habit(habit_uid, dict(updates))
+        update_result = await self.backend.update(habit_uid, dict(updates))
         if update_result.is_error:
             return Result.fail(update_result)
 

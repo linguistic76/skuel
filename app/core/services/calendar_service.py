@@ -33,7 +33,10 @@ from core.utils.timestamp_helpers import day_of, parse_stamp, today_in, wall_clo
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
+    from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
+    from core.services.tasks_service import TasksService
 
 from core.constants import HabitBlock
 from core.models.enums import Priority
@@ -62,11 +65,6 @@ from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 
 # Import protocol interfaces for dependency injection
-from core.ports.domain_protocols import (
-    EventsOperations,
-    GoalsOperations,
-    TasksOperations,
-)
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -153,17 +151,17 @@ def _day_of_stamp(value: object) -> date | None:
 class CalendarService:
     """Calendar meta-service: composes the injected domain services into one surface.
 
-    Every graph read and write goes through TasksOperations, EventsOperations,
-    HabitsService and GoalsOperations; the calendar writes no Cypher of its own.
+    Every graph read and write goes through the Tasks, Events, Habits and Goals
+    facades; the calendar writes no Cypher of its own.
     The module docstring states what it displays and acts on.
     """
 
     def __init__(
         self,
-        tasks_service: TasksOperations,
-        events_service: EventsOperations,
+        tasks_service: TasksService,
+        events_service: EventsService,
         habits_service: HabitsService,
-        goals_service: GoalsOperations,
+        goals_service: GoalsService,
     ) -> None:
         """
         Initialize with required domain services.

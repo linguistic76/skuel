@@ -109,14 +109,12 @@ if TYPE_CHECKING:
 
     from core.models.choice.choice import Choice
     from core.models.event.event import Event
-    from core.models.event.event_update_intent import EventUpdateIntent
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
     from core.models.principle.principle import Principle
     from core.models.relationship_names import RelationshipName
     from core.models.task.task import Task
-    from core.models.task.task_update_intent import TaskUpdateIntent
-    from core.models.type_hints import EntityUID, FilterParams, Metadata, Neo4jProperties
+    from core.models.type_hints import EntityUID, FilterParams, Neo4jProperties
     from core.models.update_contracts import GuardedRecompute, GuardedWritePlan
     from core.utils.result_simplified import Result
 
@@ -164,20 +162,6 @@ class TasksOperations(
         """UIDs of the goals this entity contributes to (``CONTRIBUTES_TO_GOAL``)."""
         ...
 
-    async def create_task(self, data: Metadata) -> Result[EntityUID]:
-        """Create task from request data. Use create() if you have a domain model."""
-        ...
-
-    async def update_task(self, task_id: EntityUID, intent: TaskUpdateIntent) -> Result[Task]:
-        """Update a task (ADR-066 typed update contract). Returns Result[Task] (the updated
-        task). The intent's edge fields are split off and applied as graph-edge mutations;
-        its remaining set fields are written as node properties."""
-        ...
-
-    async def delete_task(self, task_id: EntityUID) -> Result[bool]:
-        """Delete task by ID. Alias for delete() with semantic naming."""
-        ...
-
     # ========================================================================
     # QUERY METHODS
     # ========================================================================
@@ -190,10 +174,6 @@ class TasksOperations(
         """Get all tasks for a user."""
         ...
 
-    async def get_user_assigned_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
-        """Get tasks assigned to a user."""
-        ...
-
     async def get_assigned_tasks(
         self,
         user_uid: UserUID,
@@ -201,10 +181,6 @@ class TasksOperations(
         limit: int = 100,
     ) -> Result[list[Neo4jProperties]]:
         """Get tasks assigned to a user via ASSIGNED_TO relationship (raw properties)."""
-        ...
-
-    async def get_tasks_requiring_knowledge(self, knowledge_uid: str) -> Result[list[Task]]:
-        """Get tasks that require a specific knowledge unit."""
         ...
 
     async def get_tasks_reinforcing_habit(
@@ -258,40 +234,6 @@ class TasksOperations(
         Type Hint Example:
             filters: ActivityFilterSpec = {"status": "active", "priority": "high"}
             await service.get_user_entities(user_uid, filters=filters)
-        """
-        ...
-
-    async def get_user_items_in_range(
-        self,
-        user_uid: UserUID,
-        start_date: date,
-        end_date: date,
-        include_completed: bool = False,
-        date_field: str | list[str] | None = None,
-    ) -> Result[list[Task]]:
-        """
-        Get user's tasks in date range - unified interface for meta-services.
-
-        Standard query pattern used by Calendar and Reports services for
-        efficient Cypher-level filtering (10-100x faster than in-memory).
-
-        Args:
-            user_uid: User identifier
-            start_date: Range start date
-            end_date: Range end date
-            include_completed: Include completed tasks (default: False)
-            date_field: Optional override of the configured due_date field;
-                a list means OR semantics across fields — the calendar asks for
-                ["due_date", "scheduled_date"] so scheduled-only tasks render
-
-        Returns:
-            Result[list[Task]] filtered by user, date range, and completion status
-
-        Implementation:
-            Filters by user_uid, the requested date field(s), and excludes completed
-            status unless include_completed=True. Uses build_user_activity_query()
-
-        Date Added: October 29, 2025 (Unified Query Pattern for Meta-Services)
         """
         ...
 
@@ -358,55 +300,12 @@ class EventsOperations(
         """UIDs of the goals this entity contributes to (``CONTRIBUTES_TO_GOAL``)."""
         ...
 
-    async def create_event(self, data: Metadata) -> Result[EntityUID]:
-        """Create a new event and return its ID. Returns Result[str]."""
-        ...
-
-    async def update_event(self, event_id: EntityUID, intent: EventUpdateIntent) -> Result[Event]:
-        """Update an existing event (ADR-066 typed update contract). Returns Result[Event]
-        (the updated event). The intent's two edge fields are split off and applied as
-        graph-edge mutations; its remaining set fields are written as node properties."""
-        ...
-
     async def get_event(self, event_id: EntityUID) -> Result[Event]:
         """Get an event by ID. Not found is an error."""
         ...
 
     async def get_user_events(self, user_uid: UserUID) -> Result[list[Event]]:
         """Get all events for a user."""
-        ...
-
-    async def list_events(
-        self, limit: int = 100, filters: Metadata | None = None, offset: int = 0
-    ) -> Result[tuple[list[Event], int]]:
-        """List events with optional filters and pagination. Returns Result[(events, total_count)]."""
-        ...
-
-    async def count_events(self, filters: Metadata | None = None) -> Result[int]:
-        """Count events matching filters efficiently. Returns Result[int]."""
-        ...
-
-    async def get_user_items_in_range(
-        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Event]]:
-        """
-        Get user's events in date range - unified interface for meta-services.
-
-        Args:
-            user_uid: User identifier
-            start_date: Range start date
-            end_date: Range end date
-            include_completed: Include completed/cancelled events (default: False)
-
-        Returns:
-            Result[list[Event]] filtered by user, event_date, and completion status
-
-        Implementation:
-            Filters by user_uid, event_date field, excludes completed/cancelled
-            unless include_completed=True
-
-        Date Added: October 29, 2025 (Unified Query Pattern for Meta-Services)
-        """
         ...
 
     async def add_attendee(
@@ -513,14 +412,6 @@ class HabitsOperations(
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def create_habit(self, data: Metadata) -> Result[EntityUID]:
-        """Create a new habit and return its ID. Returns Result[str]."""
-        ...
-
-    async def update_habit(self, habit_id: str, data: Metadata) -> Result[bool]:
-        """Update habit details. Returns Result[bool]."""
-        ...
-
     async def archive_habit(self, habit_id: str) -> Result[bool]:
         """
         Archive a habit (soft delete — status transition to "archived").
@@ -543,29 +434,6 @@ class HabitsOperations(
         self, user_uid: UserUID, limit: int = 100
     ) -> Result[builtins.list[Habit]]:
         """List all habits for a user. Returns Result[list[Habit]]."""
-        ...
-
-    async def get_user_items_in_range(
-        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[builtins.list[Habit]]:
-        """
-        Get user's habits in date range - unified interface for meta-services.
-
-        Args:
-            user_uid: User identifier
-            start_date: Range start date (for display, habits are recurring)
-            end_date: Range end date
-            include_completed: Include archived habits (default: False)
-
-        Returns:
-            Result[list[Habit]] filtered by user and archived status
-
-        Implementation:
-            Filters by user_uid, excludes archived habits unless include_completed=True
-            Note: Habits don't have specific dates but are included for consistency
-
-        Date Added: October 29, 2025 (Unified Query Pattern for Meta-Services)
-        """
         ...
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
@@ -697,18 +565,6 @@ class GoalsOperations(
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def create_goal(self, data: Metadata) -> Result[str]:
-        """Create a new goal and return its ID. Returns Result[str]."""
-        ...
-
-    async def update_goal(self, goal_id: str, data: Metadata) -> Result[bool]:
-        """Update an existing goal. Returns Result[bool]."""
-        ...
-
-    async def delete_goal(self, goal_id: str) -> Result[bool]:
-        """Delete a goal. Returns Result[bool]."""
-        ...
-
     async def get_goal(self, goal_id: str) -> Result[Goal]:
         """Get a goal by ID. Not found is an error."""
         ...
@@ -731,29 +587,6 @@ class GoalsOperations(
         can state the scope it actually filtered on.
 
         Backend: GoalsBackend.count_goals_achieved
-        """
-        ...
-
-    async def get_user_items_in_range(
-        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Goal]]:
-        """
-        Get user's goals in date range - unified interface for meta-services.
-
-        Args:
-            user_uid: User identifier
-            start_date: Range start date
-            end_date: Range end date
-            include_completed: Include completed/abandoned goals (default: False)
-
-        Returns:
-            Result[list[Goal]] filtered by user, target_date, and completion status
-
-        Implementation:
-            Filters by user_uid, target_date field, excludes completed/abandoned
-            unless include_completed=True
-
-        Date Added: October 29, 2025 (Unified Query Pattern for Meta-Services)
         """
         ...
 
@@ -875,26 +708,8 @@ class ChoicesOperations(
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def create_choice(self, data: Metadata) -> Result[str]:
-        """Create a new choice and return its ID. Returns Result[str]."""
-        ...
-
-    async def delete_choice(self, choice_id: str) -> Result[bool]:
-        """Delete a choice. Returns Result[bool]."""
-        ...
-
-    async def resolve_choice(self, choice_id: str, resolution: Metadata) -> Result[bool]:
-        """Mark a choice as resolved with outcome data. Returns Result[bool]."""
-        ...
-
     async def get_choice(self, choice_id: str) -> Result[Choice]:
         """Get a choice by ID. Not found is an error."""
-        ...
-
-    async def find_choices(
-        self, filters: FilterParams | None = None, limit: int = 100
-    ) -> Result[list[Choice]]:
-        """Find choices with filters and limit."""
         ...
 
     async def get_user_choices(self, user_id: UserUID) -> Result[list[Choice]]:
@@ -911,33 +726,6 @@ class ChoicesOperations(
         self, user_uid: UserUID, end_date: str
     ) -> Result[list[Neo4jProperties]]:
         """Get choices needing decision by deadline (raw properties)."""
-        ...
-
-    async def count_choices(self, filters: FilterParams | None = None) -> Result[int]:
-        """Count choices matching filters. Returns Result[int]."""
-        ...
-
-    async def get_user_items_in_range(
-        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Choice]]:
-        """
-        Get user's choices in date range - unified interface for meta-services.
-
-        Args:
-            user_uid: User identifier
-            start_date: Range start date
-            end_date: Range end date
-            include_completed: Include archived choices (default: False)
-
-        Returns:
-            Result[list[Choice]] filtered by user and archived status
-
-        Implementation:
-            Filters by user_uid, excludes archived choices unless include_completed=True
-            Note: Choices may not have specific dates but are included for consistency
-
-        Date Added: October 29, 2025 (Unified Query Pattern for Meta-Services)
-        """
         ...
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
@@ -972,15 +760,6 @@ class PrinciplesOperations(
     # ========================================================================
     # CRUD METHODS
     # ========================================================================
-
-    async def create_principle(self, data: Metadata) -> Result[EntityUID]:
-        """Create a new principle and return its ID."""
-        ...
-
-    async def delete_principle(self, principle_uid: EntityUID) -> Result[bool]:
-        """Delete a principle. Principles have no soft-delete; deactivate via the
-        typed-intent update path (is_active=False) for removal-free deactivation."""
-        ...
 
     async def get_principle(self, principle_uid: str) -> Result[Principle]:
         """Get a principle by ID. Not found is an error."""

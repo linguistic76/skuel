@@ -1089,7 +1089,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             metadata["progress_notes"] = progress_notes
             updates["metadata"] = metadata
 
-        update_result = await self.backend.update_goal(uid, dict(updates))
+        update_result = await self.backend.update(uid, dict(updates))
         if update_result.is_error:
             return Result.fail(update_result)
 
@@ -1205,7 +1205,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         # Update goal
         updates: dict[str, Any] = {"milestones": milestones}
-        update_result = await self.backend.update_goal(uid, dict(updates))
+        update_result = await self.backend.update(uid, dict(updates))
 
         if update_result.is_error:
             return Result.fail(update_result)
