@@ -34,7 +34,7 @@ from core.ports.query_types import (
     PsPracticeCountsRow,
     PsPrerequisiteStepUidsRow,
     PsStepTaughtKuUidsRow,
-    PsTaughtKuUidRow,
+    PsTaughtKuRow,
 )
 from core.utils.result_simplified import Result
 
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
 
-# The four ``_to_*_rows`` processors take the neo4j driver's own row shape, straight
+# The ``_to_*_rows`` processors take the neo4j driver's own row shape, straight
 # off ``AsyncResult.data()``. That is a genuine external boundary and cannot be
 # narrowed: ``Neo4jProperties`` (the house alias) does not type-check here, because
 # ``int()`` rejects its value union and the ``collect()`` list is not iterable as a
@@ -87,15 +87,19 @@ def _to_guidance_counts_rows(
     ]
 
 
-def _to_taught_ku_uid_rows(
+def _to_taught_ku_rows(
     records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
-) -> list[PsTaughtKuUidRow]:
-    """Project raw rows onto PsTaughtKuUidRow (KeyError on alias drift).
+) -> list[PsTaughtKuRow]:
+    """Project raw rows onto PsTaughtKuRow (KeyError on alias drift).
 
     Rows with a null ``ku.uid`` are dropped so the declared ``str`` is truthful
-    rather than a stringified ``None``.
+    rather than a stringified ``None``; a Ku with no title carries its uid.
     """
-    return [{"ku_uid": str(row["ku_uid"])} for row in records if row["ku_uid"]]
+    return [
+        {"ku_uid": str(row["ku_uid"]), "ku_title": str(row["ku_title"] or row["ku_uid"])}
+        for row in records
+        if row["ku_uid"]
+    ]
 
 
 def _to_step_taught_ku_rows(
@@ -212,8 +216,8 @@ class PsIntelligenceBackend:
             operation="has_practice_opportunities",
         )
 
-    async def fetch_taught_ku_uids(self, ps_uid: str) -> Result[list[PsTaughtKuUidRow]]:
-        """Return ``ku_uid`` rows for the KUs taught by a PathStep.
+    async def fetch_taught_kus(self, ps_uid: str) -> Result[list[PsTaughtKuRow]]:
+        """Return a row per KU taught by a PathStep, ordered by title.
 
         Matches ``CURRICULUM_COMPOSITION_EDGES`` — the same set the substance
         write fan-out (``KuBackend.increment_substance``) and the UserContext
@@ -225,10 +229,11 @@ class PsIntelligenceBackend:
         return await self._executor.execute(
             query=f"""
                 MATCH (:Entity {{uid: $ps_uid}})-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{entity_type: $ku_entity_type}})
-                RETURN DISTINCT ku.uid AS ku_uid
+                RETURN DISTINCT ku.uid AS ku_uid, ku.title AS ku_title
+                ORDER BY ku_title, ku_uid
             """,
             params={"ps_uid": ps_uid, "ku_entity_type": EntityType.KU.value},
-            processor=_to_taught_ku_uid_rows,
+            processor=_to_taught_ku_rows,
             operation="calculate_user_substance",
         )
 
@@ -237,7 +242,7 @@ class PsIntelligenceBackend:
     ) -> Result[list[PsStepTaughtKuUidsRow]]:
         """Return one ``(ps_uid, ku_uids)`` row per requested PathStep.
 
-        The batched form of :meth:`fetch_taught_ku_uids`, for callers scoring a
+        The uid-only batched form of :meth:`fetch_taught_kus`, for callers scoring a
         whole set of steps at once — the Layer-0 analytics metric holds a
         learner's entire engagement window, and one round trip per step there is
         an N+1 over a set with no upper bound.

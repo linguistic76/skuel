@@ -37,3 +37,4 @@ def test_detail_and_fragment_routes_register_on_real_fasthtml() -> None:
     assert "/explore/ku/{uid}/related" in registered
     assert "/explore/ku/{uid}/apply" in registered
     assert "/explore/ps/{uid}/related" in registered
+    assert "/explore/ps/{uid}/applied" in registered

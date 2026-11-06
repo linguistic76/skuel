@@ -193,7 +193,7 @@ RETURN h.uid AS habit_uid,
 #
 # PathStep targets bridge to the Kus they compose over the canonical triple —
 # the same three edges KuBackend.increment_substance fans substance out along and
-# PsIntelligenceBackend.fetch_taught_ku_uids* reads back. Matching a narrower set
+# PsIntelligenceBackend.fetch_taught_ku* reads back. Matching a narrower set
 # here would credit the learner for fewer Kus than the step's own composition
 # claims, which reads as "you never applied this" on knowledge they did apply.
 # ``$ku_entity_type`` is a parameter, not an interpolated literal: the edge types

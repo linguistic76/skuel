@@ -2120,6 +2120,36 @@ class PsDomainInsights(TypedDict, total=False):
     has_prerequisites: bool
 
 
+class PsKuSubstanceRow(TypedDict):
+    """One taught Ku in PsUserSubstanceResult, scored for one learner."""
+
+    ku_uid: str
+    ku_title: str
+    substance_score: float
+    mastery_score: float
+    is_ready_to_learn: bool
+
+
+class PsUserSubstanceResult(TypedDict):
+    """Return shape for PsIntelligenceService.calculate_user_substance().
+
+    How much one learner has applied what a PathStep teaches: the means over its
+    Kus and each Ku's own reading. ``underlying_kus`` is empty for a step teaching
+    no Ku, and the scores are then 0.0.
+
+    See: /docs/architecture/knowledge_substance_philosophy.md
+    """
+
+    ps_uid: str
+    user_uid: str
+    overall_substance_score: float
+    overall_mastery_score: float
+    is_ready_to_learn: bool
+    taught_kus_count: int
+    underlying_kus: list[PsKuSubstanceRow]
+    status_message: str
+
+
 # ----------------------------------------------------------------------------
 # PsIntelligenceBackendOperations raw Cypher rows
 # ----------------------------------------------------------------------------
@@ -2190,14 +2220,15 @@ class PsEngagementCountsRow(TypedDict):
     mastered: int
 
 
-class PsTaughtKuUidRow(TypedDict):
-    """Row shape for fetch_taught_ku_uids() — one row per taught KU.
+class PsTaughtKuRow(TypedDict):
+    """Row shape for fetch_taught_kus() — one row per taught KU.
 
-    ``RETURN DISTINCT ku.uid AS ku_uid`` over the canonical composition triple
-    USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU.
+    The Ku's uid and title over the canonical composition triple
+    USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU. A Ku with no title carries its uid.
     """
 
     ku_uid: str
+    ku_title: str
 
 
 class JournalEntryMetadata(TypedDict):
@@ -4845,11 +4876,13 @@ __all__ = [
     # PS Backend Result Types
     # PS Intelligence Result Types
     "PsDomainInsights",
+    "PsKuSubstanceRow",
+    "PsUserSubstanceResult",
     # PsIntelligenceBackendOperations raw Cypher rows
     "PsPrerequisiteStepUidsRow",
     "PsPracticeCountsRow",
     "PsGuidanceCountsRow",
-    "PsTaughtKuUidRow",
+    "PsTaughtKuRow",
     # LP Intelligence Result Types
     "LpDomainInsights",
     "LpPathOverview",

@@ -31,6 +31,7 @@ from core.ports.query_types import (
     OrganizerResult,
     PrerequisiteChainData,
     PrerequisiteChainNode,
+    PsUserSubstanceResult,
     RootOrganizerResult,
 )
 from core.services.ps_service import PsService
@@ -252,7 +253,9 @@ def create_path_steps_api_routes(
 
     @rt("/api/path-steps/my-context")
     @boundary_handler()
-    async def get_step_user_context_route(request: Request, uid: str) -> Result[dict[str, Any]]:
+    async def get_step_user_context_route(
+        request: Request, uid: str
+    ) -> Result[PsUserSubstanceResult]:
         """Get personalized context for how the current user applies this path step."""
         user_uid = require_authenticated_user(request)
 

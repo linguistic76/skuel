@@ -18,6 +18,7 @@ Routes:
 - GET  /explore/ps/{uid}          — PathStep detail page (reading-first, no sidebar)
 - GET  /explore/ps/{uid}/content  — HTMX fragment: PathStep detail content
 - GET  /explore/ps/{uid}/related  — HTMX fragment: Related concepts (PS→PS vector similarity)
+- GET  /explore/ps/{uid}/applied  — HTMX fragment: How you've applied this (per-learner substance)
 - GET  /explore/next-step/related — HTMX fragment: ZPD next-step Kus + vector neighbours
 - GET  /learning-loop/ps/{ps_uid}/exercises                — Exercise list with status
 - GET  /learning-loop/ps/{ps_uid}/submissions-and-feedback — Submissions + feedback
@@ -47,6 +48,8 @@ from ui.explore.ku_detail import (
 )
 from ui.explore.ku_mastery import render_ku_mastery_result
 from ui.explore.ps_detail import (
+    render_ps_applied,
+    render_ps_applied_error,
     render_ps_detail_content,
     render_ps_next_step_related,
     render_ps_not_found,
@@ -149,7 +152,8 @@ def create_learning_loop_detail_routes(
         orchestrator: ExploreOrchestrator for cross-service reads.
         user_service: The viewer's mastery check-ins and role (the TEACHER+
             Activity Templates panel on /explore/ps/{uid}), and the rich context the
-            Knowledge check-in and "Where you can apply this" read (cached).
+            Knowledge check-in, "Where you can apply this" and "How you've applied
+            this" read (cached).
         context_intelligence: Creates the hub for a rich context — its method 3
             answers "Where you can apply this" on /explore/ku/{uid}.
         ps_engagement_service: Read-only access for the active engagement
@@ -473,6 +477,32 @@ def create_learning_loop_detail_routes(
         """HTMX fragment: Related concepts — vector-similar PathSteps (read-time lens)."""
         related = await _related_fragment("PathStep", uid, "ps-related-fragment")
         return render_ps_related_concepts(related)
+
+    # -----------------------------------------------------------------
+    # GET /explore/ps/{uid}/applied — How you've applied this
+    # -----------------------------------------------------------------
+
+    @rt("/explore/ps/{uid}/applied")
+    async def explore_ps_applied_fragment(request: Request, uid: str) -> FT:
+        """HTMX fragment: how the caller has applied what this step teaches.
+
+        Scores the step's Kus against the caller's rich context (cached). A failed
+        context read or answer renders the section's error line (200); the developer
+        message goes to the log.
+        """
+        user_uid = require_authenticated_user(request)
+        context_result = await user_service.get_rich_unified_context(user_uid)
+        if context_result.is_error:
+            return _applied_error(uid, context_result)
+        answer = await orchestrator.get_user_step_context(uid, context_result.value)
+        if answer.is_error:
+            return _applied_error(uid, answer)
+        return render_ps_applied(answer.value)
+
+    def _applied_error[T](uid: str, failed: Result[T]) -> FT:
+        error = failed.expect_error()
+        logger.error("How you've applied %s: %s", uid, error.message)
+        return render_ps_applied_error(error.display_message)
 
     # -----------------------------------------------------------------
     # GET /explore/next-step/related — "Related to your next step" fragment

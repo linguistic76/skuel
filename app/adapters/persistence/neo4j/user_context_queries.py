@@ -270,7 +270,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 //
 // All three edges, not the two this listed until 2026-08-12: the substance write
 // fan-out (KuBackend.increment_substance) and the step→Ku readers
-// (PsIntelligenceBackend.fetch_taught_ku_uids*) all traverse the triple, so a
+// (PsIntelligenceBackend.fetch_taught_ku*) all traverse the triple, so a
 // narrower rollup here credited the learner for fewer Kus than the step's own
 // composition claims — knowledge reachable only over CONTAINS_KNOWLEDGE scored a
 // flat zero for them however much they had applied it.

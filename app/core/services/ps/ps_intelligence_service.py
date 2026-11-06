@@ -20,8 +20,10 @@ from core.models.pathways.path_step import PathStep
 from core.ports.query_types import (
     PsDomainInsights,
     PsGuidanceCountsRow,
+    PsKuSubstanceRow,
     PsPracticeCountsRow,
     PsPracticeSummaryResult,
+    PsUserSubstanceResult,
     StepSubstance,
 )
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -514,7 +516,7 @@ class PsIntelligenceService(
 
     async def calculate_user_substance(
         self, ps_uid: str, user_context: UserContext
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[PsUserSubstanceResult]:
         """
         Calculate how much a user has applied the knowledge taught by this PathStep.
 
@@ -530,11 +532,11 @@ class PsIntelligenceService(
             return Result.fail(backend_result)
 
         # 1. Find all KUs taught by this PathStep
-        ku_rows_result = await backend_result.value.fetch_taught_ku_uids(ps_uid)
+        ku_rows_result = await backend_result.value.fetch_taught_kus(ps_uid)
         if ku_rows_result.is_error:
             return Result.fail(ku_rows_result)
 
-        ku_uids = [r["ku_uid"] for r in ku_rows_result.value if r.get("ku_uid")]
+        ku_rows = ku_rows_result.value
 
         # 2. Score each taught KU against the learner's own activity channels.
         #    The weights come from core.services.knowledge.user_substance — the
@@ -543,9 +545,10 @@ class PsIntelligenceService(
         index = build_substance_index_from_context(user_context)
         total_substance = 0.0
         total_mastery = 0.0
-        ku_details = []
+        ku_details: list[PsKuSubstanceRow] = []
 
-        for ku_uid in ku_uids:
+        for ku_row in ku_rows:
+            ku_uid = ku_row["ku_uid"]
             substance = user_substance_score(ku_uid, index)
             mastery_score = user_context.knowledge_mastery.get(ku_uid, 0.0)
 
@@ -554,17 +557,17 @@ class PsIntelligenceService(
             ku_details.append(
                 {
                     "ku_uid": ku_uid,
+                    "ku_title": ku_row["ku_title"],
                     "substance_score": round(substance, 3),
                     "mastery_score": round(mastery_score, 3),
-                    "is_ready_to_learn": ku_uid
-                    in getattr(user_context, "ready_to_learn_uids", set()),
+                    "is_ready_to_learn": ku_uid in user_context.ready_to_learn_uids,
                 }
             )
 
-        avg_substance = total_substance / len(ku_uids) if ku_uids else 0.0
-        avg_mastery = total_mastery / len(ku_uids) if ku_uids else 0.0
+        avg_substance = total_substance / len(ku_rows) if ku_rows else 0.0
+        avg_mastery = total_mastery / len(ku_rows) if ku_rows else 0.0
 
-        is_ready = bool(ku_uids and all(ku["is_ready_to_learn"] for ku in ku_details))
+        is_ready = bool(ku_rows and all(ku["is_ready_to_learn"] for ku in ku_details))
 
         if avg_substance >= 0.7:
             status = "Deeply integrated in your lifestyle."
@@ -582,7 +585,7 @@ class PsIntelligenceService(
                 "overall_substance_score": round(avg_substance, 3),
                 "overall_mastery_score": round(avg_mastery, 3),
                 "is_ready_to_learn": is_ready,
-                "taught_kus_count": len(ku_uids),
+                "taught_kus_count": len(ku_rows),
                 "underlying_kus": ku_details,
                 "status_message": status,
             }
