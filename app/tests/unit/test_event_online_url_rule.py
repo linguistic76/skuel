@@ -47,7 +47,7 @@ from tests.helpers.status_guarded_backend import StatusGuardedWriteRecorder, gua
 USER = "user_online_url"
 EVENT = "event_online_url"
 URL = "https://meet.example.com/abc"
-BOOKED = date.today() + timedelta(days=5)
+BOOKED = date(2099, 1, 5)
 
 _EVENT_BODY: dict[str, object] = {
     "title": "Study group",

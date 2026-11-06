@@ -23,10 +23,10 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.task.task import Task
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import today_in
-from core.utils.zone_context import current_zone, current_zone_var
+from core.utils.zone_context import current_zone_var
 from tests.helpers.laptop_clock import laptop_wall
 from tests.helpers.page_links_fake import FakePageLinks, page_link
+from tests.helpers.run_clock import RUN_TODAY
 from ui.today.orchestrator import (
     TodayOrchestrator,
     _choice_order,
@@ -36,8 +36,10 @@ from ui.today.orchestrator import (
     moment_is_on_day,
 )
 
+pytestmark = pytest.mark.usefixtures("held_run_clock")
+
 USER = "user_today"
-TODAY = today_in(current_zone())
+TODAY = RUN_TODAY
 
 
 # ---------------------------------------------------------------------------

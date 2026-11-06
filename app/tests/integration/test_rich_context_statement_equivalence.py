@@ -43,12 +43,15 @@ from core.models.user.user import User
 from core.services.user.user_context_builder import UserContextBuilder
 from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.run_clock import RUN_TODAY
 from tests.helpers.seed_uids import seed_user_uid
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 _USER_UID = seed_user_uid("test")
 # Noon yesterday: inside every activity window the reads apply (a fixed calendar
 # date ages out of the 30-day window and drops the in-window rows the test pins).
-_SEEDED_AT = datetime.combine(datetime.now().date() - timedelta(days=1), time(12, 0))
+_SEEDED_AT = datetime.combine(RUN_TODAY - timedelta(days=1), time(12, 0))
 
 _SEED = """
 MATCH (u:User {uid: $user_uid})

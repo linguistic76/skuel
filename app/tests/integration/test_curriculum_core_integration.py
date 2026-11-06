@@ -984,3 +984,39 @@ class TestPrerequisiteChainWithDistance:
         uids = {row["uid"] for row in result.value}
         # B is a prerequisite; A is NOT returned as its own prerequisite despite the cycle.
         assert uids == {cycle[1]}
+
+    @pytest.mark.asyncio
+    async def test_a_node_also_reached_through_a_draft_reads_its_published_distance(
+        self, ps_backend, neo4j_driver, clean_curriculum
+    ) -> None:
+        """The distance is measured over what the caller may see.
+
+        X is two hops away through the draft and three through published steps. Reading
+        two would measure a route this read does not show.
+        """
+        know_rel = RelationshipName.REQUIRES_KNOWLEDGE
+        async with neo4j_driver.session() as session:
+            await session.run(
+                f"""
+                CREATE (a:Entity:PathStep {{uid: 'ps.reach-a', entity_type: 'path_step'}})
+                CREATE (d:Entity:PathStep {{uid: 'ps.reach-draft', entity_type: 'path_step',
+                                            publication_state: 'draft'}})
+                CREATE (p:Entity:PathStep {{uid: 'ps.reach-p', entity_type: 'path_step'}})
+                CREATE (q:Entity:PathStep {{uid: 'ps.reach-q', entity_type: 'path_step'}})
+                CREATE (x:Entity:PathStep {{uid: 'ps.reach-x', entity_type: 'path_step'}})
+                CREATE (a)-[:{know_rel.value}]->(d)-[:{know_rel.value}]->(x)
+                CREATE (a)-[:{know_rel.value}]->(p)-[:{know_rel.value}]->(q)
+                CREATE (q)-[:{know_rel.value}]->(x)
+                """
+            )
+
+        result = await ps_backend.prerequisite_chain_with_distance(
+            uid="ps.reach-a", relationship_types=[know_rel], depth=3
+        )
+
+        assert result.is_ok, result.error if result.is_error else "unexpected"
+        assert {row["uid"]: row["distance"] for row in result.value} == {
+            "ps.reach-p": 1,
+            "ps.reach-q": 2,
+            "ps.reach-x": 3,
+        }

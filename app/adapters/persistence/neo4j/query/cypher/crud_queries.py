@@ -1543,7 +1543,7 @@ def build_prerequisite_chain_query(
     depth: int = 3,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
-    Build a flat, distance-annotated prerequisite-chain query.
+    Build a flat, distance-annotated prerequisite-chain query over published curriculum.
 
     Unlike :func:`build_prerequisite_traversal_query` (which drops ``distance`` at
     ``RETURN n``), this returns each *distinct* prerequisite paired with its
@@ -1551,6 +1551,12 @@ def build_prerequisite_chain_query(
     paths (diamond dependency) appears exactly once, at its nearest distance.
     That min-distance dedup is what makes downstream totals honest: counting the
     returned rows is a true count of distinct prerequisites, with no double-count.
+
+    Every node after the start must be published. "This requires that" is carried by
+    the whole path, so a draft is withheld and so is a prerequisite reached only
+    through one; a node reachable both ways reads at the distance of its published
+    route. The start is exempt: the caller named it, so a draft step still reads its
+    own published prerequisites.
 
     Always traverses outgoing (start → prerequisites), nearest-first.
 
@@ -1574,14 +1580,15 @@ def build_prerequisite_chain_query(
     # traversal back to the start node — which would otherwise return the requested
     # entity as its own prerequisite and inflate the totals. (The content-vault edge
     # writer does not reject cycles, so the query must.)
+    published, published_params = build_publication_clause("hop")
     query = f"""
     MATCH (start:{label} {{uid: $uid}})
     MATCH path = (start){arrow}(n:{label})
-    WHERE n <> start
+    WHERE n <> start AND all(hop IN nodes(path)[1..] WHERE {published})
     WITH n, min(length(path)) AS distance
     RETURN n.uid AS uid, n.title AS title, n.domain AS domain,
            n.entity_type AS entity_type, distance
     ORDER BY distance ASC
     """
 
-    return query, {"uid": uid}
+    return query, {"uid": uid, **published_params}

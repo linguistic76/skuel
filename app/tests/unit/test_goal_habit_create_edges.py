@@ -100,7 +100,7 @@ No Neo4j: the backend is stubbed, so what is under test is the service wiring â€
 which is exactly where the defect lived.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -123,9 +123,12 @@ from core.services.goals_service import GoalsService
 from core.services.habits.habits_core_service import HabitsCoreService
 from core.services.habits_service import HabitsService
 from core.utils.result_simplified import Result
+from tests.helpers.run_clock import RUN_TODAY
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 USER_UID = "user:edges"
-TODAY = date.today()
+TODAY = RUN_TODAY
 PARENT_GOAL = "goal:parent"
 
 

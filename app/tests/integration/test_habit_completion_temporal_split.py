@@ -28,7 +28,7 @@ from tests.helpers.seed_uids import seed_user_uid
 USER = seed_user_uid("temporal_split")
 HABIT = "habit.temporal-split"
 
-NOW = datetime.now()
+NOW = datetime(2026, 1, 15, 9, 30)
 LOW = datetime.combine((NOW - timedelta(days=29)).date(), time.min)
 HIGH = datetime.combine(NOW.date(), time.max)
 

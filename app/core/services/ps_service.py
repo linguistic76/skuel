@@ -415,7 +415,8 @@ class PsService:
         diamond dependency is counted once). Spans both REQUIRES_STEP (sequential)
         and REQUIRES_KNOWLEDGE (knowledge) prerequisites — the two dimensions the
         1-hop prerequisites read surfaced separately, unified into one chain.
-        Rows are heterogeneous (Ku *and* PathStep prerequisites).
+        Rows are heterogeneous (Ku *and* PathStep prerequisites). A draft is
+        withheld, and so is a prerequisite reached only through one.
 
         Backend: UniversalNeo4jBackend.prerequisite_chain_with_distance
         """

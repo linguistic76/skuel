@@ -73,7 +73,10 @@ def create_path_steps_api_routes(
         REQUIRES_KNOWLEDGE (knowledge) prerequisites — the two dimensions this
         read formerly returned as separate 1-hop UID lists, now unified into one
         flat, distance-ranked chain (nearest-first, min-distance deduped). Each
-        node is annotated with the requesting user's mastery.
+        node is annotated with the requesting user's mastery. A draft neither
+        shows nor counts, and nor does a prerequisite reached only through one:
+        the totals say what a learner has to clear, and nobody can clear what
+        this read does not name.
 
         Args:
             step_uid: Target path step

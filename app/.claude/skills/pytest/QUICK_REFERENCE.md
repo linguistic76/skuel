@@ -107,6 +107,7 @@ The root conftest also runs `load_dotenv()` — every `.env` value the developer
 | `services` | `TestServices` — the domain facades (`tasks`, `goals`, `events`, `choices`, `principles`, `lp`, `ps`, `users` + aliases) over real backends; Activity backends wrapped so `create()` accepts a dict |
 | `event_bus` | Real `InMemoryEventBus`; `create_relationship` / `count_relationships` — raw edge helpers; `user_uid` — a plain string (there is no `test_user_uid`) |
 | `laptop_zone` (root conftest, opt-in) | A Vancouver user on a UTC-pinned process; `forced_zone(zone)` (`tests/helpers/forced_zone.py`) for one block of the unpinned behaviour |
+| `held_run_clock` (root conftest, opt-in, module scope) | Stands the process clock on `RUN_INSTANT` for a module that takes its day from `tests/helpers/run_clock.py`, so a run crossing midnight stays on one day |
 
 ### Mock factories and doubles
 
@@ -146,6 +147,8 @@ service = create_tasks_service_for_testing(backend=backend)
 | `Failed: Timeout (>120.0s) from pytest-timeout` | The test body hung (pytest-timeout) — find the wait that never returns; only a test that provably needs longer gets `@pytest.mark.timeout(N)` |
 | A unit test passes alone, fails under `./dev test-unit` | Parallel unsafety — a fixed path, port, or module state another worker also touches; fix the test (`tmp_path`, per-test state), never a serial marker |
 | A "today" test goes red in CI between 00:00 and 07:00Z | The host day ≠ the Vancouver day; probe with `time_machine.travel(ts, tick=…)` at 03:00Z (no `faketime` on the laptop) and build days with `today_in(current_zone())` |
+| A run fails a batch of "today" tests, and they pass re-run | It crossed midnight (07:00Z in the default zone): read the failure's clock first. Fix: `RUN_TODAY` + `usefixtures("held_run_clock")`; find the rest with `tests/helpers/midnight_probe.py` |
+| `Read the clock inside a test, or take the day from tests/helpers/run_clock.py` (unit tier) | The static census (`tests/unit/test_import_time_clock_reads.py`): a clock read at import. `RUN_TODAY` + the hold, or a literal when the test never asks what day it is |
 | Proving a new test fails on the old code | `git stash push -- <tree>`, run a scratch copy, `git stash pop` — never while a background suite runs; `git add` a staged deletion first |
 | `Task(uid="task:x")` / `"task_001"` in a fixture | Outside the uid grammar — the integration census fails the test. Seed `task.x` (authored); a user seed is `seed_user_uid("name")` (`tests/helpers/seed_uids.py`) |
 | `the test wrote uids the uid grammar refuses` | Fix the seed; a test that writes one on purpose carries `@pytest.mark.outside_uid_grammar("why")` (`tests/integration/_uid_census.py`) |

@@ -118,6 +118,9 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
         distance, not full models, and mapping a Ku into a PathStep would fail
         the entity_type guard.
 
+        A draft is withheld, and so is a prerequisite reached only through one.
+        The start is exempt: the caller named it.
+
         Args:
             uid: Entity UID to start from
             relationship_types: Prerequisite relationship types (any may

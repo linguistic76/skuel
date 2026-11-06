@@ -52,9 +52,11 @@ from core.services.goals_service import GoalsService
 from core.services.habits_service import HabitsService
 from core.services.user import UserContext
 from core.services.user.user_context_builder import UserContextBuilder
-from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.run_clock import RUN_TODAY
 from tests.helpers.seed_uids import seed_user_uid
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 _USER = seed_user_uid("ha2_success_rate")
 _PREFIX = "ha2."
@@ -71,7 +73,7 @@ RESTARTED = f"{_PREFIX}habit-restarted"
 NOT_STARTED = f"{_PREFIX}habit-not-started"
 ALL_HABITS = (KEPT, BULK, YOUNG, QUARTERLY, DROPPED, FINISHED, OFF_CADENCE, RESTARTED, NOT_STARTED)
 
-TODAY = today_in(current_zone())
+TODAY = RUN_TODAY
 KEPT_RATE = 28 / HabitConsistencyWindow.DAYS
 DROPPED_RATE = 7 / HabitConsistencyWindow.DAYS
 # The weekends habit: its latest weekday completion is off its cadence, and the weekend

@@ -24,7 +24,7 @@ Order matters and is deliberate:
 1. `pin_process_clock_to_utc()` — before any other import, as every entry point does (the graph driver factory refuses an unpinned process).
 2. `load_dotenv()` — every `.env` value the developer runs the app with is in the test process (credential backend, tier, vault paths). It does not override a variable already set. **The Neo4j target is the one exception**, overridden by the app fixture below — `.env`'s `NEO4J_URI` is the production AuraDB instance.
 3. Re-exports the embedding mocks from `tests/fixtures/embedding_fixtures.py`: `mock_embedding_vector`, `mock_embeddings_service`, `mock_embeddings_unavailable`, `mock_vector_search_service`, `mock_vector_search_unavailable`, `services_with_embeddings`.
-4. `laptop_zone` — the one clock fixture shared by every tier, opt-in, never autouse: removes `SKUEL_TIMEZONE` so the user zone is `DEFAULT_TIMEZONE` (America/Vancouver) while the process stays pinned to UTC. `pytestmark = pytest.mark.usefixtures("laptop_zone")` for a module whose expectations are a Vancouver user's.
+4. The clock fixtures shared by every tier, opt-in, never autouse. `held_run_clock` (module scope) stands the process clock on the run's instant, for a module that takes its day from `tests/helpers/run_clock.py`. `laptop_zone` removes `SKUEL_TIMEZONE` so the user zone is `DEFAULT_TIMEZONE` (America/Vancouver) while the process stays pinned to UTC. `pytestmark = pytest.mark.usefixtures("laptop_zone")` for a module whose expectations are a Vancouver user's.
 
 No app or database fixture lives here. pytest-asyncio ≥ 1.0 provides the loops itself (`asyncio_default_fixture_loop_scope = "session"`) — there is no `event_loop` fixture to define or request.
 
@@ -138,7 +138,7 @@ Both take the shared `neo4j_driver`. For a RelationshipName-typed round-trip pre
 
 ```
 tests/
-├── conftest.py                    # Root: the pin, load_dotenv(), embedding mocks, laptop_zone
+├── conftest.py                    # Root: the pin, load_dotenv(), embedding mocks, laptop_zone, held_run_clock
 ├── integration/
 │   ├── conftest.py                # TestContainers (shared + the app's own), skuel_app, backends, services
 │   └── e2e/conftest.py            # the e2e flows' own fixtures

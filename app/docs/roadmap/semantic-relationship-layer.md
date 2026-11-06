@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-16
+updated: 2026-11-06
 ---
 
 # Semantic Relationship Layer — Development Roadmap
@@ -217,7 +217,7 @@ readers, no data).**
 `GET /api/path-steps/relationships`. Its curriculum **write** path is gone: ADR-091 retired the
 admin `POST` on the same endpoint with the delete-by-type path behind it, so a semantic edge
 between path steps is authored in the content vault, and `build_semantic_merge` (the triple
-writer) has no production caller until a vault door states a `semantic_type`. So the vocabulary is not merely staged — its read side is threaded
+writer) has no production caller until a vault door states a `semantic_type`. **That door has to bring the publication gate with it:** `query_relationships_by_type` (`GET /api/path-steps/relationships`) and `build_semantic_context` (`GET /api/path-steps/related`) compose no `build_publication_clause` and name a draft once an edge with a `semantic_type` exists; the transitive one gates every hop, as `build_prerequisite_chain_query` does. So the vocabulary is not merely staged — its read side is threaded
 through real readers. The gap is exclusively **a reasoner consumer + data**, not plumbing.
 
 **Net — what unblocks Phase 4 consumption (do these *together*, not before):**

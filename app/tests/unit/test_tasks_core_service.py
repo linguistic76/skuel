@@ -30,7 +30,10 @@ from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.run_clock import RUN_TODAY
 from tests.helpers.status_guarded_backend import echoing_guarded_write
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 # ============================================================================
 # FIXTURES
@@ -480,8 +483,8 @@ async def test_update_task_not_found(core_service, mock_backend):
 # tests therefore all drive ``update_task`` — the live path — and assert the
 # write did or did not happen, not that the hook returned something.
 
-_YESTERDAY = today_in(current_zone()) - timedelta(days=1)
-_TOMORROW = today_in(current_zone()) + timedelta(days=1)
+_YESTERDAY = RUN_TODAY - timedelta(days=1)
+_TOMORROW = RUN_TODAY + timedelta(days=1)
 
 
 def _stored_task(

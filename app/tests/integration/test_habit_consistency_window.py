@@ -52,16 +52,17 @@ import pytest
 import pytest_asyncio
 
 from core.constants import HabitConsistencyWindow
-from core.utils.timestamp_helpers import today_in
-from core.utils.zone_context import current_zone
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.run_clock import RUN_TODAY
 from tests.helpers.seed_uids import seed_user_uid
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 WINDOW = seed_user_uid("consistency_window")
 STALE = seed_user_uid("consistency_stale")
 BULK = seed_user_uid("consistency_bulk")
 
-TODAY = today_in(current_zone())
+TODAY = RUN_TODAY
 FIRST_DAY_IN = HabitConsistencyWindow.start_date(TODAY)
 LAST_DAY_IN = HabitConsistencyWindow.end_date(TODAY)
 LAST_DAY_OUT = TODAY - timedelta(days=HabitConsistencyWindow.DAYS)

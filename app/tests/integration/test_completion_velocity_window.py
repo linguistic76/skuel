@@ -54,16 +54,17 @@ import pytest_asyncio
 
 from core.constants import CompletionVelocityWindow
 from core.models.enums.entity_enums import EntityStatus
-from core.utils.timestamp_helpers import today_in
-from core.utils.zone_context import current_zone
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.run_clock import RUN_TODAY
 from tests.helpers.seed_uids import seed_user_uid
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 WINDOW = seed_user_uid("velocity_window")
 STALE = seed_user_uid("velocity_stale")
 VAULT = seed_user_uid("velocity_vault")
 
-TODAY = today_in(current_zone())
+TODAY = RUN_TODAY
 FIRST_DAY_IN = CompletionVelocityWindow.start_date(TODAY)
 LAST_DAY_IN = CompletionVelocityWindow.end_date(TODAY)
 LAST_DAY_OUT = TODAY - timedelta(days=CompletionVelocityWindow.DAYS)

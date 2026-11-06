@@ -29,16 +29,17 @@ import pytest_asyncio
 from core.models.enums.entity_enums import EntityType
 from core.models.habit.habit import Habit
 from core.services.habits.habits_completion_service import HabitsCompletionService
-from core.utils.timestamp_helpers import today_in
-from core.utils.zone_context import current_zone
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.run_clock import RUN_TODAY
 from tests.helpers.seed_uids import seed_user_uid
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 USER = seed_user_uid("completion_range")
 HABIT = "habit.completion-range"
 NATIVE_UID = "hc.range-native"
 
-TODAY = today_in(current_zone())
+TODAY = RUN_TODAY
 # The native row is the LATER of the two in-window rows, so a type-banded order
 # (every string before every temporal, or the reverse) is distinguishable from a
 # chronological one in at least one direction the test pins.
