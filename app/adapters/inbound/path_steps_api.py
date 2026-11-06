@@ -19,14 +19,15 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import (
+    parse_enum_param_strict,
     parse_float_param_strict,
     parse_int_param_strict,
     refuse_malformed,
 )
 from core.constants import GraphDepth
+from core.models.enums.curriculum_enums import StepRecommendationType
 from core.models.pathways.learning_progress import LearningJourney
 from core.models.pathways.path_step import PathStep
-from core.models.type_hints import UserUID
 from core.ports.query_types import (
     OrganizerResult,
     PrerequisiteChainData,
@@ -165,7 +166,7 @@ def create_path_steps_api_routes(
     @rt("/api/path-steps/dependencies")
     @boundary_handler()
     async def get_step_dependencies_route(request: Request, uid: str) -> Result[list[PathStep]]:
-        """Get what depends on this path step."""
+        """The published path steps that require this one, the first ten by title."""
         return await ps_service.get_step_dependencies(uid)
 
     # ========================================================================
@@ -203,13 +204,22 @@ def create_path_steps_api_routes(
     @rt("/api/path-steps/recommendations")
     @boundary_handler()
     async def get_step_recommendations_route(request: Request, uid: str) -> Result[list[PathStep]]:
-        """Get personalized path step recommendations."""
-        params = dict(request.query_params)
-        raw_user_uid = params.get("user_uid")
-        user_uid = UserUID(raw_user_uid) if raw_user_uid else None
-        recommendation_type = params.get("type", "learning")
+        """Where a reader could go from this step. The same answer for every reader.
 
-        return await ps_service.get_step_recommendations(uid, user_uid, recommendation_type)
+        Args:
+            uid: The path step
+            type: ``learning`` (the default) or ``next``, ten or five of the published
+                steps that require this one; ``related``, its semantic neighbourhood.
+        """
+        recommendation_type = parse_enum_param_strict(
+            request.query_params.get("type"), "type", StepRecommendationType
+        )
+        if recommendation_type.is_error:
+            return Result.fail(recommendation_type)
+
+        return await ps_service.get_step_recommendations(
+            uid, recommendation_type.value or StepRecommendationType.LEARNING
+        )
 
     # ========================================================================
     # ORGANIZATION — DOMAINS, CATEGORIES, TAGS

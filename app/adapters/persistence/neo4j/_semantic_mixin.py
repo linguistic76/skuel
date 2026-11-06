@@ -6,7 +6,7 @@ Semantic relationship and graph analysis operations for domain backends.
 
 Provides semantic relationship reads (neighborhood, query by type, discover
 bridges, infer transitive) and graph analysis (hub scores, foundational
-knowledge, prerequisite chains, next steps, time-aware paths).
+knowledge, prerequisite chains, time-aware paths).
 
 Requires on concrete class:
     execute_query, logger  (provided by UniversalNeo4jBackend)
@@ -239,19 +239,5 @@ class _SemanticMixin:
             order="DESC",
             include_leaf_only=True,
             min_confidence=min_confidence,
-        )
-        return await self.execute_query(query, params)
-
-    async def find_next_steps(self, uid: str, limit: int) -> Result[list[Neo4jProperties]]:
-        """Find KUs that have this one as a prerequisite (incoming REQUIRES_KNOWLEDGE)."""
-        from adapters.persistence.neo4j.query import build_relationship_traversal_query
-        from core.models.relationship_names import RelationshipName
-
-        query, params = build_relationship_traversal_query(
-            source_uid=uid,
-            relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
-            target_label=NeoLabel.ENTITY,
-            direction="incoming",
-            limit=limit,
         )
         return await self.execute_query(query, params)

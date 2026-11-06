@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
-from fasthtml.common import to_xml
+from fasthtml.common import FT, Div, to_xml
 
 from core.ports.query_types import PsPrerequisiteStatusRow
-from ui.explore.ps_detail import render_ps_detail_content
+from ui.explore.ps_detail import _blocking_seed, _deps_accordion, render_ps_detail_content
 
 _UID = "ps.test.step"
+_FIXTURE = Path(__file__).resolve().parents[2] / "js" / "fixtures" / "ps-blocking-accordion.html"
 
 
 def _page(prerequisites: list[PsPrerequisiteStatusRow] | None) -> str:
@@ -45,7 +48,7 @@ def _row(
     return {"uid": uid, "title": title, "entity_type": entity_type, "completed": completed}
 
 
-def test_a_completed_prerequisite_is_met_and_the_rest_are_blocked() -> None:
+def test_a_completed_prerequisite_reads_completed_and_the_rest_are_blocked() -> None:
     blocking = _blocking(
         _page(
             [
@@ -60,7 +63,7 @@ def test_a_completed_prerequisite_is_met_and_the_rest_are_blocked() -> None:
             "uid": "ps.test.done",
             "title": "Done first",
             "href": "/explore/ps/ps.test.done",
-            "status": "met",
+            "status": "completed",
         },
         {
             "uid": "ps.test.open",
@@ -97,3 +100,26 @@ def test_a_failed_read_leaves_the_section_out() -> None:
 
     assert "Blocking dependencies" not in page
     assert "nothing blocks this step" not in page
+
+
+def _accordion() -> FT:
+    seed = {
+        "blocking": _blocking_seed(
+            [
+                _row("ps.test.done", "Done first", completed=True),
+                _row("ps.test.open", "Still open", completed=False),
+            ]
+        )
+    }
+    return Div(_deps_accordion(), **{"x-data": f"pathstep({json.dumps(seed)})"})
+
+
+def test_js_fixture_matches_the_rendered_accordion() -> None:
+    """``tests/js/ps-blocking-accordion.test.js`` runs ``static/js/ps-detail.js`` on this markup."""
+    rendered = to_xml(_accordion())
+    if os.environ.get("SKUEL_WRITE_JS_FIXTURES") == "1":
+        _FIXTURE.write_text(rendered)
+    assert _FIXTURE.read_text() == rendered, (
+        f"{_FIXTURE} is stale — regenerate with SKUEL_WRITE_JS_FIXTURES=1 "
+        "uv run pytest tests/unit/ui/test_ps_blocking_seed.py"
+    )

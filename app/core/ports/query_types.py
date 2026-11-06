@@ -1097,7 +1097,9 @@ class PrerequisiteChainData(TypedDict):
         total_prerequisites: Count of distinct published prerequisites; a draft, and
             anything reached only through one, is not counted
         prerequisites_mastered: How many the user has mastered
-        unmet_count: total_prerequisites - prerequisites_mastered
+        unmet_count: total_prerequisites - prerequisites_mastered. Unmet means not
+            mastered: a prerequisite the reader only marked as read is still unmet,
+            though the PathStep page shows it as Completed
         has_prerequisites: Whether any prerequisites exist
     """
 

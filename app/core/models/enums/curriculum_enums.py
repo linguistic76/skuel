@@ -77,6 +77,14 @@ class PublicationState(StrEnum):
         return self is PublicationState.PUBLISHED
 
 
+class StepRecommendationType(StrEnum):
+    """The ``type`` a caller of ``GET /api/path-steps/recommendations`` asks for."""
+
+    LEARNING = "learning"
+    NEXT = "next"
+    RELATED = "related"
+
+
 class StepDifficulty(StrEnum):
     """Difficulty level of a path step."""
 

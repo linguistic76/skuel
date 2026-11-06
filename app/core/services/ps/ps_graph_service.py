@@ -113,38 +113,36 @@ class PsGraphService:
     @with_error_handling("find_next_steps", error_type="database", uid_param="uid")
     async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[PathStep]]:
         """
-        Find path steps that build on this one.
+        Find the path steps that build on this one.
 
-        Returns steps that have this step as a prerequisite.
+        The published steps that require it directly, by either prerequisite edge, each
+        once, in title order. A draft stays unnamed. A Goal, a Task or a Ku that requires
+        this step is not a step and is not in the answer.
+
+        Backend: PsBackend.find_next_steps
 
         Args:
             uid: Path step UID,
             limit: Maximum results to return
 
         Returns:
-            Result containing list of next step CurriculumDTOs
+            Result containing the steps, or not-found when ``uid`` is no path step
         """
-        # Verify source unit exists
         source_result = await self.repo.get(uid)
-        if not source_result.is_ok or not source_result.value:
+        if source_result.is_error:
+            return Result.fail(source_result)
+        if not source_result.value:
             return Result.fail(Errors.not_found("PathStep", uid))
 
-        results = await self.repo.find_next_steps(uid, limit)
+        return await self.repo.find_next_steps(uid, limit)
 
-        if results.is_error:
-            return Result.fail(results)
+    @with_error_handling("count_next_steps", error_type="database", uid_param="uid")
+    async def count_next_steps(self, uid: str) -> Result[int]:
+        """How many steps :meth:`find_next_steps` would name, with no page limit.
 
-        # Convert to DTOs
-        next_steps = []
-        for record in results.value:
-            next_data = record.get("target")  # the cypher/ builder returns "target"
-            if next_data:
-                dto_result = await self.repo.get(next_data.get("uid"))
-                if dto_result.is_ok and dto_result.value:
-                    next_steps.append(dto_result.value)
-
-        self.logger.debug(f"Found {len(next_steps)} next steps for {uid}")
-        return Result.ok(next_steps)
+        Backend: PsBackend.count_next_steps
+        """
+        return await self.repo.count_next_steps(uid)
 
     # ========================================================================
     # ANALYSIS & RECOMMENDATIONS

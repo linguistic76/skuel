@@ -5,6 +5,7 @@ Test KU Graph Service
 Tests for the PsGraphService focused sub-service.
 """
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,7 +13,8 @@ import pytest
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, EntityType
 from core.services.ps.ps_graph_service import PsGraphService
-from core.utils.result_simplified import Result
+from core.services.ps_service import PsService
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 
 def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
@@ -115,31 +117,61 @@ class TestGraphTraversal:
 
     @pytest.mark.asyncio
     async def test_find_next_steps_success(self, service):
-        """Test successful next steps discovery."""
-
-        # Mock repo.get for source AND next steps
-        async def get_unit(uid):
-            if uid == "ku.test.1":
-                return Result.ok(make_ku_dto("ku.test.1", "Source"))
-            elif uid == "ku.next.1":
-                return Result.ok(make_ku_dto("ku.next.1", "Next 1"))
-            elif uid == "ku.next.2":
-                return Result.ok(make_ku_dto("ku.next.2", "Next 2"))
-            return Result.fail(MagicMock())
-
-        service.repo.get = AsyncMock(side_effect=get_unit)
-
-        # Mock backend method returns next steps
-        service.repo.find_next_steps = AsyncMock(
-            return_value=Result.ok(
-                [{"target": {"uid": "ku.next.1"}}, {"target": {"uid": "ku.next.2"}}]
-            )
-        )
+        """The backend's rows are the answer: the source is read once and nothing else is."""
+        service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.test.1", "Source")))
+        next_steps = [make_ku_dto("ku.next.1", "Next 1"), make_ku_dto("ku.next.2", "Next 2")]
+        service.repo.find_next_steps = AsyncMock(return_value=Result.ok(next_steps))
 
         result = await service.find_next_steps("ku.test.1", limit=10)
 
-        assert result.is_ok
-        assert len(result.value) == 2
+        assert result.value == next_steps
+        service.repo.find_next_steps.assert_awaited_once_with("ku.test.1", 10)
+        service.repo.get.assert_awaited_once_with("ku.test.1")
+
+    @pytest.mark.asyncio
+    async def test_find_next_steps_a_failed_source_read_is_not_a_missing_step(self, service):
+        failure = Errors.database("get", "the graph is down")
+        service.repo.get = AsyncMock(return_value=Result.fail(failure))
+
+        result = await service.find_next_steps("ku.test.1")
+
+        assert result.expect_error().category is ErrorCategory.DATABASE
+
+
+class TestStepStats:
+    """A figure on /stats is read or the request fails; a failed read is never a zero."""
+
+    @staticmethod
+    def _facade(prerequisites: Result, dependents: Result) -> SimpleNamespace:
+        return SimpleNamespace(
+            core=SimpleNamespace(get=AsyncMock(return_value=Result.ok(make_ku_dto()))),
+            get_prerequisites=AsyncMock(return_value=prerequisites),
+            graph=SimpleNamespace(count_next_steps=AsyncMock(return_value=dependents)),
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("prerequisites", "dependents"),
+        [
+            (Result.fail(Errors.database("read", "down")), Result.ok(3)),
+            (Result.ok([]), Result.fail(Errors.database("read", "down"))),
+        ],
+        ids=["prerequisites", "dependents"],
+    )
+    async def test_a_failed_read_fails_the_request(self, prerequisites, dependents):
+        facade = self._facade(prerequisites, dependents)
+
+        result = await PsService.get_step_stats(facade, "ps.test.one")
+
+        assert result.expect_error().category is ErrorCategory.DATABASE
+
+    @pytest.mark.asyncio
+    async def test_the_dependent_count_is_the_count_read(self):
+        facade = self._facade(Result.ok([]), Result.ok(12))
+
+        result = await PsService.get_step_stats(facade, "ps.test.one")
+
+        assert result.value["dependent_count"] == 12
 
 
 class TestAnalysisRecommendations:

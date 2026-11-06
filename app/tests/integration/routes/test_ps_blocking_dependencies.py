@@ -229,9 +229,9 @@ async def test_each_prerequisite_reads_this_readers_state(reader: httpx.AsyncCli
         UNTOUCHED: "blocked",
         IN_PROGRESS: "blocked",
         OTHERS_ONLY: "blocked",
-        MARKED_READ: "met",
-        MASTERED: "met",
-        KU_READ: "met",
+        MARKED_READ: "completed",
+        MASTERED: "completed",
+        KU_READ: "completed",
     }
 
 
@@ -247,7 +247,7 @@ async def test_a_step_shown_as_completed_never_blocks_the_next_one(
     hero = (await _seed(reader, prerequisite))["progress_state"]
     status = (await _statuses(reader, TARGET))[prerequisite]
 
-    assert (hero == "read") == (status == "met"), (hero, status)
+    assert (hero == "read") == (status == "completed"), (hero, status)
 
 
 async def test_a_prerequisite_links_to_its_own_kinds_page(reader: httpx.AsyncClient) -> None:
