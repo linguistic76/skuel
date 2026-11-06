@@ -19,6 +19,8 @@ Usage:
     )
 """
 
+from collections.abc import Sequence
+
 from fasthtml.common import FT, Div
 
 from core.models.type_hints import EntityUID
@@ -38,6 +40,7 @@ def EntityRelationshipsSection(
     show_alternatives: bool = True,
     show_graph: bool = True,
     authoring: bool = False,
+    graph_types: Sequence[str] | None = None,
 ) -> FT:
     """Unified relationships section for entity detail pages.
 
@@ -51,6 +54,7 @@ def EntityRelationshipsSection(
             modal and a flat, deletable edge list. Only takes effect for entity
             types the EntityPicker supports (the six Activity types:
             task/goal/habit/event/choice/principle) — ignored otherwise.
+        graph_types: The relationship types the graph draws. None draws the lateral ones.
 
     Returns:
         Div containing complete relationships section with all components
@@ -114,7 +118,7 @@ def EntityRelationshipsSection(
         items.append(
             AccordionItem(
                 "Relationship Network",
-                RelationshipGraphView(entity_uid, entity_type),
+                RelationshipGraphView(entity_uid, entity_type, types=graph_types),
                 open=True,
                 title_cls="text-lg font-semibold flex justify-between items-center w-full",
             )

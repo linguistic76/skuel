@@ -23,7 +23,7 @@ What `buildOptions(PROFILES.relationship)` produces:
   nodes: {
     shape: 'dot',
     size: 16,
-    font: { size: 14, color: '#333' },
+    font: window.SKUEL.graph.labelFont(14, 'foreground'),
     borderWidth: 2,
     shadow: true
   },

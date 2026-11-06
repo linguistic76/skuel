@@ -120,6 +120,9 @@ def test_graph_scope_reloads_on_relationships_changed() -> None:
 
 FIXTURE_SURFACES = {
     "relationship-graph.html": lambda: RelationshipGraphView(EntityUID("task_abc"), "tasks"),
+    "relationship-graph-types.html": lambda: RelationshipGraphView(
+        EntityUID("ps.abc"), "ps", types=("REQUIRES_STEP", "USES_KU")
+    ),
     "explore-graph.html": lambda: ExploreGraphView(mode="hub"),
 }
 

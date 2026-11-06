@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-01
+updated: 2026-11-06
 ---
 
 # SKUEL UI Component Catalog
@@ -899,6 +899,7 @@ Complete relationships section with all three views. Uses SKUEL's `Accordion` (`
 - `show_blocking_chain: bool` - Show blocking dependencies (default: True)
 - `show_alternatives: bool` - Show alternatives (default: True)
 - `show_graph: bool` - Show relationship graph (default: True)
+- `graph_types: Sequence[str] | None` - Relationship types the graph draws (default: None, the lateral ones)
 
 **Includes:**
 1. **BlockingChainView** - Vertical flow chart

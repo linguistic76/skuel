@@ -36,7 +36,7 @@ Every `backend` read below is on `PsIntelligenceBackend`. "PLANNED" means no pro
 | `calculate_user_substance_for_steps(ps_uids, channels)` | Substance score per step, for a whole set, in one round trip. Projects the score out of the breakdown below | `calculate_user_substance_breakdown_for_steps` | `PsService.get_user_substance_scores` ← `AnalyticsMetricsService` |
 | `calculate_user_substance_breakdown_for_steps(ps_uids, channels)` | Score and per-channel parts per step (`StepSubstance`), in one round trip | `fetch_taught_ku_uids_for_steps` | `PsService.get_user_substance_breakdowns` ← `AnalyticsLifePathService` |
 
-**What reaches a person:** the per-step substance reading is on the PathStep page. No page calls `/api/path-steps/context` or `/insights`, so they answer JSON clients only. The two batch substance methods also reach learners: the score through the weekly life summary, the breakdown through the life-path alignment. `identify_practice_gaps` feeds `analyze_path_knowledge_scope` on `LpService`, which no route calls.
+**What reaches a person:** the per-step substance reading is on the PathStep page. The page's relationship graph draws the same edge vocabulary `/api/path-steps/context` traverses (`PS_CONFIG.cross_domain_relationship_types`), through `/api/ps/{uid}/lateral/graph`. No page calls `/context` or `/insights` themselves, so they answer JSON clients only; `/insights`' practice half waits on a published step authoring a practice edge. The two batch substance methods also reach learners: the score through the weekly life summary, the breakdown through the life-path alignment. `identify_practice_gaps` feeds `analyze_path_knowledge_scope` on `LpService`, which no route calls.
 
 ---
 

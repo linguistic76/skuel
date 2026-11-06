@@ -32,6 +32,8 @@ Color Scheme:
 - SIBLING → Purple (#8B5CF6)
 """
 
+from collections.abc import Sequence
+
 from fasthtml.common import FT, H3, Div, Option, P
 
 from core.constants import GraphDepth
@@ -45,6 +47,7 @@ def RelationshipGraphView(
     entity_uid: EntityUID,
     entity_type: str,
     depth: int = 2,
+    types: Sequence[str] | None = None,
 ) -> FT:
     """Interactive force-directed graph using Vis.js Network.
 
@@ -52,6 +55,8 @@ def RelationshipGraphView(
         entity_uid: Center entity UID
         entity_type: Entity type (tasks, goals, etc.)
         depth: Initial graph depth (1-3, the route's cap)
+        types: The relationship types to draw. None draws the lateral ones, which are
+            what the legend's colours describe, so the legend shows only then.
 
     Returns:
         Div containing interactive Vis.js graph
@@ -87,7 +92,9 @@ def RelationshipGraphView(
                 x_cloak=True,
             ),
             # Legend
-            Div(
+            Div()
+            if types
+            else Div(
                 Div(
                     Div(cls="w-3 h-3 rounded-full bg-error inline-block"),
                     " Blocks",
@@ -113,7 +120,13 @@ def RelationshipGraphView(
             # One scope holds the select, the canvas and the error, so Alpine
             # binds every directive above; Alpine calls the component's init().
             **{
-                "x-data": alpine_call("relationshipGraph", entity_uid, entity_type, depth),
+                "x-data": alpine_call(
+                    "relationshipGraph",
+                    entity_uid,
+                    entity_type,
+                    depth,
+                    *([",".join(types)] if types else []),
+                ),
                 # Reload the network whenever an add/delete fires relationships-changed.
                 "x-on:relationships-changed.window": "loadGraph(depth)",
             },
