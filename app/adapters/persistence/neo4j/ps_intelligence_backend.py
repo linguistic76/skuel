@@ -27,11 +27,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
+from adapters.persistence.neo4j.query.cypher import (
+    CURRICULUM_COMPOSITION_EDGES,
+    build_publication_clause,
+)
 from core.models.enums import EntityType
 from core.ports.query_types import (
     PsGuidanceCountsRow,
     PsPracticeCountsRow,
+    PsPrerequisiteStatusRow,
     PsPrerequisiteStepUidsRow,
     PsStepTaughtKuUidsRow,
     PsTaughtKuRow,
@@ -55,6 +59,24 @@ def _to_prerequisite_step_uid_rows(
 ) -> list[PsPrerequisiteStepUidsRow]:
     """Project raw rows onto PsPrerequisiteStepUidsRow (KeyError on alias drift)."""
     return [{"prereq_uids": [str(uid) for uid in (row["prereq_uids"] or [])]} for row in records]
+
+
+def _to_prerequisite_status_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[PsPrerequisiteStatusRow]:
+    """Project raw rows onto PsPrerequisiteStatusRow (KeyError on alias drift).
+
+    A prerequisite with no title carries its uid.
+    """
+    return [
+        {
+            "uid": str(row["uid"]),
+            "title": str(row["title"] or row["uid"]),
+            "entity_type": str(row["entity_type"] or ""),
+            "completed": bool(row["completed"]),
+        }
+        for row in records
+    ]
 
 
 def _to_practice_counts_rows(
@@ -134,6 +156,35 @@ class PsIntelligenceBackend:
             params={"ps_uid": ps_uid},
             processor=_to_prerequisite_step_uid_rows,
             operation="is_ready",
+        )
+
+    async def fetch_prerequisite_statuses(
+        self, ps_uid: str, user_uid: str | None
+    ) -> Result[list[PsPrerequisiteStatusRow]]:
+        """Return a row per published direct prerequisite of a PathStep, ordered by title.
+
+        A prerequisite is REQUIRES_STEP or REQUIRES_KNOWLEDGE, the pair
+        :meth:`has_prerequisites` reads. A draft is withheld, so it neither shows nor
+        blocks. ``completed`` is the reader's MASTERED or MARKED_AS_READ edge; with no
+        reader the match binds nothing and every row reads False.
+        """
+        published, published_params = build_publication_clause("prereq")
+        return await self._executor.execute(
+            query=f"""
+                MATCH (:Entity {{uid: $ps_uid}})-[:REQUIRES_STEP|REQUIRES_KNOWLEDGE]->(prereq:Entity)
+                WHERE {published}
+                OPTIONAL MATCH (reader:User {{uid: $user_uid}})
+                RETURN DISTINCT prereq.uid AS uid, prereq.title AS title,
+                       prereq.entity_type AS entity_type,
+                       reader IS NOT NULL AND (
+                           EXISTS {{ (reader)-[:MASTERED]->(prereq) }}
+                           OR EXISTS {{ (reader)-[:MARKED_AS_READ]->(prereq) }}
+                       ) AS completed
+                ORDER BY title, uid
+            """,
+            params={"ps_uid": ps_uid, "user_uid": user_uid, **published_params},
+            processor=_to_prerequisite_status_rows,
+            operation="get_prerequisite_statuses",
         )
 
     async def fetch_practice_counts(self, ps_uid: str) -> Result[list[PsPracticeCountsRow]]:

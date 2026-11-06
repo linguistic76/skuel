@@ -27,6 +27,7 @@ Every `backend` read below is on `PsIntelligenceBackend`. "PLANNED" means no pro
 | `get_practice_summary(ps_uid)` | How many of each practice edge the step carries: 7 keys, the six domains plus `total` | `fetch_practice_counts` (the six edges below) | `get_domain_insights`, `practice_completeness_score`, `LpIntelligenceService.identify_practice_gaps` |
 | `practice_completeness_score(ps_uid)` | The fraction of the six domains present, 0.0-1.0. Each counts once, so a step with five habits and nothing else scores 1/6 | `get_practice_summary` | `get_domain_insights` |
 | `has_prerequisites(ps_uid)` | Does any `REQUIRES_STEP` or `REQUIRES_KNOWLEDGE` edge leave the step? Reads no edge property | `backend.has_prerequisites` | `get_domain_insights` |
+| `get_prerequisite_statuses(ps_uid, user_uid)` | Each published direct prerequisite (`REQUIRES_STEP` or `REQUIRES_KNOWLEDGE`), and whether this reader completed it: marked as read or mastered. A draft is withheld, and with no reader nothing is completed | `fetch_prerequisite_statuses` | `GET /explore/ps/{uid}/content` (the PathStep page's "Blocking dependencies") |
 | `is_ready(ps_uid, completed_step_uids)` | Is every `REQUIRES_STEP` target in the caller's set? | `fetch_prerequisite_step_uids` | PLANNED |
 | `calculate_guidance_strength(ps_uid)` | 0.0-1.0: `min(0.4, principles × 0.15) + min(0.6, choices × 0.2)` | `fetch_guidance_counts` (`GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE`) | PLANNED |
 | `has_guidance(ps_uid)` | Does a `GUIDED_BY_PRINCIPLE` or `INFORMS_CHOICE` edge leave the step? | `backend.has_guidance` | PLANNED |
@@ -55,6 +56,8 @@ Every `backend` read below is on `PsIntelligenceBackend`. "PLANNED" means no pro
 | `choices` | `INFORMS_CHOICE` |
 
 ### Readiness and prerequisites ask different questions
+
+`get_prerequisite_statuses` is what a learner sees. Completed there is the rule the PathStep page's hero card shows as Completed, so a step shown as Completed never blocks the next one (`tests/integration/routes/test_ps_blocking_dependencies.py`). The page does not enforce it: a blocked step can still be read and started.
 
 `has_prerequisites` counts `REQUIRES_STEP` and `REQUIRES_KNOWLEDGE`. `is_ready` checks `REQUIRES_STEP` only, so a step whose only prerequisite is a `REQUIRES_KNOWLEDGE` edge has prerequisites and is ready. A step with no `REQUIRES_STEP` edge is ready, and so is a uid that names nothing.
 

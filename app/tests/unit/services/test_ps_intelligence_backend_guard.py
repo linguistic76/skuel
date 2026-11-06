@@ -18,6 +18,7 @@ _UID = "ps.test.step"
 
 _READS: list[tuple[str, tuple[object, ...]]] = [
     ("is_ready", (_UID, set())),
+    ("get_prerequisite_statuses", (_UID, "user_test")),
     ("get_practice_summary", (_UID,)),
     ("practice_completeness_score", (_UID,)),
     ("calculate_guidance_strength", (_UID,)),

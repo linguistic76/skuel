@@ -19,7 +19,12 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import FT, H1, H2, A, Button, Div, Li, NotStr, P, Section, Span, Template, Ul
 
 from core.models.enums import UserRole
-from core.ports.query_types import PsKuSubstanceRow, PsUserSubstanceResult, UsedKuRow
+from core.ports.query_types import (
+    PsKuSubstanceRow,
+    PsPrerequisiteStatusRow,
+    PsUserSubstanceResult,
+    UsedKuRow,
+)
 from ui.components import Icon, Progress
 from ui.library.resource_chip import resource_chip
 from ui.patterns.detail_nav import (
@@ -27,6 +32,7 @@ from ui.patterns.detail_nav import (
     detail_footer_nav,
     render_entity_not_found,
 )
+from ui.patterns.entity_links import entity_detail_href
 from ui.primitives import section_label
 from ui.teaching.templates_panel import render_templates_panel_placeholder
 
@@ -67,6 +73,7 @@ def render_ps_detail_content(
     has_task_templates: bool = False,
     kus: list[UsedKuRow] | None = None,
     resources: list[dict] | None = None,
+    prerequisites: list[PsPrerequisiteStatusRow] | None = None,
     show_related: bool = False,
     show_next_step_related: bool = False,
     # Retained for API compatibility; not rendered in this design iteration.
@@ -96,6 +103,10 @@ def render_ps_detail_content(
         kus: Atomic Kus this step composes (USES_KU) — rendered as reader links.
         resources: Curated Resources this step cites (CITES_RESOURCE) —
             rendered as reference chips (author/year, source link when known).
+        prerequisites: This step's published direct prerequisites, each with whether
+            this reader completed it. None means the read failed: the "Blocking
+            dependencies" section is left out, because its empty state says nothing
+            blocks the step.
         show_related: Mount the lazy "Related concepts" fragment (PS→PS vector
             similarity). FULL tier only — False (section absent) when the
             vector search service is unavailable.
@@ -120,9 +131,7 @@ def render_ps_detail_content(
         "progress_state": progress_state,
         "is_bookmarked": is_bookmarked,
         "has_task_templates": has_task_templates,
-        "blocking": [],  # populated via orchestrator in a future iteration
-        "prev_step": None,
-        "next_step": None,
+        "blocking": _blocking_seed(prerequisites or []),
     }
     # Seed goes INLINE in the x-data expression, never via a window global set
     # by a sibling <script>: htmx defers inline-script evaluation to the settle
@@ -144,7 +153,7 @@ def render_ps_detail_content(
         render_templates_panel_placeholder(uid)
         if user_role is not None and user_role.has_permission(UserRole.TEACHER)
         else Div(),
-        _deps_accordion(),
+        _deps_accordion() if prerequisites is not None else Div(),
         detail_footer_nav("Back to Explore", "/explore"),
         id="ps-detail-content",
         cls=_COLUMN_CLS,
@@ -734,6 +743,19 @@ def _learning_loop_section(uid: str) -> FT:
 # ---------------------------------------------------------------------------
 
 
+def _blocking_seed(prerequisites: list[PsPrerequisiteStatusRow]) -> list[dict[str, str | None]]:
+    """The accordion's rows, for the Alpine seed. ``completed`` becomes its ``met`` status."""
+    return [
+        {
+            "uid": row["uid"],
+            "title": row["title"],
+            "href": entity_detail_href(row["entity_type"], row["uid"]),
+            "status": "met" if row["completed"] else "blocked",
+        }
+        for row in prerequisites
+    ]
+
+
 def _deps_accordion() -> FT:
     panel_id = "deps-panel"
     return Section(
@@ -819,7 +841,7 @@ def _deps_accordion() -> FT:
                             "",
                             cls="flex-1 text-13 font-semibold text-foreground/85 hover:underline",
                             **{
-                                ":href": "'/explore/ps/' + dep.uid",
+                                ":href": "dep.href",
                                 "x-text": "dep.title",
                             },
                         ),

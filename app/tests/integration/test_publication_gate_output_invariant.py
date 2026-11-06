@@ -98,6 +98,7 @@ LP_DRAFT = "lp.gate-draft"
 STEP_PUBLISHED = "ps.gate-published-step"
 STEP_DRAFT = "ps.gate-draft-step"  # inside the PUBLISHED path
 STEP_STANDALONE_DRAFT = "ps.gate-standalone-draft"
+STEP_REQUIRES_DRAFT = "ps.gate-requires-draft"  # a published step with a draft prerequisite
 KU_VIA_DRAFT_ONLY = "ku.gate-only-via-draft"  # reachable only through STEP_DRAFT
 KU_SHARED = "ku.gate-shared"  # reachable through both steps
 KU_DRAFT = "ku.gate-draft"
@@ -191,6 +192,12 @@ CREATE (ku_d:Entity:Ku {uid: $ku_draft, entity_type: 'ku', title: 'Draft KU',
                         publication_state: 'draft',
                         aliases: ['gate probe draft']})
 
+CREATE (s_req:Entity:PathStep {uid: $step_requires_draft, entity_type: 'path_step',
+                               title: 'Step requiring a draft', sequence: 1,
+                               created_at: '2026-01-01'})
+CREATE (s_req)-[:REQUIRES_STEP]->(s_pub)
+CREATE (s_req)-[:REQUIRES_STEP]->(s_draft)
+
 CREATE (lp_pub)-[:HAS_STEP]->(s_pub)
 CREATE (lp_pub)-[:HAS_STEP]->(s_draft)
 CREATE (lp_draft)-[:HAS_STEP]->(s_pub)
@@ -265,6 +272,7 @@ SEED_PARAMS = {
     "step_published": STEP_PUBLISHED,
     "step_draft": STEP_DRAFT,
     "step_standalone_draft": STEP_STANDALONE_DRAFT,
+    "step_requires_draft": STEP_REQUIRES_DRAFT,
     "ku_via_draft_only": KU_VIA_DRAFT_ONLY,
     "ku_shared": KU_SHARED,
     "ku_draft": KU_DRAFT,
@@ -323,6 +331,7 @@ GATE_CONSUMERS = (
     "adapters.persistence.neo4j._user_entry_content_mixin",
     "adapters.persistence.neo4j.connection_fetch_backend",
     "adapters.persistence.neo4j.cross_domain_backend",
+    "adapters.persistence.neo4j.ps_intelligence_backend",
     "adapters.persistence.neo4j.vector_search_backend",
     "adapters.persistence.neo4j.query.cypher.crud_queries",
 )
@@ -501,6 +510,16 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
         return Result.ok(await cf.fetch_source_pathstep(STEP_DRAFT, USER))
 
     return {
+        # A published step asks for a draft step first; the reader's marked-as-read
+        # edge to the draft must not name it either.
+        (
+            "adapters.persistence.neo4j.ps_intelligence_backend",
+            "PsIntelligenceBackend.fetch_prerequisite_statuses",
+        ): partial(
+            backends["ps_intelligence_backend"].fetch_prerequisite_statuses,
+            STEP_REQUIRES_DRAFT,
+            USER,
+        ),
         (
             "adapters.persistence.neo4j.connection_fetch_backend",
             "ConnectionFetchBackend.fetch_source_pathstep",
@@ -842,6 +861,10 @@ def test_registry_and_coverage_agree() -> None:
 
 
 _COVERED_KEYS = (
+    (
+        "adapters.persistence.neo4j.ps_intelligence_backend",
+        "PsIntelligenceBackend.fetch_prerequisite_statuses",
+    ),
     (
         "adapters.persistence.neo4j.connection_fetch_backend",
         "ConnectionFetchBackend.fetch_source_pathstep",
