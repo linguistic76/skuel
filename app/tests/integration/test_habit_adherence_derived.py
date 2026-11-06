@@ -65,10 +65,13 @@ from core.services.user.unified_user_context import is_rich
 from core.services.user.user_context_builder import UserContextBuilder
 from core.services.user_stats_types import _compute_domain_stats_from_context
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import instant_of, today_in
+from core.utils.timestamp_helpers import instant_of
 from core.utils.zone_context import current_zone
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.run_clock import RUN_TODAY
 from tests.helpers.seed_uids import seed_user_uid
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 KEPT = seed_user_uid("adherence_kept")
 BULK = seed_user_uid("adherence_bulk")
@@ -90,7 +93,7 @@ WEEKENDS_HABIT = "habit.adherence.weekends"
 MONTHLY_HABIT = "habit.adherence.monthly"
 QUARTERLY_HABIT = "habit.adherence.quarterly"
 
-TODAY = today_in(current_zone())
+TODAY = RUN_TODAY
 KEPT_DAYS = [TODAY - timedelta(days=n) for n in range(28)]
 DROPPED_DAYS = [TODAY - timedelta(days=n) for n in range(14, 21)]  # dropped two weeks ago
 LONG_AGO_DAYS = [TODAY - timedelta(days=n) for n in (40, 41)]  # outside the window

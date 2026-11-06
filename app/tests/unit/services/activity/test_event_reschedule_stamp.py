@@ -25,8 +25,8 @@ from tests.helpers.status_guarded_backend import guarded_backend
 
 USER = "user_event_reschedule"
 EVENT = "event_reschedule"
-BOOKED = date.today() + timedelta(days=5)
-MOVED = date.today() + timedelta(days=8)
+BOOKED = date(2099, 1, 5)
+MOVED = date(2099, 1, 8)
 
 
 class _RecordingBus:

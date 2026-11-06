@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 
@@ -57,7 +57,7 @@ def _insight(uid: str, n: int, **fields: Any) -> PersistedInsight:
 # difficulty-pattern type — values every chart already shows, so a count that
 # ignored the active predicate would raise a pinned figure.
 INACTIVE = {
-    "insight.whole-set.expired": {"expires_at": datetime.now(UTC) - timedelta(days=1)},
+    "insight.whole-set.expired": {"expires_at": datetime(2000, 1, 1, tzinfo=UTC)},
     "insight.whole-set.dismissed": {"dismissed": True},
     "insight.whole-set.actioned": {"actioned": True},
 }

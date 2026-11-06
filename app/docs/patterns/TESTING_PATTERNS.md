@@ -1,6 +1,6 @@
 ---
 title: Testing Patterns
-updated: 2026-10-30
+updated: 2026-11-06
 category: patterns
 related_skills:
 - pytest
@@ -308,6 +308,28 @@ async def test_bad():
     assert result.is_ok
     # No cleanup - pollutes database
 ```
+
+### ❌ Don't Fix a Day and Then Ask the Clock
+
+```python
+# BAD - fixed at import, and the service asks the clock when it is called:
+# a run crossing midnight fails, whatever the change
+TODAY = today_in(current_zone())
+
+# GOOD - the run's day, and the clock held on it for the whole module
+from tests.helpers.run_clock import RUN_TODAY
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
+TODAY = RUN_TODAY
+
+# GOOD - a date no read compares with today
+UPCOMING = date(2099, 1, 5)
+```
+
+A fixture that seeds today for a test that reads it again is the same defect and needs the
+same hold. `tests/unit/test_import_time_clock_reads.py` refuses a clock read at import; only
+`tests/helpers/midnight_probe.py` finds the fixture shape. **See:** the pytest skill,
+*A run that crosses midnight*.
 
 ### ❌ Don't Seed a UID Outside the Grammar
 

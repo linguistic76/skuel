@@ -16,7 +16,7 @@ All SKUEL services return `Result[T]`. Tests verify success via `result.is_ok` a
 
 ```
 tests/
-├── conftest.py                 # pin_process_clock_to_utc() FIRST, then load_dotenv(), the embedding mocks, laptop_zone
+├── conftest.py                 # pin_process_clock_to_utc() FIRST, then load_dotenv(), the embedding mocks, laptop_zone, held_run_clock
 ├── fixtures/
 │   ├── service_factories.py    # create_mock_backend, create_mock_driver, create_tasks_service_for_testing, …
 │   ├── embedding_fixtures.py   # mock_embeddings_service, mock_vector_search_service, … (re-exported by the root conftest)
@@ -243,6 +243,20 @@ See `tests/integration/test_task_dependency_edge_roundtrip.py` for a worked exam
 
 CI at 00:00–07:00Z exposes a test that builds "today" from the host's day (the Vancouver day differs then). `faketime` is not installed; probe with `time_machine.travel(ts, tick=…)` — at 03:00Z today and at 03:00Z on a month's 1st (`tests/unit/adapters/test_activity_reports_ui.py` combines it with `forced_zone`). A jump of days also breaks import-time clock constants — separate those with a same-length jump that crosses no boundary.
 
+### A run that crosses midnight
+
+A run takes minutes and "today" changes at 07:00Z in the app default zone, so any test that fixes a day and then lets a service ask the clock fails across it, whatever the change. Two shapes: a day fixed at import (`TODAY = today_in(current_zone())`), and a fixture that seeds today for a test that reads it again.
+
+Take the day from `tests/helpers/run_clock.py` (`RUN_TODAY`, or `RUN_INSTANT` for an age) and hold it: `pytestmark = pytest.mark.usefixtures("held_run_clock")`, which stands the process clock on the instant the run began, so the 00:00–07:00Z host-day exposure above still bites. A date no read compares with today is a literal (`date(2099, 1, 5)`). The Neo4j server keeps its own clock: a held module passes the day it means as a parameter.
+
+`tests/unit/test_import_time_clock_reads.py` refuses the first shape statically. Only `tests/helpers/midnight_probe.py` finds the second:
+
+```bash
+MIDNIGHT_PROBE=call uv run python -m pytest tests/integration -p tests.helpers.midnight_probe
+```
+
+⚠ The probe moves the process clock and not the server's, so the two drift apart by the distance to that midnight. A test comparing a server stamp with the process clock fails for that alone. Count a failure as a crossing only if it passes with the clock shifted the same distance and no day crossed.
+
 ## SKUEL-Specific Patterns
 
 ### Testing with Ownership
@@ -347,7 +361,7 @@ assert get_status_badge_class("active") != ""
 
 ## See Also
 
-- `/tests/conftest.py` - Root fixtures (the pin, `.env`, embedding mocks, `laptop_zone`)
+- `/tests/conftest.py` - Root fixtures (the pin, `.env`, embedding mocks, `laptop_zone`, `held_run_clock`)
 - `/tests/integration/conftest.py` - TestContainers setup
 - `/tests/templates/integration_test_template.py` - Best practices template
 - `/TESTING.md` - Tiers, parallelism, CI, coverage, troubleshooting (orphaned containers, Ryuk)

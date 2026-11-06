@@ -8,7 +8,7 @@ to a bounded number in flight, whatever the size of the set.
 """
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -19,12 +19,13 @@ from core.models.task.task import Task
 from core.services.tasks.task_relationships import TASK_KNOWLEDGE_KEYS, TaskRelationships
 from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
 from core.utils.result_simplified import Result
+from tests.helpers.run_clock import RUN_INSTANT
 
 USER = "user_fan_out"
 TASK_COUNT = 40
 # Older than the learning-pattern window, so the pattern pass fetches nothing
 # and every fetch counted below belongs to the priority pass.
-CREATED = datetime.now(UTC) - timedelta(days=90)
+CREATED = RUN_INSTANT - timedelta(days=90)
 
 
 def _tasks() -> list[Task]:

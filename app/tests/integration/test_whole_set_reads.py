@@ -91,6 +91,8 @@ if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
     from core.services.principles_service import PrinciplesService
 
+pytestmark = pytest.mark.usefixtures("held_run_clock")
+
 USER = seed_user_uid("whole_set")
 STRANGER = seed_user_uid("whole_set_stranger")
 # The middle segment of each owner's seeded uids: ``{entity_type}.{tag}-{i}``.

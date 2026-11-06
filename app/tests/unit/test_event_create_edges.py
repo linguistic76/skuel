@@ -67,7 +67,7 @@ exactly where the defect lived. The real-graph half is
 ``tests/integration/test_event_create_edge_roundtrip.py``.
 """
 
-from datetime import date, time, timedelta
+from datetime import date, time
 from typing import Any
 
 import pytest
@@ -96,7 +96,7 @@ GOAL_UID = "goal:launch-milestone"
 SECOND_GOAL_UID = "goal:weekly-cadence"
 KU_UID = "ku.python.decorators"
 TASK_UID = "task:prepare-agenda"
-TOMORROW = date.today() + timedelta(days=1)
+UPCOMING = date(2099, 1, 5)
 
 
 # ============================================================================
@@ -243,7 +243,7 @@ def make_request(**overrides: Any) -> EventCreateRequest:
     defaults: dict[str, Any] = {
         "title": "Weekly review",
         "description": "Look back, then forward",
-        "event_date": TOMORROW,
+        "event_date": UPCOMING,
         "start_time": time(9, 0),
         "end_time": time(10, 0),
     }
@@ -413,7 +413,7 @@ class TestEventContributedGoalEdges:
             uid="event:scheduled",
             user_uid=USER_UID,
             title="Read",
-            event_date=TOMORROW,
+            event_date=UPCOMING,
             start_time=time(9, 0),
             end_time=time(9, 30),
             contributes_to_goal_uids=(GOAL_UID, SECOND_GOAL_UID),

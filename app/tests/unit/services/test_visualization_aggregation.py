@@ -18,10 +18,11 @@ from core.services.analytics.visualization_aggregation_service import (
 )
 from core.services.visualization_service import VisualizationService
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import today_in
-from core.utils.zone_context import current_zone
+from tests.helpers.run_clock import RUN_TODAY
 
-TODAY = today_in(current_zone())
+pytestmark = pytest.mark.usefixtures("held_run_clock")
+
+TODAY = RUN_TODAY
 
 
 def _task(uid: str, **fields: object) -> Task:

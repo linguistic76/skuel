@@ -27,7 +27,7 @@ from tests.helpers.status_guarded_backend import StatusGuardedWriteRecorder, gua
 
 USER = "user_span"
 EVENT = "event_span"
-BOOKED = date.today() + timedelta(days=5)
+BOOKED = date(2099, 1, 5)
 
 
 # =============================================================================

@@ -42,6 +42,7 @@ load_dotenv()
 import os  # noqa: E402
 
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER  # noqa: E402
+from tests.helpers.run_clock import hold_run_clock  # noqa: E402
 
 os.environ["SKUEL_DEFAULT_USER_UID"] = INGESTION_TEST_OWNER
 os.environ["SKUEL_CONTENT_VAULT_OWNER"] = INGESTION_TEST_OWNER
@@ -65,7 +66,7 @@ from tests.fixtures.embedding_fixtures import (  # noqa: E402
 )
 
 # ============================================================================
-# CLOCK FIXTURE — the laptop's case
+# CLOCK FIXTURES — the laptop's case, and a run that crosses midnight
 # ============================================================================
 
 
@@ -81,6 +82,13 @@ def laptop_zone(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """
     monkeypatch.delenv("SKUEL_TIMEZONE", raising=False)
     yield
+
+
+@pytest.fixture(scope="module")
+def held_run_clock() -> Iterator[None]:
+    """A module stays on the run's day across midnight (``tests/helpers/run_clock.py``)."""
+    with hold_run_clock():
+        yield
 
 
 # Explicitly expose fixtures for pytest discovery

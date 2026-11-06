@@ -24,6 +24,7 @@ from core.services.user_entry.learning_loop_handler import (
     _is_feedback_anomaly,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.run_clock import RUN_INSTANT
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -413,8 +414,8 @@ class TestHandleSubmissionApproved:
     @pytest.mark.parametrize(
         "first_created",
         [
-            Neo4jDateTime.from_native(datetime.now(UTC) - timedelta(hours=12)),
-            (datetime.now(UTC) - timedelta(hours=12)).astimezone(timezone(timedelta(hours=7))),
+            Neo4jDateTime.from_native(RUN_INSTANT - timedelta(hours=12)),
+            (RUN_INSTANT - timedelta(hours=12)).astimezone(timezone(timedelta(hours=7))),
         ],
     )
     async def test_mastery_velocity_reads_an_aware_first_entry(

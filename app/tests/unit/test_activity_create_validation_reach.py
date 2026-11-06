@@ -47,7 +47,7 @@ rule would start refusing input the app generates itself.
 No Neo4j: the backend is stubbed, so what is under test is the service wiring.
 """
 
-from datetime import date, time, timedelta
+from datetime import time, timedelta
 from typing import Any
 
 import pytest
@@ -75,9 +75,12 @@ from core.services.habits_service import HabitsService
 from core.services.principles.principles_core_service import PrinciplesCoreService
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Result
+from tests.helpers.run_clock import RUN_TODAY
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 USER_UID = "user:reach"
-TODAY = date.today()
+TODAY = RUN_TODAY
 
 
 # ============================================================================

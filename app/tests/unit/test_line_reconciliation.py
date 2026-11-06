@@ -21,11 +21,12 @@ from core.models.sentinels import UNSET
 from core.models.task.task import Task
 from core.services.dsl.line_reconciliation import LineReconciliation, reconcile_task_line
 from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
-from core.utils.timestamp_helpers import today_in
-from core.utils.zone_context import current_zone
+from tests.helpers.run_clock import RUN_TODAY
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 VAULT_ID = "sk_ab12cd"
-TODAY = today_in(current_zone())
+TODAY = RUN_TODAY
 D1 = date(2026, 9, 10)
 D2 = date(2026, 9, 12)
 

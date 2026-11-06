@@ -23,10 +23,13 @@ from core.services.goals.dashboard_figures import (
     knowledge_mastery_contribution,
     needs_more_tasks,
 )
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of
+from tests.helpers.run_clock import RUN_INSTANT
+
+pytestmark = pytest.mark.usefixtures("held_run_clock")
 
 ZONE = ZoneInfo("UTC")
-TODAY = today_in(ZONE)
+TODAY = day_of(RUN_INSTANT, ZONE)
 SPAN_DAYS = 4  # a habit started three days ago is measured over four days
 
 

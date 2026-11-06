@@ -33,7 +33,7 @@ also pins the deliberate error-semantics change: a refused or dangling link used
 the whole create; it now logs and the event is created.
 """
 
-from datetime import date, time, timedelta
+from datetime import date, time
 
 import pytest
 import pytest_asyncio
@@ -47,7 +47,7 @@ from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 OTHER_USER = seed_user_uid("test_event_edges_victim")
-TOMORROW = date.today() + timedelta(days=1)
+UPCOMING = date(2099, 1, 5)
 
 
 @pytest_asyncio.fixture
@@ -101,7 +101,7 @@ def event_request(**overrides):
     defaults = {
         "title": "Weekly review",
         "description": "Look back, then forward",
-        "event_date": TOMORROW,
+        "event_date": UPCOMING,
         "start_time": time(9, 0),
         "end_time": time(10, 0),
     }
