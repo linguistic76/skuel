@@ -5,6 +5,9 @@ prerequisites, each with whether this reader completed it. Mike's ruling (2026-1
 completed is the rule the page's hero card uses, marked as read or mastered, so a learner
 never sees a step shown as Completed while it still blocks the next one. The module pins
 that against the hero card itself, for every state a prerequisite can be in.
+
+``GET /api/path-steps/prerequisites`` walks the same edges transitively and takes the same
+ruling on a draft: it neither shows nor counts, and nor does what lies only beyond one.
 """
 
 from __future__ import annotations
@@ -49,8 +52,19 @@ MARKED_READ = "ps.psblocking.marked-read"
 MASTERED = "ps.psblocking.mastered"
 OTHERS_ONLY = "ps.psblocking.others-only"
 DRAFT = "ps.psblocking.draft"
+BEYOND_DRAFT = "ps.psblocking.beyond-draft"
 KU_READ = "ku.psblocking.read"
-_STEPS = (TARGET, NO_PREREQS, UNTOUCHED, IN_PROGRESS, MARKED_READ, MASTERED, OTHERS_ONLY, DRAFT)
+_STEPS = (
+    TARGET,
+    NO_PREREQS,
+    UNTOUCHED,
+    IN_PROGRESS,
+    MARKED_READ,
+    MASTERED,
+    OTHERS_ONLY,
+    DRAFT,
+    BEYOND_DRAFT,
+)
 UIDS = (READER, OTHER, *_STEPS, KU_READ)
 _STAMP = "2000-01-01T00:00:00+00:00"
 
@@ -99,6 +113,14 @@ async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
             """,
             target=TARGET,
             steps=[UNTOUCHED, IN_PROGRESS, MARKED_READ, MASTERED, OTHERS_ONLY, DRAFT],
+        )
+        await session.run(
+            """
+            MATCH (d:PathStep {uid: $draft}), (b:PathStep {uid: $beyond})
+            MERGE (d)-[:REQUIRES_STEP]->(b)
+            """,
+            draft=DRAFT,
+            beyond=BEYOND_DRAFT,
         )
         await session.run(
             """
@@ -254,3 +276,33 @@ async def test_the_insights_door_sees_the_same_prerequisites(reader: httpx.Async
     assert with_prereqs.status_code == 200, with_prereqs.text[:300]
     assert with_prereqs.json()["has_prerequisites"] is True
     assert without.json()["has_prerequisites"] is False
+
+
+async def test_the_chain_door_leaves_a_draft_out_of_its_rows_and_its_counts(
+    reader: httpx.AsyncClient,
+) -> None:
+    response = await reader.get("/api/path-steps/prerequisites", params={"step_uid": TARGET})
+
+    assert response.status_code == 200, response.text[:300]
+    payload = response.json()
+    assert {row["uid"] for row in payload["prerequisites"]} == {
+        UNTOUCHED,
+        IN_PROGRESS,
+        MARKED_READ,
+        MASTERED,
+        OTHERS_ONLY,
+        KU_READ,
+    }
+    assert payload["total_prerequisites"] == 6
+    assert payload["prerequisites_mastered"] == 1
+    assert payload["unmet_count"] == 5
+
+
+async def test_a_draft_step_still_reads_its_own_published_prerequisites(
+    reader: httpx.AsyncClient,
+) -> None:
+    """The caller named the draft, so it is not what the gate withholds here."""
+    response = await reader.get("/api/path-steps/prerequisites", params={"step_uid": DRAFT})
+
+    assert response.status_code == 200, response.text[:300]
+    assert [row["uid"] for row in response.json()["prerequisites"]] == [BEYOND_DRAFT]

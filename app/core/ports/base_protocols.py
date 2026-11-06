@@ -835,6 +835,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
 
         Heterogeneous by design (Ku and PathStep), so rows are projected fields
         (uid/title/domain/entity_type/distance), not single-type domain models.
+        A draft is withheld, and so is a prerequisite reached only through one.
         """
         ...
 

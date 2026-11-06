@@ -1094,7 +1094,8 @@ class PrerequisiteChainData(TypedDict):
         step_uid: The target path step
         depth: Traversal depth actually used (clamped 1-10)
         prerequisites: Chain nodes, nearest-first
-        total_prerequisites: Count of distinct prerequisites
+        total_prerequisites: Count of distinct published prerequisites; a draft, and
+            anything reached only through one, is not counted
         prerequisites_mastered: How many the user has mastered
         unmet_count: total_prerequisites - prerequisites_mastered
         has_prerequisites: Whether any prerequisites exist

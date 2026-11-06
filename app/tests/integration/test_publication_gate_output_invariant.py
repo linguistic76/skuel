@@ -62,6 +62,7 @@ from core.models.enums import EntityType, PublicationState
 from core.models.enums.metadata_enums import SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.path_step import PathStep
+from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 from tests.helpers.production_backends import build_production_backends
 
@@ -99,6 +100,7 @@ STEP_PUBLISHED = "ps.gate-published-step"
 STEP_DRAFT = "ps.gate-draft-step"  # inside the PUBLISHED path
 STEP_STANDALONE_DRAFT = "ps.gate-standalone-draft"
 STEP_REQUIRES_DRAFT = "ps.gate-requires-draft"  # a published step with a draft prerequisite
+STEP_BEYOND_DRAFT = "ps.gate-beyond-draft"  # published, and a prerequisite only through STEP_DRAFT
 KU_VIA_DRAFT_ONLY = "ku.gate-only-via-draft"  # reachable only through STEP_DRAFT
 KU_SHARED = "ku.gate-shared"  # reachable through both steps
 KU_DRAFT = "ku.gate-draft"
@@ -197,6 +199,10 @@ CREATE (s_req:Entity:PathStep {uid: $step_requires_draft, entity_type: 'path_ste
                                created_at: '2026-01-01'})
 CREATE (s_req)-[:REQUIRES_STEP]->(s_pub)
 CREATE (s_req)-[:REQUIRES_STEP]->(s_draft)
+CREATE (s_beyond:Entity:PathStep {uid: $step_beyond_draft, entity_type: 'path_step',
+                                  title: 'Step reached only through a draft', sequence: 1,
+                                  created_at: '2026-01-01'})
+CREATE (s_draft)-[:REQUIRES_STEP]->(s_beyond)
 
 CREATE (lp_pub)-[:HAS_STEP]->(s_pub)
 CREATE (lp_pub)-[:HAS_STEP]->(s_draft)
@@ -273,6 +279,7 @@ SEED_PARAMS = {
     "step_draft": STEP_DRAFT,
     "step_standalone_draft": STEP_STANDALONE_DRAFT,
     "step_requires_draft": STEP_REQUIRES_DRAFT,
+    "step_beyond_draft": STEP_BEYOND_DRAFT,
     "ku_via_draft_only": KU_VIA_DRAFT_ONLY,
     "ku_shared": KU_SHARED,
     "ku_draft": KU_DRAFT,
@@ -288,6 +295,8 @@ SEED_PARAMS = {
 # A limit far above the fixture corpus: a small LIMIT masks the delta, because
 # the withheld rows fall off the end either way.
 LIMIT = 500
+
+PREREQUISITE_EDGES = (RelationshipName.REQUIRES_STEP, RelationshipName.REQUIRES_KNOWLEDGE)
 
 
 # Modules that resolve `build_publication_clause` from their own globals at call
@@ -520,6 +529,12 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
             STEP_REQUIRES_DRAFT,
             USER,
         ),
+        # The transitive chain from the same step: the draft is a hop on it as well as a
+        # row of it.
+        (
+            "adapters.persistence.neo4j.query.cypher.crud_queries",
+            "build_prerequisite_chain_query",
+        ): partial(ps.prerequisite_chain_with_distance, STEP_REQUIRES_DRAFT, PREREQUISITE_EDGES),
         (
             "adapters.persistence.neo4j.connection_fetch_backend",
             "ConnectionFetchBackend.fetch_source_pathstep",
@@ -866,6 +881,10 @@ _COVERED_KEYS = (
         "PsIntelligenceBackend.fetch_prerequisite_statuses",
     ),
     (
+        "adapters.persistence.neo4j.query.cypher.crud_queries",
+        "build_prerequisite_chain_query",
+    ),
+    (
         "adapters.persistence.neo4j.connection_fetch_backend",
         "ConnectionFetchBackend.fetch_source_pathstep",
     ),
@@ -1055,6 +1074,30 @@ async def test_mixed_surfaces_keep_a_draft_the_learner_already_engaged(
         "a draft path the learner is ENROLLED_IN was withheld — same carve-out"
     )
     assert LP_DRAFT not in path_uids, "an unenrolled draft path must still be withheld"
+
+
+@pytest.mark.asyncio
+async def test_a_prerequisite_reached_only_through_a_draft_is_withheld(
+    gate_graph: AsyncDriver,
+) -> None:
+    """The chain's claim is carried by the whole path, so the gate is on every hop.
+
+    STEP_BEYOND_DRAFT is published, so ``find_draft_identities`` cannot see it: a gate on
+    the far end alone returns it, naming a chain that runs through a draft. That is the
+    wrong-alias shape, and only the exact set tells the two gates apart.
+    """
+    ps = build_production_backends(gate_graph)["ps_backend"]
+
+    async def chain() -> set[str]:
+        rows = _payload(
+            await ps.prerequisite_chain_with_distance(STEP_REQUIRES_DRAFT, PREREQUISITE_EDGES),
+            "prerequisite_chain_with_distance",
+        )
+        return {row["uid"] for row in rows}
+
+    assert await chain() == {STEP_PUBLISHED}
+    with neutralised_gates():
+        assert await chain() == {STEP_PUBLISHED, STEP_DRAFT, STEP_BEYOND_DRAFT}
 
 
 @pytest.mark.asyncio

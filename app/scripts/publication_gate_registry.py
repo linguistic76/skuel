@@ -676,6 +676,19 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.query.cypher.crud_queries",
+        "build_prerequisite_chain_query",
+        Disposition.GATED,
+        "The transitive chain behind /api/path-steps/prerequisites. Gates every node after "
+        "the start, not only the far end: 'this requires that' is carried by the whole path, "
+        "so a published prerequisite reached only through a draft is withheld too. A draft "
+        "neither shows nor counts, as on the PathStep page (fetch_prerequisite_statuses), "
+        "because total_prerequisites and unmet_count say what a learner has to clear. "
+        "find_ready_to_learn differs on purpose: it counts a draft it cannot name, because "
+        "that read ranks. The start is exempt, since the caller named it. Measured through "
+        "prerequisite_chain_with_distance.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.query.cypher.crud_queries",
         "build_relationship_traversal_query",
         Disposition.GATED,
         "Relationship-traversal read behind get_by_relationship — targets are "
