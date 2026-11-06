@@ -341,7 +341,7 @@ class TasksOperations(BackendOperations["Task"], Protocol):
 from core.ports import TasksOperations
 
 async def process_task(service: TasksOperations, task_uid: str):
-    result = await service.get_task_by_uid(task_uid)
+    result = await service.get_task(task_uid)
 
     if result.is_error:
         # Handle error (NotFound, Database, etc.)

@@ -21,7 +21,7 @@ Both belong on a service, `LpService` and the sub-service behind it, not on the 
 
 ## What is already nearby
 
-- **Next step.** `core/models/pathways/lp_position.py` has a private `_get_next_step(path, completed_step_uids)` that `LpPosition` reads; nothing outside its own module builds an `LpPosition`. `LpService.get_current_step` returns the first step not completed, but reads the step's own status, so it is not per learner. `LpService.get_next_adaptive_step` ranks by edge metadata from a current step and answers a different question.
+- **Next step.** `core/models/pathways/lp_position.py` has a private `_get_next_step(path, completed_step_uids)` that `LpPosition` reads; no production code builds an `LpPosition`. `LpService.get_current_step` returns the first step not completed, but reads the step's own status, so it is not per learner. `LpService.get_next_adaptive_step` ranks by edge metadata from a current step and answers a different question.
 - **Completed.** Mike's ruling of 2026-11-06 for the PathStep page: marked as read or mastered. `PsIntelligenceBackend.fetch_prerequisite_statuses` reads those two edges, and a next step should agree with it.
 - **Mastery.** A step's mastery is the `MASTERED` edge `PsMasteryService` writes. The learner's map is `UserContext.knowledge_mastery`.
 
