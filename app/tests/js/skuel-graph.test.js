@@ -18,9 +18,38 @@ const COLORS = {
   default: { background: '#6B7280' },
 };
 
+/** What a theme's stylesheet would define; each token here is told apart by its hue. */
+function defineTokens() {
+  const tokens = { foreground: '10 20% 30%', 'muted-foreground': '40 50% 60%', card: '70 80% 90%' };
+  for (const [name, value] of Object.entries(tokens)) {
+    document.documentElement.style.setProperty(`--${name}`, value);
+  }
+}
+
+beforeEach(defineTokens);
+
 describe('SKUEL.graph.buildOptions', () => {
   beforeEach(() => {
     loadSkuel();
+  });
+
+  it('paints every label from the theme, because no CSS reaches a canvas', () => {
+    const relationship = window.SKUEL.graph.buildOptions(
+      window.SKUEL.graph.PROFILES.relationship,
+    );
+    const sidebar = window.SKUEL.graph.buildOptions(
+      window.SKUEL.graph.PROFILES.exploreSidebar,
+    );
+
+    expect(relationship.nodes.font).toEqual({
+      size: 14,
+      color: 'hsl(10, 20%, 30%)',
+      strokeWidth: 2,
+      strokeColor: 'hsl(70, 80%, 90%)',
+    });
+    expect(sidebar.nodes.font.color).toBe('hsl(40, 50%, 60%)');
+    expect(relationship.edges.font.color).toBe('hsl(40, 50%, 60%)');
+    expect(relationship.edges.font.strokeColor).toBe('hsl(70, 80%, 90%)');
   });
 
   it('gives the relationship graph one global node size and shadows', () => {

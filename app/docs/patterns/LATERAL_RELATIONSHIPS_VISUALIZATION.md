@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-11-05'
+updated: '2026-11-06'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -221,9 +221,12 @@ Depth 2: [Root Blocker 1] [Root Blocker 2]
 
 **Data:** `GET /api/{entity_type}/{entity_uid}/lateral/graph?depth=N` — fetched by the
 component with `SKUEL.getJson`, not by HTMX. The route reads `depth` strictly: missing is 2,
-unreadable or below 1 is a 400, above 3 is 3 (`GraphDepth.DEFAULT`).
+unreadable or below 1 is a 400, above 3 is 3 (`GraphDepth.DEFAULT`). With no `types` it draws the
+lateral edges; `RelationshipGraphView(types=...)` sends `&types=` and drops the legend, whose
+colours describe the lateral edges only. The PathStep page passes the registry's PathStep edges,
+because a step's connections are composition, prerequisites and path membership.
 
-**Markup:** the `x-data="relationshipGraph(uid, entity_type, depth)"` sits on the card body,
+**Markup:** the `x-data="relationshipGraph(uid, entity_type, depth[, types])"` sits on the card body,
 so one scope holds the depth select, the canvas (`id="network-{uid}"`) and the error line
 (`x-text="error"`). It also listens for `relationships-changed.window` and reloads.
 

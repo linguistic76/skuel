@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import FT, H1, H2, A, Button, Div, Li, NotStr, P, Section, Span, Template, Ul
 
 from core.models.enums import UserRole
+from core.models.relationship_registry import PS_CONFIG
+from core.models.type_hints import EntityUID
 from core.ports.query_types import (
     PsKuSubstanceRow,
     PsPrerequisiteStatusRow,
@@ -33,6 +35,7 @@ from ui.patterns.detail_nav import (
     render_entity_not_found,
 )
 from ui.patterns.entity_links import entity_detail_href
+from ui.patterns.relationships import EntityRelationshipsSection
 from ui.primitives import section_label
 from ui.teaching.templates_panel import render_templates_panel_placeholder
 
@@ -154,6 +157,7 @@ def render_ps_detail_content(
         if user_role is not None and user_role.has_permission(UserRole.TEACHER)
         else Div(),
         _deps_accordion() if prerequisites is not None else Div(),
+        _relationships_section(uid) if user_uid else Div(),
         detail_footer_nav("Back to Explore", "/explore"),
         id="ps-detail-content",
         cls=_COLUMN_CLS,
@@ -741,6 +745,23 @@ def _learning_loop_section(uid: str) -> FT:
 # ---------------------------------------------------------------------------
 # Blocking dependencies accordion
 # ---------------------------------------------------------------------------
+
+
+def _relationships_section(uid: str) -> FT:
+    """How this step connects: the graph over the registry's edges for a PathStep.
+
+    The lateral blocking chain and alternatives grid stay off. "Blocking dependencies"
+    above answers what this step asks for first, and the chain's empty line would call
+    the step ready beside it. The graph's reads need a signed-in reader, so the page
+    mounts this for one only.
+    """
+    return EntityRelationshipsSection(
+        entity_uid=EntityUID(uid),
+        entity_type="ps",
+        show_blocking_chain=False,
+        show_alternatives=False,
+        graph_types=sorted(PS_CONFIG.cross_domain_relationship_types),
+    )
 
 
 def _blocking_seed(prerequisites: list[PsPrerequisiteStatusRow]) -> list[dict[str, str | None]]:

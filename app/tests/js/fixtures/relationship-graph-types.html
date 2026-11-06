@@ -1,0 +1,10 @@
+<div class="rounded-lg border bg-card text-card-foreground shadow-xs">
+  <div data-slot="card-body" x-data='relationshipGraph("ps.abc", "ps", 2, "REQUIRES_STEP,USES_KU")' x-on:relationships-changed.window="loadGraph(depth)" class="p-6 [[data-slot=card-header]+&amp;]:pt-0">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-bold">Relationship Graph</h3>
+<select name="graph_depth" aria-label="Graph depth" x-on:change="changeDepth($event.target.value)" class="flex border border-input bg-background ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-11 md:h-10 rounded-md px-3 py-2 text-sm w-auto"><option value="1">Depth 1</option><option value="2" selected>Depth 2</option><option value="3">Depth 3</option></select>    </div>
+    <div id="network-ps.abc" class="w-full h-96 border border-border rounded-sm"></div>
+    <p role="alert" x-show="error" x-text="error" x-cloak class="text-sm text-error mt-2"></p>
+    <div></div>
+  </div>
+</div>

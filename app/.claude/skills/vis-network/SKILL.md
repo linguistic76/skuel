@@ -43,7 +43,7 @@ last_updated: 2026-10-17
 
 | Surface | Component | Alpine | Data |
 |---------|-----------|--------|------|
-| The six Activity detail pages, the Ku reading page, the LP page | `EntityRelationshipsSection` → `RelationshipGraphView` (`ui/patterns/relationships/`) | `relationshipGraph(uid, type, depth)` | `GET /api/{domain}/{uid}/lateral/graph` |
+| The six Activity detail pages, the Ku reading page, the LP page, the PathStep page (signed-in, over the registry's PathStep edges) | `EntityRelationshipsSection` → `RelationshipGraphView` (`ui/patterns/relationships/`) | `relationshipGraph(uid, type, depth)` | `GET /api/{domain}/{uid}/lateral/graph` |
 | `/explore/library` sidebar | `ExploreGraphView` (`ui/explore/graph.py`) via `render_explore_sidebar_page` | `exploreGraph(mode, uid, type)` | `GET /api/explore/graph` (hub mode) |
 | `/explore/graph` | `ExploreGraphView(mode="hub")`, full page | `exploreGraph` | `GET /api/explore/graph` |
 

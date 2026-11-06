@@ -40,6 +40,9 @@ const GRAPH = { nodes: [{ id: 'task_abc', label: 'Centre' }, { id: 'task_b', lab
 
 beforeAll(async () => {
   window.vis = { Network: FakeNetwork, DataSet: FakeDataSet };
+  for (const name of ['foreground', 'muted-foreground', 'card']) {
+    document.documentElement.style.setProperty(`--${name}`, '0 0% 50%');
+  }
   window.fetch = async (url) => {
     fetches.push(String(url));
     if (failNext) {
@@ -122,6 +125,22 @@ describe('relationshipGraph (RelationshipGraphView)', () => {
     await settle();
 
     expect(fetches.at(-1)).toBe('/api/tasks/task_abc/lateral/graph?depth=3');
+  });
+
+  it('asks for the types it was given, at every depth', async () => {
+    const card = await mount('relationship-graph-types.html');
+    const select = card.querySelector('select[name="graph_depth"]');
+
+    expect(fetches).toEqual([
+      '/api/ps/ps.abc/lateral/graph?depth=2&types=REQUIRES_STEP%2CUSES_KU',
+    ]);
+
+    select.value = '1';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle();
+    await settle();
+
+    expect(fetches.at(-1)).toBe('/api/ps/ps.abc/lateral/graph?depth=1&types=REQUIRES_STEP%2CUSES_KU');
   });
 
   it('shows the error when the graph cannot load', async () => {

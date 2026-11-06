@@ -559,16 +559,31 @@
     window.SKUEL.graph = {};
 
     /**
-     * Per-surface sizing and physics. `nodeFontColor`/`nodeFontStroke` are the
-     * Explore surfaces' label treatment; the relationship graph overrides font
-     * wholesale via `nodeFont`.
+     * A theme token as a colour a canvas can paint. A token holds an HSL triplet
+     * ("215.4 16.3% 46.9%"). Chart.js's colour parser reads it space-separated, but
+     * not with a "/ alpha" after it, so every colour is spelled in the comma form:
+     * hsl(h, s%, l%) and hsla(h, s%, l%, a).
+     */
+    window.SKUEL.tokenColour = function(name, alpha) {
+        var raw = getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
+        if (!raw) {
+            throw new Error('Theme token --' + name + ' is not defined');
+        }
+        var parts = raw.split(/\s+/).join(', ');
+        return alpha === undefined ? 'hsl(' + parts + ')' : 'hsla(' + parts + ', ' + alpha + ')';
+    };
+
+    /**
+     * Per-surface sizing and physics. A node label is `nodeFontToken` on the
+     * theme's card colour, muted unless a profile names another token.
      */
     window.SKUEL.graph.PROFILES = {
         // Lateral-relationship graph on entity detail pages.
         relationship: {
             // One size for every node — this surface does not style per-node.
             globalNodeSize: 16,
-            nodeFont: { size: 14, color: '#333' },
+            nodeFontSize: 14,
+            nodeFontToken: 'foreground',
             nodeBorderWidth: 2,
             nodeShadow: true,
             edgeWidth: 2,
@@ -621,6 +636,20 @@
         }
     };
 
+    /**
+     * A node label's font. Vis.js paints text onto a canvas, where no CSS reaches it,
+     * so the colours are the theme's tokens read when the graph is drawn. A label
+     * drawn before a theme switch keeps its colours until the next draw.
+     */
+    window.SKUEL.graph.labelFont = function(size, token) {
+        return {
+            size: size,
+            color: window.SKUEL.tokenColour(token || 'muted-foreground'),
+            strokeWidth: 2,
+            strokeColor: window.SKUEL.tokenColour('card')
+        };
+    };
+
     /** True when the Vis.js Network library finished loading. */
     window.SKUEL.graph.ready = function() {
         return typeof vis !== 'undefined' && !!vis.Network;
@@ -639,16 +668,19 @@
             // the relationship graph sets one global size instead.
             nodes.size = profile.globalNodeSize;
         }
-        nodes.font = profile.nodeFont || {
-            size: profile.nodeFontSize,
-            color: '#64748B',
-            strokeWidth: 2,
-            strokeColor: '#fff'
-        };
+        nodes.font = window.SKUEL.graph.labelFont(profile.nodeFontSize, profile.nodeFontToken);
         if (profile.nodeBorderWidth) nodes.borderWidth = profile.nodeBorderWidth;
         if (profile.nodeShadow) nodes.shadow = true;
 
-        var edges = { width: profile.edgeWidth, smooth: { type: 'continuous' } };
+        var edges = {
+            width: profile.edgeWidth,
+            smooth: { type: 'continuous' },
+            font: {
+                color: window.SKUEL.tokenColour('muted-foreground'),
+                strokeWidth: 2,
+                strokeColor: window.SKUEL.tokenColour('card')
+            }
+        };
         if (profile.edgeShadow) edges.shadow = true;
 
         var options = {
@@ -704,12 +736,9 @@
             return Object.assign({}, node, {
                 color: colors,
                 size: isCenter ? profile.centerSize : profile.nodeSize,
-                font: {
-                    size: isCenter ? profile.centerFontSize : profile.nodeFontSize,
-                    color: '#64748B',
-                    strokeWidth: 2,
-                    strokeColor: '#ffffff'
-                },
+                font: window.SKUEL.graph.labelFont(
+                    isCenter ? profile.centerFontSize : profile.nodeFontSize
+                ),
                 borderWidth: isCenter ? 3 : 1.5,
                 // Store metadata for filtering
                 _entityType: nodeType,
@@ -829,25 +858,13 @@
      * colours from creation, so `update()` would leave the axes in the old theme.
      */
     window.SKUEL.chartTheme = (function() {
+        var tokenColour = window.SKUEL.tokenColour;
         var live = [];
         var observer = null;
         var drawnDark = null;
 
         function isDark() {
             return document.documentElement.classList.contains('dark');
-        }
-
-        // A token holds an HSL triplet ("215.4 16.3% 46.9%"). Chart.js's colour
-        // parser reads it space-separated, but not with a "/ alpha" after it,
-        // so every colour is spelled in the comma form: hsl(h, s%, l%) and
-        // hsla(h, s%, l%, a).
-        function tokenColour(name, alpha) {
-            var raw = getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
-            if (!raw) {
-                throw new Error('Theme token --' + name + ' is not defined');
-            }
-            var parts = raw.split(/\s+/).join(', ');
-            return alpha === undefined ? 'hsl(' + parts + ')' : 'hsla(' + parts + ', ' + alpha + ')';
         }
 
         function onClassChange() {
@@ -2140,6 +2157,8 @@
          * @param {string} entity_uid - Center entity UID
          * @param {string} entity_type - Entity type (tasks, goals, etc.)
          * @param {number} initial_depth - Initial graph depth (1-3)
+         * @param {string} [types] - Comma-separated relationship types to draw; the route
+         *   draws the lateral ones without it
          * @returns {Object} Alpine.js component
          *
          * @example
@@ -2153,11 +2172,12 @@
          * graph twice. Every control that calls changeDepth/loadGraph sits
          * inside the x-data element, or Alpine never binds it.
          */
-        Alpine.data('relationshipGraph', function(entity_uid, entity_type, initial_depth) {
+        Alpine.data('relationshipGraph', function(entity_uid, entity_type, initial_depth, types) {
             return {
                 entity_uid: entity_uid,
                 entity_type: entity_type,
                 depth: initial_depth || 2,
+                types: types || null,
                 network: null,
                 loading: false,
                 error: null,
@@ -2173,7 +2193,8 @@
 
                     try {
                         var data = await window.SKUEL.getJson(
-                            '/api/' + self.entity_type + '/' + self.entity_uid + '/lateral/graph?depth=' + depth
+                            '/api/' + self.entity_type + '/' + self.entity_uid + '/lateral/graph?depth=' + depth +
+                                (self.types ? '&types=' + encodeURIComponent(self.types) : '')
                         );
                         self.renderNetwork(data);
 
@@ -2738,7 +2759,7 @@
                         self._visNodes.update({
                             id: node.id,
                             opacity: match ? 1.0 : 0.15,
-                            font: { color: match ? '#64748B' : '#CBD5E1' },
+                            font: { color: window.SKUEL.tokenColour('muted-foreground', match ? 1 : 0.35) },
                             color: match ? colors : {
                                 background: '#E2E8F0',
                                 border: '#CBD5E1',
