@@ -2,10 +2,10 @@
 
 ``/api/path-steps/dependencies``, ``/recommendations`` and ``/stats``' ``dependent_count`` all
 ask one question: which steps require this one? The answer is the published steps holding
-either prerequisite edge to it, each once. Everything else that can hold such an edge is
-seeded here on purpose, because each failed this read in its own way: a Goal, a Ku and an
-Exercise are not steps and must not take a slot, a draft stays unnamed and uncounted, a
-step holding both edges is one step, and a self-edge is not a dependent.
+either prerequisite edge to it, each once. The seed holds everything else that can carry
+such an edge: a Goal, a Ku and an Exercise are not steps and take no slot, a draft stays
+unnamed and uncounted, a step holding both edges is one step, and a self-edge is not a
+dependent.
 """
 
 from __future__ import annotations
