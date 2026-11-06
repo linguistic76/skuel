@@ -74,11 +74,11 @@
       get progressPct() {
         return this.status === 'read' ? 100 : this.status === 'learning' ? 55 : 0;
       },
-      get allMet() {
-        return this.blocking.every(function (d) { return d.status === 'met'; });
+      get allCompleted() {
+        return this.blocking.every(function (d) { return d.status === 'completed'; });
       },
       get blockedCount() {
-        return this.blocking.filter(function (d) { return d.status !== 'met'; }).length;
+        return this.blocking.filter(function (d) { return d.status !== 'completed'; }).length;
       },
 
       advance: function () {

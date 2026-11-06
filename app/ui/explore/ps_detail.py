@@ -765,13 +765,13 @@ def _relationships_section(uid: str) -> FT:
 
 
 def _blocking_seed(prerequisites: list[PsPrerequisiteStatusRow]) -> list[dict[str, str | None]]:
-    """The accordion's rows, for the Alpine seed. ``completed`` becomes its ``met`` status."""
+    """The accordion's rows, for the Alpine seed."""
     return [
         {
             "uid": row["uid"],
             "title": row["title"],
             "href": entity_detail_href(row["entity_type"], row["uid"]),
-            "status": "met" if row["completed"] else "blocked",
+            "status": "completed" if row["completed"] else "blocked",
         }
         for row in prerequisites
     ]
@@ -786,14 +786,14 @@ def _deps_accordion() -> FT:
                 Icon("check", cls="w-[15px] h-[15px]", stroke_width="2.2"),
                 cls="w-7 h-7 rounded-md flex items-center justify-center flex-none bg-priority-low/15 text-priority-low",
                 **{
-                    "x-show": "allMet",
+                    "x-show": "allCompleted",
                 },
             ),
             Span(
                 Icon("lock", cls="w-[15px] h-[15px]", stroke_width="2.2"),
                 cls="w-7 h-7 rounded-md flex items-center justify-center flex-none bg-red-50 dark:bg-red-400/10 text-red-600 dark:text-red-300",
                 **{
-                    "x-show": "!allMet",
+                    "x-show": "!allCompleted",
                 },
             ),
             # Summary text
@@ -808,11 +808,11 @@ def _deps_accordion() -> FT:
                     cls="block text-xs font-semibold mt-px",
                     **{
                         "x-text": (
-                            "allMet "
+                            "allCompleted "
                             "? 'Ready — nothing blocks this step.' "
                             ": (blockedCount + ' prerequisite' + (blockedCount === 1 ? '' : 's') + ' to clear')"
                         ),
-                        ":class": "allMet ? 'text-priority-low' : 'text-error'",
+                        ":class": "allCompleted ? 'text-priority-low' : 'text-error'",
                     },
                 ),
                 cls="flex-1 min-w-0",
@@ -848,14 +848,14 @@ def _deps_accordion() -> FT:
                             Icon("check", cls="w-3 h-3", stroke_width="2.4"),
                             cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-priority-low/15 text-priority-low",
                             **{
-                                "x-show": "dep.status === 'met'",
+                                "x-show": "dep.status === 'completed'",
                             },
                         ),
                         Span(
                             Icon("lock", cls="w-3 h-3", stroke_width="2.4"),
                             cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-red-50 dark:bg-red-400/10 text-red-600 dark:text-red-300",
                             **{
-                                "x-show": "dep.status !== 'met'",
+                                "x-show": "dep.status !== 'completed'",
                             },
                         ),
                         A(
@@ -870,8 +870,8 @@ def _deps_accordion() -> FT:
                             "",
                             cls="font-mono text-10 font-semibold uppercase tracking-wider",
                             **{
-                                "x-text": "dep.status === 'met' ? 'Completed' : 'Blocked'",
-                                ":class": "dep.status === 'met' ? 'text-priority-low' : 'text-error'",
+                                "x-text": "dep.status === 'completed' ? 'Completed' : 'Blocked'",
+                                ":class": "dep.status === 'completed' ? 'text-priority-low' : 'text-error'",
                             },
                         ),
                         cls="flex items-center gap-2.5 px-3 py-2.5 border border-border rounded-lg bg-muted/40",

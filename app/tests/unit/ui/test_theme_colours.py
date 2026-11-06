@@ -204,7 +204,7 @@ def test_the_walk_reads_each_kind_of_literal(path: str, needle: str) -> None:
         ("hover:text-destructive/80", False, True),
         ("border border-destructive/40", False, True),
         ("bg-destructive/10 text-error", False, True),
-        ("allMet ? 'text-priority-low' : 'text-destructive'", False, True),
+        ("allCompleted ? 'text-priority-low' : 'text-destructive'", False, True),
         ("text-success", False, False),
         ("bg-error/10 border border-error/20", False, False),
         ("text-blue-600 dark:text-blue-400", False, False),
