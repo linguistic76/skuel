@@ -7,7 +7,6 @@ it holds everywhere.
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -17,7 +16,7 @@ from core.utils.result_simplified import Result
 
 _UID = "ps.test.step"
 
-_READS: list[tuple[str, tuple[Any, ...]]] = [
+_READS: list[tuple[str, tuple[object, ...]]] = [
     ("is_ready", (_UID, set())),
     ("get_practice_summary", (_UID,)),
     ("practice_completeness_score", (_UID,)),
@@ -34,7 +33,7 @@ _READS: list[tuple[str, tuple[Any, ...]]] = [
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("method", "args"), _READS, ids=[name for name, _ in _READS])
 async def test_an_unwired_backend_fails_through_the_one_guard(
-    method: str, args: tuple[Any, ...]
+    method: str, args: tuple[object, ...]
 ) -> None:
     service = PsIntelligenceService(backend=Mock(), intelligence_backend=None)
 

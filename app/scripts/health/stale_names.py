@@ -188,14 +188,14 @@ DELETED: dict[str, str] = {
     "extract_dict_from_records": "deleted — no reader; extract_dict_from_first_record is the live dict read",
     "extract_total": "deleted — no reader; extract_single_int('total', 0) builds it",
     "extract_deleted_count": "deleted — no reader; extract_single_int('deleted_count', 0) builds it",
-    # The "Direct Driver" relationship services the relationship pattern doc once listed:
-    # KU, PS and LP are built on UnifiedRelationshipService (curriculum_domain_config.py).
+    # No such relationship services: KU, PS and LP are built on UnifiedRelationshipService
+    # (curriculum_domain_config.py).
     "LpRelationshipService": "no such class — LpService.relationships is a UnifiedRelationshipService",
     "LsRelationshipService": "no such class — PsService.relationships is a UnifiedRelationshipService",
     "MocRelationshipService": "no such class — ORGANIZES operations are PsService.organization",
     "KuGraphService": "no such class — KuService.relationships is a UnifiedRelationshipService",
     "calculate_motivational_strength": "no such method on any LP service",
-    # UnifiedRelationshipService methods its pattern doc taught; none is defined anywhere.
+    # No such UnifiedRelationshipService methods; none is defined anywhere.
     "get_actionable_for_user": "no such method — get_blocked_for_user is the one UserContext method on UnifiedRelationshipService",
     "get_learning_related_for_user": "no such method on UnifiedRelationshipService",
     "get_goal_aligned_for_user": "no such method on UnifiedRelationshipService",

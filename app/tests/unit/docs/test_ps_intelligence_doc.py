@@ -1,9 +1,7 @@
 """Pin PS_INTELLIGENCE.md's method table to the class and the PLANNED registry.
 
-The per-method sections this table replaced drifted without anyone noticing: three
-methods were never added, and the prose named a query executor the service no longer
-held. Both sides here are derived, so a new public method, a removed one, or a
-registration without its row breaks the build until the table agrees.
+Both sides are derived, so a new public method, a removed one, or a registration
+without its row breaks the build until the table agrees.
 ``app/docs/intelligence/PS_INTELLIGENCE.md`` is in CI's ``py`` path filter so a
 docs-only edit to the table still runs this module.
 """
