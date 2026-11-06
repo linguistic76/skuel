@@ -5,6 +5,7 @@ Test KU Graph Service
 Tests for the PsGraphService focused sub-service.
 """
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,6 +13,7 @@ import pytest
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, EntityType
 from core.services.ps.ps_graph_service import PsGraphService
+from core.services.ps_service import PsService
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 
@@ -134,6 +136,42 @@ class TestGraphTraversal:
         result = await service.find_next_steps("ku.test.1")
 
         assert result.expect_error().category is ErrorCategory.DATABASE
+
+
+class TestStepStats:
+    """A figure on /stats is read or the request fails; a failed read is never a zero."""
+
+    @staticmethod
+    def _facade(prerequisites: Result, dependents: Result) -> SimpleNamespace:
+        return SimpleNamespace(
+            core=SimpleNamespace(get=AsyncMock(return_value=Result.ok(make_ku_dto()))),
+            get_prerequisites=AsyncMock(return_value=prerequisites),
+            graph=SimpleNamespace(count_next_steps=AsyncMock(return_value=dependents)),
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("prerequisites", "dependents"),
+        [
+            (Result.fail(Errors.database("read", "down")), Result.ok(3)),
+            (Result.ok([]), Result.fail(Errors.database("read", "down"))),
+        ],
+        ids=["prerequisites", "dependents"],
+    )
+    async def test_a_failed_read_fails_the_request(self, prerequisites, dependents):
+        facade = self._facade(prerequisites, dependents)
+
+        result = await PsService.get_step_stats(facade, "ps.test.one")
+
+        assert result.expect_error().category is ErrorCategory.DATABASE
+
+    @pytest.mark.asyncio
+    async def test_the_dependent_count_is_the_count_read(self):
+        facade = self._facade(Result.ok([]), Result.ok(12))
+
+        result = await PsService.get_step_stats(facade, "ps.test.one")
+
+        assert result.value["dependent_count"] == 12
 
 
 class TestAnalysisRecommendations:
