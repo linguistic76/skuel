@@ -40,6 +40,7 @@ from core.ports.query_types import (
     OrganizerResult,
     PrerequisiteChainRow,
     PsEngagementCountsRow,
+    PsUserSubstanceResult,
     RootOrganizerResult,
     StepApplicationsResult,
     StepLearningSequenceResult,
@@ -940,7 +941,7 @@ class PsService:
 
     async def get_user_step_context(
         self, ps_uid: str, user_context: UserContext
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[PsUserSubstanceResult]:
         """Get personalized path step context for a user.
 
         Migrated to PsIntelligenceService for integrated substance and mastery calculation.

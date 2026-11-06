@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-10-31
+updated: 2026-11-06
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -447,14 +447,15 @@ The context's copies are built for **planning**, so they admit a row only if it 
 
 Both sources bridge PathStep targets to the Kus they compose over the **canonical triple** `USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU` — the same three edges the substance write fan-out uses. The MEGA-QUERY rollups listed only two of the three until 2026-08-12, so knowledge reachable from a step only over `CONTAINS_KNOWLEDGE` sat in the denominator and never the numerator.
 
-### API Endpoints
+### Doors
 
 ```
-GET /api/ku/{uid}/my-context          → KuIntelligenceService.calculate_user_substance
-GET /api/path-steps/my-context        → PsIntelligenceService.calculate_user_substance
+GET /explore/ps/{uid}/applied         → PsIntelligenceService.calculate_user_substance (HTML: "How you've applied this")
+GET /api/path-steps/my-context        → the same reading as JSON
 ```
 
 Requires authentication. Returns personalized substance data for the current user.
+`KuIntelligenceService.calculate_user_substance` has no door of its own: it is the system side of the Knowledge check-in (`assess_mastery_dual_track`).
 
 ### Per-User Calculation
 

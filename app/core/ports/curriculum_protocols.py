@@ -114,7 +114,7 @@ from core.ports.query_types import (
     PsPracticeSummaryResult,
     PsPrerequisiteStepUidsRow,
     PsStepTaughtKuUidsRow,
-    PsTaughtKuUidRow,
+    PsTaughtKuRow,
     ReadyToLearnResult,
     ReinforcementCandidateResult,
     RequiredKnowledgeResult,
@@ -638,8 +638,8 @@ class PsIntelligenceBackendOperations(Protocol):
         """True if the PathStep has any of the 6 activity-domain practice edges."""
         ...
 
-    async def fetch_taught_ku_uids(self, ps_uid: str) -> Result[list[PsTaughtKuUidRow]]:
-        """Return ``ku_uid`` rows for the KUs taught by a PathStep."""
+    async def fetch_taught_kus(self, ps_uid: str) -> Result[list[PsTaughtKuRow]]:
+        """Return a row per KU taught by a PathStep, ordered by title."""
         ...
 
     async def fetch_taught_ku_uids_for_steps(
@@ -647,7 +647,7 @@ class PsIntelligenceBackendOperations(Protocol):
     ) -> Result[list[PsStepTaughtKuUidsRow]]:
         """Return one ``(ps_uid, ku_uids)`` row per requested PathStep.
 
-        Batched form of :meth:`fetch_taught_ku_uids`. A step teaching no Ku still
+        Uid-only batched form of :meth:`fetch_taught_kus`. A step teaching no Ku still
         gets a row, with an empty list.
         """
         ...

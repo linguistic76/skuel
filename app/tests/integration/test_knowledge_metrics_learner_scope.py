@@ -457,7 +457,7 @@ class TestKnowledgeMetricsLearnerScope:
     ):
         """The step→Ku resolver and the channel rollup must agree on the edge set.
 
-        The substance write fan-out, ``fetch_taught_ku_uids*`` and the channel
+        The substance write fan-out, ``fetch_taught_ku*`` and the channel
         read all traverse USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU. The MEGA-QUERY's
         rollup listed only two of the three until 2026-08-12, so a Ku reachable
         from a step only over CONTAINS_KNOWLEDGE landed in the DENOMINATOR (the

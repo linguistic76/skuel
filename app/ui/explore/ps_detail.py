@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import FT, H1, H2, A, Button, Div, Li, NotStr, P, Section, Span, Template, Ul
 
 from core.models.enums import UserRole
-from core.ports.query_types import UsedKuRow
-from ui.components import Icon
+from core.ports.query_types import PsKuSubstanceRow, PsUserSubstanceResult, UsedKuRow
+from ui.components import Icon, Progress
 from ui.library.resource_chip import resource_chip
 from ui.patterns.detail_nav import (
     detail_back_link,
@@ -138,6 +138,7 @@ def render_ps_detail_content(
         _resources_section(resources) if resources else Div(),
         _related_placeholder(uid) if show_related else Div(),
         _next_step_related_placeholder() if show_next_step_related else Div(),
+        _applied_placeholder(uid) if user_uid else Div(),
         _tasks_section(uid) if user_uid else Div(),
         _learning_loop_section(uid) if user_uid else Div(),
         render_templates_panel_placeholder(uid)
@@ -584,6 +585,88 @@ def render_ps_next_step_related(groups: list[NextStepRelatedGroup]) -> FT:
 
 
 # ---------------------------------------------------------------------------
+# How you've applied this (per-learner substance — signed-in readers only)
+# ---------------------------------------------------------------------------
+
+_APPLIED_ID = "ps-applied-fragment"
+
+
+def _applied_placeholder(uid: str) -> FT:
+    """Lazy HTMX mount for "How you've applied this"; the fragment replaces it whole."""
+    return Div(
+        id=_APPLIED_ID,
+        **{
+            "hx-get": f"/explore/ps/{uid}/applied",
+            "hx-trigger": "load",
+            "hx-swap": "outerHTML",
+        },
+    )
+
+
+def _applied_section(*body: FT) -> FT:
+    return Section(
+        section_label("How you've applied this", tag=H2, id="ps-applied-h"),
+        *body,
+        id=_APPLIED_ID,
+        cls="mt-[24px]",
+        role="region",
+        **{"aria-labelledby": "ps-applied-h"},
+    )
+
+
+def _applied_row(row: PsKuSubstanceRow) -> FT:
+    """One taught Ku: its reading page, how much it is applied, its mastery when it has any."""
+    title = row["ku_title"]
+    applied = round(row["substance_score"] * 100)
+    mastery = round(row["mastery_score"] * 100)
+    reading = f"Applied {applied}%" + (f" · Mastery {mastery}%" if mastery else "")
+    return Li(
+        Div(
+            A(
+                title,
+                href=f"/explore/ku/{row['ku_uid']}",
+                cls="min-w-0 text-13 font-semibold text-foreground hover:underline",
+            ),
+            Span(reading, cls="text-xs font-medium text-muted-foreground whitespace-nowrap"),
+            cls="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5",
+        ),
+        Progress(value=applied, cls="mt-1.5", aria_label=f"{title}: applied {applied}%"),
+    )
+
+
+def render_ps_applied(substance: PsUserSubstanceResult) -> FT:
+    """How this learner has applied what the step teaches.
+
+    A step teaching no Ku gives a learner nothing to apply, so the section is absent.
+    Nothing applied yet is the service's status line and how to change it; the Kus are
+    already listed above as "Knowledge in this step". Otherwise each taught Ku gets a
+    row, linked to its reading page, where "Where you can apply this" names the activities.
+    """
+    rows = substance["underlying_kus"]
+    if not rows:
+        return Div(id=_APPLIED_ID)
+    status = P(substance["status_message"], cls="text-sm text-foreground/85")
+    if not any(row["substance_score"] > 0 or row["mastery_score"] > 0 for row in rows):
+        return _applied_section(
+            status,
+            P(
+                "Link a task, habit, event, choice or principle to one of this step's "
+                "concepts and it counts here.",
+                cls="mt-1 text-sm text-muted-foreground",
+            ),
+        )
+    return _applied_section(
+        status,
+        Ul(*[_applied_row(row) for row in rows], cls="mt-3 flex flex-col gap-3"),
+    )
+
+
+def render_ps_applied_error(message: str) -> FT:
+    """The section with its client-safe error line, in place of the answer."""
+    return _applied_section(P(message, cls="text-sm text-muted-foreground"))
+
+
+# ---------------------------------------------------------------------------
 # Tasks section
 # ---------------------------------------------------------------------------
 
@@ -774,6 +857,8 @@ def _deps_accordion() -> FT:
 
 
 __all__ = [
+    "render_ps_applied",
+    "render_ps_applied_error",
     "render_ps_detail_content",
     "render_ps_next_step_related",
     "render_ps_not_found",

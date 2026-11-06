@@ -31,11 +31,11 @@ Every `backend` read below is on `PsIntelligenceBackend`. "PLANNED" means no pro
 | `calculate_guidance_strength(ps_uid)` | 0.0-1.0: `min(0.4, principles × 0.15) + min(0.6, choices × 0.2)` | `fetch_guidance_counts` (`GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE`) | PLANNED |
 | `has_guidance(ps_uid)` | Does a `GUIDED_BY_PRINCIPLE` or `INFORMS_CHOICE` edge leave the step? | `backend.has_guidance` | PLANNED |
 | `has_practice_opportunities(ps_uid)` | Does any of the six practice edges leave the step? | `backend.has_practice_opportunities` | PLANNED |
-| `calculate_user_substance(ps_uid, user_context)` | How much one learner has applied the step: overall substance and mastery, per-Ku detail, a status message. Requires a rich context | `fetch_taught_ku_uids`, then the context's channel maps | `PsService.get_user_step_context` ← `GET /api/path-steps/my-context?uid=` |
+| `calculate_user_substance(ps_uid, user_context)` | How much one learner has applied the step: overall substance and mastery, per-Ku detail, a status message. Requires a rich context | `fetch_taught_kus`, then the context's channel maps | `PsService.get_user_step_context` ← `GET /explore/ps/{uid}/applied` (the PathStep page's "How you've applied this") and `GET /api/path-steps/my-context?uid=` |
 | `calculate_user_substance_for_steps(ps_uids, channels)` | Substance score per step, for a whole set, in one round trip. Projects the score out of the breakdown below | `calculate_user_substance_breakdown_for_steps` | `PsService.get_user_substance_scores` ← `AnalyticsMetricsService` |
 | `calculate_user_substance_breakdown_for_steps(ps_uids, channels)` | Score and per-channel parts per step (`StepSubstance`), in one round trip | `fetch_taught_ku_uids_for_steps` | `PsService.get_user_substance_breakdowns` ← `AnalyticsLifePathService` |
 
-**What reaches a person:** no page calls the three `/api/path-steps` doors above, so they answer JSON clients only. The two batch substance methods do reach learners: the score through the weekly life summary, the breakdown through the life-path alignment. `identify_practice_gaps` feeds `analyze_path_knowledge_scope` on `LpService`, which no route calls.
+**What reaches a person:** the per-step substance reading is on the PathStep page. No page calls `/api/path-steps/context` or `/insights`, so they answer JSON clients only. The two batch substance methods also reach learners: the score through the weekly life summary, the breakdown through the life-path alignment. `identify_practice_gaps` feeds `analyze_path_knowledge_scope` on `LpService`, which no route calls.
 
 ---
 

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from core.models.forms.form_template import FormTemplate
     from core.models.shared.dual_track import DualTrackResult
     from core.ports.form_protocols import FormTemplateOperations
-    from core.ports.query_types import UsedKuRow
+    from core.ports.query_types import PsUserSubstanceResult, UsedKuRow
     from core.ports.relationship_backend_protocols import UserRelationshipOperations
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.ku_service import KuService
@@ -140,6 +140,12 @@ class ExploreOrchestrator:
     async def get_ps_learning_state(self, user_uid: UserUID, ps_uid: str) -> Result[Any]:
         """Get learning mastery state for a specific PathStep."""
         return await self._ps.mastery.get_learning_state(user_uid, ps_uid)
+
+    async def get_user_step_context(
+        self, ps_uid: str, user_context: UserContext
+    ) -> Result[PsUserSubstanceResult]:
+        """How much this learner has applied what a PathStep teaches (rich context)."""
+        return await self._ps.get_user_step_context(ps_uid, user_context)
 
     async def get_used_kus(self, ps_uid: str) -> Result[list[UsedKuRow] | None]:
         """The atomic Kus a PathStep composes (USES_KU edges); None for a non-step uid."""

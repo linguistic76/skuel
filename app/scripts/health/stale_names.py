@@ -61,6 +61,8 @@ SCAN_DIRS = [
 # code + docs are updated, move the entry to the archive comment at the bottom.
 #
 RENAMED: dict[str, str] = {
+    # The row carries each taught Ku's title as well as its uid.
+    "PsTaughtKuUidRow": "PsTaughtKuRow",
     # The supersede predicate moved to the learning-loop fragments module (public).
     "_SUPERSEDED_COPY": "SUPERSEDED_COPY",
     # The review-write gate admits a direct request too (ADR-088 §9) — its name says

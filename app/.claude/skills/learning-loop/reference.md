@@ -73,6 +73,7 @@ reader design language. Alpine component
 bookmark toggle, and deps accordion. CSRF-protected mutation endpoints:
 - `POST /explore/ps/{uid}/progress` (`state=learning|read`) — progress toggle (no TaskTemplates)
 - `POST /explore/ps/{uid}/bookmark` (`on=true|false`)
+- `GET /explore/ps/{uid}/applied` — HTMX fragment: how the signed-in reader has applied what the step teaches
 - `GET /explore/ps/{uid}/tasks` — HTMX fragment: tasks spawned from this PS for the current user
 
 **Engage-to-spawn:** when the PS has TaskTemplates (`has_task_templates` in the inline x-data seed), "Start
