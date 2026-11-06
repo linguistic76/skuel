@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-10-23
+updated: 2026-11-06
 category: patterns
 related_skills: []
 related_docs:
@@ -356,10 +356,11 @@ Two `Any` laundering points are known and deliberate:
 `create_curriculum_sub_services(backend: Any, ...)` in
 `core/services/curriculum_domain_config.py`.
 
-Note also that `UniversalNeo4jBackend` defines `__getattr__` for dynamic CRUD-alias
-compliance, so **typing `self.backend` against a concrete backend subclass gives no
-attribute checking at all** — every misspelled method resolves to `Any`. Typing
-against the protocol is what turns those into `attr-defined` errors.
+`UniversalNeo4jBackend` defines no `__getattr__`, so a backend answers only what it
+defines. Each domain backend is held to its protocol twice: a `type[...]` pin at the foot
+of its cluster file checks it under mypy, signatures included, and
+`tests/unit/adapters/test_backend_protocol_conformance.py` checks it at runtime. A protocol
+member with no implementation fails both.
 
 ### A New Port Declares Typed Rows, Not `dict[str, Any]`
 

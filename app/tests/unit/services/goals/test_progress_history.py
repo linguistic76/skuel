@@ -107,13 +107,13 @@ async def test_manual_progress_update_appends_an_entry() -> None:
     goal = _goal()
     backend = Mock()
     backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
-    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    backend.update = AsyncMock(return_value=Result.ok(goal))
     service = _progress_service(backend)
 
     result = await service.update_goal_progress(_GOAL, 40.0)
 
     assert result.is_ok
-    updates = backend.update_goal.await_args.args[1]
+    updates = backend.update.await_args.args[1]
     entries = _entries(updates)
     assert entries[0] == _EARLIER
     assert entries[-1]["progress_percentage"] == 40.0
@@ -125,12 +125,12 @@ async def test_re_posting_the_stored_figure_appends_nothing() -> None:
     goal = _goal(progress=40.0)
     backend = Mock()
     backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
-    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    backend.update = AsyncMock(return_value=Result.ok(goal))
     service = _progress_service(backend)
 
     await service.update_goal_progress(_GOAL, 40.0)
 
-    assert "progress_history" not in backend.update_goal.await_args.args[1]
+    assert "progress_history" not in backend.update.await_args.args[1]
 
 
 @pytest.mark.asyncio
@@ -247,7 +247,7 @@ async def test_manual_update_dates_its_entry_and_stamp_at_the_supplied_date() ->
     goal = _goal()
     backend = Mock()
     backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
-    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    backend.update = AsyncMock(return_value=Result.ok(goal))
     service = _progress_service(backend)
 
     result = await service.update_goal_progress(
@@ -255,7 +255,7 @@ async def test_manual_update_dates_its_entry_and_stamp_at_the_supplied_date() ->
     )
 
     assert result.is_ok
-    updates = backend.update_goal.await_args.args[1]
+    updates = backend.update.await_args.args[1]
     first_instant = laptop_wall(2026, 9, 5)  # 07:00 UTC digits
     assert updates["last_progress_update"] == first_instant
     assert _entries(updates)[-1] == {
@@ -281,13 +281,13 @@ async def test_a_supplied_moment_is_the_instant_it_names(supplied: str, stored: 
     goal = _goal()
     backend = Mock()
     backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
-    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    backend.update = AsyncMock(return_value=Result.ok(goal))
     service = _progress_service(backend)
 
     result = await service.update_goal_progress(_GOAL, 45.0, update_date=supplied)
 
     assert result.is_ok
-    assert backend.update_goal.await_args.args[1]["last_progress_update"] == stored
+    assert backend.update.await_args.args[1]["last_progress_update"] == stored
 
 
 @pytest.mark.asyncio
@@ -298,14 +298,14 @@ async def test_an_unparseable_or_future_update_date_is_refused_before_any_write(
     goal = _goal()
     backend = Mock()
     backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
-    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    backend.update = AsyncMock(return_value=Result.ok(goal))
     service = _progress_service(backend)
 
     result = await service.update_goal_progress(_GOAL, 45.0, update_date=bad)
 
     assert result.is_error
     assert result.expect_error().category.value == "validation"
-    backend.update_goal.assert_not_awaited()
+    backend.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio

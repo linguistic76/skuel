@@ -41,14 +41,8 @@ from tests.helpers.status_guarded_backend import echoing_guarded_write
 def mock_backend() -> Any:
     """Create a mock tasks backend.
 
-    TasksOperations protocol supports BOTH patterns:
-    1. Generic BackendOperations: get(), create(), update(), delete(), list()
-    2. Domain entry points: get_task(), create_task(), update_task(), delete_task()
-
-    TasksCoreService mixes both:
-    - get_task() -> calls self.get() -> uses backend.get()
-    - update_task() -> calls backend.get_task() AND backend.update_task()
-    - list_tasks() -> calls self.list() -> uses backend.list()
+    TasksCoreService writes through the generic BackendOperations (get, create, update,
+    delete, list) and reads through both those and TasksBackend's own get_task.
     """
     backend = Mock()
 
@@ -64,10 +58,7 @@ def mock_backend() -> Any:
     backend.list = AsyncMock(return_value=Result.ok(([], 0)))  # Returns (items, count) tuple
 
     # ✅ Domain-specific entry points (also in TasksOperations protocol)
-    backend.create_task = AsyncMock(return_value=Result.ok({}))
     backend.get_task = AsyncMock(return_value=Result.ok(None))
-    backend.update_task = AsyncMock(return_value=Result.ok({}))
-    backend.delete_task = AsyncMock(return_value=Result.ok(True))
     backend.get_user_tasks = AsyncMock(return_value=Result.ok([]))
     # get_user_entities returns (entities, total_count) tuple
     backend.get_user_entities = AsyncMock(return_value=Result.ok(([], 0)))

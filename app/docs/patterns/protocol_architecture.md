@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-11-02
+updated: 2026-11-06
 category: patterns
 related_skills:
 - python
@@ -174,19 +174,7 @@ These methods still exist as explicit delegation methods on facade services (`Ta
 `HabitsBackend` and `GoalsBackend` in `adapters/persistence/neo4j/backends/activity_backends.py` are thin subclasses of `UniversalNeo4jBackend[T]` that explicitly implement domain-specific backend methods which don't match the `__getattr__` bridge patterns:
 
 ```python
-# UniversalNeo4jBackend.__getattr__ patterns:
-# create_*    → create()           ✓ works
-# get_*_by_uid → get()             ✓ works
-# update_*    → update()           ✓ works
-# list_*s     → list wrapper       ✓ works (must end in 's')
-#
-# These do NOT match → AttributeError without typed subclass:
-# get_habit(uid)       (not get_habit_by_uid)
-# list_by_user(uid)    (not list_by_users)
-# get_user_habits(uid) (no matching pattern)
-# get_goal(uid)        (not get_goal_by_uid)
-# get_user_goals(uid)  (no matching pattern)
-
+# A backend answers only what it defines; there is no dynamic alias.
 class HabitsBackend(UniversalNeo4jBackend["Habit"]):
     async def get_habit(self, habit_id: str) -> Result[Habit]: ...
     async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]: ...

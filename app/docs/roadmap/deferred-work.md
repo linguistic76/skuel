@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05
+updated: 2026-11-06
 ---
 
 # Deferred Work
@@ -254,6 +254,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Request Models No Door Reads
 
 [Request Models No Door Reads](request-models-no-door-reads.md) — Pydantic models under `core/models` that no other Python file names; each waits on its own verdict, staged or retired, and the bloat detector's tiers do not cover models.
+
+## LP Mastery and Next Step
+
+[LP Mastery and Next Step](lp-mastery-and-next-step.md) — two capabilities `LpOperations` declared and nothing implemented, kept by ruling when the false declarations were deleted; they wait on a learning-path surface that wants them.
 
 ## Review Schedule
 

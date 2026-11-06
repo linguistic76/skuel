@@ -70,6 +70,14 @@ if TYPE_CHECKING:
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
+    from core.ports import (
+        ChoicesOperations,
+        EventsOperations,
+        GoalsOperations,
+        HabitsOperations,
+        PrinciplesOperations,
+        TasksOperations,
+    )
 
 
 async def _count_user_stats(
@@ -2075,3 +2083,14 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         if not result.value:
             return Result.ok({})
         return Result.ok(dict(result.value[0]))
+
+
+if TYPE_CHECKING:
+    # mypy holds each backend to the protocol its services type against, signatures
+    # included. Its runtime twin: tests/unit/adapters/test_backend_protocol_conformance.py.
+    _TASKS_IS_ITS_PROTOCOL: type[TasksOperations] = TasksBackend
+    _GOALS_IS_ITS_PROTOCOL: type[GoalsOperations] = GoalsBackend
+    _HABITS_IS_ITS_PROTOCOL: type[HabitsOperations] = HabitsBackend
+    _EVENTS_IS_ITS_PROTOCOL: type[EventsOperations] = EventsBackend
+    _CHOICES_IS_ITS_PROTOCOL: type[ChoicesOperations] = ChoicesBackend
+    _PRINCIPLES_IS_ITS_PROTOCOL: type[PrinciplesOperations] = PrinciplesBackend

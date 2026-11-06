@@ -1,6 +1,6 @@
 ---
 title: "ContextRetriever's Three Write-Only Fields"
-updated: 2026-10-12
+updated: 2026-11-06
 status: "open — events/principles half"
 registered: 2026-08-20
 ruled: 2026-08-21
@@ -509,20 +509,7 @@ no sequencing argument left between them.
 and `adapters/persistence/` is a **read** — `OPTIONAL MATCH`, `WHERE exists(...)`. No service
 writes them; they arrive only from vault ingestion. Which is consistent with the count of zero.)*
 
-⚠️ **Do not plan to "give `get_practice_events` its caller" — it is a PHANTOM.**
-`PsOperations` declares `get_practice_events` (`:768`), `get_practice_habits` (`:756`) and
-`get_practice_tasks` (`:744`), and **none of the three is implemented anywhere** — the only hit
-for each `def` is the protocol itself. A call routed through the protocol reaches
-`UniversalNeo4jBackend.__getattr__`, which resolves only the four CRUD aliases and otherwise
-**raises `AttributeError`** (`universal_backend.py:449`, fallback at `:474`). Populate the bundle
-through the MEGA-QUERY projection, the way habits and tasks already are.
-
-⚠️ **And note what that implies about protocol probes.** `__getattr__` is typed `-> Any`, so mypy
-treats *every* attribute as present on `UniversalNeo4jBackend` subclasses. A clean
-`x: PsOperations = PsBackend(...)` probe is therefore **not** evidence that the backend implements
-the protocol's methods — three phantoms sit behind that green result. (#1107's ruling does not
-rest on it; its evidence was the `PsService` census. But treat the probe as a direction check
-only, never as an implementation check.)
+⚠️ **`get_practice_events`, `get_practice_habits` and `get_practice_tasks` are not methods.** `PsOperations` once declared them with no implementation; they are gone. Populate the bundle through the MEGA-QUERY projection, the way habits and tasks already are, or read a step's `practice_events` registry key.
 
 **Events has a real, learner-visible consumer.** `response_generator._build_guided_practice`
 (ENCOURAGING mode, `askesis_guided_practice` template) builds its practice list from

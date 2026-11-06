@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-11-02
+updated: 2026-11-06
 status: current
 category: reference
 tags: [protocol, reference]
@@ -298,7 +298,7 @@ All domain operation protocols use `Result[T]` return types and define **persist
 | `LpOperations` | Learning Paths | Curriculum |
 
 **What domain protocols contain:**
-- Persistence CRUD: `create_*`, `get_*_by_uid`, `update_*`, `delete_*` (via `BackendOperations[T]` base)
+- Persistence CRUD: `create`, `get`, `update`, `delete` (via `BackendOperations[T]` base)
 - Domain-specific queries: `get_user_tasks()`, `find_by_status()`, `list_by_user()`
 - Graph relationship operations: `link_*_to_*()`, `create_user_*_relationship()`
 
@@ -307,9 +307,9 @@ All domain operation protocols use `Result[T]` return types and define **persist
 - Orchestration methods: `get_decision_patterns()`, `calculate_principle_integrity()`
 - Cross-domain context: `get_*_cross_domain_context()` (not on backend)
 
-### Typed Backend Subclasses (February 2026)
+### Typed Backend Subclasses
 
-For methods that don't match `UniversalNeo4jBackend.__getattr__` bridge patterns, typed subclasses provide explicit implementations:
+A backend answers only what it defines; there is no dynamic alias. Domain-named reads are explicit methods on its subclass:
 
 ```python
 # adapters/persistence/neo4j/backends/activity_backends.py
@@ -320,23 +320,15 @@ class GoalsBackend(UniversalNeo4jBackend["Goal"]):
     """Adds get_goal, get_user_goals, link_goal_to_*"""
 ```
 
-Both are drop-in replacements — same constructor signature as `UniversalNeo4jBackend[T]`.
+Each domain backend is held to its protocol under mypy and by `tests/unit/adapters/test_backend_protocol_conformance.py`.
 
 ### Result[T] Return Pattern
 
 ```python
 # Example: TasksOperations protocol (persistence ops only)
-class TasksOperations(Protocol):
-    async def get_task_by_uid(self, uid: str) -> Result[Task]:
+class TasksOperations(BackendOperations["Task"], Protocol):
+    async def get_task(self, uid: str) -> Result[Task]:
         """Get task by UID - returns Result[Task], not Task directly."""
-        ...
-
-    async def create_task(self, task_data: dict | Task) -> Result[Task]:
-        """Create task - returns Result[Task]."""
-        ...
-
-    async def update_task(self, uid: str, updates: dict) -> Result[Task]:
-        """Update task - returns Result[Task]."""
         ...
 
     async def get_user_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
