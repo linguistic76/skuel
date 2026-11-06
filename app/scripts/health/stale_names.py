@@ -179,6 +179,12 @@ RENAMED: dict[str, str] = {
 # ── Deleted identifiers ──────────────────────────────────────────────────────
 # "deleted_identifier": "explanation / what replaced it"
 DELETED: dict[str, str] = {
+    # A per-domain <Domain>Relationships dataclass reads an entity's links, its fields named.
+    "DomainRelationships": "deleted — use <Domain>Relationships.fetch() (TaskRelationships and siblings)",
+    "ExtendedRelationshipConfig": "deleted — DomainRelationshipConfig (core/models/relationship_registry.py) is the config",
+    "PathAwareTypeSpec": "deleted — PATH_AWARE_TYPE_MAP (core/services/relationships/path_aware_factory.py) maps a domain to its type",
+    "CrossContextSpec": "deleted — CROSS_CONTEXT_TYPE_MAP (core/services/relationships/path_aware_factory.py) maps a domain to its type",
+    "PlanningMethodSpec": "deleted — nothing read it",
     # PathStep intelligence reads through its own backend; the query port's adapter is
     # Neo4jQueryExecutor.
     "GraphQueryExecutor": "deleted — PsIntelligenceService reads through PsIntelligenceBackend; the query port's adapter is Neo4jQueryExecutor",

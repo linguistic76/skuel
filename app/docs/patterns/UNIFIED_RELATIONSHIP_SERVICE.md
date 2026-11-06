@@ -116,14 +116,12 @@ goals_relationship_service = UnifiedRelationshipService(
 
 /core/services/relationships/
 ├── __init__.py                      # Module exports
-├── extended_config.py               # Extended specs (QuerySpec, PathAwareTypeSpec, etc.)
 ├── unified_relationship_service.py  # Shell: constructor, generic CRUD, typed links (~900 lines)
 ├── _batch_operations_mixin.py       # N+1 elimination (batch_get_related_uids)
 ├── _ordered_relationships_mixin.py  # Curriculum ordering + hierarchy
 ├── _intelligence_mixin.py           # Graph intelligence, semantic, cross-domain context
 ├── _keyed_read.py                   # resolve_keyed_read — what a registry key asks the backend for
-├── path_aware_factory.py            # Factory for path-aware entities
-└── relationships_container.py       # Generic relationship container
+└── path_aware_factory.py            # Factory for path-aware entities
 ```
 
 ### Single Source of Truth
@@ -649,12 +647,6 @@ context = create_cross_context(
     category_domain_map={"prerequisites": Domain.TASKS, "required_knowledge": Domain.KNOWLEDGE}
 )
 ```
-
----
-
-## DomainRelationships Container
-
-`DomainRelationships` (`relationships_container.py`) is a generic container with no production caller, and its `fetch()` does not run against a registry config: it reads `config.outgoing_relationships`, which `DomainRelationshipConfig` does not have, and raises `AttributeError`. Use the per-domain `<Domain>Relationships.fetch()` described under [Domain Relationships](#domain-relationships).
 
 ---
 
