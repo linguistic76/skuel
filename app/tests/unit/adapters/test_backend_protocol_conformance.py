@@ -39,6 +39,8 @@ from core.ports import (
     TasksOperations,
 )
 
+_ABSENT = object()
+
 _PAIRS: list[tuple[type, type]] = [
     (TasksBackend, TasksOperations),
     (GoalsBackend, GoalsOperations),
@@ -69,7 +71,9 @@ def test_the_backend_defines_every_member_of_its_protocol(backend: type, protoco
     members = _protocol_members(protocol)
 
     assert members, f"{protocol.__name__} read as empty, so this test would prove nothing"
-    missing = sorted(name for name in members if not hasattr(backend, name))
+    missing = sorted(
+        name for name in members if inspect.getattr_static(backend, name, _ABSENT) is _ABSENT
+    )
     assert not missing, f"{protocol.__name__} declares what {backend.__name__} lacks: {missing}"
 
 
