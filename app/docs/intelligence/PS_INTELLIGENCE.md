@@ -1,544 +1,70 @@
 ---
-updated: 2026-11-05
+updated: 2026-11-06
 ---
 
-# PsIntelligenceService - Practice Integration & Guidance Assessment
+# PsIntelligenceService - Practice, Readiness & Per-User Substance
 
 ## Overview
 
-**Architecture:** Extends `BaseAnalyticsService[BackendOperations[PathStep], PathStep]`
+**Architecture:** Extends `_CoreIntelligenceMixin[PathStep]` + `BaseAnalyticsService[BackendOperations[PathStep], PathStep]` — graph reads and Python only, no AI dependencies
 **Location:** `/core/services/ps/ps_intelligence_service.py`
 **Service Name:** `ps.intelligence`
-**Lines:** ~530
+**Facade slot:** `PsService.intelligence` (`/core/services/ps_service.py`)
+**Cypher:** none in the service. `PsIntelligenceBackend` (`/adapters/persistence/neo4j/ps_intelligence_backend.py`, ADR-044) holds it behind `PsIntelligenceBackendOperations`. The composition root injects it as `intelligence_backend`; a read that finds none fails through `_require_backend`.
+
+Ku-grain intelligence is a separate service — see [KU_INTELLIGENCE.md](KU_INTELLIGENCE.md). LLM features live in [PsAIService](#psaiservice-full-tier).
 
 ---
 
-## Purpose
+## Methods
 
-PsIntelligenceService provides lightweight intelligence for Path Steps, focusing on practice integration and guidance assessment. It evaluates prerequisite readiness, analyzes practice opportunities across habits/tasks/events, and calculates guidance strength from principles and choices.
+Every `backend` read below is on `PsIntelligenceBackend`. "PLANNED" means no production caller: the method is staged in `PLANNED_METHODS` (`scripts/detect_bloat.py`), not abandoned.
 
-**Design Philosophy:** Intentionally lightweight compared to Activity Domain intelligence services - Path Steps serve as connective tissue between knowledge units and learning paths, emphasizing practice integration over complex analytics.
+| Method | Answers | Reads | Called by |
+|---|---|---|---|
+| `get_with_context(uid, depth=2)` | The step and its graph neighbourhood. Inherited from `_CoreIntelligenceMixin` | `UnifiedRelationshipService.get_with_context` | `GET /api/path-steps/context?uid=` |
+| `get_domain_insights(uid, _min_confidence=0.7)` | Title, intent, practice summary, completeness and whether prerequisites exist (`PsDomainInsights`). A failed practice or prerequisite read answers zeros or `False`; `_min_confidence` is a placeholder | `backend.get` on the PathStep, then the three methods below | `GET /api/path-steps/insights?uid=` |
+| `get_practice_summary(ps_uid)` | How many of each practice edge the step carries: 7 keys, the six domains plus `total` | `fetch_practice_counts` (the six edges below) | `get_domain_insights`, `practice_completeness_score`, `LpIntelligenceService.identify_practice_gaps` |
+| `practice_completeness_score(ps_uid)` | The fraction of the six domains present, 0.0-1.0. Each counts once, so a step with five habits and nothing else scores 1/6 | `get_practice_summary` | `get_domain_insights` |
+| `has_prerequisites(ps_uid)` | Does any `REQUIRES_STEP` or `REQUIRES_KNOWLEDGE` edge leave the step? Reads no edge property | `backend.has_prerequisites` | `get_domain_insights` |
+| `is_ready(ps_uid, completed_step_uids)` | Is every `REQUIRES_STEP` target in the caller's set? | `fetch_prerequisite_step_uids` | PLANNED |
+| `calculate_guidance_strength(ps_uid)` | 0.0-1.0: `min(0.4, principles × 0.15) + min(0.6, choices × 0.2)` | `fetch_guidance_counts` (`GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE`) | PLANNED |
+| `has_guidance(ps_uid)` | Does a `GUIDED_BY_PRINCIPLE` or `INFORMS_CHOICE` edge leave the step? | `backend.has_guidance` | PLANNED |
+| `has_practice_opportunities(ps_uid)` | Does any of the six practice edges leave the step? | `backend.has_practice_opportunities` | PLANNED |
+| `calculate_user_substance(ps_uid, user_context)` | How much one learner has applied the step: overall substance and mastery, per-Ku detail, a status message. Requires a rich context | `fetch_taught_ku_uids`, then the context's channel maps | `PsService.get_user_step_context` ← `GET /api/path-steps/my-context?uid=` |
+| `calculate_user_substance_for_steps(ps_uids, channels)` | Substance score per step, for a whole set, in one round trip. Projects the score out of the breakdown below | `calculate_user_substance_breakdown_for_steps` | `PsService.get_user_substance_scores` ← `AnalyticsMetricsService` |
+| `calculate_user_substance_breakdown_for_steps(ps_uids, channels)` | Score and per-channel parts per step (`StepSubstance`), in one round trip | `fetch_taught_ku_uids_for_steps` | `PsService.get_user_substance_breakdowns` ← `AnalyticsLifePathService` |
 
----
-
-## Core Methods
-
-### Method 1: is_ready()
-
-**Purpose:** Check if path step is ready based on prerequisite completion. A step is ready when ALL its prerequisite steps (via REQUIRES_STEP relationship) have been completed.
-
-**Signature:**
-```python
-async def is_ready(
-    self,
-    ps_uid: str,
-    completed_step_uids: set[str]
-) -> Result[bool]:
-```
-
-**Parameters:**
-- `ps_uid` (str) - UID of the path step
-- `completed_step_uids` (set[str]) - Set of completed step UIDs
-
-**Returns:**
-```python
-Result[bool]  # True if all prerequisites are met
-```
-
-**Example:**
-```python
-# Check if step is ready to learn
-completed_steps = {"ls.intro", "ls.syntax"}
-
-result = await ps_service.intelligence.is_ready(
-    ps_uid="ls.functions",
-    completed_step_uids=completed_steps
-)
-
-if result.is_ok and result.value:
-    print("Ready to learn functions!")
-else:
-    print("Prerequisites not yet completed")
-```
-
-**Dependencies:**
-- Neo4j driver (REQUIRED - uses direct Cypher via GraphQueryExecutor)
-- Uses `GraphQueryExecutor.execute()` pattern
-
-**Implementation Notes:**
-- Returns `True` if step has no prerequisites (ready by default)
-- Checks that ALL prerequisite UIDs are in completed set
-- Uses REQUIRES_STEP relationship traversal
+**What reaches a person:** no page calls the three `/api/path-steps` doors above, so they answer JSON clients only. The two batch substance methods do reach learners: the score through the weekly life summary, the breakdown through the life-path alignment. `identify_practice_gaps` feeds `analyze_path_knowledge_scope` on `LpService`, which no route calls.
 
 ---
 
-### Method 2: get_practice_summary()
+## Notes
 
-**Purpose:** Get summary of practice opportunities for a path step. Counts habits, tasks, and events connected to this path step via direct activity domain relationships.
+### The six practice edges
 
-**Signature:**
-```python
-async def get_practice_summary(
-    self,
-    ps_uid: str
-) -> Result[dict[str, int]]:
-```
+`PRACTICE_DOMAINS` is the one definition of "what counts as practice". The PS scorer and `identify_practice_gaps` both read it, through `practice_completeness_from_summary` and `missing_practice_domains`.
 
-**Parameters:**
-- `ps_uid` (str) - UID of the path step
+| Key | Edge from the PathStep |
+|---|---|
+| `habits` | `BUILDS_HABIT` |
+| `tasks` | `ASSIGNS_TASK` |
+| `events` | `SCHEDULES_EVENT` |
+| `goals` | `SUPPORTS_GOAL` |
+| `principles` | `GUIDED_BY_PRINCIPLE` |
+| `choices` | `INFORMS_CHOICE` |
 
-**Returns:**
-```python
-{
-    "habits": 2,      # Count of BUILDS_HABIT relationships
-    "tasks": 5,       # Count of ASSIGNS_TASK relationships
-    "events": 3,      # Count of SCHEDULES_EVENT relationships
-    "total": 10       # Sum of all practice opportunities
-}
-```
+### Readiness and prerequisites ask different questions
 
-**Example:**
-```python
-result = await ps_service.intelligence.get_practice_summary("ls.functions")
+`has_prerequisites` counts `REQUIRES_STEP` and `REQUIRES_KNOWLEDGE`. `is_ready` checks `REQUIRES_STEP` only, so a step whose only prerequisite is a `REQUIRES_KNOWLEDGE` edge has prerequisites and is ready. A step with no `REQUIRES_STEP` edge is ready, and so is a uid that names nothing.
 
-if result.is_ok:
-    summary = result.value
-    print(f"Practice opportunities:")
-    print(f"  Habits: {summary['habits']}")
-    print(f"  Tasks: {summary['tasks']}")
-    print(f"  Events: {summary['events']}")
-    print(f"  Total: {summary['total']} items")
-```
+### Substance
 
-**Dependencies:**
-- Neo4j driver (REQUIRED - uses direct Cypher via GraphQueryExecutor)
-- Uses OPTIONAL MATCH for each practice type
+A step's substance is the mean over the Kus it teaches, reached through `CURRICULUM_COMPOSITION_EDGES`. Each Ku is scored against one learner's six activity channels by `core/services/knowledge/user_substance.py`. A step teaching no Ku scores 0.0.
 
-**Implementation Notes:**
-- Returns zeros if step has no practice opportunities
-- Uses `count(DISTINCT ...)` to avoid double-counting
-- Six activity domain relationship types: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, SUPPORTS_GOAL, GUIDED_BY_PRINCIPLE, INFORMS_CHOICE
-
----
-
-### Method 3: practice_completeness_score()
-
-**Purpose:** Calculate practice completeness score (0.0-1.0). Full practice suite (all 6 activity domains) scores 1.0. Each domain contributes 1/6 of the score.
-
-**Signature:**
-```python
-async def practice_completeness_score(
-    self,
-    ps_uid: str
-) -> Result[float]:
-```
-
-**Parameters:**
-- `ps_uid` (str) - UID of the path step
-
-**Returns:**
-```python
-Result[float]  # Score from 0.0 (no practice) to 1.0 (full practice suite)
-```
-
-**Scoring Formula:**
-```
-domains = ["habits", "tasks", "events", "goals", "principles", "choices"]
-present = sum(1.0 for d in domains if summary[d] > 0)
-score = present / 6.0
-```
-
-**Example:**
-```python
-result = await ps_service.intelligence.practice_completeness_score("ls.functions")
-
-if result.is_ok:
-    score = result.value
-    print(f"Practice completeness: {score:.0%}")
-
-    if score < 0.17:
-        print("Low practice integration - consider adding activities")
-    elif score < 0.5:
-        print("Moderate practice - several domains missing")
-    else:
-        print("Excellent practice coverage across activity domains")
-```
-
-**Dependencies:**
-- Calls `get_practice_summary()` internally
-- Inherits all dependencies from get_practice_summary()
-
-**Implementation Notes:**
-- Binary presence (has/doesn't have) - count doesn't affect score
-- 0.0 = no practice opportunities
-- 0.17 = one domain only
-- 0.33 = two domains
-- 0.5 = three domains (half coverage)
-- 0.83 = five domains
-- 1.0 = complete practice suite (all six activity domains)
-
----
-
-### Method 4: calculate_guidance_strength()
-
-**Purpose:** Calculate how well this step guides the learner (0.0-1.0). Measures values-based guidance from principles and decision-making guidance from choices.
-
-**Signature:**
-```python
-async def calculate_guidance_strength(
-    self,
-    ps_uid: str
-) -> Result[float]:
-```
-
-**Parameters:**
-- `ps_uid` (str) - UID of the path step
-
-**Returns:**
-```python
-Result[float]  # Guidance strength score from 0.0 (no guidance) to 1.0 (maximum guidance)
-```
-
-**Scoring Formula:**
-```
-Principles: min(0.4, principle_count × 0.15)  # Max 40%
-Choices:    min(0.6, choice_count × 0.2)      # Max 60%
-Total:      min(1.0, principles + choices)
-```
-
-**Example:**
-```python
-result = await ps_service.intelligence.calculate_guidance_strength("ls.functions")
-
-if result.is_ok:
-    strength = result.value
-    print(f"Guidance strength: {strength:.0%}")
-
-    if strength < 0.3:
-        print("Consider adding principles or choices for better guidance")
-    elif strength < 0.7:
-        print("Moderate guidance - learner has some direction")
-    else:
-        print("Strong guidance - learner has clear values and options")
-```
-
-**Dependencies:**
-- Neo4j driver (REQUIRED - uses direct Cypher via GraphQueryExecutor)
-- Uses GUIDED_BY_PRINCIPLE and INFORMS_CHOICE relationships
-
-**Implementation Notes:**
-- Principles provide values-based guidance (40% max contribution)
-- Choices provide inspiration and decision-making options (60% max)
-- Each principle adds up to 15% (capped at 40% total)
-- Each choice adds up to 20% (capped at 60% total)
-- Final score capped at 1.0
-
-**Guidance Interpretation:**
-- 0.0-0.3: Low guidance - learner may feel directionless
-- 0.3-0.7: Moderate guidance - some direction provided
-- 0.7-1.0: Strong guidance - clear values and options
-
----
-
-### Method 5: has_prerequisites()
-
-**Purpose:** Check if path step has any prerequisites. Checks for REQUIRES_STEP relationships (other steps) and REQUIRES_KNOWLEDGE {type: 'prerequisite'} relationships (prerequisite knowledge).
-
-**Signature:**
-```python
-async def has_prerequisites(
-    self,
-    ps_uid: str
-) -> Result[bool]:
-```
-
-**Parameters:**
-- `ps_uid` (str) - UID of the path step
-
-**Returns:**
-```python
-Result[bool]  # True if step has prerequisites
-```
-
-**Example:**
-```python
-result = await ps_service.intelligence.has_prerequisites("ls.functions")
-
-if result.is_ok:
-    if result.value:
-        print("This step has prerequisites - check readiness before starting")
-    else:
-        print("No prerequisites - ready to start immediately")
-```
-
-**Dependencies:**
-- GraphQueryExecutor (REQUIRED - uses `execute_exists()`)
-- Checks REQUIRES_STEP or REQUIRES_KNOWLEDGE {type: 'prerequisite'} relationships
-
-**Implementation Notes:**
-- Uses `execute_exists()` pattern for efficient boolean check
-- Returns True if EITHER relationship type exists
-- Does not count prerequisites - just checks for existence
-
----
-
-### Method 6: has_guidance()
-
-**Purpose:** Check if path step has guidance (principles or choices). Quick boolean check for learner support.
-
-**Signature:**
-```python
-async def has_guidance(
-    self,
-    ps_uid: str
-) -> Result[bool]:
-```
-
-**Parameters:**
-- `ps_uid` (str) - UID of the path step
-
-**Returns:**
-```python
-Result[bool]  # True if step has guidance
-```
-
-**Example:**
-```python
-result = await ps_service.intelligence.has_guidance("ls.functions")
-
-if result.is_ok:
-    if result.value:
-        print("This step has guidance - principles or choices available")
-    else:
-        print("No guidance - consider adding principles or choices")
-```
-
-**Dependencies:**
-- GraphQueryExecutor (REQUIRED - uses `execute_exists()`)
-- Checks GUIDED_BY_PRINCIPLE or INFORMS_CHOICE relationships
-
-**Implementation Notes:**
-- Uses `execute_exists()` for efficient boolean check
-- Returns True if EITHER relationship type exists
-- For detailed guidance analysis, use `calculate_guidance_strength()`
-
----
-
-### Method 7: has_practice_opportunities()
-
-**Purpose:** Check if path step has practice opportunities. Checks for any BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships authored directly on the PathStep.
-
-**Signature:**
-```python
-async def has_practice_opportunities(
-    self,
-    ps_uid: str
-) -> Result[bool]:
-```
-
-**Parameters:**
-- `ps_uid` (str) - UID of the path step
-
-**Returns:**
-```python
-Result[bool]  # True if step has practice opportunities
-```
-
-**Example:**
-```python
-result = await ps_service.intelligence.has_practice_opportunities("ls.functions")
-
-if result.is_ok:
-    if result.value:
-        print("This step has practice opportunities - activities available")
-    else:
-        print("No practice - consider linking tasks, habits, or events")
-```
-
-**Dependencies:**
-- GraphQueryExecutor (REQUIRED - uses `execute_exists()`)
-- Checks BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships (authored directly on the PathStep)
-
-**Implementation Notes:**
-- Uses `execute_exists()` for efficient boolean check
-- Returns True if ANY practice relationship type exists
-- For detailed practice analysis, use `get_practice_summary()`
-
----
-
-### Method 8: calculate_user_substance()
-
-**Purpose:** Calculate how much a user has applied the knowledge taught by this PathStep. PathSteps are curriculum entities; their "substance" is derived by analyzing the user's application of the underlying atomic Knowledge Units (via USES_KU).
-
-**Signature:**
-```python
-async def calculate_user_substance(
-    self,
-    ps_uid: str,
-    user_context: UserContext
-) -> Result[dict[str, Any]]:
-```
-
-**Parameters:**
-- `ps_uid` (str) - UID of the path step
-- `user_context` (UserContext) - Context of the user
-
-**Returns:**
-```python
-Result[dict[str, Any]]  # Aggregated substance metrics
-```
-
-**Dependencies:**
-- Grabs underlying KU references.
-- Uses `_substance_calculator.calculate_aggregate_substance(...)`.
-
-**Implementation Notes:**
-- Calculates aggregate substance from related KUs, not from the Step itself.
-
----
-
-## BaseAnalyticsService Features
-
-### Inherited Infrastructure
-
-**Fail-Fast Validation:**
-
-**Standard Attributes:**
-- `self.backend` - BackendOperations[Ls] (REQUIRED)
-- `self.graph_intel` - GraphIntelligenceService (optional, not currently used)
-- `self.relationships` - UnifiedRelationshipService (optional, not currently used)
-- `self.embeddings` - OpenAIEmbeddingsService (optional, not currently used)
-- `self.llm` - LLMService (optional, not currently used)
-- `self.event_bus` - EventBus (optional, not currently used)
-
-**Domain-Specific Attributes:**
-- `self.executor` - GraphQueryExecutor for direct Cypher queries
-- `self.driver` - Neo4j driver from backend
-
-**Logging:**
-```python
-self.logger.info("Message")  # Logs to: skuel.intelligence.ls.intelligence
-```
-
----
-
-## Integration with PsService
-
-### Facade Access
-
-```python
-# PsService creates intelligence internally
-ps_service = PsService(
-    backend=ps_backend,
-    graph_intel=graph_intelligence,
-    event_bus=event_bus,
-)
-
-# Access via .intelligence attribute
-result = await ps_service.intelligence.is_ready(
-    ps_uid="ls.functions",
-    completed_step_uids={"ls.intro", "ls.syntax"}
-)
-```
-
-### Typical Usage Pattern
-
-```python
-# 1. Check readiness
-readiness = await ps_service.intelligence.is_ready(
-    ps_uid="ls.functions",
-    completed_step_uids=user_completed_steps
-)
-
-# 2. Analyze practice integration
-practice = await ps_service.intelligence.get_practice_summary("ls.functions")
-score = await ps_service.intelligence.practice_completeness_score("ls.functions")
-
-# 3. Evaluate guidance
-guidance = await ps_service.intelligence.calculate_guidance_strength("ls.functions")
-
-# 4. Quick boolean checks
-has_prereqs = await ps_service.intelligence.has_prerequisites("ls.functions")
-has_guidance = await ps_service.intelligence.has_guidance("ls.functions")
-has_practice = await ps_service.intelligence.has_practice_opportunities("ls.functions")
-```
-
----
-
-## Domain-Specific Features
-
-### Lightweight by Design
-
-PsIntelligenceService is **intentionally minimal** compared to Activity Domain intelligence:
-- **No knowledge generation** - Path Steps organize existing KU content
-- **No behavioral insights** - Steps are structural, not behavioral entities
-- **No performance analytics** - Progress tracked at LP/KU level
-- **LLM integration via PsAIService** - AI features are FULL-tier only, separate from analytics (see below)
-
-This reflects Path Steps' role as **connective tissue** in the curriculum architecture. LLM-powered features live in `PsAIService` (FULL tier).
-
-### Practice Integration Focus
-
-The primary intelligence focus is **practice integration**:
-
-**Six Activity Domains (direct relationships on PathStep):**
-1. **Habits** (BUILDS_HABIT) - Behaviors to repeat
-2. **Tasks** (ASSIGNS_TASK) - Work to complete
-3. **Events** (SCHEDULES_EVENT) - Time to commit
-4. **Goals** (SUPPORTS_GOAL) - Outcomes to pursue
-5. **Principles** (GUIDED_BY_PRINCIPLE) - Values to embody
-6. **Choices** (INFORMS_CHOICE) - Decisions to consider
-
-**Practice Completeness Scoring:**
-- 0.0 = Theory only (no practice)
-- 0.17 = Single domain (limited integration)
-- 0.5 = Three domains (half coverage)
-- 1.0 = All six domains (complete practice suite)
-
-### Guidance Strength Assessment
-
-**Two Guidance Dimensions:**
-
-1. **Values-Based (40% max)** - GUIDED_BY_PRINCIPLE relationships
-   - Provides ethical/philosophical context
-   - Helps learner understand "why" to learn
-   - Each principle adds up to 15% (capped at 40%)
-
-2. **Decision-Making (60% max)** - INFORMS_CHOICE relationships
-   - Provides options and alternatives
-   - Helps learner explore different approaches
-   - Each choice adds up to 20% (capped at 60%)
-
-**Rationale:** Choices matter more (60%) than principles (40%) because Path Steps are action-oriented - learners need concrete options more than abstract values.
-
-### Prerequisite Readiness
-
-**Binary Readiness Model:**
-- Step is ready when **ALL** prerequisites completed
-- Checks both REQUIRES_STEP (other steps) and REQUIRES_KNOWLEDGE {type: 'prerequisite'} (KU)
-- No partial readiness - either ready or not ready
-
-This supports LP's sequential progression model.
-
-### Direct Cypher Queries
-
-Unlike Activity Domain intelligence services that use shared utilities, PsIntelligenceService uses **direct Cypher queries** via GraphQueryExecutor:
-
-**Why direct queries?**
-- Path Step queries are domain-specific (practice aggregation, guidance scoring)
-- No shared patterns with Activity Domains
-- Lightweight service doesn't warrant abstraction overhead
-
-**Pattern:**
-```python
-# All methods use GraphQueryExecutor
-return await self.executor.execute(
-    query="MATCH (ps:PathStep {uid: $ps_uid})...",
-    params={"ps_uid": ps_uid},
-    processor=lambda records: ...,
-    operation="method_name"
-)
-```
+- **Which channels:** the per-step method reads the context it is given, and a standard build leaves those maps empty, so it needs `build_rich()`. The batch methods take the maps as an argument because a cumulative figure needs the unwindowed `get_user_knowledge_channels`; a context's maps stop at the planning window.
+- **Parts and whole:** `sum(breakdown.values())` may exceed `score`. Each Ku's score is capped at 1.0 while its channels can total 1.30, so normalise proportions against the breakdown's own sum.
+- **Status message:** `calculate_user_substance` reads the mean against 0.7, 0.4 and 0.
 
 ---
 
@@ -550,7 +76,9 @@ return await self.executor.execute(
 **Tier:** FULL only (`None` when `INTELLIGENCE_TIER=core`)
 **Access:** `ps_service.ai`
 
-PsAIService provides LLM-powered features for PathSteps, separated from graph analytics per ADR-030. All methods require the AI service to be wired (check `ps_service.ai is not None`).
+PsAIService provides LLM-powered features for PathSteps, separate from the graph analytics above (`INTELLIGENCE_TIER`, ADR-043). All methods require the AI service to be wired (check `ps_service.ai is not None`).
+
+`find_similar_steps`, `generate_step_insight`, `explain_step` and `suggest_practice_activities` answer `/api/path-steps/ai/*` (`AI_ROUTE_SPECS`). The other three have no route and no caller, and are PLANNED; `PsService` delegates to them.
 
 ### AI Methods
 
@@ -572,7 +100,7 @@ Suggests practice activities (name, type, description). Uses JSON prompts for st
 **`generate_step_insight(ps_uid)`** → `Result[str]`
 Brief encouraging insight about a path step (value + motivation tip).
 
-**`find_similar_steps(ps_uid, limit=5)`** → `Result[list[tuple[str, float]]]`
+**`find_similar_steps(ps_uid, limit=5)`** → `Result[list[tuple[EntityUID, float]]]`
 The steps nearest to `ps_uid` in the PathStep vector index — the source's stored vector (or its canonical embedding text when it has none) through `rank_similar_curriculum` (`core/services/curriculum_similarity.py`). Draft-marked steps are withheld by the index query as a post-filter, so the list can hold fewer than `limit`; scores are the index's `[0, 1]` cosine scale, thresholded at `ku_similar_min_score`. An unknown uid is not-found.
 
 ### TypedDicts
@@ -592,70 +120,28 @@ from core.ports.query_types import StepApplicationsResult, StepLearningSequenceR
 if ps_service.ai:
     # Categorized applications across activity domains
     apps = await ps_service.suggest_step_applications(ps_uid)
-    # {"tasks": [...], "habits": [...], "goals": [...], "real_world_examples": [...]}
+    # apps.value: {"ps_uid": ..., "ps_title": ..., "tasks": [...], "habits": [...], "goals": [...], "real_world_examples": [...]}
 
     # Learning sequence
     seq = await ps_service.suggest_learning_sequence(ps_uid, max_suggestions=5)
-    # {"prerequisites": [{"title": ..., "reason": ...}], "next_steps": [...]}
+    # seq.value["prerequisites"]: [{"title": ..., "reason": ...}]; seq.value["next_steps"] likewise
 
     # Semantic search (the facade answers keyword search on CORE)
     results = await ps_service.search_by_semantic_query("introduction to functions", limit=10)
 
     # Explanation at a level
-    explanation = await ps_service.suggest_step_applications(ps_uid)
     explanation = await ps_service.ai.explain_step(ps_uid, target_level="beginner")
-```
-
----
-
-## Testing
-
-### Example Test
-```python
-from unittest.mock import Mock
-from core.services.ps.ps_intelligence_service import PsIntelligenceService
-
-# Create mock backend with driver
-backend = Mock()
-backend.driver = Mock()
-
-# Instantiate service
-service = PsIntelligenceService(backend=backend)
-
-# Verify initialization
-assert service._service_name == "ps.intelligence"
-assert service.backend == backend
-assert service.driver == backend.driver
-assert service.executor is not None
-```
-
-### Test Practice Completeness Scoring
-```python
-# Test practice completeness calculation
-async def test_practice_completeness_score():
-    # Mock get_practice_summary to return specific counts
-    service.get_practice_summary = AsyncMock(return_value=Result.ok({
-        "habits": 2,
-        "tasks": 0,
-        "events": 3,
-        "total": 5
-    }))
-
-    result = await service.practice_completeness_score("ps.test")
-
-    assert result.is_ok
-    # Two types (habits + events) = 2/3 = 0.67
-    assert result.value == 0.67
 ```
 
 ---
 
 ## See Also
 
-- `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
-- `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
-- `/core/services/base_analytics_service.py` - Base implementation (BaseAnalyticsService)
+- [INTELLIGENCE_SERVICES_INDEX.md](INTELLIGENCE_SERVICES_INDEX.md) - Master index
+- [ADR-024](../decisions/ADR-024-base-intelligence-service-migration.md) - BaseAnalyticsService pattern
+- [ADR-044](../decisions/ADR-044-neo4j-committed-architectural-choice.md) - Cypher below the boundary
+- [CURRICULUM_GROUPING_PATTERNS.md](../architecture/CURRICULUM_GROUPING_PATTERNS.md) - Path Step architecture
+- `/core/services/base_analytics_service.py` - Base implementation
 - `/core/services/ps_service.py` - PsService facade
-- `/core/services/ps/ps_ai_service.py` - PsAIService (FULL tier AI features)
-- `/adapters/persistence/neo4j/neo4j_query_executor.py` - Neo4jQueryExecutor, the `QueryExecutor` port adapter (Cypher runs below the boundary, ADR-044)
-- `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - Path Step architecture
+- `/core/services/ps/ps_ai_service.py` - PsAIService
+- `/adapters/persistence/neo4j/ps_intelligence_backend.py` - PsIntelligenceBackend

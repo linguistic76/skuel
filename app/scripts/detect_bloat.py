@@ -511,6 +511,22 @@ _PS_GUIDANCE = PlannedEntry(
     "practice_completeness lens, or a PS detail-page guidance indicator",
     since=date(2026, 6, 11),
 )
+# Registered by hand: each name is defined or loaded elsewhere too (PsIntelligenceBackend,
+# its port, a readiness property), so vulture never lists these definitions.
+_PS_READINESS = PlannedEntry(
+    Readiness.DELAYED,
+    "step readiness against a caller's completed set (REQUIRES_STEP only; backend "
+    "fetch_prerequisite_step_uids stays); create_lp_position's readiness_map is the slot it "
+    "fills and nothing passes one — a learning-path surface that orders steps by readiness wires it",
+    since=date(2026, 11, 5),
+)
+_PS_EXISTENCE_CHECKS = PlannedEntry(
+    Readiness.DELAYED,
+    "yes/no edge reads for a PS detail-page indicator (the backend's same-named reads stay); "
+    "get_domain_insights already answers the practice half with counts, so a surface that "
+    "wants only the flag wires these",
+    since=date(2026, 11, 5),
+)
 _PRIORITY_SCORING = PlannedEntry(
     Readiness.DELAYED,
     "priority-scoring machinery staged: the six Activity scorers, the eight get_prioritized "
@@ -977,6 +993,10 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/ps/ps_semantic_service.py::infer_relationships": _PS_SEMANTIC_INFER,
     # --- PS: guidance-strength intelligence lens ---
     "core/services/ps/ps_intelligence_service.py::calculate_guidance_strength": _PS_GUIDANCE,
+    # --- PS: readiness and yes/no edge reads, no caller ---
+    "core/services/ps/ps_intelligence_service.py::is_ready": _PS_READINESS,
+    "core/services/ps/ps_intelligence_service.py::has_guidance": _PS_EXISTENCE_CHECKS,
+    "core/services/ps/ps_intelligence_service.py::has_practice_opportunities": _PS_EXISTENCE_CHECKS,
     # --- PS: AI methods without a route (name-loaded through the facade, so registered by hand) ---
     "core/services/ps/ps_ai_service.py::search_by_semantic_query": _PS_AI_UNROUTED,
     "core/services/ps/ps_ai_service.py::suggest_step_applications": _PS_AI_UNROUTED,

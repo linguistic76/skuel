@@ -68,7 +68,7 @@ class PlanningMethodSpec:
     leverage UserContext for filtering and ranking.
     """
 
-    method_name: str  # e.g., "get_actionable_for_user"
+    method_name: str  # e.g., "get_blocked_for_user"
     description: str
     # Context fields used from UserContext
     context_fields_used: list[str] = field(default_factory=list)

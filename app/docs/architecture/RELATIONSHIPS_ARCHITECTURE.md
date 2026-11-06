@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-10-17
+updated: 2026-11-06
 status: current
 category: architecture
 version: 2.0.0
@@ -48,7 +48,6 @@ service = UnifiedRelationshipService(
 # Usage (via domain facade)
 knowledge = await tasks_service.relationships.get_related_uids("knowledge", task_uid)
 context   = await tasks_service.relationships.get_cross_domain_context_typed(task_uid)
-actionable = await tasks_service.relationships.get_actionable_for_user(user_context)
 ```
 
 ### Mixin Architecture

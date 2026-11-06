@@ -2,23 +2,13 @@
 PathStep Intelligence Service
 ===============================
 
-Intelligence service for PathSteps - scoring, readiness, practice calculations.
+Intelligence service for PathSteps: practice coverage, readiness, guidance and
+per-learner substance. Graph reads and Python only, no AI.
 
-This service follows the Activity Domain pattern, extending BaseAnalyticsService;
-it owns the PathStep scoring and aggregation methods.
+The Cypher lives below the boundary on PsIntelligenceBackend, reached through
+PsIntelligenceBackendOperations (ADR-044).
 
-Methods:
-- is_ready(): Check if step is ready based on prerequisite completion
-- get_practice_summary(): Get practice opportunity counts
-- practice_completeness_score(): Calculate practice completeness (0.0-1.0)
-- calculate_guidance_strength(): Calculate guidance strength (0.0-1.0)
-- has_prerequisites(): Check if step has prerequisites
-- has_guidance(): Check if step has guidance
-- has_practice_opportunities(): Check if step has practice opportunities
-
-Architecture:
-- Extends BaseAnalyticsService[BackendOperations[PathStep], PathStep]
-- Uses direct Cypher for complex aggregation queries
+See: /docs/intelligence/PS_INTELLIGENCE.md (each method, what it reads, who calls it)
 """
 
 from __future__ import annotations
@@ -135,10 +125,9 @@ class PsIntelligenceService(
             event_bus=event_bus,
         )
 
-        # The executor-backed PsIntelligenceBackend (whose Cypher lives below the
-        # boundary, ADR-044) is built at the composition root and injected — this
-        # service never imports the adapter (SKUEL022). The executor is
-        # encapsulated inside the backend; backend presence is the readiness gate.
+        # PsIntelligenceBackend (whose Cypher lives below the boundary, ADR-044) is
+        # built at the composition root and injected — this service never imports the
+        # adapter (SKUEL022). Every read that needs it goes through _require_backend.
         self._backend = intelligence_backend
 
     # ========================================================================
@@ -210,12 +199,12 @@ class PsIntelligenceService(
         )
 
     def _require_backend(self) -> Result[PsIntelligenceBackendOperations]:
-        """Fail-fast guard for backend (executor) availability."""
+        """The injected intelligence backend, or a system error when none was wired."""
         if self._backend is None:
             return Result.fail(
                 Errors.system(
-                    message="GraphQueryExecutor not initialized - backend driver required",
-                    operation="require_executor",
+                    message="PsIntelligenceBackend not wired",
+                    operation="require_backend",
                 )
             )
         return Result.ok(self._backend)
@@ -426,12 +415,11 @@ class PsIntelligenceService(
             if result.is_ok and result.value:
                 print("This step has prerequisites")
         """
-        if self._backend is None:
-            return Result.fail(
-                Errors.system(message="Query executor not available", operation="has_prerequisites")
-            )
+        backend_result = self._require_backend()
+        if backend_result.is_error:
+            return Result.fail(backend_result)
 
-        return await self._backend.has_prerequisites(ps_uid)
+        return await backend_result.value.has_prerequisites(ps_uid)
 
     @with_error_handling("has_guidance", error_type="database", uid_param="ps_uid")
     async def has_guidance(self, ps_uid: str) -> Result[bool]:
@@ -451,12 +439,11 @@ class PsIntelligenceService(
             if result.is_ok and result.value:
                 print("This step has guidance")
         """
-        if self._backend is None:
-            return Result.fail(
-                Errors.system(message="Query executor not available", operation="has_guidance")
-            )
+        backend_result = self._require_backend()
+        if backend_result.is_error:
+            return Result.fail(backend_result)
 
-        return await self._backend.has_guidance(ps_uid)
+        return await backend_result.value.has_guidance(ps_uid)
 
     @with_error_handling("has_practice_opportunities", error_type="database", uid_param="ps_uid")
     async def has_practice_opportunities(self, ps_uid: str) -> Result[bool]:
@@ -476,15 +463,11 @@ class PsIntelligenceService(
             if result.is_ok and result.value:
                 print("This step has practice opportunities")
         """
-        if self._backend is None:
-            return Result.fail(
-                Errors.system(
-                    message="Query executor not available",
-                    operation="has_practice_opportunities",
-                )
-            )
+        backend_result = self._require_backend()
+        if backend_result.is_error:
+            return Result.fail(backend_result)
 
-        return await self._backend.has_practice_opportunities(ps_uid)
+        return await backend_result.value.has_practice_opportunities(ps_uid)
 
     # ========================================================================
     # USER SUBSTANCE & CONTEXTUAL EVALUATION (Migrated Jan 2026)
