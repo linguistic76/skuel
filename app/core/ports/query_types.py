@@ -2090,7 +2090,7 @@ class PsKnowledgeSummaryResult(TypedDict):
 
 
 class PsPracticeSummaryResult(TypedDict):
-    """Return shape for PathStepOperations.get_practice_summary().
+    """Return shape for PsIntelligenceService.get_practice_summary().
 
     Counts of activity entities connected to this path step.
     """

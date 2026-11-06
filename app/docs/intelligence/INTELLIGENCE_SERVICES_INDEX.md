@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-10-24
+updated: 2026-11-06
 category: intelligence
 status: current
 related_skills:
@@ -484,8 +484,8 @@ from core.services.intelligence import (
 
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|
-| **KU** | [KU_INTELLIGENCE.md](./KU_INTELLIGENCE.md) | ~360 | Curriculum usage, ORGANIZES depth, per-user substance, mastery dual-track |
-| **PS** | [PS_INTELLIGENCE.md](./PS_INTELLIGENCE.md) | ~730 | Readiness checks, practice completeness |
+| **KU** | [KU_INTELLIGENCE.md](./KU_INTELLIGENCE.md) | ~310 | Curriculum usage, ORGANIZES depth, per-user substance, mastery dual-track |
+| **PS** | [PS_INTELLIGENCE.md](./PS_INTELLIGENCE.md) | ~670 | Practice completeness, per-user substance, staged readiness and guidance |
 | **LP** | [LP_INTELLIGENCE.md](./LP_INTELLIGENCE.md) | 378 (facade) + 2,467 (sub-services) | Learning state analysis, content recommendations, adaptive sequencing |
 
 **MOC has no intelligence service** — it is emergent identity (any `Entity` with `ORGANIZES` edges); a Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).

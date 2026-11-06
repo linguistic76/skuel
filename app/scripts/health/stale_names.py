@@ -177,6 +177,32 @@ RENAMED: dict[str, str] = {
 # ── Deleted identifiers ──────────────────────────────────────────────────────
 # "deleted_identifier": "explanation / what replaced it"
 DELETED: dict[str, str] = {
+    # PathStep intelligence reads through its own backend; the query port's adapter is
+    # Neo4jQueryExecutor.
+    "GraphQueryExecutor": "deleted — PsIntelligenceService reads through PsIntelligenceBackend; the query port's adapter is Neo4jQueryExecutor",
+    "_substance_calculator": "no such attribute — substance is scored by core/services/knowledge/user_substance.py",
+    # Processors nothing read (core/utils/processor_functions.py).
+    "extract_field_list": "deleted — no reader; write a named processor where one is needed",
+    "extract_uids_set_filtered": "deleted — no reader; extract_uids_set is the live set read",
+    "extract_single_value": "deleted — no reader; extract_single_int is the live single-field read",
+    "extract_dict_from_records": "deleted — no reader; extract_dict_from_first_record is the live dict read",
+    "extract_total": "deleted — no reader; extract_single_int('total', 0) builds it",
+    "extract_deleted_count": "deleted — no reader; extract_single_int('deleted_count', 0) builds it",
+    # The "Direct Driver" relationship services the relationship pattern doc once listed:
+    # KU, PS and LP are built on UnifiedRelationshipService (curriculum_domain_config.py).
+    "LpRelationshipService": "no such class — LpService.relationships is a UnifiedRelationshipService",
+    "LsRelationshipService": "no such class — PsService.relationships is a UnifiedRelationshipService",
+    "MocRelationshipService": "no such class — ORGANIZES operations are PsService.organization",
+    "KuGraphService": "no such class — KuService.relationships is a UnifiedRelationshipService",
+    "calculate_motivational_strength": "no such method on any LP service",
+    # UnifiedRelationshipService methods its pattern doc taught; none is defined anywhere.
+    "get_actionable_for_user": "no such method — get_blocked_for_user is the one UserContext method on UnifiedRelationshipService",
+    "get_learning_related_for_user": "no such method on UnifiedRelationshipService",
+    "get_goal_aligned_for_user": "no such method on UnifiedRelationshipService",
+    "get_path_aware_entity": "no such method — create_path_aware_entity builds one from a raw row",
+    "get_by_semantic_type": "no such method — find_by_semantic_filter reads semantic edges",
+    "calculate_semantic_score": "no such method on UnifiedRelationshipService",
+    "analyze_cross_domain_connections": "no such method — get_cross_domain_context is the read",
     # Task request models no route bound, and the bases only they inherited.
     "TaskResponse": "deleted — a route returns Result[Task]; @boundary_handler serializes it (jsonable_content)",
     "TaskListResponse": "deleted — a route returns the domain models; @boundary_handler serializes them (jsonable_content)",
@@ -511,6 +537,10 @@ class Allow(NamedTuple):
 # retired identifiers is uniform within it: a changelog, a before/after table, a frozen
 # migration record). Each was verified per-example against the doc, 2026-08 (#983).
 _adr028 = "ADR-028 'Gone since' record -- names the KuType member the MOC service was deleted with"
+_adr028_phases = (
+    "ADR-028's Phases 3-4 record names KuGraphService as decided then -- the service has since gone"
+)
+_adr060 = "ADR-060 consequences record lists the signatures that decision touched -- those methods have since gone"
 _adr040 = "decision Context + struck-through withdrawn processor_type clause + amendment naming the retired ProcessorType (self-notes the scanner flags it)"
 _adr041 = (
     "ADR-041 before/after record of the KuType/KuStatus -> EntityType/EntityStatus unification"
@@ -586,6 +616,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (417, "ProcessorType"): Allow(_entity_arch),
     },
     "docs/decisions/ADR-028-ku-moc-unified-relationship-migration.md": {
+        (65, "KuGraphService"): Allow(_adr028_phases),
+        (69, "KuGraphService"): Allow(_adr028_phases),
         (140, "KuType"): Allow(_adr028),
     },
     "docs/decisions/ADR-035-tier-selection-guidelines.md": {
@@ -696,6 +728,10 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (52, "query_shareable_status"): Allow(_sharing_door),
         (53, "get_shared_with_me_via_groups"): Allow(_sharing_door),
         (53, "query_shared_with_me_via_groups"): Allow(_sharing_door),
+    },
+    "docs/decisions/ADR-060-userctx-single-source-of-truth.md": {
+        (68, "get_actionable_for_user"): Allow(_adr060),
+        (71, "get_goal_aligned_for_user"): Allow(_adr060),
     },
     "docs/decisions/ADR-070-bidirectional-vault-bridge.md": {
         # Decision 9's two amendment paragraphs (L304, L306) and their changelog rows

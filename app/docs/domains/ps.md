@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-11-05
+updated: 2026-11-06
 status: current
 category: domains
 tags:
@@ -70,7 +70,7 @@ ps_service = PsService(
 await ps_service.core.get_step(step_uid)
 await ps_service.search.search(query)
 await ps_service.relationships.get_related_uids("in_paths", step_uid)
-await ps_service.intelligence.is_ready(step_uid, completed_steps)
+await ps_service.intelligence.get_practice_summary(step_uid)
 ```
 
 ## Key Files
@@ -107,7 +107,7 @@ await ps_service.intelligence.is_ready(step_uid, completed_steps)
 | `CONTAINS_KNOWLEDGE` | Outgoing | Ku | Additional knowledge units in this step |
 | `HAS_STEP` (incoming) | Incoming | Lp | Parent learning path (via `in_paths` key) |
 | `REQUIRES_STEP` | Outgoing | PathStep | Prerequisite steps |
-| `REQUIRES_KNOWLEDGE` | Outgoing | Ku | Prerequisite knowledge (`{type: 'prerequisite'}`) |
+| `REQUIRES_KNOWLEDGE` | Outgoing | Ku | Prerequisite knowledge (`prerequisite_knowledge_uids`) |
 | `BUILDS_HABIT` | Outgoing | Habit | Practice via habits (authored directly on PS) |
 | `ASSIGNS_TASK` | Outgoing | Task | Practice via tasks (authored directly on PS) |
 | `SCHEDULES_EVENT` | Outgoing | Event | Practice via events (authored directly on PS) |
@@ -118,17 +118,7 @@ await ps_service.intelligence.is_ready(step_uid, completed_steps)
 
 ## Intelligence Methods
 
-PsIntelligenceService provides:
-
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `is_ready(ps_uid, completed_uids)` | `bool` | Check if prerequisites are met |
-| `get_practice_summary(ps_uid)` | `dict` | Count habits, tasks, events |
-| `practice_completeness_score(ps_uid)` | `float` | 0.0-1.0 practice score |
-| `calculate_guidance_strength(ps_uid)` | `float` | Principles + Choices alignment |
-| `has_prerequisites(ps_uid)` | `bool` | Has REQUIRES_STEP or REQUIRES_KNOWLEDGE |
-| `has_guidance(ps_uid)` | `bool` | Has GUIDED_BY_PRINCIPLE or INFORMS_CHOICE |
-| `has_practice_opportunities(ps_uid)` | `bool` | Has habits, tasks, or events |
+See [PS_INTELLIGENCE.md](../intelligence/PS_INTELLIGENCE.md): each `PsIntelligenceService` method, what it reads and who calls it.
 
 ## Adaptive curriculum
 

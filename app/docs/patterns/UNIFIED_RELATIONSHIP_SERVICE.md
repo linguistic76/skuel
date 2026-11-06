@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-10-11
+updated: 2026-11-06
 category: patterns
 related_skills:
 - base-analytics-service
@@ -152,7 +152,7 @@ config = LABEL_CONFIGS["Ku"]
 
 ## DomainRelationshipConfig
 
-The configuration dataclass lives in `core.models.relationship_registry`:
+The configuration dataclass lives in `core.models.relationship_registry` (abridged here; the class is the census):
 
 ```python
 @dataclass(frozen=True)
@@ -160,7 +160,7 @@ class DomainRelationshipConfig:
     """Configuration consumed directly by UnifiedRelationshipService."""
 
     domain: Domain                    # e.g., Domain.TASKS
-    entity_label: str                 # Neo4j label, e.g., "Task"
+    entity_label: NeoLabel            # e.g., NeoLabel.ENTITY (TASKS_CONFIG), NeoLabel.KU (KU_CONFIG)
     relationships: tuple[UnifiedRelationshipDefinition, ...]  # All relationships
     is_shared_content: bool = False
     scoring_weights: dict[str, float] = ...
@@ -175,7 +175,7 @@ class DomainRelationshipConfig:
 
 ### UnifiedRelationshipDefinition
 
-Defines a single relationship type:
+Defines a single relationship type (abridged):
 
 ```python
 @dataclass(frozen=True)
@@ -198,7 +198,7 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 
 ### All Available Configs
 
-| Config | Domain | Entity Label | Key Relationships |
+| Config | Domain | `LABEL_CONFIGS` key | Key Relationships |
 |--------|--------|--------------|-------------------|
 | **Activity (6)** |
 | `TASKS_CONFIG` | TASKS | Task | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, DEPENDS_ON |
@@ -208,15 +208,16 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 | `CHOICES_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMS_CHOICE (incoming), AFFECTS_GOAL |
 | `PRINCIPLES_CONFIG` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, SUPPORTS_GOAL, INFORMS_CHOICE |
 | **Curriculum (3)** |
-| `KU_CONFIG` | KNOWLEDGE | Ku | REQUIRES, ENABLES, ORGANIZES, HAS_NARROWER |
+| `KU_CONFIG` | KNOWLEDGE | Ku | USES_KU / TRAINS_KU (incoming), CITES_RESOURCE |
 | `PS_CONFIG` | LEARNING | PathStep | CONTAINS_KNOWLEDGE, TRAINS_KU, REQUIRES_STEP, BUILDS_HABIT, ASSIGNS_TASK |
-| `LP_CONFIG` | LEARNING | Lp | HAS_STEP, ALIGNED_WITH_GOAL, HAS_MILESTONE_EVENT |
+| `LP_CONFIG` | LEARNING | LearningPath | HAS_STEP, ALIGNED_WITH_GOAL, HAS_MILESTONE_EVENT |
 
 **Notes:**
 - Finance is NOT an Activity Domain - it's a standalone expense/budget tracker
 - All configs are `DomainRelationshipConfig` instances (frozen dataclasses)
 - Curriculum domains have `is_shared_content=True` (no user ownership)
-- MOC uses `KU_CONFIG` (MOC is a KU with ORGANIZES relationships)
+- MOC has no config of its own: it is any Entity with ORGANIZES edges, and the ORGANIZES definition lives on `PS_CONFIG`
+- `PS_CONFIG` and `LP_CONFIG` share `Domain.LEARNING`, so reach them by name or by label, not through `DOMAIN_CONFIGS`
 
 **Registry Access:**
 
@@ -265,7 +266,7 @@ principles = await service.get_related_uids("supporting_principles", "goal.123")
 > **Filtered method-keys (`filter_property`/`filter_value`).** A
 > `UnifiedRelationshipDefinition` may scope a relationship by an edge property — GOALS_CONFIG
 > splits SUPPORTS_GOAL into `essential_habits`/`critical_habits`/`optional_habits` (filtered)
-> plus the no-filter `supporting_habits`/`contributing_habits` catch-all. The filter applies
+> plus the no-filter `supporting_habits` catch-all. The filter applies
 > on **every** read path: `get_related_uids`/`has_relationship`/`batch_get_related_uids` (backend
 > `WHERE r.<prop> = $value`), `get_cross_domain_context` categorization (filtered mappings
 > sort before the catch-all, matched on each node's `incident_rel_properties`), and
@@ -432,46 +433,27 @@ if rels.has_prerequisites():
     prereqs = rels.prerequisite_task_uids
 ```
 
-### Path-Aware Queries (4 methods)
+### Path-Aware Queries
 
 ```python
 # Get cross-domain context with typed path-aware entities
-context = await service.get_cross_domain_context_typed("task.123")
-# Returns TaskCrossContext with PathAwareKnowledge, PathAwareGoal, etc.
+result = await service.get_cross_domain_context_typed("task.123")
+# result.value is a TaskCrossContext holding PathAwareKnowledge, PathAwareGoal, etc.
 
 # Access typed relationships
-for ku in context.required_knowledge:
+for ku in result.value.required_knowledge:
     print(f"{ku.title} (distance: {ku.distance}, strength: {ku.path_strength})")
-
-# Direct path-aware entity creation
-entity = await service.get_path_aware_entity("task.123", distance=1)
 ```
 
-### UserContext Planning (6 methods)
+### UserContext Planning
+
+`get_blocked_for_user` is the one UserContext method on this service. No production code calls it; it is staged in `PLANNED_METHODS` (`scripts/detect_bloat.py`).
 
 ```python
-# Get actionable items based on user context
-# include_learning=True applies 20% score boost for entities whose knowledge
-# relationships overlap with context.in_progress_knowledge_uids
-actionable = await service.get_actionable_for_user(
-    context=user_context,
-    limit=10,
-    include_learning=True  # boosts learning-relevant entities via in_progress_knowledge_uids
-)
-
-# Get blocked items with reasons
-blocked = await service.get_blocked_for_user(context)
-for item in blocked:
+# Entities under 0.5 readiness, with why. The entity's key is its domain's singular.
+blocked = await service.get_blocked_for_user(context, limit=10)
+for item in blocked.value:
     print(f"{item['task'].title}: {item['blocking_reasons']}")
-
-# Get learning-related items
-learning = await service.get_learning_related_for_user(
-    context,
-    knowledge_focus="ku.python"
-)
-
-# Get goal-aligned items
-goal_aligned = await service.get_goal_aligned_for_user(context, goal_uid="goal.123")
 ```
 
 ### Cross-domain linking — `create_relationship(method_key, ...)`
@@ -524,38 +506,33 @@ rule replaced.
 > live method inlined here. Do not reintroduce a dispatch helper — name the
 > `RelationshipName`/`method_key` explicitly and let the registry validate it.
 
-### Semantic Operations (4 methods)
+### Semantic Operations
 
 ```python
-# Create semantic relationship
+# Create a semantic relationship
 await service.create_semantic_relationship(
     "task.123",
     "ku.python",
     semantic_type=SemanticRelationshipType.APPLIES_KNOWLEDGE,
     confidence=0.9,
-    strength=0.8,
-    evidence=["code_review", "test_coverage"]
+    notes="seen in code review",
 )
 
-# Get relationships by semantic type
-rels = await service.get_by_semantic_type(
-    "task.123",
-    SemanticRelationshipType.APPLIES_KNOWLEDGE
+# Entities connected to a target by confident semantic edges
+rels = await service.find_by_semantic_filter(
+    "ku.python",
+    user_uid,
+    min_confidence=0.8,
+    semantic_types=[SemanticRelationshipType.APPLIES_KNOWLEDGE],
 )
-
-# Calculate semantic score
-score = await service.calculate_semantic_score("task.123", "ku.python")
 ```
 
-### Cross-Domain Intelligence (2 methods)
+### Cross-Domain Context
 
 ```python
 # Get full cross-domain context
 context = await service.get_cross_domain_context("task.123")
-# Returns dict with all related entities across domains
-
-# Analyze cross-domain connections
-analysis = await service.analyze_cross_domain_connections("task.123")
+# context.value holds one bucket per config context_field_name
 ```
 
 **Categorization — incident-edge attribution (PR #212).** `get_cross_domain_context`
@@ -677,93 +654,7 @@ context = create_cross_context(
 
 ## DomainRelationships Container
 
-Generic container for fetched relationship data:
-
-```python
-from core.services.relationships import DomainRelationships
-
-# Fetch all relationships in parallel
-rels = await DomainRelationships.fetch("task.123", service)
-
-# Access fields dynamically
-knowledge_uids = rels.get_field("knowledge_uids")
-goal_uids = rels.get_field("goal_uids")
-
-# Check for data
-if rels.has_field("prerequisite_task_uids"):
-    prereqs = rels.get_field("prerequisite_task_uids")
-
-# Convenience methods
-if rels.has_any_knowledge():
-    all_ku = rels.get_all_knowledge_uids()  # Set of all knowledge UIDs
-
-if rels.has_prerequisites():
-    # Entity has blocking dependencies
-    pass
-
-# Total count across all relationships
-total = rels.total_count()
-
-# Get all data as dict
-all_data = rels.all_fields
-```
-
----
-
-## Migration Guide
-
-### From Domain-Specific Services
-
-**Before (TasksRelationshipService):**
-```python
-from core.services.tasks.tasks_relationship_service import TasksRelationshipService
-
-tasks_service = TasksRelationshipService(backend, graph_intel)
-knowledge_uids = await tasks_service.get_task_knowledge(task_uid)
-context = await tasks_service.get_task_cross_domain_context(task_uid)
-```
-
-**After (UnifiedRelationshipService):**
-```python
-from core.models.relationship_registry import TASKS_CONFIG
-from core.services.relationships import UnifiedRelationshipService
-
-tasks_service = UnifiedRelationshipService(backend, graph_intel, TASKS_CONFIG)
-knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
-context = await tasks_service.get_cross_domain_context_typed(task_uid)
-```
-
-### Method Mapping
-
-| Old Method | New Method |
-|------------|------------|
-| `get_task_knowledge()` | `get_related_uids("knowledge", uid)` |
-| `get_task_goals()` | `get_related_uids("contributes_to_goal", uid)` |
-| `get_task_dependencies()` | `get_task_dependencies_for_user(uid, context)` (context-enriched, supports transitive via `include_transitive=True, max_depth=N`) |
-| `get_task_cross_domain_context()` | `get_cross_domain_context_typed(uid)` |
-| `create_knowledge_link()` | `create_relationship("knowledge", uid, ku_uid, props, far_end=KNOWLEDGE_FAR_END)` |
-
----
-
-## Relationship with GenericRelationshipService
-
-**GenericRelationshipService** (documented in `GENERIC_RELATIONSHIP_SERVICE.md`) remains useful for:
-- Services still using inheritance pattern
-- Gradual migration path
-- Cases where subclassing is preferred
-
-**UnifiedRelationshipService** is preferred for:
-- New implementations
-- Reducing code duplication
-- Configuration-driven behavior
-- Consistent API across all domains
-
-The two patterns coexist:
-
-| Pattern | Best For | Example |
-|---------|----------|---------|
-| GenericRelationshipService (inheritance) | Extending behavior, complex overrides | Custom analysis methods |
-| UnifiedRelationshipService (configuration) | Standard operations, code reduction | Most relationship operations |
+`DomainRelationships` (`relationships_container.py`) is a generic container with no production caller, and its `fetch()` does not run against a registry config: it reads `config.outgoing_relationships`, which `DomainRelationshipConfig` does not have, and raises `AttributeError`. Use the per-domain `<Domain>Relationships.fetch()` described under [Domain Relationships](#domain-relationships).
 
 ---
 
@@ -772,9 +663,9 @@ The two patterns coexist:
 ### Parallel Fetching
 
 ```python
-# DomainRelationships.fetch() executes all queries in parallel
-rels = await DomainRelationships.fetch("task.123", service)
-# ↳ All relationship types fetched concurrently via asyncio.gather()
+# <Domain>Relationships.fetch() runs every relationship read concurrently
+rels = await TaskRelationships.fetch("task.123", service)
+# ↳ fetch_relationships_parallel: one asyncio.gather() over the domain's query specs
 ```
 
 ### Batch Operations
@@ -785,98 +676,17 @@ knowledge_by_task = await service.batch_get_related_uids("knowledge", task_uids)
 # ↳ Single UNWIND query instead of N queries
 ```
 
-### Lazy Loading
-
-```python
-# Cross-context is fetched on demand
-context = await service.get_cross_domain_context_typed(uid)
-# ↳ Only fetches what's needed based on config
-```
-
 ---
 
 ## Testing
 
 ### Unit Testing
 
-```python
-from core.models.relationship_registry import TASKS_CONFIG
-from core.services.relationships import UnifiedRelationshipService
-
-# Mock backend
-mock_backend = Mock()
-mock_backend.execute_query.return_value = Result.ok([...])
-
-# Test service
-service = UnifiedRelationshipService(mock_backend, None, TASKS_CONFIG)
-
-# Test basic query
-result = await service.get_related_uids("knowledge", "task.123")
-assert result.is_ok
-```
+A mocked backend accepts any attribute and any key, so it cannot show a relationship read works (see the phantom-methods warning above). `tests/unit/test_cross_domain_link_keys.py` holds the facade-to-key coverage and `tests/unit/services/test_link_writer_census.py` holds the edge writers to an admission.
 
 ### Integration Testing
 
-```bash
-# Validate configs
-uv run python -c "from core.models.relationship_registry import DOMAIN_CONFIGS; print(len(DOMAIN_CONFIGS))"
-```
-
----
-
-## Two-Pattern Architecture (By Design)
-
-**UnifiedRelationshipService is intentionally scoped to Activity Domains only.**
-
-SKUEL uses two distinct relationship service patterns, each optimized for different workloads:
-
-### Helper-Based Pattern (UnifiedRelationshipService)
-
-**For:** Activity (6) - Tasks, Goals, Habits, Events, Choices, Principles
-
-**Characteristics:**
-- BackendOperations[T] protocol + BaseService inheritance
-- SemanticRelationshipLinker composition (semantic relationship operations)
-- Cross-domain context with path-aware entities
-- UserContext-aware methods (get_actionable_for_user, etc.)
-- Semantic relationship operations
-
-### Direct Driver Pattern (Domain-Specific Services)
-
-**For:** Curriculum (3) + MOC - LP, PS, KU, and MOC (Content/Org navigation)
-
-**Characteristics:**
-- AsyncDriver + GraphQueryExecutor (raw Cypher)
-- Does NOT inherit from BaseService
-- Complex curriculum-specific calculations:
-  - `calculate_motivational_strength()` (LP)
-  - `calculate_guidance_strength()` (PS)
-  - `practice_completeness_score()` (PS)
-  - `is_ready(completed_step_uids)` (PS)
-- Recursive traversal patterns (MOC sections)
-- Sequence management (step reordering)
-- Read-heavy, traversal-oriented workloads
-
-**Why Two Patterns:**
-- Activity domains have semantic relationships ("entity relates-to X")
-- Curriculum domains have structural relationships ("contains", "aggregates", "has ordered steps")
-- Each pattern is optimized for its domain's query patterns
-- The services themselves document this: *"This service is NOT compatible with GenericRelationshipService base class"*
-
-**Services Using Each Pattern:**
-
-| Pattern | Services |
-|---------|----------|
-| Helper-Based | UnifiedRelationshipService (all 6 Activity Domains) |
-| Direct Driver | LpRelationshipService, LsRelationshipService, MocRelationshipService, KuGraphService |
-
----
-
-## Future Enhancements
-
-1. **Caching Layer**: Optional caching for frequently accessed relationships
-2. **Event-Driven Updates**: Publish relationship change events
-3. **Performance Optimization**: Batch operations for cross-domain context
+Real-Neo4j round-trips: `tests/integration/test_relationship_link_roundtrip.py`, `tests/integration/test_choice_knowledge_edge_roundtrip.py`, `tests/integration/test_principle_cascade_reads_roundtrip.py`.
 
 ---
 
@@ -889,10 +699,8 @@ SKUEL uses two distinct relationship service patterns, each optimized for differ
 - Dual-source configuration problem
 
 To:
-- 1 generic service + 9 configs (direct from registry)
-- ~1,600 lines total
+- 1 generic service + one config per domain (direct from registry)
 - Consistent API for all domains
-- 67% code reduction
 - Type-safe configuration
 - Single source of truth (RelationshipRegistry)
 
@@ -905,7 +713,7 @@ To:
 from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
-service = UnifiedRelationshipService(backend, graph_intel, TASKS_CONFIG)
+service = UnifiedRelationshipService(backend, TASKS_CONFIG, graph_intel=graph_intel)
 await service.get_related_uids("knowledge", "task.123")
 ```
 

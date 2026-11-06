@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-30
+updated: 2026-11-06
 ---
 
 # Placeholder Parameter Index
@@ -149,7 +149,7 @@ throughout. Neither error is visible to a link checker, and neither reads as obv
 | Service | File | Line | Parameter | Method |
 |---------|------|------|-----------|--------|
 | KuIntelligenceService | `core/services/ku/ku_intelligence_service.py` | 85 | `_min_confidence: float = 0.7` | `get_domain_insights()` (84) |
-| PsIntelligenceService | `core/services/ps/ps_intelligence_service.py` | 152 | `_min_confidence: float = 0.7` | `get_domain_insights()` (151) |
+| PsIntelligenceService | `core/services/ps/ps_intelligence_service.py` | 141 | `_min_confidence: float = 0.7` | `get_domain_insights()` (140) |
 | LpIntelligenceService | `core/services/lp/lp_intelligence_service.py` | 183 | `_min_confidence: float = 0.7` | `get_domain_insights()` (182) |
 | EventsIntelligenceService | `core/services/events/events_intelligence_service.py` | 150 | `_min_confidence: float = 0.7` | `get_domain_insights()` (149) |
 

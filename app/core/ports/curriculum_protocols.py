@@ -597,8 +597,8 @@ class PsProgressBackendOperations(Protocol):
 class PsIntelligenceBackendOperations(Protocol):
     """Persistence port for PathStep readiness / practice / guidance reads.
 
-    ``PsIntelligenceService`` composes these seven reads into readiness
-    assessment and practice-completeness scoring. All the Cypher lives below the
+    ``PsIntelligenceService`` composes these reads into readiness assessment,
+    practice-completeness scoring and per-learner substance. All the Cypher lives below the
     boundary in ``adapters/persistence/neo4j/ps_intelligence_backend.py``
     (ADR-044); the backend is built at the composition root and injected, so the
     service never imports the adapter (SKUEL022).
