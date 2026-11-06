@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-10-15
+updated: 2026-11-06
 status: current
 category: architecture
 related:
@@ -334,6 +334,7 @@ curriculum recommendations and the SEL journey are served as JSON (`/api/path-st
 | Route | Purpose |
 |---|---|
 | `GET /explore/ps/{uid}` | PathStep detail page — learning loop anchor |
+| `GET /explore/ps/{uid}/applied` | HTMX fragment: how the signed-in reader has applied what the step teaches |
 | `GET /path-steps` | Flat PathStep index |
 | `GET /api/path-steps/*` | PathStep API (CRUD + intelligence) |
 

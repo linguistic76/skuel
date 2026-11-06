@@ -2287,7 +2287,7 @@ class UserKnowledgeChannelRow(TypedDict):
 class PsStepTaughtKuUidsRow(TypedDict):
     """Row shape for fetch_taught_ku_uids_for_steps() — one row per PathStep.
 
-    The batched counterpart of PsTaughtKuUidRow: same composition triple, but
+    The batched counterpart of PsTaughtKuRow: same composition triple, but
     grouped per step so a caller scoring a whole engagement window makes one
     round trip instead of one per step. ``ku_uids`` is empty for a step that
     teaches no Ku — that step still has a row, and still scores 0.0.
