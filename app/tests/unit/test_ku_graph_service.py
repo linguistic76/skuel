@@ -145,7 +145,7 @@ class TestStepStats:
     def _facade(prerequisites: Result, dependents: Result) -> SimpleNamespace:
         return SimpleNamespace(
             core=SimpleNamespace(get=AsyncMock(return_value=Result.ok(make_ku_dto()))),
-            get_prerequisites=AsyncMock(return_value=prerequisites),
+            get_prerequisite_chain=AsyncMock(return_value=prerequisites),
             graph=SimpleNamespace(count_next_steps=AsyncMock(return_value=dependents)),
         )
 

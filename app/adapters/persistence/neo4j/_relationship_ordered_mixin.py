@@ -12,7 +12,6 @@ Provides:
     get_hierarchical_children_single: 1-level hierarchical traversal
     get_hierarchical_children_two_level: 2-level hierarchical traversal
     get_hierarchical_children_deep: 3+ level dynamic traversal
-    get_prerequisites, get_enables, get_related, get_children, get_parent,
     get_depends_on, get_blocks: Lateral-getter convenience wrappers
 
 Requires on concrete class (via MRO from `_RelationshipQueryMixin`):

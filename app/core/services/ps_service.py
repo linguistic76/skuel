@@ -371,6 +371,7 @@ class PsService:
         _include_optional: bool = False,
         min_confidence: float = 0.7,
     ) -> Result[list[PathStep]]:
+        """Staged: no route reaches this (PLANNED_METHODS)."""
         return await self.graph.find_prerequisites(uid, depth, _include_optional, min_confidence)
 
     async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[PathStep]]:
@@ -379,6 +380,7 @@ class PsService:
     async def analyze_knowledge_gaps(
         self, target_uid: str, user_uid: UserUID
     ) -> Result[dict[str, Any]]:
+        """Staged: no route reaches this (PLANNED_METHODS)."""
         return await self.graph.analyze_knowledge_gaps(target_uid, user_uid)
 
     async def get_learning_recommendations(
@@ -403,7 +405,7 @@ class PsService:
         return await self.core.backend.get_exercises_for_path_step(ps_uid)  # type: ignore[attr-defined]
 
     async def get_prerequisites(self, uid: str) -> Result[list[PathStep]]:
-        """Get prerequisite entities (alias for find_prerequisites with defaults)."""
+        """find_prerequisites with its defaults. Staged: no route reaches this (PLANNED_METHODS)."""
         return await self.graph.find_prerequisites(uid=uid, depth=GraphDepth.DEFAULT)
 
     async def get_prerequisite_chain(
@@ -859,14 +861,19 @@ class PsService:
     # ============================================================================
 
     async def get_step_stats(self, uid: str) -> Result[dict[str, Any]]:
-        """Get statistics for a path step."""
+        """Get statistics for a path step.
+
+        ``prerequisite_count`` is what the prerequisites door totals at its default depth:
+        either edge, Kus included, no draft and nothing reached only through one.
+        ``dependent_count`` is the published steps that require this one directly.
+        """
         result = await self.core.get(uid)
         if result.is_error:
             return Result.fail(result)
         entity = result.value
         if not entity:
             return Result.fail(Errors.not_found(resource="PathStep", identifier=uid))
-        prereqs_result = await self.get_prerequisites(uid)
+        prereqs_result = await self.get_prerequisite_chain(uid)
         if prereqs_result.is_error:
             return Result.fail(prereqs_result)
         deps_count = await self.graph.count_next_steps(uid)

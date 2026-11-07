@@ -54,6 +54,11 @@ class PsGraphService:
     # GRAPH TRAVERSAL
     # ========================================================================
 
+    # STAGED: no route reaches find_prerequisites, or get_prerequisite_chain and
+    # analyze_knowledge_gaps below (PLANNED_METHODS). The doors read
+    # PsService.get_prerequisite_chain, which shares a name with the method below and
+    # no code with it.
+
     @with_error_handling("find_prerequisites", error_type="database", uid_param="uid")
     async def find_prerequisites(
         self,
@@ -63,21 +68,22 @@ class PsGraphService:
         min_confidence: float = 0.7,
     ) -> Result[list[PathStep]]:
         """
-        Find all prerequisites for a path step.
+        The ends of a path step's knowledge-prerequisite chains, read back as path steps.
 
-        Quick Win #1 Enhancement (November 9, 2025):
-        - Added confidence filtering to improve prerequisite quality
-        - Filters out low-quality relationships automatically
-        - Default confidence threshold of 0.7 (reliable relationships)
+        Walks REQUIRES_KNOWLEDGE alone and keeps only a chain's last node, on edges at or
+        above ``min_confidence`` and inside their validity window. A Ku reads back as nothing
+        and is dropped. A draft is not withheld.
+
+        Backend: PsBackend.find_prerequisite_chain
 
         Args:
-            uid: Path step UID,
-            depth: Maximum depth to traverse,
-            include_optional: Include optional prerequisites
-            min_confidence: Minimum relationship confidence threshold (default 0.7)
+            uid: Path step UID
+            depth: Maximum depth to traverse
+            _include_optional: Placeholder, read by nothing
+            min_confidence: Minimum relationship confidence threshold
 
         Returns:
-            Result containing list of prerequisite CurriculumDTOs in dependency order
+            Result containing the path steps, deepest first
         """
         # Verify source unit exists
         source_result = await self.repo.get(uid)

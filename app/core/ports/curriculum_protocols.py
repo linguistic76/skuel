@@ -156,7 +156,7 @@ class CurriculumOperations[T: "DomainModelProtocol"](
 
     Declares nothing of its own. ``KuOperations`` extends ``BackendOperations``
     directly. A step's or path's content, prerequisites and hierarchy are read
-    through its service (``get_with_content``, ``get_prerequisites``) and its
+    through its service (``get_with_content``, ``get_prerequisite_chain``) and its
     registry keys, not through a method of this port.
 
     Type Parameter:

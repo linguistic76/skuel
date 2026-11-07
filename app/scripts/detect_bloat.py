@@ -511,6 +511,22 @@ _PS_GUIDANCE = PlannedEntry(
     "practice_completeness lens, or a PS detail-page guidance indicator",
     since=date(2026, 6, 11),
 )
+_PS_PREREQUISITE_ANALYSIS = PlannedEntry(
+    Readiness.DELAYED,
+    "a learner's gap analysis on a target step and the read under it: "
+    "PsService.analyze_knowledge_gaps -> PsGraphService.get_prerequisite_chain -> "
+    "find_prerequisites -> the backend's find_prerequisite_chain, with "
+    "query_user_mastery_for_prereqs for the learner's scores. No route reaches it. /stats' "
+    "prerequisite_count reads PsService.get_prerequisite_chain, the live chain behind the "
+    "prerequisites door, which shares a name with the graph service's method and no code. "
+    "What this read holds that the live one does not: an edge's confidence and validity "
+    "window. Before it gets a door it must walk REQUIRES_STEP as well as REQUIRES_KNOWLEDGE, "
+    "keep more than a chain's last node, keep a Ku (repo.get reads one back as None), compose "
+    "the publication gate, stop reporting a failed source read as not-found, and take "
+    "completed as marked as read or mastered, where it reads score >= 0.8. Wire it when a "
+    "page shows a learner what stands between them and a step (Mike ruled staged 2026-11-07)",
+    since=date(2026, 11, 7),
+)
 # Registered by hand: each name is defined or loaded elsewhere too (PsIntelligenceBackend,
 # its port, a readiness property), so vulture never lists these definitions.
 _PS_READINESS = PlannedEntry(
@@ -702,11 +718,21 @@ _ASKESIS_CONTEXT_ORCHESTRATION = PlannedEntry(
 # masked any same-named call). Two pure-plumbing helpers were DELETED (live
 # winners exist: inline None-guard / a standalone conversion fn (itself since deleted in Tier 6)); these
 # three are feature-shaped surfaces with no superseded loser.
+_MIXIN_PREREQUISITE_READ = PlannedEntry(
+    Readiness.DELAYED,
+    "config-driven prerequisite read, inherited by every BaseService domain and covered by "
+    "its unit tests; no production call reaches it. PsService is no BaseService and defines "
+    "its own get_prerequisites, and the lateral prerequisites door reads the lateral "
+    "service. One half of a symmetric pair with get_enables, and the read twin of "
+    "add_prerequisite. Complete when a domain's page needs its configured prerequisites "
+    "(registered with the PathStep family, _PS_PREREQUISITE_ANALYSIS, 2026-11-07)",
+    since=date(2026, 11, 7),
+)
 _MIXIN_PREREQUISITE_WRITE = PlannedEntry(
     Readiness.DELAYED,
     "config-driven prerequisite-write half staged — the write twin of the "
-    "get_prerequisites read (the mixin read is DomainConfig-wired; PsService's "
-    "live caller overrides it with its graph service; get_enables is PLANNED). "
+    "get_prerequisites read (the mixin read is DomainConfig-wired; it and get_enables "
+    "are PLANNED). "
     "No superseded loser: add_relationship is the primitive it composes, and the "
     "lateral create_lateral_relationship writes a route-chosen RelationshipName, "
     "not via the domain prereq config; live prereq edges currently come only from "
@@ -716,14 +742,14 @@ _MIXIN_PREREQUISITE_WRITE = PlannedEntry(
 )
 _MIXIN_ENABLES_TRAVERSAL = PlannedEntry(
     Readiness.DELAYED,
-    "enables-direction traversal — the symmetric inverse of the LIVE get_prerequisites "
+    "enables-direction traversal — the symmetric inverse of get_prerequisites "
     "(walks the same _prerequisite_relationships edges inward vs outward), a member of the "
-    "ADR-023 lateral-getter convenience family (get_prerequisites / get_enables / get_related "
-    "/ get_children / get_parent / get_depends_on / get_blocks) inherited by every curriculum "
+    "ADR-023 lateral-getter convenience family (get_prerequisites / get_enables / "
+    "get_depends_on / get_blocks) inherited by every curriculum "
     "domain and covered by its own unit test. Its last caller was the GraphQL "
-    "knowledge_dependencies resolver, removed in the GraphQL fold; get_prerequisites survives "
-    "with real callers (ps_service.py::get_prerequisites). Retained as the coherent other-half "
-    "of a live symmetric API — NOT scaffolding toward a specific feature: the cross-topic "
+    "knowledge_dependencies resolver, removed in the GraphQL fold; get_prerequisites is "
+    "PLANNED too. Retained as the coherent other-half "
+    "of a symmetric API — NOT scaffolding toward a specific feature: the cross-topic "
     "'you know X → unlocks Y' signal it was briefly earmarked for was investigated against the "
     "live graph and deleted (was deferred-work #9, 2026-07-25 — no separable nous cross-topic "
     "structure: 6 singleton disjoint bridges, zero MASTERED edges, redundant with the live "
@@ -839,6 +865,9 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Shared BaseService mixins (campaign 16) ---
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
         _MIXIN_PREREQUISITE_WRITE
+    ),
+    "core/services/mixins/relationship_operations_mixin.py::get_prerequisites": (
+        _MIXIN_PREREQUISITE_READ
     ),
     # --- Enables-direction traversal, orphaned by the GraphQL fold (2026-07-25) ---
     "core/services/mixins/relationship_operations_mixin.py::get_enables": (
@@ -993,6 +1022,22 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/ps/ps_semantic_service.py::infer_relationships": _PS_SEMANTIC_INFER,
     # --- PS: guidance-strength intelligence lens ---
     "core/services/ps/ps_intelligence_service.py::calculate_guidance_strength": _PS_GUIDANCE,
+    # --- PS: the gap analysis and the prerequisite read under it, no route ---
+    "core/services/ps_service.py::analyze_knowledge_gaps": _PS_PREREQUISITE_ANALYSIS,
+    "core/services/ps_service.py::find_prerequisites": _PS_PREREQUISITE_ANALYSIS,
+    "core/services/ps_service.py::get_prerequisites": _PS_PREREQUISITE_ANALYSIS,
+    "core/services/ps/ps_graph_service.py::analyze_knowledge_gaps": _PS_PREREQUISITE_ANALYSIS,
+    "core/services/ps/ps_graph_service.py::get_prerequisite_chain": _PS_PREREQUISITE_ANALYSIS,
+    "core/services/ps/ps_graph_service.py::find_prerequisites": _PS_PREREQUISITE_ANALYSIS,
+    "adapters/persistence/neo4j/_semantic_mixin.py::find_prerequisite_chain": (
+        _PS_PREREQUISITE_ANALYSIS
+    ),
+    "adapters/persistence/neo4j/_knowledge_context_mixin.py::query_user_mastery_for_prereqs": (
+        _PS_PREREQUISITE_ANALYSIS
+    ),
+    "adapters/persistence/neo4j/query/cypher/domain_queries.py::build_simple_prerequisite_chain": (
+        _PS_PREREQUISITE_ANALYSIS
+    ),
     # --- PS: readiness and yes/no edge reads, no caller ---
     "core/services/ps/ps_intelligence_service.py::is_ready": _PS_READINESS,
     "core/services/ps/ps_intelligence_service.py::has_guidance": _PS_EXISTENCE_CHECKS,

@@ -227,7 +227,11 @@ class _SemanticMixin:
     async def find_prerequisite_chain(
         self, uid: str, depth: int, min_confidence: float
     ) -> Result[list[Neo4jProperties]]:
-        """Find prerequisite chain using a query/cypher/ build_* helper."""
+        """The ends of a node's REQUIRES_KNOWLEDGE chains, drafts included.
+
+        Staged: no route reaches this (PLANNED_METHODS). The prerequisites door reads
+        ``prerequisite_chain_with_distance``.
+        """
         from adapters.persistence.neo4j.query import build_simple_prerequisite_chain
         from core.models.relationship_names import RelationshipName
 

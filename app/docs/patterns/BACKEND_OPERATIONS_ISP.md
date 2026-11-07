@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-11-06
+updated: 2026-11-07
 category: patterns
 related_skills: []
 related_docs:
@@ -445,7 +445,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 | `_crud_mixin.py` | `CrudOperations[T]` | `create`, `get`, `get_many`, `update`, `delete`, `list` |
 | `_search_mixin.py` | `EntitySearchOperations[T]` | `find_by_date_range`*, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query` |
 | `_relationship_query_mixin.py` | `RelationshipMetadata*`, `RelationshipQuery*` | `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, `relate()`, batch queries |
-| `_relationship_ordered_mixin.py` | Ordered writes / hierarchical queries | `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, lateral-getter wrappers (`get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`) |
+| `_relationship_ordered_mixin.py` | Ordered writes / hierarchical queries | `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, lateral-getter wrappers (`get_depends_on`, `get_blocks`) |
 | `_relationship_crud_mixin.py` | `RelationshipCrud*` | `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `batch_get_related_uids`, `_build_direction_pattern`, helpers |
 | `_user_entity_mixin.py` | Generic user-entity ops | `get_user_entities`*, `count_user_entities`*, `update_relationship_access` |
 | `_traversal_mixin.py` | `GraphTraversalOperations` | `add_relationship`, `get_relationships`, `traverse` |

@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-11-06
+updated: 2026-11-07
 status: current
 category: architecture
 version: 2.0.0
@@ -227,7 +227,7 @@ Ordered writes, hierarchical traversals and lateral-getter convenience wrappers:
 - `reorder_relationships(..., target_uid_sequence, sequence_property)` → `Result[int]`
 - `create_relationship_with_properties(entity_uid, target_uid, relationship_type, direction, edge_properties)` → `Result[bool]`
 - `get_hierarchical_children_single(...)` / `get_hierarchical_children_two_level(...)` / `get_hierarchical_children_deep(...)` → `Result[list[dict]]`
-- Convenience wrappers: `get_prerequisites()`, `get_enables()`, `get_related()`, `get_children()`, `get_parent()`, `get_depends_on()`, `get_blocks()` — forward to `get_related_entities` via MRO
+- Convenience wrappers: `get_depends_on()`, `get_blocks()` — forward to `get_related_entities` via MRO
 
 ---
 
