@@ -94,11 +94,14 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
 
         GRAPH-NATIVE: Fetches knowledge relationships from graph.
 
+        Backend: ``PsBackend.get_step_with_knowledge``.
+
         Args:
-            step_uid: Ls UID
+            step_uid: PathStep UID
 
         Returns:
-            Result containing Ls or None if not found
+            Result containing the PathStep, or None when the uid names no
+            PathStep (nothing, or a node of another kind)
         """
         # GRAPH-NATIVE: backend returns the typed model (node + knowledge UIDs)
         result = await self.backend.get_step_with_knowledge(step_uid)

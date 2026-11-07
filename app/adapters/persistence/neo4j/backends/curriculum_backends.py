@@ -924,9 +924,13 @@ class PsBackend(
         return from_neo4j_node(data, PathStep)
 
     async def get_step_with_knowledge(self, uid: str) -> Result[PathStep | None]:
-        """Get a step (with its CONTAINS_KNOWLEDGE UIDs) as a typed model, or None."""
-        query = """
-        MATCH (s:Entity {uid: $uid})
+        """Get a step (with its CONTAINS_KNOWLEDGE UIDs) as a typed model, or None.
+
+        A uid that names no PathStep (a Task, a Ku, nothing) is None: the read
+        matches the label, so a node of another kind never reaches the model.
+        """
+        query = f"""
+        MATCH (s:Entity:{NeoLabel.PATH_STEP} {{uid: $uid}})
         OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
         RETURN s, collect(ku.uid) as knowledge_uids
         """

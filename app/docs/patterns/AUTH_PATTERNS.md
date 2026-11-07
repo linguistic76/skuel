@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-11-03'
+updated: '2026-11-07'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -102,6 +102,7 @@ async def list_tasks(request):
 - Raises `HTTPException(401)` if user not authenticated
 - No fallback to default user
 - Logs warning on unauthenticated access attempts
+- Runs inside the handler, so a body FastHTML cannot parse is refused 400 before it, and before CSRF: see [Who answers first](API_VALIDATION_PATTERNS.md#who-answers-first-a-body-fasthtml-cannot-parse-before-any-door-check)
 
 **When to use:**
 - All `/api/*` endpoints

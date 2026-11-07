@@ -25,6 +25,7 @@ from starlette.testclient import TestClient
 
 import adapters.inbound.pathways_api as pathways_api
 import adapters.inbound.route_factories.crud_route_factory as crud_module
+from adapters.inbound.boundary import install_malformed_body_guard
 from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
@@ -50,8 +51,12 @@ def _to_entity(schema: _Schema, uid: str, user_uid: str) -> dict[str, str]:
     return {"uid": uid, "title": schema.title, "user_uid": user_uid}
 
 
-def _crud_client(monkeypatch: pytest.MonkeyPatch, *, signed_in: bool = True) -> TestClient:
+def _crud_client(
+    monkeypatch: pytest.MonkeyPatch, *, signed_in: bool = True, guarded: bool = False
+) -> TestClient:
     app, rt = fast_app(pico=False, default_hdrs=False)
+    if guarded:
+        install_malformed_body_guard(app)
     if signed_in:
         monkeypatch.setattr(crud_module, "require_authenticated_user", _fake_authenticated_user)
 
@@ -99,6 +104,65 @@ def test_an_anonymous_bad_body_is_401_before_it_is_read(
     )
 
     assert response.status_code == 401, response.text
+
+
+_ANONYMOUS_NO_TOKEN = {"content-type": "application/json"}
+
+
+@pytest.mark.parametrize("path", ["/api/tasks/create", "/api/tasks/update?uid=task_1"])
+@pytest.mark.parametrize(
+    ("raw", "detail"),
+    [("{bad", "Invalid JSON body"), ("[1]", "JSON body must be an object")],
+)
+def test_a_body_fasthtml_cannot_parse_is_400_before_any_door_check(
+    monkeypatch: pytest.MonkeyPatch, path: str, raw: str, detail: str
+) -> None:
+    """FastHTML parses the body before the handler, so the door's own checks never
+    run: an anonymous caller with no CSRF token is answered the parse's 400, not
+    CSRF's 403 or authentication's 401. ``API_VALIDATION_PATTERNS.md`` states the
+    order this test and the two below hold."""
+    client = _crud_client(monkeypatch, signed_in=False, guarded=True)
+    response = client.post(path, content=raw, headers=_ANONYMOUS_NO_TOKEN)
+
+    assert response.status_code == 400, response.text
+    payload = json.loads(response.text)
+    assert payload["category"] == "validation"
+    assert payload["message"] == detail
+
+
+@pytest.mark.parametrize("path", ["/api/tasks/create", "/api/tasks/update?uid=task_1"])
+def test_a_parsed_body_meets_csrf_before_authentication(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Once the body parses, the door's checks run in order: CSRF (403) first."""
+    client = _crud_client(monkeypatch, signed_in=False, guarded=True)
+    response = client.post(path, json={"title": ""}, headers=_ANONYMOUS_NO_TOKEN)
+
+    assert response.status_code == 403, response.text
+
+
+_CHARSET_JSON = "application/json; charset=utf-8"
+
+
+@pytest.mark.parametrize("path", ["/api/tasks/create", "/api/tasks/update?uid=task_1"])
+def test_a_content_type_fasthtml_does_not_match_meets_the_door_checks_first(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """FastHTML pre-parses ``application/json`` exactly. With a charset the same bad
+    body reaches the door: CSRF (403), then authentication (401), then the route's
+    own reader (400)."""
+    anonymous = _crud_client(monkeypatch, signed_in=False, guarded=True)
+    no_token = anonymous.post(path, content="{bad", headers={"content-type": _CHARSET_JSON})
+    assert no_token.status_code == 403, no_token.text
+    with_token = anonymous.post(
+        path, content="{bad", headers={**_CSRF, "content-type": _CHARSET_JSON}
+    )
+    assert with_token.status_code == 401, with_token.text
+
+    signed_in = _crud_client(monkeypatch, guarded=True)
+    read = signed_in.post(path, content="{bad", headers={**_CSRF, "content-type": _CHARSET_JSON})
+    assert read.status_code == 400, read.text
+    assert json.loads(read.text)["category"] == "validation"
 
 
 def test_pathways_progress_rejects_a_bad_body_with_400(monkeypatch: pytest.MonkeyPatch) -> None:
