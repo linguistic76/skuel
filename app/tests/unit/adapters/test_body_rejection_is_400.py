@@ -50,9 +50,10 @@ def _to_entity(schema: _Schema, uid: str, user_uid: str) -> dict[str, str]:
     return {"uid": uid, "title": schema.title, "user_uid": user_uid}
 
 
-def _crud_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def _crud_client(monkeypatch: pytest.MonkeyPatch, *, signed_in: bool = True) -> TestClient:
     app, rt = fast_app(pico=False, default_hdrs=False)
-    monkeypatch.setattr(crud_module, "require_authenticated_user", _fake_authenticated_user)
+    if signed_in:
+        monkeypatch.setattr(crud_module, "require_authenticated_user", _fake_authenticated_user)
 
     service = MagicMock()
     service.create = AsyncMock(return_value=Result.ok({"uid": "task_1"}))
@@ -85,6 +86,19 @@ def test_crud_factory_rejects_a_bad_body_with_400(
     response = _crud_client(monkeypatch).post(path, json={"title": ""}, headers=_CSRF)
 
     _assert_validation_400(response)
+
+
+@pytest.mark.parametrize("path", ["/api/tasks/create", "/api/tasks/update?uid=task_1"])
+def test_an_anonymous_bad_body_is_401_before_it_is_read(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Both CRUD write routes authenticate first: a caller with no session learns
+    nothing about the schema."""
+    response = _crud_client(monkeypatch, signed_in=False).post(
+        path, json={"title": ""}, headers=_CSRF
+    )
+
+    assert response.status_code == 401, response.text
 
 
 def test_pathways_progress_rejects_a_bad_body_with_400(monkeypatch: pytest.MonkeyPatch) -> None:

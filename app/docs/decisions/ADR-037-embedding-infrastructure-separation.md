@@ -11,7 +11,7 @@ tags:
 related:
   - three_tier_type_system.md
   - EMBEDDING_ARCHITECTURE.md
-updated: 2026-09-05
+updated: 2026-11-07
 ---
 
 # ADR-037: Embedding Infrastructure Separation from Domain Models
@@ -167,6 +167,16 @@ return dto_from_dict(
 - Neo4j vector search expects embeddings as node properties
 - No clear benefit over filtering
 
+## Amendment (2026-11-07): the model keeps them, no JSON response carries them
+
+`Entity` declares `embedding`, `embedding_model` and `embedding_updated_at`, and
+`from_neo4j_node` fills them from the node, so the domain model holds the vector. It keeps it:
+`BaseAIService._rank_similar_entities` reads `entity.embedding`. The JSON boundary is where the
+fields stop. `jsonable_content` (`/adapters/inbound/boundary.py`) leaves the three keys out of
+every `Entity` in a response, wherever it sits in the value, so an embedded entity answers with
+the same keys as one that is not; they are absent, never null. Ruled by Mike 2026-11-07: fix it
+at the JSON boundary, not in the mapper.
+
 ## References
 
 - **Three-Tier Type System:** `/docs/patterns/three_tier_type_system.md`
@@ -183,5 +193,6 @@ return dto_from_dict(
 
 ## Status History
 
+- **2026-11-07:** Amended - the JSON boundary leaves the three `Entity` embedding fields out of every response
 - **2026-02-01:** Accepted - Generic filtering implemented in `dto_from_dict`
 - **2024-10:** Implicit - ChoiceDTO manually filtered unknown fields

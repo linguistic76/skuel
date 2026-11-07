@@ -46,7 +46,7 @@ External World → [Pydantic] → [DTOs] → [Domain Models] → Core Logic
 
 ## Data Flow Overview
 
-**See [DATA_FLOW_WALKTHROUGH.md](../tutorials/DATA_FLOW_WALKTHROUGH.md) for one Task create and read followed through the code.** It is the authority on the path: a Task create or read moves between the Pydantic request, the frozen `Task` and the node with no DTO, so the two diagrams below, which draw a DTO and its embedding filter, do not describe it.
+**See [DATA_FLOW_WALKTHROUGH.md](../tutorials/DATA_FLOW_WALKTHROUGH.md) for one Task create and read followed through the code.** It is the authority on the path: a Task create or read moves between the Pydantic request, the frozen `Task` and the node with no DTO, so the two diagrams below, which draw a DTO and its embedding filter, do not describe it. The embedding fields reach the frozen model and stop at the JSON boundary: `jsonable_content` leaves them out of every response.
 
 ### Create Flow (HTTP → Neo4j)
 
@@ -100,8 +100,10 @@ that error silently drops the row.
 
 `embedding`, `embedding_model` and `embedding_updated_at` are declared on `Entity` but on no
 DTO: `from_neo4j_node` passes them through to the model, while the DTO path drops them (the
-model gets `None`). Tier 3 declaring them diverges from ADR-037's "infrastructure fields
-don't belong in any tier" — recorded here without a ruling.
+model gets `None`). The model keeps them because `BaseAIService._rank_similar_entities` reads
+`entity.embedding`. No JSON response carries them: `jsonable_content`
+(`/adapters/inbound/boundary.py`) leaves the three keys out of every `Entity` it serializes, so
+they are absent rather than null (ADR-037 § Amendment).
 
 **See:** `/docs/decisions/ADR-037-embedding-infrastructure-separation.md`
 

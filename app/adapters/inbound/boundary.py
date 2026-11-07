@@ -17,7 +17,8 @@ import inspect
 import logging
 import time
 from annotationlib import Format
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine, Mapping
+from dataclasses import fields, is_dataclass
 from functools import wraps
 from types import MappingProxyType
 from typing import Any, ParamSpec
@@ -30,7 +31,9 @@ from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, R
 from adapters.inbound.auth.roles import REQUEST_PARAM
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from adapters.inbound.form_helpers import FORM_MEDIA_TYPES, media_type_of
+from adapters.persistence.neo4j.neo4j_mapper import EMBEDDING_OWNED_PROPERTIES
 from core.config.settings import get_settings
+from core.models.entity import Entity
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
 from ui.layouts.base_page import HtmlDocument
@@ -58,14 +61,56 @@ def _unwrap_unserializable(value: Any) -> Any:
     raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
+#: The embedding writer's properties that ``Entity`` declares as fields: ``embedding``,
+#: ``embedding_model`` and ``embedding_updated_at``. A JSON read carries none of them.
+#: The vector alone is 1,024 floats, about 14 KB a row, and no client reads any of the
+#: three. The domain model keeps them, because ``BaseAIService._rank_similar_entities``
+#: reads ``entity.embedding``.
+ENTITY_EMBEDDING_FIELDS: frozenset[str] = EMBEDDING_OWNED_PROPERTIES & frozenset(
+    entity_field.name for entity_field in fields(Entity)
+)
+
+
+def _without_embedding_fields(value: Any) -> Any:  # boundary: json-serialization
+    """``value`` with each ``Entity`` in it turned into its fields minus the embedding ones.
+
+    An ``Entity`` becomes a dict of its other fields. A container or a dataclass is
+    rebuilt only when something inside it changed, so a value that holds no
+    ``Entity`` comes back as the same object and serializes exactly as it would have.
+    A Pydantic model is not entered.
+    """
+    if isinstance(value, Entity):
+        return {
+            entity_field.name: _without_embedding_fields(getattr(value, entity_field.name))
+            for entity_field in fields(value)
+            if entity_field.name not in ENTITY_EMBEDDING_FIELDS
+        }
+    if isinstance(value, Mapping):
+        mapped = {key: _without_embedding_fields(item) for key, item in value.items()}
+        return mapped if any(mapped[key] is not value[key] for key in mapped) else value
+    if isinstance(value, list | tuple | set | frozenset):
+        items = [_without_embedding_fields(item) for item in value]
+        return items if any(a is not b for a, b in zip(items, value, strict=True)) else value
+    if is_dataclass(value) and not isinstance(value, type):
+        named = {
+            data_field.name: _without_embedding_fields(getattr(value, data_field.name))
+            for data_field in fields(value)
+        }
+        changed = any(named[name] is not getattr(value, name) for name in named)
+        return named if changed else value
+    return value
+
+
 def jsonable_content(content: Any) -> Any:  # boundary: json-serialization (see above)
     """Convert a service-layer value into JSON-safe Python.
 
     Handles the frozen domain dataclasses, Pydantic models, enums, datetimes,
     tuples, and nested containers that ``Result[T]`` values carry — Starlette's
-    ``JSONResponse`` only accepts plain JSON types.
+    ``JSONResponse`` only accepts plain JSON types. Every ``Entity`` in the value
+    leaves out ``ENTITY_EMBEDDING_FIELDS``: the keys are absent, not null, so an
+    embedded entity's response does not read as one that has no embedding.
     """
-    return to_jsonable_python(content, fallback=_unwrap_unserializable)
+    return to_jsonable_python(_without_embedding_fields(content), fallback=_unwrap_unserializable)
 
 
 # ============================================================================

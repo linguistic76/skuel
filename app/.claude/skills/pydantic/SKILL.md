@@ -416,7 +416,8 @@ connected_direction: Literal["outgoing", "incoming", "both"] = Field(default="ou
 
 An API route returns the frozen domain model — `Result[Task]` — and `@boundary_handler`
 serializes it (`jsonable_content` in `adapters/inbound/boundary.py`, via Pydantic's
-`to_jsonable_python`). There is no per-entity Pydantic response layer.
+`to_jsonable_python`), leaving out each entity's `embedding`, `embedding_model` and
+`embedding_updated_at`. There is no per-entity Pydantic response layer.
 
 A Pydantic response model is for a payload that is not an entity — the search envelope:
 
