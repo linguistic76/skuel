@@ -412,6 +412,10 @@ class CRUDRouteFactory[T]:
             if role_check.is_error:
                 return cast("Result[T]", role_check)
 
+            # The caller first (raises 401 without a session), so an anonymous
+            # body is refused for who sent it, never validated against the schema.
+            user_uid = require_authenticated_user(request)
+
             # Parse + validate through the shared helper: a rejected body is
             # ordinary bad input, and `boundary_handler`'s catch-all would
             # otherwise turn the raw ValidationError into a 500.
@@ -419,9 +423,6 @@ class CRUDRouteFactory[T]:
             if parsed.is_error:
                 return Result.fail(parsed)
             schema = parsed.value
-
-            # Extract user_uid from session (FAIL-FAST: raises 401 if not authenticated)
-            user_uid = require_authenticated_user(request)
             logger.debug(f"Creating {domain} with user_uid={user_uid}")
 
             # Request-door binding: hand the validated request to the domain's create
@@ -554,6 +555,10 @@ class CRUDRouteFactory[T]:
             if role_check.is_error:
                 return cast("Result[T]", role_check)
 
+            # The owner-verified door authenticates before it reads the body, as
+            # create does (raises 401 without a session).
+            user_uid = require_authenticated_user(request) if verify_ownership else None
+
             # uid extracted from query params via type hint; body parsed and
             # validated through the shared helper (see the create route above).
             parsed = await parse_body(request, update_schema)
@@ -574,8 +579,7 @@ class CRUDRouteFactory[T]:
                 updates = RawChanges({k: get_enum_value(v) for k, v in raw.items()})
 
             # Call service with or without ownership verification
-            if verify_ownership:
-                user_uid = require_authenticated_user(request)
+            if user_uid is not None:
                 result = await service.update_for_user(uid, updates, user_uid)
                 if not result.is_error:
                     logger.info(f"Updated {domain}: {uid} for user {user_uid}")

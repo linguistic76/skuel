@@ -46,8 +46,8 @@ Smaller helpers run between these stops. The table names the ones that decide so
 | 2 | `instrument_with_boundary_handler` | `/adapters/inbound/boundary.py` | Counts the request and turns what the handler returns into a response |
 | 3 | `CRUDRouteFactory._register_create_route` | `/adapters/inbound/route_factories/crud_route_factory.py` | The generated `create` handler |
 | 4 | `check_required_role` | `/adapters/inbound/route_factories/route_helpers.py` | Tasks name no role, so this passes |
-| 5 | `parse_body` | `/adapters/inbound/form_helpers.py` | Reads JSON or a form by `Content-Type` and validates it as a `TaskCreateRequest`: 400 on failure |
-| 6 | `require_authenticated_user` | `/adapters/inbound/auth/session.py` | Reads the caller from the session: 401 without one |
+| 5 | `require_authenticated_user` | `/adapters/inbound/auth/session.py` | Reads the caller from the session: 401 without one, before the body is read |
+| 6 | `parse_body` | `/adapters/inbound/form_helpers.py` | Reads JSON or a form by `Content-Type` and validates it as a `TaskCreateRequest`: 400 on failure |
 | 7 | `TasksService.create_task` | `/core/services/tasks_service.py` | The facade, which delegates |
 | 8 | `TasksCoreService.create_task` | `/core/services/tasks/tasks_core_service.py` | The request door, the one create that holds the request's link lists |
 | 9 | `Task.from_request` | `/core/models/task/task.py` | Builds the frozen `Task` and generates its uid |
@@ -63,7 +63,7 @@ Smaller helpers run between these stops. The table names the ones that decide so
 | 19 | `TasksCoreService._publish_created` | `/core/services/tasks/tasks_core_service.py` | Publishes `TaskCreated` and the embedding request, now that every edge exists |
 | 20 | `TasksCoreService._publish_knowledge_substance` | `/core/services/tasks/tasks_core_service.py` | Announces the knowledge edges actually written, never the ones requested |
 | 21 | `result_to_response` | `/adapters/inbound/boundary.py` | Turns the `Result` into a status: 201 |
-| 22 | `jsonable_content` | `/adapters/inbound/boundary.py` | Turns the `Task` into JSON types |
+| 22 | `jsonable_content` | `/adapters/inbound/boundary.py` | Turns the `Task` into JSON types and leaves out its embedding fields |
 
 ## What the graph holds
 
@@ -121,7 +121,8 @@ those edge writes and never reach the node. See
 
 ## The response
 
-The body is every field of `Task`, nulls included: 46 keys. Abridged:
+The body is every field of `Task` except the three embedding fields, nulls included: 43 keys.
+Abridged:
 
 ```json
 {
@@ -148,9 +149,11 @@ service that needs them reads the graph with
 `GET /api/tasks/get?uid=<uid>` answers 200 with the same keys and values. It enters through the same
 `csrf_protected` (a GET passes) and `instrument_with_boundary_handler`.
 
-Once the FULL tier's worker has embedded a task, a read also carries `embedding_model`,
-`embedding_updated_at` and the whole vector in `embedding`, because the response is every field of
-`Task` and nothing on this path removes them.
+Once the FULL tier's worker has embedded a task, the `Task` the read builds carries the vector in
+`embedding`, with `embedding_model` and `embedding_updated_at`: AI ranking reads them off the model.
+The response does not. `jsonable_content` leaves those three keys out of every `Entity` in any JSON
+response, so they are absent, never null, and an embedded task answers with the same 43 keys as one
+that is not.
 
 | # | Stop | Where | What it does |
 |---|------|-------|--------------|
@@ -161,7 +164,7 @@ Once the FULL tier's worker has embedded a task, a read also carries `embedding_
 | 5 | `_CrudMixin.get` | `/adapters/persistence/neo4j/_crud_mixin.py` | Reads the node by uid |
 | 6 | `from_neo4j_node` | `/adapters/persistence/neo4j/neo4j_mapper.py` | Stored properties to a `Task` |
 | 7 | `result_to_response` | `/adapters/inbound/boundary.py` | 200 |
-| 8 | `jsonable_content` | `/adapters/inbound/boundary.py` | `Task` to JSON types |
+| 8 | `jsonable_content` | `/adapters/inbound/boundary.py` | `Task` to JSON types, without the embedding fields |
 
 ## Where DTOs live
 

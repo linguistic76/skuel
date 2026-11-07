@@ -64,6 +64,9 @@ PATH_STEP = f"ps.{MARK}.step"
 #: A value on the page that a run fills in and the page does not predict.
 _UNPREDICTED = frozenset({"<now>", "<inferred>"})
 
+#: The ``Entity`` fields the embedding writer fills, which no JSON response carries.
+_EMBEDDING_KEYS = frozenset({"embedding", "embedding_model", "embedding_updated_at"})
+
 
 def _section(heading: str) -> str:
     return _DOC.split(f"\n## {heading}\n", 1)[1].split("\n## ", 1)[0]
@@ -313,7 +316,9 @@ async def test_the_edges_are_the_ones_the_page_shows(world: World) -> None:
 
 async def test_the_response_is_every_task_field(world: World) -> None:
     body = world.created.json()
-    assert set(body) == {task_field.name for task_field in dataclasses.fields(Task)}
+    task_fields = {task_field.name for task_field in dataclasses.fields(Task)}
+    assert task_fields >= _EMBEDDING_KEYS
+    assert set(body) == task_fields - _EMBEDDING_KEYS
     assert _mismatches(_json_fence("The response"), body, world.known_values()) == {}
     assert f"{len(body)} keys" in _section("The response")
     assert "applies_knowledge_uids" not in body
@@ -321,6 +326,39 @@ async def test_the_response_is_every_task_field(world: World) -> None:
 
 async def test_a_read_answers_what_the_create_answered(world: World) -> None:
     assert world.read.json() == world.created.json()
+
+
+async def test_an_embedded_tasks_read_carries_no_vector(world: World) -> None:
+    created = await world.client.post("/api/tasks/create", json={"title": f"{MARK} embedded"})
+    assert created.status_code == 201, created.text
+    uid = created.json()["uid"]
+    async with world.driver.session() as session:
+        # The properties EmbeddingsBackend.store_embedding_metadata writes.
+        await session.run(
+            """
+            MATCH (t:Task {uid: $uid})
+            SET t.embedding = $vector, t.embedding_version = 'v1',
+                t.embedding_model = 'text-embedding-3-small',
+                t.embedding_updated_at = datetime(), t.embedding_text_hash = 'hash'
+            """,
+            uid=uid,
+            vector=[0.25] * 1024,
+        )
+    stored = await _stored(world.driver, uid)
+    assert len(stored["properties"]["embedding"]) == 1024  # the read below has one to drop
+    model = await world.skuel_app.state.services.tasks.get_for_user(uid, CALLER)
+    assert model.value.embedding is not None  # AI ranking reads it off the model
+
+    fetched = await world.client.get(f"/api/tasks/get?uid={uid}")
+    listed = await world.client.get("/api/tasks/list")
+    assert fetched.status_code == listed.status_code == 200, (fetched.text, listed.text)
+    [row] = [row for row in listed.json()["items"] if row["uid"] == uid]
+    assert set(fetched.json()) == set(row) == set(world.read.json())
+    assert _EMBEDDING_KEYS.isdisjoint(fetched.json())
+    assert len(fetched.content) < 4096, len(fetched.content)
+    read_path = _section("The read path")
+    assert all(f"`{key}`" in read_path for key in _EMBEDDING_KEYS)
+    assert "absent, never null" in read_path
 
 
 async def test_the_relationships_sample_reads_the_lists_back(world: World) -> None:

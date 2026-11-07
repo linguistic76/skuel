@@ -1,10 +1,10 @@
-"""Unit guard for ChoiceImpactAnalysis/DecisionIntelligence ``to_dict()``.
+"""ChoiceImpactAnalysis and DecisionIntelligence answer as JSON through the route boundary.
 
-``ChoicesIntelligenceService.get_domain_insights`` (GET /api/choices/insights) calls
-``ChoiceImpactAnalysis.to_dict()``; before this guard existed neither result type had a
-``to_dict``, so the route 500'd and no test covered the serialization path. These tests
-build a fully-populated result tree (real Choice + path-aware entities with date fields +
-enums in the choice) and assert the serializer returns JSON-serializable data.
+``ChoicesIntelligenceService.get_domain_insights`` (GET /api/choices/insights) answers with
+``ChoiceImpactAnalysis.to_dict()``, and ``jsonable_content`` serializes it, as it does
+every ``Result`` route's value. These tests build a fully populated result tree (a real
+Choice carrying an embedding, path-aware entities with date fields) and read what the
+route would send: JSON that encodes, ISO dates, and a choice without its embedding fields.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from datetime import date
 
+from adapters.inbound.boundary import jsonable_content
 from core.models.choice.choice import Choice
 from core.models.graph.path_aware_types import (
     PathAwareGoal,
@@ -33,6 +34,18 @@ from core.services.choices.choices_types import (
     PathAwareContext,
     RiskAssessment,
 )
+
+_EMBEDDING_KEYS = frozenset({"embedding", "embedding_model", "embedding_updated_at"})
+
+
+def _embedded_choice() -> Choice:
+    return Choice(
+        uid="c1",
+        title="Decide",
+        user_uid="u1",
+        embedding=tuple([0.25] * 1024),
+        embedding_model="text-embedding-3-small",
+    )
 
 
 def _graph_context() -> ChoiceGraphContext:
@@ -63,7 +76,7 @@ def _goal() -> PathAwareGoal:
 
 def test_choice_impact_analysis_to_dict_is_json_serializable() -> None:
     analysis = ChoiceImpactAnalysis(
-        choice=Choice(uid="c1", title="Decide", user_uid="u1"),
+        choice=_embedded_choice(),
         impact_summary=ImpactSummary(
             total_entities_affected=3, domains_affected=["goals", "principles"], impact_score=8.0
         ),
@@ -90,10 +103,12 @@ def test_choice_impact_analysis_to_dict_is_json_serializable() -> None:
         graph_context=_graph_context(),
     )
 
-    payload = analysis.to_dict()
+    payload = jsonable_content(analysis.to_dict())
     # Must round-trip through JSON (the actual /api/choices/insights contract).
     encoded = json.dumps(payload)
     assert isinstance(payload, dict)
+    assert payload["choice"]["uid"] == "c1"
+    assert _EMBEDDING_KEYS.isdisjoint(payload["choice"])
     assert payload["impact_summary"]["total_entities_affected"] == 3
     assert payload["domain_impact"]["principles"]["count"] == 1
     # nested date serialized to ISO string, not a raw date object
@@ -103,7 +118,7 @@ def test_choice_impact_analysis_to_dict_is_json_serializable() -> None:
 
 def test_decision_intelligence_to_dict_is_json_serializable() -> None:
     intelligence = DecisionIntelligence(
-        choice=Choice(uid="c1", title="Decide", user_uid="u1"),
+        choice=_embedded_choice(),
         context=DecisionContext(
             goals=[_goal()],
             principles=[],
@@ -126,7 +141,8 @@ def test_decision_intelligence_to_dict_is_json_serializable() -> None:
         graph_context=_graph_context(),
     )
 
-    payload = intelligence.to_dict()
+    payload = jsonable_content(intelligence.to_dict())
     json.dumps(payload)  # must not raise
+    assert _EMBEDDING_KEYS.isdisjoint(payload["choice"])
     assert payload["decision_analysis"]["complexity"] == 6.5
     assert payload["context"]["knowledge"][0]["uid"] == "k1"

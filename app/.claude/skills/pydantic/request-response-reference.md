@@ -109,7 +109,8 @@ its model with a `from_form_params()` classmethod — see
 
 An API route returns `Result[Task]` — the frozen domain model — and `@boundary_handler`
 serializes it (`jsonable_content` in `adapters/inbound/boundary.py`, via Pydantic's
-`to_jsonable_python`). There is no per-entity Pydantic response layer to convert through.
+`to_jsonable_python`), leaving out each entity's `embedding`, `embedding_model` and
+`embedding_updated_at`. There is no per-entity Pydantic response layer to convert through.
 
 A Pydantic response model earns its place when the payload is not an entity — the search
 envelope below.
