@@ -131,6 +131,10 @@ jobs:
               # table to the class and the PLANNED registry, so a docs-only edit to the
               # table is the change that could break it.
               - 'app/docs/intelligence/PS_INTELLIGENCE.md'
+              # tests/integration/routes/test_data_flow_walkthrough_doc.py sends this page's
+              # request to the app and reads its tables, node and response against the run,
+              # so a docs-only edit to the page is the change that could break it.
+              - 'app/docs/tutorials/DATA_FLOW_WALKTHROUGH.md'
               # The uv.lock pinning guard's inputs (tests/unit/
               # test_workflow_uv_lock_pinning.py). It reads EVERY workflow, not
               # just ci.yml (unlike the filters below), and follows what those

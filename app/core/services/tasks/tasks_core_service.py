@@ -309,12 +309,8 @@ class TasksCoreService(
         """Persist, link, then announce — THE create primitive for Tasks.
 
         Both doors land here: the entity door (``TasksService.create``) and ``create_task``
-        below — which the generated CRUD route enters through, since it was bound to
-        the request door (``CRUDRouteConfig.request_create_method``). Before this, only ``create_task`` published anything, so a
-        task created through ``POST /api/tasks/create`` invalidated no user context and
-        was never embedded — the route calls ``service.create(entity)`` on the FACADE,
-        which resolved to ``CrudOperationsMixin.create`` and went straight to
-        ``backend.create``.
+        below, which the generated CRUD route is bound to
+        (``CRUDRouteConfig.request_create_method``).
 
         Tasks declare no ``_validate_create`` hook (see the comment above ``_validate_update``
         — the rule that lived there was deleted in #963 as contradicting the DSL and
@@ -325,8 +321,8 @@ class TasksCoreService(
         ``parent_uid``, ``reinforces_habit_uid`` and ``contributes_to_goal_uids`` are
         written here rather than in ``create_task`` because all three ride on the Task, so
         both doors can write them. A link left on the request door alone is a link the
-        entity door never writes (``POST /api/tasks/create`` hands the service an entity
-        and no request). All three are edge-only — the mapper keeps them off the node.
+        entity door never writes, because that door has no request. All three are edge-only
+        — the mapper keeps them off the node.
 
         Args:
             entity: Task to create

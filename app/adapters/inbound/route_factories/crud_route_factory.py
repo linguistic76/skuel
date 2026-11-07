@@ -385,8 +385,8 @@ class CRUDRouteFactory[T]:
 
         SECURITY POLICY (January 2026):
         Create ALWAYS requires authentication, even when verify_ownership=False.
-        This is intentional: shared entities (KU, LP) can be READ publicly but
-        can only be CREATED by authenticated users. This prevents:
+        This is intentional: a shared entity (FormTemplate) can be READ openly but
+        can only be CREATED by an authenticated user. This prevents:
         - Anonymous spam content creation
         - Untraceable content (no user_uid for audit)
         - Abuse of shared content systems
@@ -517,7 +517,7 @@ class CRUDRouteFactory[T]:
                 result: Result[T | None] = await service.get_for_user(uid, user_uid)  # type: ignore[assignment]  # Result invariance - T widens to T | None safely
                 logger.debug(f"Retrieved {domain}: {uid} for user {user_uid}")
             else:
-                # No ownership check (shared entities like KU, LP)
+                # No ownership check (a shared entity: FormTemplate)
                 result = await service.get(uid)
                 logger.debug(f"Retrieved {domain}: {uid} (no ownership check)")
 
@@ -657,7 +657,7 @@ class CRUDRouteFactory[T]:
         SECURITY (December 2025): When verify_ownership=True, requires authentication.
 
         SHARED DOMAIN BEHAVIOR (January 2026):
-        When verify_ownership=False (shared entities like KU, LP):
+        When verify_ownership=False (a shared entity: FormTemplate):
         - user_uid may be None for unauthenticated requests
         - The service MUST treat user_uid=None as "return shared/public content"
         - The service MUST NOT return everything in the database when user_uid=None
