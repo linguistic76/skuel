@@ -169,7 +169,11 @@ class PrincipleReflectionDTO:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PrincipleReflectionDTO:
         """Create DTO from dictionary (e.g., from database)."""
-        from core.models.dto_helpers import ensure_dict_field, parse_datetime_fields
+        from core.models.dto_helpers import (
+            ensure_dict_field,
+            parse_date_field,
+            parse_datetime_fields,
+        )
 
         # Make a copy to avoid modifying input
         data = dict(data)
@@ -178,9 +182,7 @@ class PrincipleReflectionDTO:
         if isinstance(data.get("alignment_level"), str):
             data["alignment_level"] = AlignmentLevel(data["alignment_level"])
 
-        # Parse reflection_date
-        if isinstance(data.get("reflection_date"), str):
-            data["reflection_date"] = date.fromisoformat(data["reflection_date"])
+        parse_date_field(data, "reflection_date")
 
         # Parse timestamps
         parse_datetime_fields(data, ["created_at", "updated_at"])

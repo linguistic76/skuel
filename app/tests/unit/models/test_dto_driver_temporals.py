@@ -7,14 +7,22 @@ exercise backend's stamps). The search, traversal and range reads turn those
 records into models through ``to_domain_model`` (``{Domain}DTO.from_dict`` →
 ``from_dto``), the by-uid reads through ``from_neo4j_node``. These tests hand both
 paths the same raw Event record and pin that they agree, field by field, and that
-the result serializes at the JSON boundary, which refuses a driver temporal.
+the result serializes at the JSON boundary, which refuses a driver temporal. A census
+then builds every DTO under ``core/models`` from a driver value in each ``date`` /
+``datetime`` / ``time`` field it declares, so a field left off its DTO's parse list
+fails here.
 
 The route-level proof is ``tests/integration/routes/test_dto_path_driver_temporals.py``.
 """
 
 from __future__ import annotations
 
+import dataclasses
+import importlib
+import types
+import typing
 from datetime import UTC, date, datetime, time
+from pathlib import Path
 from typing import Any
 
 import neo4j.time
@@ -102,3 +110,102 @@ def test_an_absent_or_null_field_is_left_as_it_is(
     null: dict[str, object] = {"field": None}
     parse(null, "field")
     assert null == {"field": None}
+
+
+# ---------------------------------------------------------------------------
+# The census: every DTO converts every temporal field it declares
+# ---------------------------------------------------------------------------
+
+_MODELS = Path(__file__).resolve().parents[3] / "core" / "models"
+_DRIVER_VALUE: dict[type, object] = {
+    date: neo4j.time.Date(2026, 11, 20),
+    datetime: neo4j.time.DateTime.from_native(_STAMP),
+    time: neo4j.time.Time(9, 30, 0),
+}
+# The fields a DTO requires beyond the common ones, so from_dict can build it.
+_REQUIRED: dict[str, dict[str, object]] = {
+    "HabitCompletionDTO": {"habit_uid": "habit_0123456789abcdef"},
+    "UserDTO": {"username": "census", "email": "census@example.test"},
+    "PrincipleReflectionDTO": {
+        "principle_uid": "principle_0123456789abcdef",
+        "alignment_level": "aligned",
+        "evidence": "evidence",
+    },
+}
+
+
+def _temporal_type(hint: object) -> type | None:
+    members = (
+        typing.get_args(hint)
+        if typing.get_origin(hint) in (typing.Union, types.UnionType)
+        else (hint,)
+    )
+    for member in members:
+        for kind in (datetime, date, time):  # datetime first: it subclasses date
+            if member is kind:
+                return kind
+    return None
+
+
+def _is_dto(candidate: object, module_name: str) -> bool:
+    return (
+        isinstance(candidate, type)
+        and dataclasses.is_dataclass(candidate)
+        and candidate.__module__ == module_name
+        and any("from_dict" in vars(klass) for klass in candidate.__mro__[:-1])
+    )
+
+
+def _dto_classes() -> list[type]:
+    found: list[type] = []
+    for path in sorted(_MODELS.rglob("*dto*.py")):
+        module_name = ".".join(path.relative_to(_MODELS.parents[1]).with_suffix("").parts)
+        module = importlib.import_module(module_name)
+        found.extend(
+            candidate for candidate in vars(module).values() if _is_dto(candidate, module_name)
+        )
+    return found
+
+
+_DTOS = _dto_classes()
+
+
+def test_the_census_finds_the_dtos() -> None:
+    names = {dto.__name__ for dto in _DTOS}
+    assert {"EventDTO", "TaskDTO", "UserEntryDTO", "PrincipleReflectionDTO"} <= names
+    assert len(_DTOS) >= 31
+
+
+def _dto_name(dto_class: type) -> str:
+    return dto_class.__name__
+
+
+@pytest.mark.parametrize("dto_class", _DTOS, ids=_dto_name)
+def test_every_temporal_field_a_dto_declares_reads_a_driver_value(dto_class: type) -> None:
+    """A field left off its DTO's parse list would hand the model a driver temporal."""
+    hints = typing.get_type_hints(
+        dto_class, localns={"date": date, "datetime": datetime, "time": time}
+    )
+    declared = {field.name for field in dataclasses.fields(dto_class)}
+    temporal = {
+        name: kind for name in declared if (kind := _temporal_type(hints[name])) is not None
+    }
+    if not temporal:
+        pytest.skip(f"{dto_class.__name__} declares no temporal field")
+    common = {
+        "uid": "x_0123456789abcdef",
+        "title": "census",
+        "user_uid": "user_0123456789abcdef",
+        "entity_type": "task",
+    }
+    data = {
+        key: value
+        for key, value in {**common, **_REQUIRED.get(dto_class.__name__, {})}.items()
+        if key in declared
+    }
+    data.update({name: _DRIVER_VALUE[kind] for name, kind in temporal.items()})
+
+    dto = dto_class.from_dict(data)  # type: ignore[attr-defined]
+
+    left = sorted(name for name in temporal if type(getattr(dto, name)).__module__ == "neo4j.time")
+    assert left == [], f"{dto_class.__name__} leaves driver temporals in {left}"
