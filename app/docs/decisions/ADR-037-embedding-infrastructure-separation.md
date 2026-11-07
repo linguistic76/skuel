@@ -61,7 +61,7 @@ GoalDTO.__init__() got an unexpected keyword argument 'embedding'
 ### Generic Filtering in `dto_from_dict`
 
 ```python
-# /core/models/dto_helpers.py (line 591)
+# /core/models/dto_helpers.py, dto_from_dict
 
 if is_dataclass(cls):
     valid_field_names = {f.name for f in dataclass_fields(cls)}
