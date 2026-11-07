@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-11-05
+updated: 2026-11-07
 category: patterns
 related_skills:
 - python
@@ -46,7 +46,7 @@ External World → [Pydantic] → [DTOs] → [Domain Models] → Core Logic
 
 ## Data Flow Overview
 
-**See [DATA_FLOW_WALKTHROUGH.md](../tutorials/DATA_FLOW_WALKTHROUGH.md) for a complete step-by-step example following a Task creation request through all tiers.**
+**See [DATA_FLOW_WALKTHROUGH.md](../tutorials/DATA_FLOW_WALKTHROUGH.md) for one Task create and read followed through the code.** It is the authority on the path: a Task create or read moves between the Pydantic request, the frozen `Task` and the node with no DTO, so the two diagrams below, which draw a DTO and its embedding filter, do not describe it.
 
 ### Create Flow (HTTP → Neo4j)
 
@@ -891,12 +891,11 @@ if enrichment is not None:
 
 ## Complete Example: Following a Request
 
-See [DATA_FLOW_WALKTHROUGH.md](../tutorials/DATA_FLOW_WALKTHROUGH.md) for a comprehensive example following a Task creation request through all three tiers, showing:
-- Exact code files involved at each stage
-- What data looks like at each transformation
-- Why each conversion happens
-- Where relationships are stored (graph-native design)
-- When to skip Tier 3 (Finance/Journals examples)
+See [DATA_FLOW_WALKTHROUGH.md](../tutorials/DATA_FLOW_WALKTHROUGH.md) for one Task create and read followed through the code, showing:
+- Every stop, by symbol and file
+- The node the graph stores and the response the client gets
+- Where a request's relationship lists go (graph-native design)
+- Where DTOs live, and that this path has none
 
 ## Pattern Selection (Two Patterns)
 

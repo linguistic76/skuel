@@ -1,6 +1,6 @@
 ---
 title: "Cross-Domain UID Patterns: Structural Anchors vs Enrichment Links"
-updated: 2026-10-16
+updated: 2026-11-07
 status: current
 category: architecture
 tags: [architecture, uid-patterns, cross-domain, structural-anchor, enrichment-link]
@@ -26,7 +26,7 @@ Every cross-domain UID field on an entity falls into exactly one of three catego
 
 **Enrichment link** — the UID is a scoring or analytics convenience read off a graph edge. It is populated by a dedicated enrich step (e.g., `enrich_habits_with_goal_links()`) only when the scoring path needs it, and nothing writes it.
 
-**Edge carrier** — the same non-persistence as an enrichment link, but the create path *reads* the field to decide which edge to write (`Task.parent_uid` → HAS_SUBTASK, `Task.reinforces_habit_uid` → REINFORCES_HABIT). This exists because the generated CRUD route hands the service an ENTITY and no request: a link the entity cannot carry is a link that door can never write. It is not "sometimes persisted" — the property never exists in either direction; only the create-time *input* differs.
+**Edge carrier** — the same non-persistence as an enrichment link, but the create path *reads* the field to decide which edge to write (`Task.parent_uid` → HAS_SUBTASK, `Task.reinforces_habit_uid` → REINFORCES_HABIT). This exists because the entity door (`service.create(entity)`, which a service-internal create such as `GoalTaskGenerator` uses) has no request: a link the entity cannot carry is a link that door can never write. It is not "sometimes persisted" — the property never exists in either direction; only the create-time *input* differs.
 
 Confusing the two produces either stale denormalized data (writing what should be derived) or phantom traversal (reading a field that was never populated).
 
@@ -64,7 +64,7 @@ Confusing the two produces either stale denormalized data (writing what should b
 
 ⚠ **Absence from the DTO is NOT what makes a field unpersistable** — that was the stated test here until 2026-08-06, and it was wrong. Only `create_*` paths that persist `to_dto().to_dict()` are covered by it; the generated CRUD route (`CRUDRouteFactory._register_create_route`) converts the request and persists the **ENTITY**, so `to_neo4j_node` reads the dataclass field directly. `reinforces_habit_uid` was landing as a junk node property on every task and event created through `POST /api/{tasks,events}/create`, while no edge was written. The skip-set entry is what actually enforces the rule; the DTO's silence merely hid the gap.
 
-**On Tasks and Events, `reinforces_habit_uid` is derived on READ but is the edge's INPUT on CREATE.** It rides on the entity because the generated route hands the service an entity and no request — a link the entity cannot carry is a link that door can never write — and `TasksCoreService._write_link_edges` / `EventsCoreService._write_link_edges` turn it into the REINFORCES_HABIT edge for both doors. The goal link of both follows the same shape with a split spelling: the read projection is the singular `contributes_to_goal_uid` (one goal, picked by `pick_goal`), and the create input is the plural `contributes_to_goal_uids` — one CONTRIBUTES_TO_GOAL edge per goal, since a task may contribute to several goals and a habit-scheduled event contributes to every goal its habit supports. Links the entity genuinely cannot carry (`milestone_celebration_for_goal` → CELEBRATES_GOAL) stay request-door-only, written by the same guarded batch when the request is present.
+**On Tasks and Events, `reinforces_habit_uid` is derived on READ but is the edge's INPUT on CREATE.** It rides on the entity because the entity door has no request — a link the entity cannot carry is a link that door can never write — and `TasksCoreService._write_link_edges` / `EventsCoreService._write_link_edges` turn it into the REINFORCES_HABIT edge for both doors. The goal link of both follows the same shape with a split spelling: the read projection is the singular `contributes_to_goal_uid` (one goal, picked by `pick_goal`), and the create input is the plural `contributes_to_goal_uids` — one CONTRIBUTES_TO_GOAL edge per goal, since a task may contribute to several goals and a habit-scheduled event contributes to every goal its habit supports. Links the entity genuinely cannot carry (`milestone_celebration_for_goal` → CELEBRATES_GOAL) stay request-door-only, written by the same guarded batch when the request is present.
 
 ---
 
