@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: '2026-11-05'
+updated: '2026-11-07'
 category: patterns
 related_skills:
 - pydantic
@@ -150,6 +150,29 @@ a body FastHTML parses (`application/json`, url-encoded, multipart); a page load
 query parameter keeps the plain-text 400. FastHTML matches `application/json` exactly, so
 `application/json; charset=utf-8` skips the pre-parse and the route's own reader refuses
 it in the same shape.
+
+### Who answers first: a body FastHTML cannot parse, before any door check
+
+FastHTML parses the body before every Beforeware and before the handler (`_wrap_call`
+reads it for each), so the parse comes before anything a door checks. A body it cannot
+parse (unparseable JSON, a JSON array or scalar, a multipart body it cannot frame) is
+refused **400** by `malformed_body_handler` before CSRF and before authentication: an
+anonymous caller with no CSRF token who posts `{bad` gets the 400, not 403 or 401. The
+400 carries only the framework's detail (`Invalid JSON body`), nothing about the schema.
+No line order inside a handler, and no Beforeware, can authenticate first.
+
+Once the body parses, the CRUD factory's `/create` and `/update` doors answer in this order:
+
+| Step | Check | Refusal |
+|------|-------|---------|
+| 1 | FastHTML's parse (`application/json` exactly, or a form encoding) | 400 `Invalid JSON body` / `JSON body must be an object` / `Invalid form-data: …` |
+| 2 | `@csrf_protected` | 403 `CSRF_INVALID` |
+| 3 | The role gate where one is set, then `require_authenticated_user` | 401, or 403 for the role |
+| 4 | `parse_body` against the schema | 400 naming the field |
+
+A Content-Type that FastHTML does not match exactly (`application/json; charset=utf-8`)
+skips step 1, so the same bad body reaches step 4 and is refused there, after CSRF and
+authentication. `tests/unit/adapters/test_body_rejection_is_400.py` holds all three orders.
 
 ### JSON Bodies: Pydantic Request Models
 

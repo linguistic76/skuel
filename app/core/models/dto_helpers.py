@@ -22,12 +22,25 @@ from enum import Enum
 from typing import Any
 
 from core.models.enums.entity_enums import EntityStatus
+from core.utils.neo4j_temporal import (
+    convert_neo4j_date,
+    convert_neo4j_datetime,
+    convert_neo4j_time,
+    is_neo4j_date,
+    is_neo4j_datetime,
+    is_neo4j_time,
+)
 from core.utils.type_converters import EnumLike
 
 
 def parse_datetime_field(data: dict, field_name: str) -> None:
     """
-    Parse datetime field in-place if it's a string.
+    Parse a datetime field in-place: an ISO string, or the driver's ``DateTime``.
+
+    A node read raw from the graph carries the driver's own temporal types
+    (Cypher ``datetime()`` stores a native value). Each becomes a Python
+    ``datetime`` through ``convert_neo4j_datetime``, the converter
+    ``from_neo4j_node`` uses, so a model reads the same whichever path built it.
 
     Args:
         data: Dictionary to modify
@@ -38,13 +51,17 @@ def parse_datetime_field(data: dict, field_name: str) -> None:
         parse_datetime_field(data, 'created_at')
         # data['created_at'] is now datetime(2025, 10, 21, 10, 30, 0)
     """
-    if field_name in data and isinstance(data[field_name], str):
-        data[field_name] = datetime.fromisoformat(data[field_name])
+    value = data.get(field_name)
+    if isinstance(value, str):
+        data[field_name] = datetime.fromisoformat(value)
+    elif is_neo4j_datetime(value):
+        data[field_name] = convert_neo4j_datetime(value)
 
 
 def parse_date_field(data: dict, field_name: str) -> None:
     """
-    Parse date field in-place if it's a string.
+    Parse a date field in-place: an ISO string, or the driver's ``Date``
+    (through ``convert_neo4j_date``, as ``parse_datetime_field`` does).
 
     Tolerates a full *datetime* string in a date field (a mis-writing path: some
     writer stored ``"2026-10-21T09:00:00"`` where a date belongs). Bare
@@ -63,15 +80,23 @@ def parse_date_field(data: dict, field_name: str) -> None:
         parse_date_field(data, 'due_date')
         # data['due_date'] is now date(2025, 10, 21)
     """
-    if field_name in data and isinstance(data[field_name], str):
+    value = data.get(field_name)
+    if isinstance(value, str):
         # [:10] is a no-op for an already date-only ISO string (exactly 10 chars)
         # and extracts the date component from a datetime string.
-        data[field_name] = date.fromisoformat(data[field_name][:10])
+        data[field_name] = date.fromisoformat(value[:10])
+    elif is_neo4j_date(value):
+        data[field_name] = convert_neo4j_date(value)
 
 
 def parse_time_field(data: dict, field_name: str) -> None:
     """
-    Parse time field in-place if it's a string.
+    Parse a time field in-place: an ISO string, or the driver's ``Time``.
+
+    The mapper writes a ``time`` as a native LOCAL TIME, so a node read raw from
+    the graph (an Event's ``start_time``) carries the driver's type here;
+    ``convert_neo4j_time`` turns it into a Python ``time``, as
+    ``parse_datetime_field`` does for a datetime.
 
     Args:
         data: Dictionary to modify
@@ -82,8 +107,11 @@ def parse_time_field(data: dict, field_name: str) -> None:
         parse_time_field(data, 'start_time')
         # data['start_time'] is now time(10, 30, 0)
     """
-    if field_name in data and isinstance(data[field_name], str):
-        data[field_name] = time.fromisoformat(data[field_name])
+    value = data.get(field_name)
+    if isinstance(value, str):
+        data[field_name] = time.fromisoformat(value)
+    elif is_neo4j_time(value):
+        data[field_name] = convert_neo4j_time(value)
 
 
 def parse_enum_field(data: dict, field_name: str, enum_class: type[Enum]) -> None:
@@ -556,9 +584,9 @@ def dto_from_dict[T](
         cls: DTO class to instantiate
         data: Dictionary with field data (modified in-place for efficiency)
         enum_fields: Dict mapping field name -> Enum class for parsing
-        date_fields: Fields to parse as date from ISO strings
-        datetime_fields: Fields to parse as datetime from ISO strings
-        time_fields: Fields to parse as time from ISO strings
+        date_fields: Fields to parse as date (ISO string or the driver's Date)
+        datetime_fields: Fields to parse as datetime (ISO string or the driver's DateTime)
+        time_fields: Fields to parse as time (ISO string or the driver's Time)
         list_fields: Fields to ensure are lists (None -> [])
         dict_fields: Fields to ensure are dicts (None -> {})
 
@@ -580,7 +608,7 @@ def dto_from_dict[T](
     from dataclasses import fields as dataclass_fields
     from dataclasses import is_dataclass
 
-    # Parse date/datetime/time strings
+    # Parse date/datetime/time values (ISO strings and the driver's temporals)
     if date_fields:
         parse_date_fields(data, date_fields)
     if datetime_fields:
