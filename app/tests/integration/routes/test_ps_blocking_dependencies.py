@@ -8,6 +8,7 @@ that against the hero card itself, for every state a prerequisite can be in.
 
 ``GET /api/path-steps/prerequisites`` walks the same edges transitively and takes the same
 ruling on a draft: it neither shows nor counts, and nor does what lies only beyond one.
+``prerequisite_count`` on ``/api/path-steps/stats`` is that door's total.
 """
 
 from __future__ import annotations
@@ -53,6 +54,7 @@ MASTERED = "ps.psblocking.mastered"
 OTHERS_ONLY = "ps.psblocking.others-only"
 DRAFT = "ps.psblocking.draft"
 BEYOND_DRAFT = "ps.psblocking.beyond-draft"
+TWO_HOPS = "ps.psblocking.two-hops"
 KU_READ = "ku.psblocking.read"
 _STEPS = (
     TARGET,
@@ -64,6 +66,7 @@ _STEPS = (
     OTHERS_ONLY,
     DRAFT,
     BEYOND_DRAFT,
+    TWO_HOPS,
 )
 UIDS = (READER, OTHER, *_STEPS, KU_READ)
 _STAMP = "2000-01-01T00:00:00+00:00"
@@ -116,11 +119,16 @@ async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
         )
         await session.run(
             """
-            MATCH (d:PathStep {uid: $draft}), (b:PathStep {uid: $beyond})
+            MATCH (d:PathStep {uid: $draft}), (b:PathStep {uid: $beyond}),
+                  (h:PathStep {uid: $two_hops}), (t:PathStep {uid: $target})
             MERGE (d)-[:REQUIRES_STEP]->(b)
+            MERGE (h)-[:REQUIRES_STEP]->(t)
+            MERGE (h)-[:REQUIRES_KNOWLEDGE]->(t)
             """,
             draft=DRAFT,
             beyond=BEYOND_DRAFT,
+            two_hops=TWO_HOPS,
+            target=TARGET,
         )
         await session.run(
             """
@@ -306,3 +314,20 @@ async def test_a_draft_step_still_reads_its_own_published_prerequisites(
 
     assert response.status_code == 200, response.text[:300]
     assert [row["uid"] for row in response.json()["prerequisites"]] == [BEYOND_DRAFT]
+
+
+@pytest.mark.parametrize(
+    ("uid", "count"),
+    [(TARGET, 6), (TWO_HOPS, 7), (DRAFT, 1), (NO_PREREQS, 0)],
+    ids=["steps-and-a-ku-no-draft", "two-hops-each-once", "a-named-draft", "none"],
+)
+async def test_stats_counts_what_the_chain_door_totals(
+    reader: httpx.AsyncClient, uid: str, count: int
+) -> None:
+    stats = await reader.get("/api/path-steps/stats", params={"uid": uid})
+    chain = await reader.get("/api/path-steps/prerequisites", params={"step_uid": uid})
+
+    assert stats.status_code == 200, stats.text[:300]
+    assert chain.status_code == 200, chain.text[:300]
+    assert stats.json()["prerequisite_count"] == count
+    assert chain.json()["total_prerequisites"] == count
