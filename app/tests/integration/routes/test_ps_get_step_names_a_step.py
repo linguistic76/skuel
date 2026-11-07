@@ -3,8 +3,8 @@
 ``PsCoreService.get_step`` reads through ``PsBackend.get_step_with_knowledge``, which
 matches the ``PathStep`` label. A uid naming a node of another kind (a Task, a Ku) is
 None to it, so each door it serves answers 404 for that uid, as it does for a uid that
-names nothing. Before the read matched the label, the ``PathStep`` constructor refused
-the other node (G6) and the refusal came back as a database error: 503.
+names nothing. The ``PathStep`` constructor refuses a node of another kind (G6), so the
+label is what keeps such a uid from reading as a database error (503).
 
 The three readers: ``GET /api/path-steps/prerequisites``, ``POST /api/pathways/progress``
 and ``LpService.get_step`` (the progress door's own read). A published step is the

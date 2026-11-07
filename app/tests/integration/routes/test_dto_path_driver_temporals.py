@@ -4,8 +4,9 @@ The search, traversal and range reads turn raw node records into models through
 ``{Domain}DTO.from_dict``. A raw record carries the driver's own temporal types: the
 mapper writes a ``time`` as a native LOCAL TIME (an Event's ``start_time``), and Cypher
 ``datetime()`` stamps a native (bulk upsert's ``updated_at`` when a vault file is
-re-ingested). The JSON boundary refuses a driver temporal, so each door below answered
-500 while the DTO parsers converted ISO strings only.
+re-ingested). The JSON boundary refuses a driver temporal, so each door below answers
+only because the DTO parsers convert one as ``from_neo4j_node`` does; without that, a
+door answers 500.
 
 Each door is read over the bootstrapped app. The entities come from the domains' real
 create and link doors; only the re-ingest stamp is written by hand, in the shape its
