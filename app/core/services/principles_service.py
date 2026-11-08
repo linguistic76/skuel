@@ -392,18 +392,24 @@ class PrinciplesService(
         # …and the reflection itself joins the principle's alignment history as a
         # dated entry, so a period report counts the review even after a later
         # one has moved the stamp on.
+        # The entry is appended to the history as it stands under the principle's lock
+        # (``rewrite_principle``), so two reflections recorded at once are both kept.
         today = today_in(current_zone())
         occurrence = AlignmentHistoryEntry(
             assessed_date=today, alignment_level=level, evidence=evidence, kind="reflection"
         )
-        history = [
-            *(entry.to_record() for entry in owned.value.alignment_history),
-            occurrence.to_record(),
-        ]
-        stamped = await self.core.update_principle(
-            principle_uid,
-            PrincipleUpdateIntent(last_review_date=today, alignment_history=history),
-        )
+
+        # boundary: pre-serialization patch — the history is JSON-encoded at the write.
+        def append(principle: Principle) -> dict[str, Any]:
+            return {
+                "last_review_date": today,
+                "alignment_history": [
+                    *(entry.to_record() for entry in principle.alignment_history),
+                    occurrence.to_record(),
+                ],
+            }
+
+        stamped = await self.core.rewrite_principle(principle_uid, append)
         if stamped.is_error:
             return Result.fail(stamped)
 

@@ -3,7 +3,7 @@ Askesis Converters
 ==================
 
 Conversion functions between the Askesis request (Tier 1) and DTO (Tier 2)
-layers, plus the DTO-level update/expand helpers used by AskesisCoreService.
+layers, plus the DTO-level update patch and expand helpers used by AskesisCoreService.
 
 Tier 2 ↔ Tier 3 (``AskesisDTO`` ↔ ``Askesis``) conversions deliberately do NOT
 live here — they are ``Askesis.from_dto`` / ``Askesis.to_dto`` on the domain
@@ -12,6 +12,7 @@ the frozen dataclass's collection fields) and were removed; call the domain
 methods directly.
 """
 
+from dataclasses import fields
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -81,41 +82,18 @@ def askesis_update_request_to_dto(
 # ==========================================================================
 
 
-def apply_askesis_update_to_dto(dto: AskesisDTO, update_dto: AskesisUpdateDTO) -> AskesisDTO:
-    """Apply update DTO to existing Askesis DTO."""
-    # Update only non-None fields
-    if update_dto.name is not None:
-        dto.name = update_dto.name
-    if update_dto.version is not None:
-        dto.version = update_dto.version
-    if update_dto.intelligence_confidence is not None:
-        dto.intelligence_confidence = update_dto.intelligence_confidence
-    if update_dto.preferred_guidance_mode is not None:
-        dto.preferred_guidance_mode = update_dto.preferred_guidance_mode
-    if update_dto.preferred_complexity_level is not None:
-        dto.preferred_complexity_level = update_dto.preferred_complexity_level
-    if update_dto.total_conversations is not None:
-        dto.total_conversations = update_dto.total_conversations
-    if update_dto.total_domain_integrations is not None:
-        dto.total_domain_integrations = update_dto.total_domain_integrations
-    if update_dto.integration_success_rate is not None:
-        dto.integration_success_rate = update_dto.integration_success_rate
-    if update_dto.pattern_recognition_accuracy is not None:
-        dto.pattern_recognition_accuracy = update_dto.pattern_recognition_accuracy
-    if update_dto.proactive_guidance_success_rate is not None:
-        dto.proactive_guidance_success_rate = update_dto.proactive_guidance_success_rate
-    if update_dto.active_learning_areas is not None:
-        dto.active_learning_areas = update_dto.active_learning_areas
-    if update_dto.knowledge_gaps is not None:
-        dto.knowledge_gaps = update_dto.knowledge_gaps
-    if update_dto.optimization_opportunities is not None:
-        dto.optimization_opportunities = update_dto.optimization_opportunities
-    if update_dto.last_interaction is not None:
-        dto.last_interaction = update_dto.last_interaction
-    if update_dto.last_intelligence_update is not None:
-        dto.last_intelligence_update = update_dto.last_intelligence_update
+# boundary: a pre-serialization patch of the DTO's mixed field types (str, float, int,
+# list[str], datetime), serialized at the write (``to_neo4j_node``).
+def askesis_update_changes(update_dto: AskesisUpdateDTO) -> dict[str, Any]:
+    """The partial patch an update DTO asks for: every field it sets, nothing else.
 
-    return dto
+    A field left ``None`` is not in the patch, so the write leaves what the node holds.
+    """
+    return {
+        field.name: getattr(update_dto, field.name)
+        for field in fields(update_dto)
+        if field.name != "uid" and getattr(update_dto, field.name) is not None
+    }
 
 
 # ==========================================================================

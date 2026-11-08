@@ -15,6 +15,7 @@ Provides:
         time against the node's prior status, under its write-lock (ADR-087)
     _recompute_with_status_guard: The same guarded write, for a patch derived from
         state read under the node's lock in the same transaction (domain wrappers only)
+    rewrite_under_lock: The same, planned from the locked node alone
     delete: Delete with optional cascade (DETACH DELETE)
     list: List entities with filters, pagination, sorting
 
@@ -775,6 +776,28 @@ class _CrudMixin[T: DomainModelProtocol]:
             "recompute_with_status_guard", time.time() - start_time, is_error=False
         )
         return Result.ok(GuardedRecompute(plan=decided, outcome=self._status_guard_outcome(record)))
+
+    async def rewrite_under_lock[P: GuardedWritePlan](
+        self,
+        uid: str,
+        plan: Callable[[T], P | None],
+    ) -> Result[GuardedRecompute[T, P] | None]:
+        """Rewrite an entity from the entity itself, read under its lock.
+
+        For a field held on the node whose new value is derived from its current one (a
+        choice's options, a principle's expressions, a counter): lock, read, plan and
+        guarded write are one transaction (``_recompute_with_status_guard``, with no
+        state read beside the node). Two rewrites of one entity serialize, the later one
+        planning from what the earlier one wrote, and the write carries only what the
+        plan names, so it cannot put back a field another writer changed meanwhile.
+        """
+
+        # boundary: the primitive's state-read row; this rewrite runs no state read
+        # and is handed ``{}``.
+        def plan_from_node(entity: T, _row: Mapping[str, Any]) -> P | None:
+            return plan(entity)
+
+        return await self._recompute_with_status_guard(uid, None, {}, plan_from_node)
 
     def _status_guard_statement(
         self,

@@ -373,7 +373,7 @@ The option is built by `ConversionServiceV2.choice_option_from_request`, the bui
 create door uses, so an option added later is stored exactly like one created with the
 choice. Each option write (`add_option`, `update_option`, `remove_option`) and the
 decision are planned from the choice under its lock
-(`ChoicesBackend.rewrite_choice_under_lock`), and an option write carries the options
+(`rewrite_under_lock`), and an option write carries the options
 alone.
 
 ### Link a Principle

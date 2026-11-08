@@ -2,7 +2,7 @@
 
 Each door verifies the owner at the route, reads JSON or the page's form through
 ``parse_body``, and writes from the choice as it stands under its lock
-(``ChoicesBackend.rewrite_choice_under_lock``). Held here against the app's own graph:
+(``rewrite_under_lock``). Held here against the app's own graph:
 
 - an option added on the page is stored exactly as one the JSON create door wrote, and
   the decision can select it;

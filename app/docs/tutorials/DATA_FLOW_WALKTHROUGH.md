@@ -167,9 +167,12 @@ that is not.
 ## Where DTOs live
 
 `TaskDTO` is on neither path. A request becomes a frozen `Task` directly and the mapper turns that
-into a node, which is the intended design. DTOs live in some services' read-modify-write code:
-`PrinciplesService.create_principle_expression` (`_EmbodimentMixin`) takes the principle it read
-`to_dto()`, appends the expression and writes `dto.to_dict()` through `backend.update`.
+into a node, which is the intended design. DTOs live in the generators:
+`GoalTaskGenerator.generate_tasks_for_goal` builds each task it suggests as a `TaskDTO` and
+answers the tasks it created `to_dto()`. No service rewrites an entity through a DTO. A field whose
+new value comes from its current one is planned from the node under its lock and written alone
+(`rewrite_under_lock`): `PrinciplesService.create_principle_expression` (`_EmbodimentMixin`)
+appends an expression that way.
 
 ## Where to read next
 

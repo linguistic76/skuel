@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-10-10
+updated: 2026-11-08
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -99,6 +99,16 @@ Created via `create_common_sub_services()` factory + domain-specific services in
 | `get_filtered_context(user_uid, ...)` | `Result[ListContext]` | Filtered + sorted principles with stats |
 
 `get_analytics_summary` orchestrates `core`, `alignment`, and `reflection` sub-services. Extracted from route-level `get_analytics_data` inner function.
+
+### Appends Under the Lock
+
+An expression (`create_principle_expression`, `POST /api/principles/expression?uid=`) and a
+reflection's alignment-history entry (`record_principle_reflection`,
+`POST /api/principles/reflection`) are each appended to the list as it stands under the
+principle's lock: `PrinciplesCoreService.rewrite_principle`, over `rewrite_under_lock`
+(ADR-087). The write carries the appended field alone (the reflection also its
+`last_review_date`), so two appends at once are both kept and a status changed meanwhile is
+never written back. Both announce `PrincipleUpdated`.
 
 ## Model Fields
 
