@@ -58,7 +58,6 @@ CENSUS: dict[tuple[str, str, str], tuple[int, str]] = {
     ("adapters/inbound/calendar_ui.py", "x-on:click", "close_expr"): (1, CODE),
     ("adapters/inbound/teaching_ui.py", "hx-on::after-request", "after_request"): (1, CODE),
     ("ui/activities/_shared.py", "hx_vals", "level.value"): (1, ENUM),
-    ("ui/activities/choices_views.py", "hx_vals", "new_status"): (1, ENUM),
     ("ui/activities/events_views.py", "hx_vals", "new_status"): (1, ENUM),
     ("ui/activities/habits_views.py", "hx_vals", "new_status"): (1, ENUM),
     ("ui/activities/principles_views.py", "hx_vals", "new_status"): (1, ENUM),

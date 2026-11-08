@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-24
+updated: 2026-11-08
 ---
 
 # ChoicesIntelligenceService - Decision Support & Impact Analysis
@@ -127,7 +127,7 @@ DecisionIntelligence(
         habits=[...]         # List (empty for choices)
     ),
     decision_analysis=DecisionAnalysis(
-        complexity=7.5,      # 0-10 scale
+        complexity=0.8,      # 0.0-1.0 scale
         confidence_needed="high",
         stake_level="medium"
     ),
@@ -191,20 +191,23 @@ if result.is_ok:
 - Required knowledge (information needs)
 
 **Complexity Calculation:**
-Uses `choice.calculate_decision_complexity()` domain method:
+Uses `choice.calculate_decision_complexity()` domain method, a 0.0-1.0 score:
 ```python
-complexity = (
-    (num_options * 1.5) +
-    (num_principles * 2.0) +
-    (num_knowledge * 1.0) +
-    (consequence_weight * 3.0)
+complexity = min(
+    1.0,
+    min(0.3, num_options * 0.1)
+    + min(0.3, num_criteria * 0.1)
+    + min(0.2, num_stakeholders * 0.1)
+    + min(0.2, num_constraints * 0.1),
 )
 ```
 
-**Confidence Levels:**
-- `complexity > 7.0` → "high" confidence needed
-- `3.0 ≤ complexity ≤ 7.0` → "medium" confidence needed
-- `complexity < 3.0` → "low" confidence needed
+**Confidence Levels** (`DecisionComplexity` in `core/constants.py`):
+- `complexity > 0.7` → "high" confidence needed
+- `0.3 ≤ complexity ≤ 0.7` → "medium" confidence needed
+- `complexity < 0.3` → "low" confidence needed
+
+`gather_more_info` is set when `complexity > 0.6` and there is knowledge to consult.
 
 **Stake Levels:**
 - `total_impact > 10` → "high" stakes

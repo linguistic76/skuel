@@ -30,7 +30,7 @@ from typing import (
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
-from core.models.choice.choice_request import ChoiceCreateRequest
+from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceOptionRequest
 from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest
 from core.models.forms.form_template import FormTemplate
@@ -46,6 +46,7 @@ from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
 from core.utils.type_converters import PydanticModel
+from core.utils.uid_generator import UIDGenerator
 
 # Type variables for generic methods
 T = TypeVar("T")
@@ -241,34 +242,42 @@ class ConversionServiceV2:
 
     # --- Choice Conversions --
     @classmethod
+    def choice_option_from_request(cls, option: ChoiceOptionRequest) -> ChoiceOption:
+        """Build one stored option from its request, with a uid of its own.
+
+        Every door that writes an option builds it here: the create door for each
+        option it is given, and ``add_option`` for the one it appends. So an option
+        added on the choice page is stored exactly like one the JSON create door wrote.
+        A form's blank description arrives as ``None`` and is stored as ``""``.
+        """
+        return ChoiceOption(
+            uid=UIDGenerator.generate_random_uid("option"),
+            title=option.title,
+            description=option.description or "",
+            feasibility_score=option.feasibility_score,
+            risk_level=option.risk_level,
+            potential_impact=option.potential_impact,
+            resource_requirement=option.resource_requirement,
+            estimated_duration=option.estimated_duration,
+            dependencies=tuple(option.dependencies),
+            tags=tuple(option.tags),
+        )
+
+    @classmethod
     def choice_create_to_pure(
         cls, schema: ChoiceCreateRequest, uid: str | None = None, **kwargs: Any
     ) -> Choice:
         """Convert ChoiceCreateRequest to Choice entity using generic method.
 
         Straight list[str] fields tuple-ize generically in create_to_pure; only
-        the nested option requests need hand-conversion to ChoiceOption values.
+        the nested option requests need hand-conversion, through
+        ``choice_option_from_request``.
         """
         extra_fields: dict[str, Any] = {}
         if schema.options:
-            # Convert ChoiceOptionRequest list to ChoiceOption tuple
-            options = []
-            for i, opt_req in enumerate(schema.options):
-                option_uid = f"{uid}_option_{i}" if uid else f"option_{i}"
-                option = ChoiceOption(
-                    uid=option_uid,
-                    title=opt_req.title,
-                    description=opt_req.description,
-                    feasibility_score=opt_req.feasibility_score,
-                    risk_level=opt_req.risk_level,
-                    potential_impact=opt_req.potential_impact,
-                    resource_requirement=opt_req.resource_requirement,
-                    estimated_duration=opt_req.estimated_duration,
-                    dependencies=tuple(opt_req.dependencies),
-                    tags=tuple(opt_req.tags),
-                )
-                options.append(option)
-            extra_fields["options"] = tuple(options)
+            extra_fields["options"] = tuple(
+                cls.choice_option_from_request(option) for option in schema.options
+            )
 
         # Merge kwargs (includes user_uid) with extra_fields
         extra_fields.update(kwargs)

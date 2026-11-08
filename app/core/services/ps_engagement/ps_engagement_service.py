@@ -383,10 +383,11 @@ class PsEngagementService:
         Idempotent: completion edges are filtered by ``state='engaged'``, so
         re-firing after the edge has transitioned is a no-op (returns None).
 
-        Per ``_terminal_status_rules``: Principles never block, Habits and
-        Principles never trigger (no clean entity-terminal event to subscribe
-        to). The 4 subscribed trigger events are ``TaskCompleted``,
-        ``GoalAchieved``, ``CalendarEventCompleted``, ``ChoiceMade``.
+        Per ``_terminal_status_rules``: Principles never block, a choice is done
+        once decided, and Habits and Principles never trigger (no clean
+        entity-terminal event to subscribe to). The 4 subscribed trigger events
+        are ``TaskCompleted``, ``GoalAchieved``, ``CalendarEventCompleted``,
+        ``ChoiceMade``.
         """
         from core.models.enums.entity_enums import EntityStatus, EntityType
 
@@ -419,7 +420,7 @@ class PsEngagementService:
                     f"(student={student_uid}, ps={ps_uid}): {exc}"
                 )
                 return Result.ok(None)
-            if not is_engagement_terminal(et, st):
+            if not is_engagement_terminal(et, st, decided=bool(sibling.get("decided"))):
                 # Something still pending — don't fire.
                 return Result.ok(None)
 

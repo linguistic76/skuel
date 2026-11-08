@@ -16,6 +16,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
+    from core.models.choice.choice_request import ChoiceOptionRequest
 
 
 class _OptionManagementMixin:
@@ -33,32 +34,9 @@ class _OptionManagementMixin:
     # OPTION MANAGEMENT - Delegate to ChoicesCoreService
     # ========================================================================
 
-    async def add_option(
-        self,
-        choice_uid: str,
-        title: str,
-        description: str,
-        feasibility_score: float = 0.5,
-        risk_level: float = 0.5,
-        potential_impact: float = 0.5,
-        resource_requirement: float = 0.5,
-        estimated_duration: int | None = None,
-        dependencies: list[str] | None = None,
-        tags: list[str] | None = None,
-    ) -> Result[Choice]:
-        """Add a new option to an existing choice."""
-        return await self.core.add_option(
-            choice_uid=choice_uid,
-            title=title,
-            description=description,
-            feasibility_score=feasibility_score,
-            risk_level=risk_level,
-            potential_impact=potential_impact,
-            resource_requirement=resource_requirement,
-            estimated_duration=estimated_duration,
-            dependencies=dependencies,
-            tags=tags,
-        )
+    async def add_option(self, choice_uid: str, option: ChoiceOptionRequest) -> Result[Choice]:
+        """Add one option to an undecided choice."""
+        return await self.core.add_option(choice_uid=choice_uid, option=option)
 
     async def update_option(
         self,
@@ -104,7 +82,7 @@ class _OptionManagementMixin:
         decision_rationale: str | None = None,
         confidence: float = 0.5,
     ) -> Result[Choice]:
-        """Make a decision on a choice (select an option)."""
+        """Decide an undecided choice: select one of its own options, once."""
         return await self.core.make_decision(
             choice_uid=choice_uid,
             selected_option_uid=selected_option_uid,

@@ -8,14 +8,15 @@ Handles basic CRUD operations for choices.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Final, cast
+from typing import TYPE_CHECKING, Any, Final
 
 from core.events import publish_event
 from core.events.choice_events import (
     ChoiceCreated,
     ChoiceDeleted,
+    ChoiceMade,
     ChoiceOutcomeRecorded,
     ChoiceUpdated,
 )
@@ -54,6 +55,7 @@ if TYPE_CHECKING:
     from core.models.choice.choice_request import (
         ChoiceCreateRequest,
         ChoiceEvaluationRequest,
+        ChoiceOptionRequest,
     )
     from core.ports.domain_protocols import ChoicesOperations
 
@@ -149,6 +151,37 @@ def _with_decision_immutability(
     if not (_DECISION_CRITICAL_FIELDS & set(changes)):
         return guard
     return dataclasses.replace(guard, refuse_if_prior_in=_DECIDED_STATUSES)
+
+
+@dataclasses.dataclass(frozen=True)
+class _ChoiceRewrite:
+    """A choice write planned from the choice under its lock (``GuardedWritePlan``)."""
+
+    # boundary: pre-serialization patch — ``options`` is a list of ``ChoiceOption``
+    # dataclasses, JSON-encoded at the write (``to_neo4j_node``) as the create door's are.
+    updates: dict[str, Any]
+    guard: StatusWriteGuard
+
+
+def _options_rewrite(options: list[ChoiceOption]) -> _ChoiceRewrite:
+    """The write of a choice's whole option list, and nothing else.
+
+    It names no status, so no status rule applies to it: the option rules are asked of
+    the locked choice by the planner.
+    """
+    return _ChoiceRewrite(updates={"options": options}, guard=StatusWriteGuard())
+
+
+def _options_frozen_error(choice: Choice, action: str) -> ErrorContext | None:
+    """The refusal of an option edit on a decided choice (``Choice.options_open``), or
+    ``None`` when its options may change."""
+    if choice.options_open():
+        return None
+    return Errors.validation(
+        message=f"Cannot {action} a decided choice. Decisions are historical records.",
+        field="status",
+        value=get_enum_value(choice.status),
+    )
 
 
 class ChoicesCoreService(
@@ -735,12 +768,6 @@ class ChoicesCoreService(
         # would stay stale until an unrelated text edit or a manual backfill. Passed
         # explicitly rather than via ``changed_fields``: the outcome write is exactly the
         # embeddable change, so there is nothing to filter.
-
-        # Post-persist embedding refresh (ADR-074). This path writes ``actual_outcome``,
-        # which EMBEDDING_FIELD_MAPS[CHOICE] now names — without this the stored vector
-        # would stay stale until an unrelated text edit or a manual backfill. Passed
-        # explicitly rather than via ``changed_fields``: the outcome write is exactly the
-        # embeddable change, so there is nothing to filter.
         await publish_embedding_requested(self.event_bus, EntityType.CHOICE, choice, self.logger)
 
         return Result.ok(choice)
@@ -752,58 +779,81 @@ class ChoicesCoreService(
         decision_rationale: str | None = None,
         confidence: float = 0.5,
     ) -> Result[Choice]:
-        """
-        Record a decision for a choice (selects an option).
+        """Record the decision on a choice: one of its own options, selected once.
 
-        Publishes ChoiceMade event when decision is finalized.
+        Refused, with the choice unchanged, when the choice is already decided
+        (decisions are historical records: a new choice reconsiders), when it holds
+        fewer than two options, or when ``selected_option_uid`` is not one of them.
+        Each refusal is decided from the choice as it stands under its lock
+        (``rewrite_choice_under_lock``), so an option removed or a decision recorded a
+        moment earlier cannot slip past it.
+
+        The write sets ``selected_option_uid``, ``decision_rationale`` and
+        ``decided_at``, and moves the choice to ACTIVE (a decided choice stays ACTIVE
+        until it is completed) through ``status_transition_guard``, the domain's one
+        status rule. ``confidence`` is not stored: it rides on the ``ChoiceMade``
+        event this publishes, beside the rationale.
 
         Args:
             choice_uid: UID of the choice
-            selected_option_uid: UID of the option that was selected
-            decision_rationale: Optional rationale for the decision
-            confidence: Confidence level in the decision (0.0-1.0)
+            selected_option_uid: UID of one of the choice's options
+            decision_rationale: Optional reasoning for the option selected
+            confidence: Confidence in the decision (0.0-1.0), carried on the event
 
         Returns:
-            Result containing updated Choice
+            Result containing the decided Choice
         """
         # raw-write: decision finalization. Bypasses the validated/event-firing service
         # contract (ChoiceUpdateIntent → update_choice) on purpose — this path publishes
         # its own ChoiceMade below with the selected-option + confidence provenance that
-        # the generic update_choice cannot express. A plain dict literal is the honest
-        # type here.
+        # the generic update_choice cannot express.
         updates: Neo4jProperties = {
             "selected_option_uid": selected_option_uid,
             "decision_rationale": decision_rationale,
             "decided_at": datetime.now().isoformat(),
             "status": EntityStatus.ACTIVE.value,
         }
-
-        # Status-guarded like the chokepoint, for the one rule that reaches this raw
-        # write: DRAFT → ACTIVE is not a completion transition, so there is nothing here
-        # to stamp — but a choice that is already COMPLETED carries ``completed_at``, and
-        # writing ``status=active`` over it would strand that stamp on a non-completed
-        # choice. ``status_transition_guard`` reads the ACTIVE target out of the patch
-        # above and returns exactly the reopen clear for it, so this seam keeps the
-        # stamp invariant with the shared rule rather than a local one. It also refuses
-        # an illegal status target, which is free here (ACTIVE always is) and stays true
-        # if this literal ever changes. The prior it clears against is read under the
-        # node's lock (ADR-087), so a concurrent complete cannot slip past it.
+        # The prior a decision can land on is undecided (DRAFT, or an ARCHIVED choice
+        # never decided), so the reopen clear this guard carries for a COMPLETED prior
+        # never applies; it is the shared rule all the same, and refuses an illegal
+        # target, which ACTIVE never is. It carries no refuse condition.
         guard_result = status_transition_guard(EntityType.CHOICE, updates, zone=current_zone())
         if guard_result.is_error:
             return Result.fail(guard_result)
+        guard = guard_result.value
 
-        result = await self.backend.update_with_status_guard(
-            choice_uid, updates, guard_result.value
-        )
-        if result.is_error:
-            return Result.fail(result)
+        def decide(choice: Choice) -> Result[_ChoiceRewrite]:
+            if choice.is_decided():
+                return Result.fail(
+                    Errors.validation(
+                        message="This choice is already decided. Decisions are historical "
+                        "records. Create a new choice to reconsider.",
+                        field="status",
+                        value=get_enum_value(choice.status),
+                    )
+                )
+            if len(choice.options) < 2:
+                return Result.fail(
+                    Errors.validation(
+                        message="Add at least two options before deciding.",
+                        field="options",
+                        value=len(choice.options),
+                    )
+                )
+            if selected_option_uid not in {option.uid for option in choice.options}:
+                return Result.fail(
+                    Errors.validation(
+                        message="The selected option is not one of this choice's options.",
+                        field="selected_option_uid",
+                        value=selected_option_uid,
+                    )
+                )
+            return Result.ok(_ChoiceRewrite(updates=dict(updates), guard=guard))
 
-        # The patch names its own status, so the bare-stamp gate is empty and this
-        # guard carries no refuse condition — the write always applied.
-        choice = self._to_domain_model(result.value.entity, ChoiceDTO, Choice)
-
-        # Publish ChoiceMade event
-        from core.events import ChoiceMade
+        rewrite = await self._rewrite_choice(choice_uid, decide)
+        if rewrite.is_error:
+            return Result.fail(rewrite)
+        choice = rewrite.value
 
         event = ChoiceMade(
             choice_uid=choice.uid,
@@ -815,6 +865,37 @@ class ChoicesCoreService(
         await publish_event(self.event_bus, event, self.logger)
 
         return Result.ok(choice)
+
+    async def _rewrite_choice(
+        self,
+        choice_uid: str,
+        decide: Callable[[Choice], Result[_ChoiceRewrite]],
+    ) -> Result[Choice]:
+        """Plan one rewrite from the choice under its lock and write it; the choice as written.
+
+        ``decide`` reads the locked choice and answers the write, or the refusal its
+        caller owes the client; a refusal writes nothing. A choice that does not exist
+        is the backend's not found.
+        """
+        refusals: list[Result[_ChoiceRewrite]] = []
+
+        def plan(choice: Choice) -> _ChoiceRewrite | None:
+            decided = decide(choice)
+            if decided.is_error:
+                refusals.append(decided)
+                return None
+            return decided.value
+
+        result = await self.backend.rewrite_choice_under_lock(choice_uid, plan)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is None:
+            if refusals:
+                return Result.fail(refusals[0])
+            return Result.fail(
+                Errors.system(message=f"The rewrite of choice {choice_uid} wrote nothing.")
+            )
+        return Result.ok(result.value.outcome.entity)
 
     async def find_choices(
         self,
@@ -886,117 +967,57 @@ class ChoicesCoreService(
     # ========================================================================
     # OPTION MANAGEMENT
     # ========================================================================
+    # Each option write is planned from the choice under its lock and carries the
+    # options alone: it can neither lose an option written at the same moment nor
+    # undo a decision recorded first.
 
-    async def add_option(
-        self,
-        choice_uid: str,
-        title: str,
-        description: str,
-        feasibility_score: float = 0.5,
-        risk_level: float = 0.5,
-        potential_impact: float = 0.5,
-        resource_requirement: float = 0.5,
-        estimated_duration: int | None = None,
-        dependencies: list[str] | None = None,
-        tags: list[str] | None = None,
-    ) -> Result[Choice]:
+    async def add_option(self, choice_uid: str, option: ChoiceOptionRequest) -> Result[Choice]:
         """
-        Add a new option to an existing choice.
+        Append one option to an undecided choice.
 
         Business Rules:
-        1. Cannot add options to DECIDED or EVALUATED choices (immutability)
+        1. A decided choice's options are part of the decision (a historical record)
         2. Binary choices can only have exactly 2 options
+
+        The option is built by ``ConversionServiceV2.choice_option_from_request``, the
+        builder the create door uses, so the two store an option alike.
 
         Args:
             choice_uid: UID of the choice
-            title: Option title
-            description: Option description
-            feasibility_score: Feasibility score (0-1, default 0.5)
-            risk_level: Risk level (0-1, default 0.5)
-            potential_impact: Potential impact (0-1, default 0.5)
-            resource_requirement: Resource requirement (0-1, default 0.5)
-            estimated_duration: Estimated duration in minutes
-            dependencies: List of dependency UIDs
-            tags: List of tags
+            option: The option to add
 
         Returns:
             Result containing updated Choice with new option
         """
-        from core.utils.uid_generator import UIDGenerator
+        new_option = ConversionServiceV2.choice_option_from_request(option)
 
-        # Get existing choice
-        existing_result = await self.get_choice(choice_uid)
-        if existing_result.is_error:
-            return Result.fail(existing_result)
-
-        existing = existing_result.value
-        if not existing or not isinstance(existing, Choice):
-            return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
-
-        # Business Rule: Cannot modify decided/evaluated choices
-        if existing.status in [EntityStatus.ACTIVE, EntityStatus.COMPLETED]:
-            return Result.fail(
-                Errors.validation(
-                    message=f"Cannot add options to {existing.status.value} choice. "
-                    "Decisions are historical records.",
-                    field="status",
-                    value=existing.status.value,
+        def append(choice: Choice) -> Result[_ChoiceRewrite]:
+            frozen = _options_frozen_error(choice, "add options to")
+            if frozen is not None:
+                return Result.fail(frozen)
+            if choice.choice_type == ChoiceType.BINARY and len(choice.options) >= 2:
+                return Result.fail(
+                    Errors.validation(
+                        message="Binary choices can only have exactly 2 options",
+                        field="choice_type",
+                        value=choice.choice_type.value,
+                    )
                 )
-            )
+            return Result.ok(_options_rewrite([*choice.options, new_option]))
 
-        # Business Rule: Binary choices can only have 2 options
-        if existing.choice_type == ChoiceType.BINARY and len(existing.options) >= 2:
-            return Result.fail(
-                Errors.validation(
-                    message="Binary choices can only have exactly 2 options",
-                    field="choice_type",
-                    value=existing.choice_type.value,
-                )
-            )
+        rewrite = await self._rewrite_choice(choice_uid, append)
+        if rewrite.is_error:
+            return Result.fail(rewrite)
+        choice = rewrite.value
 
-        # Create new option
-        option_uid = UIDGenerator.generate_random_uid("option")
-        new_option = ChoiceOption(
-            uid=option_uid,
-            title=title,
-            description=description,
-            feasibility_score=feasibility_score,
-            risk_level=risk_level,
-            potential_impact=potential_impact,
-            resource_requirement=resource_requirement,
-            estimated_duration=estimated_duration,
-            dependencies=tuple(dependencies) if dependencies else (),
-            tags=tuple(tags) if tags else (),
-        )
-
-        # Add option to existing options
-        updated_options = list(existing.options)
-        updated_options.append(new_option)
-
-        # Update choice with new options
-        dto = existing.to_dto()
-        # ChoiceDTO stores ChoiceOption frozen dataclasses directly
-        dto.options = cast("list[dict[str, Any]]", list(updated_options))
-
-        # raw-write: full-DTO entity replace after rebuilding the options tuple (not a
-        # partial property patch). ADR-066's ChoiceUpdateIntent does not model option
-        # mutation or whole-entity persistence; this path fires its own ChoiceUpdated
-        # below with the option-level provenance.
-        update_result = await self.backend.update(choice_uid, dto.to_dict())
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
-
-        # Publish ChoiceUpdated event
         event = ChoiceUpdated(
             choice_uid=choice.uid,
             user_uid=choice.user_uid,
-            updated_fields={"options": f"Added option: {title}"},
+            updated_fields={"options": f"Added option: {new_option.title}"},
         )
         await publish_event(self.event_bus, event, self.logger)
 
-        self.logger.info(f"Added option '{title}' to choice {choice_uid}")
+        self.logger.info(f"Added option '{new_option.title}' to choice {choice_uid}")
         return Result.ok(choice)
 
     async def update_option(
@@ -1017,7 +1038,7 @@ class ChoicesCoreService(
         Update an existing option in a choice.
 
         Business Rules:
-        1. Cannot update options in DECIDED or EVALUATED choices (immutability)
+        1. A decided choice's options are part of the decision (a historical record)
         2. Option must exist in the choice
 
         Args:
@@ -1037,90 +1058,47 @@ class ChoicesCoreService(
             Result containing updated Choice
         """
 
-        # Get existing choice
-        existing_result = await self.get_choice(choice_uid)
-        if existing_result.is_error:
-            return Result.fail(existing_result)
+        def revise(opt: ChoiceOption) -> ChoiceOption:
+            return ChoiceOption(
+                uid=opt.uid,
+                title=title if title is not None else opt.title,
+                description=description if description is not None else opt.description,
+                feasibility_score=(
+                    feasibility_score if feasibility_score is not None else opt.feasibility_score
+                ),
+                risk_level=risk_level if risk_level is not None else opt.risk_level,
+                potential_impact=(
+                    potential_impact if potential_impact is not None else opt.potential_impact
+                ),
+                resource_requirement=(
+                    resource_requirement
+                    if resource_requirement is not None
+                    else opt.resource_requirement
+                ),
+                estimated_duration=(
+                    estimated_duration if estimated_duration is not None else opt.estimated_duration
+                ),
+                dependencies=tuple(dependencies) if dependencies is not None else opt.dependencies,
+                tags=tuple(tags) if tags is not None else opt.tags,
+            )
 
-        existing = existing_result.value
-        if not existing or not isinstance(existing, Choice):
-            return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
-
-        # Business Rule: Cannot modify decided/evaluated choices
-        if existing.status in [EntityStatus.ACTIVE, EntityStatus.COMPLETED]:
-            return Result.fail(
-                Errors.validation(
-                    message=f"Cannot update options in {existing.status.value} choice. "
-                    "Decisions are historical records.",
-                    field="status",
-                    value=existing.status.value,
+        def replace(choice: Choice) -> Result[_ChoiceRewrite]:
+            frozen = _options_frozen_error(choice, "update options in")
+            if frozen is not None:
+                return Result.fail(frozen)
+            if option_uid not in {opt.uid for opt in choice.options}:
+                return Result.fail(Errors.not_found(resource="ChoiceOption", identifier=option_uid))
+            return Result.ok(
+                _options_rewrite(
+                    [revise(opt) if opt.uid == option_uid else opt for opt in choice.options]
                 )
             )
 
-        # Find the option to update
-        option_found = False
-        updated_options = []
+        rewrite = await self._rewrite_choice(choice_uid, replace)
+        if rewrite.is_error:
+            return Result.fail(rewrite)
+        choice = rewrite.value
 
-        for opt in existing.options:
-            if opt.uid == option_uid:
-                option_found = True
-                # Create updated option with new values (immutable pattern)
-                updated_option = ChoiceOption(
-                    uid=opt.uid,
-                    title=title if title is not None else opt.title,
-                    description=description if description is not None else opt.description,
-                    feasibility_score=(
-                        feasibility_score
-                        if feasibility_score is not None
-                        else opt.feasibility_score
-                    ),
-                    risk_level=risk_level if risk_level is not None else opt.risk_level,
-                    potential_impact=(
-                        potential_impact if potential_impact is not None else opt.potential_impact
-                    ),
-                    resource_requirement=(
-                        resource_requirement
-                        if resource_requirement is not None
-                        else opt.resource_requirement
-                    ),
-                    estimated_duration=(
-                        estimated_duration
-                        if estimated_duration is not None
-                        else opt.estimated_duration
-                    ),
-                    dependencies=tuple(dependencies)
-                    if dependencies is not None
-                    else opt.dependencies,
-                    tags=tuple(tags) if tags is not None else opt.tags,
-                )
-                updated_options.append(updated_option)
-            else:
-                updated_options.append(opt)
-
-        if not option_found:
-            return Result.fail(
-                Errors.not_found(
-                    resource="ChoiceOption",
-                    identifier=option_uid,
-                )
-            )
-
-        # Update choice with modified options
-        dto = existing.to_dto()
-        # ChoiceDTO stores ChoiceOption frozen dataclasses directly
-        dto.options = cast("list[dict[str, Any]]", list(updated_options))
-
-        # raw-write: full-DTO entity replace after rebuilding the options tuple (not a
-        # partial property patch). ADR-066's ChoiceUpdateIntent does not model option
-        # mutation or whole-entity persistence; this path fires its own ChoiceUpdated
-        # below with the option-level provenance.
-        update_result = await self.backend.update(choice_uid, dto.to_dict())
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
-
-        # Publish ChoiceUpdated event
         event = ChoiceUpdated(
             choice_uid=choice.uid,
             user_uid=choice.user_uid,
@@ -1140,9 +1118,9 @@ class ChoicesCoreService(
         Remove an option from a choice.
 
         Business Rules:
-        1. Cannot remove options from DECIDED or EVALUATED choices (immutability)
+        1. A decided choice's options are part of the decision (a historical record)
         2. Cannot remove options if it would leave less than 2 options
-        3. Cannot remove the selected option (if choice is decided)
+        3. Cannot remove the selected option
         4. Option must exist in the choice
 
         Args:
@@ -1152,81 +1130,37 @@ class ChoicesCoreService(
         Returns:
             Result containing updated Choice
         """
-        # Get existing choice
-        existing_result = await self.get_choice(choice_uid)
-        if existing_result.is_error:
-            return Result.fail(existing_result)
 
-        existing = existing_result.value
-        if not existing or not isinstance(existing, Choice):
-            return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
-
-        # Business Rule: Cannot modify decided/evaluated choices
-        if existing.status in [EntityStatus.ACTIVE, EntityStatus.COMPLETED]:
-            return Result.fail(
-                Errors.validation(
-                    message=f"Cannot remove options from {existing.status.value} choice. "
-                    "Decisions are historical records.",
-                    field="status",
-                    value=existing.status.value,
+        def drop(choice: Choice) -> Result[_ChoiceRewrite]:
+            frozen = _options_frozen_error(choice, "remove options from")
+            if frozen is not None:
+                return Result.fail(frozen)
+            if choice.selected_option_uid == option_uid:
+                return Result.fail(
+                    Errors.validation(
+                        message="Cannot remove the selected option",
+                        field="selected_option_uid",
+                        value=option_uid,
+                    )
                 )
-            )
-
-        # Business Rule: Cannot remove selected option
-        if existing.selected_option_uid == option_uid:
-            return Result.fail(
-                Errors.validation(
-                    message="Cannot remove the selected option",
-                    field="selected_option_uid",
-                    value=option_uid,
+            remaining = [opt for opt in choice.options if opt.uid != option_uid]
+            if len(remaining) == len(choice.options):
+                return Result.fail(Errors.not_found(resource="ChoiceOption", identifier=option_uid))
+            if len(remaining) < 2:
+                return Result.fail(
+                    Errors.validation(
+                        message="Choice must have at least 2 options. Cannot remove.",
+                        field="options",
+                        value=len(remaining),
+                    )
                 )
-            )
+            return Result.ok(_options_rewrite(remaining))
 
-        # Find and remove the option
-        option_found = False
-        updated_options = []
+        rewrite = await self._rewrite_choice(choice_uid, drop)
+        if rewrite.is_error:
+            return Result.fail(rewrite)
+        choice = rewrite.value
 
-        for opt in existing.options:
-            if opt.uid == option_uid:
-                option_found = True
-                # Don't add to updated_options (remove it)
-            else:
-                updated_options.append(opt)
-
-        if not option_found:
-            return Result.fail(
-                Errors.not_found(
-                    resource="ChoiceOption",
-                    identifier=option_uid,
-                )
-            )
-
-        # Business Rule: Must maintain at least 2 options
-        if len(updated_options) < 2:
-            return Result.fail(
-                Errors.validation(
-                    message="Choice must have at least 2 options. Cannot remove.",
-                    field="options",
-                    value=len(updated_options),
-                )
-            )
-
-        # Update choice with remaining options
-        dto = existing.to_dto()
-        # ChoiceDTO stores ChoiceOption frozen dataclasses directly
-        dto.options = cast("list[dict[str, Any]]", list(updated_options))
-
-        # raw-write: full-DTO entity replace after rebuilding the options tuple (not a
-        # partial property patch). ADR-066's ChoiceUpdateIntent does not model option
-        # mutation or whole-entity persistence; this path fires its own ChoiceUpdated
-        # below with the option-level provenance.
-        update_result = await self.backend.update(choice_uid, dto.to_dict())
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
-
-        # Publish ChoiceUpdated event
         event = ChoiceUpdated(
             choice_uid=choice.uid,
             user_uid=choice.user_uid,

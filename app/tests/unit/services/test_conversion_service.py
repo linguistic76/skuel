@@ -219,7 +219,7 @@ class TestChoiceConversion:
         assert choice.constraints == ("one month",)
         assert choice.stakeholders == ("me",)
 
-    def test_nested_options_become_choice_option_tuple_with_deterministic_uids(self) -> None:
+    def test_nested_options_become_choice_option_tuple_each_with_its_own_uid(self) -> None:
         choice = ConversionServiceV2.choice_create_to_pure(
             ChoiceCreateRequest(
                 title="Pick a database",
@@ -228,13 +228,13 @@ class TestChoiceConversion:
                     ChoiceOptionRequest(
                         title="Neo4j",
                         description="Graph native",
-                        dependencies=["dep:docker"],
+                        dependencies=["dep.docker"],
                         tags=["graph"],
                     ),
                     ChoiceOptionRequest(title="Postgres"),
                 ],
             ),
-            uid="choice:c1",
+            uid="choice.c1",
             user_uid="user_1",
         )
 
@@ -242,13 +242,28 @@ class TestChoiceConversion:
         assert len(choice.options) == 2
         first, second = choice.options
         assert type(first) is ChoiceOption
-        assert first.uid == "choice:c1_option_0"
-        assert second.uid == "choice:c1_option_1"
+        assert first.uid != second.uid
+        assert all(opt.uid.startswith("option_") for opt in choice.options)
         assert first.title == "Neo4j"
         # Nested list fields on the option are tuple-ized too
-        assert first.dependencies == ("dep:docker",)
+        assert first.dependencies == ("dep.docker",)
         assert first.tags == ("graph",)
         assert second.dependencies == ()
+        # No description is stored as the empty string, as a form's blank one is.
+        assert second.description == ""
+
+    def test_one_builder_makes_every_option(self) -> None:
+        """The create door and ``add_option`` both build through
+        ``choice_option_from_request``: same request, same stored fields but the uid."""
+        request = ChoiceOptionRequest(title="Neo4j", description=None, risk_level=0.2)
+        created = ConversionServiceV2.choice_create_to_pure(
+            ChoiceCreateRequest(title="t", description="d", options=[request, request]),
+            uid="choice.c1",
+            user_uid="user_1",
+        ).options[0]
+        added = ConversionServiceV2.choice_option_from_request(request)
+
+        assert dataclasses.replace(added, uid=created.uid) == created
 
 
 # =============================================================================

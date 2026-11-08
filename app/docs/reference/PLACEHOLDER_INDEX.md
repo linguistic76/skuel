@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-06
+updated: 2026-11-08
 ---
 
 # Placeholder Parameter Index
@@ -231,9 +231,9 @@ not silent-zero.
 The fix (#859) routes all three period methods through
 `_AnalyticsMixin._find_choices_in_window` (`core/services/choices/_analytics_mixin.py:217`), which windows on `created_at`
 via `find_by_date_range`. Two constraints are recorded in that helper's docstring and pinned by
-tests: `decided_at` would have silent-zeroed (its only writer, `ChoicesCoreService.make_decision`,
-has no route), and `created_at` has two storage shapes, so only the coercing
-`find_by_date_range` path matches both.
+tests: `decided_at` would window on decision events and leave out every undecided choice,
+and `created_at` has two storage shapes, so only the coercing `find_by_date_range` path
+matches both.
 
 ⚠ **The four rows do not share a remedy — check where the data lives before writing a query.** Two
 need no query at all, one cannot be recovered by any query until persistence is defined, and only
@@ -241,7 +241,7 @@ the fourth is a genuine graph read.
 
 | File | Line | Value | Should Become |
 |------|------|-------|---------------|
-| `core/services/choices/_analytics_mixin.py` | 430 | `avg_confidence = 0.7` | **Blocked — nothing to average.** `Choice` has no `confidence` field, and neither do `ChoiceDTO` nor the `Entity` base. Decision confidence is carried at the boundary only: `ChoiceDecisionRequest.confidence` (`core/models/choice/choice_request.py:149`) and the decision event (`core/events/choice_events.py:103`). Persisting it is the prerequisite, not a query. Note the boundary model itself is unreachable — no route constructs a `ChoiceDecisionRequest` |
+| `core/services/choices/_analytics_mixin.py` | 430 | `avg_confidence = 0.7` | **Blocked — nothing to average.** `Choice` has no `confidence` field, and neither do `ChoiceDTO` nor the `Entity` base. Decision confidence is carried at the boundary only: `ChoiceDecisionRequest.confidence` (the decide door, `POST /api/choices/{uid}/decide`, and the choice page's decide form) and the `ChoiceMade` event. Persisting it is the prerequisite, not a query |
 | `core/services/choices/_analytics_mixin.py` | 431 | `avg_satisfaction = 0.75` | **No query needed.** `get_decision_patterns()` already holds the `Choice` objects — it iterates them at 421–422. Mean of the non-null `Choice.satisfaction_score` (`choice.py:81`, 1–5 scale, nullable), rescaled |
 | `core/services/choices/_analytics_mixin.py` | 604 | `"avg_quality_score": 0.7` | **No query needed.** `get_domain_decision_patterns()` holds `domain_choice_list` in the loop that emits this. Mean of `Choice.get_decision_quality_score()` (`choice.py:129`) |
 | `core/services/goals/_analytics_mixin.py` | 234 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum — **this one is a real graph read** |

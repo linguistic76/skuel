@@ -675,7 +675,7 @@ class _CrudMixin[T: DomainModelProtocol]:
     async def _recompute_with_status_guard[P: GuardedWritePlan](
         self,
         uid: str,
-        read_query: str,
+        read_query: str | None,
         read_params: Neo4jProperties,
         # boundary: the read statement's row — each domain's own tally shape, which its
         # public wrapper narrows to a TypedDict before handing it on.
@@ -693,7 +693,8 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         1. lock the node (the same ``_sg_lock`` sentinel ``update_with_status_guard``
            uses) and read it;
-        2. run ``read_query`` — the domain's state read — under that lock;
+        2. run ``read_query`` — the domain's state read — under that lock (none when
+           the node itself is the whole state, as a choice's options are);
         3. hand both to ``plan``, and write what it returns with the SAME guarded
            statement ``update_with_status_guard`` runs, which also removes the sentinel.
 
@@ -709,7 +710,8 @@ class _CrudMixin[T: DomainModelProtocol]:
         Args:
             uid: UID of the entity to recompute.
             read_query: The state read. Receives ``$uid`` beside ``read_params`` and must
-                return at most one row.
+                return at most one row. ``None`` when the plan reads the locked node
+                alone; ``plan`` then receives ``{}``.
             read_params: Parameters for ``read_query`` (``uid`` is added).
             plan: Pure: the entity as locked, and the read's row (``{}`` when it returned
                 none) → the write, or ``None`` for no write.
@@ -743,7 +745,11 @@ class _CrudMixin[T: DomainModelProtocol]:
                     return Result.fail(Errors.not_found(self.entity_class.__name__, uid))
                 entity = from_neo4j_node(dict(locked["node"]), self.entity_class)
 
-                read = await (await tx.run(read_query, {**read_params, "uid": uid})).single()
+                read = (
+                    None
+                    if read_query is None
+                    else await (await tx.run(read_query, {**read_params, "uid": uid})).single()
+                )
                 decided = plan(entity, dict(read) if read is not None else {})
                 if decided is None or (not decided.updates and not decided.guard.has_patches()):
                     await tx.rollback()

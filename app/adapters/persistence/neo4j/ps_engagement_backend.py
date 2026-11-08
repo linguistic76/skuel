@@ -20,6 +20,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher.choice_fragments import (
+    build_choice_decided_predicate,
+)
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
@@ -30,6 +33,9 @@ if TYPE_CHECKING:
 
 _ENGAGED_WITH = RelationshipName.ENGAGED_WITH.value
 _OWNS = RelationshipName.OWNS.value
+# Whether a sibling is decided, as ``Choice.is_decided`` defines it; read for every
+# sibling, used by the engagement rule for choices alone (``is_engagement_terminal``).
+_SIBLING_DECIDED = build_choice_decided_predicate("other_n")
 # An instance's engagement_state — the spawn orchestrator writes it through
 # EngagementState, so every read and write here binds it from the enum too.
 _INSTANCE_STATE_PARAMS = {
@@ -237,7 +243,8 @@ class PsEngagementBackend:
         RETURN ps.uid AS ps_uid,
                collect({{
                  entity_type: other_n.entity_type,
-                 status: other_n.status
+                 status: other_n.status,
+                 decided: {_SIBLING_DECIDED}
                }}) AS siblings
         """
         return await self._executor.execute(

@@ -683,8 +683,8 @@ class LpSubServices:
 class _OptionManagementMixin:
     core: Any  # populated by ChoicesService.__init__
 
-    async def add_option(self, choice_uid: str, option: dict[str, Any]) -> Result[bool]:
-        return await self.core.add_option(choice_uid, option)
+    async def add_option(self, choice_uid: str, option: ChoiceOptionRequest) -> Result[Choice]:
+        return await self.core.add_option(choice_uid=choice_uid, option=option)
 
 # core/services/choices_service.py
 class ChoicesService(

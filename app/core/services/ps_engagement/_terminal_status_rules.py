@@ -10,11 +10,15 @@ a different shape than the generic terminal-status check:
   ``ACTIVE`` from the moment of engagement and stays that way as the student
   embodies it; the engagement closes based on the action-y siblings, not the
   Principle's status.
+- ``CHOICE`` is done once it is decided, whatever its status: deciding is its
+  action, and a decided choice stays ``ACTIVE`` until it is completed
+  (``Choice.is_decided``). A choice completed or archived undecided is done too.
 
 Auto-completion triggers (``GATES_AUTO_COMPLETION``) is the narrower set of
-domains whose own completion events can *fire* the check. Action-y domains
-(Task / Goal / Event / Choice) publish a clean ``*Completed`` / ``*Achieved`` /
-``*Made`` event when their entity status reaches terminal. ``HabitCompleted``
+domains whose own events can *fire* the check. Action-y domains publish a clean
+event when their instance becomes done: ``TaskCompleted``, ``GoalAchieved`` and
+``CalendarEventCompleted`` when the status reaches terminal, ``ChoiceMade`` when
+the choice is decided. ``HabitCompleted``
 is per-occurrence, not per-entity-terminal, so we don't subscribe to it; a
 Habit's entity-status transition to ``COMPLETED`` is checked when a sibling
 instance's terminal event fires.
@@ -65,14 +69,19 @@ GATES_AUTO_COMPLETION: frozenset[EntityType] = frozenset(
 )
 
 
-def is_engagement_terminal(entity_type: EntityType, status: EntityStatus) -> bool:
+def is_engagement_terminal(
+    entity_type: EntityType, status: EntityStatus, *, decided: bool = False
+) -> bool:
     """Return whether this instance counts as 'done' for engagement closure.
 
     Principles are always considered done — they are exposure-only and the
-    engagement should not wait on them. For the other five Activity Domains,
-    the per-domain ``ENGAGEMENT_TERMINAL_STATUSES`` set governs.
+    engagement should not wait on them. A choice is done once ``decided``
+    (``Choice.is_decided``). Otherwise the per-domain
+    ``ENGAGEMENT_TERMINAL_STATUSES`` set governs.
     """
     if entity_type is EntityType.PRINCIPLE:
+        return True
+    if entity_type is EntityType.CHOICE and decided:
         return True
     return status in ENGAGEMENT_TERMINAL_STATUSES.get(entity_type, frozenset())
 

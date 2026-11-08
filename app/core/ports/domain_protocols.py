@@ -702,6 +702,19 @@ class ChoicesOperations(
         """Get a choice by ID. Not found is an error."""
         ...
 
+    async def rewrite_choice_under_lock[P: GuardedWritePlan](
+        self,
+        choice_uid: str,
+        plan: Callable[[Choice], P | None],
+    ) -> Result[GuardedRecompute[Choice, P] | None]:
+        """Rewrite a choice from the choice as it stands under its lock.
+
+        Lock, read, plan and guarded write in one transaction, so two rewrites of one
+        choice (two options added at once, an option removed while a decision lands)
+        serialize. ``Result.ok(None)`` when ``plan`` declines to write.
+        """
+        ...
+
     async def get_user_choices(self, user_id: UserUID) -> Result[list[Choice]]:
         """Get all choices for a user."""
         ...

@@ -21,10 +21,15 @@ from core.models.sentinels import UNSET, Unset
 
 
 class ChoiceOptionRequest(BaseModel):
-    """Request model for creating an option within a Choice entity."""
+    """One option of a choice: nested in a create request, or the body of the add-option
+    door (``POST /api/choices/{uid}/options``, JSON or the choice page's form).
+
+    A form posts a blank description as ``None`` (``parse_form_body``); the option is
+    stored with ``""`` either way (``ConversionServiceV2.choice_option_from_request``).
+    """
 
     title: str = Field(min_length=1, max_length=200, description="Option title")
-    description: str = Field(default="", max_length=1000, description="Option description")
+    description: str | None = Field(default=None, max_length=1000, description="Option description")
     feasibility_score: float = Field(default=0.5, ge=0.0, le=1.0)
     risk_level: float = Field(default=0.5, ge=0.0, le=1.0)
     potential_impact: float = Field(default=0.5, ge=0.0, le=1.0)
@@ -154,11 +159,15 @@ class ChoiceEvaluationRequest(BaseModel):
 
 
 class ChoiceDecisionRequest(BaseModel):
-    """Request model for making a decision on a choice."""
+    """The body of the decision door (``POST /api/choices/{uid}/decide``).
 
-    selected_option_uid: str = Field(..., description="UID of selected option")
+    The decision is stamped when it is made, so the request carries no time.
+    ``confidence`` rides on the ``ChoiceMade`` event, where the decision-pattern
+    handler reads it; unstated, it is 0.5, the middle of that handler's scale.
+    """
+
+    selected_option_uid: str = Field(..., min_length=1, description="UID of selected option")
     decision_rationale: str | None = Field(
         default=None, max_length=1000, description="Rationale for decision"
     )
-    confidence: float = Field(default=0.8, ge=0.0, le=1.0, description="Confidence level")
-    decided_at: ClientDateTime | None = Field(default=None, description="Decision timestamp")
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0, description="Confidence level")

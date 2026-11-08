@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-10-08
+updated: 2026-11-08
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -163,7 +163,7 @@ every event carries.
 | `ChoiceMade` | Decision selected | `choice_uid`, `user_uid`, `selected_option`, `confidence` |
 | `ChoiceOutcomeRecorded` | Outcome evaluated | `choice_uid`, `user_uid`, `outcome_quality`, `lessons_learned` |
 
-**Event handling:** `ChoiceEventHandlerService` subscribes to `ChoiceOutcomeRecorded` (outcome quality analysis, principle alignment correlation) and `ChoiceMade` (decision pattern tracking, confidence analysis, insight persistence). Other services subscribe for UserContext invalidation.
+**Event handling:** `ChoiceEventHandlerService` subscribes to `ChoiceOutcomeRecorded` (outcome quality analysis, principle alignment correlation) and `ChoiceMade` (decision pattern tracking, confidence analysis, insight persistence). `ChoiceMade` also runs the PathStep engagement's auto-complete check (`_AutoCompletionHandler.on_choice_made`): a spawned choice is done for its engagement once decided. Every choice event invalidates the owner's UserContext.
 
 ## UI Routes
 
@@ -171,6 +171,24 @@ Live in `adapters/inbound/choices_ui.py`: list `/choices` and detail
 `/choices/detail` (registered via `create_activity_ui_routes`), plus
 `GET|POST /choices/create` and `GET|POST /choices/edit` rendered by
 `ui/activities/choices_form.py`.
+
+The detail page's Options section (`OptionsSection`, `ui/activities/choices_views.py`)
+carries three controls, each a door in `adapters/inbound/choices_api.py` that verifies
+the owner, reads JSON or the form through `parse_body`, and answers the page with its
+detail view re-rendered:
+
+| Control | Door | Body |
+|---|---|---|
+| Add an option | `POST /api/choices/{uid}/options` | `ChoiceOptionRequest` |
+| Remove an option (×) | `POST /api/choices/{uid}/options/{option_uid}/remove` | none |
+| Decide | `POST /api/choices/{uid}/decide` | `ChoiceDecisionRequest` |
+
+Add and remove show while `Choice.options_open()`; remove only where removing leaves two
+options. The decide form shows on a pending choice with two options or more: one radio
+per option, an optional rationale, and how sure the learner is (five levels,
+`DECISION_CONFIDENCE_LEVELS`). A decided choice shows its options with the selected one
+marked, and its list card shows a fixed decided mark: no door changes a decided choice's
+status.
 
 ## Options at Creation
 
@@ -225,9 +243,7 @@ is enforced from then on by `remove_option` and `_validate_update`.
 `STRATEGIC` choices additionally require a 50+ character description — a rule that
 only became reachable when the create paths were reconciled.
 
-The dynamic add/remove option entry UX once provided by the `choiceOptions()`
-Alpine component (deleted in `327f26623`, 2026-03-28, with the `ui/choices/`
-directory) has not been rebuilt; `add_option` on the detail page is the path.
+Options are added and removed on the detail page (see *UI Routes*).
 
 ### History
 
@@ -306,17 +322,32 @@ result = await choices_service.make_decision(
 )
 ```
 
+Refused, with the choice unchanged, when the choice is already decided, holds fewer than
+two options, or `selected_option_uid` is not one of its options. `confidence` is carried on
+`ChoiceMade`, not stored.
+
 ### Add Option Later
 
 ```python
+from core.models.choice.choice_request import ChoiceOptionRequest
+
 result = await choices_service.add_option(
-    choice_uid=choice.uid,
-    title="Next.js",
-    description="React-based with SSR",
-    feasibility_score=0.7,
-    risk_level=0.4,
+    choice.uid,
+    ChoiceOptionRequest(
+        title="Next.js",
+        description="React-based with SSR",
+        feasibility_score=0.7,
+        risk_level=0.4,
+    ),
 )
 ```
+
+The option is built by `ConversionServiceV2.choice_option_from_request`, the builder the
+create door uses, so an option added later is stored exactly like one created with the
+choice. Each option write (`add_option`, `update_option`, `remove_option`) and the
+decision are planned from the choice under its lock
+(`ChoicesBackend.rewrite_choice_under_lock`), and an option write carries the options
+alone.
 
 ### Link a Principle
 
@@ -382,7 +413,9 @@ stages are not statuses — they are read from the choice's fields:
 | **Evaluated** | an outcome is recorded | `satisfaction_score`, `actual_outcome`, `lessons_learned` |
 
 A decided choice stays `active` until it is completed. An archived choice that was never
-decided is neither pending nor decided. The list page and its stats bar, the daily plan's
+decided is neither pending nor decided. A decision is recorded once: `make_decision`
+refuses a decided choice, and a decided choice's options are frozen
+(`Choice.options_open`). The list page and its stats bar, the daily plan's
 stats, and the decision-rate analytics call the two methods; `ChoicesBackend.get_pending_choices` /
 `get_choices_needing_decision` / `get_stats_for_user` and UserContext's `pending_choice_uids`
 compose their Cypher spelling (`adapters/persistence/neo4j/query/cypher/choice_fragments.py`).

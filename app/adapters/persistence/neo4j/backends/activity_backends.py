@@ -1742,6 +1742,27 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         """Get choice by ID. Returns error if not found (contrast with get() → None)."""
         return await self.get_or_fail(choice_id)
 
+    async def rewrite_choice_under_lock[P: GuardedWritePlan](
+        self,
+        choice_uid: str,
+        plan: Callable[[Choice], P | None],
+    ) -> Result[GuardedRecompute[Choice, P] | None]:
+        """Rewrite a choice from the choice itself, read under its lock.
+
+        A choice's options and its decision live on the node, so a write derived from
+        them (append an option, select one) is a read-modify-write: lock, read, plan
+        and guarded write are one transaction (``_recompute_with_status_guard``, with
+        no state read beside the node). Two rewrites of one choice serialize, and the
+        later one plans from what the earlier one wrote.
+        """
+
+        # boundary: the primitive's state-read row; this rewrite runs no state read
+        # and is handed ``{}``.
+        def plan_from_node(choice: Choice, _row: Mapping[str, Any]) -> P | None:
+            return plan(choice)
+
+        return await self._recompute_with_status_guard(choice_uid, None, {}, plan_from_node)
+
     async def get_user_choices(self, user_uid: UserUID) -> Result[list[Choice]]:
         """Get all choices for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid, limit=QueryLimit.MAXIMUM)

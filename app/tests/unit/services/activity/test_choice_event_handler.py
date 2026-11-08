@@ -75,8 +75,12 @@ def service_full(
     )
 
 
-def _make_mock_choice(description: str = "Test choice", complexity: float = 3.0) -> MagicMock:
-    """Create a mock Choice with required attributes."""
+def _make_mock_choice(description: str = "Test choice", complexity: float = 0.3) -> MagicMock:
+    """Create a mock Choice with required attributes.
+
+    ``complexity`` stands in for ``Choice.calculate_decision_complexity``, whose scale
+    is 0.0-1.0; ``test_the_real_model_reaches_the_complexity_cut`` holds the cut to it.
+    """
     from core.models.choice.choice import Choice
 
     choice = MagicMock(spec=Choice)
@@ -337,7 +341,7 @@ class TestHandleChoiceMade:
         mock_insight_store: AsyncMock,
     ):
         """Complex decision without principle alignment persists alignment insight."""
-        mock_choice = _make_mock_choice(complexity=7.0)
+        mock_choice = _make_mock_choice(complexity=0.7)
         mock_backend.get.return_value = Result.ok(mock_choice)
         # No principles aligned
         mock_relationships.get_related_uids.return_value = Result.ok([])
@@ -357,11 +361,54 @@ class TestHandleChoiceMade:
         assert "Without Principle" in insight.title
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("options", "criteria", "persists"),
+        [(3, 3, True), (2, 0, False)],
+    )
+    async def test_the_real_model_reaches_the_complexity_cut(
+        self,
+        service_full: ChoiceEventHandlerService,
+        mock_backend: Mock,
+        mock_relationships: AsyncMock,
+        mock_insight_store: AsyncMock,
+        options: int,
+        criteria: int,
+        persists: bool,
+    ):
+        """The cut is on the model's own scale: a real choice with three options and
+        three criteria (0.6) is complex, one with two options (0.2) is not."""
+        from core.constants import DecisionComplexity
+        from core.models.choice.choice import Choice
+        from core.models.choice.choice_option import ChoiceOption
+
+        choice = Choice(
+            uid="choice_test_abc",
+            user_uid="user_mike",
+            title="t",
+            options=tuple(ChoiceOption(uid=f"option_{i}", title=f"o{i}") for i in range(options)),
+            decision_criteria=tuple(f"c{i}" for i in range(criteria)),
+        )
+        assert (choice.calculate_decision_complexity() > DecisionComplexity.COMPLEX) is persists
+        mock_backend.get.return_value = Result.ok(choice)
+        mock_relationships.get_related_uids.return_value = Result.ok([])
+
+        await service_full.handle_choice_made(
+            ChoiceMade(
+                choice_uid="choice_test_abc",
+                user_uid="user_mike",
+                selected_option="option_0",
+                confidence=0.5,
+            )
+        )
+
+        assert mock_insight_store.create_insight.called is persists
+
+    @pytest.mark.asyncio
     async def test_no_insight_without_store(
         self, service: ChoiceEventHandlerService, mock_backend: Mock
     ):
         """No insight persisted when insight_store is None."""
-        mock_choice = _make_mock_choice(complexity=7.0)
+        mock_choice = _make_mock_choice(complexity=0.7)
         mock_backend.get.return_value = Result.ok(mock_choice)
 
         event = ChoiceMade(

@@ -41,6 +41,7 @@ from core.events.base import BaseEvent
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.goal_events import GoalAchieved
 from core.models.choice.choice import Choice
+from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.event.event import Event
@@ -76,6 +77,7 @@ if TYPE_CHECKING:
     from core.services.habits.habits_core_service import HabitsCoreService
 
 USER = "user_stamp"
+_TWO_OPTIONS = (ChoiceOption(uid="option_a", title="A"), ChoiceOption(uid="option_b", title="B"))
 
 
 class _CapturingBus:
@@ -1020,10 +1022,11 @@ class TestRawStatusWritersOutsideTheChokepoints:
 
     Both are deliberate raw writes — each publishes its own domain event with provenance
     the generic update contract cannot express — and neither is a completion transition,
-    so neither needs a stamp. What they DO need is the other direction: a choice or event
-    that is already COMPLETED carries ``completed_at``, and writing a non-completed status
-    over it would strand the stamp on an open entity, breaking the invariant that it is
-    non-null exactly when the entity is completed.
+    so neither needs a stamp. What they DO need is the other direction: an event that is
+    already COMPLETED carries ``completed_at``, and writing a non-completed status over it
+    would strand the stamp on an open entity, breaking the invariant that it is non-null
+    exactly when the entity is completed. A choice is refused that case outright: a
+    COMPLETED choice is decided, and a decided choice is not decided again.
 
     ``status_transition_guard`` reads the target out of the patch they already build and
     hands back exactly that reopen clear, so both keep the invariant with the shared rule
@@ -1031,7 +1034,9 @@ class TestRawStatusWritersOutsideTheChokepoints:
     one read beforehand (ADR-087 PR-4).
     """
 
-    async def test_make_decision_clears_a_completed_choices_stamp(self):
+    async def test_make_decision_refuses_a_completed_choice_and_writes_nothing(self):
+        """A COMPLETED choice is decided (``Choice.is_decided``), so deciding it again is
+        refused from the choice as locked, and its ``completed_at`` stays."""
         from core.services.choices.choices_core_service import ChoicesCoreService
 
         done = Choice(
@@ -1040,26 +1045,29 @@ class TestRawStatusWritersOutsideTheChokepoints:
             title="c",
             status=EntityStatus.COMPLETED,
             completed_at=datetime(2026, 4, 2, 9, 0),
+            options=_TWO_OPTIONS,
         )
-        active = Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.ACTIVE)
-        backend, recorder = guarded_backend(done, active)
+        backend, recorder = guarded_backend(done, done)
         service = ChoicesCoreService(backend=backend)
 
         result = await service.make_decision("choice_1", "option_a")
 
-        assert result.is_ok
-        merged = recorder.merged_patch()
-        assert merged["status"] == EntityStatus.ACTIVE.value
-        assert merged["completed_at"] is None, (
-            "deciding a completed choice left its completed_at behind"
-        )
+        assert result.is_error
+        assert "already decided" in result.expect_error().message
+        assert recorder.calls == []
 
     async def test_make_decision_on_an_open_choice_writes_no_stamp_field(self):
         """The mirror: the clear is CONDITIONAL on the prior, so an ordinary DRAFT →
         ACTIVE decision must not write a null over a field that was never set."""
         from core.services.choices.choices_core_service import ChoicesCoreService
 
-        draft = Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.DRAFT)
+        draft = Choice(
+            uid="choice_1",
+            user_uid=USER,
+            title="c",
+            status=EntityStatus.DRAFT,
+            options=_TWO_OPTIONS,
+        )
         active = Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.ACTIVE)
         backend, recorder = guarded_backend(draft, active)
         service = ChoicesCoreService(backend=backend)

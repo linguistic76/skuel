@@ -1199,6 +1199,24 @@ class InsightThreshold:
     LEARNING_GAP_DAYS: Final = 7
 
 
+class DecisionComplexity:
+    """
+    Cuts on ``Choice.calculate_decision_complexity``, a 0.0-1.0 score (options,
+    criteria, stakeholders and constraints each add a capped share).
+
+    Used by: ChoiceEventHandlerService.handle_choice_made — a complex decision made
+    with no principle informing it earns the missing-alignment insight — and
+    ``metrics_calculators.calculate_decision_metrics`` (the decision-readiness lens).
+    """
+
+    COMPLEX: Final = 0.5
+    # The decision-readiness lens: how much confidence a decision this complex needs,
+    # and whether a complex one with knowledge to consult should gather more first.
+    NEEDS_HIGH_CONFIDENCE: Final = 0.7
+    NEEDS_LOW_CONFIDENCE: Final = 0.3
+    GATHER_MORE_INFO: Final = 0.6
+
+
 class DualTrackCheckin:
     """
     Constants for dual-track perception-gap check-in persistence (ADR-030).

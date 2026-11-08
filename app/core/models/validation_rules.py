@@ -112,10 +112,10 @@ def validate_past_date(*field_names: str) -> Callable:
         Pydantic field validator
 
     Example:
-        class ChoiceDecisionRequest(BaseModel):
-            decided_at: datetime | None = None
+        class OutcomeLogRequest(BaseModel):
+            noticed_at: datetime | None = None
 
-            _validate_decided_at = validate_past_date("decided_at")
+            _validate_noticed_at = validate_past_date("noticed_at")
     """
 
     @field_validator(*field_names)
