@@ -662,7 +662,7 @@ class UnifiedIngestionService:
     async def _credit_created_knowledge(
         self,
         entity_type: EntityType | NonKuDomain,
-        entities: list[dict[str, Any]],
+        entities: list[dict[str, Any]],  # boundary: prepared frontmatter dicts, keyed by type
         created_targets: Mapping[str, Mapping[str, tuple[str, ...]]],
     ) -> None:
         """Credit the knowledge links a relationship pass CREATED — both ingest doors.

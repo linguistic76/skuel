@@ -675,6 +675,7 @@ async def ingest_directory(
     links_created_fn: Callable[
         [
             EntityType | NonKuDomain,
+            # boundary: prepared frontmatter dicts — keys vary by entity type and file
             list[dict[str, Any]],
             Mapping[str, Mapping[str, tuple[str, ...]]],
         ],
@@ -1566,7 +1567,9 @@ async def ingest_directory(
     # The fingerprint stamped per file below (absent → the prior stays).
     authored_edges_by_file: dict[str, list[str]] = {}
 
-    def _leave_pending(pass_entities: list[dict[str, Any]]) -> None:
+    def _leave_pending(
+        pass_entities: list[dict[str, Any]],  # boundary: prepared frontmatter dicts, by type
+    ) -> None:
         """A relationship pass that failed may not have written its edges: its files
         stay unstamped, so the next sync re-processes them rather than skipping them
         as unchanged."""
