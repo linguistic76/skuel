@@ -15,6 +15,12 @@ Cross-domain links (link-* via create_activity_link_api_routes):
     POST /api/choices/link-principle         — Link choice to the principle that informs it
     GET  /api/choices/aligned-with-principle — Choices semantically aligned with a principle
 
+Options and the decision (ownership-verified; JSON or the choice page's forms; the page
+is answered over HTMX with its detail view re-rendered):
+    POST /api/choices/{uid}/options                      — Add an option to an undecided choice
+    POST /api/choices/{uid}/options/{option_uid}/remove  — Remove an option from it
+    POST /api/choices/{uid}/decide                       — Decide it: select one of its options, once
+
 Knowledge intelligence:
     GET  /api/choices/knowledge-patterns — Detected learning patterns across user choices
 """
@@ -23,9 +29,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from fasthtml.common import FtResponse
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.form_helpers import parse_body
 from adapters.inbound.route_factories import (
     PRIORITY_VALUES,
     ActivityFieldApiConfig,
@@ -41,6 +51,7 @@ from adapters.inbound.route_factories import (
     verify_entity_ownership,
 )
 from core.models.choice.choice import Choice
+from core.models.choice.choice_request import ChoiceDecisionRequest, ChoiceOptionRequest
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.entity_requests import (
     AddHierarchyChildRequest,
@@ -49,7 +60,7 @@ from core.models.entity_requests import (
 )
 from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Errors, Result
-from ui.activities.choices_views import ChoiceCard
+from ui.activities.choices_views import ChoiceCard, ChoiceDetailView
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import RouteDecorator
@@ -182,6 +193,88 @@ def create_choices_api_routes(
             return Result.fail(min_confidence)
         return await choices_service.find_choices_aligned_with_principle(
             principle_uid, user_uid, min_confidence.value
+        )
+
+    # ================================================================
+    # OPTIONS AND THE DECISION — the choice page's three controls
+    # ================================================================
+
+    async def answer(request: Request, written: Result[Choice]) -> Result[Choice] | FtResponse:
+        """The choice a door wrote: its detail view for the page, the choice for JSON.
+
+        A refusal is the same error either way: HTMX swaps nothing and the page's
+        toast reads its message.
+        """
+        if written.is_error or not request.headers.get("HX-Request"):
+            return written
+        choice = written.value
+        links = await connection_fetch_backend.fetch_entity_connections(
+            NeoLabel.CHOICE, [choice.uid]
+        )
+        return FtResponse(ChoiceDetailView(choice, links.get(choice.uid, [])))
+
+    @rt("/api/choices/{uid}/options", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def add_choice_option(request: Request, uid: str) -> Result[Choice] | FtResponse:
+        """Add one option (``ChoiceOptionRequest``) to the caller's undecided choice.
+
+        Not owned or missing → 404. A decided choice, or a binary choice that holds
+        two options already, is refused (400) and keeps its options.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(choices_service, uid, user_uid, "choice")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, ChoiceOptionRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        return await answer(request, await choices_service.add_option(uid, parsed.value))
+
+    @rt("/api/choices/{uid}/options/{option_uid}/remove", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def remove_choice_option(
+        request: Request, uid: str, option_uid: str
+    ) -> Result[Choice] | FtResponse:
+        """Remove one option from the caller's undecided choice.
+
+        Not owned or missing, or an option the choice does not hold → 404. A decided
+        choice, or one the removal would leave with fewer than two options, is
+        refused (400).
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(choices_service, uid, user_uid, "choice")
+        if ownership_error:
+            return ownership_error
+        return await answer(request, await choices_service.remove_option(uid, option_uid))
+
+    @rt("/api/choices/{uid}/decide", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def decide_choice(request: Request, uid: str) -> Result[Choice] | FtResponse:
+        """Decide the caller's choice (``ChoiceDecisionRequest``): one of its own options, once.
+
+        Not owned or missing → 404. An option the choice does not hold, a choice with
+        fewer than two options, and a choice already decided are refused (400) with
+        the choice unchanged. Publishes ``ChoiceMade``.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(choices_service, uid, user_uid, "choice")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, ChoiceDecisionRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        decision = parsed.value
+        return await answer(
+            request,
+            await choices_service.make_decision(
+                uid,
+                decision.selected_option_uid,
+                decision_rationale=decision.decision_rationale,
+                confidence=decision.confidence,
+            ),
         )
 
     # ================================================================

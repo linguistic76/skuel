@@ -103,6 +103,17 @@ class TestChoiceTerminal:
     def test_non_terminal_statuses(self, status: EntityStatus) -> None:
         assert is_engagement_terminal(EntityType.CHOICE, status) is False
 
+    @pytest.mark.parametrize("status", sorted(EntityType.CHOICE.valid_statuses()))
+    def test_a_decided_choice_is_done_in_any_status(self, status: EntityStatus) -> None:
+        """Deciding is a choice's action: ``make_decision`` leaves it ACTIVE, and the
+        engagement's ``ChoiceMade`` trigger has to find it done."""
+        assert is_engagement_terminal(EntityType.CHOICE, status, decided=True) is True
+
+    def test_decided_is_read_for_choices_alone(self) -> None:
+        """The sibling read carries ``decided`` for every sibling; a task is done by
+        its status, whatever that flag says."""
+        assert is_engagement_terminal(EntityType.TASK, EntityStatus.ACTIVE, decided=True) is False
+
 
 class TestGatesAutoCompletion:
     """Domains whose entity-terminal events fire the auto-complete check."""

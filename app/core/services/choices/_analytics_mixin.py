@@ -228,9 +228,8 @@ class _AnalyticsMixin:
         rest of the service already windows choices this way — see
         ``_BehavioralSignalsMixin._calculate_system_decision_quality_for_dual_track`` and the
         recorded intent on ``ChoicesIntelligenceService.get_performance_analytics`` ("filter
-        by created_at within period"). ``decided_at`` would window on decision *events*, but its only
-        writer is ``ChoicesCoreService.make_decision``, which no route or UI reaches, so it
-        is null corpus-wide and would return zero rows.
+        by created_at within period"). ``decided_at`` would window on decision *events*, a
+        different question, and would leave out every choice still undecided.
 
         Routed through ``find_by_date_range`` rather than ``find_by(created_at__gte=...)``
         because ``created_at`` has two storage shapes (ISO string for most entities, zoned

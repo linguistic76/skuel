@@ -139,6 +139,17 @@ class Choice(UserOwnedEntity):
         """
         return not self.is_decided() and self.status != EntityStatus.ARCHIVED
 
+    def options_open(self) -> bool:
+        """Whether options may still be added, edited or removed.
+
+        A choice's options are part of its decision: they are frozen once it is
+        decided, and in a decided status (ACTIVE or COMPLETED) whether or not a
+        decision is recorded.
+        """
+        if self.is_decided():
+            return False
+        return self.status not in (EntityStatus.ACTIVE, EntityStatus.COMPLETED)
+
     def is_deadline_past(self) -> bool:
         """Check if decision deadline has passed."""
         if not self.decision_deadline:

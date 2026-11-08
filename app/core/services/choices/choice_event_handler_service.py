@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.constants import DecisionComplexity
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.type_hints import EntityUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -269,13 +270,13 @@ class ChoiceEventHandlerService:
             confidence_category = categorize_confidence(confidence)
             was_principle_aligned = len(aligned_principles) > 0
 
-            # 4. Calculate decision complexity from choice model
+            # 4. Calculate decision complexity from choice model (0.0-1.0)
             complexity = choice.calculate_decision_complexity()
 
             # 5. Analyze confidence vs complexity correlation
             # High confidence on complex decisions = experienced decision-maker
             # Low confidence on simple decisions = may need support
-            confidence_complexity_ratio = confidence / max(complexity / 10.0, 0.1)
+            confidence_complexity_ratio = confidence / max(complexity, 0.1)
 
             # 6. Log structured insights
             self.logger.info(
@@ -332,7 +333,7 @@ class ChoiceEventHandlerService:
                             f"Failed to persist decision pattern insight: {create_result.error}"
                         )
 
-            elif not was_principle_aligned and complexity > 5.0:
+            elif not was_principle_aligned and complexity > DecisionComplexity.COMPLEX:
                 self.logger.info(
                     "Complex decision made without principle alignment",
                     extra={
@@ -350,7 +351,7 @@ class ChoiceEventHandlerService:
                         insight_type=InsightType.PRINCIPLE_ALIGNMENT,
                         domain="choices",
                         title="Complex Decision Without Principle Guidance",
-                        description=f"This complex decision (complexity: {round(complexity, 1)}) wasn't aligned with any principles.",
+                        description=f"This complex decision (complexity: {round(complexity, 2)}) wasn't aligned with any principles.",
                         confidence=0.8,
                         impact=InsightImpact.MEDIUM,
                         entity_uid=EntityUID(event.choice_uid),

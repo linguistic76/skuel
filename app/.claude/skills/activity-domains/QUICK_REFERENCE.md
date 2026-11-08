@@ -70,8 +70,8 @@ chrome. There is no hub page; `/today` is the landing.
 - Supports `CONFLICTS_WITH` relationship
 
 ### Choices
-- `options: tuple[ChoiceOption, ...]` on the model (`list[ChoiceOptionRequest]` on the request, default empty — no minimum count); the create form omits them
-- `ChoicesService.make_decision()` (via `_OptionManagementMixin`) records the selected option
+- `options: tuple[ChoiceOption, ...]` on the model (`list[ChoiceOptionRequest]` on the request, default empty; a supplied set holds at least 2); the create form omits them, and the detail page adds and removes them (`POST /api/choices/{uid}/options`, `.../options/{option_uid}/remove`)
+- `ChoicesService.make_decision()` (via `_OptionManagementMixin`) records the selected option once, one of the choice's own; the detail page's decide form posts `POST /api/choices/{uid}/decide`. A decided choice is done for its PathStep engagement
 
 ### Principles
 - Reflection is event-driven: `POST /api/principles/reflection` → `record_principle_reflection()` publishes `PrincipleReflectionRecorded` (no graph node)

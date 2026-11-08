@@ -1,8 +1,9 @@
 # skuel-lint: disable-file=SKUEL005 -- Event-bus subscribers; fire-and-forget by design (see module docstring)
 """Event handlers that fire :meth:`PsEngagementService.check_auto_complete`.
 
-Subscribed to the four per-domain completion events that fire when an Activity
-Domain instance's entity status reaches terminal:
+Subscribed to the four per-domain events that fire when an Activity Domain
+instance becomes done — its status reaching terminal, or, for a choice, its
+decision:
 
     TaskCompleted          → task.completed
     GoalAchieved           → goal.achieved

@@ -22,12 +22,13 @@ nodes in one call.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 from core.models.update_contracts import (
     GuardedRecompute,
+    GuardedWritePlan,
     StatusGuardedOutcome,
     StatusWriteGuard,
 )
@@ -153,6 +154,18 @@ class StatusGuardedWriteRecorder[T]:
             )
         )
 
+    def rewrite[P: GuardedWritePlan](
+        self, uid: str, plan: Callable[[T], P | None]
+    ) -> Result[GuardedRecompute[T, P] | None]:
+        """A locked rewrite (``ChoicesBackend.rewrite_choice_under_lock``): plan from the
+        held entity, then the same guarded write ``__call__`` records. ``plan`` declining
+        writes nothing, as the real transaction rolls back."""
+        decided = plan(self._current)
+        if decided is None:
+            return Result.ok(None)
+        outcome = self(uid, dict(decided.updates), decided.guard)
+        return Result.ok(GuardedRecompute(plan=decided, outcome=outcome.value))
+
 
 def guarded_backend[T](current: T, updated: T) -> tuple[Mock, StatusGuardedWriteRecorder[T]]:
     """A backend mock whose ``get``/``update`` return domain models (the writer
@@ -167,6 +180,7 @@ def guarded_backend[T](current: T, updated: T) -> tuple[Mock, StatusGuardedWrite
     backend.get = AsyncMock(return_value=Result.ok(current))
     backend.update = AsyncMock(return_value=Result.ok(updated))
     backend.update_with_status_guard = AsyncMock(side_effect=recorder)
+    backend.rewrite_choice_under_lock = AsyncMock(side_effect=recorder.rewrite)
     return backend, recorder
 
 
