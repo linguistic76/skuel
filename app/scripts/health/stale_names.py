@@ -61,7 +61,7 @@ SCAN_DIRS = [
 # code + docs are updated, move the entry to the archive comment at the bottom.
 #
 RENAMED: dict[str, str] = {
-    # The choices-only locked rewrite became one primitive every backend carries.
+    # Every backend carries the one locked rewrite (`CrudOperations`); no backend has its own.
     "rewrite_choice_under_lock": "rewrite_under_lock",
     # The row carries each taught Ku's title as well as its uid.
     "PsTaughtKuUidRow": "PsTaughtKuRow",
