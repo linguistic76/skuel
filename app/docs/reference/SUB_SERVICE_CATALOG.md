@@ -116,7 +116,6 @@ tasks_result = await search.get_tasks_for_goal(goal_uid, user_uid)
 - `analyze_{domain}_metrics()` - Performance analytics
 - `get_with_context()` - Graph context retrieval
 - `generate_{domain}_insights()` - Pattern detection
-- `calculate_learning_impact()` - Learning metrics
 
 **When to use:**
 - Cross-domain graph analysis
