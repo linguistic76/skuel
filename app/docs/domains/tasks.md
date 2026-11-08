@@ -157,12 +157,14 @@ anything else is refused with a message naming the status the write saw
 
 ### Inferred knowledge (Ku grounding)
 
-Once the FULL tier's embedding worker stores a task's vector it announces `EmbeddingStored`,
-and `TaskGroundingService` matches the vector against the Ku vector index (threshold 0.72, the
-LLM judge in FULL) and writes `(task)-[:APPLIES_KNOWLEDGE {inferred: true, confidence,
-grounded_at}]->(ku)` to each published Ku it engages — the pass `EntryGroundingService` runs for
-entries (`KnowledgeGroundingService`). Each new edge publishes `KnowledgeAppliedInTask`. A
-cancelled task never grounds. Unchanged text never re-grounds (the worker announces no new vector,
+Once the FULL tier's embedding worker has stored a batch of vectors it announces each
+(`EmbeddingStored`), and for a task `TaskGroundingService` grounds every pending task of its owner:
+it matches each stored vector against the Ku vector index (threshold 0.72, the LLM judge in FULL)
+and writes `(task)-[:APPLIES_KNOWLEDGE {inferred: true, confidence, grounded_at}]->(ku)` to each
+published Ku it engages — the pass `EntryGroundingService` runs for entries
+(`KnowledgeGroundingService`). Each new edge publishes `KnowledgeAppliedInTask`. A task whose pass
+failed (the judge, or a write) stays un-stamped, so the owner's next stored task vector retries it.
+A cancelled task never grounds. Unchanged text never re-grounds (the worker announces no new vector,
 and the pass is hash-stamped); an edit that changes the embedded text does.
 
 - **Removal:** `POST /api/tasks/grounding/remove?uid=&ku_uid=` removes an inferred edge and records

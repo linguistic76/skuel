@@ -69,12 +69,15 @@ class KnowledgeGroundingBackend(ABC):
         user_uid: str | None = None,
         force: bool = False,
         source_uid: str | None = None,
+        owner_of: str | None = None,
     ) -> Result[list[GroundingSourceRow]]:
         """Embedded entities the gate admits whose grounding stamp is missing or stale.
 
         Pending = ``grounded_text_hash`` absent or differing from the stored
         ``embedding_text_hash`` (the embedding changed since the last pass); ``force``
-        sweeps every embedded entity the gate admits regardless of stamp.
+        sweeps every embedded entity the gate admits regardless of stamp. ``user_uid``
+        scopes to one owner, ``source_uid`` to one entity, and ``owner_of`` to the owner
+        of the entity it names — every pending entity of that owner, that one included.
         Ownership rides the canonical ``(User)-[:OWNS]->`` edge — the row's
         ``user_uid`` comes from the owner, and it is what the substance event carries.
         """
@@ -86,6 +89,8 @@ class KnowledgeGroundingBackend(ABC):
               AND s.embedding IS NOT NULL
               AND ($user_uid IS NULL OR owner.uid = $user_uid)
               AND ($source_uid IS NULL OR s.uid = $source_uid)
+              AND ($owner_of IS NULL
+                   OR EXISTS {{ (owner)-[:OWNS]->(:{self.label.value} {{uid: $owner_of}}) }})
               AND ($force
                    OR s.grounded_text_hash IS NULL
                    OR s.grounded_text_hash <> coalesce(s.embedding_text_hash, ''))
@@ -101,7 +106,13 @@ class KnowledgeGroundingBackend(ABC):
                    coalesce(s.grounding_rejected_ku_uids, []) AS rejected_ku_uids
             ORDER BY datetime(s.created_at)
             """,
-            {"user_uid": user_uid, "force": force, "source_uid": source_uid, **gate_params},
+            {
+                "user_uid": user_uid,
+                "force": force,
+                "source_uid": source_uid,
+                "owner_of": owner_of,
+                **gate_params,
+            },
         )
         if result.is_error:
             return Result.fail(result)

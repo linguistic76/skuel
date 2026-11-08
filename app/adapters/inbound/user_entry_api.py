@@ -47,6 +47,7 @@ from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
     UserEntryProcessRequest,
 )
+from core.ports.query_types import GroundingRemovedPayload
 from core.services.user_entry.audience_resolver import ShareOutcome, ShareOutcomePayload
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -567,7 +568,7 @@ def create_user_entry_api_routes(
     @boundary_handler()
     async def remove_grounded_knowledge_route(
         request: Request, uid: str, ku_uid: str
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GroundingRemovedPayload]:
         """Remove one inferred ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge from an owned entry.
 
         The user is editor, not approver: inferred grounding edges write
@@ -594,6 +595,6 @@ def create_user_entry_api_routes(
             return Result.fail(
                 Errors.not_found(resource="UserEntry knowledge link", identifier=f"{uid}→{ku_uid}")
             )
-        return Result.ok({"uid": uid, "ku_uid": ku_uid, "removed": True})
+        return Result.ok(GroundingRemovedPayload(uid=uid, ku_uid=ku_uid, removed=True))
 
     logger.info("UserEntry API routes created successfully")

@@ -855,6 +855,18 @@ class GroundingSourceRow(TypedDict):
     rejected_ku_uids: list[str]
 
 
+class GroundingRemovedPayload(TypedDict):
+    """What a grounding removal door answers once it removed an inferred link.
+
+    The body of ``POST /api/user-entries/grounding/remove`` and
+    ``POST /api/tasks/grounding/remove``: the entity, the Ku, and ``removed``.
+    """
+
+    uid: str
+    ku_uid: str
+    removed: bool
+
+
 class GroundingRemovalRow(TypedDict):
     """Provenance of one removed inferred ``APPLIES_KNOWLEDGE`` edge, from an entry or a task.
 

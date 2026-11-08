@@ -207,7 +207,8 @@ names — `knowledge` and `extract_activities`, periodic notes included, never a
 
 The tasks channel has two writers the same way: the owner's `applies_knowledge_uids` at
 create, and vector grounding (`TaskGroundingService`) once the FULL tier's embedding
-worker stores the task's vector — both publish `KnowledgeAppliedInTask`. The inferred
+worker stores the task's vector (the pass covers the owner's pending tasks, so one that
+failed is retried) — both publish `KnowledgeAppliedInTask`. The inferred
 edge carries `inferred: true` and its `confidence`; an owner's update that names it makes
 it theirs, and a replace of the owner's links leaves it alone. In CORE nothing grounds a
 task, so it carries only the knowledge its owner links.

@@ -18,6 +18,8 @@ holds, and every Ku's vector is stored by the same writer.
 - Unchanged text does not re-ground: the worker announces no new vector, and a pass
   over the task reads it as stamped.
 - Changed text re-grounds: the new vector's Ku is linked.
+- A pass that fails leaves its task pending, and the owner's next stored task vector
+  grounds it: the handler grounds every pending task of the stored task's owner.
 - A cancelled task is never grounded.
 """
 
@@ -43,7 +45,7 @@ from core.services.embeddings_service import EmbeddingsService
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.services.tasks.task_grounding_service import TaskGroundingService
 from core.services.tasks.tasks_core_service import TasksCoreService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
@@ -98,12 +100,31 @@ class _Model:
         return Result.ok(_vector_for(text))
 
 
+class _FlakyIndex(Neo4jVectorSearchService):
+    """The real Ku vector index, answering an error for its next ``failures_left`` queries."""
+
+    failures_left = 0
+
+    async def find_similar_by_vector(
+        self,
+        label: str,
+        embedding: list[float],
+        limit: int | None = None,
+        min_score: float | None = None,
+    ) -> Result[list[dict[str, object]]]:
+        if self.failures_left:
+            self.failures_left -= 1
+            return Result.fail(Errors.database("vector_search", "the index is unavailable"))
+        return await super().find_similar_by_vector(label, embedding, limit, min_score)
+
+
 @dataclass
 class Rig:
     driver: AsyncDriver
     tasks: TasksCoreService
     worker: EmbeddingBackgroundWorker
     grounding: TaskGroundingService
+    index: _FlakyIndex
     backend: TaskGroundingBackend
     embeddings: EmbeddingsService
     applied: list[KnowledgeAppliedInTask]
@@ -169,10 +190,9 @@ async def rig(neo4j_driver: AsyncDriver, clean_neo4j: object) -> AsyncIterator[R
     embeddings = EmbeddingsService(backends["embeddings_backend"], embedding_client=_Model())
     worker = EmbeddingBackgroundWorker(event_bus=bus, embeddings_service=embeddings)
     worker.subscribe()
+    index = _FlakyIndex(backends["vector_search_backend"])
     grounding = TaskGroundingService(
-        backend=backends["task_grounding_backend"],
-        vector_search=Neo4jVectorSearchService(backends["vector_search_backend"]),
-        event_bus=bus,
+        backend=backends["task_grounding_backend"], vector_search=index, event_bus=bus
     )
     bus.subscribe(EmbeddingStored, grounding.handle_embedding_stored)
     applied: list[KnowledgeAppliedInTask] = []
@@ -191,6 +211,7 @@ async def rig(neo4j_driver: AsyncDriver, clean_neo4j: object) -> AsyncIterator[R
         tasks=TasksCoreService(backend=backends["tasks_backend"], event_bus=bus),
         worker=worker,
         grounding=grounding,
+        index=index,
         backend=backends["task_grounding_backend"],
         embeddings=embeddings,
         applied=applied,
@@ -291,6 +312,20 @@ class TestTaskGrounding:
         links = await rig.inferred(task)
         assert set(links) == {KU_BREATH, KU_STILLNESS}, links
         assert [event.knowledge_uid for event in rig.applied] == [KU_BREATH, KU_STILLNESS]
+
+    async def test_a_failed_pass_is_retried_on_the_owners_next_stored_vector(
+        self, rig: Rig
+    ) -> None:
+        rig.index.failures_left = 1
+        first = await rig.create("Notice the breath while waiting")
+        await rig.settle()
+        assert await rig.inferred(first) == {}  # its pass failed: un-stamped, still pending
+
+        second = await rig.create("Sit in stillness after lunch")
+        await rig.settle()
+
+        assert set(await rig.inferred(first)) == {KU_BREATH}
+        assert set(await rig.inferred(second)) == {KU_STILLNESS}
 
     async def test_a_cancelled_task_is_never_grounded(self, rig: Rig) -> None:
         task = await rig.create("Notice the breath, then drop it")

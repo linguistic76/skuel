@@ -199,8 +199,13 @@ class KnowledgeGroundingService(ABC):
         force: bool = False,
         apply: bool = True,
         source_uid: str | None = None,
+        owner_of: str | None = None,
     ) -> Result[GroundingRunReport]:
         """Ground every pending entity (optionally scoped to one user, or one entity).
+
+        ``owner_of`` scopes to every pending entity of the owner of the entity it
+        names: a pass started for one entity also retries its owner's entities whose
+        last pass failed (un-stamped, so still pending).
 
         Backend: KnowledgeGroundingBackend.get_pending. ``apply=False`` is the dry
         run: the full pipeline runs (including the judge on FULL) but nothing is
@@ -220,7 +225,7 @@ class KnowledgeGroundingService(ABC):
             )
 
         pending_result = await self.backend.get_pending(
-            user_uid=user_uid, force=force, source_uid=source_uid
+            user_uid=user_uid, force=force, source_uid=source_uid, owner_of=owner_of
         )
         if pending_result.is_error:
             return Result.fail(pending_result)

@@ -10,10 +10,14 @@ published Ku, a removal recorded and never re-inferred.
 
 Trigger: ``EmbeddingStored`` for a task. The embedding worker stores a task's
 vector after its create or an update that changed its embedded text
-(``TaskEmbeddingRequested``), and announces it; this service grounds that one task.
-The worker drops a request whose text is unchanged, so unchanged text never
-re-grounds, and the pending read is hash-based besides. The worker runs in FULL
-only, so in CORE a task carries only the knowledge its owner links.
+(``TaskEmbeddingRequested``), and announces it once the batch's vectors are all
+stored; this service then grounds every pending task of that task's owner — the new
+one, any other the batch stored, and any whose last pass failed (a judge or a write
+that failed leaves the task un-stamped, so still pending). That is the retry, as a
+failed entry's is the next sync's pass. The worker drops a request whose text is
+unchanged, so unchanged text never re-grounds, and the pending read is hash-based
+besides. The worker runs in FULL only, so in CORE a task carries only the knowledge
+its owner links.
 
 Substance: each NEW inferred edge publishes ``KnowledgeAppliedInTask``, the event
 a task's own link publishes at create.
@@ -65,10 +69,13 @@ class TaskGroundingService(KnowledgeGroundingService):
 
     @safe_event_handler("embedding.stored")
     async def handle_embedding_stored(self, event: EmbeddingStored) -> None:
-        """Ground the task whose embedding the worker just stored; other types pass."""
+        """Ground the pending tasks of the owner of the task the worker just stored.
+
+        Other types pass.
+        """
         if event.entity_type != EntityType.TASK.value:
             return
-        result = await self.ground_pending(source_uid=event.entity_uid)
+        result = await self.ground_pending(owner_of=event.entity_uid)
         if result.is_error:
             self.logger.warning(
                 f"Task grounding after embedding failed for {event.entity_uid}: "

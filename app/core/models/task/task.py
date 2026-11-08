@@ -232,13 +232,14 @@ class Task(UserOwnedEntity):
         ``knowledge_uids`` are the task's knowledge edges as the caller read them
         (``TaskRelationships.get_combined_knowledge_uids``: what it applies — its
         owner's links and the ones grounding inferred, alike — and what it
-        requires). Breadth scores up to 0.5 for 10+ Kus, and each linked Ku is a
-        learning opportunity, up to 0.2 for 5+. 0.0 for a task that links none.
+        requires). Breadth scores up to 0.7 for 7+ Kus, and each linked Ku is a
+        learning opportunity, up to 0.3 for 2+, so the score spans 0.0 (a task that
+        links none) to 1.0 (7+).
         """
         count = len(set(knowledge_uids))
         if count == 0:
             return 0.0
-        return min(1.0, min(0.5, count / 10.0) + min(0.2, count / 5.0))
+        return min(1.0, min(0.7, count / 10.0) + min(0.3, count / 5.0))
 
     def is_knowledge_bridge(self) -> bool:
         """Check if this entity bridges multiple knowledge domains.

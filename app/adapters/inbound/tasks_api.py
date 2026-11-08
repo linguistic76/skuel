@@ -48,6 +48,7 @@ from core.models.entity_requests import AddHierarchyChildRequest, LinkTaskToGoal
 from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
+from core.ports.query_types import GroundingRemovedPayload
 from core.utils.result_simplified import Errors, Result
 from ui.activities.tasks_views import TaskCard
 
@@ -181,7 +182,7 @@ def create_tasks_api_routes(
     @boundary_handler()
     async def remove_grounded_knowledge_route(
         request: Request, uid: str, ku_uid: str
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GroundingRemovedPayload]:
         """Remove one inferred ``(task)-[:APPLIES_KNOWLEDGE]->(ku)`` edge from an owned task.
 
         The owner is editor, not approver: grounding writes inferred edges eagerly
@@ -206,4 +207,4 @@ def create_tasks_api_routes(
             return Result.fail(
                 Errors.not_found(resource="Task knowledge link", identifier=f"{uid}→{ku_uid}")
             )
-        return Result.ok({"uid": uid, "ku_uid": ku_uid, "removed": True})
+        return Result.ok(GroundingRemovedPayload(uid=uid, ku_uid=ku_uid, removed=True))

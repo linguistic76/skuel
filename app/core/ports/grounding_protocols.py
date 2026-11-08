@@ -36,11 +36,13 @@ class KnowledgeGroundingBackendOperations(Protocol):
         user_uid: str | None = None,
         force: bool = False,
         source_uid: str | None = None,
+        owner_of: str | None = None,
     ) -> Result[list[GroundingSourceRow]]:
         """Embedded entities that may ground and whose grounding stamp is missing or stale.
 
-        ``user_uid`` scopes to one owner, ``source_uid`` to one entity; ``force``
-        includes entities whose stamp is current.
+        ``user_uid`` scopes to one owner, ``source_uid`` to one entity, ``owner_of`` to
+        the owner of the entity it names; ``force`` includes entities whose stamp is
+        current.
         """
         ...
 

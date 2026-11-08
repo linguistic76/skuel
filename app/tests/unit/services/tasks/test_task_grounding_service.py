@@ -6,8 +6,8 @@ The pass itself is ``KnowledgeGroundingService``'s, held by
 - A NEW inferred edge publishes ``KnowledgeAppliedInTask``, the event a task's own
   knowledge link publishes, carrying the task and its owner.
 - The judge reads the task's title and description through ``task_ku_grounding_judge``.
-- ``EmbeddingStored`` for a task grounds exactly that task; for any other type,
-  nothing runs.
+- ``EmbeddingStored`` for a task grounds every pending task of that task's owner —
+  the stored one, and any whose last pass failed; for any other type, nothing runs.
 """
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ async def test_the_judge_reads_the_tasks_title_and_description() -> None:
 
 
 @pytest.mark.anyio
-async def test_a_stored_task_embedding_grounds_that_task_only() -> None:
+async def test_a_stored_task_embedding_grounds_its_owners_pending_tasks() -> None:
     backend = _backend([])
     service = TaskGroundingService(backend=backend, vector_search=_vector(), event_bus=_bus())
 
@@ -112,7 +112,7 @@ async def test_a_stored_task_embedding_grounds_that_task_only() -> None:
     )
 
     backend.get_pending.assert_awaited_once_with(
-        user_uid=None, force=False, source_uid="task_0000000000000009"
+        user_uid=None, force=False, source_uid=None, owner_of="task_0000000000000009"
     )
 
 
