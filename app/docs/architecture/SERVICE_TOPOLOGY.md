@@ -303,9 +303,10 @@ Activity Domain Facades (6 total)
     └─ mixins: _EmbodimentMixin, _GravityMixin, _EnrichmentMixin
 ```
 
-**Pattern:** All 6 domains share the same 7 common sub-services via factory: core, search, relationships,
-intelligence (skippable via `skip={}`) + event_handler, learning, knowledge_intelligence
-(always auto-wired). The shape is uniform — no domain opts out. `KnowledgeIntelligenceDelegationMixin` remains for the 4
+**Pattern:** All 6 domains share the same 7 common sub-services: the factory builds core, search,
+relationships, event_handler and learning for every domain, intelligence for the domain whose config
+names a class (Principles; the other five facades build their own), and passes knowledge_intelligence
+through. The shape is uniform — no domain opts out. `KnowledgeIntelligenceDelegationMixin` remains for the 4
 delegation method shortcuts but is no longer the wiring path for `knowledge_intelligence`. Cross-domain reads spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`), injected as a constructor dependency into facades that need it (Goals, Habits, Choices, Principles). Activity domain stat computation centralized in `core/utils/activity_stats.py` (April 2026).
 
 The shared `knowledge_intelligence` wiring is the first production realization of the [Shared Signal pattern](../patterns/SHARED_SIGNAL_PATTERN.md) — one singleton producer, narrow protocol, delegation mixin on every Activity Domain facade.
@@ -695,33 +696,32 @@ create_common_sub_services(
     event_bus=event_bus,
     insight_store=insight_store,
     activity_knowledge_intelligence=activity_knowledge_intelligence,
-    skip={"core", "intelligence"},  # optional — applies only to core/search/rels/intel
 )
     │
     ▼
-ACTIVITY_DOMAIN_CONFIGS["events"]  ← Registry lookup
+ACTIVITY_DOMAIN_CONFIGS["events"]  ← Registry lookup (class references)
     │
-    ├─ core_class: "EventsCoreService"
-    ├─ search_class: "EventsSearchService"
-    ├─ intelligence_class: "EventsIntelligenceService"
-    ├─ event_handler_class: "EventEventHandlerService"
-    ├─ learning_class: "EventsLearningService"
+    ├─ core_class: EventsCoreService
+    ├─ search_class: EventsSearchService
+    ├─ intelligence_class: None  (the facade builds it, with cross_domain_query)
+    ├─ event_handler_class: EventEventHandlerService
+    ├─ learning_class: EventsLearningService
     └─ relationship_config: EVENTS_CONFIG
     │
     ▼
-Dynamic imports + instantiation (skipping names in skip set)
+Instantiation
     │
-    ├─ core = None  (skipped)
-    ├─ search = EventsSearchService(backend=backend, ...)
-    ├─ intel = None  (skipped)
-    ├─ rels = UnifiedRelationshipService(backend=backend, config=EVENTS_CONFIG)
-    ├─ event_handler = EventEventHandlerService(...)  (always built)
-    ├─ learning = EventsLearningService(...)           (always built when class configured)
-    └─ knowledge_intelligence = <passed-in singleton>  (always set)
+    ├─ core = EventsCoreService(backend=backend, event_bus=event_bus)
+    ├─ search = EventsSearchService(backend=backend)
+    ├─ rels = UnifiedRelationshipService(backend=backend, config=EVENTS_CONFIG, ...)
+    ├─ intel = None  (no intelligence_class)
+    ├─ event_handler = EventEventHandlerService(...)
+    ├─ learning = EventsLearningService(...)
+    └─ knowledge_intelligence = <passed-in singleton>
     │
     ▼
-CommonSubServices[EventsIntelligenceService]
-    ├─ core: None
+CommonSubServices[EventsCoreService, EventsSearchOperations, EventsIntelligenceService]
+    ├─ core: EventsCoreService
     ├─ search: EventsSearchService
     ├─ relationships: UnifiedRelationshipService
     ├─ intelligence: None
@@ -733,9 +733,9 @@ CommonSubServices[EventsIntelligenceService]
 **Benefits:**
 - Eliminates ~80 lines of boilerplate per facade
 - Centralized configuration via `ACTIVITY_DOMAIN_CONFIGS` registry
-- Generic type parameter for intelligence service
-- `skip` parameter covers the first 4 (core/search/relationships/intelligence); event_handler, learning,
-  and knowledge_intelligence are always auto-wired for every domain
+- Generic type parameters for core, search and intelligence
+- core, search, relationships, event_handler and learning are always built, so a facade reads them
+  without a `None` check; intelligence is `None` for the five domains whose facades build their own
 
 ---
 
@@ -785,7 +785,7 @@ BaseService._get_config_value("search_fields")
 1. **Mixin Composition** — 7 focused mixins provide 100+ methods to `BaseService`
 2. **Facade Pattern** — 1 facade per domain delegates to 7–14 specialized sub-services
 3. **Explicit Delegation** — Facade services have explicit `async def` delegation methods (not dynamic generation)
-4. **Factory Pattern** — `create_common_sub_services()` creates the same 7 sub-services for every Activity Domain from the registry: core/search/relationships/intelligence (skippable via `skip={}`) + event_handler, learning, knowledge_intelligence (always auto-wired). The shared shape is the contract for interconnectivity — see `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization".
+4. **Factory Pattern** — `create_common_sub_services()` builds the common sub-services for every Activity Domain from the registry: core/search/relationships/event_handler/learning always, intelligence where the domain's config names a class, knowledge_intelligence passed through. The shared shape is the contract for interconnectivity — see `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization".
 5. **Configuration Pattern** — `DomainConfig` dataclass is single source of truth
 6. **Event-Driven** — Domain events published for side effects (analytics, achievements, etc.)
 

@@ -16,6 +16,7 @@ import asyncio
 import functools
 from typing import TYPE_CHECKING
 
+from core.constants import KnowledgeLinkConfidence
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -142,7 +143,7 @@ class _ContextPlanningMixin:
         return self.activity.get_valid_context(user_uid)
 
     async def get_rich_unified_context(
-        self, user_uid: UserUID, min_confidence: float = 0.7
+        self, user_uid: UserUID, min_confidence: float = KnowledgeLinkConfidence.FLOOR
     ) -> Result[RichUserContext]:
         """
         Get COMPLETE UserContext with BOTH standard AND rich fields.
@@ -168,7 +169,8 @@ class _ContextPlanningMixin:
 
         Args:
             user_uid: User's unique identifier
-            min_confidence: Minimum relationship confidence (default 0.7)
+            min_confidence: Minimum relationship confidence (default
+                ``KnowledgeLinkConfidence.FLOOR``)
 
         Returns:
             Result[UserContext] with the rich fields populated

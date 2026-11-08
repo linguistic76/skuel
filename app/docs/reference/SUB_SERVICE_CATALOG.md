@@ -578,20 +578,20 @@ common = create_common_sub_services(
     event_bus=event_bus,
     insight_store=insight_store,                                      # optional
     activity_knowledge_intelligence=activity_knowledge_intelligence,  # optional
-    skip={"core", "intelligence"},  # optional — skip sub-services created manually
 )
 
+self.core = common.core
 self.search = common.search
 self.relationships = common.relationships
-self.event_handler = common.event_handler              # auto-wired for all 6 domains
-self.learning = common.learning                        # auto-wired (TasksLearningService — uniform across all 6 domains)
-self.knowledge_intelligence = common.knowledge_intelligence  # auto-wired (was via mixin only)
-# core and intelligence created manually when they need domain-specific params
+self.event_handler = common.event_handler              # built for all 6 domains
+self.learning = common.learning                        # built for all 6 domains (TasksLearningService here)
+self.knowledge_intelligence = common.knowledge_intelligence  # the passed-in singleton
+# Tasks' config names no intelligence_class: the facade builds TasksIntelligenceService itself
 ```
 
-**`skip` applies only to:** `core`, `search`, `relationships`, `intelligence`. The `event_handler`,
-`learning`, and `knowledge_intelligence` fields are always produced when conditions are met (domain
-config includes a learning class; singleton is passed in).
+`core`, `search`, `relationships`, `event_handler` and `learning` are always built.
+`intelligence` is built only for a domain whose config names an `intelligence_class` (Principles);
+`knowledge_intelligence` is whatever the caller passed.
 
 **When to use:**
 - Implementing new facade services

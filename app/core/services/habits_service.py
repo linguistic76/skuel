@@ -581,9 +581,6 @@ class HabitsService(
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
-        assert common.core is not None  # 'core' not in skip
-        assert common.search is not None  # 'search' not in skip
-        assert common.relationships is not None  # 'relationships' not in skip
         self.core = common.core
         self.search = common.search
         self.relationships = common.relationships

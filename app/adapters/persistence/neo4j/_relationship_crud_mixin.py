@@ -66,8 +66,9 @@ class _LinkRefusedError(Exception):
         self.uid = uid
 
 
-def _write_order(write: GuardedLinkWrite) -> tuple[str, bool]:
+def _write_order(indexed: tuple[int, GuardedLinkWrite]) -> tuple[str, bool]:
     """The order a transaction takes its writes in — by edge type, then direction."""
+    write = indexed[1]
     return (write.relationship.value, write.anchor_is_source)
 
 
@@ -1331,16 +1332,20 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         the writes before it, so the anchor's links are all written or none is (the
         rule and the statement: ``build_guarded_link_query``). ``anchor_owners`` is who
         owned the anchor when the caller admitted the links: an anchor owned by anyone
-        else at the write is refused as the anchor's own uid.
+        else at the write is refused as the anchor's own uid. The outcome names, per
+        write, the edges it created.
         """
         # A stable lock order — writes by edge type, far ends sorted — so two writes over
         # overlapping far ends take their locks in the same order; a deadlock the order
         # cannot prevent is retried by the managed transaction (the work is idempotent).
-        ordered = sorted(writes, key=_write_order)
+        ordered = sorted(enumerate(writes), key=_write_order)
 
-        async def write_all(tx: AsyncManagedTransaction) -> frozenset[str]:
+        async def write_all(
+            tx: AsyncManagedTransaction,
+        ) -> tuple[frozenset[str], tuple[frozenset[str], ...]]:
             written_owners: frozenset[str] = frozenset()
-            for write in ordered:
+            created: list[frozenset[str]] = [frozenset()] * len(writes)
+            for index, write in ordered:
                 far_uids = sorted(set(write.far_uids))
                 query = build_guarded_link_query(
                     write.relationship,
@@ -1367,15 +1372,16 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 if refused is not None:
                     raise _LinkRefusedError(refused)
                 written_owners = frozenset(record["anchor_owners"])
-            return written_owners
+                created[index] = frozenset(record["created"])
+            return written_owners, tuple(created)
 
         try:
             async with self.driver.session() as session:
-                written = await session.execute_write(write_all)
+                owners, created = await session.execute_write(write_all)
         except _LinkRefusedError as refusal:
             # Raised inside the unit of work, so the managed transaction rolled back.
-            return Result.ok(GuardedLinkOutcome(refusal.uid, frozenset()))
-        return Result.ok(GuardedLinkOutcome(None, written))
+            return Result.ok(GuardedLinkOutcome(refusal.uid, frozenset(), ()))
+        return Result.ok(GuardedLinkOutcome(None, owners, created))
 
     # ============================================================================
     # CONFIG-DRIVEN BATCH RELATIONSHIP QUERIES

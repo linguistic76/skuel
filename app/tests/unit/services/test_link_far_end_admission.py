@@ -114,13 +114,20 @@ class WritingEndpoints(Endpoints):
             (uid for write in writes for uid in write.far_uids if uid in self.changed), None
         )
         if refused is not None:
-            return Result.ok(GuardedLinkOutcome(refused, frozenset()))
+            return Result.ok(GuardedLinkOutcome(refused, frozenset(), ()))
         self.writes.extend(writes)
+        created: list[frozenset[str]] = []
         for write in writes:
+            new: set[str] = set()
             for uid in write.far_uids:
                 source, target = (anchor_uid, uid) if write.anchor_is_source else (uid, anchor_uid)
-                self.written.append((source, target, write.relationship.value))
-        return Result.ok(GuardedLinkOutcome(None, frozenset(_OWNERS.get(anchor_uid, ()))))
+                edge = (source, target, write.relationship.value)
+                if edge not in self.written:
+                    new.add(uid)
+                    self.written.append(edge)
+            created.append(frozenset(new))
+        owners = frozenset(_OWNERS.get(anchor_uid, ()))
+        return Result.ok(GuardedLinkOutcome(None, owners, tuple(created)))
 
 
 async def _from_source(
@@ -459,6 +466,11 @@ class TestTheServiceReplacesInOneWrite:
         )
 
         assert replaced.is_ok, replaced.error
+        # Per key, the links the write created.
+        assert replaced.value == {
+            "supporting_habits": frozenset({"habit_alice"}),
+            "knowledge": frozenset(),
+        }
         habits, knowledge = endpoints.writes
         assert (habits.replace, habits.replace_label, habits.far_uids) == (
             True,

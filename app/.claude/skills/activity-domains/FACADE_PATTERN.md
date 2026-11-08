@@ -112,8 +112,7 @@ def create_tasks_api_routes(
 `create_common_sub_services()` (`core/services/activity_domain_config.py`) builds the slots from
 `ACTIVITY_DOMAIN_CONFIGS[domain]`:
 
-- `core`, `search`, `relationships` — always, unless named in `skip` (the only valid `skip`
-  names; anything else raises `ValueError`).
+- `core`, `search`, `relationships` — always.
 - `intelligence` — only when the domain's `intelligence_class` is set. Today that is Principles
   alone; the other five set it to `None` and their facades build intelligence with a
   domain-specific dependency (Tasks: `event_bus`; Goals: `progress_service`; Habits, Choices,
@@ -156,8 +155,8 @@ def __init__(self, backend, graph_intel, cross_domain_query, event_bus=None,
     self.progress = EventsProgressService(backend=backend, event_bus=event_bus)
 ```
 
-`skip` avoids constructing a sub-service the facade builds itself. No facade passes it
-today — every domain's `core` is the factory's `core_class(backend=..., event_bus=...)`:
+Every domain's `core` is the factory's `core_class(backend=..., event_bus=...)`; a facade that
+needs a different `core` changes the registry's class, not the call:
 
 ```python
 common = create_common_sub_services(

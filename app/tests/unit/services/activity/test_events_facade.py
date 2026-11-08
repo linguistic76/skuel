@@ -129,7 +129,7 @@ class TestUpdateEventEdges:
         CELEBRATES_GOAL edge with none — the edge-clear gap fix — and admits nothing."""
         events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
         events_service.relationships.admit_far_ends = AsyncMock()
-        events_service.relationships.replace_relationships = AsyncMock(return_value=Result.ok(0))
+        events_service.relationships.replace_relationships = AsyncMock(return_value=Result.ok({}))
 
         result = await events_service.update_event(
             "event_abc", EventUpdateIntent(milestone_celebration_for_goal=None)
@@ -145,7 +145,7 @@ class TestUpdateEventEdges:
     async def test_setting_goal_edge_replaces_existing(self, events_service: EventsService) -> None:
         """A new milestone_celebration_for_goal replaces the old edge in one write."""
         events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
-        events_service.relationships.replace_relationships = AsyncMock(return_value=Result.ok(1))
+        events_service.relationships.replace_relationships = AsyncMock(return_value=Result.ok({}))
         admission = AdmittedFarEnds(
             source_uid="event_abc",
             far_uids=frozenset({"goal_new"}),
@@ -176,7 +176,7 @@ class TestUpdateEventEdges:
     ) -> None:
         """A goal and a habit in one update are one replace — both land, or neither."""
         events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
-        events_service.relationships.replace_relationships = AsyncMock(return_value=Result.ok(1))
+        events_service.relationships.replace_relationships = AsyncMock(return_value=Result.ok({}))
 
         result = await events_service.update_event(
             "event_abc",

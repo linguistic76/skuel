@@ -60,7 +60,7 @@ Smaller helpers run between these stops. The table names the ones that decide so
 | 16 | `keep_permitted_link_edges` | `/core/services/mixins/link_edge_guard.py` | Keeps the edges this owner may write |
 | 17 | `_RelationshipCrudMixin.create_relationships_batch` | `/adapters/persistence/neo4j/_relationship_crud_mixin.py` | Writes the kept edges, all or none |
 | 18 | `TasksCoreService._publish_created` | `/core/services/tasks/tasks_core_service.py` | Publishes `TaskCreated` and the embedding request, now that every edge exists |
-| 19 | `TasksCoreService._publish_knowledge_substance` | `/core/services/tasks/tasks_core_service.py` | Announces the knowledge edges actually written, never the ones requested |
+| 19 | `TasksCoreService.publish_knowledge_applied` | `/core/services/tasks/tasks_core_service.py` | Announces the knowledge edges actually written, never the ones requested |
 | 20 | `result_to_response` | `/adapters/inbound/boundary.py` | Turns the `Result` into a status: 201 |
 | 21 | `jsonable_content` | `/adapters/inbound/boundary.py` | Turns the `Task` into JSON types and leaves out its embedding fields |
 

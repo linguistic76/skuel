@@ -220,7 +220,7 @@ Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtoco
 
 **6 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, Context.
 
-**6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()` (supports `skip` parameter for facades that override sub-services). Active sub-services: `.core`, `.search`, `.ai` (optional, FULL tier). **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — 4 delegation methods via `KnowledgeIntelligenceDelegationMixin`, inherited by all 6 facades.
+**6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()` (builds every common slot; `intelligence` only where the domain's config names a class). Active sub-services: `.core`, `.search`, `.ai` (optional, FULL tier). **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — 4 delegation methods via `KnowledgeIntelligenceDelegationMixin`, inherited by all 6 facades.
 
 **Harmony without over-generalization:** All 6 domains share the same 7 common sub-services (`core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`) — no domain opts out. Domain-specific sub-services (Habits `completions`, Events `habits`, Principles `alignment`) preserve uniqueness inside it.
 

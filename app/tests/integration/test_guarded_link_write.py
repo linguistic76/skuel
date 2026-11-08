@@ -186,6 +186,17 @@ def _knowledge(*uids: str) -> GuardedLinkWrite:
     )
 
 
+def _applies(*uids: str) -> GuardedLinkWrite:
+    return GuardedLinkWrite(
+        far_uids=uids,
+        relationship=RelationshipName.APPLIES_KNOWLEDGE,
+        anchor_is_source=True,
+        far_labels=KUS,
+        replace=True,
+        replace_label=NeoLabel.KU,
+    )
+
+
 class TestTheWriteReassertsTheRule:
     async def test_the_owners_entity_and_published_shared_content_are_linked(
         self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
@@ -393,6 +404,81 @@ class TestAReplaceIsOneStatement:
 
         assert outcome.value.refused_uid is None
         assert await _links(graph, GOAL) == {(REQUIRES_KNOWLEDGE.value, KU)}
+
+
+class TestTheWriteNamesTheEdgesItCreated:
+    async def test_created_is_per_write_in_the_order_given(
+        self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
+    ) -> None:
+        """The knowledge write is given first and taken second (the lock order is by
+        edge type): ``created`` follows the order given."""
+        await _clear_links(graph)
+
+        outcome = await backend.write_guarded_links(
+            GOAL, [_knowledge(KU), _habits(HABIT)], anchor_owners=ALICES
+        )
+
+        assert outcome.value.refused_uid is None
+        assert outcome.value.created == (frozenset({KU}), frozenset({HABIT}))
+
+    async def test_an_edge_already_there_is_not_created(
+        self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
+    ) -> None:
+        await _clear_links(graph)
+        await backend.write_guarded_links(GOAL, [_habits(HABIT)], anchor_owners=ALICES)
+
+        outcome = await backend.write_guarded_links(
+            GOAL, [_habits(HABIT, HABIT_TWO)], anchor_owners=ALICES
+        )
+
+        assert outcome.value.created == (frozenset({HABIT_TWO}),)
+        assert await _links(graph, GOAL) == {
+            (REINFORCES_HABIT.value, HABIT),
+            (REINFORCES_HABIT.value, HABIT_TWO),
+        }
+
+    async def test_an_inferred_edge_the_write_names_is_promoted_not_created(
+        self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
+    ) -> None:
+        """The shape a grounding pass writes; the owner's replace names it and one new Ku."""
+        await _clear_links(graph)
+        await _run(
+            graph,
+            """
+            MATCH (g:Entity {uid: $goal}), (k:Entity {uid: $ku})
+            CREATE (g)-[:APPLIES_KNOWLEDGE {inferred: true, confidence: 0.8,
+                                            grounded_at: datetime()}]->(k)
+            """,
+            goal=GOAL,
+            ku=KU_TWO,
+        )
+
+        outcome = await backend.write_guarded_links(
+            GOAL, [_applies(KU, KU_TWO)], anchor_owners=ALICES
+        )
+
+        assert outcome.value.created == (frozenset({KU}),)
+        async with graph.session() as session:
+            result = await session.run(
+                """
+                MATCH (:Entity {uid: $goal})-[r:APPLIES_KNOWLEDGE]->(k)
+                RETURN k.uid AS ku, r.inferred IS NULL AND r.confidence IS NULL AS owners
+                """,
+                goal=GOAL,
+            )
+            assert {row["ku"]: row["owners"] async for row in result} == {KU: True, KU_TWO: True}
+
+    async def test_a_refused_write_created_nothing(
+        self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
+    ) -> None:
+        await _clear_links(graph)
+
+        outcome = await backend.write_guarded_links(
+            GOAL, [_habits(HABIT), _habits(HABIT_BOB)], anchor_owners=ALICES
+        )
+
+        assert outcome.value.refused_uid == HABIT_BOB
+        assert outcome.value.created == ()
 
 
 class TestTheUidBoundReads:

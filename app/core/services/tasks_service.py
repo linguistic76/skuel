@@ -122,6 +122,19 @@ class TaskEdgeIntent:
         )
 
 
+@dataclasses.dataclass(frozen=True)
+class EdgeSync:
+    """What a task's edge sync changed that its update announces.
+
+    ``removed_goals`` are the goals the task contributed to before a goal-set replace;
+    ``new_knowledge_uids`` the Kus a knowledge-set replace linked that no edge already
+    joined to the task, in the order the update named them.
+    """
+
+    removed_goals: list[str] = dataclasses.field(default_factory=list)
+    new_knowledge_uids: list[str] = dataclasses.field(default_factory=list)
+
+
 # TypedDicts for analytics dashboard structure (fixes MyPy index errors)
 class TaskStatistics(TypedDict):
     """Task statistics for analytics dashboard."""
@@ -365,9 +378,6 @@ class TasksService(
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
-        assert common.core is not None  # 'core' not in skip
-        assert common.search is not None  # 'search' not in skip
-        assert common.relationships is not None  # 'relationships' not in skip
 
         # NOTE: Named 'search' for consistency with other domain facades
         # This shadows BaseService.search(), intentionally - we delegate via self.search.search()
@@ -478,7 +488,7 @@ class TasksService(
 
     async def _sync_relationship_edges(
         self, task_uid: str, *, owner_uid: str, edges: TaskEdgeIntent
-    ) -> Result[list[str]]:
+    ) -> Result[EdgeSync]:
         """Replace the task's habit, knowledge, goal and principle edges from the intent values.
 
         ``UNSET`` means "not in this update" (edges of that kind untouched); a value means
@@ -501,7 +511,10 @@ class TasksService(
 
         Returns the goals the task contributed to before a goal-set replace — the caller
         announces them, since a goal that lost a contribution cannot be found from the
-        task afterwards.
+        task afterwards — and the Kus the replace newly linked, which the caller
+        credits. The write decides which links are new, under the task's lock
+        (``replace_relationships``): a Ku already linked, or one a grounding pass
+        inferred that the update names, is not new.
         """
         # (Task)-[:REINFORCES_HABIT]->(Habit) is single-valued; the edge SETS —
         # APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL and ALIGNED_WITH_PRINCIPLE — take a list
@@ -535,7 +548,7 @@ class TasksService(
             if uids is not UNSET:
                 replaced[key] = (list(dict.fromkeys(uids or [])), relationship, far_end)
         if not replaced:
-            return Result.ok([])
+            return Result.ok(EdgeSync())
         candidates = [
             LinkEdge(
                 (task_uid, far_uid, relationship.value, None),
@@ -574,7 +587,13 @@ class TasksService(
         )
         if written.is_error:
             return Result.fail(written)
-        return Result.ok(removed_goals)
+        created = written.value.get("knowledge", frozenset())
+        return Result.ok(
+            EdgeSync(
+                removed_goals=removed_goals,
+                new_knowledge_uids=[uid for uid in kept.get("knowledge", []) if uid in created],
+            )
+        )
 
     async def _announce_goal_set_change(
         self, task_uid: str, owner_uid: str, removed_goals: list[str]
@@ -624,7 +643,8 @@ class TasksService(
         and principle edges. See `_sync_relationship_edges`.
 
         A change to the task's goal set announces ``GoalContributionsChanged`` for the
-        goals it left and the ones it now contributes to."""
+        goals it left and the ones it now contributes to. A Ku the update newly links
+        is credited (``KnowledgeAppliedInTask``), as a link written at create is."""
         edges, prop_intent = self._split_relationship_intent(intent)
 
         # A relationship-only update (e.g. only applies_knowledge_uids, which
@@ -644,9 +664,10 @@ class TasksService(
         if sync.is_error:
             return Result.fail(sync)
         if edges.contributes_to_goal_uids is not UNSET:
-            await self._announce_goal_set_change(task_uid, task.user_uid, sync.value)
+            await self._announce_goal_set_change(task_uid, task.user_uid, sync.value.removed_goals)
         if not wrote_properties:  # edge-only: core.update_task didn't fire TaskUpdated
             await self._publish_edge_only_update(task, edges)
+        await self.core.publish_knowledge_applied(task, sync.value.new_knowledge_uids)
         return Result.ok(task)
 
     async def update(self, uid: str, updates: TaskUpdateIntent) -> Result[Task]:

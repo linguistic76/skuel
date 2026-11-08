@@ -12,14 +12,10 @@ Each domain has:
 - event_handler_class / learning_class: always built
 - relationship_config: UnifiedRelationshipService config
 
-The registry holds **class references, not module-name strings**. It used to hold
-strings resolved through ``importlib.import_module`` at call time, on the stated
-grounds of avoiding circular imports; there is no such cycle (measured — no registry
-target imports this module, directly or transitively), and every one of this
-module's callers already imports both this module and its own domain package at
-module level, so the lazy resolution deferred nothing. Naming the classes lets MyPy
-check that each registered class is constructible the way the factory constructs it —
-which two of them were not.
+The registry holds **class references, not module-name strings**: no registry target
+imports this module, directly or transitively, so naming the classes costs no import
+cycle and lets MyPy check that each registered class is constructible the way the
+factory constructs it.
 
 Usage:
     from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS, create_common_sub_services
@@ -242,23 +238,19 @@ class CommonSubServices(Generic[T_Core, T_Search, T_Intelligence]):
     marginal benefit; the two most-called slots (``core``, ``search``) are
     where silent-cast bugs would hurt most.
 
-    Fields may be None when the corresponding service name is in the ``skip`` set.
-    ``event_handler`` and ``learning`` are always built (not skippable via ``skip``).
-    ``knowledge_intelligence`` is None unless passed to the factory.
+    ``core``, ``search``, ``relationships``, ``event_handler`` and ``learning`` are
+    always built. ``intelligence`` is None for a domain whose config declares no
+    ``intelligence_class`` (its facade builds its own); ``knowledge_intelligence`` is
+    None unless passed to the factory.
     """
 
-    core: T_Core | None
-    search: T_Search | None
-    relationships: UnifiedRelationshipService | None
+    core: T_Core
+    search: T_Search
+    relationships: UnifiedRelationshipService
     intelligence: T_Intelligence | None
     event_handler: Any
     learning: Any
     knowledge_intelligence: Any  # None unless passed via activity_knowledge_intelligence
-
-
-# "intelligence" is deliberately absent: whether it is built is a property of the
-# domain (``ActivityDomainConfig.intelligence_class``), not a choice the caller makes.
-_VALID_SKIP_NAMES = frozenset({"core", "search", "relationships"})
 
 
 def create_common_sub_services(
@@ -272,7 +264,6 @@ def create_common_sub_services(
     graph_intel: Any,
     event_bus: Any = None,
     insight_store: Any = None,
-    skip: set[str] | None = None,
     activity_knowledge_intelligence: Any = None,
 ) -> CommonSubServices[Any, Any, Any]:
     """
@@ -286,17 +277,13 @@ def create_common_sub_services(
         graph_intel: GraphIntelligenceService for analytics
         event_bus: Event bus for domain events (optional)
         insight_store: InsightStore for persisting event-driven insights (optional)
-        skip: Sub-service names to skip constructing (set to None in result).
-            Valid names: "core", "search", "relationships".
-            Use when the facade creates these manually with domain-specific parameters.
-            ``intelligence`` is not skippable — it is built only for domains whose
-            config declares an ``intelligence_class``.
         activity_knowledge_intelligence: Shared knowledge intelligence singleton (optional).
             Passed through to CommonSubServices.knowledge_intelligence unchanged.
 
     Returns:
-        CommonSubServices dataclass. Skipped fields are None.
-        ``event_handler`` and ``learning`` are always built (not in skip set).
+        CommonSubServices dataclass. ``intelligence`` is built only for a domain whose
+        config declares an ``intelligence_class``; every other slot but
+        ``knowledge_intelligence`` is always built.
         Callers annotate with the three-arg generic for type safety:
 
             common: CommonSubServices[
@@ -318,30 +305,16 @@ def create_common_sub_services(
         self.learning = common.learning
         self.knowledge_intelligence = common.knowledge_intelligence
     """
-    skip = skip or set()
-    invalid = skip - _VALID_SKIP_NAMES
-    if invalid:
-        msg = f"Invalid skip names: {invalid}. Valid: {_VALID_SKIP_NAMES}"
-        raise ValueError(msg)
-
     config = ACTIVITY_DOMAIN_CONFIGS[domain]
 
-    core = None
-    if "core" not in skip:
-        core = config.core_class(backend=backend, event_bus=event_bus)
-
-    search = None
-    if "search" not in skip:
-        search = config.search_class(backend=backend)
-
-    relationships: UnifiedRelationshipService[Any, Any, Any] | None = None
-    if "relationships" not in skip:
-        relationships = UnifiedRelationshipService(
-            backend=backend,
-            config=config.relationship_config,
-            graph_intel=graph_intel,
-            event_bus=event_bus,
-        )
+    core = config.core_class(backend=backend, event_bus=event_bus)
+    search = config.search_class(backend=backend)
+    relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=backend,
+        config=config.relationship_config,
+        graph_intel=graph_intel,
+        event_bus=event_bus,
+    )
 
     # intelligence — built here only for the domains whose service takes exactly these
     # four arguments. The rest declare ``intelligence_class=None`` and build their own.

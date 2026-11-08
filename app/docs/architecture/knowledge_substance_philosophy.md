@@ -206,11 +206,14 @@ names — `knowledge` and `extract_activities`, periodic notes included, never a
 `private: true` entry. The handler is writer-agnostic — same event, same credit.
 
 The tasks channel has two writers the same way: the owner's `applies_knowledge_uids` at
-create, and vector grounding (`TaskGroundingService`) once the FULL tier's embedding
-worker stores the task's vector (the pass covers the owner's pending tasks, so one that
-failed is retried) — both publish `KnowledgeAppliedInTask`. The inferred
+create and at an update, and vector grounding (`TaskGroundingService`) once the FULL tier's
+embedding worker stores the task's vector (the pass covers the owner's pending tasks, so one
+whose pass did not land is retried) — both publish `KnowledgeAppliedInTask`. An update
+credits only the links its write created. The inferred
 edge carries `inferred: true` and its `confidence`; an owner's update that names it makes
-it theirs, and a replace of the owner's links leaves it alone. In CORE nothing grounds a
+it theirs without crediting it again, and a replace of the owner's links leaves it alone.
+Grounding refuses a threshold below `KnowledgeLinkConfidence.FLOOR` (`core/constants.py`),
+the rich context's `min_confidence`, so every inferred link it writes is one the context reads. In CORE nothing grounds a
 task, so it carries only the knowledge its owner links.
 
 ### Examples
@@ -356,7 +359,7 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
 - **Increments:** `times_applied_in_tasks`
 - **Updates:** `last_applied_date`
 - **Weight:** 0.05 per task (max 0.25)
-- **Published by:** `TasksCoreService` — single when 1 KU, bulk when 2+, for the owner's links at create; `TaskGroundingService` — single, once per genuinely NEW inferred edge (vector grounding of an embedded task, the pass entries run; never a cancelled task)
+- **Published by:** `TasksCoreService` — single when 1 KU, bulk when 2+, for the owner's links at create; `TasksService.update_task` — the same, for each Ku an update newly links (the guarded write reports which edges it created; a promoted inferred link is not one); `TaskGroundingService` — single, once per genuinely NEW inferred edge (vector grounding of an embedded task, the pass entries run; never a cancelled task)
 
 ### 2. KnowledgePracticedInEvent
 - **Increments:** `times_practiced_in_events`

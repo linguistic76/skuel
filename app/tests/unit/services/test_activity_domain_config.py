@@ -11,10 +11,8 @@ Nothing but these tests keeps the two in step at runtime:
 - So the kwargs here are read out of the factory's own source with ``ast``, never
   copied. A hand-copied mirror is exactly what drifts.
 
-The invariant was not always true: before class references replaced module-name
-strings, ``habits`` and ``choices`` registered intelligence services requiring a
-``cross_domain_query`` argument the factory never passes. Both entries were dead —
-the facades build their own — and unconstructible, and nothing could see it.
+A registered class that requires an argument the factory never passes is
+unconstructible, and only these tests see it.
 """
 
 from __future__ import annotations
@@ -26,10 +24,7 @@ from annotationlib import Format
 import pytest
 
 from core.services import activity_domain_config
-from core.services.activity_domain_config import (
-    ACTIVITY_DOMAIN_CONFIGS,
-    create_common_sub_services,
-)
+from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS
 
 SLOTS = (
     "core_class",
@@ -103,14 +98,3 @@ def test_registered_class_accepts_the_factory_kwargs(domain: str, slot: str) -> 
         f"{domain}.{slot} = {registered.__name__} requires {unmet}, "
         f"which create_common_sub_services never passes — constructing it would raise TypeError"
     )
-
-
-def test_intelligence_is_not_skippable() -> None:
-    """`skip` no longer decides intelligence; the registry does."""
-    with pytest.raises(ValueError, match="Invalid skip names"):
-        create_common_sub_services(
-            domain="principles",
-            backend=object(),
-            graph_intel=object(),
-            skip={"intelligence"},
-        )

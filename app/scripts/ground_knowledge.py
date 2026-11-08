@@ -33,7 +33,10 @@ Usage:
     uv run scripts/ground_knowledge.py --source tasks         # dry run, tasks, all users
     uv run scripts/ground_knowledge.py --user user_mike       # dry run, one user
     uv run scripts/ground_knowledge.py --apply                # write edges + events
-    uv run scripts/ground_knowledge.py --threshold 0.68       # calibration experiment
+    uv run scripts/ground_knowledge.py --threshold 0.75       # calibration experiment
+
+``--threshold`` is read through ``GroundingConfig``, which refuses a value below the
+knowledge-link floor (``KnowledgeLinkConfidence.FLOOR``) before the script connects.
 """
 
 from __future__ import annotations
@@ -128,6 +131,18 @@ async def run_grounding(
         await adapter.close()
 
 
+def _threshold(text: str) -> float:
+    """A similarity threshold ``GroundingConfig`` accepts; argparse reports its refusal."""
+    from core.services.knowledge_grounding_service import GroundingConfig
+
+    value = float(text)
+    try:
+        GroundingConfig(threshold=value)
+    except ValueError as refusal:
+        raise argparse.ArgumentTypeError(str(refusal)) from refusal
+    return value
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Ground UserEntries or Tasks to Kus (dry-run default)."
@@ -151,8 +166,11 @@ def main() -> None:
     )
     parser.add_argument(
         "--threshold",
-        type=float,
-        help="override the similarity threshold for this run (calibration experiments)",
+        type=_threshold,
+        help=(
+            "override the similarity threshold for this run (calibration experiments); "
+            "not below the knowledge-link floor"
+        ),
     )
     args = parser.parse_args()
     sys.exit(

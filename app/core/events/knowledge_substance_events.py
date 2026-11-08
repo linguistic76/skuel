@@ -45,6 +45,8 @@ class KnowledgeAppliedInTask(BaseEvent):
 
     Published by:
     - TasksCoreService (the owner's applies_knowledge_uids written at create)
+    - TasksService.update_task (each Ku an edit newly links; a promoted inferred
+      link was credited when it was inferred, and is not credited again)
     - TaskGroundingService (each genuinely NEW inferred edge)
     """
 
@@ -219,7 +221,8 @@ class KnowledgeBulkAppliedInTask(BaseEvent):
     - PsService (batch increment substance metrics)
 
     Published by:
-    - TasksService (when task created with applies_knowledge_uids)
+    - TasksCoreService (2+ Kus linked at create)
+    - TasksService.update_task (2+ Kus an edit newly links)
     """
 
     knowledge_uids: tuple[str, ...]

@@ -53,6 +53,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from core.constants import KnowledgeLinkConfidence
 from core.events import publish_event
 from core.events.link_events import EntityLinksChanged
 from core.models.type_hints import UserUID
@@ -83,6 +84,10 @@ class GroundingConfig:
     concept territory, which is exactly what "this entity engages this Ku"
     wants. It is calibrated over time by edge removals (each removal logs
     the removed edge's confidence).
+
+    A threshold below ``KnowledgeLinkConfidence.FLOOR`` is refused: an edge's
+    confidence is its similarity, and the rich user context reads no link below the
+    floor, so such a pass would write links no reader sees.
     """
 
     threshold: float = 0.72
@@ -93,6 +98,15 @@ class GroundingConfig:
     judge_concurrency: int = 4
     excerpt_max_chars: int = 1500
     summary_max_chars: int = 280
+
+    def __post_init__(self) -> None:
+        if self.threshold < KnowledgeLinkConfidence.FLOOR:
+            msg = (
+                f"grounding threshold {self.threshold} is below the knowledge-link floor "
+                f"{KnowledgeLinkConfidence.FLOOR}: the rich user context reads no link below "
+                "it (KnowledgeLinkConfidence.FLOOR)"
+            )
+            raise ValueError(msg)
 
 
 @dataclass(frozen=True)

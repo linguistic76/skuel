@@ -186,8 +186,8 @@ in `core/` (SKUEL021).
 | Principles | `create_common_sub_services()` — the one Activity domain whose `ActivityDomainConfig.intelligence_class` is set. |
 | KU, PS, LP | The curriculum sub-service factories in `core/services/curriculum_domain_config.py`. |
 
-`intelligence` is not a key of the factory's `skip` parameter: whether it is built is a property
-of the domain's config.
+Whether the factory builds `intelligence` is a property of the domain's config, not a choice
+the facade makes.
 
 ---
 
