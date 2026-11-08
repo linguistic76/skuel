@@ -17,8 +17,8 @@ class _OrchestrationMixin:
         """
         Analyze the knowledge impact of a specific task.
 
-        The scores come from the Task's own fields; the knowledge it links comes from
-        its graph edges.
+        The scores come from the Task's own fields and the knowledge it links, read
+        from its graph edges.
         """
         from core.services.tasks.task_relationships import TaskRelationships
 
@@ -31,14 +31,15 @@ class _OrchestrationMixin:
         # GRAPH-NATIVE: Fetch relationship data from graph
         rels = await TaskRelationships.fetch(task.uid, self.relationships)
 
+        knowledge_uids = rels.get_combined_knowledge_uids()
         impact_analysis = {
             "task_uid": task.uid,
             "title": task.title,
-            "knowledge_complexity_score": task.calculate_knowledge_complexity(),
-            "learning_impact_score": task.calculate_learning_impact(),
+            "knowledge_complexity_score": task.calculate_knowledge_complexity(knowledge_uids),
+            "learning_impact_score": task.calculate_learning_impact(knowledge_uids),
             "is_knowledge_bridge": task.is_knowledge_bridge(),
             "validates_mastery": task.validates_knowledge_mastery(),
-            "combined_knowledge_uids": rels.get_combined_knowledge_uids(),
+            "combined_knowledge_uids": knowledge_uids,
         }
 
         return Result.ok(impact_analysis)

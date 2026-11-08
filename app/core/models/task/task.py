@@ -9,17 +9,18 @@ Inherits common fields from UserOwnedEntity. Adds task-specific fields:
 - Hierarchy (3): parent_uid, project, assignee
 - Cross-domain links (3): goal, habit, path step references
 - Progress impact (5): goal contribution, knowledge mastery, habit streak
-- Knowledge intelligence (3): confidence scores, inference metadata, opportunities
 
 Task-specific methods: learning_alignment_score, is_overdue,
-days_remaining, get_summary, category.
+days_remaining, get_summary, category. The knowledge a task applies is its
+``APPLIES_KNOWLEDGE`` edges (its owner's links and the ones grounding infers);
+the methods that score it take those Kus from the caller.
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass, field, replace
 from datetime import date
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 from core.utils.timestamp_helpers import day_of, today_in
@@ -61,19 +62,6 @@ class Task(UserOwnedEntity):
                 f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
             )
         super().__post_init__()
-        # Enforce deep immutability: wrap mutable dicts in read-only proxies
-        if isinstance(self.knowledge_confidence_scores, dict):
-            object.__setattr__(
-                self,
-                "knowledge_confidence_scores",
-                MappingProxyType(self.knowledge_confidence_scores),
-            )
-        if isinstance(self.knowledge_inference_metadata, dict):
-            object.__setattr__(
-                self,
-                "knowledge_inference_metadata",
-                MappingProxyType(self.knowledge_inference_metadata),
-            )
 
     # =========================================================================
     # SCHEDULING
@@ -135,13 +123,6 @@ class Task(UserOwnedEntity):
     habit_streak_maintainer: bool = False  # Maintains habit streak
     completion_updates_goal: bool = True  # Counts toward its goals' contribution tallies
     curriculum_practice_type: str | None = None  # Curriculum connection type
-
-    # =========================================================================
-    # KNOWLEDGE INTELLIGENCE
-    # =========================================================================
-    knowledge_confidence_scores: dict[str, float] | None = None
-    knowledge_inference_metadata: dict[str, Any] | None = None
-    learning_opportunities_count: int = 0
 
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
@@ -245,22 +226,19 @@ class Task(UserOwnedEntity):
         """Check if this task validates knowledge mastery."""
         return self.knowledge_mastery_check
 
-    def calculate_knowledge_complexity(self) -> float:
-        """Calculate knowledge complexity (0.0-1.0).
+    def calculate_knowledge_complexity(self, knowledge_uids: Collection[str]) -> float:
+        """Calculate knowledge complexity (0.0-1.0) from the Kus the task links.
 
-        Derived from knowledge_confidence_scores (breadth x gap) and
-        learning_opportunities_count. Returns 0.0 for bare tasks with no
-        knowledge intelligence data.
+        ``knowledge_uids`` are the task's knowledge edges as the caller read them
+        (``TaskRelationships.get_combined_knowledge_uids``: what it applies — its
+        owner's links and the ones grounding inferred, alike — and what it
+        requires). Breadth scores up to 0.5 for 10+ Kus, and each linked Ku is a
+        learning opportunity, up to 0.2 for 5+. 0.0 for a task that links none.
         """
-        score = 0.0
-        if self.knowledge_confidence_scores:
-            count = len(self.knowledge_confidence_scores)
-            avg_confidence = sum(self.knowledge_confidence_scores.values()) / count
-            score += min(0.5, count / 10.0)  # breadth: up to 0.5 for 10+ concepts
-            score += (1.0 - avg_confidence) * 0.3  # gap: low confidence = harder
-        if self.learning_opportunities_count > 0:
-            score += min(0.2, self.learning_opportunities_count / 5.0)
-        return min(1.0, score)
+        count = len(set(knowledge_uids))
+        if count == 0:
+            return 0.0
+        return min(1.0, min(0.5, count / 10.0) + min(0.2, count / 5.0))
 
     def is_knowledge_bridge(self) -> bool:
         """Check if this entity bridges multiple knowledge domains.
@@ -270,12 +248,13 @@ class Task(UserOwnedEntity):
         """
         return False
 
-    def calculate_learning_impact(self) -> float:
+    def calculate_learning_impact(self, knowledge_uids: Collection[str]) -> float:
         """Calculate learning impact score (0.0-1.0).
 
-        Derived from curriculum linkage fields on the Task: path step
-        reference, mastery check flag, template origin (curriculum-spawned),
-        and breadth of knowledge confidence scores.
+        Derived from curriculum linkage fields on the Task — path step reference,
+        mastery check flag, template origin (curriculum-spawned) — and the breadth
+        of the Kus it links (``knowledge_uids``, as for
+        ``calculate_knowledge_complexity``).
         """
         score = 0.0
         if self.source_path_step_uid:
@@ -284,8 +263,7 @@ class Task(UserOwnedEntity):
             score += 0.20
         if self.engagement_state is not None:
             score += 0.20
-        if self.knowledge_confidence_scores:
-            score += min(0.20, len(self.knowledge_confidence_scores) * 0.04)
+        score += min(0.20, len(set(knowledge_uids)) * 0.04)
         return min(1.0, score)
 
     @property

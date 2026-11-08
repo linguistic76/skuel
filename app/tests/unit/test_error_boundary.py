@@ -159,7 +159,7 @@ def test_result_to_response_frozen_dataclass_entity():
         title="Boundary serialization",
         user_uid="user_test",
         due_date=date(2026, 6, 15),
-        knowledge_confidence_scores={"ku_x": 0.5},  # wrapped in MappingProxyType
+        metadata={"source": "boundary"},  # wrapped in MappingProxyType
     )
     result = Result.ok(task)
 
@@ -172,7 +172,7 @@ def test_result_to_response_frozen_dataclass_entity():
     assert body["entity_type"] == EntityType.TASK.value
     assert body["status"] == EntityStatus.DRAFT.value
     assert body["due_date"] == "2026-06-15"
-    assert body["knowledge_confidence_scores"] == {"ku_x": 0.5}
+    assert body["metadata"] == {"source": "boundary"}
     # datetime fields serialize as ISO strings
     assert isinstance(body["created_at"], str)
 

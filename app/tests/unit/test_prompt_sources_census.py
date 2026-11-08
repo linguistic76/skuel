@@ -129,8 +129,8 @@ CENSUS: dict[tuple[str, str], Source] = {
         "ContentEnrichmentService._apply_intelligent_editing",
     ): Source.REGISTRY,
     (
-        "core/services/entry_grounding_service.py",
-        "EntryGroundingService._judge_entry",
+        "core/services/knowledge_grounding_service.py",
+        "KnowledgeGroundingService._judge",
     ): Source.REGISTRY,
     (
         "core/services/prereq_suggestion_service.py",

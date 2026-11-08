@@ -39,6 +39,7 @@ TASKS_CONFIG = create_activity_domain_route_config(
     api_related_services={
         "connection_fetch_backend": "connection_fetch_backend",
         "goals_service": "goals",
+        "grounding_service": "task_grounding",
     },
     ui_related_services={
         "connection_fetch_backend": "connection_fetch_backend",

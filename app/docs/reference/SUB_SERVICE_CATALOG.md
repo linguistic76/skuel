@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-16
+updated: 2026-11-08
 ---
 
 # Sub-Service Responsibility Catalog
@@ -55,7 +55,6 @@ These sub-services exist across **all 6 Activity Domains** (Tasks, Goals, Habits
 **Dependencies:**
 - `backend: {Domain}Operations` (e.g., `TasksOperations`, `GoalsOperations`)
 - `event_bus: EventBus` (optional)
-- Domain-specific services (e.g., `entity_inference_service` for TasksCoreService)
 
 **Example:**
 ```python

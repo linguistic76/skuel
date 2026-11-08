@@ -17,6 +17,9 @@ Cross-domain links (via create_activity_link_api_routes):
 Knowledge intelligence:
     GET  /api/tasks/knowledge-patterns   — Detected learning patterns across user tasks
     GET  /api/tasks/knowledge-priorities — Knowledge-aware priority scores for user tasks
+
+Grounding:
+    POST /api/tasks/grounding/remove — Remove one inferred task→Ku link (recorded, never re-inferred)
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import (
     PRIORITY_VALUES,
@@ -44,13 +48,14 @@ from core.models.entity_requests import AddHierarchyChildRequest, LinkTaskToGoal
 from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from ui.activities.tasks_views import TaskCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import RouteDecorator
     from core.ports import ConnectionFetchOperations
     from core.services.goals_service import GoalsService
+    from core.services.tasks.task_grounding_service import TaskGroundingService
     from core.services.tasks_service import TasksService
 
 
@@ -59,8 +64,13 @@ def create_tasks_api_routes(
     tasks_service: TasksService,
     goals_service: GoalsService,
     connection_fetch_backend: ConnectionFetchOperations,
+    grounding_service: TaskGroundingService | None = None,
 ) -> None:
-    """Register Tasks API routes."""
+    """Register Tasks API routes.
+
+    ``grounding_service`` is the task→Ku grounding pass, whose removal door is here;
+    ``None`` refuses that door as unavailable.
+    """
 
     async def update_status(uid: str, new_status: str) -> Result[Task]:
         return await tasks_service.update_task(uid, TaskUpdateIntent(status=new_status))
@@ -161,3 +171,39 @@ def create_tasks_api_routes(
             for p in result.value
         ]
         return Result.ok({"priorities": priorities, "count": len(priorities)})
+
+    # ================================================================
+    # GROUNDING — remove one inferred APPLIES_KNOWLEDGE edge
+    # ================================================================
+
+    @rt("/api/tasks/grounding/remove", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def remove_grounded_knowledge_route(
+        request: Request, uid: str, ku_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Remove one inferred ``(task)-[:APPLIES_KNOWLEDGE]->(ku)`` edge from an owned task.
+
+        The owner is editor, not approver: grounding writes inferred edges eagerly
+        and they are removed here — each removal is recorded on the task so no
+        future pass re-infers the pair, and logged as threshold-calibration data.
+        A link the owner made is not removed here. Not owned / edge absent / the
+        owner's link → 404 alike, never 403.
+        """
+        user_uid = require_authenticated_user(request)
+        if grounding_service is None:
+            return Result.fail(
+                Errors.unavailable(
+                    feature="task_grounding",
+                    reason="Task grounding service is not wired.",
+                    operation="remove_grounded_knowledge",
+                )
+            )
+        result = await grounding_service.remove(uid, ku_uid, user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(
+                Errors.not_found(resource="Task knowledge link", identifier=f"{uid}→{ku_uid}")
+            )
+        return Result.ok({"uid": uid, "ku_uid": ku_uid, "removed": True})

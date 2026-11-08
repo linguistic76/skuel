@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-11-06
+updated: 2026-11-08
 status: current
 category: reference
 tags: [protocol, reference]
@@ -36,6 +36,7 @@ related: [ADR-025, ADR-027]
 | **Curriculum Protocols** | `/core/ports/curriculum_protocols.py` | KU, PS, LP, MOC operations |
 | **Askesis Protocols** | `/core/ports/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
 | **UserEntry Protocols** | `/core/ports/user_entry_protocols.py` | UserEntry CRUD, lifecycle, assessment, content, organizes, processing (ADR-054 — replaced the deleted `submission_protocols.py`) |
+| **Grounding Protocols** | `/core/ports/grounding_protocols.py` | `KnowledgeGroundingBackendOperations` — the 4 statements of Ku grounding, one contract for entries and tasks (`KnowledgeGroundingService`) |
 | **Report Protocols** | `/core/ports/report_protocols.py` | Human + AI reports, progress reports, scheduling, teacher review |
 | **Form Protocols** | `/core/ports/form_protocols.py` | Form backend ops (2) + route-level ISP (2) |
 | **Group Protocols** | `/core/ports/group_protocols.py` | Group CRUD only |
@@ -421,7 +422,7 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 
 Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
-### UserEntry Protocols (9) — `user_entry_protocols.py`
+### UserEntry Protocols (8) — `user_entry_protocols.py`
 
 ⚠️ **`submission_protocols.py` was DELETED under ADR-054**, along with the
 `submissions_api.py` / `submissions_sharing_api.py` routes this section used to
@@ -440,7 +441,6 @@ Map to the **UserEntry** stage of the 4-phase learning loop
 | `UserEntryOrganizesOperations` | 1 | ORGANIZES edges |
 | `UserEntryOperations` | composed | `BackendOperations['UserEntry']` + the 6 slices above |
 | `UserEntryProcessingOperations` | 2 | Processing / reprocessing |
-| `EntryGroundingBackendOperations` | 4 | Vector grounding (`EntryGroundingService`) |
 
 ### Sharing Protocols (2) — `sharing_protocols.py`
 

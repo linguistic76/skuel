@@ -61,6 +61,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         ChoiceMade,
         ChoiceOutcomeRecorded,
         ChoiceUpdated,
+        EmbeddingStored,
         EntityLinksChanged,
         GoalAbandoned,
         GoalAchieved,
@@ -203,6 +204,8 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         KnowledgeBulkAppliedInTask: 1,
         KnowledgeBulkBuiltIntoHabit: 1,
         KnowledgeBulkInformedChoice: 1,
+        # Task→Ku grounding on each stored task vector (TaskGroundingService)
+        EmbeddingStored: 1,
         # Discovery analytics
         SearchExecuted: 1,
     }

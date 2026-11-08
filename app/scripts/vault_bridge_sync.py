@@ -48,7 +48,7 @@ Grounding: after the drain, personal-vault syncs run an entry→Ku grounding
 pass over pending entries on a grounded pipeline (knowledge notes and activity
 notes, periodic notes included; never a ``private: true`` one) — on FULL tier
 the drain just stored their embeddings, so this sync's entries ground
-immediately. ``scripts/ground_knowledge_entries.py`` is the backfill/dry-run
+immediately. ``scripts/ground_knowledge.py`` is the backfill/dry-run
 counterpart.
 
 Usage:
@@ -157,7 +157,7 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         # nothing was embedded and the pass grounds only entries embedded
         # before. Personal-vault syncs only: the content vault refuses no type,
         # so it can hold UserEntries, but a content sync runs no grounding pass
-        # (scripts/ground_knowledge_entries.py grounds them). Fail-soft: a
+        # (scripts/ground_knowledge.py grounds them). Fail-soft: a
         # grounding problem never fails the sync.
         if kind is VaultKind.PERSONAL:
             grounding = services.entry_grounding
@@ -169,9 +169,9 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
                 else:
                     report = grounded.value
                     print(
-                        f"  entries scanned: {report.entries_scanned}, "
+                        f"  entries scanned: {report.scanned}, "
                         f"edges written: {report.edges_written}, "
-                        f"failed: {report.entries_failed} "
+                        f"failed: {report.failed} "
                         f"(judge={'on' if report.judged else 'off'})"
                     )
 

@@ -46,6 +46,7 @@ Available templates (core/prompts/templates/):
     askesis_socratic_turn         — Askesis Socratic turn (staged — PLANNED, ADR-082 D4)
     prereq_edge_judge             — Ku-pair prerequisite classification (PrereqSuggestionService)
     entry_ku_grounding_judge      — Entry→Ku engagement filter (EntryGroundingService)
+    task_ku_grounding_judge       — Task→Ku application filter (TaskGroundingService)
     transcript_formatting         — Formatting instructions for a raw transcript (ContentEnrichmentService)
     transcript_editing            — The editing task around those instructions: transcript + output format
     transcript_editing_context    — transcript_editing's context section (active goals, what to extract)

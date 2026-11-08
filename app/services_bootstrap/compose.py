@@ -473,12 +473,6 @@ async def compose_services(
         graph_intelligence = GraphIntelligenceService(cross_domain_backend)
         logger.info("✅ GraphIntelligenceService created")
 
-        # Create the inference service (passed through to TasksService)
-        from core.services.entity_inference_service import EntityInferenceService
-
-        ku_inference_service = EntityInferenceService()
-        logger.info("✅ Inference service created (ku_inference)")
-
         # Create InsightStore
         from core.services.insight import InsightStore
 
@@ -528,7 +522,6 @@ async def compose_services(
             graph_intelligence=graph_intelligence,
             cross_domain_query=cross_domain_query,
             event_bus=event_bus,
-            ku_inference_service=ku_inference_service,
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
@@ -1473,14 +1466,16 @@ async def compose_services(
         )
         logger.info("✅ PrereqSuggestionService created (admin edge-suggestion queue)")
 
-        # Entry→Ku grounding (Entry-Enrichment PR 3). Tier-independent
-        # construction: the candidate stage only READS stored vectors through
-        # the Ku vector index, so CORE (which composes no shared vector-search
-        # service — that one bundles the embeddings client) gets a client-less
-        # instance; llm_service is None on CORE, where candidates write
-        # vector-only. Triggers: post-sync pass in the vault sync doors +
-        # scripts/ground_knowledge_entries.py backfill.
+        # Ku grounding, entries and tasks (one pass, KnowledgeGroundingService).
+        # Tier-independent construction: the candidate stage only READS stored
+        # vectors through the Ku vector index, so CORE (which composes no shared
+        # vector-search service — that one bundles the embeddings client) gets a
+        # client-less instance; llm_service is None on CORE, where candidates write
+        # vector-only. Entry triggers: post-sync pass in the vault sync doors. Task
+        # trigger: EmbeddingStored from the embedding worker (FULL only), wired in
+        # _event_wiring. Both: scripts/ground_knowledge.py backfill.
         from core.services.entry_grounding_service import EntryGroundingService
+        from core.services.tasks.task_grounding_service import TaskGroundingService
 
         grounding_vector_search = vector_search_service
         if grounding_vector_search is None:
@@ -1495,6 +1490,13 @@ async def compose_services(
             llm_service=llm_service,
         )
         logger.info("✅ EntryGroundingService created (entry→Ku grounding)")
+        task_grounding = TaskGroundingService(
+            backend=backends["task_grounding_backend"],
+            vector_search=grounding_vector_search,
+            event_bus=event_bus,
+            llm_service=llm_service,
+        )
+        logger.info("✅ TaskGroundingService created (task→Ku grounding)")
 
         from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
 
@@ -1593,6 +1595,7 @@ async def compose_services(
             ps_engagement=template_services["ps_engagement"],
             search_event_recorder=search_event_recorder,
             interaction_service=interaction_service,
+            task_grounding=task_grounding,
         )
         logger.info("✅ All services initialized")
 
@@ -1695,6 +1698,7 @@ async def compose_services(
             admin_orchestrator=admin_orchestrator,
             prereq_suggestions=prereq_suggestions,
             entry_grounding=entry_grounding,
+            task_grounding=task_grounding,
             user_entry_orchestrator=user_entry_orchestrator,
             explore_orchestrator=explore_orchestrator,
             library_orchestrator=library_orchestrator,

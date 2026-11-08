@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-10-24
+updated: 2026-11-08
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -204,13 +204,12 @@ reads uid spelling exactly as the singular form does. That shape was live and un
 to choose — and never for a Ku on the same concept grouped under another.
 
 Prefix and segment reads are **deliberately out of the rule's scope**, because their
-legitimacy depends on what the branch does with the answer. All three live sites are
-sanctioned, and each says so in its own docstring:
+legitimacy depends on what the branch does with the answer. A sanctioned site says so in its
+own docstring:
 
 | Site | Why it is not sniffing |
 |------|------------------------|
 | `parse_calendar_item_uid` (`core/models/event/calendar_models.py`) | Parses a composite **wire format the app itself mints** (`task-{uid}`), not an entity uid |
-| `_table_domain` + its caller (`core/services/entity_inference_service.py`) | The keys are **hardcoded inference-table literals** authored beside their keywords, never stored uids |
 
 The distinction the table draws is the one to apply to any new site: reading your own minted
 format, or a literal you wrote, is not sniffing. Deriving an entity's kind from a uid that

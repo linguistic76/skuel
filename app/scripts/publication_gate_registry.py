@@ -581,13 +581,13 @@ SURFACES: tuple[Surface, ...] = (
         "is withheld.",
     ),
     Surface(
-        "adapters.persistence.neo4j.entry_grounding_backend",
-        "EntryGroundingBackend.write_applies_knowledge",
+        "adapters.persistence.neo4j.knowledge_grounding_backend",
+        "KnowledgeGroundingBackend.write_applies_knowledge",
         Disposition.ADMISSION,
-        "Vector grounding's edge write: it links an entry to a candidate Ku only "
-        "when the Ku is published, so a draft never becomes a chip on the entry or "
-        "earns a substance credit. It returns whether the edge was created — no "
-        "curriculum the caller did not name.",
+        "Vector grounding's edge write, for an entry or a task: it links the entity "
+        "to a candidate Ku only when the Ku is published, so a draft never becomes a "
+        "chip on the entry, a link on the task, or a substance credit. It returns "
+        "whether the edge was created — no curriculum the caller did not name.",
     ),
     Surface(
         "adapters.persistence.neo4j.query.cypher.context_query_generator",

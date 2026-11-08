@@ -1,6 +1,6 @@
 """The grounding pass reads knowledge notes and activity notes, never a private one.
 
-``EntryGroundingBackend.get_pending_entries`` picks the entries a post-sync pass
+``EntryGroundingBackend.get_pending`` picks the entries a post-sync pass
 grounds: an embedded entry on a pipeline ``Pipeline.knowledge_grounded`` names
 (knowledge notes; activity notes, periodic notes included), whose grounding stamp
 is missing or stale. A ``private: true`` entry is excluded by name, even one that
@@ -166,7 +166,7 @@ class TestGroundingPending:
     ) -> None:
         backend = build_production_backends(neo4j_driver)["entry_grounding_backend"]
 
-        pending = await backend.get_pending_entries(user_uid=seeded)
+        pending = await backend.get_pending(user_uid=seeded)
 
         assert pending.is_ok, pending
         assert {row["uid"] for row in pending.value} == GROUNDED
@@ -177,7 +177,7 @@ class TestGroundingPending:
     ) -> None:
         backend = build_production_backends(neo4j_driver)["entry_grounding_backend"]
 
-        pending = await backend.get_pending_entries(user_uid=seeded, force=True)
+        pending = await backend.get_pending(user_uid=seeded, force=True)
 
         assert pending.is_ok, pending
         assert {row["uid"] for row in pending.value} == GROUNDED
@@ -196,7 +196,7 @@ class TestGroundingPending:
         report = await service.ground_pending(UserUID(seeded))
 
         assert report.is_ok, report
-        assert report.value.entries_scanned == len(GROUNDED)
+        assert report.value.scanned == len(GROUNDED)
         assert await _linked_entries(neo4j_driver) == GROUNDED
         credited = sorted(
             event.entry_uid
@@ -207,4 +207,4 @@ class TestGroundingPending:
 
         # Stamped: a second pass over unchanged text reads nothing.
         again = await service.ground_pending(UserUID(seeded))
-        assert again.is_ok and again.value.entries_scanned == 0
+        assert again.is_ok and again.value.scanned == 0

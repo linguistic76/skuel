@@ -1177,24 +1177,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         "on-demand embed routes",
         since=date(2026, 6, 17),
     ),
-    "core/services/entity_inference_service.py::_infer_from_content": PlannedEntry(
-        Readiness.DELAYED,
-        "private helper for the inference pipeline — becomes live when "
-        "get_inference_statistics / analyze_inference_confidence are wired",
-        since=date(2026, 6, 17),
-    ),
-    "core/services/entity_inference_service.py::get_inference_statistics": PlannedEntry(
-        Readiness.DELAYED,
-        "inference stats surface — wire into an admin/debug route to expose "
-        "inference accuracy and throughput metrics",
-        since=date(2026, 6, 17),
-    ),
-    "core/services/entity_inference_service.py::analyze_inference_confidence": PlannedEntry(
-        Readiness.DELAYED,
-        "confidence analysis surface — wire into the inference result detail "
-        "view or a teacher-facing confidence dashboard",
-        since=date(2026, 6, 17),
-    ),
     "core/services/zpd/zpd_service.py::get_proximal_ku_uids": PlannedEntry(
         Readiness.DELAYED,
         "lightweight ranked-proximal-Kus wrapper over assess_zone — the "

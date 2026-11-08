@@ -93,13 +93,6 @@ class TaskDTO(UserOwnedDTO):
     curriculum_practice_type: str | None = None
 
     # =========================================================================
-    # KNOWLEDGE INTELLIGENCE
-    # =========================================================================
-    knowledge_confidence_scores: dict[str, float] | None = None
-    knowledge_inference_metadata: dict[str, Any] | None = None
-    learning_opportunities_count: int = 0
-
-    # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is the (Task)-[:SPAWNED_FROM]->(TaskTemplate) edge.
@@ -177,11 +170,7 @@ class TaskDTO(UserOwnedDTO):
             ],
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags"],
-            dict_fields=[
-                "metadata",
-                "knowledge_confidence_scores",
-                "knowledge_inference_metadata",
-            ],
+            dict_fields=["metadata"],
         )
 
     # =========================================================================
@@ -228,9 +217,6 @@ class TaskDTO(UserOwnedDTO):
                 "habit_streak_maintainer",
                 "completion_updates_goal",
                 "curriculum_practice_type",
-                "knowledge_confidence_scores",
-                "knowledge_inference_metadata",
-                "learning_opportunities_count",
                 "engagement_state",
             },
             enum_mappings=enum_fields_for(

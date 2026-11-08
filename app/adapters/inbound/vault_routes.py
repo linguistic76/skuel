@@ -83,7 +83,7 @@ def create_vault_routes(
         background embedding worker embeds THIS sync's new entries up to a
         batch interval later, so this pass grounds everything embedded since
         the previous pass and a just-synced entry grounds on the next sync
-        (or via scripts/ground_knowledge_entries.py). Keeps the worker
+        (or via scripts/ground_knowledge.py). Keeps the worker
         generic — no domain logic inside it (ADR-070 no-background-watcher
         stance for the trigger).
         """
@@ -97,7 +97,7 @@ def create_vault_routes(
         if report.edges_written:
             logger.info(
                 f"Post-sync grounding: {report.edges_written} edge(s) across "
-                f"{report.entries_with_writes} entries for {user_uid}"
+                f"{report.with_writes} entries for {user_uid}"
             )
 
     async def _describe_personal_vault(user_uid: UserUID) -> VaultDescription:

@@ -402,7 +402,9 @@ class BiDirectionalDemo:
 
         print("1. Business logic in domain models")
 
-        # Create task with knowledge intelligence data
+        # A task, and the Kus it links (its knowledge edges, read in a service with
+        # TaskRelationships.fetch)
+        knowledge_uids = {"ku.cs.algorithms", "ku.cs.data-structures", "ku.cs.complexity"}
         dto = TaskDTO(
             uid="task_business_logic",
             user_uid="business_logic_user",
@@ -412,12 +414,6 @@ class BiDirectionalDemo:
             source_path_step_uid="ps.cs.algorithms",
             goal_progress_contribution=0.4,
             knowledge_mastery_check=True,
-            knowledge_confidence_scores={
-                "ku_algorithms": 0.6,
-                "ku_data_structures": 0.8,
-                "ku_complexity": 0.4,
-            },
-            learning_opportunities_count=2,
         )
 
         task = Task.from_dto(dto)
@@ -426,8 +422,8 @@ class BiDirectionalDemo:
 
         # Test business logic methods
         alignment = task.learning_alignment_score()
-        complexity = task.calculate_knowledge_complexity()
-        learning_impact = task.calculate_learning_impact()
+        complexity = task.calculate_knowledge_complexity(knowledge_uids)
+        learning_impact = task.calculate_learning_impact(knowledge_uids)
         will_update_goal = task.validates_knowledge_mastery()
 
         print(f"      - Learning alignment: {alignment:.2f}")
@@ -450,8 +446,8 @@ class BiDirectionalDemo:
 
         print("3. Complex business calculations")
 
-        # Calculate learning velocity impact from knowledge intelligence data
-        knowledge_units = len(task.knowledge_confidence_scores or {})
+        # Calculate learning velocity impact from the Kus the task links
+        knowledge_units = len(knowledge_uids)
         goal_contribution = task.goal_progress_contribution
         duration_hours = (task.duration_minutes or 60) / 60
 

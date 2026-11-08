@@ -22,12 +22,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.events.knowledge_substance_events import KnowledgeReflectedInEntry
-from core.ports.query_types import GroundingEntryRow, GroundingRemovalRow
-from core.services.entry_grounding_service import (
-    GROUNDING_VERSION,
-    EntryGroundingConfig,
-    EntryGroundingService,
-)
+from core.ports.query_types import GroundingRemovalRow, GroundingSourceRow
+from core.services.entry_grounding_service import EntryGroundingService
+from core.services.knowledge_grounding_service import GROUNDING_VERSION, GroundingConfig
 from core.utils.result_simplified import Result
 
 
@@ -35,8 +32,8 @@ def _row(
     uid: str = "ue_abc123",
     applied: list[str] | None = None,
     rejected: list[str] | None = None,
-) -> GroundingEntryRow:
-    return GroundingEntryRow(
+) -> GroundingSourceRow:
+    return GroundingSourceRow(
         uid=uid,
         user_uid="user_mike",
         title=f"title of {uid}",
@@ -52,9 +49,9 @@ def _hit(ku_uid: str, score: float) -> dict:
     return {"node": {"uid": ku_uid, "title": f"Ku {ku_uid}"}, "score": score}
 
 
-def _backend(rows: list[GroundingEntryRow]) -> MagicMock:
+def _backend(rows: list[GroundingSourceRow]) -> MagicMock:
     backend = MagicMock()
-    backend.get_pending_entries = AsyncMock(return_value=Result.ok(rows))
+    backend.get_pending = AsyncMock(return_value=Result.ok(rows))
     backend.write_applies_knowledge = AsyncMock(return_value=Result.ok(True))
     backend.stamp_grounded = AsyncMock(return_value=Result.ok(None))
     return backend
@@ -109,8 +106,8 @@ async def test_threshold_and_limit_forwarded_to_ku_index() -> None:
     assert not result.is_error
     call = vector.find_similar_by_vector.await_args
     assert call.kwargs["label"] == "Ku"
-    assert call.kwargs["min_score"] == EntryGroundingConfig().threshold == 0.72
-    assert call.kwargs["limit"] == EntryGroundingConfig().max_candidates
+    assert call.kwargs["min_score"] == GroundingConfig().threshold == 0.72
+    assert call.kwargs["limit"] == GroundingConfig().max_candidates
 
 
 @pytest.mark.anyio
@@ -264,14 +261,14 @@ async def test_judge_malformed_json_skips_entry_unstamped() -> None:
 
     assert not result.is_error
     report = result.value
-    assert report.entries_failed == 1
+    assert report.failed == 1
     failed = next(o for o in report.outcomes if o.error is not None)
     ok = next(o for o in report.outcomes if o.error is None)
     assert "judge failed" in str(failed.error)
     assert [c.ku_uid for c in ok.written] == ["ku.a.one"]
     # Only the successful entry was written + stamped.
     backend.write_applies_knowledge.assert_awaited_once()
-    backend.stamp_grounded.assert_awaited_once_with(ok.entry_uid, "hash-v3-abc", GROUNDING_VERSION)
+    backend.stamp_grounded.assert_awaited_once_with(ok.source_uid, "hash-v3-abc", GROUNDING_VERSION)
 
 
 @pytest.mark.anyio
@@ -286,7 +283,7 @@ async def test_judge_non_bool_verdict_fails_entry() -> None:
     result = await service.ground_pending()
 
     assert not result.is_error
-    assert result.value.entries_failed == 1
+    assert result.value.failed == 1
     backend.write_applies_knowledge.assert_not_awaited()
     backend.stamp_grounded.assert_not_awaited()
 
@@ -301,7 +298,7 @@ async def test_judge_incomplete_coverage_fails_entry() -> None:
     result = await service.ground_pending()
 
     assert not result.is_error
-    assert result.value.entries_failed == 1
+    assert result.value.failed == 1
     backend.write_applies_knowledge.assert_not_awaited()
     backend.stamp_grounded.assert_not_awaited()
 

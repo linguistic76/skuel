@@ -12,6 +12,8 @@ Architecture:
 - Content-hash idempotency (ADR-074 §8): stored embedding_text_hash (entities)
   / embedding_source_text (chunks) is checked BEFORE generation — unchanged
   text is skipped, so force re-ingests don't re-embed the corpus. Fails OPEN.
+- Announces each stored entity embedding (``EmbeddingStored``), so a reader of the
+  new vector runs once it exists — task grounding (``TaskGroundingService``)
 
 Performance:
 - Batch size: 25 entities per batch
@@ -50,8 +52,8 @@ if TYPE_CHECKING:
 
     from core.services.embeddings_service import EmbeddingsService
 
-from core.events import ChunkEmbeddingRequested, ReferenceChunkEmbeddingRequested
-from core.events.embedding_events import EmbeddingRequested
+from core.events import ChunkEmbeddingRequested, ReferenceChunkEmbeddingRequested, publish_event
+from core.events.embedding_events import EmbeddingRequested, EmbeddingStored
 from core.events.embedding_publisher import EMBEDDING_EVENT_TYPES
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.embeddings_service import EMBEDDING_VERSION
@@ -382,6 +384,13 @@ class EmbeddingBackgroundWorker:
                 if stored:
                     success_count += 1
                     stats["success"] += 1
+                    # Announce the new vector: its readers (task grounding) run once it
+                    # exists, and the worker stays free of what they do with it.
+                    await publish_event(
+                        self.event_bus,
+                        EmbeddingStored(entity_uid=event.entity_uid, entity_type=event.entity_type),
+                        self.logger,
+                    )
                 else:
                     # Neo4j-side failure: logged in _store_embedding, not re-queued
                     stats["failed"] += 1

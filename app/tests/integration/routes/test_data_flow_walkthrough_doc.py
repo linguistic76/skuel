@@ -58,11 +58,17 @@ MARK = "dfwalk"
 CALLER = seed_user_uid(f"{MARK}_caller")
 STRANGER = seed_user_uid(f"{MARK}_stranger")
 DRAFT_KU = f"ku.{MARK}.draft"
+INFERRED_KU = f"ku.{MARK}.inferred"
 UNKNOWN_KU = f"ku.{MARK}.unknown"
 PATH_STEP = f"ps.{MARK}.step"
 
 #: A value on the page that a run fills in and the page does not predict.
-_UNPREDICTED = frozenset({"<now>", "<inferred>"})
+_UNPREDICTED = frozenset({"<now>"})
+
+#: The keyword-inference properties no writer stores on a task: its knowledge is its edges.
+_KEYWORD_INFERENCE_KEYS = frozenset(
+    {"knowledge_confidence_scores", "knowledge_inference_metadata", "learning_opportunities_count"}
+)
 
 #: The ``Entity`` fields the embedding writer fills, which no JSON response carries.
 _EMBEDDING_KEYS = frozenset({"embedding", "embedding_model", "embedding_updated_at"})
@@ -217,6 +223,7 @@ async def world(skuel_app: FastHTMLApp) -> AsyncIterator[World]:
             {
                 **seeds,
                 DRAFT_KU: ("Ku", "ku", "draft"),
+                INFERRED_KU: ("Ku", "ku", "published"),
                 PATH_STEP: ("PathStep", "path_step", "published"),
             },
         )
@@ -368,6 +375,36 @@ async def test_the_relationships_sample_reads_the_lists_back(world: World) -> No
     assert list(rels.prerequisite_knowledge_uids) == [
         world.knowledge_uid("prerequisite_knowledge_uids")
     ]
+
+
+async def test_the_node_holds_no_keyword_inference(world: World) -> None:
+    """The node the page shows carries none of the three keyword-inference properties."""
+    assert _KEYWORD_INFERENCE_KEYS.isdisjoint(world.stored["properties"])
+    assert _KEYWORD_INFERENCE_KEYS.isdisjoint(world.created.json())
+    assert not any(key in _DOC for key in _KEYWORD_INFERENCE_KEYS)
+    assert "<inferred>" not in _DOC
+
+
+async def test_an_inferred_link_reads_back_beside_the_owners(world: World) -> None:
+    """The sample's ``applies_knowledge_uids`` holds both; the removal door takes only one."""
+    created = await world.client.post("/api/tasks/create", json=world.body)
+    assert created.status_code == 201, created.text
+    uid = created.json()["uid"]
+    owners = world.knowledge_uid("applies_knowledge_uids")
+    grounding = world.skuel_app.state.services.task_grounding
+    written = await grounding.backend.write_applies_knowledge(uid, INFERRED_KU, 0.8)
+    assert written.is_ok and written.value is True
+
+    rels = await TaskRelationships.fetch(uid, world.skuel_app.state.services.tasks.relationships)
+
+    assert set(rels.applies_knowledge_uids) == {owners, INFERRED_KU}
+    for ku_uid, status in ((owners, 404), (INFERRED_KU, 200)):
+        removed = await world.client.post(
+            "/api/tasks/grounding/remove", params={"uid": uid, "ku_uid": ku_uid}
+        )
+        assert removed.status_code == status, (ku_uid, removed.text)
+    rels = await TaskRelationships.fetch(uid, world.skuel_app.state.services.tasks.relationships)
+    assert list(rels.applies_knowledge_uids) == [owners]
 
 
 @pytest.mark.parametrize(

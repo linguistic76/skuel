@@ -35,7 +35,7 @@ from core.models.type_hints import UserUID
 @dataclass(frozen=True)
 class KnowledgeAppliedInTask(BaseEvent):
     """
-    Published when a task is created/updated to apply knowledge.
+    Published when a task comes to apply knowledge.
 
     Increments: times_applied_in_tasks
     Updates: last_applied_date
@@ -44,8 +44,8 @@ class KnowledgeAppliedInTask(BaseEvent):
     - PsService (increment substance metric)
 
     Published by:
-    - TasksService (when task created with applies_knowledge_uids)
-    - TasksService (when task updated to add knowledge UIDs)
+    - TasksCoreService (the owner's applies_knowledge_uids written at create)
+    - TaskGroundingService (each genuinely NEW inferred edge)
     """
 
     knowledge_uid: str

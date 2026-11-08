@@ -1,7 +1,7 @@
 ---
 title: "ADR-065: Functional Inference Contract (typed `*InferenceResult`, no DTO mutation)"
-updated: 2026-07-18
-status: current
+updated: 2026-11-08
+status: superseded
 category: decisions
 tags: [adr, decisions, architecture, intelligence, dto, immutability, hexagonal]
 related: [ADR-035, ADR-043, ADR-044]
@@ -9,7 +9,13 @@ related: [ADR-035, ADR-043, ADR-044]
 
 # ADR-065: Functional Inference Contract (typed `*InferenceResult`, no DTO mutation)
 
-**Status:** Accepted
+**Status:** Accepted. **Superseded 2026-11-08 (#1650's residuals, row 2c):** its one
+implementation, `EntityInferenceService` returning `TaskInferenceResult`, retired with the keyword
+table it scored against — the table's 26 keys named no Ku in the content vault. A task's inferred
+knowledge is now Ku grounding (`TaskGroundingService`, the pass `EntryGroundingService` runs for
+entries): inferred `APPLIES_KNOWLEDGE` edges, so inference produces no entity fields and there is
+nothing to apply. The rule below still binds any intelligence service that computes entity fields:
+return a typed result, never mutate a DTO.
 
 **Date:** 2026-05-28
 

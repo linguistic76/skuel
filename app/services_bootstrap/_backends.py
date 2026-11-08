@@ -288,6 +288,7 @@ def create_all_backends(
     from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
     from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
     from adapters.persistence.neo4j.session_backend import SessionBackend
+    from adapters.persistence.neo4j.task_grounding_backend import TaskGroundingBackend
     from adapters.persistence.neo4j.template_attachment_backend import TemplateAttachmentBackend
     from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
     from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
@@ -337,6 +338,7 @@ def create_all_backends(
         "embeddings_backend": EmbeddingsBackend(executor=query_executor),
         "vector_search_backend": VectorSearchBackend(executor=query_executor),
         "entry_grounding_backend": EntryGroundingBackend(query_executor),
+        "task_grounding_backend": TaskGroundingBackend(query_executor),
         "zpd_backend": ZPDBackend(driver),
         "zpd_snapshot_backend": ZPDSnapshotBackend(driver),
         # Learning loop: exercises, reports, revisions, interactions

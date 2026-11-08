@@ -61,6 +61,7 @@ core/prompts/
     ├── dsl_domain_recognition_system.md
     ├── prereq_edge_judge.md
     ├── entry_ku_grounding_judge.md
+    ├── task_ku_grounding_judge.md
     ├── transcript_formatting.md
     ├── transcript_editing.md
     ├── transcript_editing_context.md
@@ -112,7 +113,8 @@ with a warning — it replaces the words, never the placeholders.
 | `journal_articulation` | `InstructionResolver` via `EnrichmentMode.IDEA_ARTICULATION` | `{content}` |
 | `journal_exploration` | `InstructionResolver` via `EnrichmentMode.CRITICAL_THINKING` | `{content}` |
 | `prereq_edge_judge` | `PrereqSuggestionService._judge_batch()` (admin prereq-edge queue, batch pair classification) | `{pairs_block}` |
-| `entry_ku_grounding_judge` | `EntryGroundingService._judge_entry()` (entry→Ku grounding engagement filter) | `{entry_title}`, `{entry_excerpt}`, `{candidates_block}` |
+| `entry_ku_grounding_judge` | `KnowledgeGroundingService._judge()` via `EntryGroundingService` (entry→Ku grounding engagement filter) | `{entry_title}`, `{entry_excerpt}`, `{candidates_block}` |
+| `task_ku_grounding_judge` | `KnowledgeGroundingService._judge()` via `TaskGroundingService` (task→Ku grounding application filter) | `{task_title}`, `{task_excerpt}`, `{candidates_block}` |
 | `transcript_formatting` | `ContentEnrichmentService.process_transcript()` — the formatting instructions for a raw transcript (reached from the staged `process_audio`) | none |
 | `transcript_editing` | `ContentEnrichmentService._build_editing_prompt()` — the editing task around those instructions: the transcript and the Markdown output format | `{instructions}`, `{context_section}`, `{raw_transcript}` |
 | `transcript_editing_context` | `ContentEnrichmentService._build_editing_prompt()` — fills `transcript_editing`'s `{context_section}` when a context is gathered (stripped, then `\n\n` closes it) | `{active_goals}`, `{goal_titles}` |

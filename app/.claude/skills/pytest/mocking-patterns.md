@@ -110,7 +110,7 @@ service = create_tasks_service_for_testing(
 # Full control with custom backend
 my_backend = create_mock_backend({"create": Result.ok(task)})
 service = create_tasks_service_for_testing(backend=my_backend)
-# Keyword deps it accepts: backend, cross_domain_query, ku_inference_service,
+# Keyword deps it accepts: backend, cross_domain_query,
 # graph_intel, event_bus, backend_behavior — a TasksService facade.
 ```
 

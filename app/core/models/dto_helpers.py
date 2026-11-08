@@ -602,7 +602,7 @@ def dto_from_dict[T](
             date_fields=["due_date", "scheduled_date", "completion_date"],
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags", "knowledge_patterns_detected"],
-            dict_fields=["metadata", "knowledge_confidence_scores"],
+            dict_fields=["metadata"],
         )
     """
     from dataclasses import fields as dataclass_fields

@@ -1,9 +1,12 @@
 """Event bus subscription wiring — 45+ event handler subscriptions."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.ports import EventBusOperations
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.services.tasks.task_grounding_service import TaskGroundingService
 
 logger = get_logger("skuel.bootstrap")
 
@@ -22,6 +25,7 @@ def _wire_event_subscribers(
     ps_engagement: Any,
     search_event_recorder: Any,
     interaction_service: Any,
+    task_grounding: TaskGroundingService,
 ) -> None:
     """Wire all event subscribers for context invalidation, cross-domain, and intelligence.
 
@@ -42,6 +46,7 @@ def _wire_event_subscribers(
         ChoiceMade,
         ChoiceOutcomeRecorded,
         ChoiceUpdated,
+        EmbeddingStored,
         GoalAbandoned,
         GoalAchieved,
         GoalContributionsChanged,
@@ -499,6 +504,13 @@ def _wire_event_subscribers(
     logger.info(
         "   - Bulk events: KnowledgeBulkAppliedInTask, KnowledgeBulkBuiltIntoHabit, KnowledgeBulkInformedChoice"
     )
+
+    # ── Task→Ku grounding ───────────────────────────────────────────────────
+    # The embedding worker (FULL only) announces each stored vector; a task's grounds
+    # it to the Kus it applies. In CORE nothing announces, so a task carries only the
+    # knowledge its owner links.
+    event_bus.subscribe(EmbeddingStored, task_grounding.handle_embedding_stored)
+    logger.info("✅ TaskGroundingService subscribed to EmbeddingStored")
 
     # ── Domain intelligence event subscriptions ─────────────────────────────
     # "Events enable cross-domain intelligence"

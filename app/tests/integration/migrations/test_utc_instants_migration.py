@@ -20,6 +20,7 @@ See: /docs/roadmap/utc-instants-arc.md § Migration contract (PR 4)
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
@@ -269,17 +270,19 @@ async def _seed_on_the_old_clocks(
             ).is_ok
             assert (
                 await tasks.create(
-                    Task(
-                        uid="task.utcmig-inferred",
-                        title="Inferred",
-                        user_uid=STUDENT,
-                        knowledge_inference_metadata={
-                            "inference_version": "2.4",
-                            "inference_timestamp": datetime.now().isoformat(),
-                        },
-                    )
+                    Task(uid="task.utcmig-inferred", title="Inferred", user_uid=STUDENT)
                 )
             ).is_ok
+            # The live graph's tasks hold a keyword-inference metadata property that no
+            # model field reads; seeded as a JSON string, the shape ``to_neo4j_node``
+            # stores a dict in.
+            await driver.execute_query(
+                "MATCH (n:Task {uid: $uid}) SET n.knowledge_inference_metadata = $value",
+                uid="task.utcmig-inferred",
+                value=json.dumps(
+                    {"inference_version": "2.4", "inference_timestamp": datetime.now().isoformat()}
+                ),
+            )
             assert (
                 await goals.create(
                     Goal(

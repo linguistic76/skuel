@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-11-03
+updated: 2026-11-08
 category: patterns
 related_skills:
 - python
@@ -823,7 +823,7 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 
 **The singular/plural line is structural, not a list.** `"ku.a.b" in ku_uids` is membership in a *collection* and is correct, ordinary code. The operand is matched by name — exactly `uid`, or a `_uid` suffix — and `_uids` does not end in `_uid`, so the plural is excluded by the shape of the test rather than by an exception list that would need maintaining.
 
-**Deliberately out of scope: prefix and segment reads.** `uid.startswith(prefix)` and `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer, which is flow analysis this linter does not do. All three live sites are sanctioned and say so in their own docstrings — `parse_calendar_item_uid` (parses a wire format the app itself mints) and `_table_domain` + its caller (hardcoded table literals). Covering them would buy three suppressions and no findings. The rule takes the shape with no legitimate form and leaves the contextual ones to review; the sanctioned-site table lives in `CURRICULUM_GROUPING_PATTERNS.md`.
+**Deliberately out of scope: prefix and segment reads.** `uid.startswith(prefix)` and `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer, which is flow analysis this linter does not do. A sanctioned site says so in its own docstring, as `parse_calendar_item_uid` does (it parses a wire format the app itself mints); covering them would buy suppressions and no findings. The rule takes the shape with no legitimate form and leaves the contextual ones to review; the sanctioned-site table lives in `CURRICULUM_GROUPING_PATTERNS.md`.
 
 **Tests are out of scope, and the corpus says why.** Every hit in `tests/` has one shape — `assert "alice" not in stored.uid`, `assert "text-embedding-" not in uid` — pinning what a UID *generator* must not emit. Asserting on uid content is how you test the generator; branching on it in production is the bug.
 

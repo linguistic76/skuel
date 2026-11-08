@@ -97,10 +97,10 @@ OTHERWISE_ADMITTED: dict[str, str] = {
         "no caller (staged — PLANNED in scripts/detect_bloat.py); a door that reaches it "
         "admits the prerequisite before this write, which checks the uid's shape only"
     ),
-    "entry_grounding_service.py::_ground_entry": (
-        "the far end is a Ku the vector index returned for the entry, and the write "
-        "matches only a published Ku (EntryGroundingBackend.write_applies_knowledge); "
-        "the entry is one the pending read found through its owner's OWNS edge"
+    "knowledge_grounding_service.py::_ground_one": (
+        "the far end is a Ku the vector index returned for the entity, and the write "
+        "matches only a published Ku (KnowledgeGroundingBackend.write_applies_knowledge); "
+        "the entity is one the pending read found through its owner's OWNS edge"
     ),
     "infrastructure/semantic_relationship_linker.py::create_semantic_relationship": (
         "no door: every caller is a facade's create_semantic_*_relationship (PLANNED in "
@@ -194,7 +194,7 @@ def test_the_census_sees_the_writers() -> None:
     assert "relationship_builder.py::create" in keys
     assert "user_entry/user_entry_service.py::create_entry" in keys
     assert "user_entry/user_entry_service.py::link_applied_knowledge" in keys
-    assert "entry_grounding_service.py::_ground_entry" in keys
+    assert "knowledge_grounding_service.py::_ground_one" in keys
     assert len(_SITES) >= 35
 
 

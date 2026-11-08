@@ -56,6 +56,7 @@ if TYPE_CHECKING:
     from core.services.report.report_mastery_service import ReportMasteryService
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.resource_service import ResourceService
+    from core.services.tasks.task_grounding_service import TaskGroundingService
     from core.services.tasks_service import TasksService
     from core.services.transcription.batch_transcription_service import BatchTranscriptionService
     from core.services.transcription.transcription_service import TranscriptionService
@@ -298,8 +299,10 @@ class Services:
     admin_orchestrator: AdminOrchestrator | None = None
     # Prerequisite-edge suggestion queue (Discovery Analytics PR 4) — admin surface
     prereq_suggestions: PrereqSuggestionService | None = None
-    # Entry→Ku grounding (Entry-Enrichment PR 3) — post-sync pass + removal route
+    # Ku grounding — entries: post-sync pass + removal route; tasks: on each stored
+    # embedding (EmbeddingStored) + removal route
     entry_grounding: EntryGroundingService | None = None
+    task_grounding: TaskGroundingService | None = None
     user_entry_orchestrator: UserEntryOrchestrator | None = None
     explore_orchestrator: ExploreOrchestrator | None = None
     library_orchestrator: LibraryOrchestrator | None = None
