@@ -368,29 +368,6 @@ class GoalFilterRequest(BaseModel):
     )
 
 
-class GoalAnalyticsRequest(BaseModel):
-    """
-    Request for goal analytics.
-    """
-
-    include_progress_history: bool = Field(True)
-    include_milestone_analysis: bool = Field(True)
-    include_habit_correlation: bool = Field(False)
-    include_predictions: bool = Field(False)
-    days_back: int = Field(default=30, ge=1, le=365)
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "include_progress_history": True,
-                "include_milestone_analysis": True,
-                "include_habit_correlation": True,
-                "days_back": 90,
-            }
-        }
-    )
-
-
 # ==========================================================================
 # ATOMIC HABITS REQUEST MODELS
 # ==========================================================================

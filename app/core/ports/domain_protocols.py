@@ -412,16 +412,6 @@ class HabitsOperations(
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def archive_habit(self, habit_id: str) -> Result[bool]:
-        """
-        Archive a habit (soft delete — status transition to "archived").
-
-        This is intentional domain logic: habits represent behavioral patterns
-        and are archived, not destroyed. Use delete() from BackendOperations
-        only for test cleanup. Returns Result[bool].
-        """
-        ...
-
     async def get_habit(self, habit_id: str) -> Result[Habit]:
         """Get a habit by ID. Not found is an error."""
         ...

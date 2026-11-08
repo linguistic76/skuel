@@ -73,8 +73,8 @@ from core.constants import GraphDepth
 # deleted 2026-08-17); `__all__` promises the name.
 from core.models.query_types import QueryIntent
 
-# Search boundary models — canonical location is core.models.search_models
-from core.models.search_models import FacetSetRequest, SearchQueryRequest, SearchResultDTO
+# Search result DTO — canonical location is core.models.search_models
+from core.models.search_models import SearchResultDTO
 
 from ._provenance_queries import ProvenanceQueries
 
@@ -157,8 +157,6 @@ __all__ = [
     # ============================================================================
     # SEARCH BOUNDARY MODELS
     # ============================================================================
-    "FacetSetRequest",
-    "SearchQueryRequest",
     "SearchResultDTO",
     # ============================================================================
     # QUERY MODELS & STRATEGIES

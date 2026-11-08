@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-06
+updated: 2026-11-08
 ---
 
 # Deferred Work
@@ -253,7 +253,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Request Models No Door Reads
 
-[Request Models No Door Reads](request-models-no-door-reads.md) — Pydantic models under `core/models` that no other Python file names; each waits on its own verdict, staged or retired, and the bloat detector's tiers do not cover models.
+[Request Models No Door Reads](request-models-no-door-reads.md) — the register of Pydantic models under `core/models` that no production file reads, each staged or parked with what it waits on (a unit test holds it to the code); the bloat detector's tiers do not cover models.
 
 ## LP Mastery and Next Step
 

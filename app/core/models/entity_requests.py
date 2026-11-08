@@ -3,9 +3,10 @@ Entity-Wide Request Models (Cross-Domain)
 ==========================================
 
 Pydantic models shared across all entity types:
-- Bulk operations (tags, categorize, delete)
-- Schedule management (progress report generation)
-- Route-specific link / hierarchy / review requests
+- Progress report generation and annotation
+- Activity feedback and review requests
+- Admin account actions, insight dismissal
+- Route-specific link / hierarchy requests
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -17,42 +18,8 @@ from pydantic import BaseModel, Field
 from core.models.enums.relationship_enums import KnowledgeRelevance, ProficiencyLevel
 
 # =============================================================================
-# ROUTE-SPECIFIC REQUEST MODELS (content management, bulk ops, progress, schedule)
+# PROGRESS REPORT REQUEST MODELS
 # =============================================================================
-
-
-class CategorizeEntityRequest(BaseModel):
-    """Request to categorize an entity."""
-
-    category: str = Field(
-        ...,
-        description="Category from ReportCategory constants",
-        examples=["daily", "weekly", "reflection", "work"],
-    )
-
-
-class BulkCategorizeRequest(BaseModel):
-    """Request to categorize multiple entities."""
-
-    entity_uids: list[str] = Field(..., min_length=1, description="List of entity UIDs")
-    category: str = Field(..., description="Category to assign")
-
-
-class BulkTagRequest(BaseModel):
-    """Request to tag multiple entities."""
-
-    entity_uids: list[str] = Field(..., min_length=1, description="List of entity UIDs")
-    tags: list[str] = Field(..., min_length=1, description="List of tags to add")
-
-
-class BulkDeleteRequest(BaseModel):
-    """Request to delete multiple entities."""
-
-    entity_uids: list[str] = Field(..., min_length=1, description="List of entity UIDs to delete")
-    soft_delete: bool = Field(
-        default=True,
-        description="If True, archive instead of permanent delete",
-    )
 
 
 class ProgressReportGenerateRequest(BaseModel):
@@ -131,15 +98,6 @@ class ActivityReviewRequest(BaseModel):
     time_period: str = Field(default="7d", description="Time period to review")
     domains: list[str] | None = Field(default=None, description="Domains to review")
     message: str | None = Field(default=None, max_length=1000, description="Optional message")
-
-
-class CalendarQuickCreateRequest(BaseModel):
-    """Quick create a calendar item."""
-
-    type: str = Field(..., description="Calendar item type")
-    title: str = Field(..., min_length=1, description="Item title")
-    start_time: str = Field(..., description="Start time (ISO format)")
-    extras: dict[str, Any] = Field(default_factory=dict, description="Additional fields")
 
 
 class ChangeUserRoleRequest(BaseModel):

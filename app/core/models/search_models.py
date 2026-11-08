@@ -2,45 +2,11 @@
 Search Boundary Models
 ======================
 
-Pydantic request models and DTOs for cross-domain search infrastructure.
-
-Previously misplaced in core/models/transcription/ — relocated here
-because these are generic search models with zero transcription coupling.
+The cross-domain search result DTO. The search request a door binds is
+``SearchRequest`` (core/models/search_request.py).
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
-
-from pydantic import BaseModel, Field
-
-from core.models.type_hints import UserUID
-
-# ============================================================================
-# SEARCH REQUEST MODELS (Tier 1 - Pydantic)
-# ============================================================================
-
-
-class FacetSetRequest(BaseModel):
-    """Request model for search facets."""
-
-    domain: Literal["habits", "knowledge", "tasks", "finance", "transcription"] | None = None
-    level: Literal["intro", "intermediate", "advanced"] | None = None
-    intents: list[str] = Field(default_factory=list, description="Search intents")
-    topics: list[str] = Field(default_factory=list, description="Normalized key terms/tags")
-    filters: dict[str, Any] = Field(default_factory=dict, description="Extra filters")
-
-
-class SearchQueryRequest(BaseModel):
-    """Request model for complete search query."""
-
-    text: str = Field(min_length=1, description="Search query text")
-    user_uid: UserUID = Field(description="User UID for personalization")
-    facets: FacetSetRequest = Field(default_factory=FacetSetRequest)
-    limit: int = Field(default=20, ge=1, le=100)
-    offset: int = Field(default=0, ge=0)
-    include_relationships: bool = Field(default=True)
-    check_mastery: bool = Field(default=True)
-
 
 # ============================================================================
 # SEARCH RESULT DTO (Tier 2 - Data Transfer)

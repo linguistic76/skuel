@@ -2,8 +2,9 @@
 User Boundary Schemas (Pydantic)
 =================================
 
-Pydantic DTOs for the simplified User service boundary. These schemas support
-the UserPure model that delegates to unified systems.
+Pydantic models for the User boundary: the Settings editor's save
+(``UserPreferencesFormRequest``), and the account shapes no door binds yet,
+each registered with its reason in /docs/roadmap/request-models-no-door-reads.md.
 
 This follows the architectural principle: Pydantic at the edges, pure domain inside.
 """
@@ -15,16 +16,12 @@ from core.models.type_hints import UserUID
 __version__ = "1.0"
 
 
-from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from core.infrastructure.utils.factory_functions import create_default_user_energy_pattern
-
 # Import enums directly for use in Pydantic models
 from core.models.enums import (
-    EnergyLevel,
     LearningLevel,
     TimeOfDay,
 )
@@ -35,64 +32,6 @@ from core.utils.zone_context import validated_zone_name
 # ============================================================================
 # USER PREFERENCES SCHEMAS
 # ============================================================================
-
-
-class UserPreferencesSchema(BaseModel):
-    """Schema for user preferences"""
-
-    # Learning preferences
-    learning_level: LearningLevel = Field(
-        default=LearningLevel.INTERMEDIATE, description="Current learning proficiency"
-    )
-    preferred_modalities: list[str] = Field(
-        default_factory=list,
-        description="Preferred learning modalities (video, reading, interactive)",
-    )
-    preferred_subjects: list[str] = Field(default_factory=list, description="Subjects of interest")
-
-    # Scheduling preferences
-    preferred_time_of_day: TimeOfDay = Field(
-        default=TimeOfDay.ANYTIME, description="Preferred time for activities"
-    )
-    available_minutes_daily: int = Field(
-        default=60, ge=0, le=1440, description="Available minutes per day"
-    )
-    energy_pattern: dict[TimeOfDay, EnergyLevel] = Field(
-        default_factory=create_default_user_energy_pattern,
-        description="Energy levels throughout the day",
-    )
-
-    # Notification preferences
-    enable_reminders: bool = Field(default=True)
-    reminder_minutes_before: int = Field(
-        default=15, ge=0, le=1440, description="Minutes before event to remind"
-    )
-    daily_summary_time: str | None = Field(
-        default="09:00",
-        pattern=r"^([01]\d|2[0-3]):([0-5]\d)$",
-        description="Daily summary time (HH:MM)",
-    )
-
-    # Display preferences
-    theme: str = Field(default="light", description="UI theme (light, dark, auto)")
-    language: str = Field(default="en", description="Language code")
-    timezone: str | None = Field(
-        default=None,
-        description="The user's zone: an IANA name; None (or blank) follows SKUEL_TIMEZONE",
-    )
-
-    # Goal preferences
-    weekly_task_goal: int = Field(default=10, ge=0, le=100, description="Target tasks per week")
-    daily_habit_goal: int = Field(default=3, ge=0, le=20, description="Target habits per day")
-    monthly_learning_hours: int = Field(
-        default=20, ge=0, le=500, description="Target learning hours per month"
-    )
-
-    @field_validator("timezone")
-    @classmethod
-    def validate_timezone(cls, value: str | None) -> str | None:
-        """A zone zoneinfo lists, or None for no choice (a blank value included)."""
-        return validated_zone_name(value)
 
 
 class UserPreferencesFormRequest(BaseModel):
@@ -184,9 +123,6 @@ class UserUpdateSchema(BaseModel):
 
     display_name: str | None = Field(default=None, max_length=100)
 
-    # Preferences update
-    preferences: UserPreferencesSchema | None = None
-
     # Entity management
     active_entity_uids: set[str] | None = None
     pinned_entity_uids: list[str] | None = None
@@ -199,128 +135,6 @@ class UserUpdateSchema(BaseModel):
 
     # Settings
     settings: dict[str, Any] | None = None
-
-
-class UserView(BaseModel):
-    """View model for presenting user data"""
-
-    # Core identity
-    uid: str
-    username: str
-    email: str
-    display_name: str
-
-    # User preferences
-    preferences: UserPreferencesSchema
-
-    # Active entities
-    active_entity_uids: set[str]
-    pinned_entity_uids: list[str]
-    archived_entity_uids: set[str]
-    active_entity_count: int
-    has_capacity: bool
-
-    # Interests and goals
-    interests: list[str]
-    current_goals: list[str]
-    achievements: list[str]
-
-    # Social connections
-    following_uids: set[str]
-    follower_uids: set[str]
-    team_uids: set[str]
-    following_count: int
-    follower_count: int
-
-    # Account metadata
-    created_at: datetime
-    last_active_at: datetime | None
-    last_login_at: datetime | None
-
-    # Account status
-    is_active: bool
-    is_verified: bool
-    is_premium: bool
-
-    # Settings
-    settings: dict[str, Any]
-
-    # Computed fields
-    days_since_joined: int
-    current_streak_days: int | None
-    completion_rate: float | None
-    learning_level_numeric: int
-
-
-class UserSummaryView(BaseModel):
-    """Lightweight view for user summaries"""
-
-    uid: str
-    username: str
-    display_name: str
-    is_active: bool
-    is_verified: bool
-    created_at: datetime
-    last_active_at: datetime | None
-    active_entity_count: int
-    completion_rate: float | None
-
-
-class UserServiceContextSchema(BaseModel):
-    """Schema for lightweight service context"""
-
-    user_uid: UserUID
-    username: str
-    learning_level: LearningLevel
-
-    # Current focus
-    active_entity_uids: set[str]
-    current_goal_uids: list[str]
-
-    # Preferences relevant to services
-    preferred_time: TimeOfDay
-    available_minutes: int
-    interests: list[str]
-
-    # Session info
-    session_id: str | None = None
-    session_start: datetime | None = None
-
-
-class UserStatisticsSchema(BaseModel):
-    """Schema for computed user statistics"""
-
-    user_uid: UserUID
-    computed_at: datetime
-
-    # Activity counts
-    total_tasks: int = Field(default=0)
-    completed_tasks: int = Field(default=0)
-    total_habits: int = Field(default=0)
-    active_habits: int = Field(default=0)
-    total_learning_sessions: int = Field(default=0)
-    completed_learning: int = Field(default=0)
-
-    # Progress metrics
-    overall_completion_rate: float = Field(default=0.0, description="Percentage completion rate")
-    average_task_duration_minutes: float = Field(default=0.0)
-    total_time_spent_hours: float = Field(default=0.0)
-
-    # Streak metrics
-    current_streak_days: int = Field(default=0)
-    longest_streak_days: int = Field(default=0)
-    consistency_score: float = Field(
-        default=0.0, ge=0, le=100, description="Consistency score (0-100)"
-    )
-
-    # Learning metrics
-    topics_mastered: int = Field(default=0)
-    average_mastery_level: float = Field(default=0.0)
-    learning_velocity: float = Field(default=1.0, description="Learning speed relative to average")
-
-    # Time patterns
-    most_active_time: TimeOfDay | None = None
-    most_productive_day: str | None = Field(default=None, description="Day of week")
 
 
 class UserCapacityCheckSchema(BaseModel):

@@ -1,6 +1,6 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
-updated: 2026-10-24
+updated: 2026-11-08
 status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28; PR 6 split, 6a and 6b merged 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
@@ -784,8 +784,7 @@ and the golden-file rig: too large for one context, so two sub-rows, each on its
   (`from_wall_clock`) and held on the stored clock; an aware one is kept as it came.
   - The census: `ChoiceCreateRequest` / `ChoiceUpdateRequest.decision_deadline`,
     `ChoiceUpdateRequest.completed_at` and `EventUpdateRequest.completed_at` are live.
-    `ChoiceDecisionRequest.decided_at`, `HabitCompletionCreateRequest.completed_at`,
-    `HabitCompletionFilterRequest.start_date` / `end_date`, `HabitCompletionRequest.completed_at`,
+    `ChoiceDecisionRequest.decided_at`, `HabitCompletionFilterRequest.start_date` / `end_date`,
     `HabitSkipRequest.skipped_at` and `UserFilterSchema`'s four have no route reading them.
   - `tests/unit/models/test_client_datetime_fields.py` finds every Pydantic `datetime` field in
     `core/models`, and fails on one that is neither `ClientDateTime` nor a named response field.
