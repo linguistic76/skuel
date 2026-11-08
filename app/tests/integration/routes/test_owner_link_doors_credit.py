@@ -11,8 +11,8 @@ Over the bootstrapped app (CORE tier, the app's bus and its substance subscriber
   on a task, ``reinforces_knowledge`` on a habit, ``informed_by_knowledge`` on a choice)
   credits each link its first ingest writes, once. A second sync of the unchanged file
   and a ``--force`` sync credit nothing; a target added to the file credits only it; a
-  dangling target writes and credits nothing; a pair grounding inferred becomes the
-  file's link and is not credited again.
+  dangling target writes and credits nothing; two files naming one task credit its new
+  link once; a pair grounding inferred becomes the file's link and is not credited again.
 - An Event file's ``applies_knowledge`` credits nothing at the link: the event's
   knowledge is credited as practice when it is completed, once.
 
@@ -91,6 +91,7 @@ KUS = [
         "vault-event",
         "vault-inferred",
         "vault-named",
+        "vault-two-files",
     )
 ]
 
@@ -346,6 +347,26 @@ async def test_a_target_added_to_the_file_credits_only_it(env: Env, tmp_path: Pa
     assert credits == [Credit("KnowledgeAppliedInTask", task, (three,))]
     assert await _count(env, one, "times_applied_in_tasks") == one_before
     assert await _count(env, three, "times_applied_in_tasks") == three_before + 1
+
+
+async def test_two_files_naming_one_task_credit_its_new_link_once(env: Env, tmp_path: Path) -> None:
+    ku = _ku("vault-two-files")
+    before = await _count(env, ku, "times_applied_in_tasks")
+    task = f"task.{MARK}.shared"
+    for name in ("shared-one", "shared-two"):
+        write_vault_file(
+            tmp_path,
+            name,
+            entity_type="task",
+            uid=task,
+            owner=OWNER,
+            connections={"applies_knowledge": [ku]},
+        )
+
+    credits = await _sync(env, tmp_path)
+
+    assert credits == [Credit("KnowledgeAppliedInTask", task, (ku,))]
+    assert await _count(env, ku, "times_applied_in_tasks") == before + 1
 
 
 async def test_a_habit_file_and_a_choice_file_credit_their_own_channels(

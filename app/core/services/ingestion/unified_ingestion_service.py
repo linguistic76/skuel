@@ -689,8 +689,13 @@ class UnifiedIngestionService:
             for name, rel in (config.relationship_config or {}).items()
             if rel.get("rel_type") == edge.value
         ]
+        credited: set[str] = set()
         for entity in entities:
             uid = str(entity.get("uid", ""))
+            # Two files may name one uid; their links are one entry, credited once.
+            if uid in credited:
+                continue
+            credited.add(uid)
             owner = entity.get("user_uid")
             created = created_targets.get(uid, {})
             knowledge_uids = [target for name in fields for target in created.get(name, ())]
@@ -1364,6 +1369,9 @@ class UnifiedIngestionService:
         # Before any step below can return early: the links exist now, and a re-ingest
         # creates none, so a credit skipped here would never be published.
         await self._credit_created_knowledge(entity_type, [entity_data], stats.created_targets)
+        if stats.errors:
+            # The relationship pass failed: the file is left unstamped for a retry.
+            return Result.fail(Errors.database("ingest_file", "; ".join(stats.errors)))
 
         # A Group is owned or its file fails (ADR-086 § 1, door 5): the bulk
         # template writes :OWNS for :Entity rows only, so the Group's edge is a

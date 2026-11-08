@@ -3,6 +3,9 @@
 - A pass that fails leaves its files unstamped — each keeps its identity in a pending
   row — so the next sync re-processes them instead of skipping them as unchanged,
   with edges the failed pass may not have written.
+- A pass that stopped part-way reports what its committed batches created: the sync
+  hands that to ``links_created_fn`` (those edges are written, and a retry finds them
+  already there) and still leaves the files pending.
 - A pass that succeeds stamps its files, and hands ``links_created_fn`` the links it
   created; a pass that created none does not call it.
 
@@ -31,13 +34,15 @@ KU_UID = "ku.relpass.care"
 FIELD = "connections.applies_knowledge"
 
 
-def _result(created: dict[str, dict[str, tuple[str, ...]]] | None = None) -> IngestionResult:
+def _result(
+    created: dict[str, dict[str, tuple[str, ...]]] | None = None, errors: list[str] | None = None
+) -> IngestionResult:
     return IngestionResult(
         total_processed=1,
         nodes_created=0,
         nodes_updated=0,
         relationships_created=0,
-        errors=[],
+        errors=errors or [],
         created_targets=created or {},
     )
 
@@ -162,6 +167,21 @@ async def test_a_failed_relationship_pass_leaves_its_file_pending(tmp_path: Path
         (str(path.resolve()), PENDING_MTIME)
     ]
     assert heard.calls == []
+
+
+async def test_a_pass_that_stopped_part_way_credits_what_it_wrote_and_stays_pending(
+    tmp_path: Path,
+) -> None:
+    path = _task_file(tmp_path)
+    tracker, heard = _Tracker(), _Heard()
+    partial = _result({TASK_UID: {FIELD: (KU_UID,)}}, errors=["batch 2: connection reset"])
+
+    await _sync(tmp_path, _Bulk(Result.ok(partial)), tracker, heard)
+
+    assert heard.calls == [("task", [TASK_UID], {TASK_UID: {FIELD: (KU_UID,)}})]
+    assert [(row["file_path"], row["file_mtime"]) for row in tracker.rows] == [
+        (str(path.resolve()), PENDING_MTIME)
+    ]
 
 
 async def test_a_pass_that_succeeds_stamps_its_file_and_reports_what_it_created(

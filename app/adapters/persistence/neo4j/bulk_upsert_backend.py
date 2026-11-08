@@ -516,7 +516,13 @@ class BulkUpsertBackend:
         relationship_config: dict[str, RelationshipConfig],
         batch_size: int = 500,
     ) -> Result[IngestionResult]:
-        """Relationships-only pass (phase 2) — every node batch already ran."""
+        """Relationships-only pass (phase 2) — every node batch already ran.
+
+        Runs ``batch_size`` items per transaction. A batch that fails ends the pass:
+        the batches before it are committed, so the result carries what they created
+        (``created_targets``) with the failure in ``errors`` — the caller credits what
+        was written and retries the rest, whose edges the retry then creates.
+        """
         if not relationship_config:
             return Result.ok(
                 IngestionResult(
@@ -534,28 +540,31 @@ class BulkUpsertBackend:
             async with self._driver.session() as session:
                 executor = CypherExecutor(session, dict)
                 items = prepare_batch_items(entities, rel_config=relationship_config)
+                # boundary: the template's uid/created rows (see ``_created_targets``)
+                rows: list[dict[str, Any]] = []
+                relationships_created = 0
+                errors: list[str] = []
+                for start in range(0, len(items), batch_size):
+                    result = await executor.execute_batch(
+                        template=template,
+                        items=items[start : start + batch_size],
+                        batch_size=batch_size,
+                        extra_params={"entity_label": entity_label},
+                    )
+                    if result.is_error:
+                        errors.append(str(result.expect_error()))
+                        break
+                    rows.extend(result.value.get("rows", []))
+                    relationships_created += result.value.get("relationships_created", 0)
 
-                result = await executor.execute_batch(
-                    template=template,
-                    items=items,
-                    batch_size=batch_size,
-                    extra_params={"entity_label": entity_label},
-                )
-
-                if result.is_error:
-                    return Result.fail(result)
-
-                stats = result.value
                 return Result.ok(
                     IngestionResult(
                         total_processed=len(entities),
                         nodes_created=0,
                         nodes_updated=0,
-                        relationships_created=stats.get("relationships_created", 0),
-                        errors=[],
-                        created_targets=_created_targets(
-                            stats.get("rows", []), list(relationship_config)
-                        ),
+                        relationships_created=relationships_created,
+                        errors=errors,
+                        created_targets=_created_targets(rows, list(relationship_config)),
                     )
                 )
 
@@ -572,7 +581,9 @@ class BulkUpsertBackend:
         Nodes land before any edge Cypher runs, so references between entities
         of the same call resolve (the single-file door's shape). Directory
         ingest calls the two phases itself so relationships run after EVERY
-        type's node batch — see ``core/services/ingestion/batch.py``.
+        type's node batch — see ``core/services/ingestion/batch.py``. A relationship
+        pass that failed is reported as ``create_relationships`` reports it: what it
+        created, with the failure in ``errors``.
         """
         nodes_result = await self.upsert_nodes(
             entity_label, base_label, entities, relationship_config, batch_size
@@ -596,7 +607,7 @@ class BulkUpsertBackend:
                 nodes_created=nodes.nodes_created,
                 nodes_updated=nodes.nodes_updated,
                 relationships_created=rels_result.value.relationships_created,
-                errors=[],
+                errors=rels_result.value.errors,
                 # The prior statuses belong to phase 1; phase 2 writes only edges.
                 prior_status_by_uid=nodes.prior_status_by_uid,
                 refused_uids=nodes.refused_uids,

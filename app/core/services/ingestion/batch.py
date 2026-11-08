@@ -1565,6 +1565,17 @@ async def ingest_directory(
             )
     # The fingerprint stamped per file below (absent → the prior stays).
     authored_edges_by_file: dict[str, list[str]] = {}
+
+    def _leave_pending(pass_entities: list[dict[str, Any]]) -> None:
+        """A relationship pass that failed may not have written its edges: its files
+        stay unstamped, so the next sync re-processes them rather than skipping them
+        as unchanged."""
+        for entity in pass_entities:
+            file_str = uid_to_file.get(str(entity.get("uid", "")))
+            if file_str is not None:
+                file_entity_map.pop(file_str, None)
+                retry_uids[file_str] = str(entity["uid"])
+
     for entity_type, entities, rel_config in relationship_passes:
         config = ENTITY_CONFIGS.get(entity_type)
         if not config or bulk_backend is None:
@@ -1586,17 +1597,27 @@ async def ingest_directory(
                 suggestion="Check Neo4j connection and database constraints.",
             )
             errors.append(rel_error.to_dict())
-            # The pass's edges may not be written: its files stay unstamped, so the
-            # next sync re-processes them rather than skipping them as unchanged.
-            for entity in entities:
-                file_str = uid_to_file.get(str(entity.get("uid", "")))
-                if file_str is not None:
-                    file_entity_map.pop(file_str, None)
-                    retry_uids[file_str] = str(entity["uid"])
+            _leave_pending(entities)
             continue
-        total_relationships_created += rel_result.value.relationships_created
-        if links_created_fn is not None and rel_result.value.created_targets:
-            await links_created_fn(entity_type, entities, rel_result.value.created_targets)
+        outcome = rel_result.value
+        total_relationships_created += outcome.relationships_created
+        # What the pass created is announced even when it stopped part-way: those
+        # edges are committed, and the retry finds them already there.
+        if links_created_fn is not None and outcome.created_targets:
+            await links_created_fn(entity_type, entities, outcome.created_targets)
+        if outcome.errors:
+            errors.append(
+                IngestionError(
+                    file=f"<batch:{entity_type.value}>",
+                    error="; ".join(outcome.errors),
+                    stage="relationships",
+                    error_type="database",
+                    entity_type=entity_type.value,
+                    suggestion="Check Neo4j connection and database constraints.",
+                ).to_dict()
+            )
+            _leave_pending(entities)
+            continue
 
         for entity in entities:
             file_str = uid_to_file.get(str(entity.get("uid", "")))

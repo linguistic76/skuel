@@ -759,9 +759,12 @@ The relationship pass reports the edges it CREATED (`IngestionResult.created_tar
 uid → field → targets no edge of the field's type joined before — `MERGE`'s `ON CREATE`
 signal, carried on a marker removed in the same statement), so an unchanged or `--force`
 re-ingest creates none. A file that names a pair a grounding pass inferred makes it the
-file's link (the inference stamp is removed), as the owner's guarded write does. A pass
-that fails leaves its files unstamped (pending rows keep their uids), so the next sync
-re-processes them rather than skipping them as unchanged.
+file's link (the inference stamp is removed), as the owner's guarded write does. The
+pass runs one transaction per batch; a batch that fails ends it, and the result still
+carries what the committed batches created, with the failure in `errors`. The sync credits
+that, and leaves the pass's files unstamped (pending rows keep their uids), so the next
+sync re-processes them rather than skipping them as unchanged — and creates, and credits,
+only the edges the failed batch did not write.
 
 **Knowledge credit.** Both ingest doors hand what the pass created to
 `UnifiedIngestionService._credit_created_knowledge` (the directory door through
