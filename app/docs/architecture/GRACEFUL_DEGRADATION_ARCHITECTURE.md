@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-25
+updated: 2026-11-08
 ---
 
 # Graceful Degradation Architecture
@@ -115,9 +115,11 @@ class PsService:
         self.embeddings = embeddings_service  # Can be None
 
 # Ingestion never embeds inline (ADR-074) — it publishes post-persist
-# embedding events instead, and its event_bus is tier-gated at compose:
+# embedding events instead, gated on the tier; it holds the bus in both tiers,
+# because its completion cascade and knowledge credit are Analog:
 ingestion_service = UnifiedIngestionService(
-    event_bus=event_bus if tier.ai_enabled else None,  # CORE → no publishes
+    event_bus=event_bus,
+    embeddings_enabled=tier.ai_enabled,  # CORE → no embedding publishes
     ...
 )
 ```
@@ -160,7 +162,7 @@ All in `services_bootstrap/compose.py`:
 | Embeddings block | `EmbeddingsService`, `Neo4jVectorSearchService` (embedding client adapter not built) | Skipped |
 | LLM block | `LLMService` (built on the multi-provider `UnifiedLLMCaller` — `chat_clients.caller` — at FULL; routes per call by model prefix: gpt*→OpenAI, claude*→Anthropic) | Skipped |
 | Chat-adapter block | `OpenAIChatAdapter` (`ChatCompletionPort`, `adapters/external/llm/`) → `ContentEnrichmentService`, `UnifiedLLMCaller`, `ProgressReportGenerator` | Adapter not built; consumers receive `chat_port=None` and degrade |
-| Ingestion event-bus gate | `UnifiedIngestionService` + `BatchChunkingService` get `event_bus=event_bus if tier.ai_enabled else None` (ADR-074) | Ingestion publishes no embedding events — no queue-with-no-listener; chunks still persist |
+| Ingestion embedding gate | `UnifiedIngestionService` holds the bus in both tiers and gates its embedding publishes on `embeddings_enabled=tier.ai_enabled`; `BatchChunkingService` gets `event_bus=event_bus if tier.ai_enabled else None` (ADR-074) | Ingestion publishes no embedding events — no queue-with-no-listener; chunks still persist. Its Analog events (completions, goal contributions, knowledge credit) still publish |
 
 Everything downstream of these five blocks naturally degrades via None-propagation.
 
