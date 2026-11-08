@@ -25,6 +25,7 @@ from ui.activities._shared import (
     ActivityList,
     ConnectionRows,
     ConnectionsSection,
+    InferredLinkRemoval,
     MetadataField,
     PriorityBadgeDropdown,
     TagsBlock,
@@ -43,7 +44,7 @@ from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import section_label
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
     from fasthtml.common import FT
 
@@ -391,6 +392,23 @@ def DependencyListFragment(
     )
 
 
+# The door a task's inferred knowledge link is removed at (tasks_api.py).
+TASK_GROUNDING_REMOVE_PATH = "/api/tasks/grounding/remove"
+
+
+def TaskConnectionsSection(task_uid: str, connections: Sequence[EntityConnection]) -> FT:
+    """The task page's Connections: each link grounding inferred is marked, with a remove.
+
+    The removal door answers its HTMX request with this section, read again from the
+    graph. The list card shows an inferred link as any other: the card is a glance,
+    rendered on the list, the day view and after each status or priority change, and
+    the decision to remove belongs on the page that shows the task whole.
+    """
+    return ConnectionsSection(
+        connections, removal=InferredLinkRemoval(TASK_GROUNDING_REMOVE_PATH, task_uid)
+    )
+
+
 def TaskDetailView(
     task: Task,
     connections: list[EntityConnection],
@@ -443,8 +461,8 @@ def TaskDetailView(
     # Tags
     tags_el = TagsBlock(task.tags)
 
-    # Connections section
-    conn_section = ConnectionsSection(connections)
+    # Connections section — the links grounding inferred are marked, and removable
+    conn_section = TaskConnectionsSection(task.uid, connections)
 
     # Sub-tasks (HTMX-loaded: parent breadcrumb + children + quick-add)
     subtasks = SubtaskSection(task.uid)

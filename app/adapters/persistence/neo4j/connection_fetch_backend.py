@@ -52,6 +52,8 @@ class _LinkRow(TypedDict):
     connected_uid: str
     title: str
     connected_type: str
+    inferred: bool
+    confidence: float | None
 
 
 def _link_row(record: dict[str, Any]) -> _LinkRow | None:  # boundary: neo4j driver record
@@ -59,6 +61,8 @@ def _link_row(record: dict[str, Any]) -> _LinkRow | None:  # boundary: neo4j dri
     if record.get("rel_type") is None:
         return None
     connected_uid = str(record.get("connected_uid") or "")
+    inferred = bool(record.get("inferred"))
+    raw_confidence = record.get("confidence")
     return {
         "entity_uid": str(record["entity_uid"]),
         "rel_type": str(record["rel_type"]),
@@ -67,6 +71,8 @@ def _link_row(record: dict[str, Any]) -> _LinkRow | None:  # boundary: neo4j dri
         "connected_uid": connected_uid,
         "title": str(record.get("title") or connected_uid),
         "connected_type": str(record.get("connected_type") or ""),
+        "inferred": inferred,
+        "confidence": float(raw_confidence) if inferred and raw_confidence is not None else None,
     }
 
 
@@ -104,9 +110,11 @@ class ConnectionFetchBackend:
         """Batch-fetch the page links of ``label`` entities, both directions.
 
         Returns ``entity_uid -> rows`` (``heading``, ``rel_type``, ``connected_uid``,
-        ``title``, ``connected_type``), ordered by the domain's page views and then
-        by title. A far end is listed once under its view's heading, however many edges
-        of the view reach it.
+        ``title``, ``connected_type``, ``inferred``, ``confidence``), ordered by the
+        domain's page views and then by title. A far end is listed once under its
+        view's heading, however many edges of the view reach it, and is ``inferred``
+        only when every one of those edges is: the grounding pass's flag, read as the
+        removal door reads it.
 
         A connected entity is the entity owner's own or published shared content
         (``build_far_node_clause``): another user's node, or a draft, at the far end
@@ -133,7 +141,9 @@ class ConnectionFetchBackend:
                labels(other) AS far_labels,
                other.uid AS connected_uid,
                other.title AS title,
-               other.entity_type AS connected_type
+               other.entity_type AS connected_type,
+               coalesce(r.inferred, false) AS inferred,
+               r.confidence AS confidence
         """
 
         try:
@@ -153,7 +163,7 @@ class ConnectionFetchBackend:
             rank.setdefault(page_view.page_heading or "", index)
 
         placed: dict[str, list[EntityConnection]] = {}
-        seen: set[tuple[str, str, str]] = set()
+        seen: dict[tuple[str, str, str], EntityConnection] = {}
         for record in result.value:
             row = _link_row(record)
             if row is None:
@@ -163,18 +173,24 @@ class ConnectionFetchBackend:
                 continue
             heading = view.page_heading or ""
             key = (row["entity_uid"], heading, row["connected_uid"])
-            if key in seen:
+            listed = seen.get(key)
+            if listed is not None:
+                if not row["inferred"]:
+                    # Someone's own edge reaches it too: the link is theirs.
+                    listed["inferred"] = False
+                    listed["confidence"] = None
                 continue
-            seen.add(key)
-            placed.setdefault(row["entity_uid"], []).append(
-                {
-                    "heading": heading,
-                    "rel_type": row["rel_type"],
-                    "connected_uid": row["connected_uid"],
-                    "title": row["title"],
-                    "connected_type": row["connected_type"],
-                }
-            )
+            connection: EntityConnection = {
+                "heading": heading,
+                "rel_type": row["rel_type"],
+                "connected_uid": row["connected_uid"],
+                "title": row["title"],
+                "connected_type": row["connected_type"],
+                "inferred": row["inferred"],
+                "confidence": row["confidence"],
+            }
+            seen[key] = connection
+            placed.setdefault(row["entity_uid"], []).append(connection)
 
         def page_order(row: EntityConnection) -> tuple[int, str]:
             return rank[row["heading"]], row["title"]

@@ -8,7 +8,9 @@ Usage:
 """
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode
 
 from fasthtml.common import A, Button, Div, Li, Small, Span, Ul
 
@@ -48,34 +50,85 @@ def _connection_icon(conn: EntityConnection, size: int) -> FT:
     )
 
 
-def ConnectionsSection(connections: Sequence[EntityConnection]) -> FT:
+@dataclass(frozen=True)
+class InferredLinkRemoval:
+    """Where a detail page's owner removes a link the grounding pass inferred.
+
+    ``path`` is the domain's removal door, posted ``?uid={entity_uid}&ku_uid=…``; it
+    answers an HTMX request with this section re-rendered, which replaces the one on
+    the page (``section_id``).
+    """
+
+    path: str
+    entity_uid: str
+
+    @property
+    def section_id(self) -> str:
+        return f"connections-{safe_id(self.entity_uid)}"
+
+
+def _inferred_mark(conn: EntityConnection, removal: InferredLinkRemoval) -> tuple[FT, FT]:
+    """The mark beside an inferred link, and its owner's one-click remove."""
+    title = conn["title"] or conn["connected_uid"]
+    confidence = conn["confidence"]
+    label = "inferred" if confidence is None else f"inferred · {round(confidence * 100)}%"
+    mark = Span(label, cls="text-xs text-muted-foreground whitespace-nowrap shrink-0")
+    query = urlencode({"uid": removal.entity_uid, "ku_uid": conn["connected_uid"]})
+    remove = Button(
+        Icon("x", size=14),
+        type="button",
+        hx_post=f"{removal.path}?{query}",
+        hx_target=f"#{removal.section_id}",
+        hx_swap="outerHTML",
+        hx_confirm=f'Remove "{title}"? The link will not be inferred again.',
+        hx_disabled_elt="this",
+        cls=(
+            "ml-auto inline-flex items-center justify-center w-6 h-6 shrink-0 rounded-full "
+            "text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
+        ),
+        aria_label=f"Remove inferred link {title}",
+        data_inferred_link_remove="1",
+    )
+    return mark, remove
+
+
+def ConnectionsSection(
+    connections: Sequence[EntityConnection],
+    removal: InferredLinkRemoval | None = None,
+) -> FT:
     """Detail-page 'Connections' block: the page's links, one list per heading.
 
     Each heading is this domain's name for a link (``page_heading``, ADR-090 §2), so
     two links to the same kind of entity — an event celebrating a goal and one
     contributing to it — are listed apart. Renders an empty Div when there are none.
+
+    A page given ``removal`` marks each link the grounding pass inferred, with its
+    confidence, and offers its owner a remove; the section then keeps its id when
+    empty, so a removal that takes the last link still has a section to replace. A
+    page given none renders an inferred link as any other.
     """
+    section_id = removal.section_id if removal is not None else None
     if not connections:
-        return Div()
+        return Div(id=section_id)
+
+    def row(conn: EntityConnection) -> FT:
+        extras = _inferred_mark(conn, removal) if removal and conn["inferred"] else ()
+        return Li(
+            _connection_icon(conn, 12),
+            _connection_link(conn, "text-muted-foreground"),
+            *extras,
+            cls="flex items-center gap-2 py-1",
+        )
+
     sections = [
         Div(
             Small(heading, cls="text-muted-foreground text-sm block mb-2"),
-            Ul(
-                *[
-                    Li(
-                        _connection_icon(conn, 12),
-                        _connection_link(conn, "text-muted-foreground"),
-                        cls="flex items-center gap-2 py-1",
-                    )
-                    for conn in conns
-                ],
-                cls="divide-y",
-            ),
+            Ul(*[row(conn) for conn in conns], cls="divide-y"),
             cls="mb-3",
         )
         for heading, conns in _by_heading(connections).items()
     ]
-    return Div(section_label("Connections"), *sections, cls="my-4")
+    return Div(section_label("Connections"), *sections, id=section_id, cls="my-4")
 
 
 def ConnectionRows(connections: Sequence[EntityConnection]) -> FT:

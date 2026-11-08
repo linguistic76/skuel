@@ -195,7 +195,7 @@ omitted from forms — assign those via the detail-page relationship picker.
 - `safe_id(uid)` — converts UIDs to safe HTML id attributes (replaces `.` and `:` with `-`)
 - `PRIORITY_ORDER` lives in `core/utils/entity_filters.py` (a business rule), not here
 - `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
-- `ConnectionsSection(connections)` — the detail page's Connections block: one list per heading.
+- `ConnectionsSection(connections, removal=None)` — the detail page's Connections block: one list per heading. Only the task page passes `removal` (`TaskConnectionsSection`): an inferred knowledge link is marked there, with a remove.
 - `ConnectionRows(connections)` — the list card's links: one compact line per heading, the titles after it. All six cards use it.
 - `PriorityBadgeDropdown(uid, priority, domain, singular)` — interactive priority badge on all 6 cards: Alpine dropdown of the 3 `Priority` levels (`low`, `medium`, `high`), picks POST `/api/{domain}/{uid}/priority` via HTMX and swap the re-rendered card. Both `/status` and `/priority` endpoints come from `activity_field_api_factory` (`create_activity_field_api_routes` + one `FieldUpdateSpec` per field; priority carries the `PRIORITY_VALUES` whitelist).
 

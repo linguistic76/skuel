@@ -39,6 +39,8 @@ def _row(
     uid: str,
     title: str = "",
     entity_uid: str = "goal_1",
+    inferred: bool = False,
+    confidence: float | None = None,
 ) -> dict[str, object]:
     return {
         "entity_uid": entity_uid,
@@ -48,6 +50,8 @@ def _row(
         "connected_uid": uid,
         "title": title or uid,
         "connected_type": far.lower(),
+        "inferred": inferred,
+        "confidence": confidence,
     }
 
 
@@ -288,6 +292,72 @@ class TestPlacement:
         result = await backend.fetch_entity_connections(NeoLabel.GOAL, ["goal_1"])
 
         assert [row["connected_uid"] for row in result["goal_1"]] == ["a", "z", "b"]
+
+
+class TestInferredLinks:
+    """A link the grounding pass inferred is told apart from one someone made."""
+
+    @pytest.mark.asyncio
+    async def test_the_statement_reads_the_flag_as_the_removal_door_does(self):
+        backend, execute_query = _backend_returning(Result.ok([]))
+        await backend.fetch_entity_connections(NeoLabel.TASK, ["task_1"])
+
+        assert execute_query.await_args is not None
+        query, _ = execute_query.await_args.args
+        assert "coalesce(r.inferred, false) AS inferred" in query
+        assert "r.confidence AS confidence" in query
+
+    @pytest.mark.asyncio
+    async def test_an_inferred_link_carries_its_confidence_and_an_owners_carries_none(self):
+        backend, _ = _backend_returning(
+            Result.ok(
+                [
+                    _row(
+                        "APPLIES_KNOWLEDGE",
+                        outgoing=True,
+                        far="Ku",
+                        uid="ku_inferred",
+                        entity_uid="task_1",
+                        inferred=True,
+                        confidence=0.81,
+                    ),
+                    # An edge someone made carries no mark, whatever it stores.
+                    _row(
+                        "APPLIES_KNOWLEDGE",
+                        outgoing=True,
+                        far="Ku",
+                        uid="ku_owned",
+                        entity_uid="task_1",
+                        confidence=0.9,
+                    ),
+                ]
+            )
+        )
+        result = await backend.fetch_entity_connections(NeoLabel.TASK, ["task_1"])
+
+        assert {
+            row["connected_uid"]: (row["inferred"], row["confidence"]) for row in result["task_1"]
+        } == {"ku_inferred": (True, 0.81), "ku_owned": (False, None)}
+
+    @pytest.mark.asyncio
+    async def test_a_far_end_an_owners_edge_also_reaches_is_not_inferred(self):
+        inferred = _row(
+            "APPLIES_KNOWLEDGE",
+            outgoing=True,
+            far="Ku",
+            uid="ku_1",
+            entity_uid="task_1",
+            inferred=True,
+            confidence=0.8,
+        )
+        owned = _row("APPLIES_KNOWLEDGE", outgoing=True, far="Ku", uid="ku_1", entity_uid="task_1")
+        for records in ([inferred, owned], [owned, inferred]):
+            backend, _ = _backend_returning(Result.ok(records))
+            result = await backend.fetch_entity_connections(NeoLabel.TASK, ["task_1"])
+            assert [
+                (row["connected_uid"], row["inferred"], row["confidence"])
+                for row in result["task_1"]
+            ] == [("ku_1", False, None)]
 
 
 class TestFetchSourcePathstep:

@@ -26,6 +26,8 @@ def page_link(heading: str, title: str, connected_type: str = "goal") -> EntityC
         "connected_uid": f"{connected_type}_{title.lower().replace(' ', '_')}",
         "title": title,
         "connected_type": connected_type,
+        "inferred": False,
+        "confidence": None,
     }
 
 

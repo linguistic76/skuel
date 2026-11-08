@@ -84,6 +84,8 @@ def test_the_habits_choices_are_in_its_connections_not_a_section_of_their_own() 
         "connected_uid": "choice_career",
         "title": "Take the new role",
         "connected_type": "choice",
+        "inferred": False,
+        "confidence": None,
     }
     html = to_xml(HabitDetailView(habit, connections=[informed]))
     assert "Choices this habit informs" in html
