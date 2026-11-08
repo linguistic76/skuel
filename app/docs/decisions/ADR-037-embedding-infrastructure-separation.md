@@ -11,7 +11,7 @@ tags:
 related:
   - three_tier_type_system.md
   - EMBEDDING_ARCHITECTURE.md
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # ADR-037: Embedding Infrastructure Separation from Domain Models
@@ -176,6 +176,13 @@ fields stop. `jsonable_content` (`/adapters/inbound/boundary.py`) leaves the thr
 every `Entity` in a response, wherever it sits in the value, so an embedded entity answers with
 the same keys as one that is not; they are absent, never null. Ruled by Mike 2026-11-07: fix it
 at the JSON boundary, not in the mapper.
+
+The strip is type-based: it reaches an `Entity`, so a door that turned one into a plain dict
+first, or returned raw node properties, would carry the vector past it. Ruled by Mike the same
+day: it stays type-based, and a census holds the invariant by behaviour.
+`/tests/integration/routes/test_json_read_census.py` reads every GET route in the app's route
+table over a signed-in user's seeded, embedded entities, and fails on a body carrying the
+vector and on any 5xx.
 
 ## References
 
