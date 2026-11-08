@@ -1205,10 +1205,16 @@ class DecisionComplexity:
     criteria, stakeholders and constraints each add a capped share).
 
     Used by: ChoiceEventHandlerService.handle_choice_made — a complex decision made
-    with no principle informing it earns the missing-alignment insight.
+    with no principle informing it earns the missing-alignment insight — and
+    ``metrics_calculators.calculate_decision_metrics`` (the decision-readiness lens).
     """
 
     COMPLEX: Final = 0.5
+    # The decision-readiness lens: how much confidence a decision this complex needs,
+    # and whether a complex one with knowledge to consult should gather more first.
+    NEEDS_HIGH_CONFIDENCE: Final = 0.7
+    NEEDS_LOW_CONFIDENCE: Final = 0.3
+    GATHER_MORE_INFO: Final = 0.6
 
 
 class DualTrackCheckin:

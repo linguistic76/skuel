@@ -27,6 +27,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.constants import DecisionComplexity
+
 if TYPE_CHECKING:
     from core.models.graph.path_aware_types import (
         ChoiceCrossContext as PathAwareChoiceCrossContext,
@@ -623,11 +625,11 @@ def calculate_decision_metrics(choice: Any, context: PathAwareChoiceCrossContext
     affected_habits: list[Any] = []
     affected_goals = related_goals
 
-    complexity = choice.calculate_decision_complexity()
+    complexity = choice.calculate_decision_complexity()  # 0.0-1.0
     confidence_needed = "medium"
-    if complexity > 7.0:
+    if complexity > DecisionComplexity.NEEDS_HIGH_CONFIDENCE:
         confidence_needed = "high"
-    elif complexity < 3.0:
+    elif complexity < DecisionComplexity.NEEDS_LOW_CONFIDENCE:
         confidence_needed = "low"
 
     total_impact = len(affected_tasks) + len(affected_goals) + len(affected_habits)
@@ -661,7 +663,9 @@ def calculate_decision_metrics(choice: Any, context: PathAwareChoiceCrossContext
             "confidence_needed": confidence_needed,
             "stake_level": stake_level,
         },
-        "gather_more_info": complexity > 6.0 and len(required_knowledge) > 0,
+        "gather_more_info": (
+            complexity > DecisionComplexity.GATHER_MORE_INFO and len(required_knowledge) > 0
+        ),
         "consult_principles": [p.title for p in guiding_principles],
         "consider_impact_on": consider_impact_on,
         "cascade_impact": cascade,

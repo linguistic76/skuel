@@ -130,7 +130,7 @@ def test_decision_intelligence_to_dict_is_json_serializable() -> None:
         ),
         impact=DecisionImpact(tasks=[], goals=[_goal()], habits=[]),
         decision_analysis=DecisionAnalysis(
-            complexity=6.5, confidence_needed="medium", stake_level="low"
+            complexity=0.65, confidence_needed="medium", stake_level="low"
         ),
         recommendations=DecisionRecommendations(
             gather_more_info=True,
@@ -144,5 +144,5 @@ def test_decision_intelligence_to_dict_is_json_serializable() -> None:
     payload = jsonable_content(intelligence.to_dict())
     json.dumps(payload)  # must not raise
     assert _EMBEDDING_KEYS.isdisjoint(payload["choice"])
-    assert payload["decision_analysis"]["complexity"] == 6.5
+    assert payload["decision_analysis"]["complexity"] == 0.65
     assert payload["context"]["knowledge"][0]["uid"] == "k1"

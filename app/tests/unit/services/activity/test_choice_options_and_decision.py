@@ -257,3 +257,39 @@ class TestRemoveOption:
 )
 def test_options_open(current: Choice, is_open: bool) -> None:
     assert current.options_open() is is_open
+
+
+# ---------------------------------------------------------------------------
+# The decision-readiness lens reads the complexity on the model's own scale
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("options", "criteria", "stakeholders", "complexity", "needed"),
+    [
+        (1, 0, 0, 0.1, "low"),
+        (3, 1, 0, 0.4, "medium"),
+        (3, 3, 0, 0.6, "medium"),
+        (3, 3, 2, 0.8, "high"),
+    ],
+)
+def test_the_readiness_lens_reaches_each_confidence_band(
+    options: int, criteria: int, stakeholders: int, complexity: float, needed: str
+) -> None:
+    """``calculate_decision_complexity`` is 0.0-1.0; each band of the lens is reachable."""
+    from core.models.graph.path_aware_types import ChoiceCrossContext
+    from core.services.intelligence.metrics_calculators import calculate_decision_metrics
+
+    choice = _choice(
+        options=_options(options),
+        decision_criteria=tuple(f"c{i}" for i in range(criteria)),
+        stakeholders=tuple(f"s{i}" for i in range(stakeholders)),
+    )
+    context = ChoiceCrossContext(
+        choice_uid=UID, principles=[], supporting_goals=[], conflicting_goals=[], knowledge=[]
+    )
+
+    metrics = calculate_decision_metrics(choice, context)
+
+    assert metrics["decision_analysis"]["complexity"] == pytest.approx(complexity)
+    assert metrics["decision_analysis"]["confidence_needed"] == needed
