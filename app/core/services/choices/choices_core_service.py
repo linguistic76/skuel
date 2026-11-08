@@ -687,7 +687,7 @@ class ChoicesCoreService(
         choice_uid: str,
         selected_option_uid: str,
         decision_rationale: str | None = None,
-        confidence: float = 0.5,
+        confidence: float | None = None,
     ) -> Result[Choice]:
         """Record the decision on a choice: one of its own options, selected once.
 
@@ -698,17 +698,18 @@ class ChoicesCoreService(
         (``rewrite_under_lock``), so an option removed or a decision recorded a
         moment earlier cannot slip past it.
 
-        The write sets ``selected_option_uid``, ``decision_rationale`` and
-        ``decided_at``, and moves the choice to ACTIVE (a decided choice stays ACTIVE
-        until it is completed) through ``status_transition_guard``, the domain's one
-        status rule. ``confidence`` is not stored: it rides on the ``ChoiceMade``
-        event this publishes, beside the rationale.
+        The write sets ``selected_option_uid``, ``decision_rationale``,
+        ``decision_confidence`` and ``decided_at``, and moves the choice to ACTIVE (a
+        decided choice stays ACTIVE until it is completed) through
+        ``status_transition_guard``, the domain's one status rule. An unstated
+        confidence is stored as nothing, and the ``ChoiceMade`` this publishes carries
+        the same value.
 
         Args:
             choice_uid: UID of the choice
             selected_option_uid: UID of one of the choice's options
             decision_rationale: Optional reasoning for the option selected
-            confidence: Confidence in the decision (0.0-1.0), carried on the event
+            confidence: How sure the learner is (0.0-1.0); None when they did not say
 
         Returns:
             Result containing the decided Choice
@@ -720,6 +721,7 @@ class ChoicesCoreService(
         updates: Neo4jProperties = {
             "selected_option_uid": selected_option_uid,
             "decision_rationale": decision_rationale,
+            "decision_confidence": confidence,
             "decided_at": datetime.now().isoformat(),
             "status": EntityStatus.ACTIVE.value,
         }

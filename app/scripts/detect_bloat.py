@@ -388,6 +388,13 @@ _CHOICES_QUICK_METRICS = PlannedEntry(
     "quick-view or batch complexity filter consuming it",
     since=date(2026, 6, 11),
 )
+_CHOICES_DECISION_PATTERNS = PlannedEntry(
+    Readiness.DELAYED,
+    "period decision-pattern reads (averages of stored confidence, satisfaction and "
+    "decision quality; correlations empty until a method is chosen) staged; wire an "
+    "insights card or Askesis reader consuming them",
+    since=date(2026, 11, 8),
+)
 # Goals dead-code campaign (2026-06): staged goal capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
 _GOALS_GRAVITY = PlannedEntry(
@@ -969,6 +976,16 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     ),
     "core/services/choices/_analytics_mixin.py::batch_analyze_decision_complexity": (
         _CHOICES_QUICK_METRICS
+    ),
+    # --- Choices: period decision patterns (the facade delegates share each name) ---
+    "core/services/choices/_analytics_mixin.py::get_decision_patterns": (
+        _CHOICES_DECISION_PATTERNS
+    ),
+    "core/services/choices/_analytics_mixin.py::get_choice_quality_correlations": (
+        _CHOICES_DECISION_PATTERNS
+    ),
+    "core/services/choices/_analytics_mixin.py::get_domain_decision_patterns": (
+        _CHOICES_DECISION_PATTERNS
     ),
     # --- Goals: gravity links (inlined from _relationship_mixin into facade) ---
     "core/services/goals_service.py::create_semantic_goal_relationship": _GOALS_GRAVITY,

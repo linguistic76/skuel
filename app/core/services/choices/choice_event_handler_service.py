@@ -232,6 +232,9 @@ class ChoiceEventHandlerService:
         3. Analyzes confidence level vs. complexity correlation
         4. Logs structured insights for decision pattern analysis
 
+        A decision whose confidence the learner did not state has no confidence
+        category and no confidence ratio, and earns no high-confidence insight.
+
         Args:
             event: ChoiceMade event with decision context
 
@@ -265,9 +268,11 @@ class ChoiceEventHandlerService:
                 if rel_result.is_ok:
                     aligned_principles = rel_result.value
 
-            # 3. Analyze decision confidence
+            # 3. Analyze decision confidence (None when the learner stated none)
             confidence = event.confidence
-            confidence_category = categorize_confidence(confidence)
+            confidence_category = (
+                categorize_confidence(confidence) if confidence is not None else None
+            )
             was_principle_aligned = len(aligned_principles) > 0
 
             # 4. Calculate decision complexity from choice model (0.0-1.0)
@@ -276,7 +281,9 @@ class ChoiceEventHandlerService:
             # 5. Analyze confidence vs complexity correlation
             # High confidence on complex decisions = experienced decision-maker
             # Low confidence on simple decisions = may need support
-            confidence_complexity_ratio = confidence / max(complexity, 0.1)
+            confidence_complexity_ratio = (
+                round(confidence / max(complexity, 0.1), 2) if confidence is not None else None
+            )
 
             # 6. Log structured insights
             self.logger.info(
@@ -285,18 +292,18 @@ class ChoiceEventHandlerService:
                     "choice_uid": event.choice_uid,
                     "user_uid": event.user_uid,
                     "selected_option": event.selected_option,
-                    "confidence": round(confidence, 2),
+                    "confidence": round(confidence, 2) if confidence is not None else None,
                     "confidence_category": confidence_category,
                     "complexity": round(complexity, 2),
                     "principles_aligned": len(aligned_principles),
                     "was_principle_aligned": was_principle_aligned,
-                    "confidence_complexity_ratio": round(confidence_complexity_ratio, 2),
+                    "confidence_complexity_ratio": confidence_complexity_ratio,
                     "event_type": "choice.made.analyzed",
                 },
             )
 
             # Log insight about principle-aligned decisions
-            if was_principle_aligned and confidence >= 0.7:
+            if was_principle_aligned and confidence is not None and confidence >= 0.7:
                 self.logger.info(
                     "High-confidence principle-aligned decision made",
                     extra={
@@ -363,7 +370,9 @@ class ChoiceEventHandlerService:
                         ],
                         supporting_data={
                             "complexity": round(complexity, 2),
-                            "confidence": round(confidence, 2),
+                            "confidence": (
+                                round(confidence, 2) if confidence is not None else None
+                            ),
                         },
                     )
                     create_result = await self.insight_store.create_insight(insight)

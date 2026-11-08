@@ -96,6 +96,7 @@ Created via `create_common_sub_services()` factory in facade `__init__` (intelli
 | `selected_option_uid` | `str?` | UID of chosen option |
 | `decision_context` | `str?` | The circumstance forcing the decision — authored up front, survives whichever option wins |
 | `decision_rationale` | `str?` | Why this option was chosen — written at decision time by `make_decision` |
+| `decision_confidence` | `float?` | How sure the learner was, 0.0-1.0 (the decide form's five levels) — written at decision time by `make_decision`; none when unstated |
 | `decision_criteria` | `list[str]` | Criteria for evaluation |
 | `constraints` | `list[str]` | Constraints to consider |
 | `stakeholders` | `list[str]` | Affected stakeholders |
@@ -160,7 +161,7 @@ every event carries.
 |-------|---------|------|
 | `ChoiceCreated` | Choice created — from `ChoicesCoreService.create`, so both create doors fire it | `choice_uid`, `user_uid`, `choice_description`, `domain`, `urgency` |
 | `ChoiceUpdated` | Choice modified, incl. option add/update/remove | `choice_uid`, `user_uid`, `updated_fields` |
-| `ChoiceMade` | Decision selected | `choice_uid`, `user_uid`, `selected_option`, `confidence` |
+| `ChoiceMade` | Decision selected | `choice_uid`, `user_uid`, `selected_option`, `confidence` (the stored `decision_confidence`, `None` when unstated) |
 | `ChoiceOutcomeRecorded` | An outcome recorded on a decided choice | `choice_uid`, `user_uid`, `outcome_quality` (0.0-1.0, the satisfaction rescaled: `core.models.choice.choice.outcome_quality`), `lessons_learned` (one per line) |
 
 **Event handling:** `ChoiceEventHandlerService` subscribes to `ChoiceOutcomeRecorded` (outcome quality analysis, principle alignment correlation) and `ChoiceMade` (decision pattern tracking, confidence analysis, insight persistence). `ChoiceMade` also runs the PathStep engagement's auto-complete check (`_AutoCompletionHandler.on_choice_made`): a spawned choice is done for its engagement once decided. Every choice event invalidates the owner's UserContext.
@@ -331,8 +332,9 @@ result = await choices_service.make_decision(
 ```
 
 Refused, with the choice unchanged, when the choice is already decided, holds fewer than
-two options, or `selected_option_uid` is not one of its options. `confidence` is carried on
-`ChoiceMade`, not stored.
+two options, or `selected_option_uid` is not one of its options. `confidence` is stored as
+`decision_confidence` and carried on `ChoiceMade`; left out, nothing is stored and the event
+carries `None`, so no confidence category or high-confidence insight follows.
 
 ### Record the Outcome
 
@@ -435,7 +437,7 @@ stages are not statuses — they are read from the choice's fields:
 | Stage | How it is read | Key Fields |
 |-------|----------------|------------|
 | **Pending** | `Choice.is_pending()` — not decided and not archived | `options`, `decision_criteria`, `constraints` |
-| **Decided** | `Choice.is_decided()` — a `decided_at`, or status `completed` | `selected_option_uid`, `decision_rationale`, `decided_at` |
+| **Decided** | `Choice.is_decided()` — a `decided_at`, or status `completed` | `selected_option_uid`, `decision_rationale`, `decision_confidence`, `decided_at` |
 | **Implemented** | `(Task)-[:IMPLEMENTS_CHOICE]->(Choice)` edges | — |
 | **Evaluated** | an outcome is recorded (`evaluate_choice_outcome`, the page's outcome form), open or closed | `satisfaction_score`, `actual_outcome`, `lessons_learned` |
 

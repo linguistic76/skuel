@@ -171,12 +171,15 @@ class ChoiceDecisionRequest(BaseModel):
     """The body of the decision door (``POST /api/choices/{uid}/decide``).
 
     The decision is stamped when it is made, so the request carries no time.
-    ``confidence`` rides on the ``ChoiceMade`` event, where the decision-pattern
-    handler reads it; unstated, it is 0.5, the middle of that handler's scale.
+    ``confidence`` is how sure the learner is, stored on the choice as
+    ``decision_confidence``. Unstated, it is None and nothing is stored: no level
+    stands in for one the learner did not give.
     """
 
     selected_option_uid: str = Field(..., min_length=1, description="UID of selected option")
     decision_rationale: str | None = Field(
         default=None, max_length=1000, description="Rationale for decision"
     )
-    confidence: float = Field(default=0.5, ge=0.0, le=1.0, description="Confidence level")
+    confidence: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="How sure the learner is (0.0-1.0)"
+    )

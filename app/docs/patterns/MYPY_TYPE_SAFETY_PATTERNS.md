@@ -1,6 +1,6 @@
 ---
 title: MyPy Type Safety Patterns - Systematic Error Reduction
-updated: 2026-11-03
+updated: 2026-11-08
 category: patterns
 related_skills:
 - python
@@ -216,7 +216,7 @@ class ChoicesCoreService:
         choice_uid: str,
         selected_option_uid: str,
         decision_rationale: str | None = None,  # Different parameter name!
-        confidence: float = 0.5,                 # Missing in protocol!
+        confidence: float | None = None,         # Missing in protocol!
     ) -> Result[Choice]:
         """Make a decision by selecting an option."""
         ...
@@ -244,7 +244,7 @@ class ChoicesFacadeProtocol(Protocol):
         choice_uid: str,
         selected_option_uid: str,
         decision_rationale: str | None = None,  # ← Fixed parameter name
-        confidence: float = 0.5,                # ← Added missing parameter
+        confidence: float | None = None,        # ← Added missing parameter
     ) -> Result[Any]:
         """Make a decision by selecting an option."""
         ...

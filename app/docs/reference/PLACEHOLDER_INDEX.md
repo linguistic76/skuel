@@ -235,22 +235,14 @@ tests: `decided_at` would window on decision events and leave out every undecide
 and `created_at` has two storage shapes, so only the coercing `find_by_date_range` path
 matches both.
 
-⚠ **The choices and goals rows do not share a remedy — check where the data lives before writing a
-query.** One needs no query at all, one cannot be recovered by any query until persistence is
-defined, and the goals row is a genuine graph read.
+⚠ **Check where the data lives before writing a query.** The choices rows that sat here needed no
+query (a mean over rows the method held) or a stored field first (the decision's confidence); both
+are in Removed rows. The goals row is a genuine graph read.
 
 | File | Line | Value | Should Become |
 |------|------|-------|---------------|
-| `core/services/choices/_analytics_mixin.py` | 423 | `avg_confidence = 0.7` | **Blocked — nothing to average.** `Choice` has no `confidence` field, and neither do `ChoiceDTO` nor the `Entity` base. Decision confidence is carried at the boundary only: `ChoiceDecisionRequest.confidence` (the decide door, `POST /api/choices/{uid}/decide`, and the choice page's decide form) and the `ChoiceMade` event. Persisting it is the prerequisite, not a query |
-| `core/services/choices/_analytics_mixin.py` | 622 | `"avg_quality_score": 0.7` | **No query needed.** `get_domain_decision_patterns()` holds `domain_choice_list` in the loop that emits this. Mean of `Choice.get_decision_quality_score()` (`choice.py:129`) |
-| `core/services/goals/_analytics_mixin.py` | 234 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum — **this one is a real graph read** |
-| `core/services/lp_intelligence/learning_state_analyzer.py` | 538 | `{"technical": 0.5, "conceptual": 0.7, "practical": 0.6}` | **Compare the vector, don't read the uid.** `_calculate_content_affinities` takes a `learning_style_vector` and ignores it; its own comment names the remedy (compare it against content-type embeddings). The dict feeds relevance scoring at `learning_recommendation_engine.py:542`, so all three constants reach callers. `"technical"` became a constant in #1194: it was 0.8/0.5 on `"programming" in str(mastered_knowledge_uids)` — an affinity read off uid SPELLING, which fired for a `ku.programming.*` uid — an author's namespace choice — and never for a Ku on the same concept grouped under another (ADR-013 never-sniff, now SKUEL034). A fabricated signal was removed; the real computation is still unwritten |
-
-Row 423 sits in `get_decision_patterns()` beside a computed ratio
-(`principle_alignment_score`) and a computed mean (`average_satisfaction`); row 622 sits in
-`get_domain_decision_patterns()` beside a real `percentage`. In both cases a caller cannot tell which fields of the returned dict were computed and
-which are constants — and since #859 both dicts are actually built and returned, so the constants
-now reach callers.
+| `core/services/goals/_analytics_mixin.py` | 293 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum — **this one is a real graph read** |
+| `core/services/lp_intelligence/learning_state_analyzer.py` | 534 | `{"technical": 0.5, "conceptual": 0.7, "practical": 0.6}` | **Compare the vector, don't read the uid.** `_calculate_content_affinities` takes a `learning_style_vector` and ignores it; its own comment names the remedy (compare it against content-type embeddings). The dict feeds relevance scoring at `learning_recommendation_engine.py:542`, so all three constants reach callers. `"technical"` became a constant in #1194: it was 0.8/0.5 on `"programming" in str(mastered_knowledge_uids)` — an affinity read off uid SPELLING, which fired for a `ku.programming.*` uid — an author's namespace choice — and never for a Ku on the same concept grouped under another (ADR-013 never-sniff, now SKUEL034). A fabricated signal was removed; the real computation is still unwritten |
 
 ⚠ **`principle_alignment_score` was described here as "a genuinely computed ratio" while it was
 computing 0.0 for every input** — a reminder that "there is arithmetic on this line" is not evidence
@@ -444,7 +436,7 @@ No open rows.
 | Priority | Group | Reason |
 |----------|-------|--------|
 | High | A — Period Analytics | Live on `GET /api/{choices,habits,principles}/analytics`; the response echoes a `period_days` it did not apply. Uniform pattern; one date-window filter per service, via `find_by_date_range` — **not** the bare `find_by(<field>__gte=...)` goals uses, which drops re-ingested rows (see the group) |
-| High | E — Hardcoded Scalars | Both enclosing choices methods return their constants for any user with a choice (#859). `avg_quality_score` is a mean over rows the method already holds; `avg_confidence` waits on persisting the decision's confidence; `learning_progress_rate` needs a graph query |
+| High | E — Hardcoded Scalars | `learning_progress_rate` needs a graph query (Ku completion for the goal's curriculum); the content-affinity constants reach relevance scoring and need the learning-style vector compared. The choices rows are implemented (Removed rows) |
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
 | Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — read the live `ENROLLED_IN` / `MASTERED` edges; `UserProgress` and `UserLpProgress` are both dead ends |
 | Low | L — Insights Confidence Threshold | `GET /api/{events,ku,path-steps,pathways}/insights` accept a `min_confidence` the payload has nothing to apply it to; no response echoes it |
@@ -474,7 +466,9 @@ are cited by name from six `FUTURE-IMPL-*` comments in the code.
 | **Group I — `Entity.substance_score()`** (its row + the can_view row and their shared priority row) | 2026-07-28 | **Implemented, not deferred — and structurally identical.** Each was a base method whose parameters are unread because the base has nothing to do, with the behaviour fully implemented on a subclass override taking the same parameters *without* underscores: `Curriculum.substance_score(force_recalculate)` (`curriculum.py:267`, cache bypass at 280–287), and the `UserOwnedEntity` in-memory access check that has since been deleted outright (zero callers; every read composes its audience in Cypher — ADR-085, ADR-088 §4). An ordinary polymorphic signature is not accepted-but-unimplemented work, and listing it here invites a future sweep to "implement" a base that is intentionally inert |
 | **Group I — `user_backend.get_user_context()` row** | 2026-07-28 | Had been struck through since the method's removal in `1373cc419` (2026-03-18). It was never a backend operation and no longer resolves; `UserService.get_user_context()` (`core/services/user/_context_planning_mixin.py`) is the live path |
 | **Group C — Askesis Bootstrap Entity Services** (whole section + its priority row) | 2026-07-29 | **Carried out, not dropped.** The section's own remedy was "delete the four parameters and the four call-site arguments"; that deletion landed, so the group has no coordinates left to register. `_create_learning_services()` no longer declares `_tasks_service` / `_habits_service` / `_goals_service` / `_events_service`, and `compose.py` no longer passes the four activity services into them. Entity extraction is unaffected — it never ran through these parameters, and stays wired via `create_askesis_service()` → `askesis_factory.py` → `EntityExtractor` |
-| **Group E — `avg_satisfaction = 0.75` row** | 2026-11-09 | **Implemented.** `get_decision_patterns()` returns the mean of the recorded `Choice.satisfaction_score`s over the window, as a share of the scale's top (`SatisfactionScale.HIGHEST`, the reading the other averaging readers use), 0.0 with none recorded. The choice page's outcome form (`POST /api/choices/{uid}/outcome`) is the field's writer |
+| **Group E — `avg_satisfaction = 0.75` row** | 2026-11-09 | **Implemented.** `get_decision_patterns()` returns the mean of the recorded `Choice.satisfaction_score`s over the window, as a share of the scale's top (`SatisfactionScale.HIGHEST`, the reading the other averaging readers use), with how many choices it covers (`choices_with_satisfaction`); None with none recorded, so "none" never reads as "very dissatisfied". The choice page's outcome form (`POST /api/choices/{uid}/outcome`) is the field's writer |
+| **Group E — `avg_confidence = 0.7` row** | 2026-11-09 | **Implemented.** The decision stores the learner's confidence on the choice (`Choice.decision_confidence`, written by `make_decision`; the choice page's decide form asks it on five levels). `get_decision_patterns()` averages the stored values with their count (`choices_with_confidence`), None with none. A choice decided before the field was stored has none, and nothing recovers it |
+| **Group E — `"avg_quality_score": 0.7` row** | 2026-11-09 | **Implemented.** `get_domain_decision_patterns()` averages `Choice.get_decision_quality_score()` over each domain's decided choices, with their count (`decided_count`); None with none decided, because an undecided choice scores 0.0 and is not a poor decision |
 | **Priority row "K — Conversation System"** | 2026-07-28 (#856) | Its section (added 2026-02-25 in `5ce618ee1`) was deleted on 2026-06-19 by `69be520ca` (#338), which wired Neo4j conversation persistence and removed the `InMemoryConversationRepo` it documented. The groundwork was **built, not deferred** |
 
 ---

@@ -94,7 +94,9 @@ class ChoiceMade(BaseEvent):
     choice_uid: str
     user_uid: UserUID
     selected_option: str
-    confidence: float
+    # The confidence the learner stated (0.0-1.0), as stored on the choice; None
+    # when they stated none.
+    confidence: float | None
     metadata: dict[str, Any] | None = None
 
     event_type: ClassVar[str] = "choice.made"
