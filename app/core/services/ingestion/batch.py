@@ -672,6 +672,16 @@ async def ingest_directory(
     ]
     | None = None,
     goal_contributions_fn: Callable[[tuple[str, ...]], Awaitable[None]] | None = None,
+    links_created_fn: Callable[
+        [
+            EntityType | NonKuDomain,
+            # boundary: prepared frontmatter dicts — keys vary by entity type and file
+            list[dict[str, Any]],
+            Mapping[str, Mapping[str, tuple[str, ...]]],
+        ],
+        Awaitable[None],
+    ]
+    | None = None,
     vault_kind: VaultKind | None = None,
 ) -> Result[IngestionStats | IncrementalStats]:
     """
@@ -755,6 +765,12 @@ async def ingest_directory(
             ``connections.contributes_to_goal`` target, a deleted task or event file,
             a written or deleted ``CONTRIBUTES_TO_GOAL`` Edge YAML. The contributors a
             sync re-ingests are announced by ``status_transition_fn``.
+        links_created_fn: Optional callback after each type batch's relationship
+            pass, with the persisted entity dicts and the frontmatter links that pass
+            CREATED (``IngestionResult.created_targets``: uid → field → targets no
+            edge of the field's type joined before). Signature:
+            ``async (entity_type, entities, created_targets)``. An unchanged
+            re-ingest creates none; called only when the pass created some.
         vault_kind: The kind of vault ``directory`` is (the facade resolves it
             from the registry; ``None`` when none governs it). A PERSONAL vault
             refuses the files it may not hold, gives each uid-less Activity or
@@ -1550,6 +1566,19 @@ async def ingest_directory(
             )
     # The fingerprint stamped per file below (absent → the prior stays).
     authored_edges_by_file: dict[str, list[str]] = {}
+
+    def _leave_pending(
+        pass_entities: list[dict[str, Any]],  # boundary: prepared frontmatter dicts, by type
+    ) -> None:
+        """A relationship pass that failed may not have written its edges: its files
+        stay unstamped, so the next sync re-processes them rather than skipping them
+        as unchanged."""
+        for entity in pass_entities:
+            file_str = uid_to_file.get(str(entity.get("uid", "")))
+            if file_str is not None:
+                file_entity_map.pop(file_str, None)
+                retry_uids[file_str] = str(entity["uid"])
+
     for entity_type, entities, rel_config in relationship_passes:
         config = ENTITY_CONFIGS.get(entity_type)
         if not config or bulk_backend is None:
@@ -1571,8 +1600,27 @@ async def ingest_directory(
                 suggestion="Check Neo4j connection and database constraints.",
             )
             errors.append(rel_error.to_dict())
+            _leave_pending(entities)
             continue
-        total_relationships_created += rel_result.value.relationships_created
+        outcome = rel_result.value
+        total_relationships_created += outcome.relationships_created
+        # What the pass created is announced even when it stopped part-way: those
+        # edges are committed, and the retry finds them already there.
+        if links_created_fn is not None and outcome.created_targets:
+            await links_created_fn(entity_type, entities, outcome.created_targets)
+        if outcome.errors:
+            errors.append(
+                IngestionError(
+                    file=f"<batch:{entity_type.value}>",
+                    error="; ".join(outcome.errors),
+                    stage="relationships",
+                    error_type="database",
+                    entity_type=entity_type.value,
+                    suggestion="Check Neo4j connection and database constraints.",
+                ).to_dict()
+            )
+            _leave_pending(entities)
+            continue
 
         for entity in entities:
             file_str = uid_to_file.get(str(entity.get("uid", "")))

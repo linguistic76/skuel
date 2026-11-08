@@ -1,9 +1,10 @@
 """Registry-coverage guard for cross-domain facade link methods.
 
 The Activity/Curriculum facades wire entities into the semantic graph by calling
-``relationships.create_relationship("<method_key>", ...)`` with an *explicit* key
-(e.g. ``link_task_to_goal`` -> ``"contributes_to_goal"``). ``create_relationship``
-fails closed on an unknown key, so a typo or a config rename would turn a link into
+``relationships.create_relationship("<method_key>", ...)`` — or ``write_link``, the same
+write answering whether it created the edge — with an *explicit* key
+(e.g. ``link_task_to_goal`` -> ``"contributes_to_goal"``). Both fail closed on an unknown
+key, so a typo or a config rename would turn a link into
 a silent ``Result.fail`` at runtime — exactly the latent fragility that the deleted
 ``link_to_goal``/``link_to_knowledge``/``link_to_principle`` candidate-list wrappers used
 to hide.
@@ -34,7 +35,7 @@ from core.models.relationship_registry import (
 )
 from core.services.principles._gravity_mixin import _GravityMixin
 
-# (facade method, domain config, method_key passed to create_relationship).
+# (facade method, domain config, method_key passed to create_relationship / write_link).
 # Mirrors the explicit keys in each domain's relationship mixin — keep in sync when
 # adding/altering a facade link method.
 FACADE_LINK_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [

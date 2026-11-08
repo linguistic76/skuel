@@ -92,6 +92,11 @@ class IngestionResult:
     #: than the row's owner, and the write never changes a node's owner. Absent
     #: from ``prior_status_by_uid`` — nothing was written to transition.
     refused_uids: tuple[str, ...] = ()
+    #: source uid → relationship field → the targets whose edge this write CREATED:
+    #: no edge of the field's type joined them before. A link already there is not
+    #: in it, so an unchanged re-ingest reports none. Empty for every operation that
+    #: writes no frontmatter edge.
+    created_targets: dict[str, dict[str, tuple[str, ...]]] = field(default_factory=dict)
 
     @property
     def success_rate(self) -> float:

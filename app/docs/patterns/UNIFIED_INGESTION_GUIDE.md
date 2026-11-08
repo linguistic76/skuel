@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-10-25
+updated: 2026-11-08
 category: patterns
 related_skills: []
 related_docs:
@@ -754,6 +754,28 @@ Ordered relationship fields (registry `order_by_property`, e.g. LP
 `ORGANIZES.order`) persist the YAML list index (0-based) onto the edge,
 refreshed on every re-ingest — reordering the list in the vault reorders the
 graph. See `adapters/persistence/neo4j/bulk_upsert_backend.py`.
+
+The relationship pass reports the edges it CREATED (`IngestionResult.created_targets`:
+uid → field → targets no edge of the field's type joined before — `MERGE`'s `ON CREATE`
+signal, carried on a marker removed in the same statement), so an unchanged or `--force`
+re-ingest creates none. A file that names a pair a grounding pass inferred makes it the
+file's link (the inference stamp is removed), as the owner's guarded write does. The
+pass runs one transaction per batch; a batch that fails ends it, and the result still
+carries what the committed batches created, with the failure in `errors`. The sync credits
+that, and leaves the pass's files unstamped (pending rows keep their uids), so the next
+sync re-processes them rather than skipping them as unchanged — and creates, and credits,
+only the edges the failed batch did not write.
+
+**Knowledge credit.** Both ingest doors hand what the pass created to
+`UnifiedIngestionService._credit_created_knowledge` (the directory door through
+`links_created_fn`), which publishes each domain's substance event for a task's
+`connections.applies_knowledge`, a habit's `reinforces_knowledge` and a choice's
+`informed_by_knowledge` (`publish_knowledge_credit`). A vault node is upserted here, not
+created at the domain's door, so a first ingest credits every link it writes; a target
+added to the file credits that Ku once; an unchanged or forced re-sync credits nothing. An
+Event file's `applies_knowledge` is credited when the event is completed, not when it is
+written. The subscribers run in-process for the Sync button and `./dev vault-sync` alike.
+See `/docs/architecture/knowledge_substance_philosophy.md` § Who credits a link.
 
 ## Relationship Validation
 

@@ -150,14 +150,28 @@ class _OrchestrationMixin:
         skill_level: str = "beginner",
         proficiency_gain_rate: float = 0.1,
     ) -> Result[bool]:
-        """Link habit to the Ku it develops (``REINFORCES_KNOWLEDGE``)."""
-        return await self.relationships.create_relationship(
+        """Link habit to the Ku it develops (``REINFORCES_KNOWLEDGE``), crediting a new link.
+
+        The write answers whether it created the edge (``write_link``); only a link it
+        created is announced (``publish_knowledge_built``), so re-linking a Ku the
+        habit already reinforces credits nothing. True once the edge is in place, as
+        every link door answers.
+        """
+        habit = await self.core.get_habit(habit_uid)
+        if habit.is_error:
+            return Result.fail(habit)
+        created = await self.relationships.write_link(
             "knowledge",
             habit_uid,
             knowledge_uid,
             {"skill_level": skill_level, "proficiency_gain_rate": proficiency_gain_rate},
             far_end=KNOWLEDGE_FAR_END,
         )
+        if created.is_error:
+            return Result.fail(created)
+        if created.value:
+            await self.core.publish_knowledge_built(habit.value, [knowledge_uid])
+        return Result.ok(True)
 
     async def link_habit_to_principle(
         self, habit_uid: str, principle_uid: str, embodiment_strength: float = 1.0

@@ -20,6 +20,7 @@ from core.events.choice_events import (
     ChoiceUpdated,
 )
 from core.events.embedding_publisher import publish_embedding_requested
+from core.events.knowledge_credit_publisher import KnowledgeCreditSource, publish_knowledge_credit
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_option import ChoiceOption
@@ -446,32 +447,20 @@ class ChoicesCoreService(
 
         Published AFTER ``ChoiceCreated``: these reach only substance handlers and do not
         invalidate the user context, so they carry no ordering constraint of their own —
-        but they must not precede the announcement of the choice they describe.
+        but they must not precede the announcement of the choice they describe. Through
+        ``publish_knowledge_credit``.
         """
-        if not knowledge_uids:
-            return
-
-        from core.events.knowledge_substance_events import (
-            KnowledgeBulkInformedChoice,
-            KnowledgeInformedChoice,
+        await publish_knowledge_credit(
+            self.event_bus,
+            KnowledgeCreditSource(
+                entity_type=EntityType.CHOICE,
+                uid=choice.uid,
+                user_uid=choice.user_uid,
+                title=choice.title,
+            ),
+            knowledge_uids,
+            self.logger,
         )
-
-        knowledge_event: KnowledgeInformedChoice | KnowledgeBulkInformedChoice
-        if len(knowledge_uids) == 1:
-            knowledge_event = KnowledgeInformedChoice(
-                knowledge_uid=knowledge_uids[0],
-                choice_uid=choice.uid,
-                user_uid=choice.user_uid,
-                choice_title=choice.title,
-            )
-        else:
-            knowledge_event = KnowledgeBulkInformedChoice(
-                knowledge_uids=tuple(knowledge_uids),
-                choice_uid=choice.uid,
-                user_uid=choice.user_uid,
-                choice_title=choice.title,
-            )
-        await publish_event(self.event_bus, knowledge_event, self.logger)
 
     async def create_choice(
         self, choice_request: ChoiceCreateRequest, user_uid: UserUID

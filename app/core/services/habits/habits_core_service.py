@@ -18,6 +18,7 @@ from typing import Any
 from core.events import publish_event
 from core.events.embedding_publisher import publish_embedding_requested
 from core.events.habit_events import HabitCreated, HabitUpdated
+from core.events.knowledge_credit_publisher import KnowledgeCreditSource, publish_knowledge_credit
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.habit import Habit
@@ -379,50 +380,38 @@ class HabitsCoreService(
         # Edges are written — only now announce the habit.
         await self._publish_created(created)
 
-        # Knowledge substance (mirrors create_task / create_choice): the ONLY path to
-        # PsService.handle_knowledge_built_into_habit, which increments
+        # Knowledge substance (mirrors create_task / create_choice): increments
         # times_built_into_habits. Published from the WRITTEN uids, never the requested
         # ones — a refused or dangling link must not claim knowledge was built into a
-        # habit when no edge exists. (Reported by Codex on #965.)
-        await self._publish_knowledge_substance(created, written_knowledge_uids)
+        # habit when no edge exists.
+        await self.publish_knowledge_built(created, written_knowledge_uids)
         return Result.ok(created)
 
-    async def _publish_knowledge_substance(self, habit: Habit, knowledge_uids: list[str]) -> None:
+    async def publish_knowledge_built(  # skuel-lint: disable=SKUEL005 -- an event publisher: nothing to return, publish_event logs a missing bus
+        self, habit: Habit, knowledge_uids: list[str]
+    ) -> None:
         """Announce knowledge built into this habit — single event for 1, bulk for 2+.
 
-        Same shape as ``TasksCoreService.create_task``. The learning bridge's
-        create wrapper was the only publisher until ``create_habit`` started writing
-        these edges at all; that wrapper was deleted 2026-08-06 (broken dict-door
-        create), leaving this the one publisher.
+        Driven by the links a write CREATED: at create, the uids ``_write_link_edges``
+        wrote; at the link door, the Ku its write newly linked
+        (``HabitsService.link_habit_to_knowledge``). A link already there, or a
+        refused or dangling uid, is never announced. Through
+        ``publish_knowledge_credit``.
         """
-        if not knowledge_uids:
-            return
-
-        from core.events.knowledge_substance_events import (
-            KnowledgeBuiltIntoHabit,
-            KnowledgeBulkBuiltIntoHabit,
+        await publish_knowledge_credit(
+            self.event_bus,
+            KnowledgeCreditSource(
+                entity_type=EntityType.HABIT,
+                uid=habit.uid,
+                user_uid=habit.user_uid,
+                title=habit.title,
+                frequency=(
+                    get_enum_value(habit.recurrence_pattern) if habit.recurrence_pattern else None
+                ),
+            ),
+            knowledge_uids,
+            self.logger,
         )
-
-        frequency = get_enum_value(habit.recurrence_pattern) if habit.recurrence_pattern else None
-
-        event: KnowledgeBuiltIntoHabit | KnowledgeBulkBuiltIntoHabit
-        if len(knowledge_uids) == 1:
-            event = KnowledgeBuiltIntoHabit(
-                knowledge_uid=knowledge_uids[0],
-                habit_uid=habit.uid,
-                user_uid=habit.user_uid,
-                habit_title=habit.title,
-                frequency=frequency,
-            )
-        else:
-            event = KnowledgeBulkBuiltIntoHabit(
-                knowledge_uids=tuple(knowledge_uids),
-                habit_uid=habit.uid,
-                user_uid=habit.user_uid,
-                habit_title=habit.title,
-                frequency=frequency,
-            )
-        await publish_event(self.event_bus, event, self.logger)
 
     async def _write_link_edges(self, habit: Habit, request: HabitCreateRequest) -> list[str]:
         """GRAPH-NATIVE: turn the request's four link lists into edges, in one batch.

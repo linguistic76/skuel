@@ -67,6 +67,11 @@ if TYPE_CHECKING:
     from core.services.vault.vault_descriptor import VaultRegistry
 
 from core.events import GoalContributionsChanged, publish_event
+from core.events.knowledge_credit_publisher import (
+    KNOWLEDGE_CREDIT_EDGES,
+    KnowledgeCreditSource,
+    publish_knowledge_credit,
+)
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.enums.pipeline import Pipeline
 from core.models.goal.goal_contribution import CONTRIBUTOR_TYPES
@@ -653,6 +658,64 @@ class UnifiedIngestionService:
                 await self._announce_goal_contributions(
                     UserUID(owner_uid), contributor_uids=tuple(contributor_uids)
                 )
+
+    async def _credit_created_knowledge(
+        self,
+        entity_type: EntityType | NonKuDomain,
+        entities: list[dict[str, Any]],  # boundary: prepared frontmatter dicts, keyed by type
+        created_targets: Mapping[str, Mapping[str, tuple[str, ...]]],
+    ) -> None:
+        """Credit the knowledge links a relationship pass CREATED — both ingest doors.
+
+        A file's knowledge field (``connections.applies_knowledge`` on a task,
+        ``reinforces_knowledge`` on a habit, ``informed_by_knowledge`` on a choice) is
+        its owner's link, and the node is upserted here rather than created at the
+        domain's door, so this is where it is credited: each link the pass created is
+        announced as its domain's substance event (``publish_knowledge_credit``). A
+        first ingest credits every link it writes; a target added to the file credits
+        that Ku; an unchanged or ``--force`` re-ingest finds every link already there
+        and credits nothing. A dangling target writes no edge, and a personal vault's
+        refused one never reaches the write. An Event's links are credited when it is
+        completed, not here (``KNOWLEDGE_CREDIT_EDGES``).
+        """
+        if self.event_bus is None or not isinstance(entity_type, EntityType):
+            return
+        edge = KNOWLEDGE_CREDIT_EDGES.get(entity_type)
+        config = ENTITY_CONFIGS.get(entity_type)
+        if edge is None or config is None:
+            return
+        fields = [
+            name
+            for name, rel in (config.relationship_config or {}).items()
+            if rel.get("rel_type") == edge.value
+        ]
+        credited: set[str] = set()
+        for entity in entities:
+            uid = str(entity.get("uid", ""))
+            # Two files may name one uid; their links are one entry, credited once.
+            if uid in credited:
+                continue
+            credited.add(uid)
+            owner = entity.get("user_uid")
+            created = created_targets.get(uid, {})
+            knowledge_uids = [target for name in fields for target in created.get(name, ())]
+            if not knowledge_uids or not owner:
+                continue
+            priority = entity.get("priority")
+            frequency = entity.get("recurrence_pattern")
+            await publish_knowledge_credit(
+                self.event_bus,
+                KnowledgeCreditSource(
+                    entity_type=entity_type,
+                    uid=uid,
+                    user_uid=UserUID(str(owner)),
+                    title=entity.get("title"),
+                    priority=None if priority is None else str(priority),
+                    frequency=None if frequency is None else str(frequency),
+                ),
+                knowledge_uids,
+                self.logger,
+            )
 
     async def _announce_goal_contributions(
         self,
@@ -1303,6 +1366,12 @@ class UnifiedIngestionService:
                 Errors.validation(uid_in_use_reason(str(entity_data["uid"])), field="uid")
             )
         self.logger.info(f"Ingested {entity_type.value}: {entity_data['uid']}")
+        # Before any step below can return early: the links exist now, and a re-ingest
+        # creates none, so a credit skipped here would never be published.
+        await self._credit_created_knowledge(entity_type, [entity_data], stats.created_targets)
+        if stats.errors:
+            # The relationship pass failed: the file is left unstamped for a retry.
+            return Result.fail(Errors.database("ingest_file", "; ".join(stats.errors)))
 
         # A Group is owned or its file fails (ADR-086 § 1, door 5): the bulk
         # template writes :OWNS for :Entity rows only, so the Group's edge is a
@@ -1591,6 +1660,7 @@ class UnifiedIngestionService:
             goal_contributions_fn=functools.partial(
                 self._announce_goals_of_sync, effective_user_uid
             ),
+            links_created_fn=self._credit_created_knowledge,
         )
 
     async def _announce_goals_of_sync(self, user_uid: UserUID, goal_uids: tuple[str, ...]) -> None:

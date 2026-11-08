@@ -511,7 +511,31 @@ class UnifiedRelationshipService[
 
         Returns:
             Result[bool] — True once the edge is in place, whether this write created it
-            or it was there already.
+            or it was there already. ``write_link`` answers which.
+        """
+        written = await self.write_link(
+            relationship_key, from_uid, to_uid, properties, far_end=far_end
+        )
+        if written.is_error:
+            return Result.fail(written)
+        return Result.ok(True)
+
+    async def write_link(
+        self,
+        relationship_key: str,
+        from_uid: str,
+        to_uid: str,
+        properties: Neo4jProperties | None = None,
+        *,
+        far_end: LinkFarEnd | AdmittedFarEnds,
+    ) -> Result[bool]:
+        """Write one link, as ``create_relationship`` does, and answer whether it created it.
+
+        True when no edge of the key's type joined the pair before this write (the
+        statement reads that under the anchor's write lock, ``build_guarded_link_query``);
+        False when one already did — the owner's, or one a grounding pass inferred,
+        which the write makes the owner's. A door that credits what a link adds reads
+        this, never a separate read of the prior set, which would race with grounding.
         """
         spec = self._spec(relationship_key)
         if spec.is_error:
@@ -525,7 +549,7 @@ class UnifiedRelationshipService[
         written = await self._write_links(from_uid, [(write, admitted.value)])
         if written.is_error:
             return Result.fail(written)
-        return Result.ok(True)
+        return Result.ok(to_uid in written.value[0])
 
     @staticmethod
     def _orient(spec: UnifiedRelationshipDefinition, from_uid: str, to_uid: str) -> tuple[str, str]:

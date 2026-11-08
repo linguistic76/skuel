@@ -179,6 +179,9 @@ and the pass is hash-stamped); an edit that changes the embedded text does.
   link the owner's (the stamp is removed); the update's replace leaves inferred edges in place. A Ku
   the update newly links publishes `KnowledgeAppliedInTask` (bulk for 2+); a Ku already linked, or
   an inferred one it promotes, publishes nothing — the guarded write reports which edges it created.
+  The link door (`link_task_to_knowledge`, which goal task generation uses for a generated task's
+  subject Ku) and a vault sync of a task file's `connections.applies_knowledge` credit the same
+  way: each link their write created, once; a re-sync of an unchanged file credits nothing.
 - **CORE:** nothing announces a vector, so a task carries only the knowledge its owner links.
 - **Backfill:** `scripts/ground_knowledge.py --source tasks` (dry-run default). Its `--threshold`
   is refused below `KnowledgeLinkConfidence.FLOOR` (0.7), the confidence the rich user context

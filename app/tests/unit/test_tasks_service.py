@@ -213,13 +213,27 @@ def tasks_service_with_mocked_subservices(
 
 
 class TestLinkTaskToKnowledge:
+    """The link door writes one APPLIES_KNOWLEDGE edge and credits it only when the
+    write created it; it answers True either way."""
+
+    @staticmethod
+    def _wire(service: TasksService, *, created: bool) -> tuple[Task, AsyncMock, AsyncMock]:
+        """The task the door reads; the write (answering ``created``) and the publisher."""
+        task = Task(uid="task_abc", user_uid="user_x", title="Ship it")
+        write_link = AsyncMock(return_value=Result.ok(created))
+        publish = AsyncMock()
+        service.core.get_task = AsyncMock(return_value=Result.ok(task))
+        service.core.publish_knowledge_applied = publish
+        service.relationships.write_link = write_link
+        return task, write_link, publish
+
     @pytest.mark.asyncio
     async def test_passes_correct_kwargs_to_relationships(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:
         """link_task_to_knowledge writes the APPLIES_KNOWLEDGE ('knowledge') edge with props."""
         service = tasks_service_with_mocked_subservices
-        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
+        _, write_link, _ = self._wire(service, created=True)
 
         await service.link_task_to_knowledge(
             "task_abc",
@@ -228,13 +242,37 @@ class TestLinkTaskToKnowledge:
             is_learning_opportunity=True,
         )
 
-        service.relationships.create_relationship.assert_called_once_with(
+        write_link.assert_called_once_with(
             "knowledge",
             "task_abc",
             "ku_python_xyz",
             {"knowledge_score_required": 0.9, "is_learning_opportunity": True},
             far_end=KNOWLEDGE_FAR_END,
         )
+
+    @pytest.mark.asyncio
+    async def test_a_link_the_write_created_is_credited(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        task, _, publish = self._wire(service, created=True)
+
+        result = await service.link_task_to_knowledge("task_abc", "ku_python_xyz")
+
+        assert result.is_ok and result.value is True
+        publish.assert_awaited_once_with(task, ["ku_python_xyz"])
+
+    @pytest.mark.asyncio
+    async def test_a_link_already_there_is_not_credited(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        _, _, publish = self._wire(service, created=False)
+
+        result = await service.link_task_to_knowledge("task_abc", "ku_python_xyz")
+
+        assert result.is_ok and result.value is True
+        publish.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

@@ -122,7 +122,13 @@ class _OrchestrationMixin:
     async def link_event_to_knowledge(
         self, event_uid: str, knowledge_uids: list[str]
     ) -> Result[bool]:
-        """Link event to the Kus it applies (``APPLIES_KNOWLEDGE``)."""
+        """Link event to the Kus it applies (``APPLIES_KNOWLEDGE``).
+
+        Credits nothing at the link: an event's knowledge is credited as practice when
+        the event is completed (``PsPracticeService.handle_event_completed`` reads these
+        edges), so a credit here would count one event twice
+        (``KNOWLEDGE_CREDIT_EDGES``).
+        """
         result = await self.relationships.create_relationships_batch(
             event_uid, {"knowledge": knowledge_uids}, far_ends={"knowledge": KNOWLEDGE_FAR_END}
         )

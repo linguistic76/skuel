@@ -63,6 +63,8 @@ method key is `"knowledge"` (see `TASK_QUERY_SPECS` in
 |-----------|------|-----------|
 | **Create** | `tasks_core_service.create_task` / `tasks_scheduling_service` | Each `request.applies_knowledge_uids` entry becomes an `APPLIES_KNOWLEDGE` edge via `create_relationships_batch`. |
 | **Update** | `TasksService.update_task` (facade) | `applies_knowledge_uids` is **popped out of the property `updates` dict** and re-synced as edges: `UnifiedRelationshipService.replace_relationships` deletes the old edges and writes the new ones in one transaction, so a refused far end leaves the old ones in place. An empty list clears the owner's knowledge edges (inferred ones stay). Each Ku the replace newly links is credited (`KnowledgeAppliedInTask`); the write reports which edges it created, so a Ku already linked, or an inferred one it promotes, is not. |
+| **Link door** | `TasksService.link_task_to_knowledge` (goal task generation's subject link) | One `APPLIES_KNOWLEDGE` edge through `UnifiedRelationshipService.write_link`, which answers whether the write created it; only a created link is credited. Answers `True` either way. |
+| **Vault sync** | `connections.applies_knowledge` in a task file | The ingestion relationship pass MERGEs the edge and reports the ones it created; each is credited (`UnifiedIngestionService._credit_created_knowledge`). An unchanged or `--force` re-sync credits nothing. |
 
 The update handling is symmetric to `reinforces_habit_uid` and is **required**: the
 backend `update()` does an unfiltered `SET n += $updates`, so any relationship-typed key
