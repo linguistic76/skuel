@@ -42,6 +42,7 @@ from core.events import (
     publish_event,
 )
 from core.events.embedding_publisher import publish_embedding_requested
+from core.events.knowledge_credit_publisher import KnowledgeCreditSource, publish_knowledge_credit
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
@@ -654,42 +655,29 @@ class TasksCoreService(
 
         Driven by the links a write CREATED, never by what a request asked for: at
         create, the uids ``_write_link_edges`` wrote; at an update, the Kus its replace
-        newly linked (``TasksService.update_task``). The substance pipeline credits
-        knowledge per uid it is handed, so announcing a refused, dangling or cross-user
-        link would claim a task applied knowledge that no APPLIES_KNOWLEDGE edge backs,
-        and announcing a link already there would credit it twice. (Habits' sibling, #965.)
+        newly linked (``TasksService.update_task``); at the link door, the Ku its write
+        newly linked (``TasksService.link_task_to_knowledge``). The substance pipeline
+        credits knowledge per uid it is handed, so announcing a refused, dangling or
+        cross-user link would claim a task applied knowledge that no APPLIES_KNOWLEDGE
+        edge backs, and announcing a link already there would credit it twice.
 
         Published AFTER the task's ``TaskCreated`` / ``TaskUpdated``: these reach only
         substance handlers and do not invalidate the user context, so they carry no
         ordering constraint of their own — but they must not precede the announcement
-        of the task they describe.
+        of the task they describe. Through ``publish_knowledge_credit``.
         """
-        if not knowledge_uids:
-            return
-
-        from core.events.knowledge_substance_events import (
-            KnowledgeAppliedInTask,
-            KnowledgeBulkAppliedInTask,
+        await publish_knowledge_credit(
+            self.event_bus,
+            KnowledgeCreditSource(
+                entity_type=EntityType.TASK,
+                uid=task.uid,
+                user_uid=task.user_uid,
+                title=task.title,
+                priority=task.priority or "medium",
+            ),
+            knowledge_uids,
+            self.logger,
         )
-
-        knowledge_event: KnowledgeAppliedInTask | KnowledgeBulkAppliedInTask
-        if len(knowledge_uids) == 1:
-            knowledge_event = KnowledgeAppliedInTask(
-                knowledge_uid=knowledge_uids[0],
-                task_uid=task.uid,
-                user_uid=task.user_uid,
-                task_title=task.title,
-                task_priority=task.priority or "medium",
-            )
-        else:
-            knowledge_event = KnowledgeBulkAppliedInTask(
-                knowledge_uids=tuple(knowledge_uids),
-                task_uid=task.uid,
-                user_uid=task.user_uid,
-                task_title=task.title,
-                task_priority=task.priority or "medium",
-            )
-        await publish_event(self.event_bus, knowledge_event, self.logger)
 
     @with_error_handling("create_task", error_type="database")
     async def create_task(self, task_request: TaskCreateRequest, user_uid: UserUID) -> Result[Task]:

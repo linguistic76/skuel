@@ -60,7 +60,7 @@ Substance data flows through two layers:
 
 ### Write Path (Event-Driven)
 
-1. Activity domain services publish substance events (e.g., `KnowledgeBulkAppliedInTask`) when entities are created with knowledge UIDs
+1. Every door that writes an owner's knowledge link publishes its domain's substance event (e.g., `KnowledgeBulkAppliedInTask`) for the links its write created, through one publisher (`publish_knowledge_credit`, `core/events/knowledge_credit_publisher.py`) — see [Who credits a link](#who-credits-a-link)
 2. `_event_wiring.py` subscribes events to `PsService` handlers (aliased as `ku_service`)
 3. `PsService.increment_substance_metric()` delegates to `KuBackend.increment_substance()`
 4. `KuBackend` atomically updates the Ku node **and fans out to connected PathStep nodes** via `(ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)`
@@ -205,8 +205,8 @@ in the `EXTRACT_ACTIVITIES` pipeline (ADR-069), and vector grounding
 names — `knowledge` and `extract_activities`, periodic notes included, never a
 `private: true` entry. The handler is writer-agnostic — same event, same credit.
 
-The tasks channel has two writers the same way: the owner's `applies_knowledge_uids` at
-create and at an update, and vector grounding (`TaskGroundingService`) once the FULL tier's
+The tasks channel has two writers the same way: the owner's links — `applies_knowledge_uids`
+at create and at an update, the link door, a vault file — and vector grounding (`TaskGroundingService`) once the FULL tier's
 embedding worker stores the task's vector (the pass covers the owner's pending tasks, so one
 whose pass did not land is retried) — both publish `KnowledgeAppliedInTask`. An update
 credits only the links its write created. The inferred
@@ -225,7 +225,7 @@ uid: choice.2-minutes-right-now
 title: Do Two Minutes Right Now
 connections:
   informed_by_knowledge:
-    - ku_breath_awareness_basics_a1b2
+    - ku.mindfulness.breath
 
 # Principle — grounded in knowledge (creates GROUNDED_IN_KNOWLEDGE edge)
 type: Principle
@@ -233,8 +233,8 @@ uid: principle.small-steps
 name: Small Steps Beat Big Bursts
 connections:
   grounded_in_knowledge:
-    - ku_breath_awareness_basics_a1b2
-    - ku_mind_wandering_happens_c3d4
+    - ku.mindfulness.breath
+    - ku.mindfulness.mind-wandering
 
 # Task — applies knowledge (creates APPLIES_KNOWLEDGE edge)
 type: Task
@@ -242,7 +242,7 @@ uid: task.log-first-5-sessions
 title: Log First 5 Sessions
 connections:
   applies_knowledge:
-    - ku_breath_awareness_basics_a1b2
+    - ku.mindfulness.breath
 
 # Habit — reinforces knowledge (creates REINFORCES_KNOWLEDGE edge)
 type: Habit
@@ -250,7 +250,7 @@ uid: habit.daily-2min-breath
 title: Daily 2-Minute Breath
 connections:
   reinforces_knowledge:
-    - ku_breath_awareness_basics_a1b2
+    - ku.mindfulness.breath
 ```
 
 ### How It Works
@@ -258,8 +258,9 @@ connections:
 1. YAML author writes `connections.{field}: [uid1, uid2]`
 2. `preparer.py` flattens `connections` dict to dotted notation
 3. `generate_ingestion_relationship_config()` reads `yaml_field_path` from the relationship registry
-4. `bulk_upsert_backend.py` (`build_relationship_template`) generates `MERGE (n)-[:REL_TYPE]->(target)` Cypher
+4. `bulk_upsert_backend.py` (`build_relationship_template`) generates `MERGE (n)-[:REL_TYPE]->(target)` Cypher, which reports the edges it CREATED (`IngestionResult.created_targets`)
 5. Edge created in Neo4j — substance tracking is now structural
+6. The sync credits each knowledge link it created (`UnifiedIngestionService._credit_created_knowledge`, both ingest doors): a first ingest credits every link it writes, a target added to the file credits that Ku, and an unchanged or `--force` re-ingest credits nothing. A pair grounding inferred that the file names becomes the file's link, not credited again. An Event file's link is credited when the event is completed (below)
 
 **See:** `/docs/guides/YAML_AUTHORING_GUIDE.md` § Knowledge Connections for the `connections` field reference.
 
@@ -271,26 +272,47 @@ connections:
 
 ### Publishing Events
 
-Single-item event when exactly 1 KU is connected; bulk event when 2+. Never publish both for the same connection.
+Single-item event when exactly 1 KU is connected; bulk event when 2+. Never publish both for the same connection. One function makes that choice for tasks, habits and choices:
 
 ```python
-# Single when 1 KU, bulk when 2+ — actual pattern in TasksCoreService
-ku_uids = task_request.applies_knowledge_uids
-if len(ku_uids) == 1:
-    event = KnowledgeAppliedInTask(
-        knowledge_uid=ku_uids[0],
-        task_uid=task.uid,
-        user_uid=task.user_uid,
-        task_title=task.title,
-    )
-else:
-    event = KnowledgeBulkAppliedInTask(
-        knowledge_uids=tuple(ku_uids),
-        task_uid=task.uid,
-        user_uid=task.user_uid,
-    )
-await publish_event(self.event_bus, event, self.logger)
+# core/events/knowledge_credit_publisher.py — single when 1 KU, bulk when 2+, each uid once
+await publish_knowledge_credit(
+    self.event_bus,
+    KnowledgeCreditSource(entity_type=EntityType.TASK, uid=task.uid, user_uid=task.user_uid,
+                          title=task.title, priority=task.priority or "medium"),
+    created_knowledge_uids,  # what the write CREATED, never what was requested
+    self.logger,
+)
 ```
+
+The domain publishers (`TasksCoreService.publish_knowledge_applied`,
+`HabitsCoreService.publish_knowledge_built`, `ChoicesCoreService._publish_knowledge_substance`)
+read their model and call it; vault ingestion calls it with the file's fields.
+
+### Who credits a link
+
+**Every door that writes an owner's knowledge link credits the links its write CREATED** —
+no edge of the type joined the pair before. It never credits a link already there, an
+inferred link the owner's write promoted (grounding credited it when it inferred it), or a
+refused or dangling uid. The write decides what is new: a read of the prior set in a
+separate statement before the write would race with grounding.
+
+| Door | Edge | How the write reports what it created |
+|------|------|------|
+| Task create (`create_task`) | `APPLIES_KNOWLEDGE` | the uids `_write_link_edges` wrote |
+| Task edit (`POST /api/tasks/update`) | `APPLIES_KNOWLEDGE` | `replace_relationships` → `{key: created}` |
+| Task link door (`link_task_to_knowledge`; goal task generation's subject link) | `APPLIES_KNOWLEDGE` | `write_link` → created or not |
+| Habit create (`create_habit`) | `REINFORCES_KNOWLEDGE` | the uids `_write_link_edges` wrote |
+| Habit link door (`POST /api/habits/link-knowledge`) | `REINFORCES_KNOWLEDGE` | `write_link` |
+| Choice create (`create_choice`) | `INFORMED_BY_KNOWLEDGE` | the uids `_write_link_edges` wrote |
+| Vault sync of a task, habit or choice file's knowledge field | the three above | the relationship template's `ON CREATE` marker |
+| Task / entry grounding | `APPLIES_KNOWLEDGE` (inferred) | `write_applies_knowledge`'s `ON CREATE` |
+
+**An Event's link credits nothing when it is written.** The events channel's counter
+(`times_practiced_in_events`) is incremented when an event is COMPLETED, once per Ku its
+`APPLIES_KNOWLEDGE` edges name (`PsPracticeService.handle_event_completed`, the app's and the
+vault's completions alike). Crediting the link as well would count one event twice, and a
+scheduled event nobody attended as practice. Goals and principles have no counter channel.
 
 ### Subscribing to Events
 
@@ -350,7 +372,7 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
 | Channel | Single-item event | Bulk event |
 |---------|-------------------|------------|
 | Task | `KnowledgeAppliedInTask` | `KnowledgeBulkAppliedInTask` |
-| Event | `KnowledgePracticedInEvent` | *(always single — events link one KU at a time)* |
+| Event | `KnowledgePracticedInEvent` | *(always single — one per practised Ku)* |
 | Habit | `KnowledgeBuiltIntoHabit` | `KnowledgeBulkBuiltIntoHabit` |
 | Choice | `KnowledgeInformedChoice` | `KnowledgeBulkInformedChoice` |
 | UserEntry | `KnowledgeReflectedInEntry` | *(always single — published per APPLIES_KNOWLEDGE edge write)* |
@@ -359,26 +381,26 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
 - **Increments:** `times_applied_in_tasks`
 - **Updates:** `last_applied_date`
 - **Weight:** 0.05 per task (max 0.25)
-- **Published by:** `TasksCoreService` — single when 1 KU, bulk when 2+, for the owner's links at create; `TasksService.update_task` — the same, for each Ku an update newly links (the guarded write reports which edges it created; a promoted inferred link is not one); `TaskGroundingService` — single, once per genuinely NEW inferred edge (vector grounding of an embedded task, the pass entries run; never a cancelled task)
+- **Published by:** `TasksCoreService` — single when 1 KU, bulk when 2+, for the owner's links at create; `TasksService.update_task` — the same, for each Ku an update newly links (the guarded write reports which edges it created; a promoted inferred link is not one); `TasksService.link_task_to_knowledge` — single, when its write created the link (goal task generation's subject link); vault ingestion — for each link a task file's sync created; `TaskGroundingService` — single, once per genuinely NEW inferred edge (vector grounding of an embedded task, the pass entries run; never a cancelled task)
 
 ### 2. KnowledgePracticedInEvent
 - **Increments:** `times_practiced_in_events`
 - **Updates:** `last_practiced_date`
 - **Weight:** 0.05 per event (max 0.25)
-- **Published by:** `EventsService` — always single-item (events link one KU at a time)
+- **Published by:** `EventsService.create_event_with_context` (staged, no caller) — one per admitted `practices_knowledge_uids`, which write no edge. The counter's live writer is not this event: `PsPracticeService.handle_event_completed` increments it directly when an event is completed, for each Ku its `APPLIES_KNOWLEDGE` edges name, and then publishes `KnowledgePracticed`. An event's link is never credited when it is written ([Who credits a link](#who-credits-a-link))
 
 ### 3. KnowledgeBuiltIntoHabit / KnowledgeBulkBuiltIntoHabit
 - **Increments:** `times_built_into_habits`
 - **Updates:** `last_built_into_habit_date`
 - **Weight:** 0.10 per habit (max 0.30) — HIGHEST weight
-- **Published by:** `HabitsLearningService` — single when 1 KU, bulk when 2+
+- **Published by:** `HabitsCoreService.publish_knowledge_built` — single when 1 KU, bulk when 2+, for the owner's links at create and for a link the link door (`POST /api/habits/link-knowledge`) created; vault ingestion — for each link a habit file's sync created
 - **Rationale:** Habits represent lifestyle integration = deepest form of applied knowledge
 
 ### 4. KnowledgeInformedChoice / KnowledgeBulkInformedChoice
 - **Increments:** `choices_informed_count`
 - **Updates:** `last_choice_informed_date`
 - **Weight:** 0.07 per choice (max 0.15)
-- **Published by:** `ChoicesCoreService` — single when 1 KU, bulk when 2+
+- **Published by:** `ChoicesCoreService` — single when 1 KU, bulk when 2+, at create; vault ingestion — for each link a choice file's sync created
 - **Rationale:** Applying knowledge to real decisions demonstrates practical wisdom
 
 ### 5. KnowledgeReflectedInEntry

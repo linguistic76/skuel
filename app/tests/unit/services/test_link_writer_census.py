@@ -1,6 +1,6 @@
 """Every edge writer under ``core/services/`` says how its far end is admitted.
 
-Seven calls turn two uids into an edge: ``create_relationship``,
+Eight calls turn two uids into an edge: ``create_relationship``, ``write_link``,
 ``create_relationships_batch``, ``replace_relationships``, ``write_guarded_links``,
 the two dedicated ``APPLIES_KNOWLEDGE`` writers of an entry (``write_applied_knowledge``
 for a reference its owner wrote, ``write_applies_knowledge`` for the grounding pass) and
@@ -12,8 +12,9 @@ every call site to one of five answers, and fails on a call site it does not kno
 
 - it goes through ``UnifiedRelationshipService`` and declares its far end
   (``far_end=`` / ``far_ends=``) — the service admits it;
-- it is the service's own write, behind that admission — in a function that admits, or
-  in the one writer (``_write_links``) every caller of which admits;
+- it is the service's own write, behind that admission — in a function that admits, a
+  call on the service to one of its writers that admits (``create_relationship`` →
+  ``write_link``), or the one writer (``_write_links``) every caller of which admits;
 - it is a pass-through — the builder's ``create`` and the mixin's ``add_relationship``
   — whose callers are themselves sites of this census;
 - its enclosing function admits through the link-edge guard itself;
@@ -32,6 +33,7 @@ import pytest
 _SERVICES = Path(__file__).resolve().parents[3] / "core" / "services"
 _WRITER_METHODS = {
     "create_relationship",
+    "write_link",
     "create_relationships_batch",
     "replace_relationships",
     "write_guarded_links",
@@ -148,7 +150,9 @@ def _how_admitted(key: str, call: ast.Call, function: ast.AST) -> str | None:
         if _admits(function):
             return "the service"
         name = getattr(function, "name", "")
-        return "the service" if name == _SERVICE_WRITER and _every_caller_admits(name) else None
+        if name == _SERVICE_WRITER and _every_caller_admits(name):
+            return "the service"
+        return "the service" if _forwards_to_an_admitting_writer(call) else None
     if key in PASS_THROUGHS:
         return "pass-through"
     names = {node.id for node in ast.walk(function) if isinstance(node, ast.Name)}
@@ -160,6 +164,19 @@ def _how_admitted(key: str, call: ast.Call, function: ast.AST) -> str | None:
 def _admits(function: ast.AST) -> bool:
     names = {node.attr for node in ast.walk(function) if isinstance(node, ast.Attribute)}
     return bool(names & _SERVICE_ADMISSIONS)
+
+
+def _forwards_to_an_admitting_writer(call: ast.Call) -> bool:
+    """Whether ``call`` is on the service itself, to one of its functions that admits."""
+    if _receiver(call) != "self" or not isinstance(call.func, ast.Attribute):
+        return False
+    tree = ast.parse((_SERVICES / _THE_SERVICE).read_text())
+    return any(
+        isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef)
+        and function.name == call.func.attr
+        and _admits(function)
+        for function in ast.walk(tree)
+    )
 
 
 def _every_caller_admits(writer: str) -> bool:
@@ -195,7 +212,9 @@ def test_the_census_sees_the_writers() -> None:
     assert "user_entry/user_entry_service.py::create_entry" in keys
     assert "user_entry/user_entry_service.py::link_applied_knowledge" in keys
     assert "knowledge_grounding_service.py::_ground_one" in keys
-    assert len(_SITES) >= 35
+    assert "tasks_service.py::link_task_to_knowledge" in keys
+    assert f"{_THE_SERVICE}::create_relationship" in keys
+    assert len(_SITES) >= 37
 
 
 @pytest.mark.parametrize(

@@ -75,7 +75,7 @@ def _label_clause(entity_label: str, base_label: str | None) -> str:
 def _prior_statuses(
     # boundary: raw Neo4j records, one per RETURN column of whichever template
     # ran — the node upsert's ``uid``/``prior_status`` here, a relationship
-    # template's ``processed`` count elsewhere. Genuinely heterogeneous by
+    # template's ``uid``/``created`` rows elsewhere. Genuinely heterogeneous by
     # construction: ``execute_batch`` is generic over templates, so no TypedDict
     # can name one shape without claiming the others do not reach it.
     rows: list[dict[str, Any]],
@@ -83,9 +83,7 @@ def _prior_statuses(
     """Map ``uid`` → the status each node held BEFORE this upsert wrote to it.
 
     Reads the node template's rows (see :func:`build_node_upsert_template`).
-    Rows without a ``uid`` key are skipped rather than assumed: ``execute_batch``
-    is shared with the relationship template, whose single ``count(n)`` row has a
-    different shape.
+    Rows without a ``uid`` key are skipped rather than assumed.
     """
     prior: dict[str, str | None] = {}
     for row in rows:
@@ -210,25 +208,41 @@ def build_relationship_template(
     """
     Build the relationships-only template (phase 2 of the two-phase ingest).
 
-    ``MATCH``es the already-upserted source node, then one unit ``CALL``
-    subquery per relationship field ``MATCH``es existing targets and ``MERGE``s
-    the edge. ``MATCH`` (not ``MERGE``) on targets avoids stub nodes with
-    incomplete labels. Running relationships strictly AFTER every node batch
-    (all entity types) means same-sync forward references resolve — under
-    incremental sync there is no "later re-ingest" for an unchanged file, so
-    edges dropped on first contact would otherwise be dropped forever.
+    ``MATCH``es the already-upserted source node, then one ``CALL`` subquery per
+    relationship field ``MATCH``es existing targets and ``MERGE``s the edge.
+    ``MATCH`` (not ``MERGE``) on targets avoids stub nodes with incomplete labels.
+    Running relationships strictly AFTER every node batch (all entity types) means
+    same-sync forward references resolve — under incremental sync there is no
+    "later re-ingest" for an unchanged file, so edges dropped on first contact
+    would otherwise be dropped forever.
+
+    Returns one row per source node: ``uid`` and ``created`` — per field, in
+    ``config``'s order, the targets whose edge this write CREATED (MERGE's own
+    ``ON CREATE`` signal, carried on a marker that is removed before commit). A
+    target whose edge was already there is not in it, so a re-ingest of an unchanged
+    file, or a ``--force`` one, creates nothing. Each subquery aggregates, so it
+    yields one row whatever its targets match, and a missing target leaves the
+    other fields alone.
+
+    A file that names a pair a grounding pass inferred (``inferred``,
+    ``KnowledgeGroundingBackend``) makes it the file's link: its inference stamp is
+    removed, as the owner's guarded link write does (``build_guarded_link_query``).
+    The pair is not created — grounding credited it when it inferred it.
 
     Fields with ``order_property`` persist the YAML list index onto the edge
     (0-based, refreshed on every ingest so vault reorderings propagate).
     Zero APOC dependency.
     """
     rel_clauses = []
+    created_columns = []
 
-    for field_name, rel_info in config.items():
+    for index, (field_name, rel_info) in enumerate(config.items()):
         rel_type = rel_info["rel_type"]
         target_label = rel_info["target_label"]
         direction = rel_info.get("direction", "outgoing")  # Default to outgoing
         order_property = rel_info.get("order_property")
+        column = f"_created_{index}"
+        created_columns.append(column)
 
         # Edge direction determines the semantic meaning of the relationship.
         # OUTGOING (n)-[:TYPE]->(target) is the default (prerequisites, enables);
@@ -238,29 +252,31 @@ def build_relationship_template(
         else:  # outgoing or bidirectional
             rel_pattern = f"(n)-[_r:{rel_type}]->(target)"
 
-        # Unit subquery (no RETURN) preserves outer rows regardless of inner row
-        # count, so later fields are unaffected when a target is missing.
         if order_property:
-            rel_clause = f"""
-// Handle {field_name} relationships ({direction}, ordered by list index)
-CALL (n, item) {{
-  WITH n, coalesce(item.`{field_name}`, []) AS _target_uids
-  UNWIND range(0, size(_target_uids) - 1) AS _idx
-  WITH n, _target_uids[_idx] AS _target_uid, _idx
-  MATCH (target:{target_label} {{uid: _target_uid}})
-  MERGE {rel_pattern}
-  SET _r.`{order_property}` = _idx
-}}"""
+            targets = """  UNWIND range(0, size(_target_uids) - 1) AS _idx
+  WITH n, _target_uids[_idx] AS _target_uid, _idx"""
+            carried = "target, _r, _idx"
+            order_line = f"\n  SET _r.`{order_property}` = _idx"
+            heading = f"{field_name} relationships ({direction}, ordered by list index)"
         else:
-            rel_clause = f"""
-// Handle {field_name} relationships ({direction})
+            targets = "  UNWIND _target_uids AS _target_uid"
+            carried = "target, _r"
+            order_line = ""
+            heading = f"{field_name} relationships ({direction})"
+        rel_clauses.append(f"""
+// Handle {heading}
 CALL (n, item) {{
   WITH n, coalesce(item.`{field_name}`, []) AS _target_uids
-  UNWIND _target_uids AS _target_uid
+{targets}
   MATCH (target:{target_label} {{uid: _target_uid}})
   MERGE {rel_pattern}
-}}"""
-        rel_clauses.append(rel_clause)
+    ON CREATE SET _r.{_CREATE_MARKER} = true
+  WITH {carried}, coalesce(_r.{_CREATE_MARKER}, false) AS _created
+  REMOVE _r.{_CREATE_MARKER}
+  FOREACH (_ IN CASE WHEN coalesce(_r.inferred, false) THEN [1] ELSE [] END |
+    REMOVE _r.inferred, _r.confidence, _r.grounded_at){order_line}
+  RETURN collect(CASE WHEN _created THEN target.uid END) AS {column}
+}}""")
 
     label_clause = _label_clause(entity_label, base_label)
     template_str = f"""
@@ -268,7 +284,7 @@ CALL (n, item) {{
 UNWIND $items AS item
 MATCH (n:{label_clause} {{uid: item.uid}})
 {"".join(rel_clauses)}
-RETURN count(n) as processed
+RETURN n.uid AS uid, [{", ".join(created_columns)}] AS created
 """
 
     return CypherTemplate(
@@ -276,6 +292,33 @@ RETURN count(n) as processed
         template=template_str,
         description=f"Create relationships for {entity_label}",
     )
+
+
+def _created_targets(
+    # boundary: raw Neo4j records — the relationship template's ``uid``/``created``
+    # rows (see ``_prior_statuses`` for why ``execute_batch`` rows are untyped).
+    rows: list[dict[str, Any]],
+    fields: list[str],
+) -> dict[str, dict[str, tuple[str, ...]]]:
+    """``uid`` → field → the targets whose edge the template created, in file order.
+
+    ``created`` lists one entry per field in ``fields``' order (the order the template
+    was built in). A field that created nothing is absent, as is a node that created
+    nothing. Two rows for one uid (two files naming it) are merged, each target once.
+    """
+    created: dict[str, dict[str, tuple[str, ...]]] = {}
+    for row in rows:
+        uid = row.get("uid")
+        if uid is None:
+            continue
+        per_field = created.setdefault(str(uid), {})
+        for field_name, targets in zip(fields, row.get("created") or [], strict=True):
+            merged = dict.fromkeys([*per_field.get(field_name, ()), *map(str, targets)])
+            if merged:
+                per_field[field_name] = tuple(merged)
+        if not per_field:
+            del created[str(uid)]
+    return created
 
 
 class BulkUpsertBackend:
@@ -510,6 +553,9 @@ class BulkUpsertBackend:
                         nodes_updated=0,
                         relationships_created=stats.get("relationships_created", 0),
                         errors=[],
+                        created_targets=_created_targets(
+                            stats.get("rows", []), list(relationship_config)
+                        ),
                     )
                 )
 
@@ -554,5 +600,6 @@ class BulkUpsertBackend:
                 # The prior statuses belong to phase 1; phase 2 writes only edges.
                 prior_status_by_uid=nodes.prior_status_by_uid,
                 refused_uids=nodes.refused_uids,
+                created_targets=rels_result.value.created_targets,
             )
         )

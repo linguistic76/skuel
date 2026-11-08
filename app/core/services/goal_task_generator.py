@@ -484,7 +484,9 @@ class GoalTaskGenerator:
         that is shared content or the task owner's own — before it writes:
 
         - ``required_knowledge_uid`` (a knowledge task's subject) → APPLIES_KNOWLEDGE,
-          marked ``is_learning_opportunity``
+          marked ``is_learning_opportunity``; the link door credits it
+          (``KnowledgeAppliedInTask``) when its write created the edge, which the
+          entity door never writes
         - ``required_knowledge_uids`` (a milestone's required knowledge) and
           ``prerequisite_knowledge_uids`` (the subject's unmet prerequisites) →
           REQUIRES_KNOWLEDGE, the edge a task's prerequisite check reads

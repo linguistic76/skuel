@@ -39,9 +39,11 @@ Embedding freshness (ADR-074): the embedding worker is subscribed BEFORE the
 sync and its queues are drained in-process afterwards, so the sync's embedding
 events (entity + chunk) are processed right here instead of evaporating with
 the script — same event path as the app process, no follow-up commands. In
-CORE tier there is no worker and ingestion publishes no events, so the drain
-step is skipped and this sync's new content is stored without embeddings
-(``./dev embed-backfill`` under FULL tier fills the gap). A FULL-tier run
+CORE tier there is no worker and ingestion publishes no embedding events, so the
+drain step is skipped and this sync's new content is stored without embeddings
+(``./dev embed-backfill`` under FULL tier fills the gap). The sync's other events
+— completions, goal contributions, knowledge credit — reach the composed
+subscribers in both tiers, awaited in-process as the app's are. A FULL-tier run
 re-probes coverage AFTER the drain so the printed figures are post-drain.
 
 Grounding: after the drain, personal-vault syncs run an entry→Ku grounding
@@ -119,7 +121,7 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         # *EmbeddingRequested / ChunkEmbeddingRequested publishes land in its
         # queues; drain() after persistence processes them in-process
         # (ADR-074 script-mode freshness). None = CORE tier / no API key —
-        # ingestion publishes no events, nothing to drain.
+        # ingestion publishes no embedding events, nothing to drain.
         worker = services.embedding_worker
         if worker is not None:
             worker.subscribe()

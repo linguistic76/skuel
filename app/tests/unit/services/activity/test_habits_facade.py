@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from core.models.habit.habit import Habit
 from core.services.habits_service import HabitsService
 from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END, PRINCIPLE_FAR_END
 from core.utils.result_simplified import Errors, Result
@@ -194,13 +195,26 @@ class TestHabitsServiceOrchestration:
 # ---------------------------------------------------------------------------
 
 
+def _wire_habit_link(
+    service: HabitsService, *, created: bool
+) -> tuple[Habit, AsyncMock, AsyncMock]:
+    """The habit the link door reads; the write (answering ``created``) and the publisher."""
+    habit = Habit(uid="habit_abc", user_uid="user_x", title="Breathe")
+    write_link = AsyncMock(return_value=Result.ok(created))
+    publish = AsyncMock()
+    service.core.get_habit = AsyncMock(return_value=Result.ok(habit))
+    service.core.publish_knowledge_built = publish
+    service.relationships.write_link = write_link
+    return habit, write_link, publish
+
+
 class TestHabitsServiceRelationships:
     @pytest.mark.asyncio
     async def test_link_habit_to_knowledge_passes_skill_params(
         self, habits_service: HabitsService
     ) -> None:
         """link_habit_to_knowledge writes the REINFORCES_KNOWLEDGE ('knowledge') edge."""
-        habits_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
+        _, write_link, _ = _wire_habit_link(habits_service, created=True)
 
         await habits_service.link_habit_to_knowledge(
             "habit_abc",
@@ -209,13 +223,35 @@ class TestHabitsServiceRelationships:
             proficiency_gain_rate=0.2,
         )
 
-        habits_service.relationships.create_relationship.assert_called_once_with(
+        write_link.assert_called_once_with(
             "knowledge",
             "habit_abc",
             "ku_python_xyz",
             {"skill_level": "intermediate", "proficiency_gain_rate": 0.2},
             far_end=KNOWLEDGE_FAR_END,
         )
+
+    @pytest.mark.asyncio
+    async def test_a_habit_link_the_write_created_is_credited(
+        self, habits_service: HabitsService
+    ) -> None:
+        habit, _, publish = _wire_habit_link(habits_service, created=True)
+
+        result = await habits_service.link_habit_to_knowledge("habit_abc", "ku_python_xyz")
+
+        assert result.is_ok and result.value is True
+        publish.assert_awaited_once_with(habit, ["ku_python_xyz"])
+
+    @pytest.mark.asyncio
+    async def test_a_habit_link_already_there_is_not_credited(
+        self, habits_service: HabitsService
+    ) -> None:
+        _, _, publish = _wire_habit_link(habits_service, created=False)
+
+        result = await habits_service.link_habit_to_knowledge("habit_abc", "ku_python_xyz")
+
+        assert result.is_ok and result.value is True
+        publish.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_link_habit_to_principle_passes_embodiment_strength(

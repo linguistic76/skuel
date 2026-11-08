@@ -483,6 +483,19 @@ await service.create_relationship(
 )
 ```
 
+`write_link` takes the same arguments and makes the same write, answering whether it
+CREATED the edge (`True`) or one of the key's type already joined the pair (`False` — the
+owner's, or one a grounding pass inferred, which the write makes the owner's). A door that
+credits what a link adds reads it; `create_relationship` answers `True` either way:
+
+```python
+created = await service.write_link(
+    "knowledge", "task.123", "ku.python", far_end=KNOWLEDGE_FAR_END
+)
+if created.is_ok and created.value:
+    ...  # credit the new link (link_task_to_knowledge publishes KnowledgeAppliedInTask)
+```
+
 Each Activity/Curriculum facade exposes domain-named wrappers (`link_task_to_goal`,
 `link_choice_to_habit`, …) that supply the explicit key. The (facade, key) coverage is
 guarded by `tests/unit/test_cross_domain_link_keys.py`; the real-Neo4j round-trips live in

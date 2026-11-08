@@ -672,6 +672,15 @@ async def ingest_directory(
     ]
     | None = None,
     goal_contributions_fn: Callable[[tuple[str, ...]], Awaitable[None]] | None = None,
+    links_created_fn: Callable[
+        [
+            EntityType | NonKuDomain,
+            list[dict[str, Any]],
+            Mapping[str, Mapping[str, tuple[str, ...]]],
+        ],
+        Awaitable[None],
+    ]
+    | None = None,
     vault_kind: VaultKind | None = None,
 ) -> Result[IngestionStats | IncrementalStats]:
     """
@@ -755,6 +764,12 @@ async def ingest_directory(
             ``connections.contributes_to_goal`` target, a deleted task or event file,
             a written or deleted ``CONTRIBUTES_TO_GOAL`` Edge YAML. The contributors a
             sync re-ingests are announced by ``status_transition_fn``.
+        links_created_fn: Optional callback after each type batch's relationship
+            pass, with the persisted entity dicts and the frontmatter links that pass
+            CREATED (``IngestionResult.created_targets``: uid → field → targets no
+            edge of the field's type joined before). Signature:
+            ``async (entity_type, entities, created_targets)``. An unchanged
+            re-ingest creates none; called only when the pass created some.
         vault_kind: The kind of vault ``directory`` is (the facade resolves it
             from the registry; ``None`` when none governs it). A PERSONAL vault
             refuses the files it may not hold, gives each uid-less Activity or
@@ -1571,8 +1586,17 @@ async def ingest_directory(
                 suggestion="Check Neo4j connection and database constraints.",
             )
             errors.append(rel_error.to_dict())
+            # The pass's edges may not be written: its files stay unstamped, so the
+            # next sync re-processes them rather than skipping them as unchanged.
+            for entity in entities:
+                file_str = uid_to_file.get(str(entity.get("uid", "")))
+                if file_str is not None:
+                    file_entity_map.pop(file_str, None)
+                    retry_uids[file_str] = str(entity["uid"])
             continue
         total_relationships_created += rel_result.value.relationships_created
+        if links_created_fn is not None and rel_result.value.created_targets:
+            await links_created_fn(entity_type, entities, rel_result.value.created_targets)
 
         for entity in entities:
             file_str = uid_to_file.get(str(entity.get("uid", "")))

@@ -121,6 +121,7 @@ MIXED_VIEWS: dict[View, str] = {}
 # carries the definition's far-end label (TestOneKindPerView probes it).
 KEYED_WRITERS: dict[str, str] = {
     "create_relationship": "the far end's kind is admitted from the door's LinkFarEnd",
+    "write_link": "the far end's kind is admitted from the door's LinkFarEnd",
     "create_relationships_batch": "the far ends' kind is admitted from the door's LinkFarEnd",
     "create_relationship_with_properties": "names both uids",
     "delete_relationship": "names both uids and carries the far end's label",

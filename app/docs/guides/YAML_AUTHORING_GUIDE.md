@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-10-24
+updated: 2026-11-08
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -339,7 +339,7 @@ connections:
     - ps.mindfulness.breath-awareness-basics
 ```
 
-**At runtime**, when a user completes a task, creates a habit, makes a choice, etc., domain events (`KnowledgeAppliedInTask`, `KnowledgeBuiltIntoHabit`, `KnowledgeInformedChoice`) increment substance counters on the knowledge node. The YAML connections define the *structural* links; runtime events track *usage* counts.
+**When a link is written** — a task, habit or choice created with knowledge, linked afterwards, or synced from a file whose connections name it — domain events (`KnowledgeAppliedInTask`, `KnowledgeBuiltIntoHabit`, `KnowledgeInformedChoice`) increment substance counters on the knowledge node, once per link the write created: a re-sync of an unchanged file counts nothing. An event's knowledge is counted when the event is completed. The YAML connections define the *structural* links; the events track *usage* counts.
 
 See: `/docs/architecture/knowledge_substance_philosophy.md`
 
@@ -678,13 +678,12 @@ YAML Author writes type + connections.*
         ↓
     config.py: EntityType → Neo4j label + UID prefix
         ↓
-    BulkIngestionEngine: MERGE (n:Entity:Task {uid: ...}) + SET properties
+    BulkUpsertBackend: MERGE (n:Entity:Task {uid: ...}) + SET properties, then the edges
         ↓
     Neo4j Node (with labels + entity_type property) + Edges (from connections.*)
         ↓
-    User interacts (completes task, builds habit, makes choice...)
-        ↓
-    Domain Events fire (KnowledgeAppliedInTask, KnowledgeBuiltIntoHabit, ...)
+    Domain Events fire for each knowledge edge the sync CREATED
+    (KnowledgeAppliedInTask, KnowledgeBuiltIntoHabit, ...; an event's on completion)
         ↓
     Substance counters increment on knowledge node
         ↓

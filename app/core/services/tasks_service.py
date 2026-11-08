@@ -895,8 +895,17 @@ class TasksService(
         knowledge_score_required: float = 0.8,
         is_learning_opportunity: bool = False,
     ) -> Result[bool]:
-        """Link task to the Ku it applies (``APPLIES_KNOWLEDGE``)."""
-        return await self.relationships.create_relationship(
+        """Link task to the Ku it applies (``APPLIES_KNOWLEDGE``), crediting a new link.
+
+        The write answers whether it created the edge (``write_link``); only a link it
+        created is announced (``publish_knowledge_applied``). A link already there is
+        not: the owner's, or one grounding inferred and credited, which the write makes
+        the owner's. True once the edge is in place, as every link door answers.
+        """
+        task = await self.core.get_task(task_uid)
+        if task.is_error:
+            return Result.fail(task)
+        created = await self.relationships.write_link(
             "knowledge",
             task_uid,
             knowledge_uid,
@@ -906,6 +915,11 @@ class TasksService(
             },
             far_end=KNOWLEDGE_FAR_END,
         )
+        if created.is_error:
+            return Result.fail(created)
+        if created.value:
+            await self.core.publish_knowledge_applied(task.value, [knowledge_uid])
+        return Result.ok(True)
 
     async def link_task_to_prerequisite_knowledge(
         self, task_uid: str, knowledge_uid: str

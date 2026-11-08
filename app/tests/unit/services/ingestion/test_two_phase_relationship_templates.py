@@ -41,7 +41,11 @@ class TestRelationshipTemplate:
 
         assert "MATCH (n:Entity:PathStep {uid: item.uid})" in template.template
         assert "MERGE (n)-[_r:USES_KU]->(target)" in template.template
-        assert "ON CREATE SET" not in template.template
+        assert "SET n" not in template.template
+        # The one ON CREATE write is the edge's created marker, removed in-statement.
+        assert template.template.count("ON CREATE SET") == 1
+        assert "ON CREATE SET _r._ingest_new = true" in template.template
+        assert "REMOVE _r._ingest_new" in template.template
 
     def test_unordered_field_has_no_order_set(self) -> None:
         config = {
@@ -51,7 +55,7 @@ class TestRelationshipTemplate:
         }
         template = build_relationship_template("PathStep", "Entity", config)
 
-        assert "SET _r." not in template.template
+        assert "SET _r.`" not in template.template
         assert "range(" not in template.template
 
     def test_ordered_field_persists_list_index(self) -> None:

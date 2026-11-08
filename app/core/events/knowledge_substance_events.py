@@ -43,10 +43,13 @@ class KnowledgeAppliedInTask(BaseEvent):
     Subscribers:
     - PsService (increment substance metric)
 
-    Published by:
+    Published by (through ``publish_knowledge_credit``, except grounding):
     - TasksCoreService (the owner's applies_knowledge_uids written at create)
     - TasksService.update_task (each Ku an edit newly links; a promoted inferred
       link was credited when it was inferred, and is not credited again)
+    - TasksService.link_task_to_knowledge (a link its write created — goal task
+      generation's subject Ku)
+    - UnifiedIngestionService (each link a task file's sync created)
     - TaskGroundingService (each genuinely NEW inferred edge)
     """
 
@@ -73,8 +76,12 @@ class KnowledgePracticedInEvent(BaseEvent):
     - PsService (increment substance metric)
 
     Published by:
-    - EventsService (when event created with practices_knowledge_uids —
-      published only; the request door writes no APPLIES_KNOWLEDGE edge)
+    - EventsService.create_event_with_context (staged, no caller): one per admitted
+      practices_knowledge_uids, which write no APPLIES_KNOWLEDGE edge
+
+    The counter's live writer is the event's completion:
+    ``PsPracticeService.handle_event_completed`` increments it directly for each Ku
+    the event's APPLIES_KNOWLEDGE edges name. Writing that edge credits nothing.
     """
 
     knowledge_uid: str
@@ -133,8 +140,10 @@ class KnowledgeBuiltIntoHabit(BaseEvent):
     Subscribers:
     - PsService (increment substance metric)
 
-    Published by:
-    - HabitsService (when habit created with builds_on_knowledge_uids)
+    Published by (through ``publish_knowledge_credit``):
+    - HabitsCoreService.publish_knowledge_built (linked_knowledge_uids written at
+      create; a link POST /api/habits/link-knowledge created)
+    - UnifiedIngestionService (each link a habit file's sync created)
     """
 
     knowledge_uid: str
@@ -189,8 +198,9 @@ class KnowledgeInformedChoice(BaseEvent):
     Subscribers:
     - PsService (increment substance metric)
 
-    Published by:
-    - ChoicesService (when choice created with informed_by_knowledge_uids)
+    Published by (through ``publish_knowledge_credit``):
+    - ChoicesCoreService (informed_by_knowledge_uids written at create)
+    - UnifiedIngestionService (each link a choice file's sync created)
     """
 
     knowledge_uid: str
@@ -220,9 +230,10 @@ class KnowledgeBulkAppliedInTask(BaseEvent):
     Subscribers:
     - PsService (batch increment substance metrics)
 
-    Published by:
+    Published by (through ``publish_knowledge_credit``):
     - TasksCoreService (2+ Kus linked at create)
     - TasksService.update_task (2+ Kus an edit newly links)
+    - UnifiedIngestionService (2+ links a task file's sync created)
     """
 
     knowledge_uids: tuple[str, ...]
@@ -250,8 +261,9 @@ class KnowledgeBulkBuiltIntoHabit(BaseEvent):
     Subscribers:
     - PsService (batch increment substance metrics)
 
-    Published by:
-    - HabitsService (when habit created with builds_on_knowledge_uids)
+    Published by (through ``publish_knowledge_credit``):
+    - HabitsCoreService.publish_knowledge_built (2+ Kus linked at create)
+    - UnifiedIngestionService (2+ links a habit file's sync created)
     """
 
     knowledge_uids: tuple[str, ...]
@@ -279,8 +291,9 @@ class KnowledgeBulkInformedChoice(BaseEvent):
     Subscribers:
     - PsService (batch increment substance metrics)
 
-    Published by:
-    - ChoicesService (when choice created with informed_by_knowledge_uids)
+    Published by (through ``publish_knowledge_credit``):
+    - ChoicesCoreService (2+ Kus linked at create)
+    - UnifiedIngestionService (2+ links a choice file's sync created)
     """
 
     knowledge_uids: tuple[str, ...]
@@ -301,17 +314,15 @@ class KnowledgeBulkInformedChoice(BaseEvent):
 # DISPATCH RULE
 # ============================================================================
 
-# Publishers choose single vs bulk based on count — never both for the same
-# connection (that would double-increment substance metrics):
+# Single vs bulk is chosen by count — never both for the same connection (that
+# would double-increment substance metrics). ``publish_knowledge_credit``
+# (core/events/knowledge_credit_publisher.py) makes the choice for the task, habit
+# and choice channels:
 #
-#   ku_uids = request.applies_knowledge_uids
-#   if len(ku_uids) == 1:
-#       event = KnowledgeAppliedInTask(knowledge_uid=ku_uids[0], ...)
-#   else:
-#       event = KnowledgeBulkAppliedInTask(knowledge_uids=tuple(ku_uids), ...)
-#   await publish_event(self.event_bus, event, self.logger)
+#   await publish_knowledge_credit(self.event_bus, source, created_uids, self.logger)
 #
-# Subscribers for all 8 events (4 channels x 2 forms) are wired in:
+# Subscribers for all 8 events (single + bulk for tasks, habits and choices; single
+# for events and entries) are wired in:
 #   services_bootstrap/_event_wiring.py → PsService handlers
 #
 # See: /docs/architecture/knowledge_substance_philosophy.md

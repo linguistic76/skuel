@@ -144,6 +144,7 @@ metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 
 **Key Methods:**
 - `create_relationship(method_key, from_uid, to_uid, properties, *, far_end)` - The single cross-domain link write path (registry-validated key, fails closed). `far_end` is required: the far end is admitted before the write — it exists, is one of `far_end.labels`, and is owned by `from_uid`'s owner or is published shared content — and the write's statement re-asserts that rule as it merges the edge
+- `write_link(method_key, from_uid, to_uid, properties, *, far_end)` → `Result[bool]` - The same write, answering whether it CREATED the edge (no edge of the type joined the pair before, read under the anchor's lock). The knowledge link doors credit substance from it; `create_relationship` answers `True` once the edge is in place
 - `admit_far_ends(from_uid, to_uids, far_end)` → `Result[AdmittedFarEnds]` - The admission alone, for a door that must refuse before its first write; the returned proof is a valid `far_end` for writing that same link without a second read
 - `replace_relationships(entity_uid, {method_key: [uids]}, *, far_ends)` - Make each key's links exactly the uids given (`[]` clears): one transaction deletes the old edges and writes the new ones, so a refused far end leaves the old links in place (the Events and Tasks update doors). Returns, per key, the far ends it created a link to
 - `delete_relationship(method_key, from_uid, to_uid)` - Remove a link

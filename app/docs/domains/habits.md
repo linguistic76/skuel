@@ -160,6 +160,13 @@ Design and the write-side work it leaves open:
 | `principles` | `EMBODIES_PRINCIPLE` | Principle | Principles embodied |
 | `supported_goals` | `SUPPORTS_GOAL` | Goal | Goals supported |
 
+A `knowledge` link earns substance (`KnowledgeBuiltIntoHabit`, bulk for 2+;
+`times_built_into_habits` on the Ku) at each door that writes it — `create_habit`'s
+`linked_knowledge_uids`, `POST /api/habits/link-knowledge` and a vault sync of
+`connections.reinforces_knowledge` — for the links its write created, once. Re-linking a Ku
+the habit already reinforces credits nothing, and the link door answers `{"linked": true}`
+either way.
+
 ### Incoming (Other → Habit)
 
 | Key | Relationship | Source | Description |
