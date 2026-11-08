@@ -9,7 +9,8 @@ app's own graph:
 - a door-appended expression is stored as the JSON list every writer stores, and the
   read model hands it back as written;
 - the append writes ``expressions`` (and ``updated_at``) and nothing else;
-- four expressions appended at once are all kept, and so are two reflections;
+- four expressions appended at once are all kept, and so are four reflections, and a
+  self-assessment beside a reflection;
 - an append racing an archive leaves both: the expression and the archived status;
 - another user's principle is not found, and is left as it was.
 """
@@ -26,6 +27,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from core.models.enums.principle_enums import AlignmentLevel
 from core.models.principle.principle import Principle
 from core.models.principle.principle_request import (
     PrincipleCreateRequest,
@@ -207,7 +209,7 @@ async def test_an_append_racing_an_archive_keeps_both(env: Env) -> None:
         assert [row["context"] for row in _rows(node, "expressions")] == ["Work"], round_
 
 
-async def test_two_reflections_recorded_at_once_are_both_kept(env: Env) -> None:
+async def test_four_reflections_recorded_at_once_are_all_kept(env: Env) -> None:
     uid = await _principle(env, "race-reflect")
     seeded = len(_rows(await _node(env, uid), "alignment_history"))
 
@@ -219,6 +221,29 @@ async def test_two_reflections_recorded_at_once_are_both_kept(env: Env) -> None:
     assert sorted(row["evidence"] for row in history[seeded:]) == [
         f"Evidence {n}" for n in range(4)
     ]
+
+
+async def test_a_self_assessment_racing_a_reflection_keeps_both(env: Env) -> None:
+    """The staged self-assessment (``assess_with_user_input``) appends to the same
+    history the reflection door does, under the same lock."""
+    for round_ in range(4):
+        uid = await _principle(env, f"race-assess-{round_}")
+        seeded = len(_rows(await _node(env, uid), "alignment_history"))
+
+        assessed, reflected = await asyncio.gather(
+            env.services.principles.alignment.assess_with_user_input(
+                uid, CALLER, AlignmentLevel.PARTIAL, "Assessed"
+            ),
+            _reflect(env, uid, "Reflected"),
+        )
+
+        assert assessed.is_ok, assessed
+        assert reflected.status_code == 200, reflected.text
+        history = _rows(await _node(env, uid), "alignment_history")
+        assert sorted(row["evidence"] for row in history[seeded:]) == [
+            "Assessed",
+            "Reflected",
+        ], round_
 
 
 # ---------------------------------------------------------------------------

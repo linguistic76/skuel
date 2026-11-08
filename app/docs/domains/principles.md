@@ -108,7 +108,9 @@ reflection's alignment-history entry (`record_principle_reflection`,
 principle's lock: `PrinciplesCoreService.rewrite_principle`, over `rewrite_under_lock`
 (ADR-087). The write carries the appended field alone (the reflection also its
 `last_review_date`), so two appends at once are both kept and a status changed meanwhile is
-never written back. Both announce `PrincipleUpdated`.
+never written back. Both announce `PrincipleUpdated`. The staged self-assessment
+(`PrinciplesAlignmentService.assess_with_user_input`) appends to the same history under the
+same lock (`rewrite_under_lock`).
 
 ## Model Fields
 
