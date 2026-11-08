@@ -72,8 +72,13 @@ async def test_a_new_inferred_edge_publishes_knowledge_applied_in_task() -> None
     backend.write_applies_knowledge.assert_awaited_once_with(
         "task_0000000000000001", "ku.mind.attention", 0.81
     )
-    bus.publish_async.assert_awaited_once()
-    event = bus.publish_async.await_args.args[0]
+    applied = [
+        call.args[0]
+        for call in bus.publish_async.await_args_list
+        if isinstance(call.args[0], KnowledgeAppliedInTask)
+    ]
+    assert len(applied) == 1
+    event = applied[0]
     assert isinstance(event, KnowledgeAppliedInTask)
     assert event.knowledge_uid == "ku.mind.attention"
     assert event.task_uid == "task_0000000000000001"

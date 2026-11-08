@@ -30,7 +30,9 @@ Eager write, no confirm gate:
 
 Substance + idempotency:
     Each genuinely NEW edge publishes the source's substance event — the same
-    event the owner's own link publishes. Existing targets are read up front and
+    event the owner's own link publishes. An entity that gained an edge, or lost one
+    at the removal door, publishes ``EntityLinksChanged`` for its owner, as every link
+    door does, so the owner's cached context reads the links the pass wrote. Existing targets are read up front and
     the write reports created-vs-matched under the entity's write-lock, so neither
     a re-run nor a race with the owner's link writer double-counts.
 
@@ -51,6 +53,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from core.events import publish_event
+from core.events.link_events import EntityLinksChanged
 from core.models.type_hints import UserUID
 from core.prompts import PROMPT_REGISTRY
 from core.utils.llm_json import parse_json_reply
@@ -333,6 +337,12 @@ class KnowledgeGroundingService(ABC):
                 written.append(candidate)
                 if self._event_bus is not None:
                     await self._publish_substance(row, candidate.ku_uid)
+            if written and self._event_bus is not None:
+                await publish_event(
+                    self._event_bus,
+                    EntityLinksChanged(user_uid=UserUID(row["user_uid"]), entity_uid=row["uid"]),
+                    self.logger,
+                )
             stamp_result = await self.backend.stamp_grounded(
                 row["uid"], row["embedding_text_hash"], GROUNDING_VERSION
             )
@@ -478,8 +488,9 @@ class KnowledgeGroundingService(ABC):
         Backend: KnowledgeGroundingBackend.remove_grounded_edge — the ownership
         anchor lives in the delete query itself, so a non-owned entity, an absent
         edge, or a link the owner made returns False and the route 404s. The
-        removal is recorded on the entity so no future pass re-infers the pair, and
-        the removed edge's confidence is logged as threshold-calibration data.
+        removal is recorded on the entity so no future pass re-infers the pair, the
+        owner's cached context is told (``EntityLinksChanged``), and the removed edge's
+        confidence is logged as threshold-calibration data.
         """
         result = await self.backend.remove_grounded_edge(source_uid, ku_uid, user_uid)
         if result.is_error:
@@ -487,6 +498,12 @@ class KnowledgeGroundingService(ABC):
         removal = result.value
         if removal is None:
             return Result.ok(False)
+        if self._event_bus is not None:
+            await publish_event(
+                self._event_bus,
+                EntityLinksChanged(user_uid=user_uid, entity_uid=source_uid),
+                self.logger,
+            )
         self.logger.info(
             f"Grounding removal (calibration, {self.source}): {source_uid} -/-> "
             f"{removal['ku_uid']} (confidence={removal['confidence']}, "

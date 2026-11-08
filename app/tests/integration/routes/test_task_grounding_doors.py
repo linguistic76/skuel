@@ -15,6 +15,8 @@ task embedded under FULL keeps.
   request, the owner's link, and a link already removed answer 404.
 - **The owner's update door** promotes an inferred link it names to the owner's,
   and a replace of the owner's links leaves an inferred one in place.
+- **The owner's cached context** reads a link grounding wrote after the context was
+  built: the pass announces ``EntityLinksChanged``, as every link door does.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ from core.constants import EmbeddingGeometry
 from core.events.embedding_events import EmbeddingStored
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
+from core.models.type_hints import UserUID
 from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client
@@ -252,3 +255,18 @@ async def test_replacing_the_owners_links_leaves_the_inferred_one(env: Env) -> N
     await _update(env, task, applies_knowledge_uids=[])
 
     assert await _links(env, task) == {KU_BREATH: True}
+
+
+async def test_the_owners_cached_context_reads_a_grounded_link(env: Env) -> None:
+    task = await _embedded_task(env, "breathe at the threshold")
+    users = env.services.user
+    assert users is not None
+    before = await users.get_rich_unified_context(UserUID(OWNER))
+    assert before.is_ok, before
+    assert before.value.task_knowledge_applied.get(task) == [KU_NAMED]
+
+    await _announce(env, task)
+
+    after = await users.get_rich_unified_context(UserUID(OWNER))
+    assert after.is_ok, after
+    assert sorted(after.value.task_knowledge_applied.get(task, [])) == sorted([KU_NAMED, KU_BREATH])
