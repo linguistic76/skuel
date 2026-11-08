@@ -1,6 +1,6 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-09-30
+updated: 2026-11-08
 category: patterns
 related_skills: []
 related_docs: []
@@ -396,7 +396,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 
 | Service | `_validate_create()` | `_validate_update()` |
 |---------|----------------------|----------------------|
-| **ChoicesCoreService** | A supplied option set holds ≥ 2; BINARY carries exactly 2; STRATEGIC needs a 50+ char description. Options are OPTIONAL at creation — see `docs/domains/choices.md` | Decision immutability in ACTIVE/COMPLETED; option-count floor |
+| **ChoicesCoreService** | A supplied option set holds ≥ 2; BINARY carries exactly 2; STRATEGIC needs a 50+ char description. Options are OPTIONAL at creation — see `docs/domains/choices.md` | Decision immutability, asked of the choice under its lock: a decided choice keeps its type and never goes back to draft (it closes and reopens otherwise) |
 | **GoalsCoreService** | `target_date` must not PRECEDE `start_date` (equal is legal — matches the request model's `allow_equal=True`) | Date ordering *(achievement-state immutability deleted 2026-08 by ruling — completed goals are editable like completed tasks; reopen clears `achieved_date` via the completion-stamp helper)* |
 | **HabitsCoreService** | DAILY habits cannot target > 7 days/week | Streak preservation on archive (bypassable via the transient `force_archive`); frequency consistency |
 | **EventsCoreService** | Span (`end_time − start_time`) within 5–720 minutes when both times are set | Past-event immutability (tags and a status change with its `completed_at` stamp exempt); span on the merged times, gated on the patch naming `start_time` / `end_time`; online needs a URL, gated on `is_online` / `meeting_url` |

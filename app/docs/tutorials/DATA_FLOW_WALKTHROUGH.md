@@ -168,8 +168,8 @@ that is not.
 
 `TaskDTO` is on neither path. A request becomes a frozen `Task` directly and the mapper turns that
 into a node, which is the intended design. DTOs live in some services' read-modify-write code:
-`ChoicesCoreService.evaluate_choice_outcome` takes `existing.to_dto()`, sets the outcome fields and
-writes `dto.to_dict()` through `backend.update`.
+`PrinciplesService.create_principle_expression` (`_EmbodimentMixin`) takes the principle it read
+`to_dto()`, appends the expression and writes `dto.to_dict()` through `backend.update`.
 
 ## Where to read next
 

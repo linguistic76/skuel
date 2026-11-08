@@ -9,6 +9,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from pydantic import BaseModel, Field
 
+from core.constants import SatisfactionScale
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums import Domain, Priority
 from core.models.enums.choice_enums import ChoiceType
@@ -149,12 +150,20 @@ class ChoiceUpdateRequest(UpdateRequestBase):
 
 
 class ChoiceEvaluationRequest(BaseModel):
-    """Request model for evaluating choice outcomes."""
+    """The body of the outcome door (``POST /api/choices/{uid}/outcome``): how a decided
+    choice turned out.
 
-    satisfaction_score: int = Field(..., ge=1, le=5, description="Satisfaction score (1-5)")
-    actual_outcome: str = Field(
-        ..., min_length=1, max_length=1000, description="Actual outcome description"
+    The page's form posts the lessons as one textarea, one lesson per line;
+    ``parse_body`` splits it into the list.
+    """
+
+    satisfaction_score: int = Field(
+        ...,
+        ge=SatisfactionScale.LOWEST,
+        le=SatisfactionScale.HIGHEST,
+        description="How satisfied the learner is with how it turned out (1-5)",
     )
+    actual_outcome: str = Field(..., min_length=1, max_length=1000, description="What happened")
     lessons_learned: list[str] = Field(default_factory=list, description="Lessons learned")
 
 

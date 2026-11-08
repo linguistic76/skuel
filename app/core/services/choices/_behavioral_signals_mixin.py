@@ -26,6 +26,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
+from core.constants import SatisfactionScale
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
@@ -337,23 +338,22 @@ class _BehavioralSignalsMixin:
             return {"aligned_count": 0, "choice_uids": [], "avg_satisfaction": 0.0}
 
         principle_breakdown: dict[str, dict[str, Any]] = defaultdict(_empty_principle_entry)
-        satisfaction_sums: dict[str, float] = defaultdict(float)
+        satisfaction_scores: dict[str, list[float]] = defaultdict(list)
 
         for detail in adherence.choice_details:
             for p_uid in detail.principle_uids:
                 if p_uid:
                     principle_breakdown[p_uid]["aligned_count"] += 1
                     principle_breakdown[p_uid]["choice_uids"].append(detail.choice_uid)
-                    if detail.satisfaction:
-                        satisfaction_sums[p_uid] += detail.satisfaction
+                    if detail.satisfaction is not None:
+                        satisfaction_scores[p_uid].append(detail.satisfaction)
 
-        # Calculate average satisfaction per principle
-        for p_uid, data in principle_breakdown.items():
-            count = data["aligned_count"]
-            if count > 0 and satisfaction_sums.get(p_uid):
-                data["avg_satisfaction"] = (
-                    satisfaction_sums[p_uid] / count / 5.0
-                )  # Normalize to 0-1
+        # Average satisfaction per principle, over the choices whose outcome is recorded
+        # (a choice with none has no satisfaction, not a zero), as a share of the top.
+        for p_uid, scores in satisfaction_scores.items():
+            principle_breakdown[p_uid]["avg_satisfaction"] = (
+                sum(scores) / len(scores) / SatisfactionScale.HIGHEST
+            )
 
         # Find most/least aligned principles
         most_aligned = None

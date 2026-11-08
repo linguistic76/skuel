@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from core.constants import SatisfactionScale
 from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
@@ -233,3 +234,17 @@ class Choice(UserOwnedEntity):
             f"status={self.status}, choice_type={self.choice_type}, "
             f"decided_at={self.decided_at}, user_uid={self.user_uid})"
         )
+
+
+def outcome_quality(satisfaction_score: int) -> float:
+    """How a decision turned out on 0.0-1.0, from the learner's satisfaction rating.
+
+    The scale's lowest level is 0.0 and its highest 1.0, the levels evenly apart, so
+    each of the five lands in its own band of the outcome handler's
+    ``categorize_outcome_quality`` (bad, poor, neutral, good, excellent).
+
+    Args:
+        satisfaction_score: A rating on ``SatisfactionScale``.
+    """
+    span = SatisfactionScale.HIGHEST - SatisfactionScale.LOWEST
+    return (satisfaction_score - SatisfactionScale.LOWEST) / span

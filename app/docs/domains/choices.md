@@ -89,7 +89,7 @@ Created via `create_common_sub_services()` factory in facade `__init__` (intelli
 | `title` | `str` | Choice/decision title |
 | `description` | `str` | Choice description |
 | `choice_type` | `ChoiceType` | Binary, Multiple, Ranking, Strategic, Operational |
-| `status` | `ChoiceStatus` | Pending, Decided, Implemented, Evaluated |
+| `status` | `EntityStatus` | `draft`, `active`, `completed`, `archived` (the decision stages are read from fields, § Decision Tracking) |
 | `priority` | `Priority` | Low, Medium, High, Critical |
 | `domain` | `Domain` | Personal, Business, Health, Finance, Social |
 | `options` | `list[ChoiceOptionDTO]` | Available options (see below) |
@@ -101,9 +101,9 @@ Created via `create_common_sub_services()` factory in facade `__init__` (intelli
 | `stakeholders` | `list[str]` | Affected stakeholders |
 | `decision_deadline` | `datetime?` | When decision is needed |
 | `decided_at` | `datetime?` | When decision was made |
-| `satisfaction_score` | `int?` | Outcome satisfaction (1-5) |
-| `actual_outcome` | `str?` | Outcome description |
-| `lessons_learned` | `list[str]` | Post-decision insights |
+| `satisfaction_score` | `int?` | How satisfied the learner is with how it turned out (`SatisfactionScale`, 1-5) |
+| `actual_outcome` | `str?` | What happened |
+| `lessons_learned` | `list[str]` | Lessons learned, one per item |
 
 ### ChoiceOptionDTO Fields
 
@@ -161,7 +161,7 @@ every event carries.
 | `ChoiceCreated` | Choice created — from `ChoicesCoreService.create`, so both create doors fire it | `choice_uid`, `user_uid`, `choice_description`, `domain`, `urgency` |
 | `ChoiceUpdated` | Choice modified, incl. option add/update/remove | `choice_uid`, `user_uid`, `updated_fields` |
 | `ChoiceMade` | Decision selected | `choice_uid`, `user_uid`, `selected_option`, `confidence` |
-| `ChoiceOutcomeRecorded` | Outcome evaluated | `choice_uid`, `user_uid`, `outcome_quality`, `lessons_learned` |
+| `ChoiceOutcomeRecorded` | An outcome recorded on a decided choice | `choice_uid`, `user_uid`, `outcome_quality` (0.0-1.0, the satisfaction rescaled: `core.models.choice.choice.outcome_quality`), `lessons_learned` (one per line) |
 
 **Event handling:** `ChoiceEventHandlerService` subscribes to `ChoiceOutcomeRecorded` (outcome quality analysis, principle alignment correlation) and `ChoiceMade` (decision pattern tracking, confidence analysis, insight persistence). `ChoiceMade` also runs the PathStep engagement's auto-complete check (`_AutoCompletionHandler.on_choice_made`): a spawned choice is done for its engagement once decided. Every choice event invalidates the owner's UserContext.
 
@@ -173,22 +173,30 @@ Live in `adapters/inbound/choices_ui.py`: list `/choices` and detail
 `ui/activities/choices_form.py`.
 
 The detail page's Options section (`OptionsSection`, `ui/activities/choices_views.py`)
-carries three controls, each a door in `adapters/inbound/choices_api.py` that verifies
-the owner, reads JSON or the form through `parse_body`, and answers the page with its
-detail view re-rendered:
+and its Outcome section (`OutcomeSection`) carry four controls, each a door in
+`adapters/inbound/choices_api.py` that verifies the owner, reads JSON or the form through
+`parse_body`, and answers the page with its detail view re-rendered:
 
 | Control | Door | Body |
 |---|---|---|
 | Add an option | `POST /api/choices/{uid}/options` | `ChoiceOptionRequest` |
 | Remove an option (×) | `POST /api/choices/{uid}/options/{option_uid}/remove` | none |
 | Decide | `POST /api/choices/{uid}/decide` | `ChoiceDecisionRequest` |
+| How did it turn out? | `POST /api/choices/{uid}/outcome` | `ChoiceEvaluationRequest` |
 
 Add and remove show while `Choice.options_open()`; remove only where removing leaves two
 options. The decide form shows on a pending choice with two options or more: one radio
 per option, an optional rationale, and how sure the learner is (five levels,
 `DECISION_CONFIDENCE_LEVELS`). A decided choice shows its options with the selected one
-marked, and its list card shows a fixed decided mark: no door changes a decided choice's
-status.
+marked, and its outcome form: how satisfied the learner is (`SATISFACTION_LEVELS`), what
+happened, and the lessons, one per line. Once an outcome is recorded the page shows it,
+and the same form, filled in, updates it. Open or closed, a decided choice takes an
+outcome.
+
+The list card (`ChoiceCard`) closes a choice and reopens it, through the status door
+`POST /api/choices/{uid}/status`: an open choice is marked completed; a completed one
+reopens `active` when a decision is recorded and `draft` when it was closed without one.
+The detail page has no close control, as no Activity detail page does.
 
 ## Options at Creation
 
@@ -326,6 +334,25 @@ Refused, with the choice unchanged, when the choice is already decided, holds fe
 two options, or `selected_option_uid` is not one of its options. `confidence` is carried on
 `ChoiceMade`, not stored.
 
+### Record the Outcome
+
+```python
+from core.models.choice.choice_request import ChoiceEvaluationRequest
+
+result = await choices_service.evaluate_choice_outcome(
+    choice.uid,
+    ChoiceEvaluationRequest(
+        satisfaction_score=4,
+        actual_outcome="Shipped in two weeks",
+        lessons_learned=["Prototype the hardest page first"],
+    ),
+)
+```
+
+Refused, with the choice unchanged, when the choice is not decided. The write carries the
+three outcome fields alone, planned from the choice under its lock, so it writes no status;
+a later outcome replaces the earlier one. Publishes `ChoiceOutcomeRecorded`.
+
 ### Add Option Later
 
 ```python
@@ -410,12 +437,22 @@ stages are not statuses — they are read from the choice's fields:
 | **Pending** | `Choice.is_pending()` — not decided and not archived | `options`, `decision_criteria`, `constraints` |
 | **Decided** | `Choice.is_decided()` — a `decided_at`, or status `completed` | `selected_option_uid`, `decision_rationale`, `decided_at` |
 | **Implemented** | `(Task)-[:IMPLEMENTS_CHOICE]->(Choice)` edges | — |
-| **Evaluated** | an outcome is recorded | `satisfaction_score`, `actual_outcome`, `lessons_learned` |
+| **Evaluated** | an outcome is recorded (`evaluate_choice_outcome`, the page's outcome form), open or closed | `satisfaction_score`, `actual_outcome`, `lessons_learned` |
 
 A decided choice stays `active` until it is completed. An archived choice that was never
 decided is neither pending nor decided. A decision is recorded once: `make_decision`
 refuses a decided choice, and a decided choice's options are frozen
-(`Choice.options_open`). The list page and its stats bar, the daily plan's
+(`Choice.options_open`), its type with them.
+
+**Closing.** A decided choice is completed or archived, and reopened, like any activity
+(`update_choice`, which stamps `completed_at` on completion and clears it on reopen). It
+never goes back to `draft` once a decision is recorded: `update_choice` refuses that
+target, asked of the choice under its lock, so an archived decided choice is refused too.
+A choice closed without a decision reopens as a draft.
+
+**A spawned choice** (a PathStep engagement's, from a `ChoiceTemplate`) starts an undecided
+`draft` without the template's `decision_rationale`, as one the learner creates does:
+`CHOICE_SPEC.uncopied_fields` (`core/services/ps_engagement/_spawn_orchestrator.py`). The list page and its stats bar, the daily plan's
 stats, and the decision-rate analytics call the two methods; `ChoicesBackend.get_pending_choices` /
 `get_choices_needing_decision` / `get_stats_for_user` and UserContext's `pending_choice_uids`
 compose their Cypher spelling (`adapters/persistence/neo4j/query/cypher/choice_fragments.py`).

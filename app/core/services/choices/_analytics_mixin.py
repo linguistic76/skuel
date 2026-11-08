@@ -16,7 +16,7 @@ from collections import Counter, defaultdict
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.constants import QueryLimit
+from core.constants import QueryLimit, SatisfactionScale
 from core.models.type_hints import UserUID
 from core.services.whole_set_read import warn_if_capped
 from core.utils.result_simplified import Result
@@ -421,7 +421,16 @@ class _AnalyticsMixin:
 
         # Decision quality (simplified)
         avg_confidence = 0.7  # Placeholder
-        avg_satisfaction = 0.75  # Placeholder
+        # The mean satisfaction of the choices whose outcome is recorded, as a share of
+        # the scale's top (0.0 with none recorded).
+        satisfaction_scores = [
+            c.satisfaction_score for c in choices if c.satisfaction_score is not None
+        ]
+        avg_satisfaction = (
+            sum(satisfaction_scores) / len(satisfaction_scores) / SatisfactionScale.HIGHEST
+            if satisfaction_scores
+            else 0.0
+        )
         principle_alignment_score = principle_aligned_percentage
 
         # Identify patterns

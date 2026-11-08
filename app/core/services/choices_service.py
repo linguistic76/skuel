@@ -12,7 +12,7 @@ Sub-Services:
 - ChoicesIntelligenceService: Pure Cypher analytics + decision pattern analysis
 
 Facade Mixin:
-- _OptionManagementMixin: Option CRUD and decision-making
+- _OptionManagementMixin: Option CRUD, the decision and its outcome
 """
 
 from __future__ import annotations
@@ -146,7 +146,8 @@ class ChoicesService(
     - Intelligence: get_decision_intelligence, get_decision_patterns, etc.
 
     Facade Mixin:
-    - _OptionManagementMixin: add_option, update_option, remove_option, make_decision
+    - _OptionManagementMixin: add_option, update_option, remove_option, make_decision,
+      evaluate_choice_outcome
 
     SKUEL Architecture:
     - Uses explicit delegation methods (February 2026)
@@ -446,9 +447,9 @@ class ChoicesService(
     # Update path (ADR-066 typed update contract) ----------------------------
     async def update_choice(self, choice_uid: str, intent: ChoiceUpdateIntent) -> Result[Choice]:
         """THE Choices update path (ADR-066): route the typed intent through the core
-        service, which validates (decision immutability, option-count floor), writes only
-        the set fields, and fires ChoiceUpdated. Choices carry no edge fields, so there is
-        nothing to split off."""
+        service, which validates decision immutability against the locked choice, writes
+        only the set fields, and fires ChoiceUpdated. Choices carry no edge fields, so
+        there is nothing to split off."""
         return await self.core.update_choice(choice_uid, intent)
 
     async def update(self, uid: str, updates: ChoiceUpdateIntent) -> Result[Choice]:
@@ -490,8 +491,8 @@ class ChoicesService(
         """Count choices matching filters."""
         return await self.core.count_choices(filters)
 
-    # Note: Option management methods (add_option, update_option, remove_option, make_decision)
-    # provided by _OptionManagementMixin.
+    # Note: Option management methods (add_option, update_option, remove_option, make_decision,
+    # evaluate_choice_outcome) provided by _OptionManagementMixin.
 
     # ========================================================================
     # GRAPH RELATIONSHIPS

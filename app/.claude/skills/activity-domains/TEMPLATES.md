@@ -144,6 +144,7 @@ class DomainSpawnSpec(Generic[InstanceT]):
     offset_rewrites: tuple[tuple[str, str, OffsetKind], ...] = ()
     field_rewrites:  dict[str, str]                           = field(default_factory=dict)
     cross_edges:     tuple[tuple[str, RelationshipName], ...] = ()
+    uncopied_fields: frozenset[str]                           = frozenset()
     creation_rule:   Callable[[InstanceT], InstanceT] | None  = None
 
     def copied_fields(self) -> frozenset[str]: ...             # what the spawn copies verbatim
@@ -151,7 +152,10 @@ class DomainSpawnSpec(Generic[InstanceT]):
 
 `copied_fields()` is the one copy set: every field the template and the instance share,
 except what the spawn sets itself (identity, owner, engagement fields, stamps,
-`entity_type`, `visibility`, and the rewrite destinations). `create_request` is not
+`entity_type`, `visibility`, and the rewrite destinations) and the spec's
+`uncopied_fields`, which the instance takes from its own defaults. `CHOICE_SPEC` names
+`status` and `decision_rationale`: a spawned choice starts an undecided draft, as one the
+learner creates does, whatever its ACTIVE template says. `create_request` is not
 constructed by the spawn: `copied_text_caps(template_type)` reads its `max_length` caps on
 the copied text fields, and the content-vault sync refuses a template over one (and an
 online event template with no `meeting_url`) — `validate_entity_data`, ADR-091 S8.

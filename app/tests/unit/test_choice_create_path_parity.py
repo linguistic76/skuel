@@ -54,6 +54,7 @@ No Neo4j: the backend is stubbed, so what is under test is the service wiring �
 which is exactly where both defects lived.
 """
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -67,6 +68,7 @@ from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceOptionRequest
 from core.models.enums import Domain, Priority
 from core.models.enums.choice_enums import ChoiceType
+from core.models.update_contracts import GuardedRecompute, GuardedWritePlan, StatusGuardedOutcome
 from core.services.choices.choices_core_service import ChoicesCoreService
 from core.services.choices_service import ChoicesService
 from core.utils.result_simplified import Result
@@ -616,22 +618,30 @@ class TestLiveDoorsStillWork:
 
 
 class StubOutcomeBackend:
-    """Backend stand-in for ``evaluate_choice_outcome``: get then update.
+    """Backend stand-in for ``evaluate_choice_outcome``: a locked rewrite of the held choice.
 
-    ``update`` returns the merged property dict, matching the real backend's
-    ``+=`` partial-update semantics, so the service's ``_to_domain_model`` sees a
-    complete node rather than only the patched keys.
+    The planned patch merges into the stored properties, matching the real write's
+    ``+=`` partial-update semantics, so the choice handed back is the complete node
+    rather than only the patched keys.
     """
 
     def __init__(self, choice: Choice) -> None:
         self.props: dict[str, Any] = dict(to_neo4j_node(choice))
 
-    async def get(self, uid: str) -> Result[Choice]:
-        return Result.ok(from_neo4j_node(self.props, Choice))
-
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[dict[str, Any]]:
-        self.props.update(updates)
-        return Result.ok(dict(self.props))
+    async def rewrite_choice_under_lock[P: GuardedWritePlan](
+        self, uid: str, plan: Callable[[Choice], P | None]
+    ) -> Result[GuardedRecompute[Choice, P] | None]:
+        held = from_neo4j_node(self.props, Choice)
+        decided = plan(held)
+        if decided is None:
+            return Result.ok(None)
+        self.props.update(to_neo4j_node(dict(decided.updates)))
+        outcome = StatusGuardedOutcome(
+            applied=True,
+            prior_status=str(held.status),
+            entity=from_neo4j_node(self.props, Choice),
+        )
+        return Result.ok(GuardedRecompute(plan=decided, outcome=outcome))
 
     def __getattr__(self, name: str):
         async def _unexpected(*args: Any, **kwargs: Any):
@@ -645,10 +655,10 @@ class TestOutcomeEvaluationRefreshesTheEmbedding:
     """Recording an outcome writes embeddable text, so it must request a re-embed.
 
     ``actual_outcome`` is named by ``EMBEDDING_FIELD_MAPS[CHOICE]``, and this path
-    persists it through a raw full-DTO replace that published only its own
-    provenance event (``ChoiceOutcomeRecorded``). Without the ADR-074 request the
-    stored vector stays stale until an unrelated text edit or a manual backfill —
-    the outcome would be searchable semantically only by accident.
+    writes it past the generic update path, with its own provenance event
+    (``ChoiceOutcomeRecorded``). Without the ADR-074 request the stored vector stays
+    stale until an unrelated text edit or a manual backfill — the outcome would be
+    searchable semantically only by accident.
     """
 
     async def test_it_publishes_both_the_provenance_and_the_embedding_event(self) -> None:

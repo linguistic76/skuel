@@ -23,9 +23,10 @@ mirroring ``tasks_api`` / ``events_api`` — and ``completed_at``, the canonical
 completion stamp (completion-stamping arc, 2026-08-22; distinct from ``decided_at``,
 which marks the decision, not the closure). Decision-finalization and outcome columns
 (``selected_option_uid`` / ``decided_at`` / ``satisfaction_score`` / ``actual_outcome`` /
-``lessons_learned`` / ``metadata``) are deliberately absent — they flow through the
-``make_decision`` / ``evaluate_choice_outcome`` raw-write paths (each with its own
-provenance event), not this generic property-update path. ``decision_context`` IS here:
+``lessons_learned`` / ``metadata``) are deliberately absent — they flow through
+``make_decision`` / ``evaluate_choice_outcome`` (each planned from the choice under its
+lock, with its own provenance event), not this generic property-update path. So do the
+options, through the option writers. ``decision_context`` IS here:
 it is the circumstance the choice is made in, authored up front and editable at any
 time, unlike ``decision_rationale``, which ``make_decision`` writes once.
 

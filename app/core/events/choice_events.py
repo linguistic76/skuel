@@ -113,7 +113,10 @@ class ChoiceOutcomeRecorded(BaseEvent):
 
     choice_uid: str
     user_uid: UserUID
+    #: How the decision turned out, 0.0-1.0: the learner's satisfaction rescaled
+    #: (``core.models.choice.choice.outcome_quality``).
     outcome_quality: float
+    #: The lessons learned, one per line; ``None`` when none were given.
     lessons_learned: str | None
     metadata: dict[str, Any] | None = None
 

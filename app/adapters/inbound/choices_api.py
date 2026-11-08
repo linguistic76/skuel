@@ -20,6 +20,7 @@ is answered over HTMX with its detail view re-rendered):
     POST /api/choices/{uid}/options                      — Add an option to an undecided choice
     POST /api/choices/{uid}/options/{option_uid}/remove  — Remove an option from it
     POST /api/choices/{uid}/decide                       — Decide it: select one of its options, once
+    POST /api/choices/{uid}/outcome                      — Record how a decided choice turned out
 
 Knowledge intelligence:
     GET  /api/choices/knowledge-patterns — Detected learning patterns across user choices
@@ -51,7 +52,11 @@ from adapters.inbound.route_factories import (
     verify_entity_ownership,
 )
 from core.models.choice.choice import Choice
-from core.models.choice.choice_request import ChoiceDecisionRequest, ChoiceOptionRequest
+from core.models.choice.choice_request import (
+    ChoiceDecisionRequest,
+    ChoiceEvaluationRequest,
+    ChoiceOptionRequest,
+)
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.entity_requests import (
     AddHierarchyChildRequest,
@@ -196,7 +201,7 @@ def create_choices_api_routes(
         )
 
     # ================================================================
-    # OPTIONS AND THE DECISION — the choice page's three controls
+    # OPTIONS, THE DECISION AND ITS OUTCOME — the choice page's controls
     # ================================================================
 
     async def answer(request: Request, written: Result[Choice]) -> Result[Choice] | FtResponse:
@@ -275,6 +280,27 @@ def create_choices_api_routes(
                 decision_rationale=decision.decision_rationale,
                 confidence=decision.confidence,
             ),
+        )
+
+    @rt("/api/choices/{uid}/outcome", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def record_choice_outcome(request: Request, uid: str) -> Result[Choice] | FtResponse:
+        """Record how the caller's decided choice turned out (``ChoiceEvaluationRequest``).
+
+        Open or closed, a decided choice takes an outcome, and a later one replaces it.
+        Not owned or missing → 404. A choice not yet decided is refused (400) and keeps
+        what it had. Publishes ``ChoiceOutcomeRecorded``.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(choices_service, uid, user_uid, "choice")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, ChoiceEvaluationRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        return await answer(
+            request, await choices_service.evaluate_choice_outcome(uid, parsed.value)
         )
 
     # ================================================================
