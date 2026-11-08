@@ -1,7 +1,7 @@
 ---
 title: Activity Template Authoring
 created: 2026-09-06
-updated: 2026-10-16
+updated: 2026-11-08
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, curriculum, activity-templates, pathstep, engagement]
@@ -825,8 +825,11 @@ Everything you authored is copied through, except the fields spawning owns:
 | `created_at`, `updated_at` | the engagement moment — the instance's own lifecycle, not your file's authoring date (this is the day an undated task's creation rule reads) |
 | every `*_offset` | resolved to an absolute date against the engagement moment |
 | every `*_template_uid` | re-pointed at the sibling instance, as a property or an edge |
+| a choice's `status`, `decision_rationale` | not copied: it starts an undecided `draft` with no rationale, as one the learner creates does |
+| an event's `status` | not copied: it starts `scheduled`, as one the learner creates does (an event's `active` means under way) |
 
-`status`, `tags`, `description`, and every domain field you set ride through unchanged.
+Every other instance's `status`, and `tags`, `description` and every domain field you set,
+ride through unchanged.
 
 ---
 

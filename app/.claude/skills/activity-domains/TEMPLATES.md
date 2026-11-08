@@ -155,7 +155,9 @@ except what the spawn sets itself (identity, owner, engagement fields, stamps,
 `entity_type`, `visibility`, and the rewrite destinations) and the spec's
 `uncopied_fields`, which the instance takes from its own defaults. `CHOICE_SPEC` names
 `status` and `decision_rationale`: a spawned choice starts an undecided draft, as one the
-learner creates does, whatever its ACTIVE template says. `create_request` is not
+learner creates does, whatever its ACTIVE template says. `EVENT_SPEC` names `status`: a
+spawned event starts `scheduled`, as one the learner creates does (an event's `active`
+means under way). `create_request` is not
 constructed by the spawn: `copied_text_caps(template_type)` reads its `max_length` caps on
 the copied text fields, and the content-vault sync refuses a template over one (and an
 online event template with no `meeting_url`) — `validate_entity_data`, ADR-091 S8.
