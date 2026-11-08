@@ -7,10 +7,12 @@ Usage:
     from ui.activities.choices_views import ChoiceList, ChoiceStatsBar
 """
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     A,
+    Details,
     Div,
     Fieldset,
     Form,
@@ -20,11 +22,14 @@ from fasthtml.common import (
     P,
     Small,
     Span,
+    Summary,
     Ul,
 )
 from fasthtml.common import Button as HtmlButton
 
+from core.constants import SatisfactionScale
 from core.models.enums.choice_enums import ChoiceType
+from core.models.enums.entity_enums import EntityStatus
 from ui.activities._shared import (
     ActivityList,
     ConnectionRows,
@@ -45,6 +50,7 @@ from ui.components import (
     LabelSelect,
     LabelTextArea,
     Radio,
+    TextArea,
 )
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
@@ -111,27 +117,30 @@ def ChoiceCard(
     """Single choice card with type, deadline, decision status, and connections."""
     is_decided = choice.is_decided()
 
-    # An undecided choice can be closed from its card. A decided one shows the mark
-    # alone: its status is part of the decision, which no door changes.
-    toggle_btn: FT
-    if is_decided:
-        toggle_btn = Span(
-            Icon("check", size=16, cls="inline text-success"),
-            cls="inline-flex items-center justify-center h-8 w-8 shrink-0",
-            title="Decided",
-            aria_label="Decided",
-        )
+    # The card closes a choice and reopens it. Reopened, a choice with a decision
+    # recorded is active again (it never goes back to draft); one closed without a
+    # decision is a draft again, its options open.
+    reopen_status = EntityStatus.ACTIVE if choice.decided_at is not None else EntityStatus.DRAFT
+    toggle: tuple[str, EntityStatus, str]
+    if choice.status == EntityStatus.COMPLETED:
+        toggle = ("Reopen", reopen_status, "check")
+    elif is_decided:
+        toggle = ("Mark as completed", EntityStatus.COMPLETED, "check-circle")
     else:
-        toggle_btn = Button(
-            Icon("git-branch", size=16, cls="inline"),
-            hx_post=f"/api/choices/{choice.uid}/status",
-            hx_vals='{"status": "completed"}',
-            hx_target=f"#choice-{safe_id(choice.uid)}",
-            hx_swap="outerHTML",
-            cls=(ButtonT.default, "rounded-sm"),
-            size="sm",
-            title="Mark as completed",
-        )
+        toggle = ("Mark as completed", EntityStatus.COMPLETED, "git-branch")
+    toggle_title, toggle_status, toggle_icon = toggle
+    toggle_btn = Button(
+        Icon(toggle_icon, size=16, cls="inline text-success" if is_decided else "inline"),
+        hx_post=f"/api/choices/{choice.uid}/status",
+        hx_vals=json.dumps({"status": toggle_status.value}),
+        hx_target=f"#choice-{safe_id(choice.uid)}",
+        hx_swap="outerHTML",
+        cls=(ButtonT.default, "rounded-sm"),
+        size="sm",
+        title=toggle_title,
+        aria_label=toggle_title,
+        data_choice_status=toggle_status.value,
+    )
 
     # Title
     title_cls = "text-muted-foreground" if is_decided else ""
@@ -271,34 +280,8 @@ def ChoiceDetailView(
             cls="my-4",
         )
 
-    # Outcome section (only if decided)
-    outcome_section = Div()
-    if is_decided:
-        outcome_items: list[Any] = []
-        if choice.satisfaction_score and choice.satisfaction_score > 0:
-            filled = int(choice.satisfaction_score)
-            stars = "★" * filled + "☆" * (5 - filled)
-            outcome_items.append(
-                MetadataField(
-                    "Satisfaction",
-                    Span(stars, cls="text-warning text-xl"),
-                    Span(f" {choice.satisfaction_score}/5", cls="text-muted-foreground text-sm"),
-                )
-            )
-        if choice.actual_outcome:
-            outcome_items.append(MetadataField("Actual Outcome", P(choice.actual_outcome)))
-        if choice.lessons_learned:
-            lessons_list = Ul(
-                *[Li(lesson) for lesson in choice.lessons_learned],
-                cls="list-disc pl-6",
-            )
-            outcome_items.append(MetadataField("Lessons Learned", lessons_list))
-        if outcome_items:
-            outcome_section = Div(
-                section_label("Outcome"),
-                *outcome_items,
-                cls="my-4",
-            )
+    # Outcome section: on a decided choice, open or closed
+    outcome_section = OutcomeSection(choice) if is_decided else Div()
 
     # Timing
     timing_items: list[Any] = []
@@ -364,6 +347,16 @@ DECISION_CONFIDENCE_LEVELS: tuple[tuple[str, str], ...] = (
     ("0.9", "Very sure"),
 )
 DEFAULT_DECISION_CONFIDENCE = "0.5"
+
+
+#: The outcome form's satisfaction levels, lowest to highest (``SatisfactionScale``).
+SATISFACTION_LEVELS: tuple[tuple[int, str], ...] = (
+    (1, "Very dissatisfied"),
+    (2, "Dissatisfied"),
+    (3, "Neither"),
+    (4, "Satisfied"),
+    (5, "Very satisfied"),
+)
 
 
 def choice_detail_id(choice_uid: str) -> str:
@@ -557,4 +550,116 @@ def _AddOptionForm(choice: Choice, target: str) -> FT:
         hx_disabled_elt="find button[type=submit]",
         cls="mt-4",
         data_choice_add_option="1",
+    )
+
+
+def OutcomeSection(choice: Choice) -> FT:
+    """How a decided choice turned out: what the learner recorded, and the form that records it.
+
+    With no outcome yet, the form stands open under "How did it turn out?". Once one is
+    recorded it is shown, and the same form, filled in, updates it behind "Update the
+    outcome". Closing the choice is separate (its card): an outcome can come before or
+    after, or never. The form posts over HTMX and is answered with the whole detail view.
+    """
+    section_id = f"choice-outcome-{safe_id(choice.uid)}"
+    form = _OutcomeForm(choice)
+    recorded = choice.satisfaction_score is not None or bool(choice.actual_outcome)
+    if not recorded:
+        return Div(section_label("How did it turn out?"), form, cls="my-4", id=section_id)
+
+    items: list[FT] = []
+    if choice.satisfaction_score is not None:
+        filled = int(choice.satisfaction_score)
+        items.append(
+            MetadataField(
+                "Satisfaction",
+                Span(
+                    "★" * filled + "☆" * (SatisfactionScale.HIGHEST - filled),
+                    cls="text-warning text-xl",
+                    aria_hidden="true",
+                ),
+                Span(
+                    f" {filled}/{SatisfactionScale.HIGHEST}",
+                    cls="text-muted-foreground text-sm",
+                ),
+            )
+        )
+    if choice.actual_outcome:
+        items.append(MetadataField("What happened", P(choice.actual_outcome)))
+    if choice.lessons_learned:
+        items.append(
+            MetadataField(
+                "Lessons learned",
+                Ul(*[Li(lesson) for lesson in choice.lessons_learned], cls="list-disc pl-6"),
+            )
+        )
+    return Div(
+        section_label("Outcome"),
+        *items,
+        Details(
+            Summary(
+                "Update the outcome",
+                cls="text-sm font-medium cursor-pointer select-none hover:underline",
+            ),
+            Div(form, cls="mt-3"),
+            cls="mt-3",
+        ),
+        cls="my-4",
+        id=section_id,
+    )
+
+
+def _OutcomeForm(choice: Choice) -> FT:
+    """Satisfaction, what happened, and the lessons one per line, filled with what is
+    recorded. Posts ``/outcome``."""
+    form_id = safe_id(choice.uid)
+    current = choice.satisfaction_score
+    recorded = current is not None or bool(choice.actual_outcome)
+    return Form(
+        LabelSelect(
+            Option("Choose one", value="", disabled=True, selected=current is None),
+            *[
+                Option(f"{level}: {label}", value=str(level), selected=level == current)
+                for level, label in SATISFACTION_LEVELS
+            ],
+            label="How satisfied are you with how it turned out?",
+            name="satisfaction_score",
+            id=f"outcome-satisfaction-{form_id}",
+            required=True,
+        ),
+        Div(
+            Label("What happened?", fr=f"outcome-actual-{form_id}"),
+            TextArea(
+                choice.actual_outcome or "",
+                name="actual_outcome",
+                id=f"outcome-actual-{form_id}",
+                rows=3,
+                maxlength=1000,
+                required=True,
+            ),
+            cls="space-y-2 mt-4",
+        ),
+        Div(
+            Label("Lessons learned (optional, one per line)", fr=f"outcome-lessons-{form_id}"),
+            TextArea(
+                "\n".join(choice.lessons_learned),
+                name="lessons_learned",
+                id=f"outcome-lessons-{form_id}",
+                rows=3,
+            ),
+            cls="space-y-2 mt-4",
+        ),
+        Div(
+            Button(
+                "Update outcome" if recorded else "Record outcome",
+                type="submit",
+                cls=ButtonT.primary,
+            ),
+            cls="mt-4",
+        ),
+        hx_post=f"/api/choices/{choice.uid}/outcome",
+        hx_target=f"#{choice_detail_id(choice.uid)}",
+        hx_swap="outerHTML",
+        hx_disabled_elt="find button[type=submit]",
+        data_choice_outcome="1",
     )

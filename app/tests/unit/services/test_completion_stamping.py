@@ -61,7 +61,7 @@ from core.services.completion_stamp import (
     status_transition_guard,
 )
 from core.services.events.events_core_service import EventsCoreService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import ErrorCategory, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 from tests.helpers.status_guarded_backend import (
@@ -821,14 +821,21 @@ class TestEventsChokepoint:
 
 @pytest.mark.asyncio
 class TestChoicesChokepoint:
+    """``update_choice`` plans its write from the choice held under its lock: decision
+    immutability is asked of that choice, the completion stamp is the guard's."""
+
     def _service(
-        self, current_status: EntityStatus
+        self, current_status: EntityStatus, *, decided: bool = False
     ) -> tuple[ChoicesCoreService, Mock, StatusGuardedWriteRecorder[Choice]]:
         from core.services.choices.choices_core_service import ChoicesCoreService
 
-        # DRAFT current: decision immutability blocks critical-field changes on
-        # ACTIVE/COMPLETED choices, so the completable state is DRAFT.
-        current = Choice(uid="choice_1", user_uid=USER, title="c", status=current_status)
+        current = Choice(
+            uid="choice_1",
+            user_uid=USER,
+            title="c",
+            status=current_status,
+            decided_at=datetime(2026, 3, 1, 9, 0) if decided else None,
+        )
         updated = Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.COMPLETED)
         backend, recorder = guarded_backend(current, updated)
         return ChoicesCoreService(backend=backend), backend, recorder
@@ -847,14 +854,22 @@ class TestChoicesChokepoint:
         service, backend, _recorder = self._service(EntityStatus.DRAFT)
         result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="paused"))
         assert result.is_error
+        backend.rewrite_choice_under_lock.assert_not_awaited()
         backend.update_with_status_guard.assert_not_awaited()
+
+    async def test_an_empty_update_is_refused_before_the_write(self):
+        service, backend, _recorder = self._service(EntityStatus.DRAFT)
+        result = await service.update_choice("choice_1", ChoiceUpdateIntent())
+        assert result.is_error
+        assert result.expect_error().category is ErrorCategory.VALIDATION
+        backend.rewrite_choice_under_lock.assert_not_awaited()
 
     async def test_a_bare_stamp_on_an_undecided_choice_is_refused(self):
         """Choice is the door that makes this rule's SHAPE load-bearing:
         ``ChoiceUpdateRequest`` exposes ``completed_at`` and no status at all, so a rule
         demanding the status in the same patch would be unsatisfiable here rather than
-        strict. Demanding the PRIOR is satisfiable — decide and complete the choice,
-        then date it — which is what the message says."""
+        strict. Demanding the PRIOR is satisfiable — complete the choice, then date it —
+        which is what the message says."""
         service, _backend, recorder = self._service(EntityStatus.DRAFT)
         result = await service.update_choice(
             "choice_1", ChoiceUpdateIntent(completed_at=datetime(2026, 3, 4, 9, 0))
@@ -863,42 +878,101 @@ class TestChoicesChokepoint:
         assert recorder.last_guard.refuse_unless_prior_in == frozenset({"completed"})
         assert "Complete it first" in result.expect_error().message
 
-    async def test_immutability_outranks_the_stamp_gate_when_both_refuse(self):
-        """Both gates can be in force at once — a critical-field edit carrying a bare
-        stamp, over a prior that is both decided and not completed. The broader refusal
-        is the one voiced: this choice may not change at all, which is more than "that
-        one field needs another prior".
-
-        Driven through the same race the pre-read cannot see (``make_decision`` moves a
-        DRAFT choice to ACTIVE without passing here), because a decided prior the
-        pre-read CAN see is refused before the write.
-        """
-        service, backend, recorder = self._service(EntityStatus.ACTIVE)
-        backend.get = AsyncMock(
-            return_value=Result.ok(
-                Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.DRAFT)
-            )
+    async def test_the_bare_stamp_remedy_is_open_to_a_decided_choice(self):
+        """ "Complete it first" is a step a decided choice can take: once completed, its
+        completion date can be set alone."""
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED, decided=True)
+        result = await service.update_choice(
+            "choice_1", ChoiceUpdateIntent(completed_at=datetime(2026, 3, 4, 9, 0))
         )
+        assert result.is_ok, result
+        assert recorder.last_updates["completed_at"] == datetime(2026, 3, 4, 9, 0)
+
+    @pytest.mark.parametrize("prior", [EntityStatus.ACTIVE, EntityStatus.ARCHIVED])
+    async def test_a_decided_choice_is_completed_and_stamped(self, prior: EntityStatus):
+        service, _backend, recorder = self._service(prior, decided=True)
+        result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="completed"))
+        assert result.is_ok, result
+        assert recorder.last_updates["status"] == "completed"
+        assert isinstance(recorder.merged_patch()["completed_at"], datetime)
+
+    async def test_a_decided_choice_is_archived(self):
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE, decided=True)
+        result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="archived"))
+        assert result.is_ok, result
+        assert recorder.last_updates["status"] == "archived"
+
+    async def test_reopening_a_completed_decided_choice_clears_the_stamp(self):
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED, decided=True)
+        result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="active"))
+        assert result.is_ok, result
+        assert recorder.merged_patch()["completed_at"] is None
+
+    @pytest.mark.parametrize(
+        "prior", [EntityStatus.ACTIVE, EntityStatus.COMPLETED, EntityStatus.ARCHIVED]
+    )
+    async def test_a_decided_choice_never_goes_back_to_draft(self, prior: EntityStatus):
+        """Whatever its status, a choice with a decision recorded keeps it: an archived
+        decided choice reads as decided too, which a rule on the status alone missed."""
+        service, backend, recorder = self._service(prior, decided=True)
+        result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="draft"))
+        assert result.is_error
+        assert "cannot go back to draft" in result.expect_error().message
+        assert "Decisions are historical records" in result.expect_error().message
+        assert recorder.calls == [], "a refusal writes nothing"
+        backend.get.assert_not_awaited()
+
+    @pytest.mark.parametrize("prior", [EntityStatus.COMPLETED, EntityStatus.ACTIVE])
+    async def test_a_choice_closed_with_no_decision_reopens_as_a_draft(self, prior: EntityStatus):
+        """No decision is recorded, so draft is where it was: its options open again."""
+        service, _backend, recorder = self._service(prior)
+        result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="draft"))
+        assert result.is_ok, result
+        assert recorder.last_updates["status"] == "draft"
+
+    @pytest.mark.parametrize(
+        ("prior", "decided"),
+        [
+            (EntityStatus.ACTIVE, True),
+            (EntityStatus.COMPLETED, True),
+            (EntityStatus.ARCHIVED, True),
+            (EntityStatus.ACTIVE, False),
+        ],
+        ids=["active-decided", "completed-decided", "archived-decided", "active"],
+    )
+    async def test_the_type_of_a_decided_choice_is_frozen(self, prior: EntityStatus, decided: bool):
+        """Frozen with the options (``Choice.options_open``), and with the status beside it."""
+        service, _backend, recorder = self._service(prior, decided=decided)
+        result = await service.update_choice(
+            "choice_1", ChoiceUpdateIntent(choice_type="reversible", status="completed")
+        )
+        assert result.is_error
+        assert "Cannot change the type of a decided choice" in result.expect_error().message
+        assert recorder.calls == []
+
+    async def test_the_type_of_a_draft_still_changes(self):
+        service, _backend, recorder = self._service(EntityStatus.DRAFT)
+        result = await service.update_choice(
+            "choice_1", ChoiceUpdateIntent(choice_type="reversible")
+        )
+        assert result.is_ok, result
+        assert recorder.last_updates["choice_type"] == "reversible"
+
+    async def test_immutability_outranks_the_stamp_gate_when_both_refuse(self):
+        """A type edit carrying a bare stamp, on a decided choice that is not completed:
+        the plan refuses it before the write, so the broader refusal is the one voiced
+        and the stamp gate is never reached."""
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE, decided=True)
         result = await service.update_choice(
             "choice_1",
             ChoiceUpdateIntent(choice_type="reversible", completed_at=datetime(2026, 3, 4, 9, 0)),
         )
         assert result.is_error
-        assert recorder.last_guard.refuse_if_prior_in == frozenset({"active", "completed"})
-        assert recorder.last_guard.refuse_unless_prior_in == frozenset({"completed"})
         assert "Decisions are historical records" in result.expect_error().message
-
-    async def test_decision_immutability_still_fires_and_still_refuses(self):
-        """The pre-read half of the rule: dropping the explicit ``_validate_update``
-        call would kill it silently, because the facade routes the generic CRUD here."""
-        service, backend, _recorder = self._service(EntityStatus.ACTIVE)
-        result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="completed"))
-        assert result.is_error
-        assert "Decisions are historical records" in result.expect_error().message
-        backend.update_with_status_guard.assert_not_awaited()
+        assert recorder.calls == []
 
     async def test_a_non_critical_edit_of_a_decided_choice_still_writes(self):
-        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE, decided=True)
         result = await service.update_choice(
             "choice_1", ChoiceUpdateIntent(description="hindsight")
         )
@@ -908,21 +982,21 @@ class TestChoicesChokepoint:
         )
         assert recorder.last_updates["description"] == "hindsight"
 
-    async def test_the_write_refuses_a_choice_decided_after_the_read(self):
-        """The race the guard closes, and the reason the rule is asked twice.
-        ``make_decision`` moves a DRAFT choice to ACTIVE with a raw write that never
-        passes through this chokepoint — so the pre-read can say DRAFT while the write
-        finds a decided choice. The refusal comes from the LOCKED prior."""
-        service, backend, recorder = self._service(EntityStatus.ACTIVE)
+    async def test_the_rule_reads_the_locked_choice_not_an_earlier_read(self):
+        """The race the lock closes: ``make_decision`` writes past this method, so a read
+        taken before the write can show a draft the write finds decided. The rule is
+        asked of the locked choice, and no earlier read is taken."""
+        service, backend, recorder = self._service(EntityStatus.ACTIVE, decided=True)
         backend.get = AsyncMock(
             return_value=Result.ok(
                 Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.DRAFT)
             )
         )
-        result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="completed"))
+        result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="draft"))
         assert result.is_error
-        assert "Decisions are historical records" in result.expect_error().message
-        assert recorder.last_guard.refuse_if_prior_in == frozenset({"active", "completed"})
+        assert "cannot go back to draft" in result.expect_error().message
+        assert recorder.calls == []
+        backend.get.assert_not_awaited()
 
 
 @pytest.mark.asyncio

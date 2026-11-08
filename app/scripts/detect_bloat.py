@@ -388,13 +388,6 @@ _CHOICES_QUICK_METRICS = PlannedEntry(
     "quick-view or batch complexity filter consuming it",
     since=date(2026, 6, 11),
 )
-_CHOICES_OUTCOME = PlannedEntry(
-    Readiness.READY,
-    "outcome-evaluation write path staged — ADR-066 designates it THE writer of "
-    "satisfaction_score/actual_outcome/lessons_learned (rendered on the detail page; "
-    "ChoiceOutcomeRecorded handler is live-subscribed); wire an evaluate route/form",
-    since=date(2026, 6, 11),
-)
 # Goals dead-code campaign (2026-06): staged goal capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
 _GOALS_GRAVITY = PlannedEntry(
@@ -977,8 +970,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/choices/_analytics_mixin.py::batch_analyze_decision_complexity": (
         _CHOICES_QUICK_METRICS
     ),
-    # --- Choices: outcome evaluation write path ---
-    "core/services/choices/choices_core_service.py::evaluate_choice_outcome": _CHOICES_OUTCOME,
     # --- Goals: gravity links (inlined from _relationship_mixin into facade) ---
     "core/services/goals_service.py::create_semantic_goal_relationship": _GOALS_GRAVITY,
     "core/services/goals_service.py::unlink_goal_from_habit": _GOALS_GRAVITY,

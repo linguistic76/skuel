@@ -29,7 +29,7 @@ from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.task.task import Task
-from core.services.choices.choices_core_service import ChoicesCoreService
+from core.services.principles._embodiment_mixin import _EmbodimentMixin
 from core.services.tasks.task_relationships import TaskRelationships
 from tests.helpers.run_clock import RUN_TODAY
 from tests.helpers.seed_uids import seed_user_uid
@@ -292,8 +292,11 @@ async def test_neither_path_touches_a_dto(world: World, calls: str) -> None:
 
 
 async def test_the_read_modify_write_the_page_names_uses_a_dto() -> None:
-    source = inspect.getsource(ChoicesCoreService.evaluate_choice_outcome)
-    assert "existing.to_dto()" in source
+    assert "`PrinciplesService.create_principle_expression` (`_EmbodimentMixin`)" in _section(
+        "Where DTOs live"
+    ).replace("\n", " ")
+    source = inspect.getsource(_EmbodimentMixin.create_principle_expression)
+    assert "principle_data.to_dto()" in source
     assert "dto.to_dict()" in source
 
 

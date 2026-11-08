@@ -1217,6 +1217,20 @@ class DecisionComplexity:
     GATHER_MORE_INFO: Final = 0.6
 
 
+class SatisfactionScale:
+    """
+    The scale a learner rates how a decided choice turned out on
+    (``Choice.satisfaction_score``): whole numbers, lowest to highest.
+
+    Used by: ``ChoiceEvaluationRequest`` (its bounds), the choice page's outcome form
+    (one level per option), and ``core.models.choice.choice.outcome_quality``, which
+    rescales a rating onto 0.0-1.0.
+    """
+
+    LOWEST: Final = 1
+    HIGHEST: Final = 5
+
+
 class DualTrackCheckin:
     """
     Constants for dual-track perception-gap check-in persistence (ADR-030).

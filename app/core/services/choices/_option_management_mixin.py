@@ -2,7 +2,7 @@
 Option Management Mixin — ChoicesService
 ==========================================
 
-Option CRUD and decision-making operations.
+Option CRUD, the decision, and its outcome.
 
 Part of choices_service.py decomposition (April 2026).
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
@@ -16,12 +16,12 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
-    from core.models.choice.choice_request import ChoiceOptionRequest
+    from core.models.choice.choice_request import ChoiceEvaluationRequest, ChoiceOptionRequest
 
 
 class _OptionManagementMixin:
     """
-    Option CRUD and decision-making for ChoicesService.
+    Option CRUD, the decision and its outcome for ChoicesService.
 
     Declares class-level attributes used by these methods so mypy
     resolves them without runtime cost.
@@ -89,3 +89,9 @@ class _OptionManagementMixin:
             decision_rationale=decision_rationale,
             confidence=confidence,
         )
+
+    async def evaluate_choice_outcome(
+        self, choice_uid: str, evaluation: ChoiceEvaluationRequest
+    ) -> Result[Choice]:
+        """Record how a decided choice turned out; a later outcome replaces it."""
+        return await self.core.evaluate_choice_outcome(choice_uid=choice_uid, evaluation=evaluation)

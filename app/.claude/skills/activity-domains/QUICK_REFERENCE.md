@@ -72,6 +72,8 @@ chrome. There is no hub page; `/today` is the landing.
 ### Choices
 - `options: tuple[ChoiceOption, ...]` on the model (`list[ChoiceOptionRequest]` on the request, default empty; a supplied set holds at least 2); the create form omits them, and the detail page adds and removes them (`POST /api/choices/{uid}/options`, `.../options/{option_uid}/remove`)
 - `ChoicesService.make_decision()` (via `_OptionManagementMixin`) records the selected option once, one of the choice's own; the detail page's decide form posts `POST /api/choices/{uid}/decide`. A decided choice is done for its PathStep engagement
+- A decided choice closes and reopens from its list card (the status door) but never goes back to `draft`, and its type stays frozen with its options (`update_choice`, asked of the locked choice). `evaluate_choice_outcome()` records how a decided choice turned out (satisfaction 1-5, what happened, lessons), open or closed, from the detail page's form (`POST /api/choices/{uid}/outcome`); a later one replaces it
+- A PathStep-spawned choice starts an undecided `draft` without the template's rationale (`CHOICE_SPEC.uncopied_fields`)
 
 ### Principles
 - Reflection is event-driven: `POST /api/principles/reflection` → `record_principle_reflection()` publishes `PrincipleReflectionRecorded` (no graph node)

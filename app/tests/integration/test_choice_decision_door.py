@@ -219,10 +219,11 @@ async def test_choice_made_reaches_the_decision_pattern_handler(env: Env) -> Non
 async def test_deciding_a_spawned_choice_completes_its_engagement(env: Env) -> None:
     """A PathStep whose one activity is a choice: the decision closes the engagement.
 
-    The choice is spawned by a real engagement from a template carrying options, as the
-    content vault's choice templates do. It is born ACTIVE (the spawn copies the
-    template's status) and undecided, so the decision reads ``decided_at``, not the
-    status; the engagement counts a decided choice as done.
+    The choice is spawned by a real engagement from a template carrying options and a
+    rationale, as the content vault's choice templates can. It starts an undecided draft
+    without the template's rationale, as a choice the learner creates does, so its
+    options are open: it takes one more before the decision. The engagement counts a
+    decided choice as done.
     """
     ps_uid, template_uid = f"ps.{MARK}-step", f"ct.{MARK}-when"
     backends = build_production_backends(env.driver)
@@ -231,6 +232,7 @@ async def test_deciding_a_spawned_choice_completes_its_engagement(env: Env) -> N
         uid=template_uid,
         title=f"{MARK} when will you practise",
         status=EntityStatus.ACTIVE,  # an engagement spawns only ACTIVE templates
+        decision_rationale="the template's reasoning",
         options=(
             ChoiceOption(uid="opt.morning", title="First thing"),
             ChoiceOption(uid="opt.evening", title="Before bed"),
@@ -256,10 +258,17 @@ async def test_deciding_a_spawned_choice_completes_its_engagement(env: Env) -> N
         "opt.evening",
     ]
     assert await _engagement_state(env, ps_uid) == "engaged"
-    assert (await _node(env, spawned))["status"] == "active"
+    node = await _node(env, spawned)
+    assert node["status"] == "draft"
+    assert "decision_rationale" not in node, "the template's rationale is not the learner's"
+
+    added = await env.client.post(f"/api/choices/{spawned}/options", json={"title": "At lunch"})
+    assert added.status_code == 200, added.text
+    lunch = _option_uid(await _stored_options(env, spawned), "At lunch")
+    assert await _engagement_state(env, ps_uid) == "engaged", "an added option decides nothing"
 
     decided = await env.client.post(
-        f"/api/choices/{spawned}/decide", json={"selected_option_uid": "opt.evening"}
+        f"/api/choices/{spawned}/decide", json={"selected_option_uid": lunch}
     )
 
     assert decided.status_code == 200, decided.text

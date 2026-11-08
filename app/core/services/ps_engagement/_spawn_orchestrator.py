@@ -27,6 +27,9 @@ Each spec carries:
   copy, and the content-vault sync refuses a template over one
   (``copied_text_caps``), so a spawned instance holds only text its own create
   door would accept.
+- ``uncopied_fields`` — template fields the instance does not take: it starts
+  with its own default instead, as a user's own create would make it (Choice: an
+  undecided draft, with no rationale before a decision).
 - ``creation_rule`` — the domain's own creation invariant, applied to the built
   instance before it is persisted. This door writes through the backend, not
   the domain service, so a rule the service create path enforces must be named
@@ -250,6 +253,7 @@ class DomainSpawnSpec(Generic[InstanceT]):
     offset_rewrites: tuple[tuple[str, str, OffsetKind], ...] = ()
     field_rewrites: dict[str, str] = field(default_factory=dict)
     cross_edges: tuple[tuple[str, RelationshipName], ...] = ()
+    uncopied_fields: frozenset[str] = frozenset()
     creation_rule: Callable[[InstanceT], InstanceT] | None = None
 
     def copied_fields(self) -> frozenset[str]:
@@ -258,10 +262,12 @@ class DomainSpawnSpec(Generic[InstanceT]):
         Every field the template and the instance share, except the ones the
         spawn sets itself: the identity and owner, the engagement fields, the
         lifecycle stamps, ``entity_type`` and ``visibility`` (see
-        ``_build_instance`` for why each is set rather than copied), and the
-        destinations of the offset and reference rewrites.
+        ``_build_instance`` for why each is set rather than copied), the
+        destinations of the offset and reference rewrites, and the spec's
+        ``uncopied_fields``, which the instance takes from its own defaults.
         """
         managed = {
+            *self.uncopied_fields,
             "uid",
             "user_uid",
             "engagement_state",
@@ -286,6 +292,10 @@ CHOICE_SPEC = DomainSpawnSpec(
     collection_attr="choices",
     uid_prefix="choice",
     offset_rewrites=(("decision_deadline_offset", "decision_deadline", "datetime"),),
+    # A spawned choice is the learner's to decide: it starts an undecided draft, as
+    # one they create does, whatever the template's status, and with no rationale
+    # until they record their own decision.
+    uncopied_fields=frozenset({"status", "decision_rationale"}),
 )
 HABIT_SPEC = DomainSpawnSpec(
     instance_cls=Habit,

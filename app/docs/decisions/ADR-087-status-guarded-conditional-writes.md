@@ -258,6 +258,15 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
     moves a choice back out of a decided status, while the direction that matters is
     real: `make_decision` moves a DRAFT choice to ACTIVE with a raw write that never
     passes through the chokepoint.
+
+    **Amended 2026-11-09 — the rule moved under the lock whole.** Once a decided choice
+    may be closed and reopened (ruled 2026-11-08), the rule is "a choice with a decision
+    recorded keeps its type and never goes back to draft". That reads `decided_at`, and a
+    prior-status set cannot: an archived decided choice and an archived undecided one share
+    a status. `update_choice` now plans its write from the choice under its lock
+    (`ChoicesBackend.rewrite_choice_under_lock`, over `_recompute_with_status_guard`), asks
+    the rule of that choice, and takes no pre-read; the bare-stamp gate stays a guard
+    condition, reported as `applied=False`.
 - **Moving a chokepoint backend-direct takes `_validate_update` off the path.** The
   facades route the generic CRUD to these methods, so the inherited
   `CrudOperationsMixin.update` hook is the *only* thing that was running the domain rules
@@ -302,7 +311,8 @@ Deliberately **out**, by name:
   cannot express. They were routed through the *primitive* instead (PR-4), which is the
   narrower change: they gain the write-time stamp guarantee without inheriting a
   chokepoint's validation and events. `make_decision` remains the concurrent writer that
-  makes Choices' decision-immutability refuse-set load-bearing.
+  makes Choices' decision immutability a question for the locked choice (amended
+  2026-11-09, above).
 - **ADR-030's check-in store** stays exactly as it is.
 
 ## Alternatives rejected
