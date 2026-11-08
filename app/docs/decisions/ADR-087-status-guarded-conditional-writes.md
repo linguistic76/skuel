@@ -155,8 +155,9 @@ explicit transaction: the lock-first `SET` of the same `_sg_lock` sentinel, the 
 state read, and then, after a pure Python planner turns both into `(updates, guard)`, the
 statement above, which removes the sentinel. A planner that declines rolls the transaction
 back. The callers are `GoalsBackend.recompute_progress_from_contributions` and
-`…_from_linked_habits`, and `ChoicesBackend.rewrite_choice_under_lock` (a choice's options and
-decision, whose planner reads the locked node alone and runs no state read); the guard is evaluated
+`…_from_linked_habits`, and `rewrite_under_lock` on every backend (`CrudOperations`), whose
+planner reads the locked node alone and runs no state read: a choice's options and decision, a
+principle's expressions and reflection history, an Askesis conversation count; the guard is evaluated
 exactly as above. Only the moment the patch is
 decided moves, to under the lock (goal-link arc PR 1b).
 
@@ -264,7 +265,7 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
     recorded keeps its type and never goes back to draft". That reads `decided_at`, and a
     prior-status set cannot: an archived decided choice and an archived undecided one share
     a status. `update_choice` now plans its write from the choice under its lock
-    (`ChoicesBackend.rewrite_choice_under_lock`, over `_recompute_with_status_guard`), asks
+    (`rewrite_under_lock`, over `_recompute_with_status_guard`), asks
     the rule of that choice, and takes no pre-read; the bare-stamp gate stays a guard
     condition, reported as `applied=False`.
 - **Moving a chokepoint backend-direct takes `_validate_update` off the path.** The

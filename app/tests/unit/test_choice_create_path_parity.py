@@ -628,7 +628,7 @@ class StubOutcomeBackend:
     def __init__(self, choice: Choice) -> None:
         self.props: dict[str, Any] = dict(to_neo4j_node(choice))
 
-    async def rewrite_choice_under_lock[P: GuardedWritePlan](
+    async def rewrite_under_lock[P: GuardedWritePlan](
         self, uid: str, plan: Callable[[Choice], P | None]
     ) -> Result[GuardedRecompute[Choice, P] | None]:
         held = from_neo4j_node(self.props, Choice)

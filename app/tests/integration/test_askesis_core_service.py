@@ -12,9 +12,11 @@ Test Coverage:
 - update_askesis(): Update settings
 - delete_askesis(): Delete instance
 - list_user_instances(): List user instances
-- record_conversation(): Increment metrics
+- record_conversation(): Increment metrics; concurrent records are all counted
+- update_askesis() racing record_conversation(): neither undoes the other
 """
 
+import asyncio
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -236,6 +238,52 @@ async def test_record_conversation(core_service, test_user_uid):
     updated = result.value
     assert updated.total_conversations == initial_count + 1
     assert updated.last_interaction is not None
+
+
+@pytest.mark.asyncio
+async def test_conversations_recorded_at_once_are_all_counted(core_service, test_user_uid):
+    created = await core_service.get_or_create_for_user(test_user_uid)
+    assert created.is_ok
+    askesis_uid = created.value.uid
+
+    results = await asyncio.gather(
+        *[core_service.record_conversation(askesis_uid) for _ in range(4)]
+    )
+
+    assert all(result.is_ok for result in results)
+    stored = await core_service.get_askesis(askesis_uid)
+    assert stored.is_ok
+    assert stored.value.total_conversations == created.value.total_conversations + 4
+
+
+@pytest.mark.asyncio
+async def test_a_settings_update_racing_a_conversation_keeps_both(core_service, test_user_uid):
+    created = await core_service.get_or_create_for_user(test_user_uid)
+    assert created.is_ok
+    askesis_uid = created.value.uid
+
+    for round_ in range(4):
+        before = (await core_service.get_askesis(askesis_uid)).value.total_conversations
+        updated, recorded = await asyncio.gather(
+            core_service.update_askesis(
+                askesis_uid, AskesisUpdateRequest(name=f"Renamed {round_}")
+            ),
+            core_service.record_conversation(askesis_uid),
+        )
+
+        assert updated.is_ok and recorded.is_ok
+        stored = (await core_service.get_askesis(askesis_uid)).value
+        assert stored.name == f"Renamed {round_}"
+        assert stored.total_conversations == before + 1, round_
+
+
+@pytest.mark.asyncio
+async def test_updating_a_missing_instance_is_not_found(core_service):
+    result = await core_service.update_askesis(
+        "askesis_0000000000000000", AskesisUpdateRequest(name="Nobody")
+    )
+    assert result.is_error
+    assert "not found" in result.expect_error().message.lower()
 
 
 @pytest.mark.asyncio

@@ -13,7 +13,9 @@ Responsibilities:
 Part of the PrinciplesService decomposition.
 """
 
+from collections.abc import Callable
 from datetime import date, datetime
+from typing import Any
 
 from core.events import publish_event
 from core.events.embedding_publisher import publish_embedding_requested
@@ -25,6 +27,7 @@ from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.principle.principle_types import PrincipleExpression
 from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.models.type_hints import UserUID
+from core.models.update_contracts import PlannedWrite
 from core.ports.domain_protocols import PrinciplesOperations
 from core.ports.query_types import PrincipleStats
 from core.services.base_service import BaseService
@@ -440,6 +443,71 @@ class PrinciplesCoreService(
 
         logger.info(f"Updated principle: {principle_uid}")
         return Result.ok(updated_principle)
+
+    async def rewrite_principle(
+        self,
+        principle_uid: str,
+        # boundary: pre-serialization patch — a list field (``expressions``,
+        # ``alignment_history``) is JSON-encoded at the write (``to_neo4j_node``).
+        plan: Callable[[Principle], dict[str, Any]],
+    ) -> Result[Principle]:
+        """Write a patch derived from the principle as it stands, under its lock.
+
+        The door for a field whose new value is its current one plus something (an
+        expression appended, a reflection added to the alignment history): ``plan``
+        reads the locked principle and answers the fields to write, and only those are
+        written. Two such writes of one principle serialize, so neither loses the
+        other's item, and a status changed meanwhile is never written back. Announces
+        the write as ``update_principle`` does (``PrincipleUpdated``, and an embedding
+        refresh when a text field changed).
+
+        Backend: ``rewrite_under_lock``.
+
+        Returns:
+            The principle as written; not found when no principle has this uid.
+        """
+        refused: list[Result[None]] = []
+
+        def planned(principle: Principle) -> PlannedWrite | None:
+            updates = plan(principle)
+            legality = validate_status_target(EntityType.PRINCIPLE, updates)
+            if legality.is_error:
+                refused.append(legality)
+                return None
+            return PlannedWrite(updates=dict(updates))
+
+        result = await self.backend.rewrite_under_lock(principle_uid, planned)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is None:
+            if refused:
+                return Result.fail(refused[0])
+            return Result.fail(
+                Errors.system(message=f"The rewrite of principle {principle_uid} wrote nothing.")
+            )
+        written = result.value
+        principle = written.outcome.entity
+        updated_fields = dict(written.plan.updates)
+
+        from core.events import PrincipleUpdated
+
+        await publish_event(
+            self.event_bus,
+            PrincipleUpdated(
+                principle_uid=principle_uid,
+                user_uid=principle.user_uid,
+                updated_fields=updated_fields,
+            ),
+            logger,
+        )
+        await publish_embedding_requested(
+            self.event_bus,
+            EntityType.PRINCIPLE,
+            principle,
+            logger,
+            changed_fields=updated_fields,
+        )
+        return Result.ok(principle)
 
     @with_error_handling("get_user_principles", error_type="database", uid_param="user_uid")
     async def get_user_principles(self, user_uid: UserUID) -> Result[list[Principle]]:

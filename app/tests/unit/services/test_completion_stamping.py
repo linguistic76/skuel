@@ -854,7 +854,7 @@ class TestChoicesChokepoint:
         service, backend, _recorder = self._service(EntityStatus.DRAFT)
         result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="paused"))
         assert result.is_error
-        backend.rewrite_choice_under_lock.assert_not_awaited()
+        backend.rewrite_under_lock.assert_not_awaited()
         backend.update_with_status_guard.assert_not_awaited()
 
     async def test_an_empty_update_is_refused_before_the_write(self):
@@ -862,7 +862,7 @@ class TestChoicesChokepoint:
         result = await service.update_choice("choice_1", ChoiceUpdateIntent())
         assert result.is_error
         assert result.expect_error().category is ErrorCategory.VALIDATION
-        backend.rewrite_choice_under_lock.assert_not_awaited()
+        backend.rewrite_under_lock.assert_not_awaited()
 
     async def test_a_bare_stamp_on_an_undecided_choice_is_refused(self):
         """Choice is the door that makes this rule's SHAPE load-bearing:

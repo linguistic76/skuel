@@ -47,7 +47,7 @@ from core.models.type_hints import EntityUID, Neo4jProperties, Neo4jValue, UserU
 if TYPE_CHECKING:
     import builtins
     import logging
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from datetime import date, datetime
 
     from core.models.enums import Priority, SearchVisibility
@@ -57,7 +57,12 @@ if TYPE_CHECKING:
     from core.models.relationship_filters import RelationshipFilters
     from core.models.relationship_names import RelationshipName
     from core.models.type_hints import FilterParams
-    from core.models.update_contracts import StatusGuardedOutcome, StatusWriteGuard
+    from core.models.update_contracts import (
+        GuardedRecompute,
+        GuardedWritePlan,
+        StatusGuardedOutcome,
+        StatusWriteGuard,
+    )
     from core.ports.query_types import (
         PrerequisiteChainRow,
         RelationshipRow,
@@ -537,6 +542,22 @@ class CrudOperations[T: "DomainModelProtocol"](Protocol):
         ``applied=False`` and an untouched node; not-found is the error.
 
         Backend: ``_CrudMixin.update_with_status_guard`` — carried by every
+        ``UniversalNeo4jBackend``.
+        """
+        ...
+
+    async def rewrite_under_lock[P: GuardedWritePlan](
+        self, uid: str, plan: Callable[[T], P | None]
+    ) -> ResultType[GuardedRecompute[T, P] | None]:
+        """Rewrite an entity from the entity as it stands under its lock.
+
+        For a field on the node whose new value is derived from its current one: lock,
+        read, ``plan`` and the guarded write run in one transaction, so two rewrites of
+        one entity (two items appended at once, an append racing a status change)
+        serialize, and the write carries only the fields ``plan`` names.
+        ``Result.ok(None)`` when ``plan`` declines to write; not-found is the error.
+
+        Backend: ``_CrudMixin.rewrite_under_lock`` — carried by every
         ``UniversalNeo4jBackend``.
         """
         ...

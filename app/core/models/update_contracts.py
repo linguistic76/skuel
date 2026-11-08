@@ -29,6 +29,7 @@ And two for a write whose patch is itself a function of graph state (a recompute
 - ``GuardedWritePlan`` — the patch and guard a planner derived from state it read under
   the node's lock.
 - ``GuardedRecompute`` — that plan beside the outcome of writing it.
+- ``PlannedWrite`` — the plain plan: a patch and a guard, nothing carried beside them.
 
 See: ADR-066 (Typed Update Intents); ``docs/roadmap/done/update-intents.md`` (Phase 7a);
 ADR-087 (Status-Guarded Conditional Writes).
@@ -36,7 +37,7 @@ ADR-087 (Status-Guarded Conditional Writes).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -176,6 +177,22 @@ class GuardedWritePlan(Protocol):
 
 
 @dataclass(frozen=True)
+class PlannedWrite:
+    """A ``GuardedWritePlan`` that carries nothing beside its write.
+
+    The plan a locked rewrite (``CrudOperations.rewrite_under_lock``) returns when its
+    caller needs only the outcome: a patch derived from the entity as locked, and the
+    guard to evaluate. A patch that names no status takes the default guard, which
+    makes the write exactly ``update`` under the lock.
+    """
+
+    # boundary: pre-serialization patch — a list field (a choice's options, a
+    # principle's expressions) is JSON-encoded at the write (``to_neo4j_node``).
+    updates: dict[str, Any]
+    guard: StatusWriteGuard = field(default_factory=StatusWriteGuard)
+
+
+@dataclass(frozen=True)
 class GuardedRecompute[T, P]:
     """A recompute's plan and the outcome of writing it, both decided under one lock.
 
@@ -192,6 +209,7 @@ class GuardedRecompute[T, P]:
 __all__ = [
     "GuardedRecompute",
     "GuardedWritePlan",
+    "PlannedWrite",
     "RawChanges",
     "StatusGuardedOutcome",
     "StatusWriteGuard",

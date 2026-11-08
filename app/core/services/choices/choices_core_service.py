@@ -7,7 +7,6 @@ Handles basic CRUD operations for choices.
 
 from __future__ import annotations
 
-import dataclasses
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -30,7 +29,7 @@ from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
-from core.models.update_contracts import StatusGuardedOutcome, StatusWriteGuard
+from core.models.update_contracts import PlannedWrite, StatusGuardedOutcome
 from core.ports.query_types import ChoiceStats
 from core.services.base_service import BaseService
 from core.services.completion_stamp import status_transition_guard, stranded_stamp_error
@@ -104,23 +103,13 @@ def _decision_edit_refusal(
     return None
 
 
-@dataclasses.dataclass(frozen=True)
-class _ChoiceRewrite:
-    """A choice write planned from the choice under its lock (``GuardedWritePlan``)."""
-
-    # boundary: pre-serialization patch — ``options`` is a list of ``ChoiceOption``
-    # dataclasses, JSON-encoded at the write (``to_neo4j_node``) as the create door's are.
-    updates: dict[str, Any]
-    guard: StatusWriteGuard
-
-
-def _options_rewrite(options: list[ChoiceOption]) -> _ChoiceRewrite:
+def _options_rewrite(options: list[ChoiceOption]) -> PlannedWrite:
     """The write of a choice's whole option list, and nothing else.
 
     It names no status, so no status rule applies to it: the option rules are asked of
     the locked choice by the planner.
     """
-    return _ChoiceRewrite(updates={"options": options}, guard=StatusWriteGuard())
+    return PlannedWrite(updates={"options": options})
 
 
 def _options_frozen_error(choice: Choice, action: str) -> ErrorContext | None:
@@ -557,11 +546,11 @@ class ChoicesCoreService(
         if not changes and not guard.has_patches():
             return Result.fail(Errors.validation("No updates provided", field="updates"))
 
-        def plan(choice: Choice) -> Result[_ChoiceRewrite]:
+        def plan(choice: Choice) -> Result[PlannedWrite]:
             validation = self._validate_update(choice, intent)
             if validation.is_error:
                 return Result.fail(validation)
-            return Result.ok(_ChoiceRewrite(updates=dict(changes), guard=guard))
+            return Result.ok(PlannedWrite(updates=dict(changes), guard=guard))
 
         rewrite = await self._rewrite_choice(choice_uid, plan)
         if rewrite.is_error:
@@ -660,7 +649,7 @@ class ChoicesCoreService(
             "lessons_learned": list(evaluation.lessons_learned),
         }
 
-        def record(choice: Choice) -> Result[_ChoiceRewrite]:
+        def record(choice: Choice) -> Result[PlannedWrite]:
             if not choice.is_decided():
                 return Result.fail(
                     Errors.validation(
@@ -669,7 +658,7 @@ class ChoicesCoreService(
                         value=get_enum_value(choice.status),
                     )
                 )
-            return Result.ok(_ChoiceRewrite(updates=dict(updates), guard=StatusWriteGuard()))
+            return Result.ok(PlannedWrite(updates=dict(updates)))
 
         rewrite = await self._rewrite_choice(choice_uid, record)
         if rewrite.is_error:
@@ -706,7 +695,7 @@ class ChoicesCoreService(
         (decisions are historical records: a new choice reconsiders), when it holds
         fewer than two options, or when ``selected_option_uid`` is not one of them.
         Each refusal is decided from the choice as it stands under its lock
-        (``rewrite_choice_under_lock``), so an option removed or a decision recorded a
+        (``rewrite_under_lock``), so an option removed or a decision recorded a
         moment earlier cannot slip past it.
 
         The write sets ``selected_option_uid``, ``decision_rationale`` and
@@ -743,7 +732,7 @@ class ChoicesCoreService(
             return Result.fail(guard_result)
         guard = guard_result.value
 
-        def decide(choice: Choice) -> Result[_ChoiceRewrite]:
+        def decide(choice: Choice) -> Result[PlannedWrite]:
             if choice.is_decided():
                 return Result.fail(
                     Errors.validation(
@@ -769,7 +758,7 @@ class ChoicesCoreService(
                         value=selected_option_uid,
                     )
                 )
-            return Result.ok(_ChoiceRewrite(updates=dict(updates), guard=guard))
+            return Result.ok(PlannedWrite(updates=dict(updates), guard=guard))
 
         rewrite = await self._rewrite_choice(choice_uid, decide)
         if rewrite.is_error:
@@ -790,7 +779,7 @@ class ChoicesCoreService(
     async def _rewrite_choice(
         self,
         choice_uid: str,
-        decide: Callable[[Choice], Result[_ChoiceRewrite]],
+        decide: Callable[[Choice], Result[PlannedWrite]],
     ) -> Result[StatusGuardedOutcome[Choice]]:
         """Plan one rewrite from the choice under its lock and write it; the write's outcome.
 
@@ -799,16 +788,16 @@ class ChoicesCoreService(
         is the backend's not found. The outcome is ``applied`` unless the planned guard
         carries a refuse condition the prior met (only ``update_choice``'s can).
         """
-        refusals: list[Result[_ChoiceRewrite]] = []
+        refusals: list[Result[PlannedWrite]] = []
 
-        def plan(choice: Choice) -> _ChoiceRewrite | None:
+        def plan(choice: Choice) -> PlannedWrite | None:
             decided = decide(choice)
             if decided.is_error:
                 refusals.append(decided)
                 return None
             return decided.value
 
-        result = await self.backend.rewrite_choice_under_lock(choice_uid, plan)
+        result = await self.backend.rewrite_under_lock(choice_uid, plan)
         if result.is_error:
             return Result.fail(result)
         if result.value is None:
@@ -913,7 +902,7 @@ class ChoicesCoreService(
         """
         new_option = ConversionServiceV2.choice_option_from_request(option)
 
-        def append(choice: Choice) -> Result[_ChoiceRewrite]:
+        def append(choice: Choice) -> Result[PlannedWrite]:
             frozen = _options_frozen_error(choice, "add options to")
             if frozen is not None:
                 return Result.fail(frozen)
@@ -1004,7 +993,7 @@ class ChoicesCoreService(
                 tags=tuple(tags) if tags is not None else opt.tags,
             )
 
-        def replace(choice: Choice) -> Result[_ChoiceRewrite]:
+        def replace(choice: Choice) -> Result[PlannedWrite]:
             frozen = _options_frozen_error(choice, "update options in")
             if frozen is not None:
                 return Result.fail(frozen)
@@ -1053,7 +1042,7 @@ class ChoicesCoreService(
             Result containing updated Choice
         """
 
-        def drop(choice: Choice) -> Result[_ChoiceRewrite]:
+        def drop(choice: Choice) -> Result[PlannedWrite]:
             frozen = _options_frozen_error(choice, "remove options from")
             if frozen is not None:
                 return Result.fail(frozen)

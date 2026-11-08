@@ -8,16 +8,17 @@ Handles basic CRUD operations for Askesis AI assistant instances.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.askesis.askesis_converters import (
-    apply_askesis_update_to_dto,
     askesis_create_request_to_dto,
+    askesis_update_changes,
     askesis_update_request_to_dto,
     create_askesis_dto_from_create_dto,
 )
 from core.models.askesis.askesis_dto import AskesisDTO
 from core.models.type_hints import UserUID
+from core.models.update_contracts import PlannedWrite
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -32,30 +33,6 @@ if TYPE_CHECKING:
 
 
 logger = get_logger("skuel.services.askesis.core")
-
-
-def _dto_to_dict_filtered(dto: AskesisDTO) -> dict[str, Any]:
-    """
-    Convert DTO to dict, filtering out empty collections for Neo4j.
-
-    Neo4j can't handle empty dicts/maps, so we filter them out.
-    """
-    from dataclasses import asdict
-
-    data = asdict(dto)
-
-    # Filter out empty collections (Neo4j doesn't like them)
-    filtered = {}
-    for key, value in data.items():
-        if isinstance(value, dict) and not value:
-            # Skip empty dicts
-            continue
-        if isinstance(value, list | tuple) and not value:
-            # Skip empty lists/tuples
-            continue
-        filtered[key] = value
-
-    return filtered
 
 
 class AskesisCoreService:
@@ -224,25 +201,12 @@ class AskesisCoreService:
         Returns:
             Result containing updated Askesis
         """
-        # Get existing instance
-        existing_result = await self.get_askesis(askesis_uid)
-        if existing_result.is_error:
-            return existing_result
+        # A partial patch of the fields the request sets, so a concurrent write of any
+        # other field (``record_conversation``'s count) is never written back.
+        changes = askesis_update_changes(askesis_update_request_to_dto(update_request, askesis_uid))
+        changes["last_interaction"] = datetime.now()
 
-        existing = existing_result.value
-
-        # Three-tier patch chain: Request -> UpdateDTO -> apply -> AskesisDTO.
-        # ``apply_askesis_update_to_dto`` only overwrites fields the
-        # UpdateDTO specifies (skipping ``None`` values), then we stamp
-        # ``last_interaction`` at the service boundary so the converter
-        # stays purely about request->DTO translation.
-        dto = existing.to_dto()
-        update_dto = askesis_update_request_to_dto(update_request, askesis_uid)
-        dto = apply_askesis_update_to_dto(dto, update_dto)
-        dto.last_interaction = datetime.now()
-
-        # Update in backend (convert DTO to dict, filtering empty collections for Neo4j)
-        update_result = await self.backend.update(askesis_uid, _dto_to_dict_filtered(dto))
+        update_result = await self.backend.update(askesis_uid, changes)
         if update_result.is_error:
             return Result.fail(update_result)
 
@@ -305,20 +269,22 @@ class AskesisCoreService:
         Returns:
             Result containing updated Askesis
         """
-        existing_result = await self.get_askesis(askesis_uid)
-        if existing_result.is_error:
-            return existing_result
 
-        existing = existing_result.value
-        dto = existing.to_dto()
+        # The count is read and written under the instance's lock, so two conversations
+        # recorded at once are both counted.
+        def count(askesis: Askesis) -> PlannedWrite:
+            return PlannedWrite(
+                updates={
+                    "total_conversations": askesis.total_conversations + 1,
+                    "last_interaction": datetime.now(),
+                }
+            )
 
-        # Increment conversation count
-        dto.total_conversations += 1
-        dto.last_interaction = datetime.now()
-
-        # Update in backend (convert DTO to dict, filtering empty collections for Neo4j)
-        update_result = await self.backend.update(askesis_uid, _dto_to_dict_filtered(dto))
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        return Result.ok(update_result.value)
+        result = await self.backend.rewrite_under_lock(askesis_uid, count)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is None:
+            return Result.fail(
+                Errors.system(message=f"Recording a conversation on {askesis_uid} wrote nothing.")
+            )
+        return Result.ok(result.value.outcome.entity)

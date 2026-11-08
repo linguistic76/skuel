@@ -195,25 +195,28 @@ class TestRecordPrincipleReflection:
             alignment_level=AlignmentLevel.PARTIAL,
             evidence="Self-rated",
         )
-        owned = Mock(alignment_history=(earlier,))
-        principles_service.core.verify_ownership = AsyncMock(return_value=Result.ok(owned))
-        update_principle = AsyncMock(return_value=Result.ok(Mock()))
-        principles_service.core.update_principle = update_principle
+        # Ownership is read first; the history is read again under the lock, and the
+        # entry is appended to what the lock read, not to the ownership read.
+        principles_service.core.verify_ownership = AsyncMock(
+            return_value=Result.ok(Mock(alignment_history=()))
+        )
+        rewrite_principle = AsyncMock(return_value=Result.ok(Mock()))
+        principles_service.core.rewrite_principle = rewrite_principle
 
         result = await principles_service.record_principle_reflection(
             "principle_1", "user_1", "aligned", "Held the line in a hard meeting"
         )
 
         assert result.is_ok
-        update_principle.assert_awaited_once()
-        call = update_principle.await_args
+        rewrite_principle.assert_awaited_once()
+        call = rewrite_principle.await_args
         assert call is not None
-        uid, intent = call.args
+        uid, plan = call.args
         assert uid == "principle_1"
-        assert intent.last_review_date == today_in(current_zone())
-        changes = intent.to_changes()
+        changes = plan(Mock(alignment_history=(earlier,)))
+        assert set(changes) == {"last_review_date", "alignment_history"}
         assert changes["last_review_date"] == today_in(current_zone())
-        # The stored history, then the reflection as a dated occurrence.
+        # The history as locked, then the reflection as a dated occurrence.
         assert changes["alignment_history"] == [
             earlier.to_record(),
             {
@@ -232,8 +235,8 @@ class TestRecordPrincipleReflection:
         principles_service.core.verify_ownership = AsyncMock(
             return_value=Result.ok(Mock(alignment_history=()))
         )
-        update_principle = AsyncMock(return_value=Result.ok(Mock()))
-        principles_service.core.update_principle = update_principle
+        rewrite_principle = AsyncMock(return_value=Result.ok(Mock()))
+        principles_service.core.rewrite_principle = rewrite_principle
 
         result = await principles_service.record_principle_reflection(
             "principle_1", "user_1", "somewhat", "x"
@@ -241,7 +244,7 @@ class TestRecordPrincipleReflection:
 
         assert result.is_error
         assert result.expect_error().category.value == "validation"
-        update_principle.assert_not_awaited()
+        rewrite_principle.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_reflection_on_a_foreign_principle_is_not_found(
@@ -250,8 +253,8 @@ class TestRecordPrincipleReflection:
         principles_service.core.verify_ownership = AsyncMock(
             return_value=Result.fail(Errors.not_found("Principle", "principle_9"))
         )
-        update_principle = AsyncMock(return_value=Result.ok(Mock()))
-        principles_service.core.update_principle = update_principle
+        rewrite_principle = AsyncMock(return_value=Result.ok(Mock()))
+        principles_service.core.rewrite_principle = rewrite_principle
 
         result = await principles_service.record_principle_reflection(
             "principle_9", "user_1", "aligned", "x"
@@ -259,4 +262,4 @@ class TestRecordPrincipleReflection:
 
         assert result.is_error
         # Ownership is decided before the stamp: a foreign principle is never written.
-        update_principle.assert_not_awaited()
+        rewrite_principle.assert_not_awaited()

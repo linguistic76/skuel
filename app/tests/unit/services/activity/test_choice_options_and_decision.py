@@ -1,7 +1,7 @@
 """A choice's options and its decision are written from the choice as it stands under its lock.
 
 ``add_option``, ``remove_option`` and ``make_decision`` each plan their write from the
-locked choice (``ChoicesBackend.rewrite_choice_under_lock``): every refusal is read from
+locked choice (``rewrite_under_lock``): every refusal is read from
 that choice and writes nothing, and an option write carries the options alone, never
 the status or the decision a whole-entity write would put back.
 

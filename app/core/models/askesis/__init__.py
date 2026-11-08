@@ -13,8 +13,8 @@ from .askesis import (
     Askesis,
 )
 from .askesis_converters import (
-    apply_askesis_update_to_dto,
     askesis_create_request_to_dto,
+    askesis_update_changes,
     askesis_update_request_to_dto,
     create_askesis_dto_from_create_dto,
 )
@@ -46,9 +46,9 @@ __all__ = [
     "AskesisDTO",
     "AskesisUpdateDTO",
     "AskesisUpdateRequest",
-    "apply_askesis_update_to_dto",
     # Converters
     "askesis_create_request_to_dto",
+    "askesis_update_changes",
     "askesis_update_request_to_dto",
     "create_askesis_dto_from_create_dto",
 ]

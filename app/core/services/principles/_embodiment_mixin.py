@@ -11,7 +11,6 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
@@ -20,6 +19,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import PrinciplesOperations
+    from core.services.principles.principles_core_service import PrinciplesCoreService
 
 
 class _EmbodimentMixin:
@@ -31,7 +31,7 @@ class _EmbodimentMixin:
     """
 
     # Populated by PrinciplesService.__init__
-    core: Any
+    core: PrinciplesCoreService
     backend: PrinciplesOperations
     relationships: Any
     logger: Any
@@ -45,18 +45,20 @@ class _EmbodimentMixin:
         dto: Any,
     ) -> Result[dict[str, Any]]:
         """
-        Create a principle expression (how principle was lived out).
+        Append a lived expression (how the principle was lived out) to the principle.
 
-        Stores expression on principle's inline expressions list via PrincipleDTO.
+        The append is planned from the principle as it stands under its lock and
+        writes ``expressions`` alone (``PrinciplesCoreService.rewrite_principle``), so
+        two expressions appended at once are both kept and a status changed meanwhile
+        is left as it is.
 
         Args:
             dto: Dict with principle_uid, context, behavior, and optional example
 
         Returns:
-            Result with the created expression dict
+            Result with the appended expression; not found when no principle has the uid
         """
         from core.models.principle.principle import Principle
-        from core.models.principle.principle_dto import PrincipleDTO
         from core.models.principle.principle_types import PrincipleExpression
 
         principle_uid = (
@@ -77,30 +79,15 @@ class _EmbodimentMixin:
             )
 
         example = dto.get("example") if isinstance(dto, dict) else getattr(dto, "example", None)
-
-        # Get current principle
-        principle_result = await self.core.backend.get(principle_uid)
-        if principle_result.is_error:
-            return Result.fail(principle_result)
-
-        principle_data = principle_result.value
-        if isinstance(principle_data, Principle):
-            ku_dto = principle_data.to_dto()
-        elif isinstance(principle_data, dict):
-            ku_dto = PrincipleDTO.from_dict(principle_data)
-        else:
-            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
-
-        # Create and append expression. DTO stores expressions as list[dict]
-        # (flattened on to_dict via asdict); convert here to keep that contract honest.
         expression = PrincipleExpression(context=context, behavior=behavior, example=example)
-        ku_dto.expressions.append(asdict(expression))
 
-        # raw-write: full-DTO entity replace after appending an expression to the DTO's
-        # expression list (not a partial property patch). ADR-066's PrincipleUpdateIntent
-        # models partial column patches, not whole-entity persistence or expression mutation —
-        # dto.to_dict() is the honest shape here.
-        await self.core.backend.update(principle_uid, ku_dto.to_dict())
+        # boundary: pre-serialization patch — the expressions are JSON-encoded at the write.
+        def append(principle: Principle) -> dict[str, Any]:
+            return {"expressions": [*principle.expressions, expression]}
+
+        written = await self.core.rewrite_principle(principle_uid, append)
+        if written.is_error:
+            return Result.fail(written)
         self.logger.info("Created expression for principle %s", principle_uid)
 
         return Result.ok({"context": context, "behavior": behavior, "example": example})

@@ -28,6 +28,7 @@ from core.services.principles.principles_alignment_service import PrinciplesAlig
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.status_guarded_backend import StatusGuardedWriteRecorder
 
 
 @pytest.fixture
@@ -276,8 +277,10 @@ class TestSelfAssessmentReviewStamp:
         from core.models.enums.principle_enums import AlignmentLevel
         from core.models.principle.principle_types import AlignmentAssessment
 
-        mock_backend.get = AsyncMock(return_value=Result.ok(sample_principle_with_alignment))
-        mock_backend.update = AsyncMock(return_value=Result.ok(None))
+        recorder = StatusGuardedWriteRecorder(
+            sample_principle_with_alignment, sample_principle_with_alignment
+        )
+        mock_backend.rewrite_under_lock = AsyncMock(side_effect=recorder.rewrite)
 
         await alignment_service._store_user_assessment(
             sample_principle_with_alignment.uid,
@@ -289,8 +292,9 @@ class TestSelfAssessmentReviewStamp:
             ),
         )
 
-        mock_backend.update.assert_awaited_once()
-        written = mock_backend.update.await_args.args[1]
+        # Planned from the principle as locked, and the history and stamp alone.
+        [(_uid, written, _guard)] = recorder.calls
+        assert set(written) == {"alignment_history", "last_review_date"}
         assert str(written["last_review_date"])[:10] == today_in(current_zone()).isoformat()
         # The stored record shape: ISO date, level value, kind — JSON-encodable
         # as the node stores the list (a native date would fail the write).
@@ -316,7 +320,9 @@ class TestSelfAssessmentReviewStamp:
         from core.utils.result_simplified import Errors
 
         mock_backend.get = AsyncMock(return_value=Result.ok(sample_principle_with_alignment))
-        mock_backend.update = AsyncMock(return_value=Result.fail(Errors.database("update", "boom")))
+        mock_backend.rewrite_under_lock = AsyncMock(
+            return_value=Result.fail(Errors.database("update", "boom"))
+        )
 
         result = await alignment_service.assess_with_user_input(
             sample_principle_with_alignment.uid,
@@ -337,7 +343,7 @@ class TestSelfAssessmentReviewStamp:
         from core.models.enums.principle_enums import AlignmentLevel
 
         mock_backend.get = AsyncMock(return_value=Result.ok(sample_principle_with_alignment))
-        mock_backend.update = AsyncMock(return_value=Result.ok(None))
+        mock_backend.rewrite_under_lock = AsyncMock(return_value=Result.ok(None))
 
         result = await alignment_service.assess_with_user_input(
             sample_principle_with_alignment.uid,
@@ -347,4 +353,4 @@ class TestSelfAssessmentReviewStamp:
         )
 
         assert result.is_error
-        mock_backend.update.assert_not_awaited()
+        mock_backend.rewrite_under_lock.assert_not_awaited()

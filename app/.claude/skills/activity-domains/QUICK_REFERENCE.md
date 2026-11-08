@@ -76,7 +76,7 @@ chrome. There is no hub page; `/today` is the landing.
 - A PathStep-spawned choice starts an undecided `draft` without the template's rationale (`CHOICE_SPEC.uncopied_fields`)
 
 ### Principles
-- Reflection is event-driven: `POST /api/principles/reflection` → `record_principle_reflection()` publishes `PrincipleReflectionRecorded` (no graph node)
+- Reflection: `POST /api/principles/reflection` → `record_principle_reflection()` appends a dated entry to the principle's `alignment_history` (no node of its own) and publishes `PrincipleReflectionRecorded`; it and the expression append (`POST /api/principles/expression?uid=`) are planned from the principle under its lock (`rewrite_principle`, over `rewrite_under_lock`) and write their own fields alone
 - Has an `is_active: bool` field alongside its `status`
 - `PrincipleCategory` enum for categorization
 

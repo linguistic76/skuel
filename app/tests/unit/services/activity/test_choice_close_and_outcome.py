@@ -1,7 +1,7 @@
 """How a decided choice turned out, a spawned choice's first state, and what reads them.
 
 - ``evaluate_choice_outcome`` plans from the locked choice
-  (``ChoicesBackend.rewrite_choice_under_lock``): a choice not yet decided is refused
+  (``rewrite_under_lock``): a choice not yet decided is refused
   and nothing is written; the write carries ``satisfaction_score``, ``actual_outcome``
   and ``lessons_learned`` alone; ``ChoiceOutcomeRecorded`` carries the outcome's quality
   from the satisfaction and the lessons one per line.

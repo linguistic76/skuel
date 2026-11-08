@@ -31,6 +31,7 @@ from core.models.principle.principle_types import (
     PrincipleDecision,
 )
 from core.models.type_hints import EntityUID, UserUID
+from core.models.update_contracts import PlannedWrite
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.cross_domain import CrossDomainQueryService
 from core.services.cross_domain.cross_domain_types import PrincipleAlignmentEvidence
@@ -442,13 +443,6 @@ class PrinciplesAlignmentService:
         counter read. A failed write is the caller's failure: an assessment
         that was never stored must not be announced as one.
         """
-        principle_result = await self.backend.get(principle_uid)
-        if principle_result.is_error:
-            return Result.fail(principle_result)
-        principle = principle_result.value
-        if principle is None:
-            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
-
         today = today_in(current_zone())
         occurrence = UserAlignmentAssessment(
             assessed_date=today,
@@ -456,15 +450,17 @@ class PrinciplesAlignmentService:
             evidence=assessment.evidence,
             reflection=assessment.reflection,
         )
-        history = [
-            *(entry.to_record() for entry in principle.alignment_history),
-            occurrence.to_record(),
-        ]
-        # boundary: pre-serialization patch — the history list is JSON-serialized at
-        # the write (``to_neo4j_node``), a nested shape the ``Neo4jProperties`` alias
-        # does not name, as every history writer's patch is.
-        patch: dict[str, Any] = {"alignment_history": history, "last_review_date": today}
-        stamped = await self.backend.update(principle_uid, patch)
+
+        # The entry is appended to the history as it stands under the principle's lock,
+        # so an assessment and a reflection recorded at once are both kept.
+        def append(principle: Principle) -> PlannedWrite:
+            history = [
+                *(entry.to_record() for entry in principle.alignment_history),
+                occurrence.to_record(),
+            ]
+            return PlannedWrite(updates={"alignment_history": history, "last_review_date": today})
+
+        stamped = await self.backend.rewrite_under_lock(principle_uid, append)
         if stamped.is_error:
             return Result.fail(stamped)
         return Result.ok(None)
