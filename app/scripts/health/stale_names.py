@@ -217,6 +217,19 @@ DELETED: dict[str, str] = {
     "TaskFilterRequest": "deleted — no route bound it; the task list reads its filters from the query string",
     "TaskStatusUpdateRequest": "deleted — POST /api/{domain}/{uid}/status reads form['status'] (create_activity_field_api_routes)",
     "TaskAssignmentRequest": "deleted — TaskUpdateRequest.assignee assigns a task",
+    # Request and view models no door bound, each with the live means that does its
+    # job (docs/roadmap/request-models-no-door-reads.md § Retired). Registered: the ones
+    # a doc taught; the rest were only ever named by that case file.
+    "PauseHabitRequest": "deleted — POST /api/habits/{uid}/status with 'paused' (update_habit, status-guarded)",
+    "ResumeHabitRequest": "deleted — POST /api/habits/{uid}/status with 'active'",
+    "HabitCompletionRequest": "deleted — POST /api/habits/track binds TrackHabitRequest",
+    "HabitCompletionCreateRequest": "deleted — POST /api/habits/track binds TrackHabitRequest",
+    "SearchQueryRequest": "deleted — POST /api/search/unified binds SearchRequest (core/models/search_request.py)",
+    "FacetSetRequest": "deleted — SearchRequest carries the facet fields",
+    "UserPreferencesSchema": "deleted — POST /settings/save binds UserPreferencesFormRequest",
+    "UserStatistics": "deleted — never computed; /api/analytics/productivity, /habit-consistency and /learning-velocity read the statistics",
+    "UserServiceContext": "deleted — never built; UserContext is the one user context (core/services/user/unified_user_context.py)",
+    "archive_habit": "deleted — a habit is archived through update_habit (status-guarded, streak-preservation rule), POST /api/habits/{uid}/status",
     "FilterRequestBase": "deleted — a filter request inherits RequestBase",
     "AnalyticsRequestBase": "deleted — an analytics request inherits RequestBase",
     "ListResponseBase": "deleted — a route returns the domain models; a non-entity envelope is a plain BaseModel (SearchResponse)",
@@ -598,6 +611,7 @@ _three_tier = (
 )
 _trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
 _future_completion = "closed record of the future-completion-date fix -- names the model it found dead, since deleted"
+_unread_models = "the unread-models case file -- its method names the models it found read only through another unread one, and its Retired table names each retired model beside the live means that does its job"
 _sharing_arc_bases = (
     "closed Submit & Share arc record -- names the bases and inheritors it kept, since deleted"
 )
@@ -729,6 +743,21 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (109, "get_shared_with("): Allow(_adr088_6b),
         (113, "get_groups_shared_with"): Allow(_adr088_6b),
         (114, "get_user_entries_shared_with_group"): Allow(_adr088_6b),
+    },
+    "docs/roadmap/request-models-no-door-reads.md": {
+        # § How the list was read: the models read only through another unread one.
+        (35, "FacetSetRequest"): Allow(_unread_models),
+        (35, "SearchQueryRequest"): Allow(_unread_models),
+        (36, "UserPreferencesSchema"): Allow(_unread_models),
+        # § Retired: one row per model, the ones a doc taught.
+        (48, "PauseHabitRequest"): Allow(_unread_models),
+        (49, "ResumeHabitRequest"): Allow(_unread_models),
+        (51, "HabitCompletionRequest"): Allow(_unread_models),
+        (52, "HabitCompletionCreateRequest"): Allow(_unread_models),
+        (60, "SearchQueryRequest"): Allow(_unread_models),
+        (61, "FacetSetRequest"): Allow(_unread_models),
+        (61, "SearchQueryRequest"): Allow(_unread_models),
+        (70, "UserPreferencesSchema"): Allow(_unread_models),
     },
     "docs/roadmap/sharing-http-door.md": {
         # The per-method table's two DELETED rows and their backend twins.

@@ -22,17 +22,6 @@ class WeeklyPlanningRequest(BaseModel):
     )
 
 
-class WeeklyReviewRequest(BaseModel):
-    """Request for weekly review report."""
-
-    user_uid: UserUID = Field(..., description="User UID for report generation")
-
-    week_start: str | None = Field(
-        default=None,
-        description="Week start date (YYYY-MM-DD). Defaults to previous week if not provided.",
-    )
-
-
 # Future report request models can be added here:
 # - GoalProgressRequest
 # - MonthlyReviewRequest

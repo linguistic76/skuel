@@ -229,7 +229,6 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
     - _HierarchyMixin: subhabit hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
     - get_habit(uid)          → get_or_fail() wrapper (NotFound as error)
     - get_user_habits(uid)    → alias for inherited list_by_user()
-    - archive_habit(uid)      → status transition (not just delete)
     - get_stats_for_user(uid) → habit count stats (total/active/streaks)
     """
 
@@ -247,13 +246,6 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
     async def get_user_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
         """Get all habits for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid, limit=QueryLimit.MAXIMUM)
-
-    async def archive_habit(self, habit_id: str) -> Result[bool]:
-        """Archive a habit by transitioning its status to 'archived'."""
-        update_result: Result[Habit] = await self.update(habit_id, {"status": "archived"})
-        if update_result.is_error:
-            return Result.fail(update_result)
-        return Result.ok(True)
 
     async def get_active_habits_prioritized(
         self,

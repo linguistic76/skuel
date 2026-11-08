@@ -30,13 +30,6 @@ from tests.helpers.laptop_clock import laptop_wall
 #: Fields a server fills and a client reads — never parsed from client input.
 RESPONSE_FIELDS = {
     ("SearchResponse", "timestamp"),
-    ("UserView", "created_at"),
-    ("UserView", "last_active_at"),
-    ("UserView", "last_login_at"),
-    ("UserSummaryView", "created_at"),
-    ("UserSummaryView", "last_active_at"),
-    ("UserServiceContextSchema", "session_start"),
-    ("UserStatisticsSchema", "computed_at"),
 }
 
 

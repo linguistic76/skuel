@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-25
+updated: 2026-11-08
 ---
 
 # Model Architecture
@@ -158,7 +158,7 @@ core/models/{domain}/
 | `entity_dto.py` | Base DTO mirroring Entity fields |
 | `user_owned_dto.py` | Intermediate DTO adding visibility, priority |
 | `entity_types.py` | `ENTITY_TYPE_CLASS_MAP` dispatcher + `ActivityEntity`, `CurriculumEntity`, `SubmissionEntity` aliases |
-| `entity_requests.py` | Cross-domain Pydantic requests (bulk tag / categorize / delete, progress reports, hierarchy and cross-domain links) |
+| `entity_requests.py` | Cross-domain Pydantic requests (progress reports and their annotations, activity feedback, admin account actions, insight dismissal, hierarchy and cross-domain links) |
 | `entity_converters.py` | Entity → response dict conversion |
 | `validation_rules.py` | Shared Pydantic validators (date, string, range, domain-specific) |
 | `search_request.py` | Canonical search request (~50 fields, all search strategies) |

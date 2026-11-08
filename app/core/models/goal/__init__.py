@@ -3,7 +3,6 @@ Goal domain models — Goal, GoalDTO, Milestone, requests.
 """
 
 from .goal_request import (
-    GoalAnalyticsRequest,
     GoalCreateRequest,
     GoalFilterRequest,
     GoalProgressUpdateRequest,
@@ -18,7 +17,6 @@ from .goal_request import (
 from .goal_update_intent import GoalUpdateIntent
 
 __all__ = [
-    "GoalAnalyticsRequest",
     "GoalCreateRequest",
     "GoalFilterRequest",
     "GoalProgressUpdateRequest",

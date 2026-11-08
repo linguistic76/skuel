@@ -244,29 +244,6 @@ class HabitUpdateRequest(BaseModel):
         )
 
 
-class HabitCompletionRequest(BaseModel):
-    """
-    Request to record a habit completion.
-    """
-
-    completed_at: ClientDateTime | None = Field(default_factory=datetime.now)
-    notes: str | None = Field(default=None, max_length=500, description="Completion notes")
-    quality: int | None = Field(default=None, ge=1, le=5, description="Quality rating 1-5")
-    duration_actual: int | None = Field(
-        default=None, ge=0, description="Actual duration in minutes"
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "notes": "Felt great today, extended session",
-                "quality": 5,
-                "duration_actual": 12,
-            }
-        }
-    )
-
-
 class HabitSkipRequest(BaseModel):
     """
     Request to record skipping a habit.
@@ -321,28 +298,6 @@ class HabitFilterRequest(BaseModel):
     )
 
 
-class HabitStatsRequest(BaseModel):
-    """
-    Request for habit statistics.
-    """
-
-    include_completions: bool = Field(default=True, description="Include completion history")
-    include_streaks: bool = Field(default=True, description="Include streak analysis")
-    include_predictions: bool = Field(default=False, description="Include success predictions")
-    days_back: int = Field(default=30, ge=1, le=365, description="Days of history to analyze")
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "include_completions": True,
-                "include_streaks": True,
-                "include_predictions": True,
-                "days_back": 90,
-            }
-        }
-    )
-
-
 # =============================================================================
 # OPERATION-SPECIFIC REQUEST TYPES
 # =============================================================================
@@ -378,29 +333,6 @@ class UntrackHabitRequest(BaseModel):
     )
 
 
-class PauseHabitRequest(BaseModel):
-    """Request for pausing a habit temporarily."""
-
-    habit_uid: str = Field(description="UID of the habit to pause")
-    reason: str = Field(default="Paused", max_length=500, description="Reason for pausing")
-    until_date: str | None = Field(
-        default=None, description="Optional date to auto-resume (ISO format)"
-    )
-
-
-class ResumeHabitRequest(BaseModel):
-    """Request for resuming a paused habit."""
-
-    habit_uid: str = Field(description="UID of the habit to resume")
-
-
-class ArchiveHabitRequest(BaseModel):
-    """Request for archiving a habit."""
-
-    habit_uid: str = Field(description="UID of the habit to archive")
-    reason: str = Field(default="Archived", max_length=500, description="Reason for archiving")
-
-
 class SetHabitReminderRequest(BaseModel):
     """Request for setting a habit reminder."""
 
@@ -415,13 +347,6 @@ class DeleteHabitReminderRequest(BaseModel):
 
     habit_uid: str = Field(description="UID of the habit")
     reminder_id: str = Field(description="ID of reminder to delete")
-
-
-class GetHabitProgressRequest(BaseModel):
-    """Request for getting habit progress statistics."""
-
-    habit_uid: str = Field(description="UID of the habit")
-    period: str = Field(default="month", description="Time period: 'week', 'month', or 'year'")
 
 
 class BulkCompleteHabitsRequest(BaseModel):

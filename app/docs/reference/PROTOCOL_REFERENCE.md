@@ -314,11 +314,11 @@ A backend answers only what it defines; there is no dynamic alias. Domain-named 
 
 ```python
 # adapters/persistence/neo4j/backends/activity_backends.py
-class HabitsBackend(UniversalNeo4jBackend["Habit"]):
-    """Adds get_habit, list_by_user, get_user_habits, archive_habit, link_habit_to_*"""
+class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
+    """Adds get_habit, get_user_habits, get_stats_for_user, badges, learning state, …"""
 
-class GoalsBackend(UniversalNeo4jBackend["Goal"]):
-    """Adds get_goal, get_user_goals, link_goal_to_*"""
+class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
+    """Adds get_goal, get_user_goals, get_stats_for_user, link_to_designated_life_path, …"""
 ```
 
 Each domain backend is held to its protocol under mypy and by `tests/unit/adapters/test_backend_protocol_conformance.py`.

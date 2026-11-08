@@ -272,15 +272,6 @@ class CheckConflictsRequest(BaseModel):
     event_uid: str = Field(description="UID of the event to check for conflicts")
 
 
-class EventsInRangeRequest(BaseModel):
-    """Request for retrieving events in a date range."""
-
-    start_date: date = Field(description="Start of date range")
-    end_date: date = Field(description="End of date range")
-    user_uid: UserUID | None = Field(default=None, description="Optional user filter")
-    limit: int = Field(default=100, ge=1, le=500, description="Maximum results")
-
-
 # =============================================================================
 # RESPONSE TYPES
 # =============================================================================

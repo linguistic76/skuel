@@ -6,42 +6,9 @@ Pydantic models for external API requests related to habit completions.
 Handles validation and serialization at system boundaries.
 """
 
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.models.request_base import ClientDateTime
-
-
-class HabitCompletionCreateRequest(BaseModel):
-    """
-    External request for recording a habit completion.
-    Validates input from API/UI layer.
-    """
-
-    # Required field
-    habit_uid: str = Field(..., min_length=1, description="UID of the habit being completed")
-
-    # Optional with defaults
-    completed_at: ClientDateTime | None = Field(
-        default_factory=datetime.now, description="When the habit was completed"
-    )
-    notes: str | None = Field(default=None, max_length=500, description="Completion notes")
-    quality: int | None = Field(default=None, ge=1, le=5, description="Quality rating 1-5")
-    duration_actual: int | None = Field(
-        default=None, ge=0, description="Actual duration in minutes"
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "habit_uid": "habit_9c4e2b7a1d6f0835",
-                "notes": "Felt great today, extended session",
-                "quality": 5,
-                "duration_actual": 30,
-            }
-        }
-    )
 
 
 class HabitCompletionUpdateRequest(BaseModel):

@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-11-05
+updated: 2026-11-08
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -77,7 +77,7 @@ These are consumed by the query builders above, not alternative query paths:
 
 ### Core Principle: "Query models are infrastructure, not domain-specific"
 
-**CRITICAL:** Query infrastructure lives at `/adapters/persistence/neo4j/query/`, accessible to all domains. Boundary types (`QueryIntent`, `IndexStrategy`) live in `/core/models/query_types.py`; search boundary models (`FacetSetRequest`, `SearchQueryRequest`, `SearchResultDTO`) live in `/core/models/search_models.py`.
+**CRITICAL:** Query infrastructure lives at `/adapters/persistence/neo4j/query/`, accessible to all domains. Boundary types (`QueryIntent`, `IndexStrategy`) live in `/core/models/query_types.py`; the search request a door binds is `SearchRequest` (`/core/models/search_request.py`).
 
 ### Infrastructure Location
 
