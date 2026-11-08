@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-11-06
+updated: 2026-11-08
 category: patterns
 related_skills:
 - base-analytics-service
@@ -292,8 +292,9 @@ await service.create_relationships_batch(
 # transaction, a statement per key, deletes the key's other edges (of the kind
 # delete_relationship removes) and writes the new ones — a refused far end leaves every
 # key's links as they were. far_ends takes a LinkFarEnd (admitted here first) or the
-# AdmittedFarEnds an earlier admission returned. A filtered key is refused.
-await service.replace_relationships(
+# AdmittedFarEnds an earlier admission returned. A filtered key is refused. The result
+# maps each key to the far ends it created a link to — a link already there is not one.
+created = await service.replace_relationships(
     "event.123",
     {"celebrated_goals": ["goal.new"], "habits": []},
     far_ends={"celebrated_goals": admitted, "habits": HABIT_FAR_END},
