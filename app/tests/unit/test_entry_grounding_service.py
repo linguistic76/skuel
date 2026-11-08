@@ -22,12 +22,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.events.knowledge_substance_events import KnowledgeReflectedInEntry
-from core.ports.query_types import GroundingEntryRow, GroundingRemovalRow
-from core.services.entry_grounding_service import (
-    GROUNDING_VERSION,
-    EntryGroundingConfig,
-    EntryGroundingService,
-)
+from core.events.link_events import EntityLinksChanged
+from core.ports.query_types import GroundingRemovalRow, GroundingSourceRow
+from core.services.entry_grounding_service import EntryGroundingService
+from core.services.knowledge_grounding_service import GROUNDING_VERSION, GroundingConfig
 from core.utils.result_simplified import Result
 
 
@@ -35,8 +33,8 @@ def _row(
     uid: str = "ue_abc123",
     applied: list[str] | None = None,
     rejected: list[str] | None = None,
-) -> GroundingEntryRow:
-    return GroundingEntryRow(
+) -> GroundingSourceRow:
+    return GroundingSourceRow(
         uid=uid,
         user_uid="user_mike",
         title=f"title of {uid}",
@@ -52,9 +50,9 @@ def _hit(ku_uid: str, score: float) -> dict:
     return {"node": {"uid": ku_uid, "title": f"Ku {ku_uid}"}, "score": score}
 
 
-def _backend(rows: list[GroundingEntryRow]) -> MagicMock:
+def _backend(rows: list[GroundingSourceRow]) -> MagicMock:
     backend = MagicMock()
-    backend.get_pending_entries = AsyncMock(return_value=Result.ok(rows))
+    backend.get_pending = AsyncMock(return_value=Result.ok(rows))
     backend.write_applies_knowledge = AsyncMock(return_value=Result.ok(True))
     backend.stamp_grounded = AsyncMock(return_value=Result.ok(None))
     return backend
@@ -70,6 +68,15 @@ def _bus() -> MagicMock:
     bus = MagicMock()
     bus.publish_async = AsyncMock()
     return bus
+
+
+def _published[E](bus: MagicMock, event_type: type[E]) -> list[E]:
+    """The events of ``event_type`` the bus received, in order."""
+    return [
+        call.args[0]
+        for call in bus.publish_async.await_args_list
+        if isinstance(call.args[0], event_type)
+    ]
 
 
 def _llm_with_response(text: str) -> MagicMock:
@@ -109,8 +116,8 @@ async def test_threshold_and_limit_forwarded_to_ku_index() -> None:
     assert not result.is_error
     call = vector.find_similar_by_vector.await_args
     assert call.kwargs["label"] == "Ku"
-    assert call.kwargs["min_score"] == EntryGroundingConfig().threshold == 0.72
-    assert call.kwargs["limit"] == EntryGroundingConfig().max_candidates
+    assert call.kwargs["min_score"] == GroundingConfig().threshold == 0.72
+    assert call.kwargs["limit"] == GroundingConfig().max_candidates
 
 
 @pytest.mark.anyio
@@ -129,7 +136,7 @@ async def test_applied_and_rejected_kus_excluded() -> None:
     assert outcome.skipped_existing == 1
     assert outcome.skipped_rejected == 1
     backend.write_applies_knowledge.assert_awaited_once_with("ue_abc123", "ku.a.fresh", 0.8)
-    assert bus.publish_async.await_count == 1
+    assert len(_published(bus, KnowledgeReflectedInEntry)) == 1
 
 
 # ============================================================================
@@ -148,11 +155,28 @@ async def test_new_edge_publishes_substance_event_with_provenance() -> None:
     assert not result.is_error
     # Confidence is the (rounded) similarity — the MEGA-QUERY min_confidence contract.
     backend.write_applies_knowledge.assert_awaited_once_with("ue_abc123", "ku.a.one", 0.7654)
-    event = bus.publish_async.await_args.args[0]
+    [event] = _published(bus, KnowledgeReflectedInEntry)
     assert isinstance(event, KnowledgeReflectedInEntry)
     assert event.knowledge_uid == "ku.a.one"
     assert event.entry_uid == "ue_abc123"
     assert event.user_uid == "user_mike"
+
+
+@pytest.mark.anyio
+async def test_an_entity_that_gained_edges_announces_its_links_once() -> None:
+    """Two new edges, one ``EntityLinksChanged`` for the owner: the cached context rebuilds."""
+    bus = _bus()
+    backend = _backend([_row()])
+    service = _service(
+        backend, _vector([_hit("ku.a.one", 0.8), _hit("ku.a.two", 0.75)]), event_bus=bus
+    )
+
+    result = await service.ground_pending()
+
+    assert not result.is_error
+    assert len(_published(bus, KnowledgeReflectedInEntry)) == 2
+    [changed] = _published(bus, EntityLinksChanged)
+    assert (changed.user_uid, changed.entity_uid) == ("user_mike", "ue_abc123")
 
 
 @pytest.mark.anyio
@@ -243,7 +267,7 @@ async def test_judge_filters_brush_past_candidates() -> None:
     assert [c.ku_uid for c in outcome.rejected_by_judge] == ["ku.a.two"]
     assert outcome.rejected_by_judge[0].rationale == "shared vocabulary only"
     backend.write_applies_knowledge.assert_awaited_once_with("ue_abc123", "ku.a.one", 0.8)
-    assert bus.publish_async.await_count == 1
+    assert len(_published(bus, KnowledgeReflectedInEntry)) == 1
 
 
 @pytest.mark.anyio
@@ -264,14 +288,14 @@ async def test_judge_malformed_json_skips_entry_unstamped() -> None:
 
     assert not result.is_error
     report = result.value
-    assert report.entries_failed == 1
+    assert report.failed == 1
     failed = next(o for o in report.outcomes if o.error is not None)
     ok = next(o for o in report.outcomes if o.error is None)
     assert "judge failed" in str(failed.error)
     assert [c.ku_uid for c in ok.written] == ["ku.a.one"]
     # Only the successful entry was written + stamped.
     backend.write_applies_knowledge.assert_awaited_once()
-    backend.stamp_grounded.assert_awaited_once_with(ok.entry_uid, "hash-v3-abc", GROUNDING_VERSION)
+    backend.stamp_grounded.assert_awaited_once_with(ok.source_uid, "hash-v3-abc", GROUNDING_VERSION)
 
 
 @pytest.mark.anyio
@@ -286,7 +310,7 @@ async def test_judge_non_bool_verdict_fails_entry() -> None:
     result = await service.ground_pending()
 
     assert not result.is_error
-    assert result.value.entries_failed == 1
+    assert result.value.failed == 1
     backend.write_applies_knowledge.assert_not_awaited()
     backend.stamp_grounded.assert_not_awaited()
 
@@ -301,7 +325,7 @@ async def test_judge_incomplete_coverage_fails_entry() -> None:
     result = await service.ground_pending()
 
     assert not result.is_error
-    assert result.value.entries_failed == 1
+    assert result.value.failed == 1
     backend.write_applies_knowledge.assert_not_awaited()
     backend.stamp_grounded.assert_not_awaited()
 
@@ -317,13 +341,18 @@ async def test_remove_returns_true_on_backend_row() -> None:
     backend.remove_grounded_edge = AsyncMock(
         return_value=Result.ok(GroundingRemovalRow(ku_uid="ku.a.one", confidence=0.74))
     )
-    service = _service(backend, _vector([]))
+    bus = _bus()
+    service = _service(backend, _vector([]), event_bus=bus)
 
     result = await service.remove("ue_abc123", "ku.a.one", "user_mike")
 
     assert not result.is_error
     assert result.value is True
     backend.remove_grounded_edge.assert_awaited_once_with("ue_abc123", "ku.a.one", "user_mike")
+    [changed] = _published(bus, EntityLinksChanged)
+    assert changed == EntityLinksChanged(
+        user_uid="user_mike", entity_uid="ue_abc123", occurred_at=changed.occurred_at
+    )
 
 
 @pytest.mark.anyio
@@ -331,12 +360,14 @@ async def test_remove_returns_false_when_nothing_matched() -> None:
     """Not-owned entry or absent edge → False, so the route 404s (never 403)."""
     backend = _backend([])
     backend.remove_grounded_edge = AsyncMock(return_value=Result.ok(None))
-    service = _service(backend, _vector([]))
+    bus = _bus()
+    service = _service(backend, _vector([]), event_bus=bus)
 
     result = await service.remove("ue_abc123", "ku.a.one", "user_other")
 
     assert not result.is_error
     assert result.value is False
+    bus.publish_async.assert_not_awaited()
 
 
 @pytest.mark.anyio

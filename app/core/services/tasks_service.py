@@ -32,7 +32,6 @@ if TYPE_CHECKING:
     from core.ports.query_types import TaskDependencyNeighbor, TaskDependencyNeighbors
     from core.ports.search_protocols import TasksSearchOperations
     from core.services.cross_domain import CrossDomainQueryService
-    from core.services.entity_inference_service import EntityInferenceService
     from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
     from core.services.insight.insight_store import InsightStore
     from core.services.tasks.tasks_ai_service import TasksAIService
@@ -327,7 +326,6 @@ class TasksService(
         backend: TasksOperations,
         cross_domain_query: CrossDomainQueryService,
         graph_intel: GraphIntelligenceService,
-        ku_inference_service: EntityInferenceService | None = None,
         event_bus: EventBusOperations | None = None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
@@ -340,7 +338,6 @@ class TasksService(
             backend: Protocol-based backend for task operations
             cross_domain_query: Cross-domain query service (REQUIRED)
             graph_intel: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
-            ku_inference_service: Service for automatic knowledge inference (optional)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: For persisting event-driven insights (optional)
             activity_knowledge_intelligence: Shared knowledge intelligence singleton (optional)
@@ -355,9 +352,9 @@ class TasksService(
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: TasksAIService | None = ai_service
 
-        # Use factory for search, relationships, event_handler, learning, and
-        # knowledge_intelligence. core and intelligence need domain-specific
-        # parameters — created manually below.
+        # Use factory for core, search, relationships, event_handler, learning, and
+        # knowledge_intelligence. intelligence needs domain-specific parameters —
+        # created manually below.
         common: CommonSubServices[
             TasksCoreService, TasksSearchOperations, TasksIntelligenceService
         ] = create_common_sub_services(
@@ -366,9 +363,9 @@ class TasksService(
             graph_intel=graph_intel,
             event_bus=event_bus,
             insight_store=insight_store,
-            skip={"core"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.core is not None  # 'core' not in skip
         assert common.search is not None  # 'search' not in skip
         assert common.relationships is not None  # 'relationships' not in skip
 
@@ -376,9 +373,7 @@ class TasksService(
         # This shadows BaseService.search(), intentionally - we delegate via self.search.search()
         self.search: TasksSearchOperations = common.search
         self.relationships: UnifiedRelationshipService = common.relationships
-        self.core = TasksCoreService(
-            backend=backend, ku_inference_service=ku_inference_service, event_bus=event_bus
-        )
+        self.core: TasksCoreService = common.core
         # Held for edge-only updates: those bypass core.update_task (which publishes
         # TaskUpdated), so the facade publishes the invalidation event itself.
         self.event_bus = event_bus
@@ -857,7 +852,7 @@ class TasksService(
 
     async def create_task(self, task_request: TaskCreateRequest, user_uid: UserUID) -> Result[Task]:
         """
-        Create a task with automatic knowledge inference.
+        Create a task from its request, with its owner's knowledge links.
 
         Args:
             task_request: Task creation request

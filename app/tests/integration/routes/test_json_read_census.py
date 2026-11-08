@@ -16,8 +16,8 @@ real writers produce. The six Activities come from their create doors (an Event'
 ``start_time`` is a native LOCAL TIME) and their edges from the create, link and
 lateral doors (ISO-string stamps); the Event is linked through every family
 ``EVENTS_CONFIG`` names. The learner's edges come from the learning-state doors, the
-entry's knowledge edge and grounding stamp from the grounding writer and the vector
-from the embedding writer, each stamping a native ``datetime()``. The curriculum and the entry are seeded
+entry's and the task's inferred knowledge edges and grounding stamps from the grounding
+writers and the vector from the embedding writer, each stamping a native ``datetime()``. The curriculum and the entry are seeded
 by hand, their edges in the vault's shapes (an Edge YAML file's through
 ``prepare_edge_data``). Last, every seeded node gets a native ``updated_at =
 datetime()``, as a vault re-ingest stamps it.
@@ -509,10 +509,18 @@ async def _embed_and_restamp(driver: AsyncDriver, seeds: dict[str, str]) -> None
             f"{MARK}-hash",
         )
         assert stored.is_ok and stored.value, (kind, stored)
-    # The grounding pass's completion stamp, over the entry's embedding text.
-    grounding = build_production_backends(driver)["entry_grounding_backend"]
-    stamped = await grounding.stamp_grounded(ENTRY, f"{MARK}-hash", 1)
+    # The grounding passes' completion stamps, over the entry's and the task's
+    # embedding text, and the task's inferred edge: the task grounding writer's shape
+    # (its owner's link to KU rides from the create door, so the inferred one is the
+    # Ku the task requires).
+    backends = build_production_backends(driver)
+    stamped = await backends["entry_grounding_backend"].stamp_grounded(ENTRY, f"{MARK}-hash", 1)
     assert stamped.is_ok, stamped
+    task_grounding = backends["task_grounding_backend"]
+    inferred = await task_grounding.write_applies_knowledge(seeds["task"], KU_NEXT, 0.79)
+    assert inferred.is_ok and inferred.value, inferred
+    task_stamped = await task_grounding.stamp_grounded(seeds["task"], f"{MARK}-hash", 1)
+    assert task_stamped.is_ok, task_stamped
     rows = await _run(
         driver,
         """
@@ -529,7 +537,7 @@ async def _embed_and_restamp(driver: AsyncDriver, seeds: dict[str, str]) -> None
         for row in rows
         if row["uid"] != KU_NEXT
     )
-    assert {row["uid"] for row in rows if row["grounded"]} == {ENTRY}
+    assert {row["uid"] for row in rows if row["grounded"]} == {ENTRY, seeds["task"]}
 
 
 async def _crawl(client: httpx.AsyncClient, app: FastHTMLApp, seeds: dict[str, str]) -> Census:

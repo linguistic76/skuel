@@ -556,14 +556,6 @@ TASKS_CONFIG = DomainRelationshipConfig(
             include_rel_type=True,  # Context: include relationship type
             yaml_field_path="connections.depends_on",
         ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.INFERRED_KNOWLEDGE,
-            "Entity",
-            "outgoing",
-            "inferred_knowledge",
-            "inferred_knowledge",
-            page_heading="Knowledge inferred from this task",
-        ),
         # Incoming: Event → Task (events that executed this task)
         UnifiedRelationshipDefinition(
             RelationshipName.EXECUTES_TASK,

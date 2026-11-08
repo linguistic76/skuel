@@ -581,14 +581,14 @@ def score_task(task: Task, context: UserContext) -> PriorityScore:
         )
 
     # Knowledge alignment (weight: 0.10) — Tasks → KU insight
-    # Highest score when the task covers KUs the user is weakest in (gap-filling).
-    task_knowledge = task.knowledge_confidence_scores or {}
+    # Highest score when the task applies KUs the user is weakest in (gap-filling).
+    # The Kus it applies are its APPLIES_KNOWLEDGE edges as the rich context read them
+    # (``task_knowledge_applied``) — its owner's links and the ones grounding inferred
+    # count alike; a standard-depth context carries none.
+    task_knowledge = (context.task_knowledge_applied or {}).get(task.uid, [])
     user_mastery = context.knowledge_mastery or {}
     if task_knowledge:
-        gaps = [
-            max(0.0, task_conf - user_mastery.get(ku_uid, 0.0))
-            for ku_uid, task_conf in task_knowledge.items()
-        ]
+        gaps = [max(0.0, 1.0 - user_mastery.get(ku_uid, 0.0)) for ku_uid in task_knowledge]
         if gaps:
             mean_gap = sum(gaps) / len(gaps)
             components.append(

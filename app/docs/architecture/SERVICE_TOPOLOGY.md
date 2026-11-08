@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-01
+updated: 2026-11-08
 ---
 
 # Service Architecture: File Organization & Topology
@@ -101,7 +101,7 @@ Standalone services without subfolders.
 | **Analytics** | `analytics_service.py`, `cross_domain_analytics_service.py` |
 | **Knowledge Analytics** | `knowledge/knowledge_pattern_analyzer.py` (generic 5-pattern engine), `tasks/task_knowledge_analyzer.py` (Task-specific, composes generic) |
 | **Askesis Secondary** | `askesis_citation_service.py` |
-| **Knowledge Support** | `entity_chunking_service.py`, `entity_inference_service.py`, `ku_intelligence_service.py` (no service generates a Ku: curriculum is authored in the content vault, ADR-091 S8) |
+| **Knowledge Support** | `entity_chunking_service.py`, `knowledge_grounding_service.py` (Ku grounding of entries and tasks: `entry_grounding_service.py`, `tasks/task_grounding_service.py`), `ku_intelligence_service.py` (no service generates a Ku: curriculum is authored in the content vault, ADR-091 S8) |
 | **Calendar** | `calendar_service.py`, `calendar_optimization_service.py` (shell + `calendar_optimization_strategies.py` mixin, July 2026 decomposition; models in `core/models/calendar_optimization.py`) |
 | **Content** | `conversion_service.py`, `content_enrichment_service.py` |
 | **User Secondary** | `user_progress_service.py`, `user_relationship_service.py` |
@@ -423,7 +423,7 @@ Two things a caller must **not** do, both narrow and both already stated elsewhe
 ### Cross-Service Dependencies (Tasks Example)
 
 ```
-TasksCoreService        ← Depends on: entity_inference_service (optional), event_bus (optional)
+TasksCoreService        ← Depends on: event_bus (optional)
 TasksProgressService    ← Depends on: event_bus (optional)
 TasksSchedulingService  ← Self-contained
 TasksPlanningService    ← Depends on: relationship_service (UnifiedRelationshipService)
@@ -483,7 +483,6 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
 4. Core Service
    TasksCoreService.create_task()
        ├─ Validates request
-       ├─ Infers knowledge (entity_inference_service)
        ├─ Converts to domain model (Task)
        ├─ Calls backend.create()
        └─ Publishes TaskCreated event

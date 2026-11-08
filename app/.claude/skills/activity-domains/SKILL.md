@@ -13,7 +13,7 @@
 
 ## Design Principle: Harmony Without Over-Generalization
 
-The 6 Activity Domains share one shape — seven common sub-services: `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`. Every domain answers to all seven. None opts out. `create_common_sub_services()` builds most of them, but not every slot for every domain: `intelligence` comes from the factory only for Principles (the other five facades construct their own, each with a domain-specific dependency), Tasks also builds its own `core` (`skip={"core"}`) and `event_handler`, and `knowledge_intelligence` is the shared singleton the factory passes through.
+The 6 Activity Domains share one shape — seven common sub-services: `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`. Every domain answers to all seven. None opts out. `create_common_sub_services()` builds most of them, but not every slot for every domain: `intelligence` comes from the factory only for Principles (the other five facades construct their own, each with a domain-specific dependency), and `knowledge_intelligence` is the shared singleton the factory passes through.
 
 **The shared shape is a contract for interconnectivity, not a cage.** What flows across domains — unified search, user context aggregation, cross-domain relationship queries, the knowledge substance pipeline, the ZPD assessment that ties curriculum to lived activity — works *because* every domain exposes the same surface in the same place. When the system asks "what is this user working on today," the answer doesn't care whether it comes from Tasks, Habits, or Events; each is addressable the same way.
 

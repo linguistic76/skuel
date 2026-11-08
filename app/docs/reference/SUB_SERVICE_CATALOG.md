@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-16
+updated: 2026-11-08
 ---
 
 # Sub-Service Responsibility Catalog
@@ -55,7 +55,6 @@ These sub-services exist across **all 6 Activity Domains** (Tasks, Goals, Habits
 **Dependencies:**
 - `backend: {Domain}Operations` (e.g., `TasksOperations`, `GoalsOperations`)
 - `event_bus: EventBus` (optional)
-- Domain-specific services (e.g., `entity_inference_service` for TasksCoreService)
 
 **Example:**
 ```python
@@ -117,7 +116,6 @@ tasks_result = await search.get_tasks_for_goal(goal_uid, user_uid)
 - `analyze_{domain}_metrics()` - Performance analytics
 - `get_with_context()` - Graph context retrieval
 - `generate_{domain}_insights()` - Pattern detection
-- `calculate_learning_impact()` - Learning metrics
 
 **When to use:**
 - Cross-domain graph analysis

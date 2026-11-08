@@ -22,6 +22,8 @@ class EntityLinksChanged(BaseEvent):
     ``UnifiedRelationshipService`` publishes it once per owner of the entity the
     link starts from, after the write succeeds — every link kind at once, so no
     door can forget it. An entity nobody owns (shared curriculum) publishes nothing.
+    ``KnowledgeGroundingService`` publishes it for an entry or a task its pass linked
+    to a Ku, and for one whose inferred link the removal door removed.
 
     Subscribers:
     - UserService (invalidate the owner's cached context — every link-derived

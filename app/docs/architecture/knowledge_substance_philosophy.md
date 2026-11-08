@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-11-06
+updated: 2026-11-08
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -205,6 +205,14 @@ in the `EXTRACT_ACTIVITIES` pipeline (ADR-069), and vector grounding
 names — `knowledge` and `extract_activities`, periodic notes included, never a
 `private: true` entry. The handler is writer-agnostic — same event, same credit.
 
+The tasks channel has two writers the same way: the owner's `applies_knowledge_uids` at
+create, and vector grounding (`TaskGroundingService`) once the FULL tier's embedding
+worker stores the task's vector (the pass covers the owner's pending tasks, so one that
+failed is retried) — both publish `KnowledgeAppliedInTask`. The inferred
+edge carries `inferred: true` and its `confidence`; an owner's update that names it makes
+it theirs, and a replace of the owner's links leaves it alone. In CORE nothing grounds a
+task, so it carries only the knowledge its owner links.
+
 ### Examples
 
 ```yaml
@@ -348,7 +356,7 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
 - **Increments:** `times_applied_in_tasks`
 - **Updates:** `last_applied_date`
 - **Weight:** 0.05 per task (max 0.25)
-- **Published by:** `TasksCoreService` — single when 1 KU, bulk when 2+
+- **Published by:** `TasksCoreService` — single when 1 KU, bulk when 2+, for the owner's links at create; `TaskGroundingService` — single, once per genuinely NEW inferred edge (vector grounding of an embedded task, the pass entries run; never a cancelled task)
 
 ### 2. KnowledgePracticedInEvent
 - **Increments:** `times_practiced_in_events`
@@ -512,7 +520,7 @@ Why, positively — 0.0 is not a missing value here. `theoretical_knowledge` is 
 ### UserContext Knowledge Fields
 
 All 6 channels tracked:
-- `task_knowledge_applied` - Tasks applying KU
+- `task_knowledge_applied` - Tasks applying KU (the owner's links plus inferred grounding edges; `min_confidence` applies to the inferred `confidence`, as for entries)
 - `habit_knowledge_applied` - Habits reinforcing KU
 - `event_knowledge_applied` - Events practicing KU
 - `choice_knowledge_informed` - Choices informed by KU

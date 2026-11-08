@@ -7086,8 +7086,8 @@ class TestSKUEL034:
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
     def test_prefix_and_segment_reads_stay_out_of_scope(self) -> None:
-        """Ruled out deliberately — all four live sites of these shapes are
-        sanctioned, so covering them buys suppressions and no findings."""
+        """Ruled out deliberately — a sanctioned site of these shapes says so in its
+        docstring, so covering them buys suppressions and no findings."""
         content = (
             "def f(uid: str) -> str:\n"
             '    if uid.startswith("ku."):\n'

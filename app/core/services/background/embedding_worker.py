@@ -12,6 +12,9 @@ Architecture:
 - Content-hash idempotency (ADR-074 §8): stored embedding_text_hash (entities)
   / embedding_source_text (chunks) is checked BEFORE generation — unchanged
   text is skipped, so force re-ingests don't re-embed the corpus. Fails OPEN.
+- Announces each stored entity embedding (``EmbeddingStored``) once its batch's
+  vectors are all stored, so a reader of the new vector runs once it exists — task
+  grounding (``TaskGroundingService``) — and delays no store
 
 Performance:
 - Batch size: 25 entities per batch
@@ -50,8 +53,8 @@ if TYPE_CHECKING:
 
     from core.services.embeddings_service import EmbeddingsService
 
-from core.events import ChunkEmbeddingRequested, ReferenceChunkEmbeddingRequested
-from core.events.embedding_events import EmbeddingRequested
+from core.events import ChunkEmbeddingRequested, ReferenceChunkEmbeddingRequested, publish_event
+from core.events.embedding_events import EmbeddingRequested, EmbeddingStored
 from core.events.embedding_publisher import EMBEDDING_EVENT_TYPES
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.embeddings_service import EMBEDDING_VERSION
@@ -353,6 +356,7 @@ class EmbeddingBackgroundWorker:
 
             success_count = 0
             entity_type_stats: dict[str, dict[str, int]] = {}
+            stored_events: list[EmbeddingRequested] = []
 
             for pending, result in zip(batch, results, strict=True):
                 event = pending.event
@@ -382,9 +386,20 @@ class EmbeddingBackgroundWorker:
                 if stored:
                     success_count += 1
                     stats["success"] += 1
+                    stored_events.append(event)
                 else:
                     # Neo4j-side failure: logged in _store_embedding, not re-queued
                     stats["failed"] += 1
+
+            # Announce each new vector once the whole batch is stored, so a reader's
+            # work (task grounding's LLM judge) delays no store; the worker stays free
+            # of what its readers do with a vector.
+            for event in stored_events:
+                await publish_event(
+                    self.event_bus,
+                    EmbeddingStored(entity_uid=event.entity_uid, entity_type=event.entity_type),
+                    self.logger,
+                )
 
             # Track internal metrics (backward compatibility)
             failed_count = len(batch) - success_count

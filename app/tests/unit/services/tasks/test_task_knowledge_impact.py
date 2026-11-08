@@ -32,7 +32,6 @@ async def test_the_combined_knowledge_is_the_tasks_graph_links(
         return TaskRelationships(
             applies_knowledge_uids=["ku.impact.applied"],
             prerequisite_knowledge_uids=["ku.impact.required"],
-            inferred_knowledge_uids=["ku.impact.applied"],
         )
 
     monkeypatch.setattr(TaskRelationships, "fetch", fetch)

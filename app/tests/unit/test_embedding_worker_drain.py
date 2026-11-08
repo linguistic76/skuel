@@ -9,6 +9,8 @@ the script. Covers:
 - drain() empties both queues across multiple batch slices
 - drain() terminates on a persistently failing request (bounded retries)
 - subscribe() → publish → drain() round-trips through a real InMemoryEventBus
+- a batch is stored whole before any ``EmbeddingStored`` is announced, and a request
+  dropped as fresh announces nothing
 
 Mock embeddings service + content adapter — no Neo4j, no timer loop.
 """
@@ -19,7 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from core.events import ChunkEmbeddingRequested, TaskEmbeddingRequested
+from core.events import ChunkEmbeddingRequested, EmbeddingStored, TaskEmbeddingRequested
 from core.services.background.embedding_worker import (
     MAX_GENERATION_ATTEMPTS,
     EmbeddingBackgroundWorker,
@@ -159,3 +161,50 @@ async def test_subscribe_publish_drain_round_trip():
         uid="task.test0", label="Task", embedding=VECTOR, text="text 0"
     )
     adapter.store_chunk_embeddings.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_a_batch_is_stored_whole_before_any_vector_is_announced():
+    """``EmbeddingStored`` waits for the batch: a reader's work delays no store."""
+    service = _service()
+    bus = InMemoryEventBus()
+    worker = EmbeddingBackgroundWorker(
+        event_bus=bus, embeddings_service=service, batch_size=25, batch_interval_seconds=1
+    )
+    stores_seen: list[tuple[str, int]] = []
+
+    async def _on_stored(event: EmbeddingStored) -> None:
+        stores_seen.append((event.entity_uid, service.store_embedding_with_metadata.await_count))
+
+    bus.subscribe(EmbeddingStored, _on_stored)
+    worker.subscribe()
+    for i in range(3):
+        await bus.publish_async(_event(i))
+
+    await worker.drain()
+
+    assert stores_seen == [("task.test0", 3), ("task.test1", 3), ("task.test2", 3)]
+
+
+@pytest.mark.asyncio
+async def test_a_request_dropped_as_fresh_announces_nothing():
+    """Unchanged text is no new vector, so no reader runs for it."""
+    service = _service()
+    service.verify_fresh_embeddings = AsyncMock(return_value=Result.ok({"task.test0"}))
+    bus = InMemoryEventBus()
+    worker = EmbeddingBackgroundWorker(
+        event_bus=bus, embeddings_service=service, batch_size=25, batch_interval_seconds=1
+    )
+    announced: list[str] = []
+
+    async def _on_stored(event: EmbeddingStored) -> None:
+        announced.append(event.entity_uid)
+
+    bus.subscribe(EmbeddingStored, _on_stored)
+    worker.subscribe()
+    await bus.publish_async(_event(0))
+    await bus.publish_async(_event(1))
+
+    await worker.drain()
+
+    assert announced == ["task.test1"]

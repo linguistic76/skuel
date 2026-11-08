@@ -4,9 +4,13 @@ TaskKnowledgeAnalyzer — Task-specific knowledge pattern analytics.
 Extends the generic five-pattern KnowledgePatternAnalyzer with:
 
 - MASTERY_VALIDATION pattern detection  (task.knowledge_mastery_check / validates_knowledge_mastery)
-- Knowledge-aware priority scoring       (task.priority / due_date / learning_opportunities_count)
+- Knowledge-aware priority scoring       (task.priority / due_date / the Kus the task links)
 - Ku-focused insight generation          (completion rate, velocity, mastery validation)
 - Knowledge mastery progression tracking (task.calculate_knowledge_complexity)
+
+The knowledge a task links is read from its edges (``TaskRelationships``): what it
+applies — its owner's links and the ones grounding inferred, alike — and what it
+requires.
 
 Relationship graph access goes through self.relationship_service;
 KnowledgePatternAnalyzer receives a domain-agnostic ``fetch_rels`` callable.
@@ -50,15 +54,21 @@ from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.entity import Entity
+    from core.ports.knowledge_pattern_protocol import KnowledgeLinkedRelationships
     from core.services.infrastructure.graph_intelligence_service import (
         GraphIntelligenceService,
     )
     from core.services.relationships import UnifiedRelationshipService
 
 
-def _task_complexity_score(entity: Entity) -> float:
-    """Return Task.calculate_knowledge_complexity() for the KNOWLEDGE_BUILDING detector."""
-    return cast("Task", entity).calculate_knowledge_complexity()
+def _task_complexity_score(entity: Entity, rels: KnowledgeLinkedRelationships) -> float:
+    """Return Task.calculate_knowledge_complexity over the Kus the task links.
+
+    The KNOWLEDGE_BUILDING detector's scorer: ``rels`` is what the detector read for
+    the task, its applied and required knowledge.
+    """
+    linked = set(rels.primary_knowledge_uids) | set(rels.secondary_knowledge_uids)
+    return cast("Task", entity).calculate_knowledge_complexity(linked)
 
 
 @dataclass
@@ -213,7 +223,7 @@ class TaskKnowledgeAnalyzer:
             )
             if ku_categories is None:
                 ku_categories = await self._generic_analyzer.resolve_categories(
-                    rels.applies_knowledge_uids + rels.inferred_knowledge_uids
+                    rels.applies_knowledge_uids
                 )
             cross_domain_impact = self._calculate_cross_domain_impact_score(
                 task, rels, learning_patterns, ku_categories
@@ -284,12 +294,15 @@ class TaskKnowledgeAnalyzer:
             Result[list[ActivityInsight]] sorted by (impact_score, confidence) desc.
         """
         try:
+            rels_by_task = await self._fetch_rels_by_task(completed_tasks)
             insights: list[ActivityInsight] = []
-            insights.extend(await self._generate_knowledge_area_insights(completed_tasks))
+            insights.extend(self._generate_knowledge_area_insights(completed_tasks, rels_by_task))
             insights.extend(
                 self._generate_learning_velocity_insights(completed_tasks, learning_patterns)
             )
-            insights.extend(self._generate_application_effectiveness_insights(completed_tasks))
+            insights.extend(
+                self._generate_application_effectiveness_insights(completed_tasks, rels_by_task)
+            )
             insights.extend(self._generate_mastery_validation_insights(completed_tasks))
             insights.extend(
                 self._generate_cross_domain_insights(completed_tasks, learning_patterns)
@@ -360,7 +373,7 @@ class TaskKnowledgeAnalyzer:
                 if not relevant_tasks:
                     continue
                 progressions[knowledge_uid] = self._calculate_mastery_progression(
-                    knowledge_uid, relevant_tasks
+                    knowledge_uid, relevant_tasks, knowledge_by_task
                 )
 
             self.logger.info(
@@ -439,14 +452,24 @@ class TaskKnowledgeAnalyzer:
         return patterns
 
     def _calculate_mastery_progression(
-        self, knowledge_uid: str, tasks: list[Task]
+        self,
+        knowledge_uid: str,
+        tasks: list[Task],
+        knowledge_by_task: Mapping[str, Collection[str]],
     ) -> MasteryProgression:
-        """Calculate mastery progression for a knowledge area."""
+        """Calculate mastery progression for a knowledge area.
+
+        A task's complexity is scored over the knowledge it links
+        (``knowledge_by_task``).
+        """
         completed_tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
         validation_tasks = [t for t in completed_tasks if t.knowledge_mastery_check]
 
+        def complexity(task: Task) -> float:
+            return task.calculate_knowledge_complexity(knowledge_by_task.get(task.uid, ()))
+
         if completed_tasks:
-            complexities = [t.calculate_knowledge_complexity() for t in completed_tasks]
+            complexities = [complexity(t) for t in completed_tasks]
             avg_complexity = statistics.mean(complexities)
             completion_rate = len(completed_tasks) / len(tasks)
             current_mastery = min(1.0, avg_complexity * completion_rate * 1.2)
@@ -455,12 +478,8 @@ class TaskKnowledgeAnalyzer:
 
         if len(completed_tasks) >= 4:
             mid = len(completed_tasks) // 2
-            recent_avg = statistics.mean(
-                [t.calculate_knowledge_complexity() for t in completed_tasks[mid:]]
-            )
-            older_avg = statistics.mean(
-                [t.calculate_knowledge_complexity() for t in completed_tasks[:mid]]
-            )
+            recent_avg = statistics.mean([complexity(t) for t in completed_tasks[mid:]])
+            older_avg = statistics.mean([complexity(t) for t in completed_tasks[:mid]])
             trend = (recent_avg - older_avg) / older_avg if older_avg > 0 else 0.0
         else:
             trend = 0.0
@@ -527,10 +546,11 @@ class TaskKnowledgeAnalyzer:
     def _calculate_learning_opportunity_score(
         self, task: Task, rels: TaskRelationships, patterns: list[LearningPattern]
     ) -> float:
-        base_score = task.learning_opportunities_count / 10.0
+        """Each Ku the task links is an opportunity; patterns over what it applies boost it."""
+        base_score = len(rels.get_combined_knowledge_uids()) / 10.0
 
         pattern_boost = 0.0
-        task_knowledge = set(rels.applies_knowledge_uids + rels.inferred_knowledge_uids)
+        task_knowledge = set(rels.applies_knowledge_uids)
         for pattern in patterns:
             overlap = task_knowledge.intersection(set(pattern.knowledge_uids))
             if overlap:
@@ -583,7 +603,7 @@ class TaskKnowledgeAnalyzer:
         """Score cross-domain reach from the linked entities' ``sel_category``
         field (``ku_categories``, resolved by the async caller) — uid strings
         are opaque and carry no category (ADR-013 never-sniff)."""
-        all_knowledge_uids = rels.applies_knowledge_uids + rels.inferred_knowledge_uids
+        all_knowledge_uids = rels.applies_knowledge_uids
         task_domains = set(
             self._generic_analyzer._categories_for(all_knowledge_uids, ku_categories)
         )
@@ -647,22 +667,30 @@ class TaskKnowledgeAnalyzer:
             rationale.append("Standard priority scoring applied")
         return rationale
 
-    async def _generate_knowledge_area_insights(self, tasks: list[Task]) -> list[ActivityInsight]:
-        insights: list[ActivityInsight] = []
+    async def _fetch_rels_by_task(self, tasks: list[Task]) -> dict[str, TaskRelationships]:
+        """Each task's relationships, a bounded number of reads in flight; empty without a service."""
         if not tasks or not self.relationship_service:
-            return insights
-
+            return {}
         rels_list = await gather_bounded(
             TaskRelationships.fetch(t.uid, self.relationship_service) for t in tasks
         )
+        return {task.uid: rels for task, rels in zip(tasks, rels_list, strict=False)}
+
+    def _generate_knowledge_area_insights(
+        self, tasks: list[Task], rels_by_task: Mapping[str, TaskRelationships]
+    ) -> list[ActivityInsight]:
+        insights: list[ActivityInsight] = []
+        if not tasks or not rels_by_task:
+            return insights
 
         knowledge_usage: dict[str, dict[str, Any]] = {}
-        for task, rels in zip(tasks, rels_list, strict=False):
-            all_ku_uids = rels.applies_knowledge_uids + rels.inferred_knowledge_uids
-            for ku_uid in all_ku_uids:
+        for task in tasks:
+            rels = rels_by_task.get(task.uid, TaskRelationships.empty())
+            complexity = task.calculate_knowledge_complexity(rels.get_combined_knowledge_uids())
+            for ku_uid in rels.applies_knowledge_uids:
                 ku_data = knowledge_usage.setdefault(ku_uid, {"count": 0, "complexity_sum": 0.0})
                 ku_data["count"] += 1
-                ku_data["complexity_sum"] += task.calculate_knowledge_complexity()
+                ku_data["complexity_sum"] += complexity
 
         if not knowledge_usage:
             return insights
@@ -778,17 +806,22 @@ class TaskKnowledgeAnalyzer:
         return insights
 
     def _generate_application_effectiveness_insights(
-        self, tasks: list[Task]
+        self, tasks: list[Task], rels_by_task: Mapping[str, TaskRelationships]
     ) -> list[ActivityInsight]:
         insights: list[ActivityInsight] = []
-        if not tasks or not self.relationship_service:
+        if not tasks or not rels_by_task:
             return insights
 
         completed_tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
         if len(completed_tasks) < 5:
             return insights
 
-        complexities = [t.calculate_knowledge_complexity() for t in completed_tasks]
+        complexities = [
+            t.calculate_knowledge_complexity(
+                rels_by_task.get(t.uid, TaskRelationships.empty()).get_combined_knowledge_uids()
+            )
+            for t in completed_tasks
+        ]
         completion_rate = len(completed_tasks) / len(tasks)
         avg_complexity = statistics.mean(complexities)
 

@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-10-23
+updated: 2026-11-08
 status: current
 category: domains
 tags:
@@ -124,7 +124,7 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis a
 
 | Key | Relationship | Target | Description |
 |-----|--------------|--------|-------------|
-| `knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied in this task |
+| `knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied in this task: the owner's links, and the ones Ku grounding inferred (`inferred: true`, see below) |
 | `prerequisite_knowledge` | `REQUIRES_KNOWLEDGE` | Ku | Knowledge required before starting |
 | `principles` | `ALIGNED_WITH_PRINCIPLE` | Principle | Principles this task is aligned with. Task create's `aligned_principle_uids` writes one edge per uid; the update request's `aligned_principle_uids` replaces the set (`[]` clears it, absent leaves it), each new edge admitted as at create (the principle must exist, be owned by the task's owner or by nobody, and be a Principle). Never a node property (`RELATIONSHIP_SKIP_FIELDS`); the principle reads the edge as `aligned_tasks` |
 | `enables` | `ENABLES_TASK` | Task | Tasks this enables |
@@ -155,13 +155,32 @@ against the prior, so it is judged by the WRITE: the stamp demands a completed p
 anything else is refused with a message naming the status the write saw
 (`docs/roadmap/done/stranded-completion-stamp.md`).
 
+### Inferred knowledge (Ku grounding)
+
+Once the FULL tier's embedding worker has stored a batch of vectors it announces each
+(`EmbeddingStored`), and for a task `TaskGroundingService` grounds every pending task of its owner:
+it matches each stored vector against the Ku vector index (threshold 0.72, the LLM judge in FULL)
+and writes `(task)-[:APPLIES_KNOWLEDGE {inferred: true, confidence, grounded_at}]->(ku)` to each
+published Ku it engages — the pass `EntryGroundingService` runs for entries
+(`KnowledgeGroundingService`). Each new edge publishes `KnowledgeAppliedInTask`. A task whose pass
+failed (the judge, or a write) stays un-stamped, so the owner's next stored task vector retries it.
+A cancelled task never grounds. Unchanged text never re-grounds (the worker announces no new vector,
+and the pass is hash-stamped); an edit that changes the embedded text does.
+
+- **Removal:** `POST /api/tasks/grounding/remove?uid=&ku_uid=` removes an inferred edge and records
+  the Ku in `grounding_rejected_ku_uids`, so no pass re-infers it; the owner's link, or a link
+  already removed, answers 404.
+- **The owner's links:** an update whose `applies_knowledge_uids` names an inferred Ku makes the
+  link the owner's (the stamp is removed); the update's replace leaves inferred edges in place.
+- **CORE:** nothing announces a vector, so a task carries only the knowledge its owner links.
+- **Backfill:** `scripts/ground_knowledge.py --source tasks` (dry-run default).
+
 ### Incoming (Other → Task)
 
 | Key | Relationship | Source | Description |
 |-----|--------------|--------|-------------|
 | `subtasks` | `HAS_CHILD` | Task | Child tasks |
 | `prerequisite_tasks` | `DEPENDS_ON` | Task | Tasks that must complete first |
-| `inferred_knowledge` | `INFERRED_KNOWLEDGE` | Ku | Inferred knowledge links |
 
 ### Bidirectional
 

@@ -52,7 +52,7 @@ def _unwrap_unserializable(value: Any) -> Any:
     """Fallback for types ``to_jsonable_python`` can't serialize natively.
 
     Frozen domain models wrap mutable dicts in ``MappingProxyType`` for deep
-    immutability (e.g. ``Task.knowledge_confidence_scores``); unwrap those to
+    immutability (e.g. ``Entity.metadata``); unwrap those to
     plain dicts (the result is re-processed recursively). Anything else is a
     genuine type-design problem — raise so the boundary safety-net logs it.
     """

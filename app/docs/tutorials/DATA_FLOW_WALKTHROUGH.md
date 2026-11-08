@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Data Flow Walkthrough: One Task, Created and Read Back
@@ -51,23 +51,22 @@ Smaller helpers run between these stops. The table names the ones that decide so
 | 7 | `TasksService.create_task` | `/core/services/tasks_service.py` | The facade, which delegates |
 | 8 | `TasksCoreService.create_task` | `/core/services/tasks/tasks_core_service.py` | The request door, the one create that holds the request's link lists |
 | 9 | `Task.from_request` | `/core/models/task/task.py` | Builds the frozen `Task` and generates its uid |
-| 10 | `TasksCoreService._enhance_with_knowledge_inference` | `/core/services/tasks/tasks_core_service.py` | Scores keywords in the title and description |
-| 11 | `TasksCoreService._create_with_links` | `/core/services/tasks/tasks_core_service.py` | The one create path: persist, write every edge, then announce |
-| 12 | `Task.with_creation_due_date` | `/core/models/task/task.py` | A task with no date becomes due today |
-| 13 | `_CrudMixin.create` | `/adapters/persistence/neo4j/_crud_mixin.py` | Writes the node and its `OWNS` edge in one statement, and fails if the owner does not exist |
-| 14 | `to_neo4j_node` | `/adapters/persistence/neo4j/neo4j_mapper.py` | `Task` to properties: enums to values, dates to ISO strings, dicts to JSON |
-| 15 | `from_neo4j_node` | `/adapters/persistence/neo4j/neo4j_mapper.py` | Stored properties back to the `Task` the request answers with |
-| 16 | `TasksCoreService._write_link_edges` | `/core/services/tasks/tasks_core_service.py` | Gathers the edges the request and the entity ask for |
-| 17 | `keep_permitted_link_edges` | `/core/services/mixins/link_edge_guard.py` | Keeps the edges this owner may write |
-| 18 | `_RelationshipCrudMixin.create_relationships_batch` | `/adapters/persistence/neo4j/_relationship_crud_mixin.py` | Writes the kept edges, all or none |
-| 19 | `TasksCoreService._publish_created` | `/core/services/tasks/tasks_core_service.py` | Publishes `TaskCreated` and the embedding request, now that every edge exists |
-| 20 | `TasksCoreService._publish_knowledge_substance` | `/core/services/tasks/tasks_core_service.py` | Announces the knowledge edges actually written, never the ones requested |
-| 21 | `result_to_response` | `/adapters/inbound/boundary.py` | Turns the `Result` into a status: 201 |
-| 22 | `jsonable_content` | `/adapters/inbound/boundary.py` | Turns the `Task` into JSON types and leaves out its embedding fields |
+| 10 | `TasksCoreService._create_with_links` | `/core/services/tasks/tasks_core_service.py` | The one create path: persist, write every edge, then announce |
+| 11 | `Task.with_creation_due_date` | `/core/models/task/task.py` | A task with no date becomes due today |
+| 12 | `_CrudMixin.create` | `/adapters/persistence/neo4j/_crud_mixin.py` | Writes the node and its `OWNS` edge in one statement, and fails if the owner does not exist |
+| 13 | `to_neo4j_node` | `/adapters/persistence/neo4j/neo4j_mapper.py` | `Task` to properties: enums to values, dates to ISO strings, dicts to JSON |
+| 14 | `from_neo4j_node` | `/adapters/persistence/neo4j/neo4j_mapper.py` | Stored properties back to the `Task` the request answers with |
+| 15 | `TasksCoreService._write_link_edges` | `/core/services/tasks/tasks_core_service.py` | Gathers the edges the request and the entity ask for |
+| 16 | `keep_permitted_link_edges` | `/core/services/mixins/link_edge_guard.py` | Keeps the edges this owner may write |
+| 17 | `_RelationshipCrudMixin.create_relationships_batch` | `/adapters/persistence/neo4j/_relationship_crud_mixin.py` | Writes the kept edges, all or none |
+| 18 | `TasksCoreService._publish_created` | `/core/services/tasks/tasks_core_service.py` | Publishes `TaskCreated` and the embedding request, now that every edge exists |
+| 19 | `TasksCoreService._publish_knowledge_substance` | `/core/services/tasks/tasks_core_service.py` | Announces the knowledge edges actually written, never the ones requested |
+| 20 | `result_to_response` | `/adapters/inbound/boundary.py` | Turns the `Result` into a status: 201 |
+| 21 | `jsonable_content` | `/adapters/inbound/boundary.py` | Turns the `Task` into JSON types and leaves out its embedding fields |
 
 ## What the graph holds
 
-One node, labelled `:Entity:Task`, with 23 properties. Angle brackets stand for what a run fills in.
+One node, labelled `:Entity:Task`, with 20 properties. Angle brackets stand for what a run fills in.
 
 ```json
 {
@@ -90,18 +89,16 @@ One node, labelled `:Entity:Task`, with 23 properties. Angle brackets stand for 
   "goal_progress_contribution": 0.0,
   "knowledge_mastery_check": false,
   "habit_streak_maintainer": false,
-  "completion_updates_goal": true,
-  "knowledge_confidence_scores": "<inferred>",
-  "knowledge_inference_metadata": "<inferred>",
-  "learning_opportunities_count": "<inferred>"
+  "completion_updates_goal": true
 }
 ```
 
-A field with no value is not stored. The three `<inferred>` properties come from matching the
-title and description against a keyword table in `EntityInferenceService`. The score keys look
-like uids (`ku.programming.python`), but they name no node and make no edge. They are not the
-request's Kus. In the FULL tier a background worker adds the embedding properties after the
-response (`EMBEDDING_OWNED_PROPERTIES`).
+A field with no value is not stored, and no property holds knowledge: the Kus a task applies
+are its edges. In the FULL tier a background worker adds the embedding properties after the
+response (`EMBEDDING_OWNED_PROPERTIES`) and announces the vector; `TaskGroundingService` then
+links the published Kus it matches as `APPLIES_KNOWLEDGE {inferred: true, confidence,
+grounded_at}` edges and stamps the node (`grounded_text_hash`). In CORE neither runs, so a task
+carries only the knowledge its owner links.
 
 The caller and the request's two lists become edges:
 
@@ -121,7 +118,7 @@ those edge writes and never reach the node. See
 
 ## The response
 
-The body is every field of `Task` except the three embedding fields, nulls included: 43 keys.
+The body is every field of `Task` except the three embedding fields, nulls included: 40 keys.
 Abridged:
 
 ```json
@@ -135,14 +132,15 @@ Abridged:
   "due_date": "<today>",
   "scheduled_date": null,
   "parent_uid": null,
-  "contributes_to_goal_uids": [],
-  "knowledge_confidence_scores": "<inferred>"
+  "contributes_to_goal_uids": []
 }
 ```
 
 `applies_knowledge_uids` is not a key, because the `Task` holds no copy of the request's lists. A
 service that needs them reads the graph with
-`TaskRelationships.fetch(uid, tasks_service.relationships)`.
+`TaskRelationships.fetch(uid, tasks_service.relationships)`. Its `applies_knowledge_uids` holds
+the owner's links and the ones grounding inferred alike; only the edge's `inferred` flag tells
+them apart, and only an inferred one is removed at `POST /api/tasks/grounding/remove`.
 
 ## The read path
 
@@ -152,7 +150,7 @@ service that needs them reads the graph with
 Once the FULL tier's worker has embedded a task, the `Task` the read builds carries the vector in
 `embedding`, with `embedding_model` and `embedding_updated_at`: AI ranking reads them off the model.
 The response does not. `jsonable_content` leaves those three keys out of every `Entity` in any JSON
-response, so they are absent, never null, and an embedded task answers with the same 43 keys as one
+response, so they are absent, never null, and an embedded task answers with the same 40 keys as one
 that is not.
 
 | # | Stop | Where | What it does |

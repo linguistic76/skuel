@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-09
+updated: 2026-11-08
 ---
 
 # Functional Direction Roadmap
@@ -30,7 +30,7 @@ Bias: **frozen at the core, functional at the boundary, mutable only at the pers
 | 25 domain models | ✅ All `@dataclass(frozen=True)` | ADR-035 |
 | Error handling | ✅ `Result[T]` throughout `core/` | `/docs/patterns/ERROR_HANDLING.md` |
 | Events | ✅ Frozen records on the event bus | `/core/events/` |
-| Inference (Tasks) | ✅ `TaskInferenceResult` + `dataclasses.replace` | ADR-065 |
+| Inference (Tasks, entries) | ✅ Ku grounding writes edges — no entity fields to apply (ADR-065 superseded 2026-11-08) | `knowledge_grounding_service.py` |
 | Pydantic request models | ✅ Value-typed post-validation | ADR-035 Tier 1 |
 | DTOs (CRUD translation) | ❌ Mutable by design — named exception | ADR-035 Tier 2 |
 | Neo4j session/tx | ❌ Mutable by necessity — below the boundary | ADR-044 |
@@ -48,7 +48,7 @@ The question "is the functional direction implemented?" has two halves — the *
 
 | Extension | Target | Status (2026-05-31) | Evidence |
 |-----------|--------|---------------------|----------|
-| #1 Inference parity | `{Domain}InferenceResult` for all 6 Activity Domains | **PARTIAL — 1/6** | Only `TaskInferenceResult` exists (`core/models/task/task_inference_result.py`). Goals/Habits/Events/Choices/Principles have none. |
+| #1 Inference parity | `{Domain}InferenceResult` for all 6 Activity Domains | **RE-SCOPED (2026-11-08)** | `TaskInferenceResult` retired with the keyword table; inference is Ku grounding, which writes edges, not fields. Per-domain plan: [`activity-domain-inference-migration.md`](activity-domain-inference-migration.md). |
 | #2 Typed update intents | `update_X(uid, intent: {Domain}UpdateIntent)` | **✅ DONE (2026-06-05)** | ADR-066 complete: all six Activity Domains expose `update_X(uid, intent: {Domain}UpdateIntent)`; the shared `CrudOperationsMixin[B, T, U]` is parameterized over the update type `U` (bound `SupportsToChanges`, default `RawChanges`); the six `*UpdatePayload` TypedDicts, the `_intent_from_mapping` funnels, and the facade `Mapping` overrides are deleted. PRs #228 (Tasks), #230 (Goals), #231 (Events), #232 (Choices), #233 (Principles), #236 (Habits), #238 (base parameterization + teardown). |
 | #3 Collapse `Result[None] \| None` | hooks return `Result[None]` | **✅ DONE (2026-05-31)** | All 5 validation hooks (`_validate_create`, `_validate_update`, `_validate_content`, `_validate_prerequisites`, `_validate_required_user_uid`) now return `Result[None]`; success is `Result.ok(None)`. Call sites use `.is_error`, not truthiness. |
 
@@ -56,7 +56,7 @@ The enforcement layer being live is precisely what makes the remaining extension
 
 **#3 note (closed wider than originally scoped):** the collapse covered *all five* `Result[None] | None` validation hooks, not just `_validate_create` / `_validate_update` — the two siblings (`_validate_prerequisites`, `_validate_required_user_uid`) carried the identical wart, so a partial collapse would have left it half-present. The correctness-critical part was the call-site rewrite from `if validation:` to `if validation.is_error:`: `Result` has no `__bool__`, so once success became the (truthy) `Result.ok(None)`, the old truthiness check would have treated every passing validation as a failure. mypy cannot catch that flip — it is guarded by `tests/unit/test_base_service.py::TestValidationHookContract`.
 
-**#1 blockage (why it is deferred, not in progress):** the roadmap frames #1 as "add `{Domain}InferenceResult` to 5 domains," but those domains have *no inference service at all* — an `*InferenceResult` is the return type of a computation that does not exist. Per [`activity-domain-inference-migration.md`](activity-domain-inference-migration.md), the dataclasses arrive *when a domain grows an inference service*, which is paced by product demand. Even the named engine-generalization prerequisite (make `EntityInferenceService` `EntityType`-aware) is to be done "before the second domain migrates" — generalizing a one-implementation dispatch with no second caller now would be premature abstraction. #1 stays deferred until a domain actually needs inference.
+**#1 re-scoped (2026-11-08):** the keyword inference behind `TaskInferenceResult` retired (its keys named no Ku), and a task's inferred knowledge is now Ku grounding: inferred `APPLIES_KNOWLEDGE` edges, so there is no `*InferenceResult` to give any domain. Another domain that needs inferred knowledge grounds as a new source of `KnowledgeGroundingService` ([`activity-domain-inference-migration.md`](activity-domain-inference-migration.md)), paced by product demand.
 
 **What makes the direction *mechanical* rather than doctrinal:** mypy's `arg-type` error code is the enforcement layer for the frozen-models / typed-payloads / typed-intents disciplines on `core/`. Without it, a `TaskDTO` passed where a frozen `Task` is expected, a raw `str` passed where a `UserUID` is expected, or a `dict[str, Any]` passed where a typed payload is expected all pass silently — the roadmap stays aspirational. With `arg-type` live on `core/`, those crossings become type errors at the call site, so the frozen-value contract is checked by the toolchain, not just reviewed by humans. It was re-enabled by a 12-PR sweep (`mypy --enable-error-code arg-type core`: 194 → 0; ~80% real signal). A follow-on campaign (PRs #121–128) then drove `services_bootstrap/` — the composition root, where service↔protocol conformance gaps aggregate — to 0 honestly and flipped enforcement on there too (2026-05-30). The `adapters/` sweep followed as micro-PRs AD-1..AD-8 (81 → 0; AD-9 finance was dissolved by the finance demolition, #144), and the `ui/` sweep as UI-1..UI-4 (76 → 0; the FastHTML/MonsterUI boundary, where the genuinely-irreducible Alpine colon/`@`/dot attribute splats carry a `# fasthtml dynamic-attr splat` ignore). With all four first-party trees at 0, the **global `disable_error_code` was deleted (2026-05-31)** — arg-type is now the toolchain default everywhere, with only `tests`/`scripts` scope-disabled (framework-mock noise, thousands of sites, never swept — the suppression audit reports the current count weekly). Throughout, the discipline was zero unjustified suppressions: a tree that needed `# type: ignore` to pass meant the wrong sequencing, not a reason to suppress. When item #2 below (typed update intents) lands, `arg-type` is what will keep a stray `dict` from sneaking back into an `update_X` signature.
 
@@ -64,11 +64,9 @@ The enforcement layer being live is precisely what makes the remaining extension
 
 Three candidates, ordered by ratio of (clarity gained) to (work required). None of these is urgent; #1 is the only one with active roadmap commitment.
 
-### 1. Inference parity across the 5 remaining Activity Domains (already in flight) — *1/6 done*
+### 1. Inferred knowledge across the 5 remaining Activity Domains — *re-scoped 2026-11-08*
 
-Goals, Habits, Events, Choices, Principles each gain a `{Domain}InferenceResult` mirroring `TaskInferenceResult`. Generalizing `EntityInferenceService` to be `EntityType`-aware is the single cross-cutting prerequisite (the engine was merged into the service; no separate `AdvancedInferenceEngine` class remains).
-
-This is a direct, mechanical extension of ADR-065. The pattern is specified; the work is paced by when each domain grows an inference service.
+Tasks and UserEntries ground to Kus by embedding (`KnowledgeGroundingService`); Goals, Habits, Events, Choices, Principles would each become a source of the same pass. The result writes edges, not entity fields, so the functional contract has nothing to apply here; the work is paced by when a domain needs inferred knowledge.
 
 **Already a separate roadmap doc:** [`activity-domain-inference-migration.md`](activity-domain-inference-migration.md). Listed here only so the broader functional direction picture is complete.
 
@@ -125,5 +123,5 @@ If you find yourself reaching for a `dict[str, Any]` parameter on a service meth
 - [ADR-035 — Tier Selection Guidelines](../decisions/ADR-035-tier-selection-guidelines.md) — frozen domain models, three-tier structure, the always-two-tier alternative explicitly rejected for complex domains.
 - [ADR-065 — Functional Inference Contract](../decisions/ADR-065-functional-inference-contract.md) — the doctrine extension this roadmap generalizes; closes ADR-035's "intelligence services would operate on mutable DTOs (risky)" risk flag.
 - [Three-Tier Type System § Intelligence is the Exception](../patterns/three_tier_type_system.md) — pattern-level statement of the DTO carve-out.
-- [Activity Domain Inference Migration](activity-domain-inference-migration.md) — the in-flight per-domain work item #1.
+- [Activity Domain Knowledge Inference](activity-domain-inference-migration.md) — the per-domain plan for item #1, re-scoped to grounding.
 - [Error Handling — `Result[T]`](../patterns/ERROR_HANDLING.md) — error-as-value doctrine.

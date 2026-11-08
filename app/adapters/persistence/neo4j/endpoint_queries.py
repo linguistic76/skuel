@@ -129,6 +129,14 @@ def build_guarded_link_query(
     ``replace_label`` when one is given — are deleted in the same statement, so a
     replacement never leaves the anchor without its old link and without the new one.
 
+    The links written here are the owner's. An edge a grounding pass inferred
+    (``inferred``, ``KnowledgeGroundingBackend``) is not the owner's set, so a replace
+    leaves it in place — it is removed at the grounding removal door, which records
+    the removal. And a write that names a pair grounding already inferred makes it
+    the owner's link: its inference stamp (``inferred``, ``confidence``,
+    ``grounded_at``) is removed before ``$properties`` is set, as the entry's owner
+    writer does (``UserEntryBackend.write_applied_knowledge``).
+
     Parameters: ``$anchor_uid``, ``$expected_owners``, ``$far_uids`` (distinct), ``$far_labels``,
     ``$properties`` and ``PUBLISHED_UIDS_BATCH_PARAMS``. Returns one row —
     ``admitted`` (the far uids that passed) and ``anchor_owners`` — or none when the
@@ -139,7 +147,10 @@ def build_guarded_link_query(
     kind = f":{replace_label.value}" if replace_label is not None else ""
     stale = f"(a)-[old:{rel}]->(x{kind})" if anchor_is_source else f"(x{kind})-[old:{rel}]->(a)"
     replace_line = (
-        f"FOREACH (gone IN [{stale} WHERE NOT x IN fars | old] | DELETE gone)" if replace else ""
+        f"FOREACH (gone IN [{stale} WHERE NOT x IN fars AND NOT coalesce(old.inferred, false) "
+        f"| old] | DELETE gone)"
+        if replace
+        else ""
     )
     return f"""
 MATCH (a:{NeoLabel.ENTITY.value} {{uid: $anchor_uid}})
@@ -161,7 +172,11 @@ CALL (a, anchor_owners) {{
 CALL (a, fars) {{
     WITH a, fars WHERE size(fars) = size($far_uids)
     {replace_line}
-    FOREACH (f IN fars | MERGE {link} SET r += $properties)
+    FOREACH (f IN fars |
+        MERGE {link}
+        FOREACH (_ IN CASE WHEN coalesce(r.inferred, false) THEN [1] ELSE [] END |
+            REMOVE r.inferred, r.confidence, r.grounded_at)
+        SET r += $properties)
 }}
 RETURN [n IN fars | n.uid] AS admitted, anchor_owners
 """

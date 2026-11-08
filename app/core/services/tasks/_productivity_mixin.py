@@ -120,15 +120,14 @@ class _ProductivityMixin:
         mastery_progressions = mastery_result.value
 
         # One sel_category batch for the tasks being scored — the per-task scorer
-        # would otherwise issue one lookup per task. Union of the same uid tiers
-        # the scorer reads (applies + inferred), over the tasks it scores.
+        # would otherwise issue one lookup per task. The uids the scorer reads (what
+        # each task applies, owner-linked or inferred), over the tasks it scores.
         rels_list = await gather_bounded(
             TaskRelationships.fetch(task.uid, self.relationships) for task in tasks_to_prioritize
         )
         linked_uids: set[str] = set()
         for rels in rels_list:
             linked_uids.update(rels.applies_knowledge_uids)
-            linked_uids.update(rels.inferred_knowledge_uids)
         ku_categories = await self._knowledge_analyzer.resolve_ku_categories(list(linked_uids))
 
         priorities = []
@@ -210,9 +209,10 @@ class _ProductivityMixin:
     async def _knowledge_by_task(self, tasks: list[Task]) -> Result[dict[str, set[str]]]:
         """The knowledge each task links, read for the whole set in one batch per key.
 
-        A task's knowledge is what it applies, requires, or was inferred to touch
-        (``TASK_KNOWLEDGE_KEYS``) — the published curriculum ``TaskRelationships``
-        reads for one task, read here for every task at once.
+        A task's knowledge is what it applies — its owner's links and the ones
+        grounding inferred — and what it requires (``TASK_KNOWLEDGE_KEYS``): the
+        published curriculum ``TaskRelationships`` reads for one task, read here for
+        every task at once.
 
         Backend: batch_get_related_uids, once per key
         """
@@ -245,35 +245,35 @@ class _ProductivityMixin:
         get_learning_opportunities() which uses graph intelligence for discovery;
         this is per-task scoring, sorted by learning impact.
 
-        GRAPH-NATIVE: Fetches relationship data for tasks that have learning
-        opportunities before calling Task model methods.
+        GRAPH-NATIVE: A task's learning opportunities are the Kus it links — read
+        from its knowledge edges, then handed to the Task model methods.
         """
         tasks_result = await self.backend.list(limit=QueryLimit.SMALL)
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 
         tasks, _ = tasks_result.value
-        tasks_with_opportunities = [task for task in tasks if task.learning_opportunities_count > 0]
-
-        if not tasks_with_opportunities:
+        if not tasks:
             return Result.ok([])
 
         rels_list = await gather_bounded(
-            TaskRelationships.fetch(task.uid, self.relationships)
-            for task in tasks_with_opportunities
+            TaskRelationships.fetch(task.uid, self.relationships) for task in tasks
         )
 
         opportunities: list[dict[str, Any]] = []
-        for task, _rels in zip(tasks_with_opportunities, rels_list, strict=False):
+        for task, rels in zip(tasks, rels_list, strict=False):
+            knowledge_uids = rels.get_combined_knowledge_uids()
+            if not knowledge_uids:
+                continue
             opportunities.append(
                 {
                     "task_uid": task.uid,
                     "title": task.title,
-                    "opportunities_count": task.learning_opportunities_count,
+                    "opportunities_count": len(knowledge_uids),
                     # knowledge_patterns inferred from relationships, not a stored field
                     "knowledge_patterns": [],
-                    "complexity_score": task.calculate_knowledge_complexity(),
-                    "learning_impact": task.calculate_learning_impact(),
+                    "complexity_score": task.calculate_knowledge_complexity(knowledge_uids),
+                    "learning_impact": task.calculate_learning_impact(knowledge_uids),
                     "is_bridge_task": task.is_knowledge_bridge(),
                     "validates_mastery": task.validates_knowledge_mastery(),
                 }
@@ -324,14 +324,15 @@ class _ProductivityMixin:
         high_complexity_tasks: list[Task] = []
         total_learning_opportunities = 0
 
-        for task, _rels in zip(all_tasks, rels_list, strict=False):
+        for task, rels in zip(all_tasks, rels_list, strict=False):
+            knowledge_uids = rels.get_combined_knowledge_uids()
             if task.is_knowledge_bridge():
                 knowledge_bridge_tasks.append(task)
             if task.validates_knowledge_mastery():
                 mastery_validation_tasks.append(task)
-            if task.calculate_knowledge_complexity() > 0.7:
+            if task.calculate_knowledge_complexity(knowledge_uids) > 0.7:
                 high_complexity_tasks.append(task)
-            total_learning_opportunities += task.learning_opportunities_count
+            total_learning_opportunities += len(knowledge_uids)
 
         insights = {
             "total_tasks_analyzed": len(all_tasks),

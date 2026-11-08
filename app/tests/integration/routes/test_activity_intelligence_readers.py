@@ -2,8 +2,9 @@
 
 - **Knowledge-aware task priorities** (``GET /api/tasks/knowledge-priorities``) score
   each task against the user's mastery progression in the knowledge the task links.
-  The knowledge a task links is its ``APPLIES_KNOWLEDGE`` / ``REQUIRES_KNOWLEDGE`` /
-  ``INFERRED_KNOWLEDGE`` edges to published curriculum, read from the graph.
+  The knowledge a task links is its ``APPLIES_KNOWLEDGE`` (its owner's links and the
+  ones grounding inferred) and ``REQUIRES_KNOWLEDGE`` edges to published curriculum,
+  read from the graph.
 - **Principle conflicts** (``PrinciplesService.get_principle_conflict_analysis``) pair
   two principles that support the same goal — the ``SUPPORTS_GOAL`` edge each link door
   writes, read from the principle's ``supported_goals`` context.
@@ -93,6 +94,7 @@ PRI_USER = seed_user_uid(f"{PRI_MARK}")
 KU_APPLIED = f"ku.{PRI_MARK}.applied"
 KU_REQUIRED = f"ku.{PRI_MARK}.required"
 KU_LATER_DRAFT = f"ku.{PRI_MARK}.later-draft"  # published when linked, a draft since
+KU_SIDE = f"ku.{PRI_MARK}.side"  # linked by the two tasks that compare link kinds
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
@@ -134,20 +136,26 @@ async def _priority(env: Env, task: str) -> dict[str, Any]:  # boundary: JSON bo
     return rows[0]
 
 
+#: The applied Ku's mastery, from its two tasks: the done one links that one Ku, so its
+#: complexity is breadth 0.1 + opportunity 0.2; mastery = 0.3 x half of them done x 1.2.
+APPLIED_MASTERY = 0.3 * (1 / 2) * 1.2
+
+
 async def test_a_task_is_scored_against_its_knowledges_mastery_progression(
     priorities: Env,
 ) -> None:
-    """The applied Ku has a progression (one task done, one open, mastery 0), so the
-    task scores the room left in it — not the no-progression fallback."""
+    """The applied Ku has a progression (one task done, one open), so the task scores
+    the room left in it — not the no-progression fallback."""
     row = await _priority(priorities, "open")
 
-    assert row["knowledge_enhancement_score"] == pytest.approx(1.0)
+    assert row["knowledge_enhancement_score"] == pytest.approx(1.0 - APPLIED_MASTERY)
     assert row["knowledge_enhancement_score"] != pytest.approx(
         KnowledgeEnhancementScore.NEW_KNOWLEDGE_POTENTIAL
     )
-    # Two links, both with a progression and no velocity: room weight only.
+    # Two links, both with a progression and no velocity: room weight only — the applied
+    # Ku's room is what its mastery leaves, the required Ku (no task done) has all of it.
     assert row["mastery_progression_score"] == pytest.approx(
-        KnowledgeEnhancementScore.MASTERY_ROOM_WEIGHT
+        KnowledgeEnhancementScore.MASTERY_ROOM_WEIGHT * ((1.0 - APPLIED_MASTERY) + 1.0) / 2
     )
 
 
@@ -173,6 +181,37 @@ async def test_mastery_progression_tracks_every_published_ku_the_tasks_link(
     assert set(progressions) == {KU_APPLIED, KU_REQUIRED}
     assert progressions[KU_APPLIED].activities_completed == 1
     assert progressions[KU_REQUIRED].activities_completed == 0
+
+
+async def test_an_inferred_link_scores_as_the_owners_link_does(priorities: Env) -> None:
+    """Two tasks apply one Ku, one by its owner's link and one by grounding's inferred
+    edge: every score the door returns is the same for both."""
+    driver = priorities.services.neo4j_driver
+    await _seed_ku(driver, KU_SIDE, "published")
+    named = await create(
+        priorities.client, "tasks", f"{PRI_MARK} named", applies_knowledge_uids=[KU_SIDE]
+    )
+    grounded = await create(priorities.client, "tasks", f"{PRI_MARK} grounded")
+    written = await priorities.services.task_grounding.backend.write_applies_knowledge(
+        grounded, KU_SIDE, 0.8
+    )
+    assert written.is_ok and written.value is True
+    response = await priorities.client.get(
+        "/api/tasks/knowledge-priorities", params={"task_uids": f"{named},{grounded}"}
+    )
+    assert response.status_code == 200, response.text
+    rows = {row["task_uid"]: row for row in response.json()["priorities"]}
+
+    scores = (
+        "knowledge_enhancement_score",
+        "learning_opportunity_score",
+        "mastery_progression_score",
+        "cross_domain_impact_score",
+        "final_priority_score",
+    )
+    assert {key: rows[named][key] for key in scores} == {key: rows[grounded][key] for key in scores}
+    # One linked Ku: the opportunity score counts it, for both.
+    assert rows[grounded]["learning_opportunity_score"] == pytest.approx(0.1)
 
 
 # ---------------------------------------------------------------------------

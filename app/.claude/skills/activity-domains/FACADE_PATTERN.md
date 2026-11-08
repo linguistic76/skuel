@@ -156,17 +156,16 @@ def __init__(self, backend, graph_intel, cross_domain_query, event_bus=None,
     self.progress = EventsProgressService(backend=backend, event_bus=event_bus)
 ```
 
-`skip` avoids constructing a sub-service the facade builds itself. Tasks is the one caller:
+`skip` avoids constructing a sub-service the facade builds itself. No facade passes it
+today — every domain's `core` is the factory's `core_class(backend=..., event_bus=...)`:
 
 ```python
 common = create_common_sub_services(
     domain="tasks", backend=backend, graph_intel=graph_intel, event_bus=event_bus,
-    insight_store=insight_store, skip={"core"},
+    insight_store=insight_store,
     activity_knowledge_intelligence=activity_knowledge_intelligence,
 )
-self.core = TasksCoreService(
-    backend=backend, ku_inference_service=ku_inference_service, event_bus=event_bus
-)
+self.core: TasksCoreService = common.core
 ```
 
 ## Adding New Facade Methods

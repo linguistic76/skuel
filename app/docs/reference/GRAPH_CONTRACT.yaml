@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 168, with_contract: 90}
+    relationships: {total: 167, with_contract: 89}
     labels: {total: 57, with_contract: 16}
   legacy_label_config_aliases: []
 
@@ -162,11 +162,6 @@ relationships:
           - {direction: outgoing, target: Entity, context_field: informed_choices, method: choices, ingestion_field: choice_uids}
   COMPLETES_KNOWLEDGE:
     contract: null
-  INFERRED_KNOWLEDGE:
-    contract:
-      - config: Task
-        definitions:
-          - {direction: outgoing, target: Entity, context_field: inferred_knowledge, method: inferred_knowledge}
   GUIDED_BY_KNOWLEDGE:
     contract: null
   REINFORCED_BY_KNOWLEDGE:
@@ -939,7 +934,6 @@ labels:
         - BLOCKED_BY
         - HAS_CHILD
         - DEPENDS_ON
-        - INFERRED_KNOWLEDGE
         - EXECUTES_TASK
         - IMPLEMENTS_CHOICE
         - SERVES_LIFE_PATH

@@ -23,7 +23,6 @@ from core.events.goal_events import GoalContributionsChanged
 from core.models.enums import EntityStatus, Priority
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
-from core.models.task.task_inference_result import TaskInferenceResult
 from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -77,25 +76,9 @@ def mock_backend() -> Any:
 
 
 @pytest.fixture
-def mock_ku_inference_service() -> Any:
-    """Create a mock knowledge inference service.
-
-    ADR-065: inference now returns ``Result[TaskInferenceResult]`` carrying
-    only the enrichment fields. The default mock returns an empty result
-    (no enrichment) so passthrough callers see the input task unchanged.
-    Tests can override this to assert specific enrichment is applied.
-    """
-    service = Mock()
-    # enhance_task_dto_with_inference is sync (pure in-memory inference, SKUEL029) —
-    # a plain Mock returns the Result directly; callers no longer await it.
-    service.enhance_task_dto_with_inference = Mock(return_value=Result.ok(TaskInferenceResult()))
-    return service
-
-
-@pytest.fixture
-def core_service(mock_backend, mock_ku_inference_service) -> TasksCoreService:
+def core_service(mock_backend) -> TasksCoreService:
     """Create TasksCoreService instance with mocked dependencies."""
-    return TasksCoreService(backend=mock_backend, ku_inference_service=mock_ku_inference_service)
+    return TasksCoreService(backend=mock_backend)
 
 
 @pytest.fixture
@@ -137,19 +120,12 @@ def test_init_with_backend(mock_backend):
     """Test service initialization with required backend."""
     service = TasksCoreService(backend=mock_backend)
     assert service.backend == mock_backend
-    assert service.ku_inference_service is None
 
 
 def test_init_without_backend():
     """Test service initialization fails without backend."""
     with pytest.raises(ValueError, match=r"tasks\.core backend is REQUIRED"):
         TasksCoreService(backend=None)
-
-
-def test_init_with_optional_services(mock_backend, mock_ku_inference_service):
-    """Test service initialization with optional services."""
-    service = TasksCoreService(backend=mock_backend, ku_inference_service=mock_ku_inference_service)
-    assert service.ku_inference_service == mock_ku_inference_service
 
 
 # ============================================================================
@@ -221,67 +197,6 @@ async def test_create_applies_the_creation_rule_on_both_doors(core_service, mock
     result = await core_service.create(scheduled)
     assert result.is_ok
     assert mock_backend.create.call_args.args[0] is scheduled
-
-
-@pytest.mark.asyncio
-async def test_create_task_with_knowledge_inference(
-    core_service, mock_backend, mock_ku_inference_service, sample_task_request, sample_task_dto
-):
-    """Test task creation with knowledge inference applied.
-
-    ADR-065: inference returns a typed TaskInferenceResult; the service
-    applies it via dataclasses.replace before persistence. We assert the
-    enrichment fields land on the persisted task.
-    """
-    # Setup - inference produces enrichment for the task draft
-    enrichment = TaskInferenceResult(
-        knowledge_confidence_scores={"ku.programming.python": 0.85},
-        knowledge_inference_metadata={"inference_version": "2.4_advanced"},
-        learning_opportunities_count=2,
-    )
-    mock_ku_inference_service.enhance_task_dto_with_inference.return_value = Result.ok(enrichment)
-
-    # The backend echoes back whatever the service sent; we read the payload
-    # the service actually wrote so the assertions reflect the applied
-    # enrichment, not a hard-coded sample.
-    def _echo_create(payload):
-        return Result.ok(payload)
-
-    mock_backend.create.side_effect = _echo_create
-
-    # Execute
-    result = await core_service.create_task(sample_task_request, user_uid="user_demo")
-
-    # Verify
-    assert result.is_ok
-    task = result.value
-    assert task.learning_opportunities_count == 2
-    assert task.knowledge_confidence_scores == {"ku.programming.python": 0.85}
-    mock_ku_inference_service.enhance_task_dto_with_inference.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_create_task_inference_failure_is_fail_fast(
-    core_service, mock_backend, mock_ku_inference_service, sample_task_request, sample_task_dto
-):
-    """Test task creation fails when knowledge inference fails (fail-fast pattern).
-
-    SKUEL follows fail-fast architecture: if inference is configured but fails,
-    the entire operation fails. This prevents silent degradation.
-    """
-    # Setup - inference service raises exception
-    mock_ku_inference_service.enhance_task_dto_with_inference.side_effect = Exception(
-        "Inference failed"
-    )
-    mock_backend.create.return_value = Result.ok(sample_task_dto.to_dict())
-
-    # Execute
-    result = await core_service.create_task(sample_task_request, user_uid="user_demo")
-
-    # Verify - fail-fast: inference failure → create failure
-    assert result.is_error
-    # Backend create should NOT have been called since inference failed first
-    mock_backend.create.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -788,9 +703,7 @@ async def test_delete_task_success(core_service, mock_backend, sample_task_dto):
 
 
 @pytest.mark.asyncio
-async def test_delete_task_announces_the_goals_it_contributed_to(
-    mock_backend, mock_ku_inference_service, sample_task_dto
-):
+async def test_delete_task_announces_the_goals_it_contributed_to(mock_backend, sample_task_dto):
     """The goals are read before the delete takes the edges, and announced after it."""
     published: list[object] = []
 
@@ -798,9 +711,7 @@ async def test_delete_task_announces_the_goals_it_contributed_to(
         async def publish_async(self, event: object) -> None:
             published.append(event)
 
-    service = TasksCoreService(
-        backend=mock_backend, ku_inference_service=mock_ku_inference_service, event_bus=_Bus()
-    )
+    service = TasksCoreService(backend=mock_backend, event_bus=_Bus())
     mock_backend.get.return_value = Result.ok(sample_task_dto.to_dict())
     order: list[str] = []
 
@@ -826,7 +737,7 @@ async def test_delete_task_announces_the_goals_it_contributed_to(
 
 @pytest.mark.asyncio
 async def test_delete_task_of_no_goal_announces_no_contribution_change(
-    mock_backend, mock_ku_inference_service, sample_task_dto
+    mock_backend, sample_task_dto
 ):
     published: list[object] = []
 
@@ -834,9 +745,7 @@ async def test_delete_task_of_no_goal_announces_no_contribution_change(
         async def publish_async(self, event: object) -> None:
             published.append(event)
 
-    service = TasksCoreService(
-        backend=mock_backend, ku_inference_service=mock_ku_inference_service, event_bus=_Bus()
-    )
+    service = TasksCoreService(backend=mock_backend, event_bus=_Bus())
     mock_backend.get.return_value = Result.ok(sample_task_dto.to_dict())
 
     result = await service.delete_task("task:123")

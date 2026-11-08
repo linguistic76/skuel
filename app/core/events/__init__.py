@@ -96,6 +96,7 @@ from core.events.curriculum_events import (
 from core.events.embedding_events import (
     ChoiceEmbeddingRequested,
     EmbeddingRequested,
+    EmbeddingStored,
     EventEmbeddingRequested,
     ExerciseEmbeddingRequested,
     GoalEmbeddingRequested,
@@ -259,6 +260,7 @@ __all__ = [
     "ChunkEmbeddingRequested",
     "DomainEvent",
     "EmbeddingRequested",
+    "EmbeddingStored",
     "EntityLinksChanged",
     "EntryReportGenerated",
     "EventAttendeeAdded",

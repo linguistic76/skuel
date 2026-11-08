@@ -147,7 +147,6 @@ FAR_END_NOT_ANOTHER_ACTIVITY: dict[View, str] = {
         )
     },
     View(NeoLabel.TASK, RelationshipName.UNLOCKS_KNOWLEDGE, "unlocks_knowledge"): "a Ku",
-    View(NeoLabel.TASK, RelationshipName.INFERRED_KNOWLEDGE, "inferred_knowledge"): "a Ku",
     View(
         NeoLabel.CHOICE, RelationshipName.REQUIRES_KNOWLEDGE_FOR_DECISION, "required_knowledge"
     ): "a Ku",

@@ -136,3 +136,22 @@ class UserEntryEmbeddingRequested(EmbeddingRequested):
     """
 
     event_type: ClassVar[str] = "user_entry.embedding_requested"
+
+
+@dataclass(frozen=True)
+class EmbeddingStored(BaseEvent):
+    """An entity's embedding was generated and stored, for the text it names.
+
+    Published by the embedding background worker after each successful store, so a
+    reader of the new vector can run once it exists without the worker knowing who
+    reads it. Not published for a request the worker dropped because the stored
+    embedding already covered its text (ADR-074 §8): unchanged text is no new vector.
+
+    Subscribers:
+    - TaskGroundingService (grounds a task to Kus by its new vector)
+    """
+
+    entity_uid: EntityUID
+    entity_type: str  # an EntityType value, as the request carried it
+
+    event_type: ClassVar[str] = "embedding.stored"

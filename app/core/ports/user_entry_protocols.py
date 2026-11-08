@@ -42,8 +42,6 @@ from core.ports.base_protocols import BackendOperations
 from core.ports.query_types import (
     AppliedKnowledgeWriteRow,
     ExtractionTwinRow,
-    GroundingEntryRow,
-    GroundingRemovalRow,
     KnowledgeChip,
     KnowledgeEntryGroundingRow,
     OrganizerResult,
@@ -665,63 +663,4 @@ class UserEntryProcessingOperations(Protocol):
         new_instructions: dict[str, Any] | None = None,
     ) -> Result[UserEntry]:
         """Re-run the entry's pipeline, optionally with new instructions."""
-        ...
-
-
-# ============================================================================
-# Entry→Ku grounding — standalone backend contract (Entry-Enrichment PR 3)
-# ============================================================================
-
-
-@runtime_checkable
-class EntryGroundingBackendOperations(Protocol):
-    """Persistence contract for entry→Ku grounding.
-
-    Candidate reads + eager edge writes for ``EntryGroundingService``: which
-    entries on a grounded pipeline (``Pipeline.knowledge_grounded``) still need
-    a grounding pass, the provenance-
-    stamped ``APPLIES_KNOWLEDGE`` write, the per-entry grounded stamp, and the
-    ownership-scoped removal that records the user's rejection.
-
-    Implementation: ``EntryGroundingBackend``
-    (``adapters/persistence/neo4j/entry_grounding_backend.py``).
-    """
-
-    async def get_pending_entries(
-        self, user_uid: str | None = None, force: bool = False
-    ) -> Result[list[GroundingEntryRow]]:
-        """Non-private grounded-pipeline entries whose grounding stamp is missing or stale.
-
-        Only an entry with a stored embedding is pending — grounding reads it.
-        """
-        ...
-
-    async def write_applies_knowledge(
-        self, entry_uid: str, ku_uid: str, confidence: float
-    ) -> Result[bool]:
-        """Ground an entry in a KU it applies, stamping provenance on first write only.
-
-        True iff this call created the link — an explicit reference the user
-        already authored is never restamped as inferred, and the caller publishes
-        the substance event only on True. A draft KU, a pair the owner
-        removed, or an entry that no longer grounds links nothing (False).
-        """
-        ...
-
-    async def stamp_grounded(self, entry_uid: str, text_hash: str, version: int) -> Result[None]:
-        """Mark the entry's grounding pass complete for its current embedding text.
-
-        A no-op when the entry no longer grounds or its embedding text changed
-        since the pass read it.
-        """
-        ...
-
-    async def remove_grounded_edge(
-        self, entry_uid: str, ku_uid: str, user_uid: UserUID
-    ) -> Result[GroundingRemovalRow | None]:
-        """Ownership-scoped delete of an INFERRED edge + rejection record.
-
-        None when nothing matched: the entry is not the user's, the edge is
-        absent, or the owner named it (a named link is unnamed in the text).
-        """
         ...

@@ -8,12 +8,13 @@ Handles basic task lifecycle management.
 **Responsibilities:**
 - Create, read, update, delete tasks
 - Basic task listing and retrieval
-- Automatic knowledge inference on creation
 - DTO/Model conversion
+
+The knowledge a task applies is its owner's links, written at create, and the
+links ``TaskGroundingService`` infers once the task's embedding is stored.
 
 **Dependencies:**
 - BackendOperations[Task] (backend protocol)
-- EntityInferenceService (optional - automatic knowledge inference)
 """
 
 from __future__ import annotations
@@ -48,7 +49,6 @@ from core.models.goal.goal_contribution import moves_contribution_class
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
-from core.models.task.task_inference_result import TaskInferenceResult
 from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports.query_types import ParentProgressResult, TaskStats
@@ -140,7 +140,6 @@ class TasksCoreService(
     def __init__(
         self,
         backend: TasksOperations,
-        ku_inference_service: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:
         """
@@ -148,11 +147,9 @@ class TasksCoreService(
 
         Args:
             backend: TasksOperations backend (required)
-            ku_inference_service: EntityInferenceService for knowledge inference (optional)
             event_bus: Event bus for publishing domain events (optional)
         """
         super().__init__(backend=backend, service_name="tasks.core")
-        self.ku_inference_service = ku_inference_service
         self.event_bus = event_bus
 
     # ========================================================================
@@ -280,30 +277,6 @@ class TasksCoreService(
     # ========================================================================
     # CREATE OPERATIONS
     # ========================================================================
-
-    @with_error_handling("knowledge_inference", error_type="system")
-    def _enhance_with_knowledge_inference(self, task: Task) -> Result[TaskInferenceResult | None]:
-        """Compute knowledge enrichment for a task draft.
-
-        ADR-065: inference returns a typed ``TaskInferenceResult`` and does not
-        mutate the input. This method returns ``Result.ok(None)`` when the
-        inference service is not configured (feature disabled).
-        """
-        if not self.ku_inference_service:
-            # Feature not configured - this is OK, return None
-            return Result.ok(None)
-
-        inference_result = self.ku_inference_service.enhance_task_dto_with_inference(task)
-        if inference_result.is_error:
-            return Result.fail(inference_result)
-
-        enrichment = inference_result.value
-        self.logger.debug(
-            "Knowledge inference computed for task '%s': opportunities=%d",
-            task.title,
-            enrichment.learning_opportunities_count,
-        )
-        return Result.ok(enrichment)
 
     async def create(self, entity: Task) -> Result[Task]:
         """Persist, link, then announce — THE create primitive for Tasks.
@@ -716,7 +689,7 @@ class TasksCoreService(
     @with_error_handling("create_task", error_type="database")
     async def create_task(self, task_request: TaskCreateRequest, user_uid: UserUID) -> Result[Task]:
         """
-        Create a task with automatic knowledge inference.
+        Create a task from its request.
 
         Builds the entity, then hands it to the one create primitive. ``progress_weight``
         and the request's four link lists (two knowledge, principles, prerequisite tasks)
@@ -732,25 +705,14 @@ class TasksCoreService(
             user_uid: User UID (REQUIRED - fail-fast on None)
 
         Returns:
-            Result containing created Task with knowledge enhancement
+            Result containing the created Task
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "task creation")
         if validation.is_error:
             return Result.fail(validation)
 
-        # Build a frozen Task from the request and apply inference enrichment
-        # functionally (ADR-065 — typed TaskInferenceResult, no DTO mutation
-        # inside intelligence services).
         task_draft = Task.from_request(task_request, user_uid=user_uid)
-
-        if self.ku_inference_service:
-            inference_result = self._enhance_with_knowledge_inference(task_draft)
-            if inference_result.is_error:
-                return Result.fail(inference_result)
-            enrichment = inference_result.value
-            if enrichment is not None:
-                task_draft = dataclasses.replace(task_draft, **enrichment.as_kwargs())
 
         result = await self._create_with_links(
             task_draft,
@@ -760,13 +722,12 @@ class TasksCoreService(
         if result.is_error:
             return result
 
-        # Log creation with knowledge enhancement
         explicit_knowledge_count = len(task_request.applies_knowledge_uids) + len(
             task_request.prerequisite_knowledge_uids
         )
 
         self.logger.info(
-            "Created task '%s' with knowledge enhancement: explicit=%d",
+            "Created task '%s' with its owner's knowledge links: %d",
             result.value.title,
             explicit_knowledge_count,
         )

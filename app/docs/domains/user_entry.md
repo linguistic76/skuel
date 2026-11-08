@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-10-31
+updated: 2026-11-08
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -304,7 +304,7 @@ empty success to a misprogrammed caller.
 `private: true` frontmatter keeps a note out of every retrieval surface that
 could quote it back: no entity embedding (the vault re-sync that marks a note
 private removes a stored one), no chunk subtree, no grounding pass
-(`EntryGroundingBackend.get_pending_entries` excludes it by name), and a hard
+(`EntryGroundingBackend`'s gate excludes it by name), and a hard
 `WHERE` exclusion in companion-retrieval Cypher. The same re-sync takes back
 what grounding inferred from the note (`UserEntryBackend.upsert`, which does the
 same for a note that leaves the grounded pipelines): every `inferred`

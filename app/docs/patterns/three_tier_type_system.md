@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-11-07
+updated: 2026-11-08
 category: patterns
 related_skills:
 - python
@@ -838,47 +838,17 @@ The `total=False` makes all fields optional, matching the partial update semanti
 
 **Core Principle:** "Intelligence services compute, callers apply."
 
-The mutable-DTO story above describes CRUD/persistence flows. **Intelligence services (knowledge inference, scoring, enrichment) do NOT mutate DTOs.** They return a typed `*InferenceResult` frozen dataclass carrying only the fields they produce; the caller applies the result via `dataclasses.replace()` on the frozen domain model.
+The mutable-DTO story above describes CRUD/persistence flows. An intelligence service that computes
+entity fields does NOT mutate a DTO: it returns a typed frozen result carrying only the fields it
+produces, and the caller applies it with `dataclasses.replace()` on the frozen domain model. This
+closes the risk ADR-035 flagged when it kept Tier 3 frozen models for complex domains: "Intelligence
+services would operate on mutable DTOs (risky)".
 
-This closes the risk ADR-035 flagged when it kept Tier 3 frozen models for complex domains: "Intelligence services would operate on mutable DTOs (risky)". Keeping Tier 3 frozen at the model layer is not enough on its own — the intelligence layer must also stop reaching back to the mutable DTO as a scratch space.
+No service computes entity fields today: a task's inferred knowledge is an inferred
+`APPLIES_KNOWLEDGE` edge written by Ku grounding (`TaskGroundingService`), so nothing lands on the
+entity to apply. ADR-065 records the keyword inference that was this contract's one implementation.
 
-**Pattern:**
-
-```python
-# core/models/task/task_inference_result.py
-@dataclass(frozen=True)
-class TaskInferenceResult:
-    """Typed return contract for task inference. Enrichment fields ONLY."""
-    knowledge_confidence_scores: dict[str, float] | None = None
-    knowledge_inference_metadata: dict[str, Any] | None = None
-    learning_opportunities_count: int = 0
-
-    def as_kwargs(self) -> dict[str, Any]:
-        return {...}
-
-# Inference signature (no input mutation; pure in-memory inference, so sync)
-def enhance_task_dto_with_inference(
-    self, task: Task | TaskDTO
-) -> Result[TaskInferenceResult]: ...
-
-# Caller pattern (functional application)
-inference_result = self.ku_inference_service.enhance_task_dto_with_inference(task_draft)
-if inference_result.is_error:
-    return Result.fail(inference_result)
-enrichment = inference_result.value
-if enrichment is not None:
-    task_draft = dataclasses.replace(task_draft, **enrichment.as_kwargs())
-```
-
-**Why a per-domain `*InferenceResult` (not a fresh full DTO):**
-
-- The contract becomes visible in the type. A reader sees `Result[TaskInferenceResult]` and knows exactly which fields inference is allowed to produce — no need to read the body.
-- Callers cannot accidentally pick up unrelated fields the inference layer defaulted (status, priority, etc.) — those are not on the result.
-- New domains following the same template (Goals, Habits, Events, Choices, Principles when they grow inference services) get the discipline by construction — each defines its own `{Domain}InferenceResult`.
-
-**Scope:** This applies to intelligence/inference services that *compute enrichment* from input content. CRUD service methods that update domain entities (`task.complete()`, `goal.update_progress()`) still go through the mutable-DTO path — they're translating user-initiated changes to persistence, not computing fresh data.
-
-**See:** [ADR-065](../decisions/ADR-065-functional-inference-contract.md) — full context, alternatives, and the dormant-code cleanup that shipped with it.
+**See:** [ADR-065](../decisions/ADR-065-functional-inference-contract.md) — the contract and its supersession.
 
 ### Trade-off: Conversion Boilerplate
 

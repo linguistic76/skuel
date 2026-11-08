@@ -205,7 +205,7 @@ class TestOptingOutRetractsInferredLinks:
         await _sync(user_entry_service, owner, uid, Pipeline.EXTRACT_ACTIVITIES)
         await _embed(neo4j_driver, uid)
 
-        pending = await grounding.get_pending_entries(user_uid=owner)
+        pending = await grounding.get_pending(user_uid=owner)
         assert pending.is_ok, pending.expect_error()
         rows = {row["uid"]: row for row in pending.value}
         assert uid in rows, "an unchanged note that opted back in must be grounded afresh"
@@ -294,6 +294,6 @@ class TestAPassThatReadTheNoteBeforeItOptedOut:
         assert "grounded_text_hash" not in await _entry(neo4j_driver, uid)
 
         await _embed(neo4j_driver, uid)
-        pending = await grounding.get_pending_entries(user_uid=owner)
+        pending = await grounding.get_pending(user_uid=owner)
         assert pending.is_ok, pending.expect_error()
         assert uid in {row["uid"] for row in pending.value}

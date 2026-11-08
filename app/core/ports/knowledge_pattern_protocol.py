@@ -61,7 +61,7 @@ def compute_knowledge_intensity(
 
     Args:
         primary: The domain's main Ku links (APPLIES, REINFORCES, …).
-        secondary: Supplemental Ku links (REQUIRES, inferred, …); may be empty.
+        secondary: Supplemental Ku links (REQUIRES, …); may be empty.
 
     Returns:
         0.0-1.0 intensity score.

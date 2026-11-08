@@ -35,7 +35,7 @@ def _task(uid: str = "task_0000000000000001") -> Task:
         uid=uid,
         title="Embedded",
         user_uid="user_0000000000000001",
-        knowledge_confidence_scores={"ku.demo.atom": 0.5},  # held as a MappingProxyType
+        metadata={"source": "embedded"},  # held as a MappingProxyType
         **_EMBEDDED,
     )
 

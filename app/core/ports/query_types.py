@@ -833,15 +833,16 @@ def to_ku_edge_rows(records: list[Neo4jProperties]) -> list[KuEdgeRow]:
     return rows
 
 
-class GroundingEntryRow(TypedDict):
-    """One grounded-pipeline UserEntry awaiting a Ku-grounding pass.
+class GroundingSourceRow(TypedDict):
+    """One entity awaiting a Ku-grounding pass: a UserEntry on a grounded pipeline, or a Task.
 
-    Read by ``EntryGroundingBackend.get_pending_entries`` — the candidate
-    stage of entry→Ku grounding queries the Ku vector index with the entry's
-    stored embedding. ``applied_ku_uids`` (existing APPLIES_KNOWLEDGE targets)
-    and ``rejected_ku_uids`` (user-removed inferred links) are carried so the
-    service never re-writes an existing edge, never re-publishes its substance
-    event, and never re-infers a link the user deliberately removed.
+    Read by a grounding backend's ``get_pending`` (``KnowledgeGroundingBackend``) —
+    the candidate stage queries the Ku vector index with the entity's stored
+    embedding. ``content`` is the text the judge reads: an entry's body, a task's
+    description. ``applied_ku_uids`` (existing APPLIES_KNOWLEDGE targets) and
+    ``rejected_ku_uids`` (user-removed inferred links) are carried so the service
+    never re-writes an existing edge, never re-publishes its substance event, and
+    never re-infers a link the user deliberately removed.
     """
 
     uid: str
@@ -854,10 +855,22 @@ class GroundingEntryRow(TypedDict):
     rejected_ku_uids: list[str]
 
 
-class GroundingRemovalRow(TypedDict):
-    """Provenance of one removed inferred ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge.
+class GroundingRemovedPayload(TypedDict):
+    """What a grounding removal door answers once it removed an inferred link.
 
-    Returned by ``EntryGroundingBackend.remove_grounded_edge`` so removals can
+    The body of ``POST /api/user-entries/grounding/remove`` and
+    ``POST /api/tasks/grounding/remove``: the entity, the Ku, and ``removed``.
+    """
+
+    uid: str
+    ku_uid: str
+    removed: bool
+
+
+class GroundingRemovalRow(TypedDict):
+    """Provenance of one removed inferred ``APPLIES_KNOWLEDGE`` edge, from an entry or a task.
+
+    Returned by a grounding backend's ``remove_grounded_edge`` so removals can
     be logged as threshold-calibration data (Mike's ruling 2026-07-11: the
     user is editor, not approver — removals teach us where the knob is wrong).
     """
@@ -963,9 +976,9 @@ def to_knowledge_entry_grounding_rows(
     return rows
 
 
-def to_grounding_entry_rows(records: list[Neo4jProperties]) -> list[GroundingEntryRow]:
-    """Narrow raw pending-entry rows to typed ``GroundingEntryRow``s (malformed rows dropped)."""
-    rows: list[GroundingEntryRow] = []
+def to_grounding_source_rows(records: list[Neo4jProperties]) -> list[GroundingSourceRow]:
+    """Narrow raw pending rows to typed ``GroundingSourceRow``s (malformed rows dropped)."""
+    rows: list[GroundingSourceRow] = []
     for record in records:
         uid = record.get("uid")
         user_uid = record.get("user_uid")
@@ -980,7 +993,7 @@ def to_grounding_entry_rows(records: list[Neo4jProperties]) -> list[GroundingEnt
         applied = record.get("applied_ku_uids")
         rejected = record.get("rejected_ku_uids")
         rows.append(
-            GroundingEntryRow(
+            GroundingSourceRow(
                 uid=uid,
                 user_uid=user_uid,
                 title=str(record.get("title") or uid),

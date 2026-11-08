@@ -1,6 +1,6 @@
 ---
 title: Error Handling Decorators - DRY Pattern Guide
-updated: 2026-11-05
+updated: 2026-11-08
 category: patterns
 related_skills:
 - result-pattern
@@ -200,37 +200,22 @@ Use `@safe_event_handler` for:
 
 ## Handling Optional Services (Fail-Fast Pattern)
 
-When a service is optional (e.g., `entity_inference_service` may or may not be configured), use the following pattern:
+When a dependency is optional (configured in one tier, absent in another), refuse plainly when it
+is absent and fail fast when it is present but fails. Ku grounding is the live example
+(`KnowledgeGroundingService.ground_pending`, `core/services/knowledge_grounding_service.py`):
 
 ```python
-@with_error_handling("knowledge_inference", error_type="system")
-def _enhance_with_knowledge_inference(self, dto: TaskDTO) -> Result[TaskDTO | None]:
-    """
-    Returns Result.ok(None) if inference service not configured (feature disabled).
-    Fails fast if inference service IS configured but fails.
-
-    Pure in-memory inference, so sync — @with_error_handling dispatches the sync
-    wrapper automatically (inspect.iscoroutinefunction).
-    """
-    if not self.entity_inference_service:
-        # Feature not configured - this is OK, return None
-        return Result.ok(None)
-
-    # If service IS configured, it must work - fail fast on errors
-    enhanced_dto = self.entity_inference_service.enhance_task_dto_with_inference(dto)
-    return Result.ok(enhanced_dto)
-
-# Caller handles the Result
-async def create_task(self, task_request: TaskCreateRequest) -> Result[Task]:
-    dto = TaskDTO.create(...)
-
-    inference_result = self._enhance_with_knowledge_inference(dto)
-    if inference_result.is_error:
-        return Result.fail(inference_result)  # Fail fast!
-    if inference_result.value:
-        dto = inference_result.value
-
-    return await self.backend.create(dto)
+if self._vector_search is None:
+    # Not wired: say so, never pretend the pass ran.
+    return Result.fail(
+        Errors.unavailable(feature=f"{self.source}_grounding", reason="...", operation="ground_pending")
+    )
+...
+if judged and candidates:
+    judge_result = await self._judge(row, candidates)
+    if judge_result.is_error:
+        # Wired but failed: no writes, no stamp — never the vector-only bar in its place.
+        return self._failed_outcome(row, f"judge failed: {judge_result.error}")
 ```
 
 **Why not graceful degradation?**
@@ -324,7 +309,6 @@ Keep manual try-except for:
 | user_progress_service | ✅ Complete | 5 methods |
 | unified_progress_service | ✅ Complete | 2 methods |
 | semantic_analytics_service | ✅ Complete | 5 methods |
-| entity_inference_service | ✅ Complete | 4 methods |
 | event_logger_service | ✅ Complete | 5 methods |
 | **Schema Services** | | |
 | schema_service | ✅ Complete | 11 methods |

@@ -1181,58 +1181,6 @@ class InsightThreshold:
     LEARNING_GAP_DAYS: Final = 7
 
 
-# ============================================================================
-# INFERENCE CONFIDENCE (entity_inference_service.py)
-# ============================================================================
-
-
-class InferenceConfidence:
-    """
-    Confidence scoring constants for the knowledge inference engine.
-
-    Used by: EntityInferenceService content analysis and scoring methods
-    """
-
-    # Keyword detection confidence tiers
-    DIRECT_KEYWORD: Final = 0.8
-    CONTEXTUAL_KEYWORD: Final = 0.6
-    ADVANCED_KEYWORD: Final = 0.9
-
-    # Multi-match boosting
-    MULTI_MATCH_BOOST_PER: Final = 0.1
-    MULTI_MATCH_CAP: Final = 0.95
-
-    # Phrase pattern confidence
-    PHRASE_BASE: Final = 0.7
-    PHRASE_PER_EVIDENCE: Final = 0.05
-    PHRASE_CAP: Final = 0.85
-
-    # Pattern merge boosting
-    MERGE_BOOST: Final = 0.05
-    MERGE_CAP: Final = 0.95
-
-    # Evidence quality scoring
-    EVIDENCE_QUALITY_PER_ITEM: Final = 0.05
-    EVIDENCE_QUALITY_CAP: Final = 0.25
-
-    # Domain expertise
-    DOMAIN_EXPERTISE_BOOST: Final = 0.1
-
-    # Pattern type reliability bonuses. Keys are KuPattern.pattern_type values
-    # as they leave _merge_similar_patterns: singletons keep their detector
-    # type; "merged" applies only when several detectors corroborated the same
-    # knowledge UID (hence the highest bonus). Types without an entry
-    # (e.g. "contextual_learning" — the weakest signal) deliberately get 0.0
-    # via the lookup default.
-    PATTERN_RELIABILITY: Final[dict[str, float]] = {
-        "phrase_pattern": 0.1,
-        "keyword_enhanced": 0.05,
-        "contextual_integration": 0.08,
-        "complexity_based": 0.12,
-        "merged": 0.15,
-    }
-
-
 class DualTrackCheckin:
     """
     Constants for dual-track perception-gap check-in persistence (ADR-030).

@@ -76,7 +76,6 @@ class RelationshipName(StrEnum):
     # leaves data no reader can reach, because Neo4j answers an unknown
     # relationship type with zero rows instead of erroring.
     COMPLETES_KNOWLEDGE = "COMPLETES_KNOWLEDGE"
-    INFERRED_KNOWLEDGE = "INFERRED_KNOWLEDGE"
     GUIDED_BY_KNOWLEDGE = "GUIDED_BY_KNOWLEDGE"  # Goals guided by knowledge
     REINFORCED_BY_KNOWLEDGE = "REINFORCED_BY_KNOWLEDGE"  # Habits reinforced by knowledge
     BLOCKED_BY_KNOWLEDGE = "BLOCKED_BY_KNOWLEDGE"  # Tasks blocked by lack of knowledge

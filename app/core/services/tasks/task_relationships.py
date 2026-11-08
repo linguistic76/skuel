@@ -26,19 +26,18 @@ TASK_QUERY_SPECS: list[tuple[str, str]] = [
     ("enables_task_uids", "enables"),
     ("completion_triggers_tasks", "triggers"),
     ("completion_unlocks_knowledge", "unlocks_knowledge"),
-    ("inferred_knowledge_uids", "inferred_knowledge"),
     ("executed_in_event_uids", "execution_events"),
     ("implements_choice_uids", "implements_choices"),
     ("serves_life_path_uids", "life_path"),
 ]
 
-# The knowledge a task links: what it applies, what it requires, what it was inferred
-# to touch. ``TaskRelationships.get_combined_knowledge_uids`` reads these three fields;
-# a batch read takes the same three relationship keys.
+# The knowledge a task links: what it applies (its owner's links and the ones grounding
+# inferred, both APPLIES_KNOWLEDGE) and what it requires.
+# ``TaskRelationships.get_combined_knowledge_uids`` reads these two fields; a batch read
+# takes the same two relationship keys.
 _KNOWLEDGE_FIELDS = (
     "applies_knowledge_uids",
     "prerequisite_knowledge_uids",
-    "inferred_knowledge_uids",
 )
 TASK_KNOWLEDGE_KEYS: tuple[str, ...] = tuple(
     key for field_name, key in TASK_QUERY_SPECS if field_name in _KNOWLEDGE_FIELDS
@@ -64,7 +63,6 @@ class TaskRelationships:
     enables_task_uids: list[str] = field(default_factory=list)
     completion_triggers_tasks: list[str] = field(default_factory=list)
     completion_unlocks_knowledge: list[str] = field(default_factory=list)
-    inferred_knowledge_uids: list[str] = field(default_factory=list)
     executed_in_event_uids: list[str] = field(default_factory=list)
     implements_choice_uids: list[str] = field(default_factory=list)
     serves_life_path_uids: list[str] = field(default_factory=list)
@@ -86,26 +84,18 @@ class TaskRelationships:
 
     def has_any_knowledge(self) -> bool:
         """Check if task has any knowledge connections."""
-        return (
-            len(self.applies_knowledge_uids) > 0
-            or len(self.prerequisite_knowledge_uids) > 0
-            or len(self.inferred_knowledge_uids) > 0
-        )
+        return len(self.applies_knowledge_uids) > 0 or len(self.prerequisite_knowledge_uids) > 0
 
     def total_knowledge_count(self) -> int:
         """Get total count of all knowledge connections."""
-        return (
-            len(self.applies_knowledge_uids)
-            + len(self.prerequisite_knowledge_uids)
-            + len(self.inferred_knowledge_uids)
-        )
+        return len(self.applies_knowledge_uids) + len(self.prerequisite_knowledge_uids)
 
     def has_prerequisites(self) -> bool:
         """Check if task has any prerequisites (tasks or knowledge)."""
         return len(self.prerequisite_task_uids) > 0 or len(self.prerequisite_knowledge_uids) > 0
 
     def get_combined_knowledge_uids(self) -> set[str]:
-        """Get all unique knowledge UIDs (explicit + inferred)."""
+        """Get all unique knowledge UIDs: applied (owner-linked or inferred) and required."""
         all_uids: set[str] = set()
         for field_name in _KNOWLEDGE_FIELDS:
             all_uids.update(getattr(self, field_name))
@@ -115,13 +105,13 @@ class TaskRelationships:
 
     @property
     def primary_knowledge_uids(self) -> list[str]:
-        """Active knowledge application (APPLIES_KNOWLEDGE edges)."""
+        """Active knowledge application (APPLIES_KNOWLEDGE edges, owner-linked or inferred)."""
         return self.applies_knowledge_uids
 
     @property
     def secondary_knowledge_uids(self) -> list[str]:
-        """Prerequisite and inferred knowledge connections."""
-        return self.prerequisite_knowledge_uids + self.inferred_knowledge_uids
+        """Prerequisite knowledge connections (REQUIRES_KNOWLEDGE edges)."""
+        return self.prerequisite_knowledge_uids
 
     def knowledge_intensity(self) -> float:
         """0-1 score: how knowledge-rich this task is by relationship count."""
