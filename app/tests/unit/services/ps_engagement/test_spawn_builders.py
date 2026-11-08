@@ -21,13 +21,14 @@ End-to-end ``spawn()`` is exercised by integration tests with a Neo4j fixture.
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import fields, replace
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from core.models.enums.activity_enums import EngagementState
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.templates.choice_template import ChoiceTemplate
@@ -264,12 +265,25 @@ class TestEventBuilder:
 
         # Builder produces a clean instance with no goal property.
         event = _build(EVENT_SPEC, et, STUDENT, PS, ANCHOR, template_to_instance)
-        assert not hasattr(event, "milestone_celebration_for_goal")
+        assert "milestone_celebration_for_goal" not in {f.name for f in fields(event)}
         assert event.source_path_step_uid == PS
 
         # Cross-edge computation resolves the template ref to a CELEBRATES_GOAL edge.
         edges = _compute_cross_edges(et, EVENT_SPEC.cross_edges, template_to_instance)
         assert edges == [("CELEBRATES_GOAL", "goal_uid")]
+
+    def test_an_active_template_spawns_a_scheduled_event(self) -> None:
+        """An engagement spawns only ACTIVE templates; the event it builds is ``scheduled``.
+
+        A learner's own event starts ``scheduled`` (``EventCreateRequest`` takes no
+        status), and for an event ``active`` means under way.
+        """
+        et = EventTemplate(uid="etpl_session", title="Session", status=EntityStatus.ACTIVE)
+
+        event = _build(EVENT_SPEC, et, STUDENT, PS, ANCHOR, {"etpl_session": "event_uid"})
+
+        assert event.status == EntityStatus.SCHEDULED
+        assert "status" not in EVENT_SPEC.copied_fields()
 
 
 class TestHabitBuilder:

@@ -29,7 +29,7 @@ Each spec carries:
   door would accept.
 - ``uncopied_fields`` — template fields the instance does not take: it starts
   with its own default instead, as a user's own create would make it (Choice: an
-  undecided draft, with no rationale before a decision).
+  undecided draft, with no rationale before a decision; Event: ``scheduled``).
 - ``creation_rule`` — the domain's own creation invariant, applied to the built
   instance before it is persisted. This door writes through the backend, not
   the domain service, so a rule the service create path enforces must be named
@@ -349,6 +349,10 @@ EVENT_SPEC = DomainSpawnSpec(
         ("milestone_celebration_for_goal_template_uid", RelationshipName.CELEBRATES_GOAL),
         ("reinforces_habit_template_uid", RelationshipName.REINFORCES_HABIT),
     ),
+    # A spawned event is one the learner has yet to attend: it starts ``scheduled``, as
+    # one they create does, whatever the template's status (an event's ``active`` means
+    # under way, and the ``scheduled`` readers would not see it).
+    uncopied_fields=frozenset({"status"}),
 )
 TASK_SPEC = DomainSpawnSpec(
     instance_cls=Task,
