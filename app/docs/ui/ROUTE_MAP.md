@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-06
+updated: 2026-11-08
 ---
 
 # Route Map
@@ -199,7 +199,7 @@ Stages 1–3 and follow-up return HTMX fragments that swap `#journal-workspace` 
 
 ### `/tasks`, `/goals`
 
-Read-focused views with cross-domain connections, detail pages, and `EntityRelationshipsSection`. Other activity data viewed via ActivityReport in the GradeBook's Activity reports group (`/gradebook`).
+Read-focused views with cross-domain connections, detail pages, and `EntityRelationshipsSection`. On a task's detail page (`/tasks/detail?uid=`), a knowledge link the grounding pass inferred is marked with its confidence and carries a remove (`POST /api/tasks/grounding/remove`, answered over HTMX with the Connections section read again); the list card shows it as any other link. Other activity data viewed via ActivityReport in the GradeBook's Activity reports group (`/gradebook`).
 
 ### `/path-steps`
 
