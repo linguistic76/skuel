@@ -170,6 +170,11 @@ and the pass is hash-stamped); an edit that changes the embedded text does.
 - **Removal:** `POST /api/tasks/grounding/remove?uid=&ku_uid=` removes an inferred edge and records
   the Ku in `grounding_rejected_ku_uids`, so no pass re-infers it; the owner's link, or a link
   already removed, answers 404.
+- **On the page:** the task's detail page (`TaskConnectionsSection`) marks each inferred link under
+  "Knowledge this task applies" with its confidence and a ×. The × posts the removal over HTMX, and
+  the door answers with the Connections section read again. A refusal swaps nothing and shows as a
+  toast. The list card, the day view and the other five Activity pages show an inferred link as any
+  other.
 - **The owner's links:** an update whose `applies_knowledge_uids` names an inferred Ku makes the
   link the owner's (the stamp is removed); the update's replace leaves inferred edges in place.
 - **CORE:** nothing announces a vector, so a task carries only the knowledge its owner links.

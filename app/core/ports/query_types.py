@@ -4715,6 +4715,11 @@ class EntityConnection(TypedDict):
 
     Produced by ``ConnectionFetchOperations.fetch_entity_connections``; one row
     per far end per heading, in the order of the domain's page views.
+
+    ``inferred`` is True for a link the grounding pass inferred
+    (``APPLIES_KNOWLEDGE {inferred: true}``) and False for one someone made;
+    ``confidence`` is the similarity it was inferred at, None on any link not
+    inferred.
     """
 
     heading: str  # the viewing domain's name for the link (``page_heading``)
@@ -4722,6 +4727,8 @@ class EntityConnection(TypedDict):
     connected_uid: str
     title: str
     connected_type: str  # the far end's entity_type value ("goal", "ku", ...)
+    inferred: bool
+    confidence: float | None
 
 
 # ============================================================================

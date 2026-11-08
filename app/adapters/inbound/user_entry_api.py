@@ -593,7 +593,9 @@ def create_user_entry_api_routes(
             return Result.fail(result)
         if not result.value:
             return Result.fail(
-                Errors.not_found(resource="UserEntry knowledge link", identifier=f"{uid}→{ku_uid}")
+                Errors.not_found(
+                    resource="UserEntry knowledge link", identifier=f"{uid} -> {ku_uid}"
+                )
             )
         return Result.ok(GroundingRemovedPayload(uid=uid, ku_uid=ku_uid, removed=True))
 

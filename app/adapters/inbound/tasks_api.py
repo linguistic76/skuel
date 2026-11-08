@@ -19,12 +19,15 @@ Knowledge intelligence:
     GET  /api/tasks/knowledge-priorities — Knowledge-aware priority scores for user tasks
 
 Grounding:
-    POST /api/tasks/grounding/remove — Remove one inferred task→Ku link (recorded, never re-inferred)
+    POST /api/tasks/grounding/remove — Remove one inferred task→Ku link (recorded, never re-inferred);
+        the task page's remove posts it over HTMX and gets the Connections section back
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+
+from fasthtml.common import FtResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -50,7 +53,7 @@ from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports.query_types import GroundingRemovedPayload
 from core.utils.result_simplified import Errors, Result
-from ui.activities.tasks_views import TaskCard
+from ui.activities.tasks_views import TaskCard, TaskConnectionsSection
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import RouteDecorator
@@ -182,7 +185,7 @@ def create_tasks_api_routes(
     @boundary_handler()
     async def remove_grounded_knowledge_route(
         request: Request, uid: str, ku_uid: str
-    ) -> Result[GroundingRemovedPayload]:
+    ) -> Result[GroundingRemovedPayload] | FtResponse:
         """Remove one inferred ``(task)-[:APPLIES_KNOWLEDGE]->(ku)`` edge from an owned task.
 
         The owner is editor, not approver: grounding writes inferred edges eagerly
@@ -190,6 +193,11 @@ def create_tasks_api_routes(
         future pass re-infers the pair, and logged as threshold-calibration data.
         A link the owner made is not removed here. Not owned / edge absent / the
         owner's link → 404 alike, never 403.
+
+        The task page's remove (``TaskConnectionsSection``) posts here over HTMX and
+        is answered with that section, the task's links read again; any other caller
+        gets the removed pair. A refusal is the same error either way: HTMX swaps
+        nothing and the page's toast reads its message.
         """
         user_uid = require_authenticated_user(request)
         if grounding_service is None:
@@ -205,6 +213,9 @@ def create_tasks_api_routes(
             return Result.fail(result)
         if not result.value:
             return Result.fail(
-                Errors.not_found(resource="Task knowledge link", identifier=f"{uid}→{ku_uid}")
+                Errors.not_found(resource="Task knowledge link", identifier=f"{uid} -> {ku_uid}")
             )
+        if request.headers.get("HX-Request"):
+            links = await connection_fetch_backend.fetch_entity_connections(NeoLabel.TASK, [uid])
+            return FtResponse(TaskConnectionsSection(uid, links.get(uid, [])))
         return Result.ok(GroundingRemovedPayload(uid=uid, ku_uid=ku_uid, removed=True))

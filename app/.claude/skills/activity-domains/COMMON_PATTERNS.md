@@ -184,7 +184,7 @@ omitted from forms — assign those via the detail-page relationship picker.
 
 **Page links** (ADR-090 §2, R10) — what an Activity page shows is declared once, in the relationship registry: a domain's definitions that carry a `page_heading` (`DomainRelationshipConfig.page_views()`), each naming the link from that domain's side ("Goals this habit supports"). The reader lives below the hexagonal boundary in `ConnectionFetchBackend` (`adapters/persistence/neo4j/`), behind the `ConnectionFetchOperations` port (ADR-044):
 - `backend.fetch_entity_connections(label, entity_uids)` — one batched statement per page over every page-view edge type in both directions; each row is placed under the view that reads it (edge type, direction, far-end label). UI factories receive the port as `ActivityUIConfig.backend` and pass `ActivityUIConfig.link_label`; the card re-render (`activity_field_api_factory`) and the Today page read through the same port.
-- Returns `dict[str, list[EntityConnection]]` (`heading`, `rel_type`, `connected_uid`, `title`, `connected_type`), ordered by the page views; a far end is listed once under its view's heading, however many edges of the view reach it. A connected entity is the entity owner's own or published shared content (`build_far_node_clause`) — another user's node, or a draft, is left out.
+- Returns `dict[str, list[EntityConnection]]` (`heading`, `rel_type`, `connected_uid`, `title`, `connected_type`, `inferred`, `confidence`), ordered by the page views; a far end is listed once under its view's heading, however many edges of the view reach it, and is `inferred` only when every one of those edges is (`coalesce(r.inferred, false)`, as the grounding removal door reads it). A connected entity is the entity owner's own or published shared content (`build_far_node_clause`) — another user's node, or a draft, is left out.
 - `tests/unit/test_activity_link_invariant.py` holds the rules: every end that reads a link between two Activities shows it, no edge is listed twice on a page, and no two views on one config share a heading (Rule 5).
 
 **Entity filtering** (`core/utils/entity_filters.py`):
@@ -195,7 +195,7 @@ omitted from forms — assign those via the detail-page relationship picker.
 - `safe_id(uid)` — converts UIDs to safe HTML id attributes (replaces `.` and `:` with `-`)
 - `PRIORITY_ORDER` lives in `core/utils/entity_filters.py` (a business rule), not here
 - `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
-- `ConnectionsSection(connections)` — the detail page's Connections block: one list per heading.
+- `ConnectionsSection(connections, removal=None)` — the detail page's Connections block: one list per heading. Only the task page passes `removal` (`TaskConnectionsSection`): an inferred knowledge link is marked there, with a remove.
 - `ConnectionRows(connections)` — the list card's links: one compact line per heading, the titles after it. All six cards use it.
 - `PriorityBadgeDropdown(uid, priority, domain, singular)` — interactive priority badge on all 6 cards: Alpine dropdown of the 3 `Priority` levels (`low`, `medium`, `high`), picks POST `/api/{domain}/{uid}/priority` via HTMX and swap the re-rendered card. Both `/status` and `/priority` endpoints come from `activity_field_api_factory` (`create_activity_field_api_routes` + one `FieldUpdateSpec` per field; priority carries the `PRIORITY_VALUES` whitelist).
 
