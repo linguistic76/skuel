@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-10-10
+updated: 2026-11-08
 status: current
 category: domains
 tags:
@@ -110,7 +110,7 @@ class HabitsService(
 | `patterns` | Atomic Habits pattern recognition with confidence scoring |
 | `knowledge_intelligence` | Shared singleton — domain-agnostic knowledge intelligence |
 
-Common sub-services created via `create_common_sub_services()` factory (Habits passes no `skip`; `intelligence` is not a skippable slot — the factory builds it only for a domain whose config declares an `intelligence_class`, and Habits declares none, so the facade constructs `HabitsIntelligenceService` itself to pass `cross_domain_query`).
+Common sub-services created via `create_common_sub_services()` factory (the factory builds `intelligence` only for a domain whose config declares an `intelligence_class`, and Habits declares none, so the facade constructs `HabitsIntelligenceService` itself to pass `cross_domain_query`).
 
 ### Cross-Domain Wiring
 

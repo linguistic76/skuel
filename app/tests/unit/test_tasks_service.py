@@ -247,9 +247,10 @@ class TestLinkTaskToKnowledge:
 # ---------------------------------------------------------------------------
 
 
-def _replace(service: TasksService, replaced: int = 1) -> AsyncMock:
-    """Install the replace the update door writes through, answering ``replaced``."""
-    replace = AsyncMock(return_value=Result.ok(replaced))
+def _replace(service: TasksService, created: dict[str, frozenset[str]] | None = None) -> AsyncMock:
+    """Install the replace the update door writes through, answering the links it
+    ``created`` per key (none by default)."""
+    replace = AsyncMock(return_value=Result.ok(created or {}))
     service.relationships.replace_relationships = replace
     return replace
 
@@ -321,7 +322,7 @@ class TestUpdateTaskKnowledgeEdges:
         """An empty applies_knowledge_uids list replaces the knowledge edges with none."""
         service = tasks_service_with_mocked_subservices
         service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
-        replace = _replace(service, replaced=0)
+        replace = _replace(service)
 
         result = await service.update_task("task_abc", TaskUpdateIntent(applies_knowledge_uids=[]))
 
@@ -442,7 +443,7 @@ class TestUpdateTaskHabitEdge:
         REINFORCES_HABIT edge with none — the edge-clear gap fix."""
         service = tasks_service_with_mocked_subservices
         service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
-        replace = _replace(service, replaced=0)
+        replace = _replace(service)
 
         result = await service.update_task("task_abc", TaskUpdateIntent(reinforces_habit_uid=None))
 
@@ -529,7 +530,7 @@ def _wire_task(service: TasksService, relationship_key: str, *existing: str) -> 
         update_task=AsyncMock(return_value=Result.ok(_task())),
         update=AsyncMock(),
         get_related_uids=AsyncMock(side_effect=related),
-        replace_relationships=AsyncMock(return_value=Result.ok(2)),
+        replace_relationships=AsyncMock(return_value=Result.ok({})),
     )
     service.event_bus = cast("EventBusOperations", w.bus)
     service.core.get_task = AsyncMock(return_value=Result.ok(_task()))
@@ -692,7 +693,7 @@ class TestUpdateTaskEdgesAreGuarded:
         service.backend.get_owner_uids_batch = AsyncMock(
             return_value=Result.ok({"habit_theirs": ["user_someone_else"]})
         )
-        replace = _replace(service, replaced=0)
+        replace = _replace(service)
 
         result = await service.update_task(
             "task_abc", TaskUpdateIntent(reinforces_habit_uid="habit_theirs")

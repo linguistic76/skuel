@@ -51,6 +51,7 @@ from adapters.persistence.neo4j.query.cypher.habit_fragments import (
     HABIT_WINDOW_START_PARAM,
     build_habit_window_completion_stamps,
 )
+from core.constants import KnowledgeLinkConfidence
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.habit.adherence import adherence_window_bounds
@@ -1488,7 +1489,7 @@ def merge_partial_context(
 
 def build_mega_query_params(
     user_uid: UserUID,
-    min_confidence: float = 0.7,
+    min_confidence: float = KnowledgeLinkConfidence.FLOOR,
     window_start: datetime | None = None,
     window_end: datetime | None = None,
 ) -> dict[str, Any]:
@@ -1548,7 +1549,7 @@ class UserContextQueryExecutor:
     async def execute_mega_query(
         self,
         user_uid: UserUID,
-        min_confidence: float = 0.7,
+        min_confidence: float = KnowledgeLinkConfidence.FLOOR,
         window_start: datetime | None = None,
         window_end: datetime | None = None,
     ) -> Result[dict[str, Any]]:
@@ -1573,7 +1574,8 @@ class UserContextQueryExecutor:
 
         Args:
             user_uid: User identifier
-            min_confidence: Minimum relationship confidence (default 0.7)
+            min_confidence: Minimum relationship confidence (default
+                ``KnowledgeLinkConfidence.FLOOR``)
             window_start: Activity window start datetime (default: 30d ago)
             window_end: Activity window end datetime (default: now)
 
@@ -1645,7 +1647,7 @@ class UserContextQueryExecutor:
         "fetch_entry_knowledge_applied", error_type="database", uid_param="user_uid"
     )
     async def fetch_entry_knowledge_applied(
-        self, user_uid: UserUID, min_confidence: float = 0.7
+        self, user_uid: UserUID, min_confidence: float = KnowledgeLinkConfidence.FLOOR
     ) -> Result[list[EntryKnowledgeAppliedRow]]:
         """
         Fetch the learner's entry→Ku applied-knowledge rows (ADR-069 read side).
@@ -1656,7 +1658,8 @@ class UserContextQueryExecutor:
 
         Args:
             user_uid: User identifier
-            min_confidence: Minimum relationship confidence (default 0.7)
+            min_confidence: Minimum relationship confidence (default
+                ``KnowledgeLinkConfidence.FLOOR``)
         """
         result = await self.executor.execute_query(
             ENTRY_KNOWLEDGE_APPLIED_QUERY,

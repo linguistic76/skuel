@@ -137,13 +137,21 @@ def build_guarded_link_query(
     ``grounded_at``) is removed before ``$properties`` is set, as the entry's owner
     writer does (``UserEntryBackend.write_applied_knowledge``).
 
+    The statement names the links its ``MERGE`` creates: ``created`` holds each far
+    end no edge of this type joined to the anchor, read after the anchor's write lock
+    is taken. Writing an edge locks both its nodes, so no other writer — a grounding
+    pass included — can add one on the anchor between that read and the ``MERGE``.
+    A pair grounding inferred is promoted, not created, and is not in it.
+
     Parameters: ``$anchor_uid``, ``$expected_owners``, ``$far_uids`` (distinct), ``$far_labels``,
     ``$properties`` and ``PUBLISHED_UIDS_BATCH_PARAMS``. Returns one row —
-    ``admitted`` (the far uids that passed) and ``anchor_owners`` — or none when the
-    anchor names no entity, or is not owned by exactly ``$expected_owners``.
+    ``admitted`` (the far uids that passed), ``created`` and ``anchor_owners`` — or
+    none when the anchor names no entity, or is not owned by exactly
+    ``$expected_owners``.
     """
     rel = relationship.value
     link = f"(a)-[r:{rel}]->(f)" if anchor_is_source else f"(f)-[r:{rel}]->(a)"
+    joined = f"(a)-[:{rel}]->(f)" if anchor_is_source else f"(f)-[:{rel}]->(a)"
     kind = f":{replace_label.value}" if replace_label is not None else ""
     stale = f"(a)-[old:{rel}]->(x{kind})" if anchor_is_source else f"(x{kind})-[old:{rel}]->(a)"
     replace_line = (
@@ -169,6 +177,7 @@ CALL (a, anchor_owners) {{
                ELSE any(o IN far_owners WHERE o IN anchor_owners) END
     RETURN collect(n) AS fars
 }}
+WITH a, anchor_owners, fars, [f IN fars WHERE NOT EXISTS {{ {joined} }}] AS created
 CALL (a, fars) {{
     WITH a, fars WHERE size(fars) = size($far_uids)
     {replace_line}
@@ -178,7 +187,7 @@ CALL (a, fars) {{
             REMOVE r.inferred, r.confidence, r.grounded_at)
         SET r += $properties)
 }}
-RETURN [n IN fars | n.uid] AS admitted, anchor_owners
+RETURN [n IN fars | n.uid] AS admitted, [n IN created | n.uid] AS created, anchor_owners
 """
 
 

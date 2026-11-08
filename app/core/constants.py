@@ -134,6 +134,24 @@ class ConfidenceLevel:
         return "Very Low"
 
 
+class KnowledgeLinkConfidence:
+    """The confidence at or above which a knowledge link is read.
+
+    ``FLOOR`` is the rich user context's ``min_confidence``: its readers keep an edge
+    when ``coalesce(confidence, 1.0) >= $min_confidence``, so an owner's link (no
+    confidence) always passes and an inferred one passes at the floor or above.
+    Grounding stores the vector similarity as an inferred link's confidence and
+    refuses a threshold below the floor (``GroundingConfig``), so a pass never
+    writes a link the rich context does not read.
+
+    Not the floor: the ``min_confidence`` of a domain's graph-context reads
+    (``get_domain_context_raw`` and the ``*_with_context`` intelligence methods), a
+    per-call lens over every edge on a path.
+    """
+
+    FLOOR: Final = 0.7
+
+
 # ============================================================================
 # MASTERY THRESHOLDS
 # ============================================================================

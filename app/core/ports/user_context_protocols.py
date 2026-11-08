@@ -40,6 +40,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
+from core.constants import KnowledgeLinkConfidence
 from core.models.type_hints import UserUID
 from core.ports.query_types import (
     CurrentPathStepItem,
@@ -56,7 +57,7 @@ class UserContextQueryOperations(Protocol):
     async def execute_mega_query(
         self,
         user_uid: UserUID,
-        min_confidence: float = 0.7,
+        min_confidence: float = KnowledgeLinkConfidence.FLOOR,
         window_start: datetime | None = None,
         window_end: datetime | None = None,
     ) -> Result[dict[str, Any]]:  # boundary: nested {uids, entities, rich}, all domains
@@ -79,7 +80,7 @@ class UserContextQueryOperations(Protocol):
         ...
 
     async def fetch_entry_knowledge_applied(
-        self, user_uid: UserUID, min_confidence: float = 0.7
+        self, user_uid: UserUID, min_confidence: float = KnowledgeLinkConfidence.FLOOR
     ) -> Result[list[EntryKnowledgeAppliedRow]]:
         """Fetch the learner's entry→Ku applied-knowledge rows (ADR-069) — its own statement, beside the MEGA-QUERY."""
         ...

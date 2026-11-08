@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-11-07
+updated: 2026-11-08
 status: current
 category: architecture
 version: 2.0.0
@@ -70,7 +70,7 @@ UnifiedRelationshipService[Ops, Model, DtoType]
 
 The keyed readers (these two and `batch_get_related_uids`) resolve the key through `resolve_keyed_read` (`core/services/relationships/_keyed_read.py`): the definition's edge type, direction, tier (`filter_property`) and far end's kind (`target_label`, unless it is `Entity`) all reach the backend. A shared-neighbour definition (`related_*`) is refused — its one-hop read would return the shared neighbours, not the peers it names.
 - `create_relationship(relationship_key, from_uid, to_uid, properties, *, far_end)` → `Result[bool]` — **the single cross-domain link write path.** Admits the far end, then writes through `backend.write_guarded_links` (whose statement re-asserts the admission) with the registry `spec` for `relationship_key`, orients direction via `_guarded_write`, and **fails closed** on an unknown key. Facade `link_{domain}_to_{key}` methods call this with their explicit key. (Root-fixed PR #197: historically it dispatched to a dynamic `link_{domain}_to_{key}` backend method that existed for only two habit cases — that dispatch is gone.) See [UNIFIED_RELATIONSHIP_SERVICE.md](../patterns/UNIFIED_RELATIONSHIP_SERVICE.md).
-- `replace_relationships(entity_uid, {relationship_key: [uids]}, *, far_ends)` → `Result[int]` — each key's links become exactly the uids given, in one transaction: a refused far end leaves the old links in place
+- `replace_relationships(entity_uid, {relationship_key: [uids]}, *, far_ends)` → `Result[dict[str, frozenset[str]]]` — each key's links become exactly the uids given, in one transaction: a refused far end leaves the old links in place. Returns, per key, the far ends the replace created a link to (no edge of the type already joined them); the Tasks update credits its new knowledge links from it
 - `delete_relationship(relationship_key, from_uid, to_uid)` → `Result[bool]`
 
 > The `link_to_knowledge` / `link_to_goal` / `link_to_principle` candidate-list wrappers were **removed** — they guessed the key from a hand-maintained list and silently `Result.fail`-ed on a coverage gap or picked the wrong edge when a domain had several to the same target. Facades call `create_relationship` with the explicit key instead; coverage is guarded by `tests/unit/test_cross_domain_link_keys.py`.
@@ -201,7 +201,7 @@ Creation, deletion, validation:
 - `delete_relationship(from_uid, to_uid, relationship_type, *, from_label=None, to_label=None)` → `Result[bool]` — a label, when given, is the kind that end must be; an edge whose end is of another kind is kept
 - `delete_relationships_batch(relationships_list)` → `Result[int]`
 - `create_relationships_batch(relationships_list)` → `Result[int]`
-- `write_guarded_links(anchor_uid, writes, *, anchor_owners)` → `Result[GuardedLinkOutcome]` — the link doors' write: under the anchor's and far ends' write locks each statement re-asserts the link-edge guard's rule (and that the anchor is still owned by exactly `anchor_owners`, the owners the admission read) as it merges (and, for a replace, deletes) the anchor's edges, all in one transaction
+- `write_guarded_links(anchor_uid, writes, *, anchor_owners)` → `Result[GuardedLinkOutcome]` — the link doors' write: under the anchor's and far ends' write locks each statement re-asserts the link-edge guard's rule (and that the anchor is still owned by exactly `anchor_owners`, the owners the admission read) as it merges (and, for a replace, deletes) the anchor's edges, all in one transaction. `GuardedLinkOutcome.created` names, per write in the order given, the far ends whose edge it created, read under the anchor's lock
 - `has_relationship(from_uid, to_uid, relationship_type)` → `Result[bool]`
 - `count_related(uid, relationship_type, direction, properties, target_label)` → `Result[int]` — sees every edge (arithmetic); the anchor is bound by uid under `:Entity`, `:User`, `:Group` and the backend's own label (`build_uid_anchor` — index seeks), as `get_related_uids` binds it
 - `batch_get_related_uids(entity_uids, relationship_type, direction, properties, target_label)` → `Result[dict[str, list[str]]]` — anchors on the backend's own label; walled like `get_related_uids`

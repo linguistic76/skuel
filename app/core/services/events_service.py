@@ -390,7 +390,7 @@ class EventsService(
         event_uid: str,
         targets: dict[str, str | Unset | None],
         admitted: dict[str, AdmittedFarEnds],
-    ) -> Result[int]:
+    ) -> Result[dict[str, frozenset[str]]]:
         """Replace the single outbound edge of each key in ``targets`` with its target.
 
         ``UNSET`` leaves a key's edge untouched; a falsy target (``None`` — the
@@ -404,7 +404,7 @@ class EventsService(
             if target is not UNSET:
                 replacements[key] = [target] if target else []
         if not replacements:
-            return Result.ok(0)
+            return Result.ok({})
         far_ends: dict[str, LinkFarEnd | AdmittedFarEnds] = {
             key: admitted.get(key) or self._EDGE_FAR_ENDS[key] for key in replacements
         }
@@ -662,9 +662,6 @@ class EventsService(
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
-        assert common.core is not None  # 'core' not in skip
-        assert common.search is not None  # 'search' not in skip
-        assert common.relationships is not None  # 'relationships' not in skip
         self.core = common.core
         self.search: EventsSearchOperations = common.search  # type: ignore[assignment]  # class-level attr declared as concrete EventsSearchService, local var matches protocol
         self.relationships: UnifiedRelationshipService = common.relationships

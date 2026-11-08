@@ -61,7 +61,12 @@ class GuardedLinkOutcome:
             nothing was written: the writes share one transaction.
         anchor_owners: the anchor's owners as the write read them; empty for a
             refusal and for an anchor nobody owns.
+        created: one entry per write, in the order the writes were given — the far
+            ends whose edge that write created: no edge of its type already joined
+            them to the anchor. An edge already there, the owner's or one a grounding
+            pass inferred, is not in it. Empty for a refusal.
     """
 
     refused_uid: str | None
     anchor_owners: frozenset[str]
+    created: tuple[frozenset[str], ...]

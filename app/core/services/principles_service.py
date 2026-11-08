@@ -548,10 +548,7 @@ class PrinciplesService(
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
-        assert common.core is not None  # 'core' not in skip
-        assert common.search is not None  # 'search' not in skip
-        assert common.relationships is not None  # 'relationships' not in skip
-        assert common.intelligence is not None  # 'intelligence' not in skip
+        assert common.intelligence is not None  # the principles config declares its class
         self.core = common.core
         self.search = common.search
         self.relationships = common.relationships

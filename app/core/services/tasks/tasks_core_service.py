@@ -353,7 +353,7 @@ class TasksCoreService(
 
         # Every edge is written — only now announce the task.
         await self._publish_created(task)
-        await self._publish_knowledge_substance(task, list(written.applied_knowledge_uids))
+        await self.publish_knowledge_applied(task, list(written.applied_knowledge_uids))
         if written.goal_uids:
             await publish_event(
                 self.event_bus,
@@ -647,17 +647,22 @@ class TasksCoreService(
             self.logger,
         )
 
-    async def _publish_knowledge_substance(self, task: Task, knowledge_uids: list[str]) -> None:
+    async def publish_knowledge_applied(  # skuel-lint: disable=SKUEL005 -- an event publisher: nothing to return, publish_event logs a missing bus
+        self, task: Task, knowledge_uids: list[str]
+    ) -> None:
         """Announce applied knowledge: single-item for 1 Ku, bulk for 2+.
 
-        Driven by the uids ``_write_link_edges`` actually WROTE, never by what the request
-        asked for. The substance pipeline credits knowledge per uid it is handed, so
-        announcing a refused, dangling or cross-user link would claim a task applied
-        knowledge that no APPLIES_KNOWLEDGE edge backs. (Habits' sibling, #965.)
+        Driven by the links a write CREATED, never by what a request asked for: at
+        create, the uids ``_write_link_edges`` wrote; at an update, the Kus its replace
+        newly linked (``TasksService.update_task``). The substance pipeline credits
+        knowledge per uid it is handed, so announcing a refused, dangling or cross-user
+        link would claim a task applied knowledge that no APPLIES_KNOWLEDGE edge backs,
+        and announcing a link already there would credit it twice. (Habits' sibling, #965.)
 
-        Published AFTER ``TaskCreated``, as before: these reach only substance handlers
-        and do not invalidate the user context, so they carry no ordering constraint of
-        their own — but they must not precede the announcement of the task they describe.
+        Published AFTER the task's ``TaskCreated`` / ``TaskUpdated``: these reach only
+        substance handlers and do not invalidate the user context, so they carry no
+        ordering constraint of their own — but they must not precede the announcement
+        of the task they describe.
         """
         if not knowledge_uids:
             return

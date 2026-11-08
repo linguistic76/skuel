@@ -20,7 +20,7 @@ besides. The worker runs in FULL only, so in CORE a task carries only the knowle
 its owner links.
 
 Substance: each NEW inferred edge publishes ``KnowledgeAppliedInTask``, the event
-a task's own link publishes at create.
+a task's own link publishes when its create or an edit writes it.
 
 Backend: TaskGroundingBackend (a cancelled task never grounds). Removal:
 ``POST /api/tasks/grounding/remove``. Backfill: ``scripts/ground_knowledge.py

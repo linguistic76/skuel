@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-24
+updated: 2026-11-08
 ---
 
 # BaseService Quick Start Guide
@@ -412,9 +412,9 @@ class TasksService(BaseService[TasksOperations, Task]):
     def __init__(self, backend, ...):
         super().__init__(backend, "tasks")
 
-        # Factory creates the same 7 common sub-services for every Activity Domain:
-        # core, search, relationships, intelligence (skippable via skip={})
-        # + event_handler, learning, knowledge_intelligence (always auto-wired, no domain opts out)
+        # Factory builds the common sub-services for every Activity Domain: core, search,
+        # relationships, event_handler, learning; intelligence only where the domain's config
+        # names a class; knowledge_intelligence passed through. No domain opts out.
         common = create_common_sub_services(
             domain="tasks",
             backend=backend,

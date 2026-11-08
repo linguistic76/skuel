@@ -432,8 +432,11 @@ class UnifiedRelationshipService[
         self,
         anchor_uid: str,
         writes: Sequence[tuple[GuardedLinkWrite, _Admission]],
-    ) -> Result[int]:
-        """Write ``writes`` in one transaction and announce the change; returns the far ends linked.
+    ) -> Result[tuple[frozenset[str], ...]]:
+        """Write ``writes`` in one transaction and announce the change.
+
+        Returns, per write in the order given, the far ends whose edge it created — no
+        edge of its type already joined them to the anchor (``GuardedLinkOutcome.created``).
 
         The statement re-asserts each far end's admission (``write_guarded_links``): one
         that changed since it was admitted — deleted, re-owned, unpublished — refuses
@@ -478,7 +481,7 @@ class UnifiedRelationshipService[
                 Errors.not_found(resource, refused, reason="changed since its admission")
             )
         await self._publish_links_changed(outcome.value.anchor_owners, anchor_uid)
-        return Result.ok(sum(len(write.far_uids) for write, _ in writes))
+        return Result.ok(outcome.value.created)
 
     async def create_relationship(
         self,
@@ -507,7 +510,8 @@ class UnifiedRelationshipService[
                 or the proof that this link was already admitted
 
         Returns:
-            Result[bool] — True when the edge was created.
+            Result[bool] — True once the edge is in place, whether this write created it
+            or it was there already.
         """
         spec = self._spec(relationship_key)
         if spec.is_error:
@@ -628,7 +632,8 @@ class UnifiedRelationshipService[
                 entry here is a validation error — there is no "any kind" default.
 
         Returns:
-            Result[int] with count of relationships created
+            Result[int] — the far ends linked, whether this write created each edge or
+            it was there already.
         """
         writes: list[tuple[GuardedLinkWrite, _Admission]] = []
 
@@ -660,7 +665,10 @@ class UnifiedRelationshipService[
 
         if not writes:
             return Result.ok(0)
-        return await self._write_links(entity_uid, writes)
+        written = await self._write_links(entity_uid, writes)
+        if written.is_error:
+            return Result.fail(written)
+        return Result.ok(sum(len(write.far_uids) for write, _ in writes))
 
     async def replace_relationships(
         self,
@@ -668,7 +676,7 @@ class UnifiedRelationshipService[
         relationships: Mapping[str, Sequence[str]],
         *,
         far_ends: Mapping[str, LinkFarEnd | AdmittedFarEnds],
-    ) -> Result[int]:
+    ) -> Result[dict[str, frozenset[str]]]:
         """Make each key's links exactly the uids given — an empty list clears the key.
 
         Every far end is admitted before anything is written (or covered by the
@@ -682,9 +690,13 @@ class UnifiedRelationshipService[
         refused: a replace would remove its sibling keys' edges of the same type.
 
         Returns:
-            Result[int] — the far ends linked across every key.
+            Result[dict[str, frozenset[str]]] — per key, the far ends this replace
+            created a link to: no edge of the key's type already joined them to the
+            entity. A link already there is not in it — the owner's, or one a grounding pass inferred, which the
+            replace makes the owner's (``build_guarded_link_query``).
         """
         writes: list[tuple[GuardedLinkWrite, _Admission]] = []
+        keys: list[str] = []
         for relationship_key, target_uids in relationships.items():
             spec = self._spec(relationship_key)
             if spec.is_error:
@@ -710,10 +722,14 @@ class UnifiedRelationshipService[
                 spec.value, target_uids, admitted.value.far_end, None, replace=True
             )
             writes.append((write, admitted.value))
+            keys.append(relationship_key)
 
         if not writes:
-            return Result.ok(0)
-        return await self._write_links(entity_uid, writes)
+            return Result.ok({})
+        written = await self._write_links(entity_uid, writes)
+        if written.is_error:
+            return Result.fail(written)
+        return Result.ok(dict(zip(keys, written.value, strict=True)))
 
     # =========================================================================
     # USER CONTEXT PLANNING METHODS

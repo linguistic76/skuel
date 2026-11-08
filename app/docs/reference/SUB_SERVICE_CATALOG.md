@@ -145,7 +145,7 @@ metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 **Key Methods:**
 - `create_relationship(method_key, from_uid, to_uid, properties, *, far_end)` - The single cross-domain link write path (registry-validated key, fails closed). `far_end` is required: the far end is admitted before the write — it exists, is one of `far_end.labels`, and is owned by `from_uid`'s owner or is published shared content — and the write's statement re-asserts that rule as it merges the edge
 - `admit_far_ends(from_uid, to_uids, far_end)` → `Result[AdmittedFarEnds]` - The admission alone, for a door that must refuse before its first write; the returned proof is a valid `far_end` for writing that same link without a second read
-- `replace_relationships(entity_uid, {method_key: [uids]}, *, far_ends)` - Make each key's links exactly the uids given (`[]` clears): one transaction deletes the old edges and writes the new ones, so a refused far end leaves the old links in place (the Events and Tasks update doors)
+- `replace_relationships(entity_uid, {method_key: [uids]}, *, far_ends)` - Make each key's links exactly the uids given (`[]` clears): one transaction deletes the old edges and writes the new ones, so a refused far end leaves the old links in place (the Events and Tasks update doors). Returns, per key, the far ends it created a link to
 - `delete_relationship(method_key, from_uid, to_uid)` - Remove a link
 - `links_changed(admitted)` - Announce a link a door wrote on its own statement after admitting here; the writes above announce their own (`EntityLinksChanged`, one per owner — the owner's cached context is dropped)
 - `get_related_uids(method_key, entity_uid)` - Query relationships
@@ -578,20 +578,20 @@ common = create_common_sub_services(
     event_bus=event_bus,
     insight_store=insight_store,                                      # optional
     activity_knowledge_intelligence=activity_knowledge_intelligence,  # optional
-    skip={"core", "intelligence"},  # optional — skip sub-services created manually
 )
 
+self.core = common.core
 self.search = common.search
 self.relationships = common.relationships
-self.event_handler = common.event_handler              # auto-wired for all 6 domains
-self.learning = common.learning                        # auto-wired (TasksLearningService — uniform across all 6 domains)
-self.knowledge_intelligence = common.knowledge_intelligence  # auto-wired (was via mixin only)
-# core and intelligence created manually when they need domain-specific params
+self.event_handler = common.event_handler              # built for all 6 domains
+self.learning = common.learning                        # built for all 6 domains (TasksLearningService here)
+self.knowledge_intelligence = common.knowledge_intelligence  # the passed-in singleton
+# Tasks' config names no intelligence_class: the facade builds TasksIntelligenceService itself
 ```
 
-**`skip` applies only to:** `core`, `search`, `relationships`, `intelligence`. The `event_handler`,
-`learning`, and `knowledge_intelligence` fields are always produced when conditions are met (domain
-config includes a learning class; singleton is passed in).
+`core`, `search`, `relationships`, `event_handler` and `learning` are always built.
+`intelligence` is built only for a domain whose config names an `intelligence_class` (Principles);
+`knowledge_intelligence` is whatever the caller passed.
 
 **When to use:**
 - Implementing new facade services

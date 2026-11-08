@@ -32,6 +32,7 @@ import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from core.constants import KnowledgeLinkConfidence
 from core.models.type_hints import UserUID
 from core.models.user import User
 from core.services.user import UserContext
@@ -202,7 +203,7 @@ class UserContextBuilder:
     async def build_rich(
         self,
         user_uid: UserUID,
-        min_confidence: float = 0.7,
+        min_confidence: float = KnowledgeLinkConfidence.FLOOR,
         window: str = "30d",
     ) -> Result[RichUserContext]:
         """
@@ -219,7 +220,8 @@ class UserContextBuilder:
 
         Args:
             user_uid: User identifier
-            min_confidence: Minimum relationship confidence (default 0.7)
+            min_confidence: Minimum relationship confidence (default
+                ``KnowledgeLinkConfidence.FLOOR``)
             window: The report-period token the touched-entity window starts at — a
                 trailing window ("7d", "14d", "30d", "90d") or a calendar period
                 ("2026-W37", "2026-09"; ``core/utils/report_periods.py``). Active
@@ -329,7 +331,7 @@ class UserContextBuilder:
         self,
         user_uid: UserUID,
         user: User,
-        min_confidence: float = 0.7,
+        min_confidence: float = KnowledgeLinkConfidence.FLOOR,
         window: str = "30d",
     ) -> Result[RichUserContext]:
         """
@@ -364,7 +366,8 @@ class UserContextBuilder:
         Args:
             user_uid: User's unique identifier
             user: User entity
-            min_confidence: Minimum relationship confidence (default 0.7)
+            min_confidence: Minimum relationship confidence (default
+                ``KnowledgeLinkConfidence.FLOOR``)
             window: The report-period token (trailing "7d" … "90d" or calendar
                 "2026-W37" / "2026-09"). Active entities always included. Default
                 "30d"; an unknown token is a validation failure, never a default.

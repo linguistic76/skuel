@@ -907,7 +907,8 @@ class RelationshipCrudOperations(Protocol):
         anchor's owners or by nobody and published, when the edge is merged — one that
         changed since its admission refuses the whole write, as does an anchor whose
         owners are no longer ``anchor_owners`` (the owners the admission read). The
-        writes share one transaction: all land, or none does.
+        writes share one transaction: all land, or none does. The outcome names, per
+        write, the links it created (``GuardedLinkOutcome.created``).
         Backend: ``_RelationshipCrudMixin.write_guarded_links``.
         """
         ...
