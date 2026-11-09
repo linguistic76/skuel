@@ -77,8 +77,7 @@ class Choice(UserOwnedEntity):
     decision_context: str | None = None
     decision_rationale: str | None = None
     # How sure the learner was when deciding, 0.0-1.0, as they stated it at the
-    # decision; None when they stated none (and on every choice decided before
-    # the decision stored it).
+    # decision; None when no confidence is recorded.
     decision_confidence: float | None = None
     decision_criteria: tuple[str, ...] = ()  # Shared concept with Principle
     constraints: tuple[str, ...] = ()
