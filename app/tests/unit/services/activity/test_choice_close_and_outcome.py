@@ -301,7 +301,7 @@ class TestSatisfactionAverages:
         assert result.is_ok, result
         assert result.value["decision_quality"]["average_satisfaction"] == pytest.approx(0.8)
 
-    async def test_decision_patterns_with_no_rating_read_zero(self) -> None:
+    async def test_decision_patterns_with_no_rating_read_none(self) -> None:
         backend = MagicMock()
         backend.find_by_date_range = AsyncMock(return_value=Result.ok([_choice(uid="c1")]))
         service = _intelligence(backend, None)
@@ -310,7 +310,8 @@ class TestSatisfactionAverages:
         result = await service.get_decision_patterns(USER, days=30)
 
         assert result.is_ok, result
-        assert result.value["decision_quality"]["average_satisfaction"] == 0.0
+        assert result.value["decision_quality"]["average_satisfaction"] is None
+        assert result.value["decision_quality"]["choices_with_satisfaction"] == 0
 
     async def test_principle_adherence_averages_only_the_rated_choices(self) -> None:
         """An unrated choice has no satisfaction, not a zero: 5 and 3 average 4 (0.8),

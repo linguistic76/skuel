@@ -622,11 +622,15 @@ async def get_decision_patterns(
 
 **Returns:** `decision_metrics` (frequency, principle alignment %, goal orientation %), `decision_quality`, `patterns` (trend, strategic vs tactical), `recommendations`.
 
+`decision_quality` averages what the choices store: `average_confidence` over the choices with a `decision_confidence` (`choices_with_confidence`), `average_satisfaction` over those with a `satisfaction_score` as a share of the scale's top (`choices_with_satisfaction`). With none recorded an average is `None`, not 0.0.
+
+**Staged:** none of methods 7-9 has a caller yet (`PLANNED_METHODS` in `scripts/detect_bloat.py`).
+
 ---
 
 ### Method 8: get_choice_quality_correlations()
 
-**Purpose:** Analyze correlations between decision quality dimensions (time pressure vs satisfaction, energy vs confidence, principle alignment vs satisfaction).
+**Purpose:** Correlations between decision-quality measures over a window. None is computed yet: `correlations` is `{}` with a `reason`, beside the window's counts of choices with a recorded satisfaction and a stated confidence (`choices_with_satisfaction`, `choices_with_confidence`).
 
 **Signature:**
 ```python
@@ -639,7 +643,7 @@ async def get_choice_quality_correlations(
 
 ### Method 9: get_domain_decision_patterns()
 
-**Purpose:** Analyze decision-making frequency and quality broken down by domain.
+**Purpose:** Analyze decision-making frequency and quality broken down by domain. Each domain's `avg_quality_score` is the mean of `Choice.get_decision_quality_score()` over its decided choices (`decided_count`), `None` with none decided.
 
 **Signature:**
 ```python

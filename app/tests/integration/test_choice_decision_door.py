@@ -6,8 +6,10 @@ Each door verifies the owner at the route, reads JSON or the page's form through
 
 - an option added on the page is stored exactly as one the JSON create door wrote, and
   the decision can select it;
-- the decision writes its fields, and ``ChoiceMade`` reaches its subscribers: the
-  decision-pattern handler (its insight), and the PathStep engagement's auto-complete,
+- the decision writes its fields, the learner's confidence among them (none when they
+  stated none), and ``ChoiceMade`` reaches its subscribers: the decision-pattern
+  handler (its insight, with a stated confidence or without one), and the PathStep
+  engagement's auto-complete,
   which closes an engagement whose one activity is a spawned choice once it is decided;
 - another user's choice is not found, a foreign option and a second decision are refused,
   and each refusal leaves the node as it was;
@@ -186,12 +188,50 @@ async def test_the_decision_selects_a_page_added_option_and_writes_its_fields(en
     assert node["decision_rationale"] == "the house is quiet"
     assert node["status"] == "active"
     assert isinstance(datetime.fromisoformat(str(node["decided_at"])), datetime)
-    assert "confidence" not in node, "confidence rides on the event, not the node"
+    assert node["decision_confidence"] == 0.9
     assert [(e.choice_uid, e.selected_option, e.confidence) for e in made] == [(uid, evening, 0.9)]
 
 
+async def test_a_decision_without_a_confidence_stores_none(env: Env) -> None:
+    """A JSON caller that states no confidence: nothing stands in for one.
+
+    The choice is complex (three options, three criteria) and no principle informs it,
+    so the handler's one insight that reads no confidence is the proof it ran on the
+    unstated value.
+    """
+    uid = await create(
+        env.client,
+        "choices",
+        f"{MARK} unstated",
+        options=[{"title": title, "description": title} for title in ("Bus", "Bike", "Walk")],
+        decision_criteria=["cost", "time", "weather"],
+    )
+    bike = _option_uid(await _stored_options(env, uid), "Bike")
+
+    with published(env.services.event_bus, ChoiceMade) as made:
+        decided = await env.client.post(
+            f"/api/choices/{uid}/decide", json={"selected_option_uid": bike}
+        )
+
+    assert decided.status_code == 200, decided.text
+    node = await _node(env, uid)
+    assert node["selected_option_uid"] == bike
+    assert "decision_confidence" not in node
+    assert [e.confidence for e in made] == [None]
+    async with env.driver.session() as session:
+        rows = await (
+            await session.run(
+                "MATCH (i:Insight {user_uid: $user, entity_uid: $uid}) RETURN i.insight_type AS t",
+                user=CALLER,
+                uid=uid,
+            )
+        ).data()
+    assert [row["t"] for row in rows] == ["principle_alignment"]
+
+
 async def test_choice_made_reaches_the_decision_pattern_handler(env: Env) -> None:
-    """A high-confidence decision a principle informs earns the handler's insight."""
+    """A high-confidence decision a principle informs earns the handler's insight,
+    read from the confidence the choice stores."""
     principle = await create(env.client, "principles", f"{MARK} principle")
     uid = await _choice(env, "aligned", "Walk", "Drive")
     linked = await env.client.post(
@@ -205,6 +245,7 @@ async def test_choice_made_reaches_the_decision_pattern_handler(env: Env) -> Non
     )
 
     assert decided.status_code == 200, decided.text
+    assert (await _node(env, uid))["decision_confidence"] == 0.9
     async with env.driver.session() as session:
         rows = await (
             await session.run(
@@ -474,4 +515,5 @@ async def test_the_page_controls_post_to_their_own_doors(env: Env) -> None:
     assert "data-choice-add-option" not in decided.text
     node = await _node(env, uid)
     assert node["selected_option_uid"] == coffee
+    assert node["decision_confidence"] == 0.7, "the level the form posted"
     assert "decision_rationale" not in node, "a blank rationale is no rationale"

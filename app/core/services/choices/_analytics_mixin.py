@@ -34,6 +34,15 @@ if TYPE_CHECKING:
     from core.services.relationships import UnifiedRelationshipService
 
 
+def mean_of_recorded(values: list[float]) -> float | None:
+    """The mean of the values a learner recorded; None when they recorded none.
+
+    None keeps "nothing recorded" apart from a real low average: a 0.0 would read as
+    "very unsure" or "very dissatisfied".
+    """
+    return sum(values) / len(values) if values else None
+
+
 class _AnalyticsMixin:
     """
     Decision pattern analytics methods for ChoicesIntelligenceService.
@@ -312,6 +321,9 @@ class _AnalyticsMixin:
         Choice rows: a choice counts as principle-aligned or goal-oriented when it carries
         the corresponding edge.
 
+        Each average is over the choices that record its value (``decision_confidence``,
+        ``satisfaction_score``), with how many those are; with none it is None, not 0.0.
+
         Args:
             user_uid: User UID
             days: Number of days to analyze (default: 90)
@@ -332,8 +344,10 @@ class _AnalyticsMixin:
                     "goal_oriented_percentage": float
                 },
                 "decision_quality": {
-                    "average_confidence": float,
-                    "average_satisfaction": float,
+                    "average_confidence": float | None,  # stated confidence, 0.0-1.0
+                    "choices_with_confidence": int,
+                    "average_satisfaction": float | None,  # share of the scale's top
+                    "choices_with_satisfaction": int,
                     "principle_alignment_score": float
                 },
                 "patterns": {
@@ -355,8 +369,8 @@ class _AnalyticsMixin:
             print(f"Principle-aligned: {metrics['principle_aligned_percentage']:.0%}")
 
             quality = patterns["decision_quality"]
-            print(f"Avg confidence: {quality['average_confidence']:.0%}")
-            print(f"Avg satisfaction: {quality['average_satisfaction']:.0%}")
+            if quality["average_confidence"] is not None:
+                print(f"Avg confidence: {quality['average_confidence']:.0%}")
             ```
         """
         # Calculate date range
@@ -383,8 +397,10 @@ class _AnalyticsMixin:
                         "goal_oriented_percentage": 0.0,
                     },
                     "decision_quality": {
-                        "average_confidence": 0.0,
-                        "average_satisfaction": 0.0,
+                        "average_confidence": None,
+                        "choices_with_confidence": 0,
+                        "average_satisfaction": None,
+                        "choices_with_satisfaction": 0,
                         "principle_alignment_score": 0.0,
                     },
                     "patterns": {
@@ -402,10 +418,7 @@ class _AnalyticsMixin:
         choices_per_week = total_choices / weeks
 
         # GRAPH-NATIVE: alignment lives on INFORMS_CHOICE / AFFECTS_GOAL edges, not
-        # on Choice. The previous getattr(c, "aligned_principles") / getattr(c, "related_goals")
-        # reads named fields no Choice or ChoiceDTO has ever declared, so both sums — and the
-        # percentages, alignment score and strategic/tactical band derived from them — were
-        # structurally 0 for every input, silently.
+        # on Choice, so it is read from the graph.
         links_result = await self._fetch_alignment_links([c.uid for c in choices])
         if links_result.is_error:
             return Result.fail(links_result)
@@ -419,18 +432,16 @@ class _AnalyticsMixin:
         )
         goal_oriented_percentage = (goal_oriented_count / total_choices) if total_choices > 0 else 0
 
-        # Decision quality (simplified)
-        avg_confidence = 0.7  # Placeholder
-        # The mean satisfaction of the choices whose outcome is recorded, as a share of
-        # the scale's top (0.0 with none recorded).
-        satisfaction_scores = [
-            c.satisfaction_score for c in choices if c.satisfaction_score is not None
+        # Decision quality: each average over the choices that record its value.
+        confidences = [c.decision_confidence for c in choices if c.decision_confidence is not None]
+        avg_confidence = mean_of_recorded(confidences)
+        # Satisfaction as a share of the scale's top.
+        satisfactions = [
+            c.satisfaction_score / SatisfactionScale.HIGHEST
+            for c in choices
+            if c.satisfaction_score is not None
         ]
-        avg_satisfaction = (
-            sum(satisfaction_scores) / len(satisfaction_scores) / SatisfactionScale.HIGHEST
-            if satisfaction_scores
-            else 0.0
-        )
+        avg_satisfaction = mean_of_recorded(satisfactions)
         principle_alignment_score = principle_aligned_percentage
 
         # Identify patterns
@@ -482,7 +493,9 @@ class _AnalyticsMixin:
                 },
                 "decision_quality": {
                     "average_confidence": avg_confidence,
+                    "choices_with_confidence": len(confidences),
                     "average_satisfaction": avg_satisfaction,
+                    "choices_with_satisfaction": len(satisfactions),
                     "principle_alignment_score": principle_alignment_score,
                 },
                 "patterns": {
@@ -498,14 +511,15 @@ class _AnalyticsMixin:
         self, user_uid: UserUID, days: int = 90
     ) -> Result[dict[str, Any]]:
         """
-        Analyze correlations between decision quality metrics.
+        Correlations between decision-quality measures over a window of choices.
+
+        No correlation is computed yet: ``correlations`` is empty and ``reason`` says
+        why. The window's counts of choices with a recorded satisfaction and a stated
+        confidence are the two series any correlation of decision quality starts from.
 
         Returns:
-            Result containing correlations between:
-            - Time pressure vs satisfaction
-            - Energy level vs confidence
-            - Principle alignment vs long-term satisfaction
-            - Decision complexity vs quality
+            Result containing ``total_choices_analyzed``, ``choices_with_satisfaction``,
+            ``choices_with_confidence``, ``correlations`` (empty) and ``reason``.
         """
         # Calculate date range
         end_date = today_in(current_zone())
@@ -519,45 +533,21 @@ class _AnalyticsMixin:
 
         choices = choices_result.value
 
-        if not choices:
-            return Result.ok(
-                {
-                    "user_uid": user_uid,
-                    "period": {"start_date": start_date, "end_date": end_date, "days": days},
-                    "correlations": {},
-                    "insights": ["Insufficient data for correlation analysis"],
-                }
-            )
-
-        # Placeholder correlation analysis
-        # In real implementation, would calculate actual correlations from choice data
-        correlations = {
-            "time_pressure_vs_satisfaction": -0.3,  # Negative correlation
-            "energy_vs_confidence": 0.7,  # Strong positive correlation
-            "principle_alignment_vs_satisfaction": 0.8,  # Strong positive correlation
-            "complexity_vs_quality": -0.2,  # Slight negative correlation
-        }
-
-        insights = []
-        if correlations["time_pressure_vs_satisfaction"] < -0.2:
-            insights.append("Decisions made under time pressure tend to have lower satisfaction")
-        if correlations["energy_vs_confidence"] > 0.5:
-            insights.append("Higher energy levels strongly correlate with decision confidence")
-        if correlations["principle_alignment_vs_satisfaction"] > 0.7:
-            insights.append("Principle-aligned decisions show significantly higher satisfaction")
-
         return Result.ok(
             {
                 "user_uid": user_uid,
                 "period": {"start_date": start_date, "end_date": end_date, "days": days},
                 "total_choices_analyzed": len(choices),
-                "correlations": correlations,
-                "insights": insights,
-                "recommendations": [
-                    "Allow more time for important decisions",
-                    "Make critical decisions when energy is high",
-                    "Prioritize principle alignment for long-term satisfaction",
-                ],
+                "choices_with_satisfaction": sum(
+                    1 for c in choices if c.satisfaction_score is not None
+                ),
+                "choices_with_confidence": sum(
+                    1 for c in choices if c.decision_confidence is not None
+                ),
+                "correlations": {},
+                "reason": (
+                    "No correlation method is chosen yet; none is reported rather than an estimate."
+                ),
             }
         )
 
@@ -570,8 +560,9 @@ class _AnalyticsMixin:
         Returns:
             Result containing per-domain analysis:
             - Choice frequency by domain
-            - Average quality scores by domain
-            - Domain-specific strengths and weaknesses
+            - Average decision quality by domain (``Choice.get_decision_quality_score``),
+              over the domain's decided choices, with how many those are; None with none
+              decided (an undecided choice scores 0.0, which is not a poor decision)
         """
         # Calculate date range
         end_date = today_in(current_zone())
@@ -603,10 +594,10 @@ class _AnalyticsMixin:
         # and keeps the **raw string** (`Neo4jGenericMapper.from_node`) — deliberately,
         # so the real value survives instead of being coerced to the field default and
         # silently mislabelling the row. That leaves the annotation wider than the truth, so
-        # `.value` here raised AttributeError and took down the whole report over one bad row.
+        # `.value` would raise AttributeError on such a row and take down the whole report.
         # `Domain` is a StrEnum, so the unwrapped member and the raw string are both `str`:
         # an unrecognised domain groups under its own name rather than crashing the call.
-        domain_choices: dict[str, list[Any]] = defaultdict(list)
+        domain_choices: dict[str, list[Choice]] = defaultdict(list)
         for choice in choices:
             domain = getattr(choice, "domain", None)
             if domain:
@@ -616,11 +607,14 @@ class _AnalyticsMixin:
         domain_patterns = {}
         for domain, domain_choice_list in domain_choices.items():
             count = len(domain_choice_list)
+            quality_scores = [
+                c.get_decision_quality_score() for c in domain_choice_list if c.is_decided()
+            ]
             domain_patterns[domain] = {
                 "choice_count": count,
                 "percentage": (count / len(choices)) * 100,
-                "avg_quality_score": 0.7,  # Placeholder
-                "common_themes": [],
+                "avg_quality_score": mean_of_recorded(quality_scores),
+                "decided_count": len(quality_scores),
             }
 
         # Generate insights

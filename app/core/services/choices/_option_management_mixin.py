@@ -80,7 +80,7 @@ class _OptionManagementMixin:
         choice_uid: str,
         selected_option_uid: str,
         decision_rationale: str | None = None,
-        confidence: float = 0.5,
+        confidence: float | None = None,
     ) -> Result[Choice]:
         """Decide an undecided choice: select one of its own options, once."""
         return await self.core.make_decision(
