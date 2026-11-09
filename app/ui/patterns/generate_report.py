@@ -16,11 +16,15 @@ from typing import TYPE_CHECKING, get_args
 from fasthtml.common import H3, Div, Fieldset, Form, Input, Label, Legend, Option, P
 
 from core.models.entity_requests import ActivityReviewDomain
-from core.utils.report_periods import report_period_token
-from core.utils.timestamp_helpers import today_in
+from core.utils.report_periods import (
+    UnknownReportPeriodError,
+    report_period_token,
+    resolve_report_period,
+)
+from core.utils.timestamp_helpers import now_utc, today_in
 from core.utils.zone_context import current_zone
-from ui.components import Button, ButtonT, Card, CardBody
-from ui.forms import Checkbox, LabelTextArea, Select
+from ui.components import Button, ButtonT, Card, CardBody, TextArea
+from ui.forms import Checkbox, Select
 from ui.journals.period_links import period_link, period_step
 from ui.patterns.csrf import csrf_hidden_input
 from ui.patterns.format_date import format_date
@@ -155,6 +159,14 @@ def render_period_report_prompt(
     )
 
 
+def _period_label(token: str) -> str:
+    """A request's period as a reader says it ("the last 30 days", "week 45 of 2026")."""
+    try:
+        return resolve_report_period(token, now_utc(), current_zone()).label
+    except UnknownReportPeriodError:
+        return token
+
+
 def render_activity_review_request_card(
     pending: ReviewRequestResult | None = None,
     *,
@@ -178,7 +190,7 @@ def render_activity_review_request_card(
         body: FT = Div(
             P(
                 f"You asked on {format_date(pending.get('created_at', ''))} "
-                f"for {pending.get('time_period', '')}; it's waiting.",
+                f"for {_period_label(pending.get('time_period', ''))}; it's waiting.",
                 cls="font-semibold",
                 data_announce="Review requested",
             ),
@@ -221,13 +233,15 @@ def render_activity_review_request_card(
                 ),
                 cls="mb-3",
             ),
-            LabelTextArea(
-                "Message (optional)",
-                name="message",
-                id="review-message",
-                placeholder="Anything you'd like the reviewer to look at?",
-                maxlength="1000",
-                cls="space-y-2 mb-4",
+            Div(
+                Label("Message (optional)", cls="label", _for="review-message"),
+                TextArea(
+                    name="message",
+                    id="review-message",
+                    placeholder="Anything you'd like the reviewer to look at?",
+                    maxlength="1000",
+                ),
+                cls="mb-4",
             ),
             Div(
                 Button("Ask for a review", type="submit", cls=ButtonT.primary),

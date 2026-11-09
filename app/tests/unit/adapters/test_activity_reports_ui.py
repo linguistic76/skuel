@@ -481,6 +481,7 @@ class TestSubmitActivityReportShell:
 
         html = _content_html(page)
         assert "it&#x27;s waiting" in html or "it's waiting" in html
+        assert "for the last 30 days" in html
         assert "Look at my habits" in html
         assert "Ask for a review" not in html
         review_queue.get_pending_request.assert_awaited_once_with("user_reports")
