@@ -391,6 +391,11 @@ await self.backend.update(uid, {
 
 # READ: from_neo4j_node() auto-deserializes using type hints
 entity = from_neo4j_node(record["n"], Task)  # JSON strings → dicts/lists based on type hints
+
+# READ through a DTO (to_domain_model / {Domain}DTO.from_dict): a field named in
+# dto_from_dict's dict_fields is decoded by ensure_dict_field (JSON object → dict;
+# text that is not one raises). tests/unit/models/test_dto_driver_temporals.py
+# holds every DTO's dict fields to the stored JSON.
 ```
 
 **Custom Cypher Path** (services that bypass UniversalNeo4jBackend):

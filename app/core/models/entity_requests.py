@@ -11,9 +11,10 @@ Pydantic models shared across all entity types:
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
+import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from core.models.enums.relationship_enums import KnowledgeRelevance, ProficiencyLevel
 
@@ -21,17 +22,23 @@ from core.models.enums.relationship_enums import KnowledgeRelevance, Proficiency
 # PROGRESS REPORT REQUEST MODELS
 # =============================================================================
 
+#: The report-period token every report door reads: a trailing window (7d, 14d, 30d,
+#: 90d) or a calendar period (2026-W37, 2026-09); resolved by core/utils/report_periods.py.
+REPORT_PERIOD_PATTERN = r"^(7d|14d|30d|90d|\d{4}-(0[1-9]|1[0-2])|\d{4}-W(0[1-9]|[1-4]\d|5[0-3]))$"
+REPORT_PERIOD_DESCRIPTION = (
+    "The report-period token: a trailing window (7d, 14d, 30d, 90d) or a "
+    "calendar period (2026-W37, 2026-09); resolved by core/utils/report_periods.py"
+)
+
+#: The six Activity Domains an activity review covers, by the names its snapshot keys.
+ActivityReviewDomain = Literal["tasks", "goals", "habits", "events", "choices", "principles"]
+
 
 class ProgressReportGenerateRequest(BaseModel):
     """Request model for on-demand progress entity generation."""
 
     time_period: str = Field(
-        default="7d",
-        description=(
-            "The report-period token: a trailing window (7d, 14d, 30d, 90d) or a "
-            "calendar period (2026-W37, 2026-09); resolved by core/utils/report_periods.py"
-        ),
-        pattern=r"^(7d|14d|30d|90d|\d{4}-(0[1-9]|1[0-2])|\d{4}-W(0[1-9]|[1-4]\d|5[0-3]))$",
+        default="7d", description=REPORT_PERIOD_DESCRIPTION, pattern=REPORT_PERIOD_PATTERN
     )
     domains: list[str] = Field(
         default_factory=list,
@@ -54,15 +61,40 @@ class ProgressReportGenerateRequest(BaseModel):
 
 
 class ActivityFeedbackSubmitRequest(BaseModel):
-    """Admin submits written activity feedback for a user."""
+    """Admin submits written activity feedback for a user.
 
-    subject_uid: str = Field(..., description="UID of the user being reviewed")
+    ``snapshot_context`` is the snapshot the admin read before writing, stored with the
+    report. The review page carries it as a JSON string in a hidden field, so a string
+    is decoded here; it must decode to an object. ``review_request_uid`` names the
+    learner's request the review answers, when it was started from the queue.
+    """
+
+    subject_uid: str = Field(..., min_length=1, description="UID of the user being reviewed")
     feedback_text: str = Field(..., min_length=1, description="Feedback text")
-    time_period: str = Field(default="7d", description="Time period covered")
-    domains: list[str] | None = Field(default=None, description="Activity domains to cover")
-    snapshot_context: dict[str, Any] | None = Field(
-        default=None, description="Snapshot context from prior review"
+    time_period: str = Field(
+        default="7d", description=REPORT_PERIOD_DESCRIPTION, pattern=REPORT_PERIOD_PATTERN
     )
+    domains: list[ActivityReviewDomain] | None = Field(
+        default=None, description="Activity domains covered (none = all six)"
+    )
+    # boundary: the snapshot is a JSON document of mixed values, stored as it was read
+    snapshot_context: dict[str, Any] | None = Field(
+        default=None, description="The snapshot the admin read before writing"
+    )
+    review_request_uid: str | None = Field(
+        default=None, description="The learner's pending request this review answers"
+    )
+
+    @field_validator("snapshot_context", mode="before")
+    @classmethod
+    def _decode_snapshot(cls, value: object) -> object:
+        """A form posts the snapshot as JSON text; an API client may post the object."""
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except ValueError as e:
+                raise ValueError("snapshot_context is not valid JSON") from e
+        return value
 
 
 class AnnotationSaveRequest(BaseModel):
@@ -95,8 +127,12 @@ class AnnotationFormRequest(BaseModel):
 class ActivityReviewRequest(BaseModel):
     """User requests an activity review from an admin."""
 
-    time_period: str = Field(default="7d", description="Time period to review")
-    domains: list[str] | None = Field(default=None, description="Domains to review")
+    time_period: str = Field(
+        default="7d", description=REPORT_PERIOD_DESCRIPTION, pattern=REPORT_PERIOD_PATTERN
+    )
+    domains: list[ActivityReviewDomain] | None = Field(
+        default=None, description="Domains to review (none = all six)"
+    )
     message: str | None = Field(default=None, max_length=1000, description="Optional message")
 
 

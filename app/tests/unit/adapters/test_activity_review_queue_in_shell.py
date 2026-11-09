@@ -110,10 +110,14 @@ def test_the_queue_answers_in_its_sidebar_shell(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_a_queued_request_opens_its_learners_review(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The card's door names the learner who asked, and the period they asked about."""
+    """The card's door names the learner who asked, what they asked about, and the request,
+    so the review it opens closes it."""
     page = _client(monkeypatch, _orchestrator(Result.ok(PENDING))).get(QUEUE).text
 
-    assert 'href="/activity-review/new?subject_uid=user_learner&amp;time_period=30d"' in page
+    assert (
+        'href="/activity-review/new?subject_uid=user_learner&amp;time_period=30d'
+        '&amp;review_request_uid=review_0123456789abcdef&amp;domains=tasks"'
+    ) in page
 
 
 def test_an_empty_queue_says_so(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -15,6 +15,9 @@ from zoneinfo import ZoneInfo
 import pytest
 import time_machine
 from fastcore.xml import to_xml
+from fasthtml.common import FtResponse
+from starlette.datastructures import FormData
+from starlette.responses import Response
 
 from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
 from adapters.outbound.activity_report_renderer import (
@@ -69,17 +72,28 @@ def _report(**overrides) -> ActivityReport:
 
 
 def _body(response) -> str:
-    if hasattr(response, "body"):
-        return response.body.decode()
+    if isinstance(response, FtResponse):
+        return to_xml(response.content)
+    if isinstance(response, Response):
+        return bytes(response.body).decode()
     return to_xml(response)
 
 
 @pytest.fixture
-def registry_orchestrator_generator():
+def review_queue():
+    queue = AsyncMock()
+    queue.get_pending_request = AsyncMock(return_value=Result.ok(None))
+    return queue
+
+
+@pytest.fixture
+def registry_orchestrator_generator(review_queue):
     rt, registry = route_collector()
     orchestrator = AsyncMock()
     generator = AsyncMock()
-    create_activity_reports_ui_routes(rt, orchestrator=orchestrator, progress_generator=generator)
+    create_activity_reports_ui_routes(
+        rt, orchestrator=orchestrator, progress_generator=generator, review_queue=review_queue
+    )
     return registry, orchestrator, generator
 
 
@@ -438,18 +452,158 @@ def _content_html(page) -> str:
 
 
 class TestSubmitActivityReportShell:
-    def test_the_request_form_renders_under_the_tasks_plus_sidebar(
+    @pytest.mark.asyncio
+    async def test_the_request_form_renders_under_the_tasks_plus_sidebar(
         self, registry_orchestrator_generator, prompt_pages
     ):
         registry, _, _ = registry_orchestrator_generator
         handler = registry["/submit-activity-report", "GET"]
 
-        page = handler(_make_request(method="GET"))
+        page = await handler(_make_request(method="GET"))
 
         html = _content_html(page)
         assert 'aria-label="Tasks+ sidebar"' in html
         assert 'aria-label="GradeBook sidebar"' not in html
         assert page["title"] == "Request Activity Report"
+        # Both asks, told apart: the machine report now, a person's review later.
+        assert "Generate now" in html
+        assert "Ask for a review" in html
+        assert 'hx-post="/api/activity-reviews/request"' in html
+
+    @pytest.mark.asyncio
+    async def test_a_pending_request_is_shown_and_offers_no_second_ask(
+        self, registry_orchestrator_generator, review_queue, prompt_pages
+    ):
+        review_queue.get_pending_request = AsyncMock(return_value=Result.ok(PENDING_REQUEST))
+        registry, _, _ = registry_orchestrator_generator
+
+        page = await registry["/submit-activity-report", "GET"](_make_request(method="GET"))
+
+        html = _content_html(page)
+        assert "it&#x27;s waiting" in html or "it's waiting" in html
+        assert "for the last 30 days" in html
+        assert "Look at my habits" in html
+        assert "Ask for a review" not in html
+        review_queue.get_pending_request.assert_awaited_once_with("user_reports")
+
+    @pytest.mark.asyncio
+    async def test_a_failed_pending_read_says_so_above_the_form(
+        self, registry_orchestrator_generator, review_queue, prompt_pages
+    ):
+        review_queue.get_pending_request = AsyncMock(
+            return_value=Result.fail(Errors.database("get_pending_request", "lost"))
+        )
+        registry, _, _ = registry_orchestrator_generator
+
+        page = await registry["/submit-activity-report", "GET"](_make_request(method="GET"))
+
+        html = _content_html(page)
+        assert "Could not check for a request you already made" in html
+        assert "Ask for a review" in html
+
+
+PENDING_REQUEST = {
+    "uid": "rr_0123456789abcdef",
+    "status": "pending",
+    "user_uid": "user_reports",
+    "time_period": "30d",
+    "domains": ["habits"],
+    "message": "Look at my habits",
+    "created_at": "2026-11-08T10:00:00Z",
+    "created": True,
+}
+
+REVIEW_DOOR = ("/api/activity-reviews/request", "POST")
+
+
+def _review_post(pairs: list[tuple[str, str]], *, htmx: bool = True):
+    """The review card's post: url-encoded, repeated ``domains``, HTMX unless told not."""
+    request = _make_request()
+    request.headers["content-type"] = "application/x-www-form-urlencoded"
+    if htmx:
+        request.headers["HX-Request"] = "true"
+    request.form = AsyncMock(return_value=FormData(pairs))
+    return request
+
+
+class TestActivityReviewRequestDoor:
+    @pytest.mark.asyncio
+    async def test_a_new_request_is_201_and_reaches_the_queue_with_its_choices(
+        self, registry_orchestrator_generator, review_queue
+    ):
+        review_queue.request_review = AsyncMock(return_value=Result.ok(PENDING_REQUEST))
+        registry, _, _ = registry_orchestrator_generator
+
+        response = await registry[REVIEW_DOOR](
+            _review_post(
+                [
+                    ("time_period", "30d"),
+                    ("domains", "habits"),
+                    ("domains", "tasks"),
+                    ("message", "Look at my habits"),
+                ]
+            )
+        )
+
+        assert response.status_code == 201
+        assert "it&#x27;s waiting" in _body(response) or "it's waiting" in _body(response)
+        review_queue.request_review.assert_awaited_once_with(
+            "user_reports",
+            time_period="30d",
+            domains=["habits", "tasks"],
+            message="Look at my habits",
+        )
+
+    @pytest.mark.asyncio
+    async def test_asking_again_while_pending_is_200_and_answers_the_open_one(
+        self, registry_orchestrator_generator, review_queue
+    ):
+        review_queue.request_review = AsyncMock(
+            return_value=Result.ok({**PENDING_REQUEST, "created": False})
+        )
+        registry, _, _ = registry_orchestrator_generator
+
+        response = await registry[REVIEW_DOOR](_review_post([("time_period", "7d")], htmx=False))
+
+        assert response.status_code == 200
+        assert '"uid":"rr_0123456789abcdef"' in _body(response).replace(" ", "")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "pairs",
+        [
+            [("time_period", "45d")],
+            [("time_period", "7d"), ("domains", "knowledge")],
+            [("time_period", "7d"), ("message", "x" * 1001)],
+        ],
+        ids=["period outside the vocabulary", "domain outside the six", "message too long"],
+    )
+    async def test_a_body_outside_the_vocabulary_is_a_rendered_400(
+        self, registry_orchestrator_generator, review_queue, pairs
+    ):
+        review_queue.request_review = AsyncMock()
+        registry, _, _ = registry_orchestrator_generator
+
+        response = await registry[REVIEW_DOOR](_review_post(pairs))
+
+        assert response.status_code == 400
+        assert response.headers == {"X-SKUEL-Refusal": "rendered"}
+        assert "Choose a period from the list" in _body(response)
+        review_queue.request_review.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_failed_write_answers_its_own_status(
+        self, registry_orchestrator_generator, review_queue
+    ):
+        review_queue.request_review = AsyncMock(
+            return_value=Result.fail(Errors.database("create_review_request", "lost"))
+        )
+        registry, _, _ = registry_orchestrator_generator
+
+        response = await registry[REVIEW_DOOR](_review_post([("time_period", "7d")]))
+
+        assert response.status_code == 503
+        assert "could not be sent" in _body(response)
 
 
 class TestForPeriodGenerate:

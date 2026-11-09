@@ -1,7 +1,7 @@
 ---
 title: "Request Models No Door Reads"
-updated: 2026-11-08
-status: "open — 23 staged (8 wait on a door for a service that exists, 3 on a design, 12 on a re-evaluation) and 1 parked; 23 retired 2026-11-08; 1 bound by its door 2026-11-08"
+updated: 2026-11-09
+status: "open — 21 staged (6 wait on a door for a service that exists, 3 on a design, 12 on a re-evaluation) and 1 parked; 23 retired 2026-11-08; 3 bound by their doors 2026-11-08 and 2026-11-09"
 registered: 2026-11-05
 ruled: "2026-11-05 (Mike) — 23 retire; UserFilterSchema and HabitCompletionFilterRequest move from retire to staged; the rest stay staged or parked, each for the reason in its row"
 trigger: "a door is being built that would bind one of these shapes, or a session takes a staged model's re-evaluation"
@@ -74,6 +74,8 @@ Each row names the live means that does the model's job.
 | Model | Door |
 |---|---|
 | `ChoiceDecisionRequest` | `POST /api/choices/{uid}/decide`, the choice page's decide form (2026-11-08) |
+| `ActivityReviewRequest` | `POST /api/activity-reviews/request`, the "Ask for a personal review" card on `/submit-activity-report` (2026-11-09) |
+| `ActivityFeedbackSubmitRequest` | `POST /activity-review/submit-feedback`, the admin review form; its snapshot is stored with the report and its request closed (2026-11-09) |
 
 ## Register
 
@@ -81,8 +83,6 @@ A wiring door binds its model and takes its row out.
 
 | Model | File | Verdict | Why |
 |---|---|---|---|
-| `ActivityReviewRequest` | `core/models/entity_requests.py` | staged: door | `request_review` exists, registered READY; bind the feedback form |
-| `ActivityFeedbackSubmitRequest` | `core/models/entity_requests.py` | staged: door | the same door, passing `snapshot_context` |
 | `GoalProgressUpdateRequest` | `core/models/goal/goal_request.py` | staged: door | one door with the two milestone models |
 | `MilestoneCreateRequest` | `core/models/goal/goal_request.py` | staged: door | it has fields the service does not take |
 | `MilestoneCompleteRequest` | `core/models/goal/goal_request.py` | staged: door | it sends a uid; the service wants an index |

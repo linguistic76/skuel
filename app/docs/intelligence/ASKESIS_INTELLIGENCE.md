@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-24
+updated: 2026-11-09
 ---
 
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
@@ -362,7 +362,7 @@ The former `ActivityReviewService` was split into two focused services:
 | Service | Protocol | `services.` attr | Responsibility |
 |---------|----------|-----------------|----------------|
 | `ActivityReportService` | `ActivityReportOperations` | `activity_report` | Processor-neutral CRUD: `create_snapshot`, `submit_feedback`, `persist`, `get_history`, `annotate`, `get_annotation` |
-| `ReviewQueueService` | `ReviewQueueOperations` | `review_queue` | `ReviewRequest` node management: `request_review`, `get_pending_reviews` |
+| `ReviewQueueService` | `ReviewQueueOperations` | `review_queue` | `ReviewRequest` node management: `request_review`, `get_pending_request`, `get_pending_reviews`, `is_pending_for`, `answer_request` |
 
 ---
 

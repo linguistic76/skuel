@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-10-15
+updated: 2026-11-09
 status: current
 category: architecture
 version: 3.2.0
@@ -415,17 +415,16 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 |-------|-----|------|
 | `/gradebook` | User | GradeBook "Activity reports" group — flat list, hidden when empty (arc 2 C1) |
 | `/activity-reports/detail` (+`/content`) | User | Report detail with annotation UI |
-| `/submit-activity-report` | User | On-demand report request form |
+| `/submit-activity-report` | User | Two cards: generate a machine report now ("Generate now"), or "Ask for a personal review" — the review card shows the learner's pending request in place of the form |
 | `/reports/progress-list` | User | HTMX fragment (recent reports on the request form) |
-| `/activity-review` → `/activity-review/queue` | Admin | Pending review queue (`get_pending_reviews`) |
-| `/activity-review/new` | Admin | Admin review form |
-| `/activity-review/snapshot-fragment` | Admin | HTMX domain snapshot fragment |
-| `POST /activity-review/submit-feedback` | Admin | Submit written activity feedback |
+| `POST /api/activity-reviews/request` | User | Ask an admin for a personal review (`ActivityReviewRequest`); one pending request per learner |
+| `/activity-review` → `/activity-review/queue` | Admin | Pending review queue (`get_pending_reviews`); the "Activity Reviews" row of the Admin sidebar |
+| `/activity-review/new` | Admin | Admin review form; from a queue card it carries the request (period, domains, uid) |
+| `/activity-review/snapshot-fragment` | Admin | HTMX domain snapshot fragment; carries the snapshot as the hidden `snapshot_context` field |
+| `POST /activity-review/submit-feedback` | Admin | Submit written activity feedback (`ActivityFeedbackSubmitRequest`) |
 
-**Staged, no route yet (PLANNED tier, ADR-069 §3):** the user-side
-"request a review" producer (`ReviewQueueService.request_review` — the admin
-queue's missing input) and the privacy-transparency audit surface
-(`ActivityReportService.get_privacy_summary`).
+**Staged, no route yet (PLANNED tier, ADR-069 §3):** the privacy-transparency
+audit surface (`ActivityReportService.get_privacy_summary`).
 
 ---
 
@@ -444,24 +443,30 @@ Admin reads Tasks, Goals, Habits, Events, Choices, Principles summary
 Admin writes qualitative assessment
         ↓
 POST /activity-review/submit-feedback → ActivityReviewOrchestrator.submit_report()
-        ↓  (the subject must be a user — else a validation error on subject_uid)
+        ↓  (the subject must be a user — else a validation error on subject_uid;
+        ↓   a snapshot of another user, or a request no longer pending, is refused too)
         ↓  → ActivityReportService.submit_report() → persist() — all writes converge here
-ActivityReport(ReportSource.HUMAN) created in Neo4j, owned by the subject, created_by = admin
+ActivityReport(ReportSource.HUMAN) created in Neo4j, owned by the subject, created_by = admin,
+        ↓  the snapshot the admin read in metadata["snapshot"]
         ↓  emits ActivityReportWritten → the subject's bell (activity_report_received)
+        ↓  when the review answers a request: (ReviewRequest)-[:ANSWERED_BY]->(ActivityReport),
+        ↓  status 'answered' — it leaves the queue
 ```
 
 ### User-Initiated
 
 ```
-User wants a review
+User asks on /submit-activity-report ("Ask for a personal review")
         ↓
-ReviewQueueService.request_review()  (no HTTP door yet — see the route table below)
-        ↓
-ReviewRequest node created → appears in admin queue
+POST /api/activity-reviews/request → ReviewQueueService.request_review()
+        ↓  one pending request per learner, decided under the user's lock: asking
+        ↓  again answers the open request (200) and queues nothing
+(User)-[:REQUESTED]->(ReviewRequest {status: 'pending'}) → appears in admin queue
         ↓
 Admin views queue: GET /activity-review/queue → ReviewQueueService.get_pending_reviews()
         ↓
-Admin follows admin-initiated path above
+"Start Review" opens /activity-review/new with the request → admin-initiated path above,
+which closes the request when the review is written
 ```
 
 ---
@@ -495,8 +500,9 @@ When `openai_service` is available, the generator:
 | `/activity-reports/for` | POST (CSRF) | User | Mints one calendar period's report — the detail page's "Regenerate": `time_period` token → generate → redirect to the report; a cooldown refusal renders the period prompt with the reason |
 | `/api/activity-reports/annotate` | POST | User | Save annotation or revision to own report (fragment) |
 | `/activity-reports/md?uid=` | GET | User | Download own report as `.md` (owner-scoped; foreign uid → 404) |
+| `/api/activity-reviews/request` | POST | User | Ask for a personal review: 201 with the new request, 200 with the open one when one is pending; a period or domain outside the vocabulary is 400. HTMX gets the review card re-rendered |
 | `/activity-review/queue`, `/activity-review/new`, `/activity-review/snapshot-fragment` | GET | Admin | The admin review track is HTMX pages, no JSON API (the "Activity report track" table above) |
-| `/activity-review/submit-feedback` | POST | Admin | Submit written activity feedback |
+| `/activity-review/submit-feedback` | POST | Admin | Submit written activity feedback; a refusal renders into the form's status slot at its status (400 / 5xx) |
 | `/api/exercises/report` | POST | Owner, or a teacher the entry asks for feedback (`SUBMITTED_TO_GROUP` / `SUBMITTED_TO_TEACHER`, ADR-088 §2, §9) — both pinned to the exercise the entry fulfils (`EntryReportService.admit_report`); per-user FULL tier, ADR-043 | Generate LLM `ENTRY_REPORT` (`REPORT_FOR`) for a submission |
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/report` | POST | Teacher | Submit human report on submission |

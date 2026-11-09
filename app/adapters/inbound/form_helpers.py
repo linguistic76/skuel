@@ -206,8 +206,8 @@ async def parse_form_body[T: BaseModel](
 
     Converts form fields to a dict (stripping strings, passing UploadFile through)
     then validates via Pydantic. Empty strings become None so optional fields work
-    naturally. Fields declared as ``list[T]`` (or ``Optional[list[T]]``) are split
-    from the textarea string back into a list.
+    naturally. Fields declared as ``list[T]`` (or ``Optional[list[T]]``) gather every
+    value the key was posted with, each split from its textarea string into lines.
 
     Args:
         request: Starlette/FastHTML request
@@ -227,15 +227,22 @@ async def parse_form_body[T: BaseModel](
     list_fields = _list_field_names(schema)
     data: dict[str, Any] = {}
     for key in form:
+        if key in list_fields:
+            # A list arrives as one textarea string, or as the key repeated (a
+            # checkbox group posts ``domains=tasks&domains=goals``): every value counts.
+            data[key] = [
+                item
+                for value in form.getlist(key)
+                if isinstance(value, str)
+                for item in _split_list_input(value.strip())
+            ]
+            continue
         value = form[key]
         if isinstance(value, UploadFile):
             data[key] = value
         elif isinstance(value, str):
             stripped = value.strip()
-            if key in list_fields:
-                data[key] = _split_list_input(stripped)
-            else:
-                data[key] = stripped if stripped else None
+            data[key] = stripped if stripped else None
         else:
             data[key] = value
 

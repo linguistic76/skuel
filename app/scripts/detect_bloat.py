@@ -628,14 +628,6 @@ _REPORT_PRIVACY_AUDIT = PlannedEntry(
     "(Mike ruled PLANNED 2026-06-12)",
     since=date(2026, 6, 12),
 )
-_REVIEW_REQUEST_PRODUCER = PlannedEntry(
-    Readiness.READY,
-    "missing producer of a LIVE consumer — the admin activity-review queue page "
-    "(activity_review_ui.py → get_pending_reviews) ships and reads an eternally-empty queue "
-    "because no user-facing route calls request_review; wire a 'request a review' "
-    "button/route to complete the loop (ADR-069 §3)",
-    since=date(2026, 6, 12),
-)
 _SHARING_VISIBILITY_LADDER = PlannedEntry(
     Readiness.DELAYED,
     "the publish / unpublish writer. `visibility` is public-or-not (ADR-088 §4): the "
@@ -1103,8 +1095,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/report/report_relationship_service.py::get_learning_loop_chain": (
         _REPORT_EXERCISE_CHAIN
     ),
-    # --- Reports: missing producer of a live consumer ---
-    "core/services/report/review_queue_service.py::request_review": _REVIEW_REQUEST_PRODUCER,
     # --- Sharing: the publish / unpublish writer (ADR-088 §4) ---
     # The one member of UnifiedSharingService with no caller; the ruling is
     # docs/roadmap/sharing-http-door.md.

@@ -3240,11 +3240,20 @@ class GroupMemberProgress(TypedDict, total=False):
 
 
 class ReviewRequestResult(TypedDict, total=False):
-    """Return shape for ReviewQueueService.request_review()."""
+    """A learner's review request: what ``request_review`` answers, and their open one.
+
+    ``created`` is False when the learner already held a pending request and this
+    is that one (one pending request per learner).
+    """
 
     uid: str
     status: str
     user_uid: str
+    time_period: str
+    domains: list[str]
+    message: str
+    created_at: str
+    created: bool
 
 
 class PendingReviewItem(TypedDict, total=False):

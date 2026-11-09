@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from pydantic import BaseModel
-from starlette.datastructures import UploadFile
+from starlette.datastructures import FormData, UploadFile
 
 from adapters.inbound.form_helpers import (
     _list_field_names,
@@ -109,9 +109,10 @@ class TestSplitListInput:
 
 @pytest.mark.asyncio
 class TestParseFormBodyListFields:
-    async def _post(self, fields: dict[str, str]) -> _SchemaWithLists:
+    async def _post(self, fields: dict[str, str] | list[tuple[str, str]]) -> _SchemaWithLists:
         request = Mock()
-        request.form = AsyncMock(return_value=fields)
+        pairs = list(fields.items()) if isinstance(fields, dict) else fields
+        request.form = AsyncMock(return_value=FormData(pairs))
         result = await parse_form_body(request, _SchemaWithLists)
         assert not result.is_error, result.expect_error()
         return result.value
@@ -127,6 +128,11 @@ class TestParseFormBodyListFields:
     async def test_empty_list_field_yields_empty_list(self):
         model = await self._post({"title": "T", "tags": ""})
         assert model.tags == []
+
+    async def test_a_repeated_key_gathers_every_value(self):
+        """A checkbox group posts its key once per ticked box; every box counts."""
+        model = await self._post([("title", "T"), ("tags", "a"), ("tags", "b"), ("tags", "c")])
+        assert model.tags == ["a", "b", "c"]
 
     async def test_non_list_field_unchanged(self):
         model = await self._post({"title": "Hello", "count": "5"})
@@ -156,7 +162,7 @@ def _request(content_type: str | None, *, body: bytes = b"x", form=None, json=No
     request.body = AsyncMock(
         return_value=body if json is None else json_module.dumps(json).encode()
     )
-    request.form = AsyncMock(return_value=form if form is not None else {})
+    request.form = AsyncMock(return_value=FormData(list((form or {}).items())))
     # FastHTML's cached parse, query string merged in — the body readers never read it.
     request.json = AsyncMock(side_effect=AssertionError("read the merged JSON cache"))
     return request

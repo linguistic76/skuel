@@ -230,10 +230,11 @@ class UserDTO:
             ValueError: the preferences' ``timezone`` names no zone zoneinfo
                 lists (a blank or missing one is no choice).
         """
-        from core.models.dto_helpers import parse_datetime_fields
+        from core.models.dto_helpers import ensure_dict_fields, parse_datetime_fields
 
         # Parse datetimes
         parse_datetime_fields(data, ["created_at", "last_active_at", "last_login_at"])
+        ensure_dict_fields(data, ["metadata", "settings"])
 
         # Parse preferences if dict
         if "preferences" in data and isinstance(data["preferences"], dict):

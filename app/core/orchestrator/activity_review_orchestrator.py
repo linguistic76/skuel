@@ -10,9 +10,11 @@ ReviewQueueOperations and UserContextBuilder are optional — methods that
 require them return Result.fail when unavailable.
 """
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
+from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.zone_context import zone_scope
 
@@ -23,6 +25,20 @@ if TYPE_CHECKING:
     from core.services.user.unified_user_context import RichUserContext, UserContext
     from core.services.user.user_context_builder import UserContextBuilder
     from core.services.user_service import UserService
+
+logger = get_logger("skuel.orchestrator.activity_review")
+
+
+@dataclass(frozen=True)
+class SubmittedReview:
+    """A written review, and what became of the request it answered.
+
+    ``request_closed`` is None when the review answered no request, False when the
+    report was written but its request could not be closed (the admin is told).
+    """
+
+    report: ActivityReport
+    request_closed: bool | None = None
 
 
 class ActivityReviewOrchestrator:
@@ -81,13 +97,15 @@ class ActivityReviewOrchestrator:
     async def create_snapshot(
         self,
         context: UserContext,
+        admin_uid: UserUID,
         time_period: str = "7d",
         domains: list[str] | None = None,
     ) -> Result[dict[str, Any]]:
         """Build activity snapshot from pre-built UserContext.
 
         The period is the subject's: its days are days in the subject's zone,
-        not the reviewing admin's.
+        not the reviewing admin's. ``admin_uid`` is recorded on the subject's
+        access audit (``ActivitySnapshotAccessed``).
         """
         zone = await self._user_service.get_user_zone(context.user_uid)
         if zone.is_error:
@@ -97,6 +115,7 @@ class ActivityReviewOrchestrator:
                 context=context,
                 time_period=time_period,
                 domains=domains,
+                admin_uid=admin_uid,
             )
 
     async def submit_report(
@@ -106,12 +125,19 @@ class ActivityReviewOrchestrator:
         feedback_text: str,
         time_period: str = "7d",
         domains: list[str] | None = None,
-    ) -> Result[ActivityReport]:
+        snapshot_context: dict[str, Any] | None = None,  # boundary: the snapshot JSON
+        review_request_uid: str | None = None,
+    ) -> Result[SubmittedReview]:
         """Create ActivityReport from admin-written assessment.
 
         The subject must be a user: the report is written as theirs (owner and
         bell — Submit & Share arc R10/R11), so a mistyped uid would file a report nobody
         can open. An unknown subject is a validation error on ``subject_uid``.
+
+        ``snapshot_context`` (the snapshot the admin read) is stored with the report,
+        and refused when it names another user. A review answering ``review_request_uid`` is refused unless that request is
+        the subject's and still pending; once the report is written, the request is
+        closed and linked to it.
         """
         subject = await self._user_service.get_user(subject_uid)
         if subject.is_error:
@@ -123,12 +149,51 @@ class ActivityReviewOrchestrator:
                     field="subject_uid",
                 )
             )
+        snapshot_subject = (snapshot_context or {}).get("subject_uid")
+        if snapshot_subject is not None and snapshot_subject != subject_uid:
+            return Result.fail(
+                Errors.validation(
+                    message="The snapshot is of another user; load this user's snapshot",
+                    field="snapshot_context",
+                )
+            )
+        if review_request_uid:
+            if self._review_queue is None:
+                return Result.fail(
+                    Errors.system(message="Review queue not configured", service="review_queue")
+                )
+            pending = await self._review_queue.is_pending_for(review_request_uid, subject_uid)
+            if pending.is_error:
+                return Result.fail(pending)
+            if not pending.value:
+                return Result.fail(
+                    Errors.validation(
+                        message="That review request is no longer pending for this user",
+                        field="review_request_uid",
+                    )
+                )
         # The reviewed period is the subject's, in the subject's zone.
         with zone_scope(subject.value.zone()):
-            return await self._activity_report.submit_report(
+            written = await self._activity_report.submit_report(
                 admin_uid=admin_uid,
                 subject_uid=subject_uid,
                 feedback_text=feedback_text,
                 time_period=time_period,
                 domains=domains,
+                snapshot_context=snapshot_context,
             )
+        if written.is_error:
+            return Result.fail(written)
+        report = written.value
+        if not review_request_uid or self._review_queue is None:
+            return Result.ok(SubmittedReview(report))
+        closed = await self._review_queue.answer_request(
+            review_request_uid, subject_uid, report.uid
+        )
+        if closed.is_error:
+            logger.error(
+                f"Report {report.uid} written but request {review_request_uid} not closed: "
+                f"{closed.expect_error().message}"
+            )
+            return Result.ok(SubmittedReview(report, request_closed=False))
+        return Result.ok(SubmittedReview(report, request_closed=closed.value))

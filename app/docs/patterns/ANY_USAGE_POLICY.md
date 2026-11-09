@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-07
+updated: 2026-11-09
 ---
 
 # Any Usage Policy
@@ -124,7 +124,7 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 |-----------|-----------------|---------|
 | `SignUpResult`, `SignInResult` | `GraphAuthOperations` | `sign_up`, `sign_in` |
 | `ReviewQueueItem`, `SubmissionDetailResult`, `TeacherDashboardStats`, `GroupMemberProgress` | `TeacherReviewOperations` | `get_review_queue`, `get_submission_detail`, `get_dashboard_stats`, `get_group_detail` |
-| `ReviewRequestResult`, `PendingReviewItem` | `ReviewQueueOperations` | `request_review`, `get_pending_reviews` |
+| `ReviewRequestResult`, `PendingReviewItem` | `ReviewQueueOperations` | `request_review`, `get_pending_request`, `get_pending_reviews` |
 | `KnowledgeSuggestionsResult`, `KnowledgeGenerationResult`, `LearningOpportunitiesResult` | `KnowledgeIntelligenceOperations` | `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_learning_opportunities` |
 | `KnowledgePrerequisitesResult`, `KnowledgePrerequisiteItem` | `KnowledgeIntelligenceOperations` | `get_knowledge_prerequisites` |
 | `LifePathStatus`, `VisionData`, `SavedVision`, `LpMatchResult`, `LpMatches`, `LifePathRecommendation`, `LifePathDesignation`, `LifePathAlignmentResult` | `LifePathOperations`, `LifePathAlignmentOperations` | `get_full_status`, `capture_vision`, `get_vision`, `match_learning_paths`, `capture_and_recommend`, `designate_and_calculate`, `get_alignment`, `calculate_alignment` |

@@ -221,6 +221,8 @@ class RelationshipName(StrEnum):
     # is ATTENDS, not ownership.
     OWNS = "OWNS"
     REQUESTED = "REQUESTED"  # (user)-[:REQUESTED]->(ReviewRequest) - Review request
+    # (ReviewRequest)-[:ANSWERED_BY]->(ActivityReport) - the review that closed it
+    ANSWERED_BY = "ANSWERED_BY"
 
     # =========================================================================
     # ACTIVITY TEMPLATE RELATIONSHIPS

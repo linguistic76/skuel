@@ -6,6 +6,7 @@ Renderers for teacher assessments, activity reports, and progress report cards.
 Includes intelligence sections: trends, recommendations, life path, knowledge.
 """
 
+from collections.abc import Mapping
 from enum import Enum
 from typing import Any
 
@@ -606,7 +607,8 @@ def _render_period_line(report: Any) -> Any:
         return None
     metadata = getattr(report, "metadata", None) or {}
     cutoff = instant_of(getattr(report, "data_cutoff", None), period.zone)
-    partial = bool(metadata.get("is_partial")) if isinstance(metadata, dict) else False
+    # A frozen Entity holds its metadata as a read-only mapping, not a dict.
+    partial = bool(metadata.get("is_partial")) if isinstance(metadata, Mapping) else False
     if cutoff is not None and period.is_partial_at(cutoff):
         partial = True
     through = f" · counted through {period.calendar_day(cutoff):%b %d, %Y}" if cutoff else ""

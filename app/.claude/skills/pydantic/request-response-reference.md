@@ -303,8 +303,8 @@ data = request.model_dump(exclude={"description"})
 
 ### Form to Request Model
 
-A form posts a browser encoding; `parse_form_body` turns empty strings into `None`, splits
-`list[T]` fields, validates, and returns a `Result`. Never construct the model from the raw
+A form posts a browser encoding; `parse_form_body` turns empty strings into `None`, gathers
+`list[T]` fields (every value of a repeated key, each split into lines), validates, and returns a `Result`. Never construct the model from the raw
 form yourself: `TaskCreateRequest(**form)` *raises* on bad input, so the request ends in a
 boundary's safety net (a 500 from `@boundary_handler`) instead of the form back with a
 banner.

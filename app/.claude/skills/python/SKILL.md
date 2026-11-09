@@ -285,6 +285,8 @@ When a default depends on another field, declare it `None` and fill it in `__pos
 ```
 
 Subclasses call `super().__post_init__()` to chain initialization through the hierarchy.
+A reader of an entity's `metadata` tests `isinstance(metadata, Mapping)`, never `dict`:
+the proxy is not a `dict`, so a `dict` guard is always false.
 
 ### Immutable Updates
 
