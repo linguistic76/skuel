@@ -17,6 +17,10 @@ if TYPE_CHECKING:
 ADMIN_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Overview", "/admin", "overview", icon="layout-dashboard"),
     SidebarItem("Users", "/admin/users", "users", icon="users"),
+    # Learners' review requests: the queue, and the form that answers one.
+    SidebarItem(
+        "Activity Reviews", "/activity-review/queue", "activity-reviews", icon="clipboard-list"
+    ),
     SidebarItem("Analytics", "/admin/analytics", "analytics", icon="trending-up"),
     SidebarItem(
         "Knowledge Health", "/admin/knowledge-health", "knowledge-health", icon="stethoscope"

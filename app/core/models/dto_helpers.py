@@ -17,6 +17,7 @@ Version: 1.0.0
 Date: 2025-10-21
 """
 
+import json
 from datetime import date, datetime, time
 from enum import Enum
 from typing import Any
@@ -183,19 +184,38 @@ def ensure_list_field(data: dict, field_name: str) -> None:
 
 def ensure_dict_field(data: dict, field_name: str) -> None:
     """
-    Ensure field is a dict, converting None to {}.
+    Ensure field is a dict: None or empty text is {}, and a stored JSON object is decoded.
+
+    A node holds a dict property as JSON text (the mapper's ``to_node`` writes it
+    with ``json.dumps``; Neo4j stores no maps), so a node read raw hands this the
+    text. Text that is not a JSON object is a corrupt property and raises, as the
+    mapper's own read does.
 
     Args:
         data: Dictionary to modify
         field_name: Field name to ensure is a dict
 
+    Raises:
+        ValueError: the field holds text that is not a JSON object
+
     Example:
-        data = {'metadata': None}
+        data = {'metadata': '{"time_period": "7d"}'}
         ensure_dict_field(data, 'metadata')
-        # data['metadata'] is now {}
+        # data['metadata'] is now {'time_period': '7d'}
     """
-    if field_name in data and data[field_name] is None:
+    if field_name not in data:
+        return
+    value = data[field_name]
+    if value is None or value == "":
         data[field_name] = {}
+    elif isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except ValueError as e:
+            raise ValueError(f"Field '{field_name}': stored text is not JSON") from e
+        if not isinstance(parsed, dict):
+            raise ValueError(f"Field '{field_name}': stored JSON is not an object")
+        data[field_name] = parsed
 
 
 def convert_dates_to_iso(data: dict, field_names: list[str]) -> None:

@@ -97,6 +97,7 @@ def create_user_entry_routes(rt: RouteDecorator, services: Services) -> None:
             rt,
             orchestrator=user_entry_orch,
             progress_generator=getattr(services, "progress_report_generator", None),
+            review_queue=services.review_queue,
         )
         create_revised_exercises_ui_routes(rt, orchestrator=user_entry_orch)
         create_exchange_ui_routes(rt, orchestrator=user_entry_orch)

@@ -11,9 +11,11 @@ Routes:
 - GET /activity-reports/detail/content — HTMX fragment: detail body
 - GET /activity-reports/md?uid= — Download own report as Markdown
 - GET /submit-activity-report — On-demand activity report request form (the
-  calendar toolbar's "Report for …" pill lands here)
+  calendar toolbar's "Report for …" pill lands here), and the personal-review card
 - POST /api/reports/progress/generate — Generate a report now (answers the request
   form's HTMX post with a fragment; a cooldown refusal renders inline)
+- POST /api/activity-reviews/request — Ask an admin for a personal review (one
+  pending request at a time; answers HTMX with the review card re-rendered)
 - POST /activity-reports/for — Mint one calendar period's report (the detail page's
   "Regenerate"); a refusal re-renders the period prompt with the reason
 - POST /api/activity-reports/annotate — Save commentary/revision on own report (fragment)
@@ -22,6 +24,7 @@ Routes:
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
+from collections.abc import Mapping
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
@@ -35,17 +38,23 @@ from fasthtml.common import (
 from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.boundary import boundary_handler, ui_boundary_handler
+from adapters.inbound.boundary import boundary_handler, result_to_response, ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
-from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.form_helpers import parse_body, parse_form_body
 from adapters.inbound.route_factories import refuse
+from adapters.inbound.route_factories.route_helpers import refuse_unavailable
 from adapters.outbound.activity_report_renderer import (
     activity_report_filename,
     render_activity_report_md,
 )
-from core.models.entity_requests import AnnotationFormRequest, ProgressReportGenerateRequest
+from core.models.entity_requests import (
+    ActivityReviewRequest,
+    AnnotationFormRequest,
+    ProgressReportGenerateRequest,
+)
 from core.models.type_hints import UserUID
+from core.ports.query_types import ReviewRequestResult
 from core.utils.logging import get_logger
 from core.utils.report_periods import (
     UnknownReportPeriodError,
@@ -64,6 +73,7 @@ from ui.learning_loop.report import (
 from ui.patterns.error_banner import render_error_banner, render_slot_error
 from ui.patterns.generate_report import (
     render_activity_report_request_card,
+    render_activity_review_request_card,
     render_period_report_prompt,
     render_recent_reports_section,
 )
@@ -74,7 +84,7 @@ from ui.primitives import ButtonLink
 if TYPE_CHECKING:
     from core.models.report.activity_report import ActivityReport
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
-    from core.ports.report_protocols import ProgressReportOperations
+    from core.ports.report_protocols import ProgressReportOperations, ReviewQueueOperations
 
 logger = get_logger("skuel.routes.activity_reports")
 
@@ -127,6 +137,7 @@ def create_activity_reports_ui_routes(
     rt: RouteDecorator,
     orchestrator: Any = None,
     progress_generator: ProgressReportOperations | None = None,
+    review_queue: ReviewQueueOperations | None = None,
 ) -> None:
     """Create activity-report detail/request/generate/annotate/download routes.
 
@@ -134,6 +145,7 @@ def create_activity_reports_ui_routes(
         rt: Router instance
         orchestrator: UserEntryOrchestrator (owner-scoped report reads + annotate)
         progress_generator: ProgressReportGenerator — the on-demand producer
+        review_queue: ReviewQueueService — the learner's personal-review request
     """
 
     # ========================================================================
@@ -141,16 +153,33 @@ def create_activity_reports_ui_routes(
     # ========================================================================
 
     @rt("/submit-activity-report")
-    def submit_activity_report_page(request: Request) -> HtmlDocument:
-        """Submit a request to generate an activity report."""
-        require_authenticated_user(request)
+    async def submit_activity_report_page(request: Request) -> HtmlDocument:
+        """The report page: generate a machine report now, or ask a person for a review.
+
+        The review card shows the learner's pending request when they hold one; a
+        failed read of it says so above the form (asking again is harmless: a
+        pending request is answered back, not duplicated).
+        """
+        user_uid = require_authenticated_user(request)
+
+        review_card: FT | None = None
+        if review_queue is not None:
+            pending = await review_queue.get_pending_request(user_uid)
+            if pending.is_error:
+                logger.error(f"Failed to read review request: {pending.expect_error().message}")
+                review_card = render_activity_review_request_card(
+                    note="Could not check for a request you already made. Please try again."
+                )
+            else:
+                review_card = render_activity_review_request_card(pending.value)
 
         content = Div(
             PageHeader(
                 "Submit Activity Report Request",
-                subtitle="Request an on-demand activity report across your domains",
+                subtitle=("Generate a report of your activity now, or ask a person to review it"),
             ),
             render_activity_report_request_card(),
+            review_card,
             render_recent_reports_section(),
         )
         return render_activity_sidebar_page(
@@ -159,6 +188,58 @@ def create_activity_reports_ui_routes(
             request=request,
             title="Request Activity Report",
         )
+
+    @rt("/api/activity-reviews/request", methods=["POST"])
+    @csrf_protected
+    @boundary_handler(success_status=201)
+    async def request_activity_review(
+        request: Request,
+    ) -> FtResponse | Response | Result[ReviewRequestResult]:
+        """Ask an admin to review the signed-in learner's activity (``ActivityReviewRequest``).
+
+        One pending request per learner: a new one is 201, asking again while one is
+        pending answers that one at 200 and queues nothing. A period or domain outside
+        the vocabulary, or a message over 1,000 characters, is 400. HTMX gets the
+        review card re-rendered (a refusal with its reason, at its status).
+        """
+        user_uid = require_authenticated_user(request)
+        htmx = bool(request.headers.get("HX-Request"))
+        if review_queue is None:
+            return Result.fail(Errors.system("Review queue unavailable"))
+        parsed = await parse_body(request, ActivityReviewRequest)
+        if parsed.is_error:
+            if htmx:
+                return refuse_unavailable(
+                    render_activity_review_request_card(
+                        note="Choose a period from the list and keep the message under "
+                        "1,000 characters."
+                    ),
+                    parsed.expect_error(),
+                )
+            return Result.fail(parsed)
+        ask = parsed.value
+        asked = await review_queue.request_review(
+            user_uid,
+            time_period=ask.time_period,
+            domains=list(ask.domains) if ask.domains else None,
+            message=ask.message,
+        )
+        if asked.is_error:
+            if htmx:
+                return refuse_unavailable(
+                    render_activity_review_request_card(
+                        note="Your request could not be sent. Please try again."
+                    ),
+                    asked.expect_error(),
+                )
+            return Result.fail(asked)
+        created = bool(asked.value.get("created"))
+        if htmx:
+            return FtResponse(
+                render_activity_review_request_card(asked.value),
+                status_code=201 if created else 200,
+            )
+        return asked if created else result_to_response(asked, 200)
 
     # ========================================================================
     # PERIOD REPORT — the detail page's "Regenerate" for one calendar period
@@ -277,10 +358,11 @@ def create_activity_reports_ui_routes(
                 "Report",
             )
         report = report_result.value
-        metadata = getattr(report, "metadata", None) or {}
-        snapshot = metadata.get("snapshot") if isinstance(metadata, dict) else None
-        intelligence = metadata.get("intelligence") if isinstance(metadata, dict) else None
-        comparison = metadata.get("comparison") if isinstance(metadata, dict) else None
+        # A frozen Entity holds its metadata as a read-only mapping, not a dict.
+        metadata: Mapping[str, Any] = report.metadata or {}  # boundary: stored JSON values
+        snapshot = metadata.get("snapshot")
+        intelligence = metadata.get("intelligence")
+        comparison = metadata.get("comparison")
         author_name = await _author_display_name(orchestrator, report)
         return Div(
             render_activity_report_detail(

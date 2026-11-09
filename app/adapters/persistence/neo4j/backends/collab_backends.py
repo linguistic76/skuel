@@ -960,6 +960,13 @@ class ReviewQueueBackend:
     def __init__(self, executor: Neo4jQueryExecutor) -> None:
         self.executor = executor
 
+    #: The request row every read answers (``r`` bound to the :ReviewRequest).
+    _REQUEST_ROW = """
+            r.uid AS uid, r.user_uid AS user_uid, r.status AS status,
+            r.time_period AS time_period, r.domains AS domains, r.message AS message,
+            toString(r.created_at) AS created_at
+    """
+
     async def create_review_request(
         self,
         user_uid: str,
@@ -969,21 +976,36 @@ class ReviewQueueBackend:
         message: str,
         now: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Create a ReviewRequest node linked to the user via REQUESTED."""
+        """Open a pending ReviewRequest for the user, unless they hold one already.
+
+        The user node's write lock is taken before the pending request is looked for,
+        so two requests sent at once open one between them. No row when the user
+        does not exist.
+        """
+        requested = RelationshipName.REQUESTED.value
         return await self.executor.execute_query(
             f"""
             MATCH (u:User {{uid: $user_uid}})
-            CREATE (r:ReviewRequest {{
-                uid: $uid,
-                user_uid: $user_uid,
-                time_period: $time_period,
-                domains: $domains,
-                message: $message,
-                status: 'pending',
-                created_at: datetime($now)
-            }})
-            CREATE (u)-[:{RelationshipName.REQUESTED.value}]->(r)
-            RETURN r.uid AS uid, r.status AS status
+            SET u.uid = u.uid
+            WITH u
+            OPTIONAL MATCH (u)-[:{requested}]->(held:ReviewRequest {{status: 'pending'}})
+            WITH u, count(held) = 0 AS opens
+            FOREACH (_ IN CASE WHEN opens THEN [1] ELSE [] END |
+                CREATE (n:ReviewRequest {{
+                    uid: $uid,
+                    user_uid: $user_uid,
+                    time_period: $time_period,
+                    domains: $domains,
+                    message: $message,
+                    status: 'pending',
+                    created_at: datetime($now)
+                }})
+                CREATE (u)-[:{requested}]->(n)
+            )
+            WITH u, opens
+            MATCH (u)-[:{requested}]->(r:ReviewRequest {{status: 'pending'}})
+            WITH r, opens ORDER BY datetime(r.created_at) ASC LIMIT 1
+            RETURN {self._REQUEST_ROW}, opens AS created
             """,
             {
                 "user_uid": user_uid,
@@ -994,6 +1016,59 @@ class ReviewQueueBackend:
                 "now": now,
             },
         )
+
+    async def get_pending_request(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """The user's pending ReviewRequest (the oldest, should there be two)."""
+        return await self.executor.execute_query(
+            f"""
+            MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.REQUESTED.value}]->
+                  (r:ReviewRequest {{status: 'pending'}})
+            WITH r ORDER BY datetime(r.created_at) ASC LIMIT 1
+            RETURN {self._REQUEST_ROW}
+            """,
+            {"user_uid": user_uid},
+        )
+
+    async def is_pending_for(self, uid: str, user_uid: str) -> Result[bool]:
+        """Whether the user made the ReviewRequest ``uid`` and it is still pending."""
+        result = await self.executor.execute_query(
+            f"""
+            MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.REQUESTED.value}]->
+                  (r:ReviewRequest {{uid: $uid, status: 'pending'}})
+            RETURN count(r) > 0 AS pending
+            """,
+            {"uid": uid, "user_uid": user_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(bool(rows and rows[0].get("pending")))
+
+    async def answer_review_request(
+        self, uid: str, user_uid: str, report_uid: str, now: str
+    ) -> Result[bool]:
+        """Close the user's pending ReviewRequest with the ActivityReport that answers it.
+
+        The request's lock is taken before its status is read, so of two reviews
+        answering it at once only one closes it; the other answers False.
+        """
+        result = await self.executor.execute_query(
+            f"""
+            MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.REQUESTED.value}]->
+                  (r:ReviewRequest {{uid: $uid}})
+            SET r.uid = r.uid
+            WITH r WHERE r.status = 'pending'
+            MATCH (report:ActivityReport {{uid: $report_uid}})
+            SET r.status = 'answered', r.answered_at = datetime($now)
+            CREATE (r)-[:{RelationshipName.ANSWERED_BY.value}]->(report)
+            RETURN count(r) AS answered
+            """,
+            {"uid": uid, "user_uid": user_uid, "report_uid": report_uid, "now": now},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(bool(rows and rows[0].get("answered")))
 
     async def get_pending_reviews(self, limit: int = 20) -> Result[list[Neo4jProperties]]:
         """Get pending review requests with user context, ordered by created_at ASC."""

@@ -435,7 +435,9 @@ class ReviewQueueOperations(Protocol):
     Manages the lightweight ReviewRequest nodes that let users signal they want
     an admin to review their Activity Domain data.
 
-    Route consumer: progress_report_api.py (activity-review/request + queue routes)
+    Route consumers: activity_reports_ui.py (the learner's request card and door),
+    the ActivityReviewOrchestrator (the admin's queue, and closing a request when
+    its review is written).
     Implementation: ReviewQueueService
     """
 
@@ -446,7 +448,11 @@ class ReviewQueueOperations(Protocol):
         domains: list[str] | None = None,
         message: str | None = None,
     ) -> Result[ReviewRequestResult]:
-        """User requests an activity review."""
+        """User requests an activity review; a learner holds one pending request at most."""
+        ...
+
+    async def get_pending_request(self, user_uid: UserUID) -> Result[ReviewRequestResult | None]:
+        """The learner's pending request, or None."""
         ...
 
     async def get_pending_reviews(
@@ -455,6 +461,16 @@ class ReviewQueueOperations(Protocol):
         limit: int = 20,
     ) -> Result[list[PendingReviewItem]]:
         """Admin's pending review queue."""
+        ...
+
+    async def is_pending_for(self, request_uid: str, subject_uid: UserUID) -> Result[bool]:
+        """Whether ``request_uid`` is a pending request of ``subject_uid``."""
+        ...
+
+    async def answer_request(
+        self, request_uid: str, subject_uid: UserUID, report_uid: str
+    ) -> Result[bool]:
+        """Close the subject's pending request with the report that answers it."""
         ...
 
 
@@ -480,12 +496,23 @@ class ReviewQueueBackendOperations(Protocol):
         message: str,
         now: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Open a new pending review request on the user's behalf.
+        """Open a pending review request on the user's behalf, unless one is open.
 
-        Not idempotent — every call opens a distinct request.
+        One pending request per user, decided under the user's lock: a user who
+        already holds one gets that one back (``created`` false) and nothing is
+        written. No row when ``user_uid`` names no user.
 
-        Row shape: ``[{"uid": <str>, "status": "pending"}]``.
+        Row shape: ``[{"uid", "status", "time_period", "domains", "message",
+        "created_at", "created"}]``.
         """
+        ...
+
+    async def get_pending_request(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """The user's pending request, as ``create_review_request``'s row (no ``created``)."""
+        ...
+
+    async def is_pending_for(self, uid: str, user_uid: str) -> Result[bool]:
+        """Whether ``uid`` is a pending request the user made."""
         ...
 
     async def get_pending_reviews(self, limit: int = 20) -> Result[list[Neo4jProperties]]:
@@ -494,6 +521,16 @@ class ReviewQueueBackendOperations(Protocol):
 
         Row shape: ``[{"uid", "user_uid", "time_period", "domains", "message",
         "created_at", "username"}]``.
+        """
+        ...
+
+    async def answer_review_request(
+        self, uid: str, user_uid: str, report_uid: str, now: str
+    ) -> Result[bool]:
+        """Mark the user's pending request answered by the report, linked to it.
+
+        False when no pending request of that user has the uid (already answered,
+        or not theirs); nothing is written then.
         """
         ...
 

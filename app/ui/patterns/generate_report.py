@@ -1,29 +1,38 @@
-"""Activity report request form and the period prompt.
+"""Activity report request forms and the period prompt.
 
-The request card is shared by the Transfer hub (HTMX fragment) and the Study
-submit-activity-report page — where the calendar toolbar's "Report for …" pill
-lands; the period prompt is what ``POST /activity-reports/for`` (the detail
-page's "Regenerate") renders when it refuses to mint the period's report.
+The submit-activity-report page (where the GradeBook's "Request activity report"
+button and the calendar toolbar's "Report for …" pill land) holds two cards: the
+machine report, generated now, and the personal review, asked of a person and
+answered later in the GradeBook. The period prompt is what
+``POST /activity-reports/for`` (the detail page's "Regenerate") renders when it
+refuses to mint the period's report.
 """
 
 from __future__ import annotations
 
 from datetime import date
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, get_args
 
-from fasthtml.common import H3, Div, Form, Input, Label, Option, P
+from fasthtml.common import H3, Div, Fieldset, Form, Input, Label, Legend, Option, P
 
+from core.models.entity_requests import ActivityReviewDomain
 from core.utils.report_periods import report_period_token
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 from ui.components import Button, ButtonT, Card, CardBody
-from ui.forms import Select
+from ui.forms import Checkbox, LabelTextArea, Select
 from ui.journals.period_links import period_link, period_step
 from ui.patterns.csrf import csrf_hidden_input
+from ui.patterns.format_date import format_date
 from ui.patterns.loading import content_loading_placeholder
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
+
+    from core.ports.query_types import ReviewRequestResult
+
+#: The personal-review card's id: the request door answers the card re-rendered.
+ACTIVITY_REVIEW_CARD_ID = "activity-review-request"
 
 # The trailing windows, in the order the form lists them. Their tokens are
 # ``ReportTimePeriod.DAYS``' keys; the calendar options below are derived from
@@ -54,7 +63,7 @@ def period_options(today: date) -> list[tuple[str, str]]:
 
 
 def render_activity_report_request_card(today: date | None = None) -> FT:
-    """Card with time period + depth selectors and Submit Request button."""
+    """Card with time period + depth selectors; its button generates the report now."""
     options = period_options(today or today_in(current_zone()))
     return Card(
         CardBody(
@@ -87,7 +96,7 @@ def render_activity_report_request_card(today: date | None = None) -> FT:
                 ),
                 Div(
                     Button(
-                        "Submit Request",
+                        "Generate now",
                         type="submit",
                         cls=ButtonT.primary,
                     ),
@@ -143,6 +152,100 @@ def render_period_report_prompt(
             else None,
         ),
         cls="bg-background shadow-xs",
+    )
+
+
+def render_activity_review_request_card(
+    pending: ReviewRequestResult | None = None,
+    *,
+    note: str | None = None,
+    today: date | None = None,
+) -> FT:
+    """The personal-review card: ask a person to read your activity and write feedback.
+
+    With a pending request it says so, and offers no second ask (one at a time).
+    ``note`` is a refusal from the request door, shown above the form. The door
+    answers with this card re-rendered (``ACTIVITY_REVIEW_CARD_ID``).
+    """
+    intro = P(
+        "A person reads your activity for the period and writes you feedback. "
+        "It arrives in your GradeBook.",
+        cls="text-sm text-muted-foreground mb-4",
+    )
+    note_line = P(note, cls="text-sm text-error mb-3", role="alert") if note else None
+    if pending is not None:
+        message = pending.get("message") or ""
+        body: FT = Div(
+            P(
+                f"You asked on {format_date(pending.get('created_at', ''))} "
+                f"for {pending.get('time_period', '')}; it's waiting.",
+                cls="font-semibold",
+                data_announce="Review requested",
+            ),
+            P(message, cls="text-sm text-muted-foreground mt-2 whitespace-pre-wrap")
+            if message
+            else None,
+        )
+    else:
+        options = period_options(today or today_in(current_zone()))
+        body = Form(
+            Div(
+                Label("Time Period", cls="label", _for="review-time-period"),
+                Select(
+                    *[
+                        Option(label, value=token, selected=(token == "7d"))
+                        for label, token in options
+                    ],
+                    name="time_period",
+                    id="review-time-period",
+                ),
+                cls="mb-3",
+            ),
+            Fieldset(
+                Legend("Activities", cls="label"),
+                Div(
+                    *[
+                        Div(
+                            Checkbox(
+                                name="domains",
+                                value=domain,
+                                checked=True,
+                                id=f"review-domain-{domain}",
+                            ),
+                            Label(domain.title(), _for=f"review-domain-{domain}", cls="ml-2"),
+                            cls="flex items-center gap-1",
+                        )
+                        for domain in get_args(ActivityReviewDomain)
+                    ],
+                    cls="flex flex-wrap gap-4 mt-1",
+                ),
+                cls="mb-3",
+            ),
+            LabelTextArea(
+                "Message (optional)",
+                name="message",
+                id="review-message",
+                placeholder="Anything you'd like the reviewer to look at?",
+                maxlength="1000",
+                cls="space-y-2 mb-4",
+            ),
+            Div(
+                Button("Ask for a review", type="submit", cls=ButtonT.primary),
+                cls="text-center",
+            ),
+            hx_post="/api/activity-reviews/request",
+            hx_target=f"#{ACTIVITY_REVIEW_CARD_ID}",
+            hx_swap="outerHTML",
+        )
+    return Card(
+        CardBody(
+            H3("Ask for a personal review", cls="font-semibold mb-2"),
+            intro,
+            note_line,
+            body,
+        ),
+        id=ACTIVITY_REVIEW_CARD_ID,
+        cls="bg-background shadow-xs mb-6",
     )
 
 

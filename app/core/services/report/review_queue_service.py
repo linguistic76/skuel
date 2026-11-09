@@ -9,8 +9,9 @@ This is deliberately separate from ActivityReportService because ReviewRequest
 is a different entity type with a different lifecycle:
     User creates ReviewRequest → admin sees it in queue → admin writes ActivityReport
 
-ReviewRequest nodes are not ActivityReport entities. They are transient workflow
-markers consumed when the admin completes the review.
+ReviewRequest nodes are not ActivityReport entities. They are workflow markers:
+pending until the admin's review is written, then answered and linked to that
+report (ANSWERED_BY).
 
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
@@ -18,13 +19,12 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import PendingReviewItem, ReviewRequestResult
 
 if TYPE_CHECKING:
     from core.ports.report_protocols import ReviewQueueBackendOperations
 
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_str, neo4j_str_list
 from core.utils.result_simplified import Errors, Result
@@ -37,8 +37,10 @@ class ReviewQueueService:
     """
     Manages ReviewRequest nodes for the admin review queue.
 
-    Users call request_review() to signal they want an admin to review their
-    Activity Domain data. Admins call get_pending_reviews() to see the queue.
+    A learner calls request_review() to ask an admin to review their Activity
+    Domain data, and holds one pending request at a time. Admins read the queue
+    with get_pending_reviews(); writing the review closes the request it answers
+    (answer_request).
     """
 
     def __init__(self, backend: ReviewQueueBackendOperations) -> None:
@@ -54,46 +56,47 @@ class ReviewQueueService:
         """
         User requests an activity review from an admin.
 
-        Creates a lightweight review request node in Neo4j for admin queuing.
+        A learner who already holds a pending request gets that one back
+        (``created`` false) and nothing new is queued. An unknown user is a
+        not-found failure.
 
         Args:
             user_uid: User requesting the review
-            time_period: Preferred time window for review
-            domains: Preferred domains to review
+            time_period: The report-period token to review
+            domains: Activity domains to review (none = all)
             message: Optional context message from the user
 
         Returns:
-            Result[ReviewRequestResult] — the created review request with uid
+            Result[ReviewRequestResult] — the learner's pending request
         """
-        try:
-            request_uid = UIDGenerator.generate_random_uid("rr")
-            now = datetime.now().isoformat()
+        request_uid = UIDGenerator.generate_random_uid("rr")
+        result = await self.backend.create_review_request(
+            user_uid=user_uid,
+            uid=request_uid,
+            time_period=time_period,
+            domains=domains or [],
+            message=message or "",
+            now=datetime.now().isoformat(),
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        if not rows:
+            return Result.fail(Errors.not_found("User", user_uid))
 
-            result = await self.backend.create_review_request(
-                user_uid=user_uid,
-                uid=request_uid,
-                time_period=time_period,
-                domains=domains or [],
-                message=message or "",
-                now=now,
-            )
+        request = _request_from_row(rows[0])
+        request["created"] = bool(rows[0].get("created"))
+        if request["created"]:
+            logger.info(f"Review request created: {request['uid']} for {user_uid}")
+        return Result.ok(request)
 
-            if result.is_error:
-                return Result.fail(result)
-
-            logger.info(f"Review request created: {request_uid} for {user_uid}")
-            return Result.ok({"uid": request_uid, "status": "pending", "user_uid": user_uid})
-
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Failed to create review request for {user_uid}: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="request_review", message=f"Failed to request review: {e}"
-                )
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Unexpected error creating review request for {user_uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to request review: {e}"))
+    async def get_pending_request(self, user_uid: UserUID) -> Result[ReviewRequestResult | None]:
+        """The learner's pending request, or None when they hold none."""
+        result = await self.backend.get_pending_request(user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(_request_from_row(rows[0]) if rows else None)
 
     async def get_pending_reviews(
         self,
@@ -110,34 +113,49 @@ class ReviewQueueService:
         Returns:
             Result[list[PendingReviewItem]] — pending review requests with user context
         """
-        try:
-            result = await self.backend.get_pending_reviews(limit=limit)
+        result = await self.backend.get_pending_reviews(limit=limit)
+        if result.is_error:
+            return Result.fail(result)
 
-            if result.is_error:
-                return Result.fail(result)
-
-            items: list[PendingReviewItem] = [
-                PendingReviewItem(
-                    uid=neo4j_str(row, "uid", ""),
-                    user_uid=neo4j_str(row, "user_uid", ""),
-                    time_period=neo4j_str(row, "time_period", ""),
-                    domains=neo4j_str_list(row, "domains"),
-                    message=neo4j_str(row, "message", ""),
-                    created_at=neo4j_str(row, "created_at", ""),
-                    username=neo4j_str(row, "username", ""),
-                )
-                for row in (result.value or [])
-            ]
-            return Result.ok(items)
-
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Failed to get pending reviews: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="get_pending_reviews",
-                    message=f"Failed to retrieve pending reviews: {e}",
-                )
+        items: list[PendingReviewItem] = [
+            PendingReviewItem(
+                uid=neo4j_str(row, "uid", ""),
+                user_uid=neo4j_str(row, "user_uid", ""),
+                time_period=neo4j_str(row, "time_period", ""),
+                domains=neo4j_str_list(row, "domains"),
+                message=neo4j_str(row, "message", ""),
+                created_at=neo4j_str(row, "created_at", ""),
+                username=neo4j_str(row, "username", ""),
             )
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Unexpected error getting pending reviews: {e}")
-            return Result.fail(Errors.system(f"Failed to retrieve pending reviews: {e}"))
+            for row in (result.value or [])
+        ]
+        return Result.ok(items)
+
+    async def is_pending_for(self, request_uid: str, subject_uid: UserUID) -> Result[bool]:
+        """Whether ``request_uid`` is a pending request that ``subject_uid`` made."""
+        return await self.backend.is_pending_for(request_uid, subject_uid)
+
+    async def answer_request(
+        self, request_uid: str, subject_uid: UserUID, report_uid: str
+    ) -> Result[bool]:
+        """Close the subject's pending request: answered, linked to the report.
+
+        False when it was not pending (answered by another review meanwhile, or
+        not the subject's); nothing changes then.
+        """
+        return await self.backend.answer_review_request(
+            request_uid, subject_uid, report_uid, datetime.now().isoformat()
+        )
+
+
+def _request_from_row(row: Neo4jProperties) -> ReviewRequestResult:
+    """A request row as the typed result (``created`` is the writer's to add)."""
+    return ReviewRequestResult(
+        uid=neo4j_str(row, "uid", ""),
+        status=neo4j_str(row, "status", ""),
+        user_uid=neo4j_str(row, "user_uid", ""),
+        time_period=neo4j_str(row, "time_period", ""),
+        domains=neo4j_str_list(row, "domains"),
+        message=neo4j_str(row, "message", ""),
+        created_at=neo4j_str(row, "created_at", ""),
+    )

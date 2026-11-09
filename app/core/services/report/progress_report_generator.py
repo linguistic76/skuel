@@ -19,6 +19,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 import json
+from collections.abc import Mapping
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -477,7 +478,8 @@ class ProgressReportGenerator:
 
         for prior_report in candidates:
             prior_metadata = getattr(prior_report, "metadata", None) or {}
-            if not isinstance(prior_metadata, dict):
+            # A frozen Entity holds its metadata as a read-only mapping, not a dict.
+            if not isinstance(prior_metadata, Mapping):
                 continue
             prior_intelligence = prior_metadata.get("intelligence")
             if not prior_intelligence:

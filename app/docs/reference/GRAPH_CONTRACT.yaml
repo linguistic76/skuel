@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 167, with_contract: 89}
+    relationships: {total: 168, with_contract: 89}
     labels: {total: 57, with_contract: 16}
   legacy_label_config_aliases: []
 
@@ -535,6 +535,8 @@ relationships:
     traits: [ownership, access]
     contract: null
   REQUESTED:
+    contract: null
+  ANSWERED_BY:
     contract: null
   HAS_TASK_TEMPLATE:
     contract:

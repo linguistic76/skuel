@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-11-08
+updated: 2026-11-09
 status: current
 category: reference
 tags: [protocol, reference]
@@ -462,7 +462,7 @@ ENTRY_REPORT entities are produced two ways, behind **separate route-facing prot
 | `EntryReportBackendOperations` (backend) | `EntryReportService.backend` (typed `self.backend`) | get_for_owner (the owner read — OWNER_ONLY clause on the typed fetch, ADR-088 §3), list_for_submission, get_reports_for_student_exercise, get_reports_by_teacher (all → `list[EntryReport]` via `from_neo4j_node`), get_linked_ku_and_student (mastery-loop scalar projection) | — (backend-only) |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
 | `ActivityReportOperations` | `activity_report` | 8 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, latest_for_period, find_by_period (the period's reusable report — the generator's previous-period comparison), annotate → `AnnotationResult`, get_annotation → `AnnotationState`, get_privacy_summary → `PrivacySummary` — its `shares_granted` is the wall's read, `SharingOperations.get_shared_by_me`) | `progress_report_api.py` |
-| `ReviewQueueOperations` | `review_queue` | 2 (request_review → `ReviewRequestResult`, get_pending_reviews → `list[PendingReviewItem]`) | `progress_report_api.py` |
+| `ReviewQueueOperations` | `review_queue` | 5 (request_review, get_pending_request → `ReviewRequestResult`; get_pending_reviews → `list[PendingReviewItem]`; is_pending_for, answer_request → `bool`) | `activity_reports_ui.py`, `ActivityReviewOrchestrator` |
 | `ReportRelationshipOperations` | `report_relationships` | 4 (get_pending_submissions (`pipelines` filter), get_report_summary → `ReportSummary`, get_learning_loop_chain → `LearningLoopChain`, get_submission_chain → `SubmissionChain`) | context intelligence (the daily plan's `awaiting_report` slot) |
 | `TeacherReviewOperations` | `teacher_review` | 13 (review queue → `list[ReviewQueueItem]`, submission detail → `SubmissionDetailResult`, feedback history, submit/request/approve, exercises, students, dashboard → `TeacherDashboardStats`, classes → `list[GroupMemberProgress]`) | `teaching_api.py` |
 

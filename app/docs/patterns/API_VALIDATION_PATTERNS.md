@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: '2026-11-08'
+updated: '2026-11-09'
 category: patterns
 related_skills:
 - pydantic
@@ -112,8 +112,9 @@ form or button posts a browser encoding — htmx url-encodes every body (multipa
 `hx-headers` Content-Type claims. `parse_body` reads the body by its **Content-Type**,
 the rule FastHTML itself applies during parameter extraction: a form media type
 (`application/x-www-form-urlencoded`, `multipart/form-data`) goes through
-`parse_form_body` — empty strings → `None`, `list[T]` fields split from the textarea
-string — and anything else through `parse_json_body`; a body with no bytes at all,
+`parse_form_body` — empty strings → `None`, a `list[T]` field gathered from every value
+its key was posted with (a checkbox group repeats the key), each split from its textarea
+string into lines — and anything else through `parse_json_body`; a body with no bytes at all,
 whatever type it declares, is the empty field set `{}`, which the schema accepts or
 refuses (an optional body stays optional for a client whose default type is JSON).
 Both readers end in the same Pydantic validation, so the form's fields and the JSON

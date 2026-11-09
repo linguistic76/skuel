@@ -815,7 +815,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Teacher forms** | `/teaching/forms/detail?uid=` | GET | Teacher |
 | **Teacher forms** | `/teaching/forms/submission?uid=` | GET | Teacher |
 | **Notifications** | `/notifications` (+ `POST /notifications/{notification_uid}/read`, `POST /notifications/read-all`) | GET/POST | User |
-| **Activity report (request)** | `/submit-activity-report` | GET | User — the request form |
+| **Activity report (request)** | `/submit-activity-report` | GET | User — the request form, and the personal-review card |
+| **Activity review (request)** | `/api/activity-reviews/request` | POST | User — ask an admin for a review; one pending request per learner |
 | **Activity report (generate)** | `/api/reports/progress/generate` | POST | User — answers the form with a fragment; cooldown refusals render inline |
 | **Activity report (regenerate)** | `/activity-reports/for` | POST | User — mints one calendar period's report |
 | **Activity report (read)** | `/activity-reports/detail?uid=` (+ `/activity-reports/detail/content`), `/reports/progress-list`, `/activity-reports/md?uid=` | GET | User (owner) — the list surface is the GradeBook's "Activity reports" group |

@@ -10,7 +10,9 @@ paths the same raw Event record and pin that they agree, field by field, and tha
 the result serializes at the JSON boundary, which refuses a driver temporal. A census
 then builds every DTO under ``core/models`` from a driver value in each ``date`` /
 ``datetime`` / ``time`` field it declares, so a field left off its DTO's parse list
-fails here.
+fails here. A second census hands every ``dict`` field a DTO declares the JSON text the
+mapper stores for it (Neo4j holds no maps), so a dict field read raw reaches the model
+as a dict, never as its text.
 
 The route-level proof is ``tests/integration/routes/test_dto_path_driver_temporals.py``.
 """
@@ -19,6 +21,7 @@ from __future__ import annotations
 
 import dataclasses
 import importlib
+import json
 import types
 import typing
 from datetime import UTC, date, datetime, time
@@ -124,12 +127,13 @@ _DRIVER_VALUE: dict[type, object] = {
 }
 # The fields a DTO requires beyond the common ones, so from_dict can build it.
 _REQUIRED: dict[str, dict[str, object]] = {
-    "HabitCompletionDTO": {"habit_uid": "habit_0123456789abcdef"},
+    "HabitCompletionDTO": {"habit_uid": "habit_0123456789abcdef", "completed_at": _STAMP},
     "UserDTO": {"username": "census", "email": "census@example.test"},
     "PrincipleReflectionDTO": {
         "principle_uid": "principle_0123456789abcdef",
         "alignment_level": "aligned",
         "evidence": "evidence",
+        "reflection_date": date(2026, 11, 20),
     },
 }
 
@@ -209,3 +213,56 @@ def test_every_temporal_field_a_dto_declares_reads_a_driver_value(dto_class: typ
 
     left = sorted(name for name in temporal if type(getattr(dto, name)).__module__ == "neo4j.time")
     assert left == [], f"{dto_class.__name__} leaves driver temporals in {left}"
+
+
+def _is_dict(hint: object) -> bool:
+    members = (
+        typing.get_args(hint)
+        if typing.get_origin(hint) in (typing.Union, types.UnionType)
+        else (hint,)
+    )
+    return any(member is dict or typing.get_origin(member) is dict for member in members)
+
+
+_STORED_OBJECT = {"time_period": "7d", "snapshot": {"tasks": {"count": 2}}}
+
+
+@pytest.mark.parametrize("dto_class", _DTOS, ids=_dto_name)
+def test_every_dict_field_a_dto_declares_reads_the_stored_json(dto_class: type) -> None:
+    """The mapper writes a dict property as JSON text; the DTO must hand the model the dict."""
+    hints = typing.get_type_hints(
+        dto_class, localns={"date": date, "datetime": datetime, "time": time}
+    )
+    declared = {field.name for field in dataclasses.fields(dto_class)}
+    dict_fields = sorted(name for name in declared if _is_dict(hints[name]))
+    if not dict_fields:
+        pytest.skip(f"{dto_class.__name__} declares no dict field")
+    common = {
+        "uid": "x_0123456789abcdef",
+        "title": "census",
+        "user_uid": "user_0123456789abcdef",
+        "entity_type": "task",
+    }
+    data = {
+        key: value
+        for key, value in {**common, **_REQUIRED.get(dto_class.__name__, {})}.items()
+        if key in declared
+    }
+    data.update({name: json.dumps(_STORED_OBJECT) for name in dict_fields})
+
+    dto = dto_class.from_dict(data)  # type: ignore[attr-defined]
+
+    left = [name for name in dict_fields if getattr(dto, name) != _STORED_OBJECT]
+    assert left == [], f"{dto_class.__name__} leaves stored JSON text in {left}"
+
+
+def test_a_stored_dict_field_that_is_not_a_json_object_is_refused() -> None:
+    from core.models.dto_helpers import ensure_dict_field
+
+    for corrupt in ("{not json", "[1, 2]"):
+        with pytest.raises(ValueError, match="metadata"):
+            ensure_dict_field({"metadata": corrupt}, "metadata")
+    for empty in (None, ""):
+        data: dict[str, object] = {"metadata": empty}
+        ensure_dict_field(data, "metadata")
+        assert data == {"metadata": {}}

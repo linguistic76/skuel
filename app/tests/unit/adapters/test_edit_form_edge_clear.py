@@ -34,6 +34,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fasthtml.common import to_xml
+from starlette.datastructures import FormData
 
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.enums import Priority
@@ -110,7 +111,8 @@ def _named_fields(html: str) -> set[str]:
 
 async def _parse[T](body: dict[str, str], schema: type[T]) -> T:
     request = Mock()
-    request.form = AsyncMock(return_value=body)
+    # The form a real request parses: Starlette's FormData, which repeats keys.
+    request.form = AsyncMock(return_value=FormData(list(body.items())))
     result = await parse_form_body(request, schema)
     assert not result.is_error, result.expect_error()
     return result.value

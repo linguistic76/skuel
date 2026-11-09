@@ -25,8 +25,16 @@ def render_queue_item(item: PendingReviewItem) -> FT:
 
     domain_badges = [Badge(d, variant=BadgeT.ghost, size=Size.xs) for d in (domains or [])]
 
+    # The review form opens on what the learner asked for, and carries the
+    # request so writing the review closes it.
     review_href = "/activity-review/new?" + urlencode(
-        {"subject_uid": subject_uid, "time_period": time_period}
+        {
+            "subject_uid": subject_uid,
+            "time_period": time_period,
+            "review_request_uid": item.get("uid", ""),
+            "domains": domains,
+        },
+        doseq=True,
     )
 
     return Div(
@@ -49,8 +57,16 @@ def render_queue_item(item: PendingReviewItem) -> FT:
     )
 
 
-def render_snapshot_domain_card(domain_name: str, items: list[Any]) -> Any:
-    """Render a single domain's activity snapshot card."""
+def render_snapshot_domain_card(
+    domain_name: str,
+    section: dict[str, Any] | None,  # boundary: a snapshot section, mixed JSON values
+) -> FT:
+    """One domain's card from its snapshot section (``{"count", "items"}``).
+
+    The section lists at most ten items; ``count`` is how many the period holds.
+    """
+    items = (section or {}).get("items") or []
+    count = (section or {}).get("count", len(items))
     if not items:
         return Card(
             H4(domain_name.title(), cls="font-semibold mb-1"),
@@ -59,9 +75,9 @@ def render_snapshot_domain_card(domain_name: str, items: list[Any]) -> Any:
         )
 
     item_rows = []
-    for item in items[:10]:
-        title = item.get("title", "") if isinstance(item, dict) else getattr(item, "title", "")
-        status = item.get("status", "") if isinstance(item, dict) else getattr(item, "status", "")
+    for item in items:
+        title = item.get("title", "")
+        status = item.get("status") or ""
         item_rows.append(
             Div(
                 Span(title, cls="text-sm flex-1"),
@@ -71,7 +87,7 @@ def render_snapshot_domain_card(domain_name: str, items: list[Any]) -> Any:
         )
 
     return Card(
-        H4(f"{domain_name.title()} ({len(items)})", cls="font-semibold mb-3"),
+        H4(f"{domain_name.title()} ({count})", cls="font-semibold mb-3"),
         Div(*item_rows),
         cls="bg-muted p-4 mb-3",
     )
