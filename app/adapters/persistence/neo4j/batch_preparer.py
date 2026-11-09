@@ -5,11 +5,12 @@ Pure functions that transform domain entities into Neo4j-ready dictionaries.
 Extracted from CypherExecutor to separate data transformation from database execution.
 
 CONNECTION DATA FLOW:
-    1. YAML frontmatter → MarkdownSyncService stores in metadata._connections
-    2. HERE: Extract and flatten to dotted keys (Neo4j can't store nested maps)
-    3. BulkUpsertBackend: Uses filtered _node_props to exclude from node storage
-    4. Cypher template: Creates graph edges via FOREACH + MERGE
-    5. Result: Edges exist in graph, properties don't exist in nodes
+    1. YAML frontmatter → the ingestion preparer flattens ``connections`` to dotted
+       keys on the entity dict (``connections.requires``; Neo4j stores no maps)
+    2. HERE: the relationship keys are kept on the item and filtered off ``_node_props``
+    3. BulkUpsertBackend: writes the node from ``_node_props``
+    4. Cypher template: creates the graph edges via FOREACH + MERGE
+    5. Result: edges exist in the graph; the keys are not node properties
 """
 
 from __future__ import annotations
@@ -17,32 +18,6 @@ from __future__ import annotations
 from typing import Any
 
 from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node, without_embedding_props
-
-
-def flatten_entity_connections(entity: Any, item: dict[str, Any]) -> dict[str, Any]:
-    """
-    Extract metadata._connections and flatten to dotted keys.
-
-    Neo4j properties cannot store nested dictionaries, but CAN use them
-    in Cypher queries. By flattening {"requires": ["ku.a"]} to
-    {"connections.requires": ["ku.a"]}, we make it accessible in Cypher
-    via backtick escaping: item.`connections.requires`
-
-    Args:
-        entity: Domain entity with optional metadata attribute
-        item: Neo4j node dict (from to_neo4j_node)
-
-    Returns:
-        The item dict with flattened connection keys added (mutated in place)
-    """
-    metadata = getattr(entity, "metadata", None)
-    if isinstance(metadata, dict):
-        connections = metadata.get("_connections")
-        if connections and isinstance(connections, dict):
-            for key, value in connections.items():
-                if value:  # Only add non-empty lists
-                    item[f"connections.{key}"] = value
-    return item
 
 
 def prepare_batch_items(
@@ -54,8 +29,10 @@ def prepare_batch_items(
 
     Steps:
         1. Convert each entity via to_neo4j_node()
-        2. Flatten metadata._connections to dotted keys
-        3. If rel_config provided, create _node_props with connection keys filtered out
+        2. If rel_config provided, create _node_props with connection keys filtered out
+
+    A file's connections arrive as dotted keys (``connections.requires``) already:
+    the ingestion preparer flattens them (``core/services/ingestion/preparer.py``).
 
     Args:
         entities: Domain entities to prepare
@@ -73,7 +50,6 @@ def prepare_batch_items(
         # ``+=`` removes the stored vector). Frontmatter dicts carry no such key
         # today; a dataclass entity would — guard the payload, not the callers.
         item = without_embedding_props(to_neo4j_node(entity))
-        flatten_entity_connections(entity, item)
         # to_neo4j_node drops RELATIONSHIP_SKIP_FIELDS (graph-native: edges, not
         # node properties) — but the registry's yaml_field_path keys in rel_config
         # are exactly the edge SOURCES the Cypher template consumes. Restore any
