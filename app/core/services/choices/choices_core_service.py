@@ -631,7 +631,7 @@ class ChoicesCoreService(
 
         Args:
             choice_uid: UID of the choice
-            evaluation: The outcome: satisfaction on the 1-5 scale, what happened, and
+            evaluation: The outcome: satisfaction on ``SatisfactionScale``, what happened, and
                 the lessons, one per item
 
         Returns:

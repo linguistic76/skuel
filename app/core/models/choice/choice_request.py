@@ -161,7 +161,10 @@ class ChoiceEvaluationRequest(BaseModel):
         ...,
         ge=SatisfactionScale.LOWEST,
         le=SatisfactionScale.HIGHEST,
-        description="How satisfied the learner is with how it turned out (1-5)",
+        description=(
+            "How satisfied the learner is with how it turned out "
+            f"({SatisfactionScale.LOWEST}-{SatisfactionScale.HIGHEST})"
+        ),
     )
     actual_outcome: str = Field(..., min_length=1, max_length=1000, description="What happened")
     lessons_learned: list[str] = Field(default_factory=list, description="Lessons learned")

@@ -75,14 +75,12 @@ def ChoiceStatsBar(choices: list[Choice]) -> FT:
     total = len(choices)
     pending = sum(1 for c in choices if c.is_pending())
     decided = sum(1 for c in choices if c.is_decided())
-    satisfaction_scores = [
+    ratings = [
         c.satisfaction_score
         for c in choices
-        if c.satisfaction_score is not None and c.satisfaction_score > 0
+        if c.satisfaction_score is not None and c.satisfaction_score >= SatisfactionScale.LOWEST
     ]
-    avg_satisfaction = (
-        sum(satisfaction_scores) / len(satisfaction_scores) if satisfaction_scores else 0
-    )
+    avg_satisfaction = sum(ratings) / len(ratings) if ratings else None
 
     stats = [
         StatItem(label="Total", value=total, href="/choices?status=all"),
@@ -95,8 +93,17 @@ def ChoiceStatsBar(choices: list[Choice]) -> FT:
         StatItem(label="Decided", value=decided, color="success", href="/choices?status=decided"),
         StatItem(
             label="Avg Satisfaction",
-            value=f"{avg_satisfaction:.1f}/5" if avg_satisfaction > 0 else "-",
-            color="primary" if avg_satisfaction >= 3.5 else None,
+            value=(
+                f"{avg_satisfaction:.1f}/{SatisfactionScale.HIGHEST}"
+                if avg_satisfaction is not None
+                else "-"
+            ),
+            color=(
+                "primary"
+                if avg_satisfaction is not None
+                and avg_satisfaction >= SatisfactionScale.SATISFYING_MEAN
+                else None
+            ),
         ),
     ]
     return StatsGrid(stats, cols=4)
@@ -179,9 +186,10 @@ def ChoiceCard(
 
     # Satisfaction score for decided choices
     satisfaction_el = Span()
-    if is_decided and choice.satisfaction_score and choice.satisfaction_score > 0:
+    rating = choice.satisfaction_score
+    if is_decided and rating is not None and rating >= SatisfactionScale.LOWEST:
         satisfaction_el = Small(
-            f"Satisfaction: {choice.satisfaction_score}/5",
+            f"Satisfaction: {rating}/{SatisfactionScale.HIGHEST}",
             cls="text-muted-foreground ml-2",
         )
 
