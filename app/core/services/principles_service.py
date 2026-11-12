@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleCategory, PrincipleStrength
+from core.models.principle.choice_outcomes import PrincipleChoiceOutcomes
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
@@ -327,11 +328,9 @@ class PrinciplesService(
         return await self.intelligence.batch_analyze_principle_adoption(principle_uids)
 
     async def get_choice_guidance_effectiveness(
-        self, principle_uid: str, user_uid: UserUID, period_days: int = 90
-    ) -> Result[dict[str, Any]]:
-        return await self.intelligence.get_choice_guidance_effectiveness(
-            principle_uid, user_uid, period_days
-        )
+        self, principle_uid: str, user_uid: UserUID
+    ) -> Result[PrincipleChoiceOutcomes]:
+        return await self.intelligence.get_choice_guidance_effectiveness(principle_uid, user_uid)
 
     async def analyze_learning_patterns(
         self, user_uid: UserUID, timeframe_days: int = 30

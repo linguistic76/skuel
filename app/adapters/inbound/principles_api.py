@@ -36,7 +36,6 @@ from adapters.inbound.route_factories import (
     create_activity_hierarchy_api_routes,
     create_activity_link_api_routes,
     create_knowledge_patterns_api_route,
-    parse_int_param_strict,
     verify_entity_ownership,
 )
 from core.models.entity_requests import (
@@ -300,7 +299,7 @@ def create_principles_api_routes(
     @rt("/api/principles/choice-effectiveness", methods=["GET"])
     @boundary_handler()
     async def principle_choice_effectiveness(request: Request) -> Result[dict[str, Any]]:
-        """Analyze how effectively a principle guides user choices."""
+        """How the choices a principle informs turned out, all time (``PrincipleChoiceOutcomes``)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
@@ -310,14 +309,10 @@ def create_principles_api_routes(
         )
         if ownership_error:
             return ownership_error
-        period_days = parse_int_param_strict(
-            request.query_params.get("period_days"), "period_days", 1, default=90
-        )
-        if period_days.is_error:
-            return Result.fail(period_days)
-        return await principles_service.get_choice_guidance_effectiveness(
-            uid, user_uid, period_days.value
-        )
+        outcomes = await principles_service.get_choice_guidance_effectiveness(uid, user_uid)
+        if outcomes.is_error:
+            return Result.fail(outcomes)
+        return Result.ok(outcomes.value.as_payload())
 
     # ================================================================
     # REFLECTION — publishes PrincipleReflectionRecorded + optionally

@@ -7,7 +7,8 @@ User Context Queries - Cypher Query Definitions and Execution
 This module contains:
 - RICH_CONTEXT_STATEMENTS: the rich context's graph reads — one statement per read
   family (tasks & goals, habits & events, habit adherence, principles & choices,
-  principle support, knowledge, curriculum, learner state, life-path knowledge), run
+  principle support, principle choice outcomes, knowledge, curriculum, learner state,
+  life-path knowledge), run
   concurrently and merged into one map
 - SUBMISSION_STATS_QUERY: the learning-loop tail (submission & feedback stats), its own statement
 - ENTRY_KNOWLEDGE_APPLIED_QUERY: the entry→Ku applied-knowledge rows, its own statement
@@ -45,7 +46,10 @@ from adapters.persistence.neo4j.query.cypher import (
     CURRICULUM_COMPOSITION_EDGES,
     build_far_node_clause,
 )
-from adapters.persistence.neo4j.query.cypher.choice_fragments import build_choice_pending_predicate
+from adapters.persistence.neo4j.query.cypher.choice_fragments import (
+    build_choice_outcome_tally,
+    build_choice_pending_predicate,
+)
 from adapters.persistence.neo4j.query.cypher.habit_fragments import (
     HABIT_WINDOW_END_PARAM,
     HABIT_WINDOW_START_PARAM,
@@ -179,6 +183,9 @@ _COMPOSITION_EDGES_TOKEN = "__COMPOSITION_EDGES__"
 # statements that list ``pending_choice_uids``, never restated in either.
 _CHOICE_PENDING_TOKEN = "__CHOICE_PENDING__"
 _CHOICE_PENDING = build_choice_pending_predicate("choice")
+
+# How a list of choices turned out (``PrincipleChoiceOutcomes``) — composed, never restated.
+_OUTCOME_TALLY_TOKEN = "__OUTCOME_TALLY__"
 
 # An active habit's adherence inputs (``HabitAdherenceRow``) — its completion
 # stamps in the window, the frequency, the creation and start stamps and the schedule end
@@ -1043,6 +1050,39 @@ RETURN {
 """
 )
 
+# Principle choice outcomes — how the choices each owned principle informs turned out
+# (``PrincipleChoiceOutcomes``, every status of principle, all time), and how many of
+# the user's choices any owned principle informs. Its own statement, the links
+# unsliced: the principles row's ``guided_choices`` is a display projection stopped at
+# ten, so a count or an average over it stops there too. The tally is
+# ``build_choice_outcome_tally``, the principle page's own read composes the same one.
+# A principle that informs nothing has no row; the counts are over every owned choice,
+# not the window's.
+PRINCIPLE_CHOICE_OUTCOMES_QUERY: str = _tie_far_nodes(
+    """
+MATCH (user:User {uid: $user_uid})
+OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)
+OPTIONAL MATCH (principle)-[:INFORMS_CHOICE]->(choice:Choice)
+WHERE __FAR(choice)__
+WITH user, principle, collect(DISTINCT choice) as guided
+WITH user,
+     collect(CASE WHEN principle IS NOT NULL AND size(guided) > 0
+              THEN {uid: principle.uid, __OUTCOME_TALLY__}
+              END) as principle_choice_outcomes
+OPTIONAL MATCH (user)-[:OWNS]->(owned_choice:Choice)
+WITH user, principle_choice_outcomes, collect(owned_choice) as owned_choices
+RETURN {
+    rich: {
+        principle_choice_outcomes: principle_choice_outcomes,
+        choices_owned: size(owned_choices),
+        choices_principle_informed: size([c IN owned_choices WHERE EXISTS {
+            MATCH (user)-[:OWNS]->(:Principle)-[:INFORMS_CHOICE]->(c)
+        }])
+    }
+} as result
+""".replace(_OUTCOME_TALLY_TOKEN, build_choice_outcome_tally("guided"))
+)
+
 # Life-path knowledge — what the designated life path (``(user)-[:ULTIMATE_PATH]->``,
 # the edge that IS the designation) asks the learner to know, and which of the
 # learner's goals serve it. The knowledge is every Ku a step of the path composes
@@ -1091,6 +1131,7 @@ RICH_CONTEXT_STATEMENTS: tuple[tuple[str, str], ...] = (
     ("habit_adherence", HABIT_ADHERENCE_QUERY),
     ("principles_and_choices", PRINCIPLES_AND_CHOICES_QUERY),
     ("principle_support", PRINCIPLE_SUPPORT_QUERY),
+    ("principle_choice_outcomes", PRINCIPLE_CHOICE_OUTCOMES_QUERY),
     ("knowledge", KNOWLEDGE_QUERY),
     ("curriculum", CURRICULUM_QUERY),
     ("learner_state", LEARNER_STATE_QUERY),

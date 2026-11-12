@@ -387,12 +387,15 @@ class UserContext:
     # RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS
     principle_guided_choice_counts: dict[str, int] | None = field(
         default=None
-    )  # principle_uid -> count of guided choices
-    principle_choice_satisfaction_avg: dict[str, float] = field(
-        default_factory=dict
-    )  # principle_uid -> avg satisfaction (0.0-1.0)
+    )  # principle_uid -> count of the user's choices it informs, all time
+    # RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS
+    principle_choice_satisfaction_avg: dict[str, float] | None = field(
+        default=None
+    )  # principle_uid -> mean outcome rating of its rated guided choices, as a share of
+    # SatisfactionScale.HIGHEST (PrincipleChoiceOutcomes.satisfaction); no entry with none rated
     # RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS. None at standard depth distinguishes
     # "not computed" from a legitimate rich-depth 0.0 ("no alignment").
+    # share of the user's choices an owned principle informs, all time
     principle_integration_score: float | None = field(default=None)  # 0.0-1.0 at rich depth
     # RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS
     recent_principle_aligned_choices: list[str] | None = field(
@@ -819,6 +822,21 @@ class UserContext:
             else {}
         )
 
+    def get_principle_choice_satisfaction_avg(self) -> dict[str, float]:
+        """Mean satisfaction of each principle's rated guided choices, by principle uid
+        (``PrincipleChoiceOutcomes.satisfaction``). Requires rich context."""
+        return self._as_rich(
+            "get_principle_choice_satisfaction_avg"
+        ).principle_choice_satisfaction_avg
+
+    def principle_choice_satisfaction_avg_or_empty(self) -> dict[str, float]:
+        """principle_choice_satisfaction_avg with graceful fallback — empty dict at standard depth."""
+        return (
+            self.principle_choice_satisfaction_avg
+            if self.principle_choice_satisfaction_avg is not None
+            else {}
+        )
+
     def get_recent_principle_aligned_choices(self) -> list[str]:
         """Up to 10 recently principle-aligned choice uids. Requires rich context."""
         return self._as_rich(
@@ -834,7 +852,8 @@ class UserContext:
         )
 
     def get_principle_integration_score(self) -> float:
-        """Overall principle-choice integration score (0.0-1.0). Requires rich context.
+        """The share of the user's choices an owned principle informs (0.0-1.0), over
+        every owned choice. Requires rich context.
 
         No graceful accessor: a standard-depth read is a bug, not a degraded path —
         0.0 at rich depth is a legitimate "no alignment" signal and must not be
@@ -999,6 +1018,7 @@ class RichUserContext(UserContext):
     at_risk_habits: list[str] = field(default_factory=list)
     blocked_task_uids: set[str] = field(default_factory=set)
     principle_guided_choice_counts: dict[str, int] = field(default_factory=dict)
+    principle_choice_satisfaction_avg: dict[str, float] = field(default_factory=dict)
     recent_principle_aligned_choices: list[str] = field(default_factory=list)
     principle_integration_score: float = 0.0
 
@@ -1018,6 +1038,7 @@ class RichUserContext(UserContext):
             "at_risk_habits",
             "blocked_task_uids",
             "principle_guided_choice_counts",
+            "principle_choice_satisfaction_avg",
             "recent_principle_aligned_choices",
             "principle_integration_score",
         }

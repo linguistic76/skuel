@@ -82,6 +82,21 @@ _PARTIALS: dict[str, dict[str, Any]] = {
             ]
         },
     },
+    "principle_choice_outcomes": {
+        "rich": {
+            "principle_choice_outcomes": [
+                {
+                    "uid": "p1",
+                    "choices_guided": 2,
+                    "choices_rated": 1,
+                    "rating_total": 4,
+                    "choices_rated_good": 1,
+                }
+            ],
+            "choices_owned": 3,
+            "choices_principle_informed": 2,
+        },
+    },
     "knowledge": {
         "uids": {"knowledge_mastery": [{"uid": "ku1", "score": 0.9}], "ku_view_data": []},
         "rich": {"knowledge": [{"uid": "ku1"}]},
@@ -144,11 +159,14 @@ def test_merge_folds_shared_sections_and_takes_owned_ones_whole() -> None:
         "tasks",
     ]
     assert sorted(merged["rich"]) == [
+        "choices_owned",
+        "choices_principle_informed",
         "knowledge",
         "learning_paths",
         "life_path_goal_uids",
         "life_path_knowledge",
         "path_steps",
+        "principle_choice_outcomes",
         "principle_support",
     ]
     # a section one statement owns arrives as is — including a null

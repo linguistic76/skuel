@@ -424,6 +424,7 @@ item is `{"entity": {...}, "graph_context": {...}}` (`RichEntityItem`,
 | `at_risk_habits` | `get_habits_needing_reinforcement()` | `at_risk_habits_or_empty()` |
 | `blocked_task_uids` | `get_blocked_tasks()` | `blocked_task_uids_or_empty()` |
 | `principle_guided_choice_counts` | `get_principle_guided_choice_counts()` | `principle_guided_choice_counts_or_empty()` |
+| `principle_choice_satisfaction_avg` | `get_principle_choice_satisfaction_avg()` | `principle_choice_satisfaction_avg_or_empty()` |
 | `recent_principle_aligned_choices` | `get_recent_principle_aligned_choices()` | `recent_principle_aligned_choices_or_empty()` |
 | `principle_integration_score` | `get_principle_integration_score()` | — |
 

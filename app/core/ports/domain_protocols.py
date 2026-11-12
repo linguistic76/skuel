@@ -111,6 +111,7 @@ if TYPE_CHECKING:
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
+    from core.models.principle.choice_outcomes import PrincipleChoiceOutcomes
     from core.models.principle.principle import Principle
     from core.models.relationship_names import RelationshipName
     from core.models.task.task import Task
@@ -816,10 +817,10 @@ class PrinciplesOperations(
         """Count principle stats: total, core, active."""
         ...
 
-    async def get_choice_influence_stats(
-        self, principle_uid: str, user_uid: UserUID, period_days: int
-    ) -> Result[Neo4jProperties]:
-        """Get stats on how a principle has influenced choices."""
+    async def get_principle_choice_outcomes(
+        self, principle_uid: str, user_uid: UserUID
+    ) -> Result[PrincipleChoiceOutcomes]:
+        """How the user's choices this principle informs turned out, all time."""
         ...
 
 

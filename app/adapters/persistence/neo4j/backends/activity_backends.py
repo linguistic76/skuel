@@ -16,6 +16,7 @@ from adapters.persistence.neo4j.query.cypher import (
 )
 from adapters.persistence.neo4j.query.cypher.choice_fragments import (
     build_choice_decided_predicate,
+    build_choice_outcome_tally,
     build_choice_pending_predicate,
 )
 from adapters.persistence.neo4j.query.cypher.goal_tally_queries import (
@@ -38,6 +39,7 @@ from core.models.goal.goal import Goal
 from core.models.goal.goal_contribution import CONTRIBUTOR_TYPES
 from core.models.habit.habit import Habit
 from core.models.habit.learning_state import HABIT_LEARNING_PROPERTIES
+from core.models.principle.choice_outcomes import PrincipleChoiceOutcomes
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
@@ -2052,29 +2054,26 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
             return Result.fail(result)
         return Result.ok([record["p"] for record in result.value])
 
-    async def get_choice_influence_stats(
-        self, principle_uid: str, user_uid: UserUID, period_days: int
-    ) -> Result[Neo4jProperties]:
-        """Get stats on the choices a principle informs, whichever page made the link."""
+    async def get_principle_choice_outcomes(
+        self, principle_uid: str, user_uid: UserUID
+    ) -> Result[PrincipleChoiceOutcomes]:
+        """How the user's choices this principle informs turned out, all time, whichever
+        page made the link. A principle that informs none is the zero tally."""
         query = f"""
-        MATCH (p:Principle {{uid: $principle_uid}})-[:{RelationshipName.INFORMS_CHOICE.value}]->(c:Choice)
-        WHERE c.user_uid = $user_uid
-          AND datetime(c.created_at) >= datetime() - duration({{days: $period_days}})
-
-        RETURN
-            count(c) AS total_choices,
-            avg(c.satisfaction_score) AS avg_satisfaction,
-            sum(CASE WHEN c.satisfaction_score >= 4 THEN 1 ELSE 0 END) AS positive_outcomes
+        MATCH (principle:Principle {{uid: $principle_uid}})
+        OPTIONAL MATCH (principle)-[:{RelationshipName.INFORMS_CHOICE.value}]->(choice:Choice)
+        WHERE choice.user_uid = $user_uid
+        WITH collect(DISTINCT choice) AS guided
+        RETURN {{{build_choice_outcome_tally("guided")}}} AS outcomes
         """
         result = await self.execute_query(
-            query,
-            {"principle_uid": principle_uid, "user_uid": user_uid, "period_days": period_days},
+            query, {"principle_uid": principle_uid, "user_uid": user_uid}
         )
         if result.is_error:
             return Result.fail(result)
         if not result.value:
-            return Result.ok({})
-        return Result.ok(dict(result.value[0]))
+            return Result.ok(PrincipleChoiceOutcomes())
+        return Result.ok(PrincipleChoiceOutcomes.from_row(result.value[0]["outcomes"]))
 
 
 if TYPE_CHECKING:

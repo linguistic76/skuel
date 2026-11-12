@@ -315,11 +315,14 @@ async def test_the_merged_map_has_the_shape_the_populator_reads(
         "tasks",
     ]
     assert sorted(mega["rich"]) == [
+        "choices_owned",
+        "choices_principle_informed",
         "knowledge",
         "learning_paths",
         "life_path_goal_uids",
         "life_path_knowledge",
         "path_steps",
+        "principle_choice_outcomes",
         "principle_support",
     ]
 
@@ -484,6 +487,18 @@ async def test_every_section_reads_what_the_one_statement_read(
             "habit_uids": ["habit.eq.active", "habit.eq.pre"],
         }
     )
+    # every guided choice, whatever the window; the old completed one is informed by nothing
+    assert mega["rich"]["principle_choice_outcomes"] == [
+        {
+            "uid": "principle.eq.core",
+            "choices_guided": 1,
+            "choices_rated": 0,
+            "rating_total": 0,
+            "choices_rated_good": 0,
+        }
+    ]
+    assert mega["rich"]["choices_owned"] == 2
+    assert mega["rich"]["choices_principle_informed"] == 1
     choices = _by_uid(mega["entities"]["choices"])
     assert sorted(choices) == ["choice.eq.pending"]  # the decided one is outside the window
     assert _canon(choices["choice.eq.pending"]) == _canon(
@@ -723,6 +738,8 @@ async def test_the_rich_context_carries_every_section(
     }
     assert context.choice_knowledge_informed == {"choice.eq.pending": ["ku.eq.a"]}
     assert context.principle_guided_choice_counts == {"principle.eq.core": 1}
+    assert context.principle_choice_satisfaction_avg == {}
+    assert context.principle_integration_score == 0.5
     assert context.prerequisite_counts == {"ku.eq.a": 2, "ku.eq.b": 0}
     assert context.ready_to_learn_uids == {"ku.eq.b"}
     assert context.overall_progress == pytest.approx(1 / 3)

@@ -1,6 +1,6 @@
 ---
 title: "Activity Links Arc — Registered Residuals"
-updated: 2026-10-11
+updated: 2026-11-12
 status: "registered"
 registered: "2026-10-04 to 2026-10-08 (the censuses of Activity Links arc PRs 1c–5)"
 trigger: "the next touch of the subsystem an item names (each item carries its file and line), or the quarterly review walk"
@@ -84,11 +84,14 @@ or DSL link parsed and discarded, answering 200 and writing no edge.
    `get_relationship_by_method` returns the first, so a keyed read of it would see only goals. No
    service is built from that config — latent — `core/models/relationship_registry.py:1565,1572,1579,1586`
    (lookup at 415). Registered by PR 1c.
-11. `principle_integration_score` can exceed 1.0: `user_context_populator.py` divides the choices
+11. ~~`principle_integration_score` can exceed 1.0: `user_context_populator.py` divides the choices
    any principle informs (read through the principles statement, unwindowed) by the choices in the
    user-context window, and life-path alignment weights the score 30%. PR 3 raised the numerator
    for everyone, since a link made at the choice's door now counts —
-   `core/services/user/user_context_populator.py:820`. Registered by PR 3.
+   `core/services/user/user_context_populator.py:820`. Registered by PR 3.~~
+   Struck: the score is the principle-choice-outcomes statement's informed choices over every owned
+   choice, both all time and uncapped (`PRINCIPLE_CHOICE_OUTCOMES_QUERY`,
+   `tests/integration/test_principle_choice_outcomes.py`).
 
 ## 3. Readers of edges nothing writes
 

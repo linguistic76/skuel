@@ -10,6 +10,7 @@ and silently absent at standard ``build()`` depth:
     - at_risk_habits
     - blocked_task_uids
     - principle_guided_choice_counts
+    - principle_choice_satisfaction_avg
     - recent_principle_aligned_choices
     - principle_integration_score  (scalar; no graceful accessor)
 
@@ -50,6 +51,7 @@ def test_rich_only_fields_registry_matches_expected_set() -> None:
             "at_risk_habits",
             "blocked_task_uids",
             "principle_guided_choice_counts",
+            "principle_choice_satisfaction_avg",
             "recent_principle_aligned_choices",
             "principle_integration_score",
         }
@@ -80,6 +82,7 @@ def test_standard_depth_is_not_rich(standard_context: UserContext) -> None:
         "at_risk_habits",
         "blocked_task_uids",
         "principle_guided_choice_counts",
+        "principle_choice_satisfaction_avg",
         "recent_principle_aligned_choices",
         "principle_integration_score",
     ],
@@ -134,6 +137,14 @@ def test_get_principle_guided_choice_counts_raises_at_standard_depth(
     with pytest.raises(RichContextRequiredError) as exc_info:
         standard_context.get_principle_guided_choice_counts()
     assert exc_info.value.operation == "get_principle_guided_choice_counts"
+
+
+def test_get_principle_choice_satisfaction_avg_raises_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    with pytest.raises(RichContextRequiredError) as exc_info:
+        standard_context.get_principle_choice_satisfaction_avg()
+    assert exc_info.value.operation == "get_principle_choice_satisfaction_avg"
 
 
 def test_get_recent_principle_aligned_choices_raises_at_standard_depth(
@@ -203,6 +214,12 @@ def test_principle_guided_choice_counts_or_empty_at_standard_depth(
     assert standard_context.principle_guided_choice_counts_or_empty() == {}
 
 
+def test_principle_choice_satisfaction_avg_or_empty_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    assert standard_context.principle_choice_satisfaction_avg_or_empty() == {}
+
+
 def test_recent_principle_aligned_choices_or_empty_at_standard_depth(
     standard_context: UserContext,
 ) -> None:
@@ -231,6 +248,7 @@ def rich_context() -> RichUserContext:
         at_risk_habits=["habit:x", "habit:y"],
         blocked_task_uids={"task:blocked_1", "task:blocked_2"},
         principle_guided_choice_counts={"principle:minimalism": 3},
+        principle_choice_satisfaction_avg={"principle:minimalism": 0.8},
         recent_principle_aligned_choices=["choice:1", "choice:2"],
         principle_integration_score=0.75,
     )
@@ -264,6 +282,15 @@ def test_get_principle_guided_choice_counts_at_rich_depth(
     rich_context: RichUserContext,
 ) -> None:
     assert rich_context.get_principle_guided_choice_counts() == {"principle:minimalism": 3}
+
+
+def test_get_principle_choice_satisfaction_avg_at_rich_depth(
+    rich_context: RichUserContext,
+) -> None:
+    assert rich_context.get_principle_choice_satisfaction_avg() == {"principle:minimalism": 0.8}
+    assert rich_context.principle_choice_satisfaction_avg_or_empty() == {
+        "principle:minimalism": 0.8
+    }
 
 
 def test_get_recent_principle_aligned_choices_at_rich_depth(

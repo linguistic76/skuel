@@ -33,8 +33,10 @@ from core.models.habit.adherence import (
     last_kept_day,
     stamp_day,
 )
+from core.models.principle.choice_outcomes import PrincipleChoiceOutcomes
 from core.models.user import UserPreferences
 from core.utils.logging import get_logger
+from core.utils.neo4j_props import coerce_int
 from core.utils.sort_functions import get_updated_timestamp
 from core.utils.timestamp_helpers import EARLIEST_INSTANT, as_utc, day_named, instant_of, today_in
 from core.utils.zone_context import current_zone
@@ -845,45 +847,47 @@ class UserContextPopulator:
         self,
         context: UserContext,
         principles_rich: list[dict[str, Any]],
-        choices_rich: list[dict[str, Any]],
+        # boundary: the merged map's "rich" section — the tier-C ruling on
+        # UserContextQueryOperations.execute_mega_query's return
+        rich_data: dict[str, Any],
     ) -> None:
         """
-        Populate principle-choice integration fields from rich data.
+        Populate principle-choice integration fields.
+
+        The counts, the satisfaction averages and the integration score come from the
+        principle-choice-outcomes statement, over every link: one
+        ``PrincipleChoiceOutcomes`` per principle that informs a choice. The aligned
+        choice list comes from the principles row's ``guided_choices``, a display
+        projection of up to ten per principle.
 
         Args:
             context: UserContext to populate
             principles_rich: Rich principle data from MEGA-QUERY
-            choices_rich: Rich choice data from MEGA-QUERY
+            rich_data: The merged map's ``rich`` section (``principle_choice_outcomes``,
+                ``choices_owned``, ``choices_principle_informed``); empty for an
+                unknown user
         """
         principle_guided_choice_counts: dict[str, int] = {}
-        principle_aligned_choices: list[str] = []
+        principle_choice_satisfaction_avg: dict[str, float] = {}
+        for row in rich_data.get("principle_choice_outcomes") or []:
+            outcomes = PrincipleChoiceOutcomes.from_row(row)
+            principle_guided_choice_counts[row["uid"]] = outcomes.choices_guided
+            if outcomes.satisfaction is not None:
+                principle_choice_satisfaction_avg[row["uid"]] = outcomes.satisfaction
+        context.principle_guided_choice_counts = principle_guided_choice_counts
+        context.principle_choice_satisfaction_avg = principle_choice_satisfaction_avg
 
+        choices_owned = coerce_int(rich_data.get("choices_owned"))
+        choices_informed = coerce_int(rich_data.get("choices_principle_informed"))
+        context.principle_integration_score = (
+            choices_informed / choices_owned if choices_owned > 0 else 0.0
+        )
+
+        principle_aligned_choices: list[str] = []
         for principle_item in principles_rich:
             if not principle_item:
                 continue
-            principle_data = principle_item.get("entity", {})
-            graph_ctx = principle_item.get("graph_context", {})
-            principle_uid = principle_data.get("uid")
-
-            if not principle_uid:
-                continue
-
-            # Extract guided choices
-            guided_choices = graph_ctx.get("guided_choices", [])
-            if guided_choices:
-                principle_guided_choice_counts[principle_uid] = len(guided_choices)
-                for choice in guided_choices:
-                    if choice and choice.get("uid"):
-                        principle_aligned_choices.append(choice["uid"])
-
-        context.principle_guided_choice_counts = principle_guided_choice_counts
-
-        # Compute integration score
-        total_choices = len(choices_rich)
-        aligned_count = len(set(principle_aligned_choices))
-        context.principle_integration_score = (
-            aligned_count / total_choices if total_choices > 0 else 0.0
-        )
-
-        # Store recent principle-aligned choices (last 10)
+            for choice in principle_item.get("graph_context", {}).get("guided_choices", []):
+                if choice and choice.get("uid"):
+                    principle_aligned_choices.append(choice["uid"])
         context.recent_principle_aligned_choices = principle_aligned_choices[:10]
