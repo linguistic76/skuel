@@ -117,7 +117,10 @@ async def _milestones(env: Env, uid: str) -> list[dict[str, Any]]:  # boundary: 
     return _rows(await _node(env, uid), "milestones")
 
 
-def _changed(before: dict[str, Any], after: dict[str, Any]) -> set[str]:
+def _changed(
+    before: dict[str, Any],  # boundary: raw node properties
+    after: dict[str, Any],  # boundary: raw node properties
+) -> set[str]:
     """The properties two reads of a node differ in, ``updated_at`` aside."""
     keys = (set(before) | set(after)) - {"updated_at"}
     return {key for key in keys if before.get(key) != after.get(key)}

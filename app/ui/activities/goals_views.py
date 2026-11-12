@@ -409,7 +409,7 @@ def MilestonesSection(goal: Goal) -> FT:
     if not goal.milestones and not editable:
         return Div()
     target = f"#{goal_detail_id(goal.uid)}"
-    items: list[Any] = []
+    items: list[FT] = []
     for ms in goal.milestones:
         icon = "check" if ms.is_completed else "circle"
         icon_cls = "text-success" if ms.is_completed else "text-muted-foreground"
@@ -421,7 +421,7 @@ def MilestonesSection(goal: Goal) -> FT:
         if ms.achieved_date:
             date_str = f"Achieved {ms.achieved_date}"
 
-        row: list[Any] = [
+        row: list[FT] = [
             Icon(icon, size=16, cls=f"mt-1 shrink-0 {icon_cls}"),
             Div(
                 Span(ms.title, cls=f"break-words {text_cls}".strip()),
