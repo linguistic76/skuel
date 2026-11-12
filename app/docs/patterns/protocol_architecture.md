@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-11-06
+updated: 2026-11-12
 category: patterns
 related_skills:
 - python
@@ -115,7 +115,7 @@ BackendOperations[T]  <- THE protocol (UniversalNeo4jBackend implements this)
 **UserOperations** (decomposed per sub-service; `UserBackend` implements the composed protocol):
 ```
 UserOperations  <- composed protocol (UserBackend implements this)
-    ├── UserCrudOperations (6)           <- UserCoreService
+    ├── UserCrudOperations (11)          <- UserCoreService, GraphAuthService
     ├── UserLearningStateOperations (8)  <- UserProgressRecorderService
     └── UserActivityOperations (3)       <- UserActivityService
 ```

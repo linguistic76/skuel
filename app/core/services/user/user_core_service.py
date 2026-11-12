@@ -1,17 +1,18 @@
 """
-User Core Service - CRUD and Authentication
-============================================
+User Core Service - Account Lifecycle
+=====================================
 
-Focused service handling user lifecycle and authentication operations.
+Focused service handling the user account's lifecycle.
 
 Responsibilities:
-- User creation, retrieval, update, deletion
+- User creation, retrieval, deletion
 - Username lookups
-- Password-based authentication
-- Last login timestamp management
+- Preference updates and reactivation, each writing only what it changes
+
+Sign-in is ``GraphAuthService.sign_in`` (core/auth/graph_auth.py).
 
 This service is part of the refactored UserService architecture:
-- UserCoreService: CRUD + Auth (THIS FILE)
+- UserCoreService: account lifecycle (THIS FILE)
 - UserProgressService: Learning progress tracking
 - UserActivityService: Activity tracking
 - UserContextBuilder: Context building
@@ -31,11 +32,10 @@ from core.models.enums import DualTrackDimension
 from core.models.enums.user_enums import UserRole
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import FilterParams, UserUID
-from core.models.user import User, create_user
+from core.models.user import User, UserPreferences, create_user
 from core.models.user.user import fold_username, username_problem
 from core.ports.infrastructure_protocols import EventBusOperations, UserCrudOperations
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
@@ -43,23 +43,25 @@ from core.utils.zone_context import current_zone
 
 logger = get_logger(__name__)
 
+#: The fields a preferences patch may name.
+_PREFERENCE_FIELDS: frozenset[str] = frozenset(
+    field.name for field in dataclasses.fields(UserPreferences)
+)
+
 
 class UserCoreService:
     """
-    Core user operations: CRUD and authentication.
+    Core user operations: the account's lifecycle.
 
     This service handles the fundamental user lifecycle operations:
     - Creating new users with default preferences
     - Retrieving users by UID or username
-    - Updating user information
+    - Updating preferences and reactivating, each writing only the fields it changes
     - Deleting users
-    - Authenticating users with password verification
-    - Tracking last login timestamps
 
     Architecture:
-    - Protocol-based repository dependency (UserOperations)
-    - Uses frozen dataclass User model with immutable updates
-    - Graph-native authentication with bcrypt password hashing
+    - Protocol-based repository dependency (``UserCrudOperations``)
+    - Uses frozen dataclass User model; no write sends the whole model back
     """
 
     def __init__(
@@ -202,84 +204,57 @@ class UserCoreService:
         """
         return await self.repo.get_user_by_username(username)
 
-    @with_error_handling("update_user", error_type="database")
-    async def update_user(self, user: User) -> Result[User]:
-        """
-        Update user information.
-
-        Args:
-            user: Updated user model
-
-        Returns:
-            Result[User]: Updated user or error
-
-        Error cases:
-            - Database operation fails → DATABASE
-        """
-        # Update last_active_at since User is frozen dataclass
-        user_with_activity = dataclasses.replace(user, last_active_at=datetime.now(UTC))
-        result = await self.repo.update_user(user_with_activity)
-
-        if result.is_ok:
-            logger.info(f"Updated user: {user.uid}")
-        else:
-            logger.error(f"Failed to update user {user.uid}: {result.error}")
-
-        return result
-
     @with_error_handling("update_preferences", error_type="database", uid_param="user_uid")
     async def update_preferences(
         self, user_uid: UserUID, preferences_update: dict[str, Any]
     ) -> Result[User]:
         """
-        Update user preferences.
+        Update the named preference fields, and nothing else on the account.
 
-        Convenience method for updating only preferences without needing to
-        fetch and reconstruct the entire User object.
+        The patch is applied to the preferences read under the user's lock and
+        written alone, with the ``last_active_at`` stamp: two saves for one user
+        serialize, the later applying its patch to what the earlier stored, and a
+        field another writer changed meanwhile (the password, the role, whether
+        the account is active, the display name) is never written back.
+
+        Backend: ``UserBackend.rewrite_preferences_under_lock``
 
         Args:
             user_uid: User's unique identifier
-            preferences_update: Dict of preference fields to update
+            preferences_update: ``UserPreferences`` field names to their new values
                                (e.g., {"weekly_task_goal": 15, "daily_habit_goal": 5})
 
         Returns:
-            Result[User]: Updated user or error
+            Result[User]: the user as written
 
         Error cases:
+            - A key that is not a ``UserPreferences`` field → VALIDATION, nothing written
             - User not found → NOT_FOUND
             - Database operation fails → DATABASE
-
-        Example:
-            result = await service.update_preferences(
-                "user123",
-                {"weekly_task_goal": 15, "daily_habit_goal": 5}
-            )
         """
-        # Get current user
-        user_result = await self.get_user(user_uid)
-        if user_result.is_error:
-            return Result.fail(user_result)
+        unknown = sorted(set(preferences_update) - _PREFERENCE_FIELDS)
+        if unknown:
+            return Result.fail(
+                Errors.validation(
+                    message=f"Not a preference field: {', '.join(unknown)}",
+                    field="preferences",
+                )
+            )
 
-        if not user_result.value:
+        def patched(current: UserPreferences) -> UserPreferences:
+            return dataclasses.replace(current, **preferences_update)
+
+        result = await self.repo.rewrite_preferences_under_lock(
+            user_uid, patched, active_at=datetime.now(UTC)
+        )
+        if result.is_error:
+            logger.error(f"Failed to update preferences for {user_uid}: {result.error}")
+            return Result.fail(result)
+        if result.value is None:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
 
-        user = user_result.value
-
-        # Create new preferences with updates
-        updated_preferences = dataclasses.replace(user.preferences, **preferences_update)
-
-        # Create new user with updated preferences
-        updated_user = dataclasses.replace(user, preferences=updated_preferences)
-
-        # Update user in database
-        result = await self.update_user(updated_user)
-
-        if result.is_ok:
-            logger.info(f"Updated preferences for user {user_uid}: {preferences_update}")
-        else:
-            logger.error(f"Failed to update preferences for {user_uid}: {result.error}")
-
-        return result
+        logger.info(f"Updated preferences for user {user_uid}: {preferences_update}")
+        return Result.ok(result.value)
 
     async def append_dual_track_checkin(  # skuel-lint: disable=SKUEL005 -- safe-by-design store_callback (ADR-030): check-in persistence must not fail the assessment
         self,
@@ -386,7 +361,8 @@ class UserCoreService:
         Marks ``status=DELETED``, scrubs PII (email, display_name,
         password_hash), and preserves the User node plus every OWNS-linked
         entity so teachers can still render historical submissions. Login is
-        blocked because ``authenticate()`` already rejects ``is_active=false``.
+        blocked because sign-in (``GraphAuthService.sign_in``) and the
+        per-request session check both refuse ``is_active=false``.
 
         For GDPR right-to-erasure (wipe everything), use
         ``hard_delete_user`` — admin-gated separate method.
@@ -554,141 +530,33 @@ class UserCoreService:
 
         return Result.ok(paginated)
 
-    # deactivate_user lived here until 2026-07-24: deactivation now commits
-    # the is_active flip and the session revocation in ONE transaction via
-    # SessionBackend.deactivate_user_and_revoke_sessions (One Path Forward —
-    # the two-step load/replace/save path could half-apply).
-
     @with_error_handling("activate_user", error_type="database", uid_param="user_uid")
     async def activate_user(self, user_uid: UserUID) -> Result[User]:
         """
-        Reactivate a user account.
+        Reactivate a user account: ``is_active`` back to true, and nothing else.
+
+        Deactivation is ``SessionBackend.deactivate_user_and_revoke_sessions``,
+        which revokes the sessions in the same transaction; reactivation revokes
+        nothing. Reactivating an active account writes the same value again.
+
+        Backend: ``UserBackend.reactivate_user``
 
         Args:
             user_uid: User to reactivate
 
         Returns:
-            Result[User]: Updated user or error
+            Result[User]: the user as written, or NOT_FOUND
 
         Note:
             This is an internal method. Authorization checks
             should be performed by the caller.
         """
-        # Get current user
-        user_result = await self.get_user(user_uid)
-        if user_result.is_error:
-            return Result.fail(user_result)
-
-        if not user_result.value:
+        result = await self.repo.reactivate_user(user_uid)
+        if result.is_error:
+            logger.error(f"Failed to reactivate user {user_uid}: {result.error}")
+            return Result.fail(result)
+        if result.value is None:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
 
-        user = user_result.value
-
-        if user.is_active:
-            # Already active - return current state
-            return Result.ok(user)
-
-        # Activate using dataclass replace
-        updated_user = dataclasses.replace(user, is_active=True)
-
-        # Save to database
-        result = await self.update_user(updated_user)
-
-        if result.is_ok:
-            logger.info(f"Reactivated user {user_uid}")
-        else:
-            logger.error(f"Failed to reactivate user {user_uid}: {result.error}")
-
-        return result
-
-    # ========================================================================
-    # AUTHENTICATION
-    # ========================================================================
-
-    @with_error_handling("authenticate", error_type="system")
-    async def authenticate(self, username: str, password: str) -> Result[User]:
-        """
-        Authenticate user with username and password.
-
-        Args:
-            username: Username to authenticate
-            password: Plain text password to verify
-
-        Returns:
-            Result[User]: Authenticated user or error
-
-        Error cases:
-            - User not found → NOT_FOUND
-            - Invalid password → VALIDATION
-            - Account inactive → BUSINESS
-            - Database error → DATABASE
-            - Unexpected error → SYSTEM
-        """
-        # Get user by username
-        user_result = await self.get_user_by_username(username)
-
-        if user_result.is_error:
-            logger.warning(f"Authentication failed - error getting user: {username}")
-            return Result.fail(user_result)
-
-        if not user_result.value:
-            logger.warning(f"Authentication failed - user not found: {username}")
-            return Result.fail(Errors.not_found(resource="User", identifier=username))
-
-        user = user_result.value
-
-        # Check if account is active
-        if not user.is_active:
-            logger.warning(f"Authentication failed - account inactive: {username}")
-            return Result.fail(
-                Errors.business(
-                    rule="account_active",
-                    message="Account is inactive. Please contact support.",
-                )
-            )
-
-        # Verify password
-        from core.auth.password import verify_password
-
-        if not verify_password(password, user.password_hash):
-            logger.warning(f"Authentication failed - invalid password: {username}")
-            return Result.fail(
-                Errors.validation(message="Invalid username or password", field="password")
-            )
-
-        # Update last login timestamp
-        await self._update_last_login(user)
-
-        logger.info(f"✅ User authenticated successfully: {username}")
-        return Result.ok(user)
-
-    async def _update_last_login(self, user: User) -> None:
-        """
-        Update user's last_login_at timestamp.
-
-        Args:
-            user: User to update
-
-        Note:
-            - Uses dataclass replace since User is frozen
-            - Logs warning if update fails (does not fail authentication)
-        """
-        try:
-            from dataclasses import replace
-
-            # Create updated user with new last_login_at
-            updated_user = replace(user, last_login_at=datetime.now(UTC))
-
-            # Save to database
-            update_result = await self.repo.update_user(updated_user)
-
-            if update_result.is_error:
-                logger.warning(f"Failed to update last_login for {user.uid}: {update_result.error}")
-            else:
-                logger.debug(f"Updated last_login for {user.uid}")
-
-        except NEO4J_EXCEPTIONS as e:
-            # Don't fail authentication if timestamp update fails
-            logger.warning(f"Error updating last_login for {user.uid}: {e}")
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.warning(f"Error updating last_login for {user.uid}: {e}")
+        logger.info(f"Reactivated user {user_uid}")
+        return Result.ok(result.value)

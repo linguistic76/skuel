@@ -156,10 +156,10 @@ class UserStatus(StrEnum):
       every OWNS-linked entity are preserved so downstream views
       (teacher gradebook, analytics, audit) still resolve.
 
-    Paired with the legacy ``User.is_active`` boolean, which
-    ``authenticate()`` still checks. Soft-delete flips both
-    (``status=DELETED``, ``is_active=False``) so the existing auth guard
-    continues to reject the user without a migration.
+    Paired with the ``User.is_active`` boolean, which sign-in
+    (``GraphAuthService.sign_in``) and the per-request session check read.
+    Soft-delete flips both (``status=DELETED``, ``is_active=False``), so those
+    guards reject a deleted user.
     """
 
     ACTIVE = "active"

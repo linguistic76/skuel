@@ -105,6 +105,44 @@ async def _count_sessions(neo4j_driver, user_uid: str) -> int:
         return int(record["c"]) if record else 0
 
 
+async def _user_properties(neo4j_driver, user_uid: str) -> dict[str, object]:
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (u:User {uid: $uid}) RETURN properties(u) AS p", uid=user_uid
+        )
+        record = await result.single()
+        assert record is not None
+        return dict(record["p"])
+
+
+async def test_signin_stamps_last_login_with_its_session_and_nothing_else(neo4j_driver, auth_env):
+    """A sign-in's one user write is ``last_login_at``: the instant its session was minted."""
+    from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+    from core.models.user import User
+
+    auth, track = auth_env
+    username, email = track(*_credentials("lastlogin"))
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+    user_uid = signup.value["user_uid"]
+    before = await _user_properties(neo4j_driver, user_uid)
+    assert "last_login_at" not in before, "signing up is not signing in"
+
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    after = await _user_properties(neo4j_driver, user_uid)
+    changed = {key for key in before.keys() | after.keys() if before.get(key) != after.get(key)}
+    assert changed == {"last_login_at"}
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (:User {uid: $uid})-[:HAS_SESSION]->(s:Session) RETURN s.created_at AS at",
+            uid=user_uid,
+        )
+        minted = (await result.single())["at"].to_native()
+    assert from_neo4j_node(after, User).last_login_at == minted
+
+
 async def test_signup_then_signin_email_roundtrip(neo4j_driver, auth_env):
     """sign_up → sign_in by email returns a session token AND lands a Session node."""
     auth, track = auth_env
@@ -173,6 +211,7 @@ async def test_wrong_password_rejected_and_no_session(neo4j_driver, auth_env):
     assert await _count_sessions(neo4j_driver, signup.value["user_uid"]) == 0, (
         "A failed login must not create a Session node"
     )
+    assert "last_login_at" not in await _user_properties(neo4j_driver, signup.value["user_uid"])
 
 
 async def test_role_change_atomically_revokes_live_sessions(neo4j_driver, auth_env):
@@ -284,6 +323,7 @@ async def test_deactivated_user_cannot_mint_session(neo4j_driver, auth_env):
     created = await auth.session_backend.create_session(stale_session)
     assert created.is_error, "Session creation must refuse a deactivated user"
     assert await _count_sessions(neo4j_driver, user_uid) == 0
+    assert "last_login_at" not in await _user_properties(neo4j_driver, user_uid)
 
     # The ordinary path fails too (early is_active check)
     signin = await auth.sign_in(email=email, password=_PASSWORD)

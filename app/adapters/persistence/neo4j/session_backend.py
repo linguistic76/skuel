@@ -22,7 +22,7 @@ from uuid import uuid4
 
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.auth.auth_event import AuthEvent
 from core.models.auth.password_reset_token import PasswordResetClaim, PasswordResetToken
@@ -101,9 +101,14 @@ class SessionBackend(Neo4jSessionRunner):
     @safe_backend_operation("create_session")
     async def create_session(self, session: Session) -> Result[Session]:
         """
-        Create a new session in Neo4j.
+        Create a new session in Neo4j: the sign-in's one write.
 
-        Creates both the Session node and HAS_SESSION relationship to User.
+        Creates the Session node and its HAS_SESSION relationship to the User,
+        and stamps the user's ``last_login_at`` with the session's creation
+        instant in the same statement, so an account carries a last-login time
+        exactly when a session was minted for it. The stamp is the one user
+        property this statement writes; it is serialized by ``to_neo4j_node``,
+        the mapper every ``User`` read parses.
 
         The WHERE clause atomically requires the user to still be active at
         creation time — sign_in checks ``user.is_active`` early, then spends
@@ -138,12 +143,16 @@ class SessionBackend(Neo4jSessionRunner):
             user_is_active: true
         })
         CREATE (u)-[:HAS_SESSION]->(s)
+        SET u.last_login_at = $last_login_at
         RETURN s
         """
 
         record = await self._run_single(
             query,
             {
+                "last_login_at": to_neo4j_node({"last_login_at": session.created_at})[
+                    "last_login_at"
+                ],
                 "uid": session.uid,
                 "token_hash": session.token_hash,
                 "user_uid": session.user_uid,
