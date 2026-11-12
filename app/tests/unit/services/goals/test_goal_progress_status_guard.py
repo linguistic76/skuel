@@ -1,10 +1,7 @@
-"""The four goal-progress writers derive achievement from the WRITE (ADR-087 PR-4).
+"""The goal-progress writers derive achievement from the WRITE (ADR-087).
 
-Each of ``GoalsProgressService``'s four completion-bearing writers used to answer one
-question — "is this goal achieved now?" — from data it read *before* it wrote:
-``complete_milestone`` from the goal's status, the other three from the stored
-``progress_percentage``. Both are stale by the time the write lands, and the two
-failures are opposite:
+A writer that answers "is this goal achieved now?" from data it read before it wrote is
+stale by the time the write lands, and the two failures are opposite:
 
 - **stale-open** — the writer read a goal that was not yet completed, another writer
   completed it first, and this one re-stamps ``achieved_date`` to today and re-publishes
@@ -13,25 +10,24 @@ failures are opposite:
 - **stale-completed** — the writer read a completed goal, another writer reopened it,
   and this one silently declines to record a genuine achievement.
 
-Now the derivation splits. The *target* ("every milestone is done", "progress reached
-100") stays in Python: it is a statement about the new state. The *"…and not already
-achieved"* half is a ``patch_if_prior_not_in`` the write evaluates against the status the
-node holds under its lock, and the ``GoalAchieved`` verdict comes back from the same
-write via ``is_completion_transition(outcome.prior_status, patch)``. So the stamp and the
-event cannot disagree, whatever the pre-read saw.
+So the derivation splits. The *target* ("progress reached 100") is a statement about the
+new state. The *"…and not already achieved"* half is a ``patch_if_prior_not_in`` the write
+evaluates against the status the node holds under its lock, and the ``GoalAchieved``
+verdict comes back from the same write via
+``is_completion_transition(outcome.prior_status, patch)``. So the stamp and the event
+cannot disagree.
 
-**Why every rig below drives the prior away from the read.** A fake that answers the
-guard from whatever ``backend.get`` returned can only ever confirm the coupling this arc
-removed — it would pass just as well against the old code. So each test of the two
-pre-read writers (``complete_milestone``, ``update_goal_from_habit_progress``) seeds a
-stored goal the write sees and a *different* goal the read returns, which is exactly
-what a race produces. The two tally recomputes have no pre-read left to race: they plan
-from the goal as read under the lock their write holds, so their rig (``_locked_rig``)
-hands the planner the prior itself, and their tests pin the verdict of each locked state
-— including the un-achieve (docs/roadmap/done/goal-progress-one-way.md).
+**Two kinds of rig.** ``update_goal_from_habit_progress`` still reads the goal before it
+writes, so its tests seed a stored goal the write sees and a *different* goal the read
+returns, which is what a race produces; a fake that answered the guard from the read
+could only confirm the coupling the guard removes. The milestone writer and the two
+tally recomputes have no read to race: they plan from the goal as read under the lock
+their write holds, so their rigs hand the planner the prior itself, and their tests pin
+the verdict of each locked state — including the un-achieve
+(docs/roadmap/done/goal-progress-one-way.md).
 
 The unraced behaviour of these writers (which fields, which events, which no-ops) is
-pinned in ``test_goal_achievement_transition.py`` and
+pinned in ``test_goal_achievement_transition.py``, ``test_goal_figure_owner.py`` and
 ``test_task_completion_measurement.py``; ``tests/integration/test_goal_completion_cycle.py``
 pins a milestone completion end to end against a real graph.
 """
@@ -183,70 +179,51 @@ def _goal(
 
 @pytest.mark.asyncio
 class TestCompleteMilestone:
-    """``complete_milestone`` — the one writer whose stale input WAS a status."""
+    """``complete_milestone`` plans from the locked goal: each state's verdict."""
 
-    async def test_a_goal_completed_by_another_writer_is_not_re_stamped(self) -> None:
-        """Stale-open. The read says ACTIVE and every milestone is done after this call,
-        so the target derivation says "achieved" — correctly. What it cannot know is that
-        the goal is already COMPLETED, which is the guard's half."""
-        read = _goal(
-            status=EntityStatus.ACTIVE,
-            measurement_type=MeasurementType.MILESTONE,
-            milestones=(True, False),
-        )
-        stored = _goal(
+    async def test_a_completed_goal_is_not_re_stamped(self) -> None:
+        """Every milestone is done and the figure reads below 100 (a goal completed
+        between two writes): the recompute lands, the completion pair does not."""
+        locked = _goal(
             status=EntityStatus.COMPLETED,
             measurement_type=MeasurementType.MILESTONE,
             achieved_date=_ORIGINAL_ACHIEVED,
             milestones=(True, True),
         )
-        service, recorder, bus = _rig(read=read, stored=stored)
+        service, recorder, bus = _rig(read=locked, stored=locked)
 
-        result = await service.complete_milestone(_GOAL, 1, Mock(user_uid=_USER))
+        result = await service.complete_milestone(_GOAL, "m1")
 
         assert result.is_ok
         _assert_suppressed(recorder, bus)
         assert _merged(recorder)["progress_percentage"] == 100.0
 
-    async def test_a_goal_reopened_by_another_writer_is_achieved_again(self) -> None:
-        """Stale-completed. The read says COMPLETED, so the old ``was_already_achieved``
-        local suppressed the achievement outright — but the goal was reopened before this
-        write landed, and completing its last milestone genuinely re-achieves it."""
-        read = _goal(
-            status=EntityStatus.COMPLETED,
-            measurement_type=MeasurementType.MILESTONE,
-            achieved_date=_ORIGINAL_ACHIEVED,
-            milestones=(True, False),
-        )
-        stored = _goal(
+    async def test_a_reopened_goal_is_achieved_again(self) -> None:
+        """A reopen resets the figure and leaves the milestone flags, so completing the
+        last one achieves the goal a second time."""
+        locked = _goal(
             status=EntityStatus.ACTIVE,
             measurement_type=MeasurementType.MILESTONE,
             milestones=(True, False),
         )
-        service, recorder, bus = _rig(read=read, stored=stored)
+        service, recorder, bus = _rig(read=locked, stored=locked)
 
-        result = await service.complete_milestone(_GOAL, 1, Mock(user_uid=_USER))
+        result = await service.complete_milestone(_GOAL, "m1")
 
         assert result.is_ok
         _assert_achieved(recorder, bus)
 
     async def test_an_unfinished_goal_carries_no_completion_patch_at_all(self) -> None:
-        """The target half is still Python, and breaking it is the easy regression: 1 of
-        3 milestones is not an achievement whatever the prior status is, so the guard
-        must carry no conditional patch to resolve."""
-        read = _goal(
+        """1 of 3 milestones is not an achievement whatever the prior status is, so the
+        guard must carry no conditional patch to resolve."""
+        locked = _goal(
             status=EntityStatus.ACTIVE,
             measurement_type=MeasurementType.MILESTONE,
             milestones=(False, False, False),
         )
-        stored = _goal(
-            status=EntityStatus.ACTIVE,
-            measurement_type=MeasurementType.MILESTONE,
-            milestones=(False, False, False),
-        )
-        service, recorder, bus = _rig(read=read, stored=stored)
+        service, recorder, bus = _rig(read=locked, stored=locked)
 
-        result = await service.complete_milestone(_GOAL, 0, Mock(user_uid=_USER))
+        result = await service.complete_milestone(_GOAL, "m0")
 
         assert result.is_ok
         assert recorder.last_guard.has_patches() is False

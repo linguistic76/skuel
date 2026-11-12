@@ -57,6 +57,33 @@ class MeasurementType(StrEnum):
     TASK_BASED = "task_based"
     MIXED = "mixed"
 
+    def follows_milestones(self) -> bool:
+        """Whether the goal's figure is its milestones: completed over total.
+
+        Each measurement type names the one writer of ``progress_percentage``. On every
+        other type a goal's milestones are a checklist that leaves the figure alone.
+        """
+        return self is MeasurementType.MILESTONE
+
+    def takes_entered_figure(self) -> bool:
+        """Whether the learner enters the figure by hand.
+
+        False for the three types whose figure is derived from the graph or the node
+        (contributions, habit streaks, milestones): the next recompute would replace a
+        figure entered on one of them.
+        """
+        return self not in (
+            MeasurementType.TASK_BASED,
+            MeasurementType.HABIT_BASED,
+            MeasurementType.MILESTONE,
+        )
+
+    def entered_in_units(self) -> bool:
+        """Whether an entered figure is a value in the goal's own unit (``current_value``
+        against ``target_value``) and the percentage is derived from it. Otherwise the
+        entered figure is the percentage itself, 0-100."""
+        return self is MeasurementType.NUMERIC
+
 
 class HabitEssentiality(StrEnum):
     """

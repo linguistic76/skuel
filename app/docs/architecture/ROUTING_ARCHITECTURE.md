@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-11-03
+updated: 2026-11-12
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -655,9 +655,9 @@ async def analyze_goals(goals_service: "GoalsService") -> dict:
     MyPy sees all explicit methods on GoalsService directly.
     No protocol workaround needed.
     """
-    milestones = await goals_service.get_goal_milestones(uid)
-    progress = await goals_service.update_goal_progress(uid, 0.5)
-    return {"milestones": milestones, "progress": progress}
+    goal = await goals_service.update_goal_progress(uid, 50.0)
+    forecast = await goals_service.get_goal_completion_forecast(uid)
+    return {"goal": goal, "forecast": forecast}
 ```
 
 ### Why Two Protocol Types?

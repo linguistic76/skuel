@@ -13,15 +13,17 @@ Responsibilities:
 """
 
 import dataclasses
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 from core.events import (
     GoalAchieved,
     GoalContributionsChanged,
     GoalMilestoneReached,
     GoalProgressUpdated,
+    GoalUpdated,
     publish_event,
 )
 from core.models.enums import EntityStatus
@@ -29,8 +31,9 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
+from core.models.goal.milestone import Milestone
 from core.models.type_hints import Neo4jProperties, UserUID
-from core.models.update_contracts import StatusWriteGuard
+from core.models.update_contracts import GuardedRecompute, StatusWriteGuard
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import ContributionTally, LinkedHabitTally
 from core.services.base_service import BaseService
@@ -61,6 +64,7 @@ from core.utils.timestamp_helpers import (
     now_utc,
     today_in,
 )
+from core.utils.uid_generator import UIDGenerator
 from core.utils.zone_context import current_zone
 
 # Type alias for rich goal data from UserContext
@@ -79,15 +83,12 @@ _ACHIEVED_FIELD: Final = COMPLETION_FIELDS[EntityType.GOAL]
 def _achievement_write(target_achieved: bool) -> tuple[StatusWriteGuard, Neo4jProperties]:
     """Package "this recompute achieves the goal" as a condition of the write (ADR-087).
 
-    Each progress writer below derives its own achievement TARGET in Python — "every
-    milestone is done now", "progress reached 100" — and that half stays a pre-read,
-    because it is a statement about the NEW state. The other half of the old
-    ``goal_achieved_now`` local, *"…and it was not already achieved"*, is a fact only the
-    write knows: it depends on the status the node holds at write time, which a
-    concurrent writer can move between this call's read and its write. So it becomes the
-    guard's condition — the status/stamp pair merges only when the prior was not already
-    COMPLETED. Re-completing a milestone of a finished goal therefore cannot re-date
-    ``achieved_date``, and neither can a race.
+    A progress writer derives its achievement TARGET in Python — "progress reached
+    100" — and that half is a statement about the NEW state. The other half, "…and it
+    was not already achieved", is a fact only the write knows: it depends on the status
+    the node holds at write time. So it is the guard's condition — the status/stamp
+    pair merges only when the prior was not already COMPLETED, and a write that finds
+    a finished goal cannot re-date ``achieved_date``.
 
     The patch rides ``patch_if_prior_not_in`` rather than the base updates so that an
     already-achieved goal is written NO ``status`` key either — the recompute still lands
@@ -330,6 +331,133 @@ def _plan_habit_progress(goal: Goal, tally: LinkedHabitTally) -> _ProgressWrite 
     )
 
 
+def _plan_milestones(goal: Goal, milestones: list[Milestone]) -> _ProgressWrite:
+    """Plan the write of a goal's milestone list, and of the figure when it follows them.
+
+    Runs under the goal's lock. On a milestone-measured goal the figure is the
+    milestones': completed over total as the percentage, the two counts as the
+    ``current_value`` / ``target_value`` pair, and status follows the figure by the
+    recompute rule (``_recompute_status_write``). On every other type the list alone is
+    written: that goal's figure has another writer.
+    """
+    old_progress = goal.progress_percentage or 0.0
+    # boundary: pre-serialization patch — the milestone records and history entries are
+    # JSON-serialized at the write, as every progress writer's patch is.
+    updates: dict[str, Any] = {"milestones": milestones}
+    total = len(milestones)
+    completed = sum(1 for m in milestones if m.is_completed)
+    detail = f"{completed}/{total} milestones"
+    measurement = goal.measurement_type
+    if measurement is None or not measurement.follows_milestones():
+        return _ProgressWrite(
+            updates=updates,
+            guard=StatusWriteGuard(),
+            achievement={},
+            unachievement={},
+            old_progress=old_progress,
+            new_progress=old_progress,
+            progress_changed=False,
+            detail=detail,
+        )
+
+    new_progress = completed / total * 100 if total else 0.0
+    progress_changed = abs(new_progress - old_progress) >= 0.01
+    updates["progress_percentage"] = new_progress
+    updates["current_value"] = float(completed)
+    updates["target_value"] = float(total)
+    if progress_changed:
+        now = datetime.now()
+        updates["last_progress_update"] = now
+        updates["progress_history"] = with_progress_entry(goal, new_progress, now)
+    guard, achievement, unachievement = _recompute_status_write(old_progress, new_progress)
+    return _ProgressWrite(
+        updates=updates,
+        guard=guard,
+        achievement=achievement,
+        unachievement=unachievement,
+        old_progress=old_progress,
+        new_progress=new_progress,
+        progress_changed=progress_changed,
+        detail=detail,
+    )
+
+
+def _plan_entered_figure(
+    goal: Goal, value: float, notes: str, at: datetime
+) -> Result[_ProgressWrite]:
+    """Plan the write of a figure the learner entered, or the refusal it is owed.
+
+    Runs under the goal's lock. ``at`` is the moment the progress happened, on the
+    stored clock.
+    """
+    measurement = goal.measurement_type or MeasurementType.PERCENTAGE
+    if not measurement.takes_entered_figure():
+        return Result.fail(
+            Errors.business(
+                "goal_figure_is_derived",
+                "This goal's progress is measured for you, so it takes no entered figure.",
+                measurement_type=measurement.value,
+            )
+        )
+    if value < 0:
+        return Result.fail(
+            Errors.validation(message="Progress cannot be negative", field="progress", value=value)
+        )
+
+    old_progress = goal.progress_percentage or 0.0
+    # boundary: pre-serialization patch, as in ``_plan_milestones``.
+    updates: dict[str, Any] = {}
+    if measurement.entered_in_units():
+        target = goal.target_value
+        if not target or target <= 0:
+            return Result.fail(
+                Errors.validation(
+                    message="Set a target value on this goal before recording progress",
+                    field="target_value",
+                )
+            )
+        new_progress = min(value / target * 100, 100.0)
+        updates["current_value"] = float(value)
+        detail = f"{value:g}/{target:g}"
+    else:
+        if value > 100:
+            return Result.fail(
+                Errors.validation(
+                    message="Progress is a percentage, 0 to 100", field="progress", value=value
+                )
+            )
+        new_progress = float(value)
+        detail = f"{value:g}%"
+
+    updates["progress_percentage"] = new_progress
+    # The stamp records a CHANGE: re-posting the stored figure is not a progress event.
+    progress_changed = abs(new_progress - old_progress) >= 0.01
+    if progress_changed:
+        updates["last_progress_update"] = at
+        updates["progress_history"] = with_progress_entry(goal, new_progress, at)
+    if notes:
+        metadata = dict(goal.metadata or {})
+        metadata["progress_notes"] = [
+            *metadata.get("progress_notes", ()),
+            {"date": at.isoformat(), "notes": notes},
+        ]
+        updates["metadata"] = metadata
+
+    guard, achievement, unachievement = _recompute_status_write(old_progress, new_progress)
+    return Result.ok(
+        _ProgressWrite(
+            updates=updates,
+            guard=guard,
+            achievement=achievement,
+            unachievement=unachievement,
+            old_progress=old_progress,
+            new_progress=new_progress,
+            progress_changed=progress_changed,
+            detail=detail,
+        )
+    )
+
+
 if TYPE_CHECKING:
     from core.events.habit_events import HabitCompleted
     from core.models.graph.path_aware_types import GoalCrossContext
@@ -562,138 +690,142 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     # MILESTONE MANAGEMENT
     # ========================================================================
 
-    async def complete_milestone(
-        self, goal_uid: str, milestone_index: int, user_context: UserContext
-    ) -> Result[Goal]:
+    async def _rewrite_goal(
+        self, goal_uid: str, decide: Callable[[Goal], Result[_ProgressWrite]]
+    ) -> Result[GuardedRecompute[Goal, _ProgressWrite]]:
+        """Plan one rewrite from the goal under its lock and write it.
+
+        ``decide`` reads the locked goal and answers the write, or the refusal its
+        caller owes the client; a refusal writes nothing. A goal that does not exist
+        is the backend's not found.
+
+        Backend: ``rewrite_under_lock``.
         """
-        Mark a milestone as complete and update goal progress.
+        refusals: list[Result[_ProgressWrite]] = []
+
+        def plan(goal: Goal) -> _ProgressWrite | None:
+            decided = decide(goal)
+            if decided.is_error:
+                refusals.append(decided)
+                return None
+            return decided.value
+
+        result = await self.backend.rewrite_under_lock(goal_uid, plan)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is None:
+            if refusals:
+                return Result.fail(refusals[0])
+            return Result.fail(
+                Errors.system(message=f"The rewrite of goal {goal_uid} wrote nothing.")
+            )
+        return Result.ok(result.value)
+
+    async def create_goal_milestone(
+        self,
+        goal_uid: str,
+        title: str,
+        target_date: date | None = None,
+        description: str | None = None,
+    ) -> Result[Goal]:
+        """Add one milestone to a goal; the goal as written.
+
+        The milestone is appended to the list read under the goal's lock, so two adds
+        at once keep both. On a milestone-measured goal the figure follows: one more
+        open milestone lowers it, and a goal the last milestone had achieved is
+        un-achieved (``_plan_milestones``).
 
         Args:
-            goal_uid: Goal identifier,
-            milestone_index: Index of milestone to complete,
-            user_context: User's unified context
+            goal_uid: Goal identifier
+            title: What reaching the milestone means
+            target_date: When it should be reached
+            description: Optional detail
 
-        Returns:
-            Result containing updated Goal
+        Events Published:
+            - GoalUpdated: always (context invalidation)
+            - GoalProgressUpdated: when the figure moved
         """
-        goal_result = await self.backend.get_goal(goal_uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
+        milestone = Milestone(
+            uid=UIDGenerator.generate_random_uid("milestone"),
+            title=title,
+            description=description or None,
+            target_date=target_date,
+        )
 
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+        def append(goal: Goal) -> Result[_ProgressWrite]:
+            return Result.ok(_plan_milestones(goal, [*goal.milestones, milestone]))
 
-        if not goal.milestones or milestone_index >= len(goal.milestones):
-            return Result.fail(
-                Errors.validation(
-                    message=f"Milestone index {milestone_index} is out of range",
-                    field="milestone_index",
-                    value=milestone_index,
-                    user_message=f"Please provide a valid milestone index (0-{len(goal.milestones) - 1 if goal.milestones else 0})",
+        rewrite = await self._rewrite_goal(goal_uid, append)
+        if rewrite.is_error:
+            return Result.fail(rewrite)
+        plan, outcome = rewrite.value.plan, rewrite.value.outcome
+        goal = outcome.entity
+        owner = UserUID(str(goal.user_uid))
+
+        self.logger.info(f"Added milestone {milestone.uid} to goal {goal_uid}")
+        await publish_event(
+            self.event_bus,
+            GoalUpdated(goal_uid=goal_uid, user_uid=owner, updated_fields=["milestones"]),
+            self.logger,
+        )
+        await self._publish_recompute(goal_uid, owner, plan, outcome.prior_status, trigger=None)
+        return Result.ok(goal)
+
+    async def complete_milestone(self, goal_uid: str, milestone_uid: str) -> Result[Goal]:
+        """Mark one of a goal's milestones reached; the goal as written.
+
+        The milestone is found by its uid in the list read under the goal's lock, so a
+        milestone added or completed at the same moment is kept. Its ``achieved_date``
+        records the first completion (today in the user's zone); a repeat moves no
+        stamp and announces nothing. On a milestone-measured goal the figure follows,
+        and the completion that makes every milestone done achieves the goal
+        (``_plan_milestones``); on any other type the milestones are a checklist.
+
+        Args:
+            goal_uid: Goal identifier
+            milestone_uid: The milestone to complete; one the goal does not hold is
+                not found
+
+        Events Published:
+            - GoalMilestoneReached: on a first completion
+            - GoalProgressUpdated: when the figure moved
+            - GoalAchieved: on the transition into completed
+        """
+        first_completion: list[float] = []
+
+        def complete(goal: Goal) -> Result[_ProgressWrite]:
+            milestones = list(goal.milestones)
+            index = next((i for i, m in enumerate(milestones) if m.uid == milestone_uid), None)
+            if index is None:
+                return Result.fail(Errors.not_found("Milestone", milestone_uid))
+            target = milestones[index]
+            if not target.is_completed:
+                milestones[index] = dataclasses.replace(
+                    target, is_completed=True, achieved_date=today_in(current_zone())
                 )
+                first_completion.append(
+                    sum(1 for m in milestones if m.is_completed) / len(milestones)
+                )
+            return Result.ok(_plan_milestones(goal, milestones))
+
+        rewrite = await self._rewrite_goal(goal_uid, complete)
+        if rewrite.is_error:
+            return Result.fail(rewrite)
+        plan, outcome = rewrite.value.plan, rewrite.value.outcome
+        goal = outcome.entity
+        owner = UserUID(str(goal.user_uid))
+
+        if first_completion:
+            self.logger.info(f"Completed milestone {milestone_uid} of goal {goal_uid}")
+            await publish_event(
+                self.event_bus,
+                GoalMilestoneReached(
+                    goal_uid=goal_uid, user_uid=owner, milestone_percentage=first_completion[0]
+                ),
+                self.logger,
             )
-
-        # Update milestone (Milestone is a frozen dataclass)
-        from dataclasses import replace
-
-        updated_milestones = list(goal.milestones)
-        target_milestone = updated_milestones[milestone_index]
-        # The milestone stamp records when this milestone was FIRST completed —
-        # ``achieved_date`` is documented as "when actually achieved". Completing an
-        # already-completed milestone is a legal, reachable call, and stamping it
-        # unconditionally moved that date to today on every such call: the same
-        # mutable-completion-stamp defect the goal-level gate below fixes, one level
-        # down. ``is_completed`` needs no gate — it is already idempotent (True → True).
-        # An already-completed milestone whose date is null stays null: a repeat is not
-        # a transition, so there is no moment here to record. That matches the task
-        # stamp gate (#1125), which likewise never backfills on a repeat.
-        updated_milestones[milestone_index] = replace(
-            target_milestone,
-            is_completed=True,
-            achieved_date=(
-                target_milestone.achieved_date
-                if target_milestone.is_completed
-                else today_in(current_zone())
-            ),
-        )
-
-        # Calculate new progress
-        completed_count = sum(1 for m in updated_milestones if m.is_completed)
-        new_progress = (completed_count / len(updated_milestones)) * 100
-
-        # Achievement is the TRANSITION into "every milestone done", not the state.
-        # Re-completing a milestone of an already-achieved goal is a legal, reachable
-        # call, and the count alone would re-stamp achieved_date to today and re-publish
-        # GoalAchieved on each one — a mutable completion stamp.
-        #
-        # Only the TARGET half is decided here. "Already achieved" is the goal's own
-        # completion STATUS, not "every milestone is flagged done": the two diverge after
-        # a reopen, which clears achieved_date and resets progress_percentage
-        # (GoalsCoreService.update_goal) but leaves the milestone flags alone, so a
-        # milestone-flag proxy would stay true forever and a genuine re-achievement would
-        # never stamp or publish again. That status half now belongs to the write, which
-        # reads it under the node's lock (ADR-087) instead of from the `goal` fetched
-        # above — the same signal, read at the moment it is acted on.
-        target_achieved = completed_count == len(updated_milestones)
-
-        # Update goal. The progress stamp is a TRANSITION record: only a milestone
-        # moving into completed is a progress event. A repeat leaves the count, the
-        # figure and the stamp exactly where they were, so a re-posted completion in
-        # a later period cannot make the report count the goal as progressed then.
-        updates: dict[str, Any] = {
-            "milestones": updated_milestones,
-            "progress_percentage": new_progress,
-            "current_value": completed_count,
-        }
-        if not target_milestone.is_completed:
-            now = datetime.now()
-            updates["last_progress_update"] = now
-            updates["progress_history"] = with_progress_entry(goal, new_progress, now)
-        guard, achievement = _achievement_write(target_achieved)
-
-        update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        # Context invalidation happens via GoalMilestoneReached/GoalAchieved events (event-driven architecture)
-        # Event handlers in bootstrap will call user_service.invalidate_context()
-
-        # This guard refuses nothing, so the write always applied; the prior it returned
-        # is what decides the achievement below.
-        outcome = update_result.value
-        updated_goal = outcome.entity
-        goal_achieved_now = is_completion_transition(outcome.prior_status, achievement)
-
-        self.logger.info(f"Completed milestone {milestone_index} for goal {goal_uid}")
-
-        # Publish GoalMilestoneReached event
-        # Calculate milestone percentage (e.g., milestone 0 of 4 = 0.25, milestone 2 of 4 = 0.75)
-        milestone_percentage = (milestone_index + 1) / len(updated_milestones)
-        milestone_event = GoalMilestoneReached(
-            goal_uid=goal_uid,
-            user_uid=user_context.user_uid,
-            milestone_percentage=milestone_percentage,
-        )
-        await publish_event(self.event_bus, milestone_event, self.logger)
-
-        # Publish GoalAchieved only on the transition — GoalEventHandlerService
-        # appends a PRINCIPLE_ALIGNMENT PersistedInsight per event, under a UID
-        # carrying a per-second timestamp, so a re-publish duplicates the row.
-        if goal_achieved_now:
-            achieved_event = GoalAchieved(
-                goal_uid=goal_uid,
-                user_uid=user_context.user_uid,
-                actual_duration_days=(
-                    today_in(current_zone()) - day_of(goal.created_at, current_zone())
-                ).days
-                if goal.created_at
-                else None,
-                completed_ahead_of_schedule=today_in(current_zone()) < goal.target_date
-                if goal.target_date
-                else False,
-            )
-            await publish_event(self.event_bus, achieved_event, self.logger)
-
-        return Result.ok(updated_goal)
+        await self._publish_recompute(goal_uid, owner, plan, outcome.prior_status, trigger=None)
+        return Result.ok(goal)
 
     # ========================================================================
     # HABIT INTEGRATION
@@ -1028,21 +1160,32 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
     async def update_goal_progress(
         self, uid: str, progress_value: float, notes: str = "", update_date: str | None = None
-    ) -> Result[dict[str, Any]]:
-        """
-        Update goal progress manually.
+    ) -> Result[Goal]:
+        """Record the figure the learner enters for a goal; the goal as written.
+
+        What the value means is the goal's measurement type's to say
+        (``MeasurementType``): on a numeric goal it is a value in the goal's own unit,
+        stored as ``current_value`` with the percentage derived against
+        ``target_value``; on the other entered types it is the percentage, 0-100. A
+        goal whose figure is derived (task-based, habit-based, milestone) takes no
+        entered figure and refuses one. Planned from the goal under its lock.
+
+        Status follows the figure as it does for a recompute
+        (``_recompute_status_write``): rising to 100 achieves the goal unless its owner
+        settled it, falling from 100 un-achieves it.
 
         Args:
             uid: Goal UID
-            progress_value: New progress value (0-100)
+            progress_value: The entered figure
             notes: Optional progress notes
             update_date: The date the progress happened (ISO date or datetime),
                 when it is not now — a September correction entered in October
                 is a September event. Unparseable or in the future: validation
                 failure.
 
-        Returns:
-            Result containing progress update confirmation with old/new values
+        Events Published:
+            - GoalProgressUpdated: when the percentage moved
+            - GoalAchieved: on the transition into completed
         """
         at = datetime.now()
         if update_date:
@@ -1061,57 +1204,18 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 )
             at = parsed
 
-        # Get current goal
-        goal_result = await self.backend.get_goal(uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
+        def enter(goal: Goal) -> Result[_ProgressWrite]:
+            return _plan_entered_figure(goal, progress_value, notes, at)
 
-        goal_dto = goal_result.value
-        if not goal_dto:
-            return Result.fail(Errors.not_found(resource="Goal", identifier=uid))
-
-        goal = to_domain_model(goal_dto, GoalDTO, Goal)
-        old_progress = goal.progress_percentage or 0.0
-
-        # Update progress. progress_value is a percent (0-100), so it goes to
-        # progress_percentage only — current_value holds domain units. The stamp
-        # records a CHANGE: re-posting the stored figure is not a progress event.
-        updates: dict[str, Any] = {"progress_percentage": progress_value}
-        if abs(progress_value - old_progress) >= 0.01:
-            updates["last_progress_update"] = at
-            updates["progress_history"] = with_progress_entry(goal, progress_value, at)
-
-        if notes:
-            # Append notes to metadata (access via DTO)
-            metadata: dict[str, Any] = goal_dto.metadata or {}
-            progress_notes = metadata.get("progress_notes", [])
-            progress_notes.append({"date": at.isoformat(), "notes": notes})
-            metadata["progress_notes"] = progress_notes
-            updates["metadata"] = metadata
-
-        update_result = await self.backend.update(uid, dict(updates))
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        # Publish GoalProgressUpdated event
-        event = GoalProgressUpdated(
-            goal_uid=uid,
-            user_uid=goal.user_uid,
-            old_progress=old_progress,
-            new_progress=progress_value,
-            triggered_by_manual_update=True,
+        rewrite = await self._rewrite_goal(uid, enter)
+        if rewrite.is_error:
+            return Result.fail(rewrite)
+        plan, outcome = rewrite.value.plan, rewrite.value.outcome
+        goal = outcome.entity
+        await self._publish_recompute(
+            uid, UserUID(str(goal.user_uid)), plan, outcome.prior_status, trigger="manual"
         )
-        await publish_event(self.event_bus, event, self.logger)
-
-        return Result.ok(
-            {
-                "goal_uid": uid,
-                "old_progress": old_progress,
-                "new_progress": progress_value,
-                "notes": notes,
-                "update_date": at.isoformat(),
-            }
-        )
+        return Result.ok(goal)
 
     async def get_goal_progress(self, uid: str, period: str = "month") -> Result[dict[str, Any]]:
         """
@@ -1163,92 +1267,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 else None,
             }
         )
-
-    async def create_goal_milestone(
-        self, uid: str, milestone_title: str, target_date: str, description: str = ""
-    ) -> Result[bool]:
-        """
-        Create a new milestone for a goal.
-
-        Args:
-            uid: Goal UID
-            milestone_title: Milestone title
-            target_date: Target completion date (ISO format)
-            description: Optional milestone description
-
-        Returns:
-            Result containing True if milestone was created
-        """
-        from core.models.goal.milestone import Milestone
-
-        # Get current goal
-        goal_result = await self.backend.get_goal(uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
-
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
-
-        # Create new milestone with UID
-        import uuid
-
-        new_milestone = Milestone(
-            uid=str(uuid.uuid4()),
-            title=milestone_title,
-            description=description or "",
-            target_date=date.fromisoformat(target_date),
-            is_completed=False,
-        )
-
-        # Add to milestones list
-        milestones = list(goal.milestones) if goal.milestones else []
-        milestones.append(new_milestone)
-
-        # Update goal
-        updates: dict[str, Any] = {"milestones": milestones}
-        update_result = await self.backend.update(uid, dict(updates))
-
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        self.logger.info(f"Created milestone '{milestone_title}' for goal {uid}")
-        return Result.ok(True)
-
-    async def get_goal_milestones(self, uid: str) -> Result[list[dict[str, Any]]]:
-        """
-        Get all milestones for a goal.
-
-        Args:
-            uid: Goal UID
-
-        Returns:
-            Result containing list of milestone dictionaries
-        """
-        # Get goal
-        goal_result = await self.backend.get_goal(uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
-
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
-
-        # Convert milestones to dicts
-        milestones = []
-        if goal.milestones:
-            for milestone in goal.milestones:
-                milestones.append(
-                    {
-                        "title": milestone.title,
-                        "description": milestone.description,
-                        "target_date": (
-                            milestone.target_date.isoformat() if milestone.target_date else None
-                        ),
-                        "is_completed": milestone.is_completed,
-                        "achieved_date": (
-                            milestone.achieved_date.isoformat() if milestone.achieved_date else None
-                        ),
-                    }
-                )
-
-        return Result.ok(milestones)
 
     # ========================================================================
     # EVENT HANDLERS
@@ -1316,7 +1334,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             f"({plan.detail})"
         )
         await self._publish_recompute(
-            goal_uid, owner, plan, outcome.prior_status, from_habits=False
+            goal_uid, owner, plan, outcome.prior_status, trigger="contributions"
         )
         return Result.ok(True)
 
@@ -1434,7 +1452,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             f"({plan.detail})"
         )
         await self._publish_recompute(
-            goal_uid, user_uid, plan, outcome.prior_status, from_habits=True
+            goal_uid, user_uid, plan, outcome.prior_status, trigger="habits"
         )
 
     async def _publish_recompute(
@@ -1444,7 +1462,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         plan: _ProgressWrite,
         prior_status: str | None,
         *,
-        from_habits: bool,
+        trigger: Literal["contributions", "habits", "manual"] | None,
     ) -> None:
         """Announce what a recompute wrote, with verdicts from the prior the write saw.
 
@@ -1456,8 +1474,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         completed first is not announced twice, and a settled goal (``_SETTLED``), which
         the write did not achieve, is not announced at all.
 
-        ``from_habits`` is the trigger's provenance: a habit-based recompute, or a
-        contribution-based one.
+        ``trigger`` is the write's provenance, as ``GoalProgressUpdated`` names it; a
+        milestone write has none of the three.
         """
         if plan.progress_changed:
             await publish_event(
@@ -1467,9 +1485,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                     user_uid=user_uid,
                     old_progress=plan.old_progress,
                     new_progress=plan.new_progress,
-                    triggered_by_contribution_change=not from_habits,
-                    triggered_by_habit_completion=from_habits,
-                    triggered_by_manual_update=False,
+                    triggered_by_contribution_change=trigger == "contributions",
+                    triggered_by_habit_completion=trigger == "habits",
+                    triggered_by_manual_update=trigger == "manual",
                 ),
                 self.logger,
             )

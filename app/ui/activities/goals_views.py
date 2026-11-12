@@ -7,19 +7,24 @@ Usage:
     from ui.activities.goals_views import GoalList, GoalStatsBar
 """
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     A,
     Div,
+    Form,
     Li,
     P,
     Small,
     Span,
     Ul,
 )
+from fasthtml.common import Button as HtmlButton
 
 from core.models.enums.activity_enums import ProgressLevel
+from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.goal_enums import MeasurementType
 from core.utils.activity_stats import compute_goal_stats
 from ui.activities._shared import (
     ActivityList,
@@ -30,7 +35,7 @@ from ui.activities._shared import (
     TagsBlock,
     safe_id,
 )
-from ui.components import Icon
+from ui.components import Button, ButtonT, Icon, Input, Label
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, Progress, ProgressT, StatusBadge
 from ui.patterns.format_date import format_date
@@ -45,7 +50,6 @@ if TYPE_CHECKING:
     from fasthtml.common import FT
 
     from core.models.goal.goal import Goal
-    from core.models.goal.milestone import Milestone
     from core.ports.query_types import EntityConnection
 
 
@@ -210,6 +214,10 @@ def GoalDetailView(
     if goal.is_completed:
         track_cls = "text-success"
         track_text = "Completed"
+    elif goal.status in _SET_ASIDE:
+        # A goal set aside is neither on track nor behind.
+        track_cls = "text-muted-foreground"
+        track_text = str(goal.status).replace("_", " ").title()
     elif goal.is_overdue():
         track_cls = "text-error"
         track_text = "Overdue"
@@ -224,6 +232,7 @@ def GoalDetailView(
             value=progress_pct,
             variant=ProgressT.success if on_track else ProgressT.warning,
         ),
+        _ProgressControl(goal),
         cls="my-4",
     )
 
@@ -262,7 +271,7 @@ def GoalDetailView(
     if goal.start_date:
         meta_items.append(MetadataField("Start Date", Span(str(goal.start_date))))
     if goal.target_value:
-        value_str = f"{goal.current_value}/{goal.target_value}"
+        value_str = f"{goal.current_value:g}/{goal.target_value:g}"
         if goal.unit_of_measurement:
             value_str += f" {goal.unit_of_measurement}"
         meta_items.append(MetadataField("Progress", Span(value_str)))
@@ -280,9 +289,7 @@ def GoalDetailView(
     tags_el = TagsBlock(goal.tags)
 
     # Milestones section
-    milestones_section = Div()
-    if goal.milestones:
-        milestones_section = MilestonesSection(goal.milestones)
+    milestones_section = MilestonesSection(goal)
 
     # Connections — one list per heading (ADR-090 §2)
     conn_section = ConnectionsSection(connections)
@@ -316,34 +323,172 @@ def GoalDetailView(
         dual_track_section,
         relationships,
         cls="max-w-3xl mx-auto",
+        id=goal_detail_id(goal.uid),
     )
 
 
-def MilestonesSection(milestones: tuple[Milestone, ...]) -> FT:
-    """Visual checklist of goal milestones."""
-    items: list[Any] = []
-    for ms in milestones:
+def goal_detail_id(goal_uid: str) -> str:
+    """The detail view's element id: what the progress and milestone controls replace."""
+    return f"goal-detail-{safe_id(goal_uid)}"
+
+
+#: Statuses in which a goal's owner has set it aside: its page shows what it holds
+#: and offers no progress or milestone control.
+_SET_ASIDE = (EntityStatus.CANCELLED, EntityStatus.ARCHIVED, EntityStatus.FAILED)
+
+#: Where a derived figure comes from, for the line shown in place of the control.
+_DERIVED_FIGURE_SOURCE: dict[MeasurementType, str] = {
+    MeasurementType.TASK_BASED: "Measured from the tasks and events linked to this goal.",
+    MeasurementType.HABIT_BASED: "Measured from the streaks of this goal's habits.",
+    MeasurementType.MILESTONE: "Measured from this goal's milestones.",
+}
+
+
+def _ProgressControl(goal: Goal) -> FT | None:
+    """The control that records a figure the learner enters, or the line saying where
+    a derived figure comes from. Posts ``/api/goals/{uid}/progress``.
+
+    A numeric goal is entered in its own unit against its target; the other entered
+    types take the percentage. A goal set aside shows neither.
+    """
+    if goal.status in _SET_ASIDE:
+        return None
+    measurement = goal.measurement_type or MeasurementType.PERCENTAGE
+    if not measurement.takes_entered_figure():
+        return P(_DERIVED_FIGURE_SOURCE[measurement], cls="text-sm text-muted-foreground mt-2")
+
+    form_id = safe_id(goal.uid)
+    if measurement.entered_in_units():
+        if not goal.target_value:
+            return P(
+                "Set a target value on this goal to record progress.",
+                cls="text-sm text-muted-foreground mt-2",
+            )
+        unit = f" {goal.unit_of_measurement}" if goal.unit_of_measurement else ""
+        label = f"Progress so far (of {goal.target_value:g}{unit})"
+        value, ceiling = f"{goal.current_value:g}", None
+    else:
+        label = "Progress so far (%)"
+        value, ceiling = f"{goal.progress_percentage or 0.0:g}", 100
+    return Form(
+        Label(label, fr=f"goal-progress-{form_id}", cls="block mb-2"),
+        Div(
+            Input(
+                name="progress",
+                id=f"goal-progress-{form_id}",
+                type="number",
+                min=0,
+                max=ceiling,
+                step="any",
+                value=value,
+                required=True,
+                inputmode="decimal",
+                cls="sm:w-40",
+            ),
+            Button("Save progress", type="submit", cls=ButtonT.default, size="field"),
+            cls="flex flex-col sm:flex-row gap-2",
+        ),
+        hx_post=f"/api/goals/{goal.uid}/progress",
+        hx_target=f"#{goal_detail_id(goal.uid)}",
+        hx_swap="outerHTML",
+        hx_disabled_elt="find button[type=submit]",
+        cls="mt-4",
+        data_goal_progress="1",
+    )
+
+
+def MilestonesSection(goal: Goal) -> FT:
+    """A goal's milestones as a checklist, with the controls that add and complete them.
+
+    Each open milestone carries a button that marks it reached
+    (``/api/goals/{uid}/milestones/complete``); the form below adds one
+    (``/api/goals/{uid}/milestones``). Both are answered with the whole detail view.
+    A goal set aside shows its milestones and no control; one with none shows nothing.
+    """
+    editable = goal.status not in _SET_ASIDE
+    if not goal.milestones and not editable:
+        return Div()
+    target = f"#{goal_detail_id(goal.uid)}"
+    items: list[FT] = []
+    for ms in goal.milestones:
         icon = "check" if ms.is_completed else "circle"
         icon_cls = "text-success" if ms.is_completed else "text-muted-foreground"
         text_cls = "line-through text-muted-foreground" if ms.is_completed else ""
 
         date_str = ""
         if ms.target_date:
-            date_str = f" · {ms.target_date}"
+            date_str = f"By {ms.target_date}"
         if ms.achieved_date:
-            date_str = f" · Achieved {ms.achieved_date}"
+            date_str = f"Achieved {ms.achieved_date}"
 
-        items.append(
-            Li(
-                Icon(icon, size=16, cls=f"inline mr-2 {icon_cls}"),
-                Span(ms.title, cls=text_cls),
-                Small(date_str, cls="text-muted-foreground") if date_str else "",
-                cls="mb-2",
+        row: list[FT] = [
+            Icon(icon, size=16, cls=f"mt-1 shrink-0 {icon_cls}"),
+            Div(
+                Span(ms.title, cls=f"break-words {text_cls}".strip()),
+                Small(date_str, cls="block text-muted-foreground") if date_str else "",
+                P(ms.description, cls="text-sm text-muted-foreground") if ms.description else "",
+                cls="flex-1 min-w-0",
+            ),
+        ]
+        if editable and not ms.is_completed:
+            row.append(
+                HtmlButton(
+                    "Complete",
+                    type="button",
+                    hx_post=f"/api/goals/{goal.uid}/milestones/complete",
+                    hx_vals=json.dumps({"milestone_uid": ms.uid}),
+                    hx_target=target,
+                    hx_swap="outerHTML",
+                    hx_disabled_elt="this",
+                    cls=(
+                        "shrink-0 rounded-md border border-input px-3 h-9 text-sm "
+                        "hover:bg-accent disabled:opacity-50"
+                    ),
+                    aria_label=f"Complete milestone {ms.title}",
+                    data_goal_milestone_complete=ms.uid,
+                )
             )
-        )
+        items.append(Li(*row, cls="flex items-start gap-2"))
 
     return Div(
         section_label("Milestones"),
-        Ul(*items, cls="space-y-2"),
+        Ul(*items, cls="space-y-2") if items else "",
+        _AddMilestoneForm(goal, target) if editable else "",
         cls="my-4",
+    )
+
+
+def _AddMilestoneForm(goal: Goal, target: str) -> FT:
+    """One more milestone: a title and an optional target date. Posts ``/milestones``."""
+    form_id = safe_id(goal.uid)
+    return Form(
+        Label("Add a milestone", fr=f"milestone-title-{form_id}", cls="block mb-2"),
+        Div(
+            Input(
+                name="title",
+                id=f"milestone-title-{form_id}",
+                placeholder="Milestone",
+                required=True,
+                maxlength=200,
+                cls="sm:flex-1",
+            ),
+            Input(
+                name="target_date",
+                type="date",
+                aria_label="Milestone target date (optional)",
+                cls="sm:w-44",
+            ),
+            Button("Add milestone", type="submit", cls=ButtonT.default, size="field"),
+            cls="flex flex-col sm:flex-row gap-2",
+        ),
+        Small(
+            "The date is when you aim to reach it. It is optional.",
+            cls="block mt-2 text-muted-foreground",
+        ),
+        hx_post=f"/api/goals/{goal.uid}/milestones",
+        hx_target=target,
+        hx_swap="outerHTML",
+        hx_disabled_elt="find button[type=submit]",
+        cls="mt-4",
+        data_goal_add_milestone="1",
     )
