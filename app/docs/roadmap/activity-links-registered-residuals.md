@@ -175,4 +175,5 @@ or DSL link parsed and discarded, answering 200 and writing no edge.
    `_graph_context` from the registry. **Wire it or delete it** —
    `core/services/mixins/search_operations_mixin.py:623`; `core/services/base_service.py:603`;
    `core/services/domain_config.py:156,254`. Registered by PR 3. (`docs/architecture/SEARCH_ARCHITECTURE.md`
-   and `docs/reference/SEARCH_SERVICE_METHODS.md` record the same beside their pattern tables.)
+   records the same; `docs/reference/SEARCH_SERVICE_METHODS.md` shows each service's
+   `_graph_enrichment_patterns`, read from the class.)

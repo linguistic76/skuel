@@ -63,9 +63,9 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
     - get_by_frequency() - Filter by HabitFrequency (daily, weekly, monthly)
     - get_needing_attention() - Habits with low/broken streaks
     - get_at_risk() - Habits at risk of breaking streak
-    - get_due_today() - Habits due today based on frequency
+    - get_user_due_today() / get_all_due_today() - Habits due today based on frequency
     - get_by_category() - Filter by category string
-    - list_categories() - Get all unique habit categories
+    - list_user_categories() / list_all_categories() - Distinct habit categories
 
     Edges read (HABITS_CONFIG):
     - SUPPORTS_GOAL: Habit supports goal achievement
@@ -107,9 +107,9 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         }
     )
 
-    # Inherited from BaseService (December 2025):
+    # Inherited from BaseService:
     # - search(), get_by_status(), get_by_category(),
-    # - list_categories(), get_by_relationship()
+    # - list_user_categories(), get_by_relationship()
 
     def _is_active(self, habit: Habit, include_paused: bool = False) -> bool:
         """
@@ -129,7 +129,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
     # DOMAIN SEARCH OPERATIONS PROTOCOL IMPLEMENTATION
     # ========================================================================
     # Inherited from BaseService: search(), get_by_status(),
-    # get_by_category(), list_categories(), get_by_relationship()
+    # get_by_category(), list_user_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
     async def get_prioritized(
@@ -500,7 +500,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         self.logger.debug(f"Found {len(due_today)} habits due today for {context}")
         return Result.ok(due_today)
 
-    # get_by_category() and list_categories() - inherited from BaseService
+    # get_by_category() and list_user_categories() - inherited from BaseService
 
     @with_error_handling("get_active", error_type="database", uid_param="user_uid")
     async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:

@@ -3,7 +3,7 @@
 
 ## Overview
 
-BaseService is composed from **7 focused mixins** following the Single Responsibility Principle (SRP). Each mixin provides a cohesive set of related operations.
+BaseService is composed from **6 focused mixins** following the Single Responsibility Principle (SRP). Each mixin provides a cohesive set of related operations.
 
 ```python
 class BaseService[B: BackendOperations, T: DomainModelProtocol](
@@ -12,7 +12,6 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     SearchOperationsMixin[B, T],
     RelationshipOperationsMixin[B, T],
     TimeQueryMixin[B, T],
-    UserProgressMixin[B, T],
     ContextOperationsMixin[B, T],
 ):
     """Unified base service for the 6 Activity Domains (Task, Goal, Habit, Event, Choice, Principle)."""
@@ -34,7 +33,6 @@ Service Layer (Depends on Foundation):
 ├── SearchOperationsMixin      ← ConversionHelpersMixin (_to_domain_models)
 ├── RelationshipOperationsMixin ← ConversionHelpersMixin (_records_to_domain_models)
 ├── TimeQueryMixin             ← ConversionHelpersMixin (_to_domain_models)
-├── UserProgressMixin          ← ConversionHelpersMixin (_records_to_domain_models)
 └── ContextOperationsMixin     ← CrudOperationsMixin (get)
 ```
 
@@ -56,7 +54,7 @@ Service Layer (Depends on Foundation):
 - `_records_to_domain_models(records)` - Neo4j records → Domain models
 - `_ensure_exists(result)` - Convert `Result[T | None]` → `Result[T]`
 
-**Used By:** SearchOperationsMixin, RelationshipOperationsMixin, TimeQueryMixin, UserProgressMixin
+**Used By:** SearchOperationsMixin, RelationshipOperationsMixin, TimeQueryMixin
 
 **File:** `conversion_helpers_mixin.py`
 
@@ -156,25 +154,7 @@ Service Layer (Depends on Foundation):
 
 ---
 
-### 6. UserProgressMixin
-**Responsibility:** User progress and mastery tracking
-
-**Dependencies:** ConversionHelpersMixin (`_records_to_domain_models`)
-
-**Key Methods:**
-- `get_user_progress(user_uid, entity_uid)` - Get progress/mastery stats
-- `update_user_mastery(uid, user_uid, mastery_level)` - Update mastery (0.0-1.0)
-- `get_user_curriculum(user_uid)` - Get entities user is studying/has mastered
-
-**Configuration:**
-- Only active when `DomainConfig.supports_user_progress = True`
-- Originally for Curriculum domains (KU, LS, LP), now available to any domain
-
-**File:** `user_progress_mixin.py`
-
----
-
-### 7. ContextOperationsMixin
+### 6. ContextOperationsMixin
 **Responsibility:** Graph context retrieval and enrichment
 
 **Dependencies:** CrudOperationsMixin (`get`)
@@ -231,7 +211,6 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
         completed_statuses=(KuStatus.COMPLETED.value,),  # Used by TimeQueryMixin
         search_fields=("title", "description"),  # Used by SearchOperationsMixin
         prerequisite_relationships=(...),  # Used by RelationshipOperationsMixin
-        supports_user_progress=True,  # Used by UserProgressMixin
     )
 
 # Access via classmethod (explicit)
@@ -253,7 +232,6 @@ search_fields = service.search_fields  # Reads from cls._config
 | SearchOperationsMixin | `search_fields`, `search_order_by`, `category_field`, `graph_enrichment_patterns`, `search_visibility` |
 | RelationshipOperationsMixin | `prerequisite_relationships` |
 | TimeQueryMixin | `date_field`, `completed_statuses` |
-| UserProgressMixin | `supports_user_progress`, `mastery_threshold` |
 | ContextOperationsMixin | `content_field`, `prerequisite_relationships` |
 
 ---
@@ -303,7 +281,7 @@ async def test_tasks_search_integration():
     backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
     service = TasksSearchService(backend=backend)
 
-    # All 7 mixins available
+    # All 6 mixins available
     result = await service.search("urgent tasks")
     assert result.is_ok
 ```
@@ -386,7 +364,7 @@ class MyFeatureMixin[B: BackendOperations, T: DomainModelProtocol]:
 
 ### January 2026: Mixin Decomposition
 - **Before:** Monolithic 625-line `base_service.py`
-- **After:** 7 focused mixins averaging ~150 lines each
+- **After:** focused mixins, one concern each
 - **Rationale:** Single Responsibility Principle, improved testability
 
 ### Key Design Decisions
@@ -419,14 +397,11 @@ class MyFeatureMixin[B: BackendOperations, T: DomainModelProtocol]:
 
 ## Summary
 
-**7 Mixins = 45+ Methods**
+**6 Mixins**, each a focused set of methods for one concern:
+- Foundation: Conversion + CRUD
+- Search: Text + Graph + Filtering
+- Relationships: Graph operations + Prerequisites
+- Time: Calendar queries
+- Context: Entity with its content
 
-Each mixin provides 5-10 focused methods for a specific concern:
-- Foundation: Conversion + CRUD (16 methods)
-- Search: Text + Graph + Filtering (14 methods)
-- Relationships: Graph operations + Prerequisites (8 methods)
-- Time: Calendar queries (4 methods)
-- Progress: Mastery tracking (3 methods)
-- Context: Graph enrichment (3 methods)
-
-**Total: ~48 methods** available to any BaseService subclass via clean composition.
+Every method each mixin provides, read from the code: `/docs/reference/BASESERVICE_METHOD_INDEX.md` (generated).

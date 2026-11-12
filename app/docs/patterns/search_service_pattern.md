@@ -1,6 +1,6 @@
 ---
 title: SearchService Pattern for Activity Domains
-updated: 2026-10-13
+updated: 2026-11-12
 category: patterns
 related_skills:
 - base-analytics-service
@@ -86,7 +86,7 @@ class DomainSearchOperations(Protocol[T]):
 | `get_by_relationship()` | Graph traversal queries | Uses `_dto_class`, `_model_class` |
 | `get_by_status()` | Filter by status field | Generic implementation |
 | `get_by_category()` | Filter by category field | Uses DomainConfig `category_field` |
-| `list_categories()` | List unique category values | Uses DomainConfig `category_field` |
+| `list_user_categories()`, `list_all_categories()` | List distinct category values (one user's, or everyone's) | Uses DomainConfig `category_field` |
 | `get_prerequisites()` | Traverse prerequisite chains | Uses `_prerequisite_relationships` |
 | `get_enables()` | Traverse enables chains | Walks the same `_prerequisite_relationships` edges, incoming |
 
@@ -221,125 +221,11 @@ NL query with semantic filter extraction is handled by `SearchRouter.intelligent
 
 ## Domain-Specific Extensions
 
-Each SearchService extends the protocol with domain-appropriate methods. Methods marked "inherited" come from BaseService; others are domain-specific implementations.
-
-### GoalsSearchService
-```python
-class GoalsSearchService(BaseService[GoalsOperations, Goal]):
-    _dto_class = GoalDTO
-    _model_class = Goal
-    # DomainConfig sets category_field="domain"  # Goals use 'domain' for categorization
-    # Registry declares prerequisites: REQUIRES_KNOWLEDGE, DEPENDS_ON_GOAL
-
-    # Inherited from BaseService: search(), get_by_status(),
-    # get_by_category(), list_categories(), get_by_relationship(),
-    # get_prerequisites(), get_enables()
-
-    # Goal-specific methods (must implement)
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Goal]]: ...
-
-```
-
-### HabitSearchService
-```python
-class HabitSearchService(BaseService[HabitsOperations, Habit]):
-    _dto_class = HabitDTO
-    _model_class = Habit
-    # Registry declares prerequisites: REQUIRES_PREREQUISITE_HABIT
-
-    # Inherited from BaseService: search(), get_by_status(),
-    # get_by_category(), list_categories(), get_by_relationship(),
-    # get_prerequisites(), get_enables()
-
-    # Habit-specific methods
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Habit]]: ...
-    async def get_by_frequency(self, frequency: HabitFrequency, limit: int = 100) -> Result[list[Habit]]: ...
-    async def get_needing_attention(self, user_uid: UserUID, streak_threshold: int = 3, limit: int = 50) -> Result[list[Habit]]: ...
-    async def get_at_risk(self, user_context: UserContext) -> Result[list[Habit]]: ...
-    async def get_user_due_today(self, user_uid: UserUID) -> Result[list[Habit]]: ...
-
-```
-
-### EventsSearchService
-```python
-class EventsSearchService(BaseService[EventsOperations, Event]):
-    _dto_class = EventDTO
-    _model_class = Event
-    _search_order_by = "event_date"  # Events ordered by event date
-    # Registry declares prerequisites: REQUIRES_KNOWLEDGE
-
-    # Inherited from BaseService: search(), get_by_status(),
-    # get_by_category(), list_categories(), get_by_relationship(),
-    # get_prerequisites(), get_enables()
-
-    # Event-specific methods
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Event]]: ...
-    async def get_in_range(self, start: date, end: date) -> Result[list[Event]]: ...
-    async def get_recurring(self) -> Result[list[Event]]: ...
-    async def get_conflicting(self, event_uid: str) -> Result[list[Event]]: ...
-
-```
-
-### ChoicesSearchService
-```python
-class ChoicesSearchService(BaseService[ChoicesOperations, Choice]):
-    _dto_class = ChoiceDTO
-    _model_class = Choice
-    # Registry declares prerequisites: REQUIRES_KNOWLEDGE_FOR_DECISION
-
-    # Inherited from BaseService: search(), get_by_status(),
-    # get_by_category(), list_categories(), get_by_relationship(),
-    # get_prerequisites(), get_enables()
-
-    # Choice-specific methods
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Choice]]: ...
-    async def get_pending(self, user_uid: UserUID) -> Result[list[Choice]]: ...
-    async def get_needing_decision(self, deadline_days: int = 7) -> Result[list[Choice]]: ...
-
-```
-
-### TasksSearchService
-```python
-class TasksSearchService(BaseService[TasksOperations, Task]):
-    _dto_class = TaskDTO
-    _model_class = Task
-    # Registry declares prerequisites: BLOCKED_BY, REQUIRES_TASK
-
-    # Inherited from BaseService: search(), get_by_status(),
-    # get_by_category(), list_categories(), get_by_relationship(),
-    # get_prerequisites(), get_enables()
-
-    # Task-specific methods
-    async def get_tasks_for_goal(self, goal_uid: str, user_uid: UserUID) -> Result[list[Task]]: ...
-    async def get_tasks_for_habit(self, habit_uid: str, user_uid: UserUID) -> Result[list[Task]]: ...
-    async def get_tasks_for_path_step(self, step_uid: str, user_uid: UserUID) -> Result[list[Task]]: ...
-    async def get_learning_relevant_tasks(self, learning_position: LpPosition) -> Result[list[Task]]: ...
-
-```
-
-### PrinciplesSearchService (Custom Overrides)
-```python
-class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
-    _dto_class = PrincipleDTO
-    _model_class = Principle
-    _search_fields = ["title", "statement", "description"]
-    # Registry declares prerequisites: GROUNDED_IN_KNOWLEDGE
-
-    # OVERRIDES inherited methods (Principles use different data model)
-    async def get_by_status(self, status: str, ...) -> ...:  # Converts to is_active boolean
-    async def get_by_category(self, category: PrincipleCategory | str, ...) -> ...:  # Typed for PrincipleCategory
-    async def list_categories(self) -> ...:  # Returns PrincipleCategory enum values
-
-    # Principle-specific methods
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Principle]]: ...
-    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list[Principle]]: ...
-
-    # Harmonized time-query surface — overridden because Principles use is_active + 90-day review threshold
-    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Principle]]: ...
-    async def get_upcoming(self, days_ahead: int = 30, ...) -> Result[list[Principle]]: ...  # Approaching review threshold
-    async def get_overdue(self, ...) -> Result[list[Principle]]: ...  # Delegates to get_needing_review(days_threshold=90)
-
-```
+Each search service extends the protocol with methods of its own and overrides some it
+inherits (Principles override `get_by_status`, `get_by_category` and the time queries;
+Habits override the time queries — see [When to Override](#when-to-override)). Which
+methods each service has, with real signatures and which are staged:
+[Search Service Methods](../reference/SEARCH_SERVICE_METHODS.md), generated from the classes.
 
 ## Service Composition
 
@@ -534,7 +420,7 @@ class PsService:
 
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
-| **[SEARCH_SERVICE_METHODS.md](../reference/SEARCH_SERVICE_METHODS.md)** | **Method catalog** | Complete method reference for all 10 search services |
+| **[SEARCH_SERVICE_METHODS.md](../reference/SEARCH_SERVICE_METHODS.md)** | **Method catalog** | Every method of the 9 domain search services (generated) |
 | **[SEARCH_MODELS.md](../reference/models/SEARCH_MODELS.md)** | **Model reference** | Complete SearchRequest/SearchResponse documentation |
 | [SEARCH_ARCHITECTURE.md](../architecture/SEARCH_ARCHITECTURE.md) | Search architecture | SearchRouter + domain services overview |
 

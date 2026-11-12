@@ -181,6 +181,9 @@ RENAMED: dict[str, str] = {
 # ── Deleted identifiers ──────────────────────────────────────────────────────
 # "deleted_identifier": "explanation / what replaced it"
 DELETED: dict[str, str] = {
+    # The per-domain lateral wrappers went with the lateral unification; one service reads
+    # a task's blockers.
+    "get_blocking_tasks": "deleted — LateralRelationshipService.get_blocking_chain reads a task's blockers",
     # A per-domain <Domain>Relationships dataclass reads an entity's links, its fields named.
     "DomainRelationships": "deleted — use <Domain>Relationships.fetch() (TaskRelationships and siblings)",
     "ExtendedRelationshipConfig": "deleted — DomainRelationshipConfig (core/models/relationship_registry.py) is the config",
@@ -614,6 +617,7 @@ _adr051 = (
 _m_domcfg = "migration record -- Before/After config blocks with KuStatus.COMPLETED.value pre-EntityStatus rename"
 _m_health = "migration record -- enum inventory/table naming KuStatus pre-EntityStatus rename"
 _m_lifepath = "migration record -- module inventory naming sel_routes.py (since deleted)"
+_m_lateral = "superseded migration record -- code samples left as-written over the deleted tasks_lateral wrapper"
 _m_profile = "migration record -- narrates migrating off the legacy ProfileLayout"
 _m_routecfg = (
     "migration record -- as-built 'Key Patterns' naming create_drawer_layout (since deleted)"
@@ -862,6 +866,11 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (767, "create_drawer_layout"): Allow(_m_routecfg),
         (885, "create_drawer_layout"): Allow(_m_routecfg),
         (907, "create_drawer_layout"): Allow(_m_routecfg),
+    },
+    "docs/migrations/LATERAL_RELATIONSHIPS_COMPLETE_2026-01-31.md": {
+        (650, "get_blocking_tasks"): Allow(_m_lateral),
+        (692, "get_blocking_tasks"): Allow(_m_lateral),
+        (693, "get_blocking_tasks"): Allow(_m_lateral),
     },
     "docs/migrations/LIFEPATH_DOCUMENTATION_UPDATES_2026-02-03.md": {
         (99, "sel_routes"): Allow(_m_lifepath),

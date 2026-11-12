@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-11-08
+updated: 2026-11-12
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -463,25 +463,7 @@ compose their Cypher spelling (`adapters/persistence/neo4j/query/cypher/choice_f
 
 **Service:** `ChoicesSearchService` (`/core/services/choices/choices_search_service.py`)
 
-### Inherited from BaseService
-
-| Method | Description |
-|--------|-------------|
-| `search(query, user_uid)` | Text search across title, description |
-| `get_by_status(status, user_uid)` | Filter by `EntityStatus` |
-| `get_by_category(category, user_uid)` | Filter by category field |
-| `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
-| `graph_aware_faceted_search(request)` | Unified search with graph context |
-
-### Domain-Specific Methods
-
-| Method | Description |
-|--------|-------------|
-| `get_pending(user_uid)` | Pending choices (`Choice.is_pending()`) |
-| `get_needing_decision(user_uid, deadline_days=7)` | Pending choices whose deadline falls within the window |
-| `get_prioritized(user_uid, limit=10)` | Smart prioritization |
-
-**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
+Its methods with their real signatures, its search fields, and which of its methods are staged: [Search Service Methods § ChoicesSearchService](../reference/SEARCH_SERVICE_METHODS.md#choicessearchservice). That catalog is generated from the class, so it lists only what the class has.
 
 ## Intelligence Service
 

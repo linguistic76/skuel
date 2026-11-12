@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-10-11
+updated: 2026-11-12
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -187,29 +187,7 @@ On CREATE, `reinforces_habit_uid` is the edge's INPUT: it rides on the `Event`, 
 
 **Service:** `EventsSearchService` (`/core/services/events/events_search_service.py`)
 
-### Inherited from BaseService
-
-| Method | Description |
-|--------|-------------|
-| `search(query, user_uid)` | Text search across title, description, location |
-| `get_by_status(status, user_uid)` | Filter by EntityStatus |
-| `get_by_category(category, user_uid)` | Filter by event_type (category_field) |
-| `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
-| `graph_aware_faceted_search(request)` | Unified search with graph context |
-
-### Domain-Specific Methods
-
-| Method | Description |
-|--------|-------------|
-| `get_upcoming(days_ahead=7, user_uid, limit)` | Events in next N days (TimeQueryMixin) |
-| `get_in_range(start, end, user_uid)` | Events in date range |
-| `get_recurring(user_uid)` | Recurring events only |
-| `get_for_habit(habit_uid, user_uid)` | Events reinforcing a habit |
-| `get_calendar_events(user_uid, start, end)` | Calendar window query |
-| `get_conflicting(event_uid)` | Time-overlap conflicts (PLANNED surface) |
-| `get_prioritized(user_context, limit=10)` | Smart prioritization |
-
-**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
+Its methods with their real signatures, its search fields, and which of its methods are staged: [Search Service Methods § EventsSearchService](../reference/SEARCH_SERVICE_METHODS.md#eventssearchservice). That catalog is generated from the class, so it lists only what the class has.
 
 ## Intelligence Service
 

@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-11-08
+updated: 2026-11-12
 status: current
 category: domains
 tags:
@@ -249,31 +249,7 @@ task, context = await tasks_rel.get_entity_with_context("task.123", depth=2)
 
 **Service:** `TasksSearchService` (`/core/services/tasks/tasks_search_service.py`)
 
-### Inherited from BaseService
-
-| Method | Description |
-|--------|-------------|
-| `search(query, user_uid)` | Text search across title, description |
-| `get_by_status(status, user_uid)` | Filter by EntityStatus |
-| `get_by_category(category, user_uid)` | Filter by category field |
-| `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
-| `graph_aware_faceted_search(request)` | Unified search with graph context |
-
-### Domain-Specific Methods
-
-| Method | Description |
-|--------|-------------|
-| `get_blocking_tasks(uid, user_uid)` | Tasks blocking this task |
-| `get_blocked_tasks(uid, user_uid)` | Tasks blocked by this task |
-| `get_by_priority(priority, user_uid)` | Filter by priority level |
-| `get_upcoming(days_ahead=7, user_uid, limit=100)` | Tasks due within N days (inherited from `TimeQueryMixin`) |
-| `get_overdue(user_uid, limit=100)` | Tasks past due date (inherited) |
-| `get_active(user_uid, limit=100)` | Non-terminal tasks for a user (inherited) |
-| `get_pending(user_uid)` | Tasks with pending status |
-| `get_tasks_for_goal(goal_uid, user_uid)` | Tasks contributing to a goal (`CONTRIBUTES_TO_GOAL`) |
-| `get_prioritized(user_uid, limit=10)` | Smart prioritization |
-
-**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
+Its methods with their real signatures, its search fields, and which of its methods are staged: [Search Service Methods § TasksSearchService](../reference/SEARCH_SERVICE_METHODS.md#taskssearchservice). That catalog is generated from the class, so it lists only what the class has.
 
 ## Intelligence Service
 
@@ -444,14 +420,16 @@ result = await tasks_service.link_task_to_goal(
 )  # writes (task)-[:CONTRIBUTES_TO_GOAL]->(goal); a task may contribute to several goals
 ```
 
-### Get Tasks with Dependencies
+### Get a Task's Blocking Chain
 
 ```python
-# Get tasks blocking this task
-blocking = await tasks_service.search.get_blocking_tasks(task.uid, user_uid)
-
-# Get tasks blocked by this task
-blocked = await tasks_service.search.get_blocked_tasks(task.uid, user_uid)
+# Every task blocking this one, transitively, grouped by depth from the root blockers.
+# GET /api/tasks/{uid}/lateral/chain serves the same read as an HTML fragment.
+chain = await services.lateral_orchestrator.lateral_service.get_blocking_chain(
+    EntityUID(task.uid),
+    user_uid=user_uid,
+    domain_service=tasks_service,  # verifies the caller owns the task
+)
 ```
 
 ## See Also

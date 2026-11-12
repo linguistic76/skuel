@@ -209,35 +209,7 @@ The `CONFLICTS_WITH_PRINCIPLE` relationship helps identify when principles may b
 
 **Service:** `PrinciplesSearchService` (`/core/services/principles/principles_search_service.py`)
 
-### Inherited from BaseService
-
-| Method | Description |
-|--------|-------------|
-| `search(query, user_uid)` | Text search across title, description, rationale |
-| `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
-| `graph_aware_faceted_search(request)` | Unified search with graph context |
-
-### Overridden Methods
-
-| Method | Override Reason |
-|--------|-----------------|
-| `get_by_status(status, user_uid)` | Principles use `is_active: bool` instead of `status: str` |
-| `list_categories(user_uid)` | Custom category enumeration |
-
-### Domain-Specific Methods
-
-| Method | Description |
-|--------|-------------|
-| `get_by_category(category, user_uid)` | Filter by category |
-| `get_for_goal(goal_uid, user_uid)` | Principles that support the goal (`SUPPORTS_GOAL` from a principle) |
-| `get_active(user_uid)` | Override of `TimeQueryMixin.get_active` — filters on the `is_active` flag and sorts by strength |
-| `get_upcoming(days_ahead, user_uid)` | Override — principles approaching the 90-day review threshold |
-| `get_overdue(user_uid)` | Override — thin delegation to `get_needing_review(days_threshold=90)` |
-| `get_needing_review(user_uid, days=90)` | Principles not reviewed recently |
-| `get_related_principles(principle_uid, user_uid)` | Related principles |
-| `get_prioritized(user_uid, limit=10)` | Smart prioritization |
-
-**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
+Its methods with their real signatures, its search fields, and which of its methods are staged: [Search Service Methods § PrinciplesSearchService](../reference/SEARCH_SERVICE_METHODS.md#principlessearchservice). That catalog is generated from the class, so it lists only what the class has.
 
 ## Intelligence Service (mixins April 2026)
 

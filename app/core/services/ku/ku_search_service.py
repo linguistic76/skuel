@@ -25,10 +25,10 @@ class KuSearchService(BaseService[KuOperations, Ku]):
     """Search for atomic Knowledge Units.
 
     Inherits from BaseService:
-    - search(query, user_uid) — full-text search
-    - get_by_category(category, user_uid) — filter by NOUS topic membership
-    - get_by_status(status, user_uid) — filter by status
-    - list_categories(user_uid) — list unique NOUS topics
+    - search(query, limit, user_uid) — full-text search
+    - get_by_category(category, user_uid, limit) — filter by NOUS topic membership
+    - get_by_status(status, limit, user_uid) — filter by status
+    - list_all_categories() — distinct NOUS topics
     """
 
     _config = create_curriculum_domain_config(

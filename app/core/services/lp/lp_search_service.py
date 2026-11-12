@@ -49,11 +49,9 @@ class LpSearchService(BaseService["LpOperations", LearningPath]):
     - get_by_status(status, limit) - Filter by status
     - graph_aware_faceted_search(request) - Rich graph context search
     - get_with_content(uid) - Entity with full content
-    - get_with_context(uid, depth) - Entity with graph neighborhood
     - get_prerequisites(uid, depth) - Prerequisite chain
     - get_enables(uid, depth) - What this enables
     - get_hierarchy(uid) - Position in KU → PS → LP hierarchy
-    - get_user_progress(user_uid, entity_uid) - User mastery data
 
     LP-Specific Methods:
     - get_aligned_with_goal(goal_uid) - Paths aligned with goal (staged, PLANNED)
