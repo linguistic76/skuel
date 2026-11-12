@@ -73,12 +73,18 @@ if TYPE_CHECKING:
 ARTIFACT_PATH = PROJECT_ROOT / "docs" / "reference" / "SEARCH_SERVICE_METHODS.md"
 
 
+# The nine search services parameterise BaseService with nine different backend
+# protocols and models; the catalog reads only what every one of them shares
+# (``_config``, ``_graph_enrichment_patterns``, the MRO), so neither parameter narrows.
+SearchServiceClass = type[BaseService[Any, Any]]  # boundary: heterogeneous-class-introspection
+
+
 @dataclass(frozen=True)
 class SearchServiceEntry:
     """One column of the matrix: a matrix label and the live search class."""
 
     label: str
-    cls: type[BaseService[Any, Any]]
+    cls: SearchServiceClass
 
 
 SERVICES: tuple[SearchServiceEntry, ...] = (
@@ -253,7 +259,7 @@ def _matrix() -> list[str]:
     return lines
 
 
-def _config_lines(cls: type[BaseService[Any, Any]]) -> list[str]:
+def _config_lines(cls: SearchServiceClass) -> list[str]:
     config = cls._config
     owner = config.user_ownership_relationship
     ownership = f"`{owner.value}` edge" if owner is not None else "none (shared content)"

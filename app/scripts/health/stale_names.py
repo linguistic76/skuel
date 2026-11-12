@@ -181,8 +181,7 @@ RENAMED: dict[str, str] = {
 # ── Deleted identifiers ──────────────────────────────────────────────────────
 # "deleted_identifier": "explanation / what replaced it"
 DELETED: dict[str, str] = {
-    # The per-domain lateral wrappers went with the lateral unification; one service reads
-    # a task's blockers.
+    # One lateral service reads a task's blockers, for every domain.
     "get_blocking_tasks": "deleted — LateralRelationshipService.get_blocking_chain reads a task's blockers",
     # A per-domain <Domain>Relationships dataclass reads an entity's links, its fields named.
     "DomainRelationships": "deleted — use <Domain>Relationships.fetch() (TaskRelationships and siblings)",
