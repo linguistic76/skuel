@@ -1,6 +1,6 @@
 ---
 title: "ADR-087: Status-Guarded Conditional Writes"
-updated: 2026-11-08
+updated: 2026-11-12
 status: accepted
 category: decisions
 tags: [adr, decisions, concurrency, status, completion-stamp, neo4j, write-path]
@@ -196,7 +196,11 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
     the stamp clear, because both condition on "was it COMPLETED?". Note the stamp patch
     is *absent* when the caller supplies its own `achieved_date` (the authority rule is
     about the stamp field, and says nothing about progress), so the reset constructs that
-    patch when needed rather than merely extending it.
+    patch when needed rather than merely extending it. **Amended 2026-11-12:** the reset
+    applies only where the percentage is the whole measurement; a goal whose figure has
+    another writer (task, habit, milestone, numeric) takes that writer's figure on a
+    reopen instead, via `GoalReopened` (`docs/domains/goals.md` § "A reopened goal keeps
+    the figure its measure gives").
   - **Amended 2026-09-07 — the authority rule needed a floor.** Standing the guard down
     whenever the patch carries the stamp field left a hole: a patch that set a *non-null*
     stamp alongside a non-completed status kept the stamp AND skipped the reopen clear,

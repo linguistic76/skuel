@@ -96,6 +96,39 @@ class GoalAchieved(BaseEvent):
 
 
 @dataclass(frozen=True)
+class GoalReopened(BaseEvent):
+    """
+    Published when a goal moves back OUT of ``completed`` to a working status.
+
+    The mirror of :class:`GoalAchieved`, published on a genuine transition only, from
+    both places a goal can leave ``completed``:
+
+    - the update chokepoint, ``GoalsCoreService.update_goal``, from the prior status
+      ``update_with_status_guard`` returned (ADR-087);
+    - the vault ingest door, ``UnifiedIngestionService._apply_status_transitions``,
+      from the prior status its bulk upsert returned.
+
+    A move to a terminal status (cancelled, archived, failed) is not a reopen. A
+    progress recompute that un-achieves a goal is not one either: it is the figure's
+    own writer, and it publishes ``GoalProgressUpdated``.
+
+    Subscribers:
+
+    - ``GoalsProgressService.handle_goal_reopened`` — a goal whose percentage follows
+      a measure (task-based, habit-based, milestone, numeric) takes the figure that
+      measure gives, so a goal completed by hand at 2 of 5 tasks reopens at 40%, not
+      at the 100% its completion wrote.
+    - ``UserService`` context invalidation — the vault door publishes no
+      ``GoalUpdated``.
+    """
+
+    goal_uid: str
+    user_uid: UserUID
+
+    event_type: ClassVar[str] = "goal.reopened"
+
+
+@dataclass(frozen=True)
 class GoalContributionsChanged(BaseEvent):
     """
     Published when a goal's contribution tally may have changed.

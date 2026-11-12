@@ -42,7 +42,13 @@ from typing import Any
 import pytest
 from neo4j.time import DateTime as Neo4jDateTime
 
-from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted, TaskReopened
+from core.events import (
+    CalendarEventCompleted,
+    GoalAchieved,
+    GoalReopened,
+    TaskCompleted,
+    TaskReopened,
+)
 from core.models.enums.entity_enums import EntityType
 from core.services.completion_stamp import COMPLETION_FIELDS
 from core.services.ingestion.status_transitions import (
@@ -139,6 +145,32 @@ def test_a_reopen_builds_task_reopened_from_the_persisted_owner() -> None:
     assert isinstance(event, TaskReopened)
     assert event.task_uid == "task.reopened"
     assert event.user_uid == OWNER
+
+
+@pytest.mark.parametrize("status", ["active", "paused", "draft"])
+def test_a_goal_reopened_to_a_working_status_builds_goal_reopened(status: str) -> None:
+    """Goal progress gives a reopened goal its measure's figure on ``GoalReopened``,
+    so the vault door must announce it as ``update_goal`` does."""
+    (event,) = build_reopen_events(
+        EntityType.GOAL,
+        ("goal.reopened",),
+        {"goal.reopened": {"user_uid": OWNER, "status": status}},
+    )
+
+    assert isinstance(event, GoalReopened)
+    assert event.goal_uid == "goal.reopened"
+    assert event.user_uid == OWNER
+
+
+@pytest.mark.parametrize("status", ["archived", "cancelled", "failed", None, "not-a-status"])
+def test_a_goal_left_completed_for_no_working_status_is_not_announced(
+    status: str | None,
+) -> None:
+    """A terminal status keeps the goal's figure as its record, as at ``update_goal``;
+    a status the node does not name says nowhere for the goal to have gone."""
+    persisted = {"goal.left": {"user_uid": OWNER, "status": status}}
+
+    assert build_reopen_events(EntityType.GOAL, ("goal.left",), persisted) == ()
 
 
 def test_a_stamp_clear_without_a_completed_prior_is_no_reopen() -> None:

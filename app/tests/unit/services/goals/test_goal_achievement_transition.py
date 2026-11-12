@@ -164,10 +164,9 @@ class TestCompleteMilestone:
     async def test_a_reopened_goal_can_be_achieved_again(self):
         """The case that rules out a milestone-flag proxy for "already achieved".
 
-        Reopening clears ``achieved_date`` and resets ``progress_percentage``
-        (``GoalsCoreService.update_goal``) but leaves the milestone flags set —
-        so "every milestone done" stays true forever after the first
-        achievement. Gating on it would make a reopened goal unachievable.
+        Reopening clears ``achieved_date`` (``GoalsCoreService.update_goal``) but
+        leaves the milestone flags set — so "every milestone done" can hold on an
+        open goal. Gating on it would make such a goal unachievable.
         """
         goal = _milestone_goal(
             completed=(True, True), achieved_date=None, status=EntityStatus.ACTIVE

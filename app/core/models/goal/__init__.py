@@ -10,8 +10,8 @@ from .goal_request import (
     HabitEssentialityChangeRequest,
     HabitSystemUpdateRequest,
     IdentityBasedGoalRequest,
-    MilestoneCompleteRequest,
     MilestoneCreateRequest,
+    MilestoneUidRequest,
     SystemHealthCheckRequest,
 )
 from .goal_update_intent import GoalUpdateIntent
@@ -25,7 +25,7 @@ __all__ = [
     "HabitEssentialityChangeRequest",
     "HabitSystemUpdateRequest",
     "IdentityBasedGoalRequest",
-    "MilestoneCompleteRequest",
+    "MilestoneUidRequest",
     "MilestoneCreateRequest",
     "SystemHealthCheckRequest",
 ]

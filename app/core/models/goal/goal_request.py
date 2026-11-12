@@ -314,9 +314,11 @@ class MilestoneCreateRequest(BaseModel):
     )
 
 
-class MilestoneCompleteRequest(BaseModel):
+class MilestoneUidRequest(BaseModel):
     """
-    The milestone a learner marks reached (``POST /api/goals/{uid}/milestones/complete``).
+    The milestone of a goal a door acts on: marked reached
+    (``POST /api/goals/{uid}/milestones/complete``) or reopened
+    (``POST /api/goals/{uid}/milestones/reopen``).
     """
 
     milestone_uid: str = Field(..., min_length=1, max_length=100)

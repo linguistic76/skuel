@@ -7,6 +7,8 @@ comes from otherwise. A goal its owner set aside shows what it holds and no cont
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from fasthtml.common import to_xml
 
@@ -74,11 +76,14 @@ def test_a_numeric_goal_with_no_target_is_told_to_set_one() -> None:
     assert "Set a target value" in html
 
 
-def test_only_an_open_milestone_carries_the_complete_button() -> None:
+def test_an_open_milestone_carries_complete_and_a_reached_one_reopen() -> None:
     html = _page(MeasurementType.MILESTONE)
 
     assert 'data-goal-milestone-complete="m_open"' in html
     assert 'data-goal-milestone-complete="m_done"' not in html
+    assert 'data-goal-milestone-reopen="m_done"' in html
+    assert 'data-goal-milestone-reopen="m_open"' not in html
+    assert 'hx-post="/api/goals/goal_page/milestones/reopen"' in html
     assert "data-goal-add-milestone" in html
 
 
@@ -100,6 +105,7 @@ def test_a_goal_set_aside_shows_its_milestones_and_no_control(status: EntityStat
         "data-goal-progress",
         "data-goal-add-milestone",
         "data-goal-milestone-complete",
+        "data-goal-milestone-reopen",
     ):
         assert control not in html
     assert " · On Track" not in html
@@ -113,3 +119,17 @@ def test_a_completed_goal_keeps_its_controls() -> None:
 
     assert "data-goal-progress" in html
     assert "data-goal-add-milestone" in html
+
+
+def test_a_reopened_milestone_shows_its_target_not_the_day_it_was_first_reached() -> None:
+    reopened = Milestone(
+        uid="m_back",
+        title="Back open",
+        target_date=date(2026, 12, 1),
+        achieved_date=date(2026, 9, 2),
+    )
+    html = _page(MeasurementType.MILESTONE, milestones=(reopened,))
+
+    assert "By 2026-12-01" in html
+    assert "Achieved 2026-09-02" not in html
+    assert 'data-goal-milestone-complete="m_back"' in html

@@ -199,7 +199,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### GoalsService
 
-**Facade-specific public methods:** 59
+**Facade-specific public methods:** 60
 
 | Method | Async |
 |--------|-------|
@@ -251,6 +251,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `optimize_goal_sequencing()` | ✅ |
 | `pause_goal()` | ✅ |
 | `remove_subgoal_relationship()` | ✅ |
+| `reopen_milestone()` | ✅ |
 | `set_status()` | ✅ |
 | `suggest_goal_timeline()` | ✅ |
 | `suggest_learning_aligned_goals()` | ✅ |

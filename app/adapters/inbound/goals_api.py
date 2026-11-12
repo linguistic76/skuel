@@ -31,6 +31,7 @@ is answered over HTMX with its detail view re-rendered):
     POST /api/goals/{uid}/progress             — Record the figure the learner enters
     POST /api/goals/{uid}/milestones           — Add a milestone
     POST /api/goals/{uid}/milestones/complete  — Mark one of its milestones reached
+    POST /api/goals/{uid}/milestones/reopen    — Mark a reached milestone not reached
 
 Knowledge intelligence:
     GET  /api/goals/knowledge-patterns — Detected learning patterns across user goals
@@ -75,8 +76,8 @@ from core.models.goal.goal import Goal
 from core.models.goal.goal_request import (
     GoalCreateRequest,
     GoalProgressUpdateRequest,
-    MilestoneCompleteRequest,
     MilestoneCreateRequest,
+    MilestoneUidRequest,
 )
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.utils.result_simplified import Result
@@ -324,7 +325,7 @@ def create_goals_api_routes(
     @csrf_protected
     @boundary_handler()
     async def complete_goal_milestone(request: Request, uid: str) -> Result[Goal] | FtResponse:
-        """Mark one of the caller's goal's milestones reached (``MilestoneCompleteRequest``).
+        """Mark one of the caller's goal's milestones reached (``MilestoneUidRequest``).
 
         Not owned or missing, or a milestone the goal does not hold → 404. A repeat
         changes nothing. On a milestone-measured goal the last one achieves the goal.
@@ -333,11 +334,32 @@ def create_goals_api_routes(
         ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
         if ownership_error:
             return ownership_error
-        parsed = await parse_body(request, MilestoneCompleteRequest)
+        parsed = await parse_body(request, MilestoneUidRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         return await answer(
             request, await goals_service.complete_milestone(uid, parsed.value.milestone_uid)
+        )
+
+    @rt("/api/goals/{uid}/milestones/reopen", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def reopen_goal_milestone(request: Request, uid: str) -> Result[Goal] | FtResponse:
+        """Mark one of the caller's goal's milestones not reached (``MilestoneUidRequest``).
+
+        Not owned or missing, or a milestone the goal does not hold → 404. An open
+        milestone changes nothing. On a milestone-measured goal the figure falls, and a
+        fall from 100 un-achieves the goal.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, MilestoneUidRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        return await answer(
+            request, await goals_service.reopen_milestone(uid, parsed.value.milestone_uid)
         )
 
     # ================================================================

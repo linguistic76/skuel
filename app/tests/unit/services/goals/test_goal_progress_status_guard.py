@@ -199,8 +199,8 @@ class TestCompleteMilestone:
         assert _merged(recorder)["progress_percentage"] == 100.0
 
     async def test_a_reopened_goal_is_achieved_again(self) -> None:
-        """A reopen resets the figure and leaves the milestone flags, so completing the
-        last one achieves the goal a second time."""
+        """A reopen leaves the milestone flags, so completing the last open one
+        achieves the goal a second time."""
         locked = _goal(
             status=EntityStatus.ACTIVE,
             measurement_type=MeasurementType.MILESTONE,

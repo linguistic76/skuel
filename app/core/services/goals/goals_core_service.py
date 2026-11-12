@@ -34,10 +34,12 @@ from core.events.goal_events import (
     GoalAbandoned,
     GoalAchieved,
     GoalCreated,
+    GoalReopened,
     GoalUpdated,
 )
 from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.goal_enums import MeasurementType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
@@ -49,6 +51,7 @@ from core.services.base_service import BaseService
 from core.services.completion_stamp import (
     completion_moment,
     is_completion_transition,
+    is_reopen_transition,
     status_transition_guard,
     stranded_stamp_error,
 )
@@ -83,13 +86,21 @@ _COMPLETED_ONLY: Final = frozenset({EntityStatus.COMPLETED.value})
 def _reopens(changes: Mapping[str, Any]) -> bool:  # boundary: the materialized update patch
     """Whether the patch names a non-terminal status and no figure of its own —
     the shape whose write resets a completed goal's progress (the reopen).
+    """
+    return "progress_percentage" not in changes and _targets_working_status(changes)
+
+
+def _targets_working_status(
+    changes: Mapping[str, Any],  # boundary: the materialized update patch
+) -> bool:
+    """Whether the patch names a non-terminal status: on a completed goal, a reopen.
 
     Runs BEFORE the guard's legality check (it decides whether to pre-read), so
     a target that is not a canonical status — ``None`` from an explicit
     ``{"status": null}``, a misspelling — is simply not a reopen here; the
     guard refuses it as the validation failure it is.
     """
-    if "status" not in changes or "progress_percentage" in changes:
+    if "status" not in changes:
         return False
     raw_target = changes["status"]
     if isinstance(raw_target, EntityStatus):
@@ -98,6 +109,23 @@ def _reopens(changes: Mapping[str, Any]) -> bool:  # boundary: the materialized 
         return not EntityStatus(str(raw_target)).is_terminal()
     except ValueError:
         return False
+
+
+def _measurement_after(
+    # boundary: the materialized update patch (see ``_with_reopen_progress_reset``).
+    changes: Mapping[str, Any],
+    current: Goal | None,
+) -> MeasurementType:
+    """The goal's measurement type once this patch lands: the patch's own when it names
+    one (an explicit null clears it), else the stored one, else the percentage a goal
+    with none is measured by."""
+    if "measurement_type" in changes:
+        raw = changes["measurement_type"]
+    else:
+        raw = current.measurement_type if current is not None else None
+    if raw is None:
+        return MeasurementType.PERCENTAGE
+    return raw if isinstance(raw, MeasurementType) else MeasurementType(str(raw))
 
 
 def _with_reopen_progress_reset(
@@ -116,8 +144,15 @@ def _with_reopen_progress_reset(
     Reopening (COMPLETED -> a non-terminal status) also resets the 100% progress
     ``complete_goal`` wrote, unless the caller supplies its own figure. Terminal targets
     (archive / cancel / fail) keep it as a historical record; on a *reopened* goal it
-    would read as "already done" to progress consumers and instantly re-achieve on the
-    next contribution increment.
+    would read as "already done" to progress consumers.
+
+    Only where the percentage is the whole measurement
+    (``MeasurementType.percentage_is_the_measure``). On the other types the figure has
+    its own writer, and a reset to 0 would stand beside a measure that says otherwise
+    (0% beside three ticked milestones, or beside 10 of 10 units): the reopen leaves the
+    figure to that writer, which ``GoalReopened``'s subscriber runs
+    (``GoalsProgressService.handle_goal_reopened``). The measurement type is read from
+    the pre-read goal, not under the lock: only the owner's own edit changes it.
 
     "The prior was COMPLETED" is a fact only the write knows, so the reset rides the
     guard's prior-conditional patch rather than the base patch — the same condition the
@@ -140,6 +175,8 @@ def _with_reopen_progress_reset(
         The guard, with the reset merged into its prior-in patch when it applies.
     """
     if not _reopens(changes):
+        return guard
+    if not _measurement_after(changes, current).percentage_is_the_measure():
         return guard
 
     statuses, patch = guard.patch_if_prior_in or (_COMPLETED_ONLY, {})
@@ -766,7 +803,8 @@ class GoalsCoreService(
         here — the domain's one update chokepoint
         (``core.services.completion_stamp``). Reopening (COMPLETED → a non-terminal
         status) additionally resets ``progress_percentage`` to 0.0 unless the update
-        carries its own figure.
+        carries its own figure, on a goal whose percentage is the whole measurement; on
+        the others the figure's own writer recomputes it (``GoalReopened``).
 
         Both the stamp and that reset are conditions the WRITE evaluates against the
         status the node holds under its lock, not against a status read beforehand
@@ -785,6 +823,7 @@ class GoalsCoreService(
             - GoalUpdated: always, so user-context caches invalidate even for plain
               property edits (title / description / target_date) with no more specific event
             - GoalAchieved: if status transitions into COMPLETED
+            - GoalReopened: if status transitions out of COMPLETED to a working status
 
         (Manual / system progress changes fire ``GoalProgressUpdated`` from
         ``GoalsProgressService``, which owns the progress-propagation provenance.)
@@ -885,11 +924,30 @@ class GoalsCoreService(
                 self.logger,
             )
 
+        # GoalReopened: out of COMPLETED to a working status, decided from the same prior.
+        # A move to a terminal status keeps its figure as the record, as the reset does.
+        reopened = is_reopen_transition(outcome.prior_status, changes) and (
+            _targets_working_status(changes)
+        )
+        if reopened:
+            await publish_event(
+                self.event_bus,
+                GoalReopened(goal_uid=goal.uid, user_uid=goal.user_uid),
+                self.logger,
+            )
+
         # Post-persist embedding refresh (ADR-074) — only when a text field changed
         await publish_embedding_requested(
             self.event_bus, EntityType.GOAL, goal, self.logger, changed_fields=updated_fields
         )
 
+        if reopened:
+            # The bus awaits its subscribers, so the reopen's figure rewrite
+            # (``GoalsProgressService.handle_goal_reopened``) has landed: answer the goal
+            # as stored, not as this write left it. A failed read answers the write's.
+            stored = await self.backend.get(uid)
+            if stored.is_ok and stored.value is not None:
+                return Result.ok(stored.value)
         return Result.ok(goal)
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:

@@ -125,7 +125,7 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 | `target_date` | `date?` | Target completion date |
 | `progress_percentage` | `float` | Progress percentage (0-100) — the goal's one progress field |
 | `last_progress_update` | `datetime?` | Stamp of the last progress EVENT (a figure that moved); overwritten by every later one |
-| `progress_history` | `tuple[ProgressHistoryEntry, ...]` | Every progress event, `{date, progress_percentage}`, appended by each writer that moves the figure (manual door, milestone door, task/habit propagation, an intent carrying a figure, the reopen reset); the activity report's `goals_progressed` counts from these, never from the stamp |
+| `progress_history` | `tuple[ProgressHistoryEntry, ...]` | Every progress event, `{date, progress_percentage}`, appended by each writer that moves the figure (manual door, milestone door, task/habit propagation, an intent carrying a figure, the reopen reset of a goal whose percentage is the measure, the reopen recompute of one whose is not); the activity report's `goals_progressed` counts from these, never from the stamp |
 | `measurement_type` | `MeasurementType` | Binary, Percentage, Numeric, Milestone, etc. |
 | `domain` | `Domain` | TECH, HEALTH, PERSONAL, etc. |
 
@@ -303,6 +303,7 @@ The Goals domain publishes domain events for cross-service communication:
 |-------|---------|------|
 | `GoalCreated` | Goal created | `goal_uid`, `user_uid`, `title` |
 | `GoalAchieved` | Goal marked complete | `goal_uid`, `user_uid`, `actual_duration_days`, `completed_ahead_of_schedule` |
+| `GoalReopened` | Goal moved out of completed to a working status (`update_goal` or the vault door) | `goal_uid`, `user_uid` |
 | `GoalProgressUpdated` | Progress changed | `goal_uid`, `user_uid`, `old_progress`, `new_progress` |
 | `GoalAbandoned` | Goal abandoned | `goal_uid`, `user_uid`, `reason` |
 
@@ -381,18 +382,35 @@ and a fall from 100 un-achieves it. So adding a milestone to an achieved milesto
 un-achieves it, and so does lowering an entered figure.
 
 Doors: `POST /api/goals/{uid}/progress`, `POST /api/goals/{uid}/milestones`,
-`POST /api/goals/{uid}/milestones/complete` (owner verified; JSON or the goal page's forms). A
-milestone is named by its own uid (`milestone_{16 hex}`), a key inside the goal's list, not a
-node uid.
+`POST /api/goals/{uid}/milestones/complete`, `POST /api/goals/{uid}/milestones/reopen` (owner
+verified; JSON or the goal page's forms). A milestone is named by its own uid
+(`milestone_{16 hex}`), a key inside the goal's list, not a node uid. Reopening a milestone is the
+mirror of completing it: on a milestone-measured goal the figure falls, and a fall from 100
+un-achieves the goal.
+
+**A reopened goal keeps the figure its measure gives** (ruled 2026-11-12). Reopening a goal
+(COMPLETED → a working status, `update_goal` or the vault door) resets the percentage to 0 only
+where the percentage is the whole measurement (`MeasurementType.percentage_is_the_measure`:
+`percentage`, `binary`, `knowledge_based`, `mixed`). On the other four the reset would be a second
+writer standing beside a measure that says otherwise, so the reopen publishes `GoalReopened` and
+`GoalsProgressService.handle_goal_reopened` rewrites the figure from the measure, under the goal's
+lock, through the planner that type's writer uses, **with its status half taken off**: the learner
+has just said the goal is not done, so the recompute neither achieves nor un-achieves it. That
+covers a goal completed by hand (`complete_goal` writes 100 on every type): one completed at 2 of 5
+tasks reopens at 40%. A goal whose measure still says 100 reopens at "100%, active", and the way
+on is to change the measure: add a task or milestone, or reopen a milestone. A numeric goal keeps
+its `current_value`; one with no target has no figure to give and is left alone. A move from
+completed to a terminal status is not a reopen: the goal keeps its figure as the record.
 
 ⚠ A milestone-measured goal's "already achieved" input is the goal's **status**, not "every
-milestone is flagged done": reopening clears `achieved_date` and resets progress but leaves the
-milestone flags set, so a flag-based gate would make a reopened goal unachievable. The status is
-read under the node's write-lock, at the moment it is acted on.
+milestone is flagged done": reopening the goal clears `achieved_date` and leaves the milestone
+flags set, so a flag-based gate would make a reopened goal unachievable. The status is read under
+the node's write-lock, at the moment it is acted on.
 
 **The same rule applies one level down, to each milestone's own `achieved_date`.** It is
 documented as "when actually achieved", so it records the milestone's *first* completion and
-never moves; re-completing an already-completed milestone leaves it alone. `is_completed` needs
+never moves; re-completing an already-completed milestone leaves it alone, and so does reopening
+the milestone and completing it again. `is_completed` needs
 no gate — it is already idempotent. The goal-level gate above does not cover this: re-completing
 a milestone of a still-unachieved goal writes no goal stamp at all, yet would move the
 milestone's. A completed milestone whose date is already null stays null — a repeat is not a
@@ -407,7 +425,7 @@ carries the progress and milestone controls.
 |-------|--------|-------------|
 | `/goals` | GET | Goal list with filtering |
 | `/goals/list-fragment` | GET | HTMX filtered list fragment |
-| `/goals/detail?uid=` | GET | One goal: its figure, the progress form where the learner enters it, its milestones with a Complete button on each open one and the "Add milestone" form. A goal set aside (cancelled, archived, failed) shows no control |
+| `/goals/detail?uid=` | GET | One goal: its figure, the progress form where the learner enters it, its milestones with a Complete button on each open one, a Reopen button on each reached one, and the "Add milestone" form. A goal set aside (cancelled, archived, failed) shows no control |
 
 ## Code Examples
 

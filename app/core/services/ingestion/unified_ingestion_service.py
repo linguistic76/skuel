@@ -800,8 +800,9 @@ class UnifiedIngestionService:
           analytics and context invalidation see the vault's completions exactly as
           they see the app's;
         - a file that takes an entity OUT of ``completed`` publishes the domain's
-          reopen event (``TaskReopened``), so a cached context refreshes after a
-          vault reopen as after an app one;
+          reopen event (``TaskReopened``, ``GoalReopened``), so a cached context
+          refreshes after a vault reopen as after an app one, and a reopened goal
+          takes the figure its measure names;
         - an entity the write leaves NOT completed loses its completion stamp, so
           the invariant "the stamp is non-null exactly when the entity is
           completed" survives both an edit made in Obsidian and a file authored
@@ -858,12 +859,13 @@ class UnifiedIngestionService:
         """Announce entities this ingest moved OUT of completed, as the graph now holds them.
 
         The mirror of :meth:`_publish_completions`, for the domains with a reopen
-        event (``REOPEN_EVENT_SOURCE_FIELDS`` — Task). Its subscriber is context
-        invalidation: the vault door publishes no ``TaskUpdated``, so without this a
-        cached context would keep a task reopened in Obsidian as completed. (Goal
-        progress hears the reopen through ``GoalContributionsChanged``, published by
-        ``_apply_primitive_parity``.) A read failure loses the announcement, logged at
-        ERROR, as a completion's does.
+        event (``REOPEN_EVENT_SOURCE_FIELDS`` — Task, Goal). Both events' subscriber is
+        context invalidation: the vault door publishes no ``TaskUpdated`` or
+        ``GoalUpdated``, so without this a cached context would keep an entity reopened
+        in Obsidian as completed. A reopened goal's progress subscriber gives it the
+        figure its measure names; a reopened task's goals hear it through
+        ``GoalContributionsChanged``, published by ``_apply_primitive_parity``. A read
+        failure loses the announcement, logged at ERROR, as a completion's does.
 
         Backend: IngestionWriteBackend.read_entity_fields.
         """

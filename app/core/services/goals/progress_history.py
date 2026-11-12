@@ -5,8 +5,10 @@
 September report generated in October would read zero for a goal progressed in
 both months. Each writer that moves ``progress_percentage`` — the manual door,
 the milestone door, the habit- and task-completion propagations, an intent
-carrying a figure through the core update, and the reopen reset (a completed
-goal back to non-terminal: 100% → 0%) — appends one entry beside the stamp,
+carrying a figure through the core update, the reopen reset (a completed goal
+whose percentage is the measure, back to non-terminal: 100% → 0%) and the
+reopen recompute (any other type, back to its measure's figure) — appends one
+entry beside the stamp,
 from the goal it pre-read (the append is a read-modify-write of one JSON
 property; two writers racing the same goal last-writer-win on the list, a
 personal record's acceptable odds). The manual door dates its entry at the

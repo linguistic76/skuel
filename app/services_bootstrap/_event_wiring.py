@@ -53,6 +53,7 @@ def _wire_event_subscribers(
         GoalCreated,
         GoalMilestoneReached,
         GoalProgressUpdated,
+        GoalReopened,
         GoalUpdated,
         HabitCompleted,
         HabitCompletionBulk,
@@ -152,6 +153,7 @@ def _wire_event_subscribers(
         GoalCreated,
         GoalUpdated,
         GoalAchieved,
+        GoalReopened,  # the vault door's reopen publishes no GoalUpdated
         GoalAbandoned,
         GoalMilestoneReached,
         GoalProgressUpdated,
@@ -373,6 +375,11 @@ def _wire_event_subscribers(
         GoalContributionsChanged, goals_service.progress.handle_goal_contributions_changed
     )
     logger.info("✅ GoalsProgressService subscribed to GoalContributionsChanged (goal tally)")
+
+    # A goal reopened (app or vault door) → its figure from the measure its type names,
+    # so a goal completed by hand is not left at the 100% its completion wrote.
+    event_bus.subscribe(GoalReopened, goals_service.progress.handle_goal_reopened)
+    logger.info("✅ GoalsProgressService subscribed to GoalReopened (figure from its measure)")
 
     # Habit completion → Goal progress update
     event_bus.subscribe(HabitCompleted, goals_service.progress.handle_habit_completed)
