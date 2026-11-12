@@ -35,6 +35,7 @@ from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_request import ChoiceEvaluationRequest
 from core.models.enums.entity_enums import EntityStatus
 from core.models.templates.choice_template import ChoiceTemplate
+from core.models.type_hints import UserUID
 from core.models.update_contracts import StatusWriteGuard
 from core.services.choices.choice_event_handler_service import (
     ChoiceEventHandlerService,
@@ -338,6 +339,56 @@ class TestSatisfactionAverages:
         breakdown = result.value["principle_breakdown"]["principle_1"]
         assert breakdown["aligned_count"] == 3
         assert breakdown["avg_satisfaction"] == pytest.approx(0.8)
+
+
+def _decision_quality_service(choices: list[Choice]) -> ChoicesIntelligenceService:
+    backend = MagicMock()
+    backend.find_by = AsyncMock(return_value=Result.ok(choices))
+    service = _intelligence(backend, None)
+    service.relationships = MagicMock(get_related_uids=AsyncMock(return_value=Result.ok([])))
+    return service
+
+
+@pytest.mark.asyncio
+class TestDecisionQualitySignal:
+    """The signal behind /self-checkin reads how rated choices turned out through
+    ``outcome_quality``: the lowest rating is 0.0, not a share of the top."""
+
+    @pytest.mark.parametrize(
+        ("ratings", "outcome", "good_rate"),
+        [
+            ([1, 1], 0.0, 0.0),
+            ([5, 5], 1.0, 1.0),
+            ([4, 2], 0.5, 0.5),
+            ([3], 0.5, 0.0),
+        ],
+    )
+    async def test_outcome_quality_is_the_mean_of_outcome_quality(
+        self, ratings: list[int], outcome: float, good_rate: float
+    ) -> None:
+        choices = [
+            _decided(uid=f"c{i}", satisfaction_score=rating) for i, rating in enumerate(ratings)
+        ]
+        service = _decision_quality_service(choices)
+
+        _level, score, evidence = await service._calculate_system_decision_quality_for_dual_track(
+            UserUID(USER)
+        )
+
+        assert f"Average outcome quality: {outcome:.0%}" in evidence
+        # Every choice decided, none linked to a principle: the composite's other terms
+        # are a decision rate of 1.0 and a principle rate of 0.0.
+        assert score == pytest.approx(outcome * 0.35 + 1.0 * 0.25 + 0.0 * 0.25 + good_rate * 0.15)
+
+    async def test_with_no_rating_the_outcome_term_is_zero_and_unreported(self) -> None:
+        service = _decision_quality_service([_decided(uid="c1")])
+
+        _level, score, evidence = await service._calculate_system_decision_quality_for_dual_track(
+            UserUID(USER)
+        )
+
+        assert not any(line.startswith("Average outcome quality") for line in evidence)
+        assert score == pytest.approx(0.25 + 0.5 * 0.15)
 
 
 # ---------------------------------------------------------------------------

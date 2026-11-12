@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-08
+updated: 2026-11-12
 ---
 
 # ChoicesIntelligenceService - Decision Support & Impact Analysis
@@ -521,56 +521,64 @@ async def assess_decision_quality_dual_track(
 ```python
 DualTrackResult[DecisionQualityLevel](
     entity_uid="user_5f2c8e1a9b3d7046",
-    entity_type="decision_quality_assessment",
+    entity_type="user_choices",
 
     # USER-DECLARED (Vision)
     user_level=DecisionQualityLevel.EXCELLENT,
-    user_score=0.90,
+    user_score=1.0,  # DecisionQualityLevel.to_score()
     user_evidence="I carefully consider all options before deciding",
     user_reflection="My decisions usually lead to good outcomes",
 
-    # SYSTEM-CALCULATED (Action)
+    # SYSTEM-CALCULATED (Action): 12 choices, 10 decided, five of them rated
+    # 5, 4, 4, 3, 2, and 6 of the first 10 decided informed by a principle
     system_level=DecisionQualityLevel.GOOD,
-    system_score=0.72,
+    system_score=0.68,
     system_evidence=(
-        "Positive outcome rate: 70%",
-        "Principle alignment: 75%",
-        "Decision rate: 80%",
-        "Confidence calibration: 65%",
+        "12 choices in period",
+        "Decision rate: 83%",
+        "Average outcome quality: 65%",
+        "6 decisions aligned with principles",
+        "Good outcome rate: 60%",
     ),
 
     # GAP ANALYSIS
-    perception_gap=0.18,
+    perception_gap=0.32,
     gap_direction="user_higher",
 
     # INSIGHTS
-    insights=("Self-assessment exceeds measured decision quality by ~18%",),
+    insights=(
+        "Self-assessment exceeds measured decision quality (gap: 32%).",
+        "Consider reviewing past decision outcomes more carefully.",
+        "Overconfidence in decision-making may lead to insufficient analysis.",
+    ),
     recommendations=(
-        "Review decisions with negative outcomes for learning",
-        "Improve confidence calibration",
+        "Track decision outcomes more systematically.",
+        "Align more decisions with your core principles.",
+        "Take more time for complex decisions.",
+        "Review outcomes of past decisions to learn from them.",
     ),
 )
 ```
 
 **DecisionQualityLevel Enum:**
 ```python
-class DecisionQualityLevel(str, Enum):
+class DecisionQualityLevel(StrEnum):
     EXCELLENT = "excellent"                # 0.85+
-    GOOD = "good"                          # 0.70-0.85
-    MODERATE = "moderate"                  # 0.50-0.70
-    POOR = "poor"                          # 0.30-0.50
-    VERY_POOR = "very_poor"                # <0.30
+    GOOD = "good"                          # 0.65-0.85
+    ADEQUATE = "adequate"                  # 0.45-0.65
+    POOR = "poor"                          # 0.20-0.45
+    STRUGGLING = "struggling"              # <0.20
 
     def to_score(self) -> float: ...
     @classmethod
     def from_score(cls, score: float) -> "DecisionQualityLevel": ...
 ```
 
-**System Metrics Used:**
-- Positive outcome rate (choices with positive outcomes / decided choices)
-- Principle alignment (choices aligned with principles / total choices)
-- Decision rate (decided choices / total choices)
-- Confidence calibration (outcome matches confidence level)
+**System Metrics Used** (over the choices created in the window, default 30 days):
+- Outcome quality, 35%: the mean of `outcome_quality()` over the decided choices whose outcome is rated, the lowest rating 0.0 and the highest 1.0 (0.0 with none rated)
+- Decision rate, 25%: decided choices / choices in the window
+- Principle alignment, 25%: of the first 10 decided choices, the share a principle informs (`INFORMS_CHOICE`)
+- Good-outcome rate, 15%: rated choices at or above `SatisfactionScale.GOOD` / rated choices (0.5 with none rated)
 
 **Example:**
 ```python

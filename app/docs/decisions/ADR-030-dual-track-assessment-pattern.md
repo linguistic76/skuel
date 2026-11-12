@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-09
+updated: 2026-11-12
 related_skills: [base-analytics-service, user-context-intelligence]
 ---
 
@@ -45,7 +45,7 @@ This insight was first implemented in LifePath's `WordActionAlignment` and recen
 | **Goals** | `assess_progress_dual_track()` | `ProgressLevel` | Progress %, milestone completion, status factor |
 | **Habits** | `assess_consistency_dual_track()` | `ConsistencyLevel` | Success rate, current streak, best streak |
 | **Events** | `assess_engagement_dual_track()` | `EngagementLevel` | Attendance rate, goal support, habit reinforcement |
-| **Choices** | `assess_decision_quality_dual_track()` | `DecisionQualityLevel` | Outcome quality, principle alignment, confidence calibration |
+| **Choices** | `assess_decision_quality_dual_track()` | `DecisionQualityLevel` | Outcome quality, principle alignment, decision rate, good-outcome rate |
 
 **User-level vs per-entity (and the `require_entity` flag).** Three dimensions assess the
 USER across all their entities, not a single one: **Tasks** (productivity), **Events**

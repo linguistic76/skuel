@@ -126,17 +126,19 @@ class _BehavioralSignalsMixin:
         Calculate system-measured decision quality from choices data.
 
         Metrics considered:
-        - Outcome quality (for decided choices with outcomes)
+        - Outcome quality: the mean of ``outcome_quality`` over the decided choices
+          whose outcome is rated (the lowest rating 0.0, the highest 1.0)
         - Principle alignment (decisions aligned with principles)
         - Decision rate (ability to decide vs staying pending)
-        - Confidence calibration (high confidence → good outcomes)
+        - Good-outcome rate: the share of rated choices rated at or above
+          ``SatisfactionScale.GOOD``
 
         Returns:
             Tuple of (DecisionQualityLevel, score 0.0-1.0, evidence list)
         """
         from datetime import timedelta
 
-        from core.models.choice.choice import Choice
+        from core.models.choice.choice import Choice, outcome_quality
 
         evidence: list[str] = []
 
@@ -171,14 +173,12 @@ class _BehavioralSignalsMixin:
         decision_rate = len(decided) / total_choices if total_choices > 0 else 0.0
         evidence.append(f"Decision rate: {decision_rate:.0%}")
 
-        # Outcome quality: the mean rating of the decided choices whose outcome is rated,
-        # as a share of the scale's top.
+        # Outcome quality: how the decided choices whose outcome is rated turned out,
+        # the lowest rating 0.0 and the highest 1.0.
         ratings = [c.satisfaction_score for c in decided if c.satisfaction_score is not None]
         avg_outcome_quality = 0.0
         if ratings:
-            avg_outcome_quality = sum(
-                rating / SatisfactionScale.HIGHEST for rating in ratings
-            ) / len(ratings)
+            avg_outcome_quality = sum(outcome_quality(rating) for rating in ratings) / len(ratings)
             evidence.append(f"Average outcome quality: {avg_outcome_quality:.0%}")
 
         # Calculate principle alignment via relationships. No None guard: the service
@@ -198,21 +198,22 @@ class _BehavioralSignalsMixin:
         if principle_aligned_count > 0:
             evidence.append(f"{principle_aligned_count} decisions aligned with principles")
 
-        # Calculate quality calibration (decisions with good outcomes)
-        calibration_score = 0.5  # Default neutral
-        # A rating at or above the scale's GOOD is a good outcome.
+        # Good-outcome rate: a rating at or above the scale's GOOD is a good outcome.
+        # With none rated it is neutral.
+        good_outcome_rate = 0.5
         if ratings:
             good_outcomes = [rating for rating in ratings if rating >= SatisfactionScale.GOOD]
-            calibration_score = len(good_outcomes) / len(ratings)
-            evidence.append(f"Good outcome rate: {calibration_score:.0%}")
+            good_outcome_rate = len(good_outcomes) / len(ratings)
+            evidence.append(f"Good outcome rate: {good_outcome_rate:.0%}")
 
         # Weighted composite score
-        # Outcome quality: 35%, Decision rate: 25%, Principle alignment: 25%, Calibration: 15%
+        # Outcome quality: 35%, Decision rate: 25%, Principle alignment: 25%,
+        # Good-outcome rate: 15%
         composite_score = (
             avg_outcome_quality * 0.35
             + decision_rate * 0.25
             + principle_rate * 0.25
-            + calibration_score * 0.15
+            + good_outcome_rate * 0.15
         )
 
         # Map to DecisionQualityLevel
