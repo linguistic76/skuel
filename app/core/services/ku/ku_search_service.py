@@ -40,7 +40,6 @@ class KuSearchService(BaseService[KuOperations, Ku]):
         # stays content-bearing for embeddings, not keyword search — don't re-add.
         search_fields=("title", "description"),
         category_field="nous",  # NOUS topic membership (array — `has` semantics)
-        supports_user_progress=False,
         entity_label="Ku",
     )
 

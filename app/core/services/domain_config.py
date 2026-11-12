@@ -74,10 +74,9 @@ class DomainConfig:
     """
     Configuration for BaseService behavior.
 
-    Consolidates 18 class attributes into a single, immutable configuration.
+    A service's class-level configuration in one immutable value.
 
     Internal Consistency (enforced via __post_init__):
-        - If supports_user_progress=False, mastery_threshold is ignored (warning)
         - prerequisite_relationships should be a tuple
         - search_fields should not be empty
 
@@ -105,7 +104,6 @@ class DomainConfig:
         read_visibility: Audience of the by-UID read ``get_visible_to_user``
             (default: the search declaration; UserEntry declares OWNER_OR_AUDIENCE)
         prerequisite_relationships: RelationshipName enums for prerequisite traversal
-        supports_user_progress: Whether domain supports mastery tracking
 
     Example:
         ```python
@@ -127,7 +125,6 @@ class DomainConfig:
             prerequisite_relationships=tuple(
                 generate_prerequisite_relationships("Task")
             ),
-            supports_user_progress=True,
         )
         ```
     """
@@ -194,8 +191,6 @@ class DomainConfig:
     # Prerequisites & Curriculum
     prerequisite_relationships: tuple[RelationshipName, ...] = ()
     content_field: str = "content"
-    mastery_threshold: float = 0.7
-    supports_user_progress: bool = False
 
     def __post_init__(self) -> None:
         """
@@ -230,18 +225,6 @@ class DomainConfig:
                 "read_visibility, never a search_visibility (ADR-088 §5)."
             )
 
-        # Validate: mastery_threshold is meaningless without progress tracking
-        if not self.supports_user_progress and self.mastery_threshold != 0.7:
-            # Use object.__setattr__ because dataclass is frozen
-            import warnings
-
-            warnings.warn(
-                f"DomainConfig for {self.get_entity_label()}: mastery_threshold={self.mastery_threshold} "
-                f"is set but supports_user_progress=False. The threshold will be ignored.",
-                UserWarning,
-                stacklevel=2,
-            )
-
         # Validate: relationship fields should be tuples (enforce immutability)
         if self.prerequisite_relationships and not isinstance(
             self.prerequisite_relationships, tuple
@@ -256,10 +239,6 @@ class DomainConfig:
                 f"DomainConfig for {self.get_entity_label()}: graph_enrichment_patterns must be a tuple, "
                 f"got {type(self.graph_enrichment_patterns).__name__}"
             )
-
-        # NOTE: We do NOT validate user_ownership_relationship=None + supports_user_progress=True
-        # This is VALID for curriculum domains (KU, PS, LP) where progress is tracked via
-        # relationships: (User)-[HAS_MASTERY {score}]->(KU), not entity properties.
 
     def get_search_visibility(self) -> SearchVisibility:
         """
@@ -407,7 +386,6 @@ def create_activity_domain_config(
         graph_enrichment_patterns=tuple(generate_graph_enrichment(config_lookup_label)),
         prerequisite_relationships=tuple(generate_prerequisite_relationships(config_lookup_label)),
         user_ownership_relationship=RelationshipName.OWNS,
-        supports_user_progress=True,
         temporal_secondary_sort=temporal_secondary_sort,
     )
 
@@ -420,7 +398,6 @@ def create_curriculum_domain_config(
     search_order_by: str = "updated_at",
     category_field: str = "domain",
     content_field: str = "content",
-    supports_user_progress: bool = True,
     user_ownership_relationship: RelationshipName | None = None,
     prerequisite_relationships: tuple[RelationshipName, ...] | None = None,
     entity_label: str | None = None,
@@ -441,7 +418,6 @@ def create_curriculum_domain_config(
         search_order_by: Default sort field (default: "updated_at" for curriculum)
         category_field: Field for category filtering (default: "domain")
         content_field: Field containing main content (default: "content")
-        supports_user_progress: Whether domain supports mastery tracking (default: True)
         user_ownership_relationship: Ownership relationship type (default: None for shared)
         prerequisite_relationships: Override relationship types for prerequisites (default: from registry)
         entity_label: Neo4j base-label for Cypher matching (defaults to ``"Entity"``,
@@ -485,5 +461,4 @@ def create_curriculum_domain_config(
         graph_enrichment_patterns=tuple(generate_graph_enrichment(config_lookup_label)),
         prerequisite_relationships=final_prerequisite_relationships,
         user_ownership_relationship=user_ownership_relationship,
-        supports_user_progress=supports_user_progress,
     )

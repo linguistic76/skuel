@@ -35,7 +35,7 @@ class TasksCoreService(BaseService[TasksOperations, Task, TaskUpdateIntent]):
 | `config_lookup_label` | `LABEL_CONFIGS` key (must exist, else `ValueError`) | `model_class.__name__` |
 | `temporal_secondary_sort` | Secondary sort for `get_upcoming` / `get_overdue` (Events: `"start_time"`) | `None` |
 
-The factory also sets `user_ownership_relationship=RelationshipName.OWNS` and `supports_user_progress=True`, and derives `graph_enrichment_patterns` and `prerequisite_relationships` from the relationship registry.
+The factory also sets `user_ownership_relationship=RelationshipName.OWNS` and derives `graph_enrichment_patterns` and `prerequisite_relationships` from the relationship registry.
 
 ## Event Publishing
 

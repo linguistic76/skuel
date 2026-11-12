@@ -181,6 +181,9 @@ RENAMED: dict[str, str] = {
 # ── Deleted identifiers ──────────────────────────────────────────────────────
 # "deleted_identifier": "explanation / what replaced it"
 DELETED: dict[str, str] = {
+    # Nothing reads a domain's mastery tracking from its config: a learner's mastery is
+    # their own edges, read by the services that need it.
+    "supports_user_progress": "deleted — DomainConfig carries no progress flag; mastery is the learner's edges",
     # One lateral service reads a task's blockers, for every domain.
     "get_blocking_tasks": "deleted — LateralRelationshipService.get_blocking_chain reads a task's blockers",
     # A per-domain <Domain>Relationships dataclass reads an entity's links, its fields named.
@@ -614,6 +617,10 @@ _adr051 = (
     "ADR-051 'Modified files (key)' record -- names the route helper as it stood at decision time"
 )
 _m_domcfg = "migration record -- Before/After config blocks with KuStatus.COMPLETED.value pre-EntityStatus rename"
+_m_domcfg_progress = (
+    "migration record -- Before/After config blocks naming the progress flag (since deleted)"
+)
+_adr023_progress = "ADR-023 decision record -- the class-attribute design it chose, naming the progress flag (since deleted)"
 _m_health = "migration record -- enum inventory/table naming KuStatus pre-EntityStatus rename"
 _m_lifepath = "migration record -- module inventory naming sel_routes.py (since deleted)"
 _m_lateral = "superseded migration record -- code samples left as-written over the deleted tasks_lateral wrapper"
@@ -654,6 +661,12 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/architecture/ENTITY_TYPE_ARCHITECTURE.md": {
         (408, "ProcessorType"): Allow(_entity_arch),
         (417, "ProcessorType"): Allow(_entity_arch),
+    },
+    "docs/decisions/ADR-023-curriculum-baseservice-migration.md": {
+        (85, "supports_user_progress"): Allow(_adr023_progress),
+        (103, "supports_user_progress"): Allow(_adr023_progress),
+        (106, "supports_user_progress"): Allow(_adr023_progress),
+        (283, "supports_user_progress"): Allow(_adr023_progress),
     },
     "docs/decisions/ADR-028-ku-moc-unified-relationship-migration.md": {
         (65, "KuGraphService"): Allow(_adr028_phases),
@@ -849,6 +862,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (164, "KuStatus"): Allow(_m_domcfg),
         (284, "KuStatus"): Allow(_m_domcfg),
         (312, "KuStatus"): Allow(_m_domcfg),
+        (144, "supports_user_progress"): Allow(_m_domcfg_progress),
+        (294, "supports_user_progress"): Allow(_m_domcfg_progress),
     },
     "docs/migrations/DOMAIN_BACKENDS_POSITION_2_COMPLETE_2026-03-01.md": {
         (34, "submissions_sharing_service"): Allow(_m_backends),

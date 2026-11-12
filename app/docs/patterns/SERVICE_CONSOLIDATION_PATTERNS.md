@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-11-08
+updated: 2026-11-12
 category: patterns
 related_skills:
 - base-analytics-service
@@ -159,8 +159,6 @@ _config = create_curriculum_domain_config(
 | `user_ownership_relationship` | `str \| None` | `"OWNS"` | Ownership relationship (None for shared) |
 | `prerequisite_relationships` | `tuple[RelationshipName, ...]` | Auto from registry | Prerequisite relationship types (synced onto the service by `BaseService.__init__`) |
 | `content_field` | `str` | `"content"` | Main content field |
-| `mastery_threshold` | `float` | `0.7` | Mastery threshold |
-| `supports_user_progress` | `bool` | `False` | Enable progress tracking |
 
 ### Accessing Config Values in BaseService
 
