@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-11-06
+updated: 2026-11-12
 category: intelligence
 status: current
 related_skills:
@@ -333,7 +333,7 @@ class DualTrackResult(Generic[L]):
 | **Habits** | `assess_consistency_dual_track()` | `ConsistencyLevel` | per-entity | Completion rate, streak health, avg streak length, active ratio |
 | **Tasks** | `assess_productivity_dual_track()` | `ProductivityLevel` | user-level | Completion rate, on-time %, overdue ratio, knowledge linking |
 | **Events** | `assess_engagement_dual_track()` | `EngagementLevel` | user-level | Attendance rate, goal support, habit reinforcement, recency |
-| **Choices** | `assess_decision_quality_dual_track()` | `DecisionQualityLevel` | user-level | Outcome quality, principle alignment, decision rate, confidence |
+| **Choices** | `assess_decision_quality_dual_track()` | `DecisionQualityLevel` | user-level | Outcome quality, principle alignment, decision rate, good-outcome rate |
 | **Knowledge** | `KuIntelligenceService.assess_mastery_dual_track()` | `MasteryLevel` | per-(user, Ku) | Substance score (`calculate_user_substance` — how much the Ku is applied across the user's life) |
 
 - **Per-entity** (Goals/Habits/Principles, `require_entity=True`): assesses one entity; persists to the
