@@ -74,6 +74,7 @@ class InvalidationReason:
     KNOWLEDGE_MASTERED = "knowledge_mastered"
     KNOWLEDGE_VIEWED = "knowledge_viewed"
     PREFERENCES_UPDATED = "preferences_updated"
+    DISPLAY_NAME_UPDATED = "display_name_updated"
     MANUAL = "manual"
     CACHE_EXPIRED = "cache_expired"
 

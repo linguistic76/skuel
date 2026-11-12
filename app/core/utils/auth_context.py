@@ -28,11 +28,17 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class AuthState:
-    """Auth flags for the in-flight request, mirrored from the session."""
+    """Auth flags for the in-flight request, mirrored from the session.
+
+    ``display_name`` is the signed-in user's name as the graph holds it on this
+    request (read with the session's validation, never from the cookie), so a
+    change shows on the next page. None with no live session.
+    """
 
     user_uid: str | None = None
     is_admin: bool = False
     is_teacher: bool = False
+    display_name: str | None = None
 
     @property
     def is_authenticated(self) -> bool:

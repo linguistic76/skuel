@@ -7,8 +7,8 @@ Three jobs, in order, once per request:
 1. **Enforce the graph session.** Authenticated requests carry a
    ``session_token`` in the signed cookie; this middleware validates it
    against the graph (``validate_session_identity``: session not revoked, not
-   expired, LIVE User still active — plus the user's zone choice and the
-   5-min-batched last-active touch, all one statement). A revoked or expired
+   expired, LIVE User still active — plus the user's zone choice, their
+   display name and the 5-min-batched last-active touch, all one statement). A revoked or expired
    session clears the cookie session, so the request — and every request
    after it — proceeds as unauthenticated and the user is forced back through
    login. This is what makes server-side revocation (password change/reset,
@@ -16,7 +16,8 @@ Three jobs, in order, once per request:
    stolen or stale cookie would stay live for its full 30-day max_age.
 
 2. **Mirror auth flags into the ContextVar.** The post-enforcement session
-   flags (``user_uid``, ``is_admin``, ``is_teacher``) are copied into
+   flags (``user_uid``, ``is_admin``, ``is_teacher``) and the display name the
+   validation in step 1 read from the graph are copied into
    ``core/utils/auth_context.py`` so page chrome (BasePage / navbar) can read
    auth state without importing this layer. Same shape as ``CSRFMiddleware``
    + ``csrf_token_context`` (set before ``call_next``, reset in ``finally``).
@@ -126,6 +127,7 @@ class AuthContextMiddleware(BaseHTTPMiddleware):
             user_uid=get_current_user(request),
             is_admin=get_is_admin(request),
             is_teacher=get_is_teacher(request),
+            display_name=identity["display_name"] if identity is not None else None,
         )
         zone = zone_for(identity["timezone"] if identity is not None else None)
         ctx_token = auth_state_var.set(state)

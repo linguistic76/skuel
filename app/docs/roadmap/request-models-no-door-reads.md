@@ -1,7 +1,7 @@
 ---
 title: "Request Models No Door Reads"
 updated: 2026-11-12
-status: "open — 21 staged (6 wait on a door for a service that exists, 3 on a design, 12 on a re-evaluation) and 1 parked; 23 retired 2026-11-08; 3 bound by their doors 2026-11-08 and 2026-11-09"
+status: "open — 20 staged (6 wait on a door for a service that exists, 2 on a design, 12 on a re-evaluation) and 1 parked; 23 retired 2026-11-08; 4 bound by their doors 2026-11-08 to 2026-11-12; one staged field (a user's interests) waits on its representation"
 registered: 2026-11-05
 ruled: "2026-11-05 (Mike) — 23 retire; UserFilterSchema and HabitCompletionFilterRequest move from retire to staged; the rest stay staged or parked, each for the reason in its row"
 trigger: "a door is being built that would bind one of these shapes, or a session takes a staged model's re-evaluation"
@@ -67,7 +67,7 @@ Each row names the live means that does the model's job.
 | `UserSummaryView` | the `/admin/users` table, `GET /api/admin/users` |
 | `UserStatisticsSchema` | `/admin/users/{uid}`, `GET /api/analytics/productivity`, `/habit-consistency`, `/learning-velocity`. No door returns most active time, most productive day or average task duration |
 | `UserServiceContextSchema` | `UserContext`, `GET /api/context/dashboard` |
-| `UserPreferencesSchema` | `POST /settings/save` (`UserPreferencesFormRequest`). No door edits `preferred_subjects` or `energy_pattern`; read only by `UserView` and `UserUpdateSchema`'s `preferences` field, which went with it (the ruled narrowing of `UserUpdateSchema` drops it) |
+| `UserPreferencesSchema` | `POST /settings/save` (`UserPreferencesFormRequest`). No door edits `preferred_subjects` or `energy_pattern`; read only by `UserView` and `UserUpdateSchema`'s `preferences` field, which went with it (`UserUpdateSchema` is now `DisplayNameUpdateRequest`, one field) |
 
 ## Bound by a door
 
@@ -76,6 +76,23 @@ Each row names the live means that does the model's job.
 | `ChoiceDecisionRequest` | `POST /api/choices/{uid}/decide`, the choice page's decide form (2026-11-08) |
 | `ActivityReviewRequest` | `POST /api/activity-reviews/request`, the "Ask for a personal review" card on `/submit-activity-report` (2026-11-09) |
 | `ActivityFeedbackSubmitRequest` | `POST /activity-review/submit-feedback`, the admin review form; its snapshot is stored with the report and its request closed (2026-11-09) |
+| `DisplayNameUpdateRequest` (was `UserUpdateSchema`) | `POST /api/user/display-name`, the Account card on `/settings` (2026-11-12). Narrowed to `display_name` alone; the fields it lost are below |
+
+### The fields `UserUpdateSchema` lost (ruled 2026-11-12)
+
+Six retired, each with the live means that does its job; one is staged.
+
+| Field | Verdict |
+|---|---|
+| `active_entity_uids`, `archived_entity_uids` | retired: each activity's own status says whether it is active or archived |
+| `pinned_entity_uids` | retired: `PINNED` edges, written by the Ku page's Pin button through `/api/user/pins` |
+| `current_goals` | retired: the learner's owned goals, each with its status |
+| `achievements` | retired: a goal's own achieved status, and the habit streak badges |
+| `settings` | retired: the typed `UserPreferences`, saved by `POST /settings/save` |
+| `interests` | **staged: design.** Three representations exist and no door writes any: `User.interests`, `UserPreferences.preferred_subjects`, and `INTERESTED_IN` edges (`UserBackend.express_interest_in_knowledge`). It waits on choosing one; the edge is recommended, since family lives in edges. The staged `UserFilterSchema` filters on `interests` too |
+
+The `User` and `UserDTO` fields behind these verdicts are still on the models; deleting them is a
+later row. So is an admin's edit of another user's name from `/admin/users/{uid}`.
 
 ## Register
 
@@ -89,7 +106,6 @@ A wiring door binds its model and takes its row out.
 | `GoalHabitLinkRequest` | `core/models/goal/goal_request.py` | staged: door | one door with the two habit-system models |
 | `HabitEssentialityChangeRequest` | `core/models/goal/goal_request.py` | staged: door | the same door |
 | `HabitSystemUpdateRequest` | `core/models/goal/goal_request.py` | staged: door | the same door |
-| `UserUpdateSchema` | `core/models/user/user_request.py` | staged: design | wanted (Mike 2026-11-05): narrow to display name. Nothing past registration writes `display_name`, and no user writer sends the whole model back (each names its fields); `/settings` has no account section |
 | `UserAnalyticsView` | `core/models/user/user_request.py` | staged: design | wanted: growth and retention on `/admin/analytics`. Growth reads `User.created_at`; `AuthEvent` is pruned at 90 days, so retention needs the ruled monthly login count per user, which has no home yet. Several fields read nothing that exists |
 | `WeeklyPlanningRequest` | `core/models/analytics/analytics_report_request.py` | staged: design | wanted: the daily plan stretched over seven days, checked against available minutes. No service; read the daily plan first. Its `user_uid` field goes: the user comes from the session |
 | `GoalFilterRequest` | `core/models/goal/goal_request.py` | staged: re-evaluate | list filters are fundamental (Mike). A GET door reads its fields through the strict readers, so a filter class is a specification until a POST door binds it |

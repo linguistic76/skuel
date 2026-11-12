@@ -1,6 +1,6 @@
 ---
 related_skills: [security]
-updated: 2026-10-24
+updated: 2026-11-12
 ---
 # Route Authentication Requirements
 
@@ -43,7 +43,7 @@ a route's existence with `uv run python scripts/health/route_claims.py --file <t
 | `/gradebook/{uid}`, `/gradebook/{uid}/download` | `user_entry_ui.py` | An audience read: the owner's page, or the recipient card / `.md` file for whoever the share links name (ADR-088 §3); anyone else 404 |
 | `/groups`, `/groups/{group_uid}`, `/api/groups/{group_uid}/shared/preview` | `groups_hub_routes.py` | A member's list of what is shared with one group (`MEMBER_OF` is the Cypher guard); a listed entry opens at `/gradebook/{uid}` |
 | `/api/sidebar/badges` | `sidebar_badges_ui.py` | Tasks+ sidebar badges (OOB fragments, `UserContext` build) |
-| `/settings`, `/settings/content`, `/settings/save` | `settings_routes.py` | Account page + preferences |
+| `/settings`, `/settings/content`, `/settings/save`, `POST /api/user/display-name` | `settings_routes.py` | Account page, preferences, the signed-in user's display name |
 | `/settings/vault/sync`, `/settings/vault/preview`, `/settings/vault/preview/consent`, `/settings/vault/consent` | `vault_routes.py` | Personal-vault sync, dry-run preview and the first-run consent gate (all POST, CSRF-protected) |
 | `/tasks/**`, `/goals/**`, etc. | Domain routes | Activity domain CRUD |
 | `/settings/devices/**`, `/api/devices/pairing-code`, `/api/devices/{uid}/revoke` | `device_routes.py` | Vault-agent device management (ADR-075) |

@@ -250,6 +250,7 @@ class SessionBackend(Neo4jSessionRunner):
         string), from which the user's zone choice is read: the middleware
         resolves the request's zone from it (ADR-089 §3) at no extra round
         trip, and a change in Settings reaches the next request on any device.
+        The User's ``display_name`` rides the same row, for the page chrome.
 
         Args:
             session_token: Raw session token from the cookie (hashed here)
@@ -257,8 +258,8 @@ class SessionBackend(Neo4jSessionRunner):
                 touches (default: 300 = 5 minutes)
 
         Returns:
-            Result[SessionIdentity | None]: the user and their stored zone
-            choice if the session is live, None otherwise
+            Result[SessionIdentity | None]: the user, their stored zone choice
+            and their display name if the session is live, None otherwise
         """
         token_hash = hash_session_token(session_token)
         query = """
@@ -271,7 +272,8 @@ class SessionBackend(Neo4jSessionRunner):
             THEN [1] ELSE [] END |
             SET s.last_active_at = datetime()
         )
-        RETURN s.user_uid AS user_uid, u.preferences AS preferences
+        RETURN s.user_uid AS user_uid, u.preferences AS preferences,
+               u.display_name AS display_name
         """
 
         record = await self._run_single(
@@ -284,6 +286,7 @@ class SessionBackend(Neo4jSessionRunner):
             SessionIdentity(
                 user_uid=UserUID(record["user_uid"]),
                 timezone=_stored_zone_choice(record["preferences"]),
+                display_name=record["display_name"],
             )
         )
 

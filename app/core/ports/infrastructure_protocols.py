@@ -142,6 +142,11 @@ class UserCrudOperations(Protocol):
         has ``user_uid``."""
         ...
 
+    async def set_display_name(self, user_uid: UserUID, display_name: str) -> Result[User | None]:
+        """Set ``display_name`` and nothing else; ``None`` when no user has
+        ``user_uid``. The caller has trimmed and checked the name."""
+        ...
+
     async def atomic_append_dual_track_checkin(
         self,
         user_uid: UserUID,
@@ -302,7 +307,7 @@ class UserOperations(
     """Full user backend operations (composed). Use narrowest sub-protocol for ISP.
 
     Composed from:
-    - UserCrudOperations (11 methods) — identity CRUD
+    - UserCrudOperations (12 methods) — identity CRUD
     - UserLearningStateOperations (7 methods) — learning state management
     - UserActivityOperations (3 methods) — activity tracking
 

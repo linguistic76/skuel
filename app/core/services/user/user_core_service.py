@@ -33,7 +33,7 @@ from core.models.enums.user_enums import UserRole
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import FilterParams, UserUID
 from core.models.user import User, UserPreferences, create_user
-from core.models.user.user import fold_username, username_problem
+from core.models.user.user import display_name_problem, fold_username, username_problem
 from core.ports.infrastructure_protocols import EventBusOperations, UserCrudOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -254,6 +254,40 @@ class UserCoreService:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
 
         logger.info(f"Updated preferences for user {user_uid}: {preferences_update}")
+        return Result.ok(result.value)
+
+    @with_error_handling("update_display_name", error_type="database", uid_param="user_uid")
+    async def update_display_name(self, user_uid: UserUID, display_name: str) -> Result[User]:
+        """
+        Change the name a user is shown by, and nothing else on the account.
+
+        The name is trimmed and held to ``display_name_problem`` here, whatever
+        door it came through: a blank one is refused, never replaced by the
+        username.
+
+        Backend: ``UserBackend.set_display_name``
+
+        Returns:
+            Result[User]: the user as written
+
+        Error cases:
+            - Blank, too long, or holding a control character → VALIDATION, nothing written
+            - User not found → NOT_FOUND
+            - Database operation fails → DATABASE
+        """
+        name = display_name.strip()
+        problem = display_name_problem(name)
+        if problem:
+            return Result.fail(Errors.validation(message=problem, field="display_name"))
+
+        result = await self.repo.set_display_name(user_uid, name)
+        if result.is_error:
+            logger.error(f"Failed to update display name for {user_uid}: {result.error}")
+            return Result.fail(result)
+        if result.value is None:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+
+        logger.info(f"Updated display name for user {user_uid}")
         return Result.ok(result.value)
 
     async def append_dual_track_checkin(  # skuel-lint: disable=SKUEL005 -- safe-by-design store_callback (ADR-030): check-in persistence must not fail the assessment

@@ -3,7 +3,8 @@ User Boundary Schemas (Pydantic)
 =================================
 
 Pydantic models for the User boundary: the Settings editor's save
-(``UserPreferencesFormRequest``), and the account shapes no door binds yet,
+(``UserPreferencesFormRequest``), the Account card's display-name save
+(``DisplayNameUpdateRequest``), and the account shapes no door binds yet,
 each registered with its reason in /docs/roadmap/request-models-no-door-reads.md.
 
 This follows the architectural principle: Pydantic at the edges, pure domain inside.
@@ -16,9 +17,9 @@ from core.models.type_hints import UserUID
 __version__ = "1.0"
 
 
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 
 # Import enums directly for use in Pydantic models
 from core.models.enums import (
@@ -26,7 +27,7 @@ from core.models.enums import (
     TimeOfDay,
 )
 from core.models.request_base import ClientDateTime
-from core.models.user.user import LANGUAGES, THEMES
+from core.models.user.user import LANGUAGES, THEMES, display_name_problem
 from core.utils.zone_context import validated_zone_name
 
 # ============================================================================
@@ -118,23 +119,27 @@ class UserPreferencesFormRequest(BaseModel):
 # ============================================================================
 
 
-class UserUpdateSchema(BaseModel):
-    """Schema for updating a user"""
+def _read_display_name(value: str) -> str:
+    """A submitted display name, trimmed; refused when it is not one."""
+    name = value.strip()
+    problem = display_name_problem(name)
+    if problem:
+        raise ValueError(problem)
+    return name
 
-    display_name: str | None = Field(default=None, max_length=100)
 
-    # Entity management
-    active_entity_uids: set[str] | None = None
-    pinned_entity_uids: list[str] | None = None
-    archived_entity_uids: set[str] | None = None
+#: A display name as a door takes it: surrounding whitespace trimmed, then held to
+#: ``display_name_problem``. A blank one is refused, never replaced by the username.
+DisplayName = Annotated[str, AfterValidator(_read_display_name)]
 
-    # Interests and goals
-    interests: list[str] | None = Field(default=None, max_length=20)
-    current_goals: list[str] | None = Field(default=None, max_length=10)
-    achievements: list[str] | None = Field(default=None, max_length=50)
 
-    # Settings
-    settings: dict[str, Any] | None = None
+class DisplayNameUpdateRequest(BaseModel):
+    """The Account card's save on ``/settings``: the signed-in user's new display name.
+
+    See: /docs/patterns/ERROR_HANDLING.md § Never silently default on a write
+    """
+
+    display_name: DisplayName
 
 
 class UserCapacityCheckSchema(BaseModel):

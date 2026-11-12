@@ -261,7 +261,7 @@ async def test_validate_session_skips_user_fetch_for_invalid_token():
 async def test_validate_session_identity_carries_the_users_zone_choice():
     """One round trip answers who the session is AND the zone they chose."""
     service, user_backend, session_backend = _service()
-    identity = {"user_uid": "user_bkk", "timezone": "Asia/Bangkok"}
+    identity = {"user_uid": "user_bkk", "timezone": "Asia/Bangkok", "display_name": "Bo"}
     session_backend.validate_session_token.return_value = Result.ok(identity)
 
     result = await service.validate_session_identity("live-token")
@@ -274,7 +274,7 @@ async def test_validate_session_identity_carries_the_users_zone_choice():
 async def test_validate_session_fetches_the_identitys_user():
     service, user_backend, session_backend = _service()
     session_backend.validate_session_token.return_value = Result.ok(
-        {"user_uid": "user_bkk", "timezone": None}
+        {"user_uid": "user_bkk", "timezone": None, "display_name": "Bo"}
     )
     user = MagicMock()
     user_backend.get_user_by_uid.return_value = Result.ok(user)

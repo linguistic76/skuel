@@ -20,6 +20,7 @@ __version__ = "2.1"
 
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Final
@@ -341,6 +342,39 @@ def username_problem(username: str) -> str | None:
     if USERNAME.fullmatch(username):
         return None
     return "A username is 3-30 characters: lowercase letters, digits, '_' and '-'"
+
+
+#: The longest display name, in characters, at every door that takes one.
+DISPLAY_NAME_MAX_LENGTH: Final = 100
+
+#: Format characters a name may hold: the joiners that Persian spelling and
+#: multi-part emoji are written with.
+_NAME_JOINERS: Final = frozenset({"\u200c", "\u200d"})
+
+#: Unicode general categories no display name holds: control, format, surrogate,
+#: line separator, paragraph separator.
+_REFUSED_CATEGORIES: Final = frozenset({"Cc", "Cf", "Cs", "Zl", "Zp"})
+
+
+def display_name_problem(name: str) -> str | None:
+    """Why ``name`` (already trimmed) is not a display name, or ``None``.
+
+    A display name is what other people read beside a user's work, and one line of
+    the AI prompts: 1 to ``DISPLAY_NAME_MAX_LENGTH`` characters of any script,
+    punctuation or emoji, on one line. Refused: a control character (newline and
+    tab among them), a format character other than the two joiners (the direction
+    overrides among them), a surrogate, and a line or paragraph separator. An
+    unassigned code point passes, so an emoji newer than this Python's Unicode
+    tables is a name. Names are not unique: the username is the identity.
+    """
+    if not name:
+        return "A display name cannot be blank"
+    if len(name) > DISPLAY_NAME_MAX_LENGTH:
+        return f"A display name is at most {DISPLAY_NAME_MAX_LENGTH} characters"
+    for char in name:
+        if unicodedata.category(char) in _REFUSED_CATEGORIES and char not in _NAME_JOINERS:
+            return "A display name is one line, with no control characters"
+    return None
 
 
 def create_user(

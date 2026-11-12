@@ -338,6 +338,26 @@ class UserBackend(Neo4jSessionRunner):
             return Result.ok(None)
         return Result.ok(from_neo4j_node(dict(record["u"]), User))
 
+    @safe_backend_operation("set_display_name")
+    async def set_display_name(self, user_uid: UserUID, display_name: str) -> Result[User | None]:
+        """Set the account's ``display_name``, and nothing else.
+
+        The caller has trimmed and checked the name. No other property is written,
+        so a field another writer changes meanwhile keeps that writer's value.
+
+        Returns:
+            The user as written, or ``None`` when no user has ``user_uid``.
+        """
+        query = f"""
+        MATCH (u:{self.label} {{uid: $uid}})
+        SET u.display_name = $display_name
+        RETURN u
+        """
+        record = await self._run_single(query, {"uid": user_uid, "display_name": display_name})
+        if not record:
+            return Result.ok(None)
+        return Result.ok(from_neo4j_node(dict(record["u"]), User))
+
     @safe_backend_operation("atomic_append_dual_track_checkin")
     async def atomic_append_dual_track_checkin(
         self,
