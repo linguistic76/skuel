@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from fasthtml.common import FT
 
     from core.models.goal.goal import Goal
+    from core.models.goal.milestone import Milestone
     from core.ports.query_types import EntityConnection
 
 
@@ -398,10 +399,12 @@ def _ProgressControl(goal: Goal) -> FT | None:
 
 
 def MilestonesSection(goal: Goal) -> FT:
-    """A goal's milestones as a checklist, with the controls that add and complete them.
+    """A goal's milestones as a checklist, with the controls that add, complete and
+    reopen them.
 
     Each open milestone carries a button that marks it reached
-    (``/api/goals/{uid}/milestones/complete``); the form below adds one
+    (``/api/goals/{uid}/milestones/complete``), each reached one a button that reopens
+    it (``/api/goals/{uid}/milestones/reopen``); the form below adds one
     (``/api/goals/{uid}/milestones``). Both are answered with the whole detail view.
     A goal set aside shows its milestones and no control; one with none shows nothing.
     """
@@ -430,24 +433,8 @@ def MilestonesSection(goal: Goal) -> FT:
                 cls="flex-1 min-w-0",
             ),
         ]
-        if editable and not ms.is_completed:
-            row.append(
-                HtmlButton(
-                    "Complete",
-                    type="button",
-                    hx_post=f"/api/goals/{goal.uid}/milestones/complete",
-                    hx_vals=json.dumps({"milestone_uid": ms.uid}),
-                    hx_target=target,
-                    hx_swap="outerHTML",
-                    hx_disabled_elt="this",
-                    cls=(
-                        "shrink-0 rounded-md border border-input px-3 h-9 text-sm "
-                        "hover:bg-accent disabled:opacity-50"
-                    ),
-                    aria_label=f"Complete milestone {ms.title}",
-                    data_goal_milestone_complete=ms.uid,
-                )
-            )
+        if editable:
+            row.append(_MilestoneButton(goal, ms, target))
         items.append(Li(*row, cls="flex items-start gap-2"))
 
     return Div(
@@ -455,6 +442,27 @@ def MilestonesSection(goal: Goal) -> FT:
         Ul(*items, cls="space-y-2") if items else "",
         _AddMilestoneForm(goal, target) if editable else "",
         cls="my-4",
+    )
+
+
+def _MilestoneButton(goal: Goal, ms: Milestone, target: str) -> FT:
+    """The one control a milestone row carries: Complete on an open milestone
+    (``/milestones/complete``), Reopen on a reached one (``/milestones/reopen``)."""
+    action, label = ("reopen", "Reopen") if ms.is_completed else ("complete", "Complete")
+    return HtmlButton(
+        label,
+        type="button",
+        hx_post=f"/api/goals/{goal.uid}/milestones/{action}",
+        hx_vals=json.dumps({"milestone_uid": ms.uid}),
+        hx_target=target,
+        hx_swap="outerHTML",
+        hx_disabled_elt="this",
+        cls=(
+            "shrink-0 rounded-md border border-input px-3 h-9 text-sm "
+            "hover:bg-accent disabled:opacity-50"
+        ),
+        aria_label=f"{label} milestone {ms.title}",
+        **{f"data-goal-milestone-{action}": ms.uid},
     )
 
 

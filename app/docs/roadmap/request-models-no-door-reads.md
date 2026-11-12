@@ -79,7 +79,7 @@ Each row names the live means that does the model's job.
 | `DisplayNameUpdateRequest` (was `UserUpdateSchema`) | `POST /api/user/display-name`, the Account card on `/settings` (2026-11-12). Narrowed to `display_name` alone; the fields it lost are below |
 | `GoalProgressUpdateRequest` | `POST /api/goals/{uid}/progress`, the goal page's "Save progress" form (2026-11-12). Narrowed to the figure and its date; the field it lost is below |
 | `MilestoneCreateRequest` | `POST /api/goals/{uid}/milestones`, the goal page's "Add milestone" form (2026-11-12). `target_date` became optional; the fields it lost are below |
-| `MilestoneCompleteRequest` | `POST /api/goals/{uid}/milestones/complete`, the Complete button on each open milestone (2026-11-12). Narrowed to `milestone_uid`: the service finds the milestone by uid under the goal's lock |
+| `MilestoneUidRequest` | `POST /api/goals/{uid}/milestones/complete` and `/milestones/reopen`, the Complete button on each open milestone and the Reopen button on each reached one (2026-11-12). Narrowed to `milestone_uid`: the service finds the milestone by uid under the goal's lock |
 
 ### The fields the goal models lost (2026-11-12)
 
@@ -88,8 +88,8 @@ Each row names the live means that does the model's job.
 | `GoalProgressUpdateRequest.notes` | retired from the door: a note was stored in the goal's `metadata.progress_notes`, which only the uncalled `get_goal_progress` reads. The figure's own record is the goal's `progress_history`. `update_goal_progress` still takes `notes` for a caller that has somewhere to show them |
 | `MilestoneCreateRequest.target_value` | retired: no code reads `Milestone.target_value`. The field is still on `Milestone` |
 | `MilestoneCreateRequest.required_knowledge_uids` | **staged.** `Milestone.required_knowledge_uids` has one reader (`GoalTaskGenerator` copies it into a generated task's metadata), and no door writes it. A door needs the Ku admitted as the link doors admit one, and a picker on the page |
-| `MilestoneCompleteRequest.achieved_date` | retired: a milestone's date is stamped by the write, today in the user's zone, on its first completion only |
-| `MilestoneCompleteRequest.notes` | retired: `Milestone` has no field to hold one |
+| `MilestoneUidRequest.achieved_date` | retired: a milestone's date is stamped by the write, today in the user's zone, on its first completion only |
+| `MilestoneUidRequest.notes` | retired: `Milestone` has no field to hold one |
 
 ### The fields `UserUpdateSchema` lost (ruled 2026-11-12)
 

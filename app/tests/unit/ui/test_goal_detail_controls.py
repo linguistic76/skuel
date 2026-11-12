@@ -74,11 +74,14 @@ def test_a_numeric_goal_with_no_target_is_told_to_set_one() -> None:
     assert "Set a target value" in html
 
 
-def test_only_an_open_milestone_carries_the_complete_button() -> None:
+def test_an_open_milestone_carries_complete_and_a_reached_one_reopen() -> None:
     html = _page(MeasurementType.MILESTONE)
 
     assert 'data-goal-milestone-complete="m_open"' in html
     assert 'data-goal-milestone-complete="m_done"' not in html
+    assert 'data-goal-milestone-reopen="m_done"' in html
+    assert 'data-goal-milestone-reopen="m_open"' not in html
+    assert 'hx-post="/api/goals/goal_page/milestones/reopen"' in html
     assert "data-goal-add-milestone" in html
 
 
@@ -100,6 +103,7 @@ def test_a_goal_set_aside_shows_its_milestones_and_no_control(status: EntityStat
         "data-goal-progress",
         "data-goal-add-milestone",
         "data-goal-milestone-complete",
+        "data-goal-milestone-reopen",
     ):
         assert control not in html
     assert " · On Track" not in html

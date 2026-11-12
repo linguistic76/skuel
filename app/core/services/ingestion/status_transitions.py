@@ -27,11 +27,12 @@ and only three of them have an entity-completion event: ``HabitCompleted`` is a
 logged daily *occurrence* and ``ChoiceMade`` is the DRAFT→ACTIVE *decide*
 moment, neither of which is the entity retiring. Habit and Choice therefore get
 the stamp-clear and no event — inventing one with no subscribers would be
-staged bloat, not a fix. Of the reopen events only ``TaskReopened`` exists, and it
-has a subscriber: context invalidation, so a cached context refreshes after a task
-reopened in Obsidian as after one reopened in the app. (Goal progress hears every
-vault status change through ``GoalContributionsChanged``, which the ingest door
-publishes for each task and event it persists.)
+staged bloat, not a fix. Two reopen events exist. ``TaskReopened``'s subscriber is
+context invalidation, so a cached context refreshes after a task reopened in
+Obsidian as after one reopened in the app (goal progress hears every vault task
+change through ``GoalContributionsChanged``, which the ingest door publishes for each
+task and event it persists). ``GoalReopened`` has that subscriber too, and goal
+progress, which gives a reopened goal the figure its measure names.
 
 Every value here arrives as parsed YAML, so dates may be native ``date``
 objects, ISO strings, or absent; the coercions are deliberately total (an
@@ -50,7 +51,14 @@ from datetime import date, datetime
 from types import MappingProxyType
 from typing import Any
 
-from core.events import BaseEvent, CalendarEventCompleted, GoalAchieved, TaskCompleted, TaskReopened
+from core.events import (
+    BaseEvent,
+    CalendarEventCompleted,
+    GoalAchieved,
+    GoalReopened,
+    TaskCompleted,
+    TaskReopened,
+)
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.type_hints import UserUID
 from core.services.completion_stamp import COMPLETION_FIELDS, completion_moment
@@ -185,9 +193,10 @@ EVENT_SOURCE_FIELDS: Mapping[EntityType, tuple[str, ...]] = MappingProxyType(
 )
 
 
-#: The node properties each domain's reopen event reads — only Task has one.
+#: The node properties each domain's reopen event reads — Task and Goal have one. A
+#: goal's reads its status too: only a return to a working status is a goal reopen.
 REOPEN_EVENT_SOURCE_FIELDS: Mapping[EntityType, tuple[str, ...]] = MappingProxyType(
-    {EntityType.TASK: ("user_uid",)}
+    {EntityType.TASK: ("user_uid",), EntityType.GOAL: ("user_uid", "status")}
 )
 
 
@@ -199,22 +208,40 @@ def build_reopen_events(
 ) -> tuple[BaseEvent, ...]:
     """Build the reopen events a classified batch owes, from PERSISTED state.
 
-    Mirrors ``TasksCoreService.update_task``'s ``TaskReopened`` publish, so a task
+    Mirrors the update chokepoints' reopen publishes (``TasksCoreService.update_task``'s
+    ``TaskReopened``, ``GoalsCoreService.update_goal``'s ``GoalReopened``), so an entity
     reopened in Obsidian reaches the same subscribers as one reopened in the app. A
-    reopen records no moment, so the event carries none of the file's dates. A uid
-    with no persisted row is skipped, as in :func:`build_completion_events`.
+    reopen records no moment, so the event carries none of the file's dates. A goal
+    moved out of completed to a terminal status (cancelled, archived, failed) is not
+    reopened, as at ``update_goal``. A uid with no persisted row is skipped, as in
+    :func:`build_completion_events`.
     """
-    if entity_type is not EntityType.TASK:
+    if entity_type not in REOPEN_EVENT_SOURCE_FIELDS:
         return ()
     events: list[BaseEvent] = []
     for uid in reopened_uids:
         persisted = persisted_by_uid.get(uid)
         if persisted is None:
             continue
-        events.append(
-            TaskReopened(task_uid=uid, user_uid=UserUID(str(persisted.get("user_uid") or "")))
-        )
+        user_uid = UserUID(str(persisted.get("user_uid") or ""))
+        if entity_type is EntityType.TASK:
+            events.append(TaskReopened(task_uid=uid, user_uid=user_uid))
+        elif _is_working_status(persisted.get("status")):
+            events.append(GoalReopened(goal_uid=uid, user_uid=user_uid))
     return tuple(events)
+
+
+def _is_working_status(value: Any) -> bool:  # boundary: a Neo4j property value
+    """Whether a persisted status names a status that is not terminal. An absent or
+    unknown status is not one: the reopen is announced only when the node says where
+    it went."""
+    raw = _status_of(value)
+    if raw is None:
+        return False
+    try:
+        return not EntityStatus(raw).is_terminal()
+    except ValueError:
+        return False
 
 
 def build_completion_events(

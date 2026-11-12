@@ -1,4 +1,4 @@
-"""The goal page's three doors over the bootstrapped app: progress, add a milestone, complete one.
+"""The goal page's doors over the bootstrapped app: progress, add a milestone, complete or reopen one.
 
 Each door verifies the owner at the route, reads JSON or the page's form through
 ``parse_body``, and writes from the goal as it stands under its lock
@@ -14,7 +14,12 @@ Each door verifies the owner at the route, reads JSON or the page's form through
   the status door writes; on any other type they are a checklist;
 - an entered figure writes its own fields and no others, in the goal's unit on a
   numeric goal; a derived goal refuses one; 100 achieves and a fall un-achieves;
-- another user's goal is not found at any of the three, and stays as it was.
+- a reached milestone reopens from the page: the figure falls, a fall from 100
+  un-achieves the goal, and the milestone keeps the day it was first reached through
+  the completion that follows;
+- a goal reopened at the status door takes the figure its measure gives (milestones,
+  units), and only a goal whose percentage is the measure is reset to 0;
+- another user's goal is not found at any of the doors, and stays as it was.
 """
 
 from __future__ import annotations
@@ -137,6 +142,20 @@ async def _complete(env: Env, uid: str, milestone_uid: str) -> httpx.Response:
     return await env.client.post(
         f"/api/goals/{uid}/milestones/complete", json={"milestone_uid": milestone_uid}
     )
+
+
+async def _reopen(env: Env, uid: str, milestone_uid: str) -> httpx.Response:
+    return await env.client.post(
+        f"/api/goals/{uid}/milestones/reopen", json={"milestone_uid": milestone_uid}
+    )
+
+
+async def _status(env: Env, uid: str, status: str) -> None:
+    """Move a goal at the status door, as the page's status control posts it."""
+    posted = await env.client.post(
+        f"/api/goals/{uid}/status", data={"status": status}, headers=HTMX
+    )
+    assert posted.status_code == 200, posted.text
 
 
 async def _backdate_milestones(env: Env, uid: str, day: date) -> None:
@@ -488,9 +507,10 @@ async def test_another_users_goal_is_not_found_at_any_door_and_stays_as_it_was(e
         await env.client.post(f"/api/goals/{STRANGERS_GOAL}/progress", json={"progress": 90}),
         await env.client.post(f"/api/goals/{STRANGERS_GOAL}/milestones", json={"title": "Mine"}),
         await _complete(env, STRANGERS_GOAL, milestone["uid"]),
+        await _reopen(env, STRANGERS_GOAL, milestone["uid"]),
     ]
 
-    assert [answer.status_code for answer in answers] == [404, 404, 404]
+    assert [answer.status_code for answer in answers] == [404, 404, 404, 404]
     assert await _node(env, STRANGERS_GOAL) == before
 
 
@@ -589,3 +609,98 @@ async def test_the_progress_form_posts_the_figure_the_page_asks_for(env: Env) ->
     assert 'value="12.5"' in saved.text
     node = await _node(env, numeric)
     assert (node["current_value"], node["progress_percentage"]) == (12.5, 25.0)
+
+
+# ---------------------------------------------------------------------------
+# Reopening: a milestone, and a goal
+# ---------------------------------------------------------------------------
+
+_FIRST_REACHED = date(2026, 1, 15)
+
+
+async def test_the_page_reopens_a_reached_milestone_and_keeps_its_first_day(env: Env) -> None:
+    uid = await _goal(env, "page-reopen", "milestone")
+    outline = await _add(env, uid, "Outline")
+    draft = await _add(env, uid, "Draft")
+    for milestone in (outline, draft):
+        assert (await _complete(env, uid, milestone)).status_code == 200
+    await _backdate_milestones(env, uid, _FIRST_REACHED)
+    assert (await _node(env, uid))["status"] == "completed"
+
+    page = await _page(env, uid)
+    assert "data-goal-milestone-complete" not in page
+    button = _tag(page, f'data-goal-milestone-reopen="{draft}"')
+    assert json.loads(_attribute(button, "hx-vals")) == {"milestone_uid": draft}
+    assert _attribute(button, "hx-target") == f"#goal-detail-{uid}"
+    with published(env.services.event_bus, GoalAchieved) as achieved:
+        reopened = await env.client.post(
+            _attribute(button, "hx-post"),
+            data=json.loads(_attribute(button, "hx-vals")),
+            headers=HTMX,
+        )
+
+    assert reopened.status_code == 200, reopened.text
+    assert "50%" in reopened.text
+    assert f'data-goal-milestone-complete="{draft}"' in reopened.text
+    assert f'data-goal-milestone-reopen="{outline}"' in reopened.text
+    node = await _node(env, uid)
+    assert (node["progress_percentage"], node["status"]) == (50.0, "active")
+    assert node.get("achieved_date") is None
+    rows = {m["uid"]: m for m in _rows(node, "milestones")}
+    assert (rows[draft]["is_completed"], rows[draft]["achieved_date"]) == (
+        False,
+        _FIRST_REACHED.isoformat(),
+    )
+    assert achieved == []
+
+    button = _tag(reopened.text, f'data-goal-milestone-complete="{draft}"')
+    done = await env.client.post(
+        _attribute(button, "hx-post"), data=json.loads(_attribute(button, "hx-vals")), headers=HTMX
+    )
+    assert done.status_code == 200, done.text
+    node = await _node(env, uid)
+    assert (node["progress_percentage"], node["status"]) == (100.0, "completed")
+    rows = {m["uid"]: m for m in _rows(node, "milestones")}
+    assert rows[draft]["achieved_date"] == _FIRST_REACHED.isoformat(), "the first day stays"
+
+
+async def test_a_goal_reopened_at_the_status_door_takes_its_measures_figure(env: Env) -> None:
+    by_hand = await _goal(env, "reopen-by-hand", "milestone")
+    first = await _add(env, by_hand, "One")
+    await _add(env, by_hand, "Two")
+    await _add(env, by_hand, "Three")
+    assert (await _complete(env, by_hand, first)).status_code == 200
+    measured = await _goal(env, "reopen-measured", "milestone")
+    only = await _add(env, measured, "Only")
+    assert (await _complete(env, measured, only)).status_code == 200
+    numeric = await _goal(env, "reopen-units", "numeric", target_value=50)
+    entered = await env.client.post(f"/api/goals/{numeric}/progress", json={"progress": 12.5})
+    assert entered.status_code == 200, entered.text
+    percentage = await _goal(env, "reopen-percentage")
+    entered = await env.client.post(f"/api/goals/{percentage}/progress", json={"progress": 40})
+    assert entered.status_code == 200, entered.text
+    for uid in (by_hand, numeric, percentage):
+        await _status(env, uid, "completed")
+
+    with published(env.services.event_bus, GoalAchieved) as achieved:
+        for uid in (by_hand, measured, numeric, percentage):
+            assert (await _node(env, uid))["progress_percentage"] == 100.0, uid
+            await _status(env, uid, "active")
+
+    nodes = {uid: await _node(env, uid) for uid in (by_hand, measured, numeric, percentage)}
+    for uid, node in nodes.items():
+        assert node["status"] == "active", uid
+        assert node.get("achieved_date") is None, uid
+    # Completed by hand at 1 of 3: the milestones say a third.
+    assert nodes[by_hand]["progress_percentage"] == pytest.approx(100 / 3)
+    assert (nodes[by_hand]["current_value"], nodes[by_hand]["target_value"]) == (1.0, 3.0)
+    # Every milestone still reached: 100% on a working goal, not re-achieved.
+    assert nodes[measured]["progress_percentage"] == 100.0
+    assert achieved == []
+    # The units stay the learner's; the figure is derived from them.
+    assert (nodes[numeric]["current_value"], nodes[numeric]["progress_percentage"]) == (
+        12.5,
+        25.0,
+    )
+    # The percentage is the whole measure: the reopen resets it.
+    assert nodes[percentage]["progress_percentage"] == 0.0

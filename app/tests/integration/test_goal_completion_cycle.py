@@ -18,7 +18,10 @@ Two invariants are asserted at every step:
 1. ``achieved_date`` is non-null exactly when the goal is COMPLETED.
 2. A goal in a NON-TERMINAL status never carries the 100% a completion wrote. (A
    terminal target — archive / cancel / fail — deliberately keeps it as a historical
-   record; only a reopen resets.) A reopen that decided its reset from a pre-read
+   record; only a reopen resets.) The goals here carry no measurement type, so they are
+   measured by the percentage itself, the one kind the reopen resets; a goal whose
+   figure has another writer takes that writer's figure instead
+   (``test_goal_reopen_figure.py``). A reopen that decided its reset from a pre-read
    could break this: read ACTIVE, miss the reset, land after a concurrent complete.
 
 ``tests/unit/services/test_completion_stamping.py`` pins which guard each service

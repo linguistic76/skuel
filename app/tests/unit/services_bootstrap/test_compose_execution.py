@@ -69,6 +69,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         GoalCreated,
         GoalMilestoneReached,
         GoalProgressUpdated,
+        GoalReopened,
         GoalUpdated,
         HabitCompleted,
         HabitCompletionBulk,
@@ -142,6 +143,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         GoalCreated: 1,
         GoalUpdated: 1,
         GoalAchieved: 4,  # invalidate + event handler + PS auto-complete + analytics report
+        GoalReopened: 2,  # invalidate (the vault door publishes no GoalUpdated) + progress
         GoalAbandoned: 2,
         GoalMilestoneReached: 1,
         GoalProgressUpdated: 2,

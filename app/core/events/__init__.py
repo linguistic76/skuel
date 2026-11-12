@@ -129,6 +129,7 @@ from core.events.goal_events import (
     GoalMilestoneReached,
     GoalProgressUpdated,
     GoalRecommendationsGenerated,
+    GoalReopened,
     GoalUpdated,
 )
 
@@ -281,6 +282,7 @@ __all__ = [
     "GoalContributionsChanged",
     "GoalProgressUpdated",
     "GoalRecommendationsGenerated",
+    "GoalReopened",
     "GoalUpdated",
     "GroupCreated",
     "GroupMemberAdded",

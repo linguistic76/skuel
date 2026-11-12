@@ -84,6 +84,16 @@ class MeasurementType(StrEnum):
         entered figure is the percentage itself, 0-100."""
         return self is MeasurementType.NUMERIC
 
+    def percentage_is_the_measure(self) -> bool:
+        """Whether the stored percentage is the whole measurement, with nothing it is
+        computed from: the four types whose learner enters the percentage itself.
+
+        On the other four the percentage follows a measure held elsewhere (the
+        contribution tally, the habits' streaks, the milestones, ``current_value``), so a
+        write that sets the percentage alone leaves it contradicting that measure.
+        """
+        return self.takes_entered_figure() and not self.entered_in_units()
+
 
 class HabitEssentiality(StrEnum):
     """

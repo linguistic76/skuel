@@ -417,6 +417,9 @@ class GoalsService(
     async def complete_milestone(self, goal_uid: str, milestone_uid: str) -> Result[Goal]:
         return await self.progress.complete_milestone(goal_uid, milestone_uid)
 
+    async def reopen_milestone(self, goal_uid: str, milestone_uid: str) -> Result[Goal]:
+        return await self.progress.reopen_milestone(goal_uid, milestone_uid)
+
     async def update_goal_from_habit_progress(
         self, goal_uid: str, habit_uid: str, new_streak: int
     ) -> Result[Goal]:

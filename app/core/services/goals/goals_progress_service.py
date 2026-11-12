@@ -23,6 +23,7 @@ from core.events import (
     GoalContributionsChanged,
     GoalMilestoneReached,
     GoalProgressUpdated,
+    GoalReopened,
     GoalUpdated,
     publish_event,
 )
@@ -458,6 +459,30 @@ def _plan_entered_figure(
     )
 
 
+def _without_status(plan: _ProgressWrite) -> _ProgressWrite:
+    """A recompute's write with its status half taken off: the figure and the measure,
+    never the status.
+
+    What a reopen's recompute writes. The learner has just said the goal is not done,
+    so the recompute restores the figure its measure gives and leaves the status the
+    reopen set: a measure still at 100 shows 100% on a working goal, and the next real
+    change of the measure moves it from there.
+    """
+    return dataclasses.replace(plan, guard=StatusWriteGuard(), achievement={}, unachievement={})
+
+
+def _contribution_figure(goal: Goal, tally: ContributionTally) -> _ProgressWrite | None:
+    """:func:`_plan_contribution_progress` without its status half (:func:`_without_status`)."""
+    plan = _plan_contribution_progress(goal, tally)
+    return _without_status(plan) if plan is not None else None
+
+
+def _habit_figure(goal: Goal, tally: LinkedHabitTally) -> _ProgressWrite | None:
+    """:func:`_plan_habit_progress` without its status half (:func:`_without_status`)."""
+    plan = _plan_habit_progress(goal, tally)
+    return _without_status(plan) if plan is not None else None
+
+
 if TYPE_CHECKING:
     from core.events.habit_events import HabitCompleted
     from core.models.graph.path_aware_types import GoalCrossContext
@@ -776,10 +801,12 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         The milestone is found by its uid in the list read under the goal's lock, so a
         milestone added or completed at the same moment is kept. Its ``achieved_date``
-        records the first completion (today in the user's zone); a repeat moves no
-        stamp and announces nothing. On a milestone-measured goal the figure follows,
-        and the completion that makes every milestone done achieves the goal
-        (``_plan_milestones``); on any other type the milestones are a checklist.
+        records the first completion (today in the user's zone) and never moves: a
+        repeat moves no stamp and announces nothing, and completing one reopened since
+        (``reopen_milestone``) keeps the date it was first reached. On a
+        milestone-measured goal the figure follows, and the completion that makes every
+        milestone done achieves the goal (``_plan_milestones``); on any other type the
+        milestones are a checklist.
 
         Args:
             goal_uid: Goal identifier
@@ -787,7 +814,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 not found
 
         Events Published:
-            - GoalMilestoneReached: on a first completion
+            - GoalMilestoneReached: when the milestone was open (not on a repeat)
             - GoalProgressUpdated: when the figure moved
             - GoalAchieved: on the transition into completed
         """
@@ -801,7 +828,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             target = milestones[index]
             if not target.is_completed:
                 milestones[index] = dataclasses.replace(
-                    target, is_completed=True, achieved_date=today_in(current_zone())
+                    target,
+                    is_completed=True,
+                    achieved_date=target.achieved_date or today_in(current_zone()),
                 )
                 first_completion.append(
                     sum(1 for m in milestones if m.is_completed) / len(milestones)
@@ -826,6 +855,141 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
         await self._publish_recompute(goal_uid, owner, plan, outcome.prior_status, trigger=None)
         return Result.ok(goal)
+
+    async def reopen_milestone(self, goal_uid: str, milestone_uid: str) -> Result[Goal]:
+        """Mark one of a goal's milestones not reached after all; the goal as written.
+
+        The mirror of :meth:`complete_milestone`, under the same lock. The milestone keeps
+        its ``achieved_date``: the day it was first reached, which a later completion
+        does not move. On a milestone-measured goal the figure follows, and a fall from
+        100 un-achieves the goal (``_plan_milestones``); on any other type the milestones
+        are a checklist. Reopening an open milestone changes nothing.
+
+        Args:
+            goal_uid: Goal identifier
+            milestone_uid: The milestone to reopen; one the goal does not hold is not
+                found
+
+        Events Published:
+            - GoalUpdated: when the milestone was reached (context invalidation)
+            - GoalProgressUpdated: when the figure moved
+        """
+        reopened: list[bool] = []
+
+        def reopen(goal: Goal) -> Result[_ProgressWrite]:
+            milestones = list(goal.milestones)
+            index = next((i for i, m in enumerate(milestones) if m.uid == milestone_uid), None)
+            if index is None:
+                return Result.fail(Errors.not_found("Milestone", milestone_uid))
+            target = milestones[index]
+            if target.is_completed:
+                milestones[index] = dataclasses.replace(target, is_completed=False)
+                reopened.append(True)
+            return Result.ok(_plan_milestones(goal, milestones))
+
+        rewrite = await self._rewrite_goal(goal_uid, reopen)
+        if rewrite.is_error:
+            return Result.fail(rewrite)
+        plan, outcome = rewrite.value.plan, rewrite.value.outcome
+        goal = outcome.entity
+        owner = UserUID(str(goal.user_uid))
+
+        if reopened:
+            self.logger.info(f"Reopened milestone {milestone_uid} of goal {goal_uid}")
+            await publish_event(
+                self.event_bus,
+                GoalUpdated(goal_uid=goal_uid, user_uid=owner, updated_fields=["milestones"]),
+                self.logger,
+            )
+        await self._publish_recompute(goal_uid, owner, plan, outcome.prior_status, trigger=None)
+        return Result.ok(goal)
+
+    async def handle_goal_reopened(self, event: GoalReopened) -> None:
+        """Give a reopened goal the figure its measure gives.
+
+        Best-effort, like the other progress subscribers: a failure is logged, never
+        raised, so a recompute cannot fail the reopen that triggered it.
+        """
+        try:
+            result = await self.restore_figure_from_measure(event.goal_uid, event.user_uid)
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
+            self.logger.error(f"Failed to restore reopened goal {event.goal_uid}'s figure: {e}")
+            return
+        if result.is_error:
+            self.logger.error(
+                f"Failed to restore reopened goal {event.goal_uid}'s figure: {result.error}"
+            )
+
+    async def restore_figure_from_measure(self, goal_uid: str, user_uid: UserUID) -> Result[bool]:
+        """Rewrite a goal's percentage from the measure its type names, status untouched.
+
+        Run on a reopen. ``complete_goal`` writes 100% on every type, so a goal completed
+        by hand at 2 of 5 tasks would reopen at a figure its measure contradicts; this
+        writes the measure's figure (the contribution tally, the habits' streaks, the
+        milestones, ``current_value`` against ``target_value``) through the same planner
+        that type's writer uses, under the goal's lock, with the status half taken off
+        (:func:`_without_status`). A goal whose percentage is the whole measurement has no
+        other source, and a numeric goal with no target has no figure to give: both are
+        left alone. ``Result.ok(True)`` when the goal was written.
+
+        Backend: ``rewrite_under_lock``, ``recompute_progress_from_contributions``,
+        ``recompute_progress_from_linked_habits``.
+        """
+        goal_result = await self.backend.get(goal_uid)
+        if goal_result.is_error:
+            return Result.fail(goal_result)
+        goal = goal_result.value
+        if goal is None:
+            return Result.ok(False)
+        measurement = goal.measurement_type or MeasurementType.PERCENTAGE
+
+        if measurement is MeasurementType.TASK_BASED:
+            tallied = await self.backend.recompute_progress_from_contributions(
+                goal_uid, _contribution_figure
+            )
+            trigger: Literal["contributions", "habits"] | None = "contributions"
+        elif measurement is MeasurementType.HABIT_BASED:
+            tallied = await self.backend.recompute_progress_from_linked_habits(
+                goal_uid, user_uid, _habit_figure
+            )
+            trigger = "habits"
+        elif measurement.follows_milestones() or (
+            measurement.entered_in_units() and goal.target_value
+        ):
+            return await self._restore_node_figure(goal_uid, user_uid)
+        else:
+            return Result.ok(False)
+
+        if tallied.is_error:
+            return Result.fail(tallied)
+        if tallied.value is None:
+            return Result.ok(False)
+        plan, outcome = tallied.value.plan, tallied.value.outcome
+        await self._publish_recompute(
+            goal_uid, user_uid, plan, outcome.prior_status, trigger=trigger
+        )
+        return Result.ok(True)
+
+    async def _restore_node_figure(self, goal_uid: str, user_uid: UserUID) -> Result[bool]:
+        """The figure of a goal whose measure is on its own node (milestones, units),
+        planned from the goal read under its lock. See :meth:`restore_figure_from_measure`.
+        """
+
+        def from_node(goal: Goal) -> Result[_ProgressWrite]:
+            measurement = goal.measurement_type or MeasurementType.PERCENTAGE
+            if measurement.entered_in_units():
+                entered = _plan_entered_figure(goal, goal.current_value or 0.0, "", datetime.now())
+                if entered.is_error:
+                    return entered
+                return Result.ok(_without_status(entered.value))
+            return Result.ok(_without_status(_plan_milestones(goal, list(goal.milestones))))
+
+        rewrite = await self._rewrite_goal(goal_uid, from_node)
+        if rewrite.is_error:
+            return Result.fail(rewrite)
+        plan, outcome = rewrite.value.plan, rewrite.value.outcome
+        await self._publish_recompute(goal_uid, user_uid, plan, outcome.prior_status, trigger=None)
+        return Result.ok(True)
 
     # ========================================================================
     # HABIT INTEGRATION

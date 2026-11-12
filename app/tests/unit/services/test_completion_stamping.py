@@ -39,11 +39,12 @@ import pytest
 
 from core.events.base import BaseEvent
 from core.events.calendar_event_events import CalendarEventCompleted
-from core.events.goal_events import GoalAchieved
+from core.events.goal_events import GoalAchieved, GoalReopened
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.goal_enums import MeasurementType
 from core.models.event.event import Event
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.goal.goal import Goal
@@ -373,6 +374,56 @@ class TestGoalsChokepoint:
         }
         assert recorder.merged_patch()["progress_percentage"] == 0.0
 
+    @pytest.mark.parametrize(
+        "measurement",
+        [
+            MeasurementType.TASK_BASED,
+            MeasurementType.HABIT_BASED,
+            MeasurementType.MILESTONE,
+            MeasurementType.NUMERIC,
+        ],
+    )
+    async def test_a_reopen_leaves_a_figure_another_writer_owns(self, measurement):
+        """The reset would be a second writer beside the tally, the streaks, the
+        milestones or ``current_value``: 0% beside a measure that says otherwise. The
+        stamp still clears; the figure is left to ``GoalReopened``'s subscriber."""
+        service, _backend, recorder = self._service(
+            EntityStatus.COMPLETED, measurement_type=measurement
+        )
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
+        assert result.is_ok
+        merged = recorder.merged_patch()
+        assert merged["achieved_date"] is None
+        assert "progress_percentage" not in merged
+        assert "progress_history" not in merged
+
+    @pytest.mark.parametrize(
+        "measurement",
+        [
+            None,
+            MeasurementType.PERCENTAGE,
+            MeasurementType.BINARY,
+            MeasurementType.KNOWLEDGE_BASED,
+            MeasurementType.MIXED,
+        ],
+    )
+    async def test_a_reopen_resets_a_figure_that_is_the_whole_measure(self, measurement):
+        service, _backend, recorder = self._service(
+            EntityStatus.COMPLETED, measurement_type=measurement
+        )
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
+        assert result.is_ok
+        assert recorder.merged_patch()["progress_percentage"] == 0.0
+
+    async def test_a_reopen_that_changes_the_type_is_judged_by_the_new_type(self):
+        service, _backend, recorder = self._service(
+            EntityStatus.COMPLETED, measurement_type=MeasurementType.PERCENTAGE
+        )
+        intent = GoalUpdateIntent(status="active", measurement_type=MeasurementType.MILESTONE)
+        result = await service.update_goal("goal_1", intent)
+        assert result.is_ok
+        assert "progress_percentage" not in recorder.merged_patch()
+
     async def test_an_open_goal_is_not_zeroed_by_the_reopen_reset(self):
         """The reset is conditional, not unconditional: a lateral move between two
         open statuses must leave progress alone. Only the write knows the prior, so
@@ -435,6 +486,43 @@ class TestGoalsChokepoint:
         assert merged["status"] == EntityStatus.ACTIVE.value
         assert merged["achieved_date"] is None
         assert merged["progress_percentage"] == 0.0
+
+    @pytest.mark.parametrize(
+        ("prior", "intent", "announced"),
+        [
+            (EntityStatus.COMPLETED, GoalUpdateIntent(status="active"), True),
+            (EntityStatus.COMPLETED, GoalUpdateIntent(status="paused"), True),
+            # A reopen carrying its own figure is still a reopen.
+            (
+                EntityStatus.COMPLETED,
+                GoalUpdateIntent(status="active", progress_percentage=42.0),
+                True,
+            ),
+            # Out of completed to a terminal status keeps the figure: not a reopen.
+            (EntityStatus.COMPLETED, GoalUpdateIntent(status="archived"), False),
+            (EntityStatus.COMPLETED, GoalUpdateIntent(status="cancelled"), False),
+            # Nothing left completed.
+            (EntityStatus.PAUSED, GoalUpdateIntent(status="active"), False),
+            (EntityStatus.COMPLETED, GoalUpdateIntent(title="renamed"), False),
+        ],
+    )
+    async def test_goal_reopened_is_published_on_a_return_to_a_working_status(
+        self, prior, intent, announced
+    ):
+        from core.services.goals.goals_core_service import GoalsCoreService
+
+        current = Goal(uid="goal_1", user_uid=USER, title="g", status=prior)
+        backend, _recorder = guarded_backend(current, current)
+        bus = _CapturingBus()
+        service = GoalsCoreService(backend=backend, event_bus=bus)
+
+        result = await service.update_goal("goal_1", intent)
+
+        assert result.is_ok
+        reopened = bus.of(GoalReopened)
+        assert len(reopened) == (1 if announced else 0)
+        if announced:
+            assert (reopened[0].goal_uid, reopened[0].user_uid) == ("goal_1", USER)
 
     async def test_archive_goal_archives_a_completed_goal(self):
         # A terminal target is not a reopen: the historical 100% progress
