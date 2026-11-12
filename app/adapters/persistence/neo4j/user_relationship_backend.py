@@ -16,10 +16,9 @@ queries. Core-layer consumers depend on the port, not this class (ADR-044).
 Graph Relationships Managed:
 ----------------------------
 - (user)-[:PINNED {order: int}]->(entity) - Ordered pinned entities
-- (user)-[:FOLLOWS]->(other_user) - Social following
+- (user)-[:FOLLOWS]->(other_user) - Social following, staged: read here, written by
+  no code yet (the reads are registered in ``scripts/detect_bloat.py``'s PLANNED tier)
 - (user)-[:MEMBER_OF]->(group) - Group membership
-
-Note: follower_uids removed - use inverse query: MATCH (follower)-[:FOLLOWS]->(user)
 
 See: /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
 """
@@ -61,7 +60,7 @@ class UserRelationshipBackend:
 
     Semantic Types Used:
     - PINNED: User-selected important entities (with order property)
-    - FOLLOWS: Social connections
+    - FOLLOWS: Social connections (staged: no writer yet)
     - MEMBER_OF: Group membership
     """
 
@@ -217,14 +216,13 @@ class UserRelationshipBackend:
         )
 
     # ========================================================================
-    # Social Connections (2 methods)
+    # Social Connections (2 methods) — staged: no code writes FOLLOWS yet
     # ========================================================================
 
     async def get_following(self, user_uid: UserUID) -> Result[set[str]]:
         """
         Get UIDs of users that this user follows.
 
-        Replaces: user.following_uids (removed from User model)
         Graph relationship: (user)-[:FOLLOWS]->(other_user)
 
         Args:
@@ -247,11 +245,7 @@ class UserRelationshipBackend:
         """
         Get UIDs of users following this user (inverse of FOLLOWS).
 
-        Replaces: user.follower_uids (removed from User model)
         Graph query: MATCH (follower)-[:FOLLOWS]->(user)
-
-        This is the inverse direction of the FOLLOWS relationship.
-        No separate follower_uids field needed in graph model.
 
         Args:
             user_uid: UID of the user
@@ -318,7 +312,7 @@ class UserRelationshipBackend:
 
     async def is_following(self, user_uid: UserUID, other_user_uid: UserUID) -> Result[bool]:
         """
-        Check if user follows another user.
+        Check if user follows another user (staged: no code writes FOLLOWS yet).
 
         Args:
             user_uid: UID of the user
@@ -375,7 +369,7 @@ class UserRelationshipBackend:
 
     async def get_social_stats(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """
-        Get social statistics for user.
+        Get social statistics for user (staged: no code writes FOLLOWS yet).
 
         Returns counts for following, followers, and mutual connections.
 
@@ -409,9 +403,9 @@ class UserRelationshipBackend:
 
     async def get_user_summary(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
-        Get comprehensive relationship summary for user.
+        Get a user's relationship counts: pins, following, followers, groups.
 
-        Returns counts for all relationship types.
+        The follow counts read the staged FOLLOWS edge, which no code writes yet.
 
         Args:
             user_uid: UID of the user

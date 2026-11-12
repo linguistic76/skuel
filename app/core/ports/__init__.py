@@ -200,7 +200,6 @@ from .query_types import (
     # Query Building Types
     OrderBySpec,
     PaginationSpec,
-    ProgressResult,
     PsUpdatePayload,
     WhereClauseSpec,
 )
@@ -284,7 +283,6 @@ __all__ = [
     # Response/Context Types
     "GraphContextResult",
     "IntelligenceResult",
-    "ProgressResult",
     # ========== ACTIVITY TEMPLATE PROTOCOL (1 - May 2026) ==========
     "ActivityTemplateOperations",
     "TemplateAttachmentOperations",

@@ -7,7 +7,7 @@ boundary (``adapters/persistence/neo4j/``) and authors parameterized Cypher
 against a ``Neo4jQueryExecutor``:
 
 - ``UserRelationshipOperations`` — user-centric graph edges (PINNED,
-  FOLLOWS, MEMBER_OF).
+  FOLLOWS, MEMBER_OF). FOLLOWS is staged: it is read here and written by no code yet.
   Implementation: ``adapters/persistence/neo4j/user_relationship_backend.py``
 
 Core-layer consumers (orchestrators, the user-intelligence factory) depend on
@@ -51,7 +51,7 @@ class UserRelationshipOperations(Protocol):
         self, user_uid: UserUID, ordered_entity_uids: list[str]
     ) -> Result[int]: ...
 
-    # Social connections
+    # Social connections — staged: (User)-[:FOLLOWS]->(User) has no writer yet
     async def get_following(self, user_uid: UserUID) -> Result[set[str]]: ...
     async def get_followers(self, user_uid: UserUID) -> Result[set[str]]: ...
 

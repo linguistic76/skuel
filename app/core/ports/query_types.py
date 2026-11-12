@@ -1007,48 +1007,6 @@ def to_grounding_source_rows(records: list[Neo4jProperties]) -> list[GroundingSo
     return rows
 
 
-class ProgressResult(TypedDict, total=False):
-    """
-    Result structure for progress tracking operations.
-
-    Used by Goals, Habits, Tasks progress methods.
-
-    Core Metrics:
-        progress: Current progress 0.0-1.0
-        previous_progress: Previous progress value
-        delta: Change in progress
-
-    Streak Data (Habits):
-        current_streak: Current consecutive completions
-        best_streak: Best streak ever
-        streak_broken: Whether streak was broken
-
-    Timestamps:
-        updated_at: When progress was updated
-        completed_at: When entity was completed (if applicable)
-
-    Context:
-        contributing_tasks: Tasks that contributed to progress
-        milestone_completed: Whether a milestone was just completed
-
-    Usage:
-        result: ProgressResult = await service.update_progress(uid, 0.5)
-        if result.get("milestone_completed"):
-            # Celebrate!
-    """
-
-    progress: float
-    previous_progress: float
-    delta: float
-    current_streak: int
-    best_streak: int
-    streak_broken: bool
-    updated_at: str
-    completed_at: str
-    contributing_tasks: list[str]
-    milestone_completed: bool
-
-
 class PrerequisiteChainRow(TypedDict):
     """Backend projection for one node in the prerequisite chain.
 
@@ -4794,7 +4752,6 @@ __all__ = [
     "GraphContextResult",
     "OverdueTasksWarning",
     "WorkloadWarning",
-    "ProgressResult",
     "PrerequisiteChainRow",
     "PrerequisiteChainNode",
     "PrerequisiteChainData",

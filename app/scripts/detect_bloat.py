@@ -826,6 +826,20 @@ _LATERAL_COUSINS = PlannedEntry(
     since=date(2026, 10, 10),
 )
 
+# One user following another, (User)-[:FOLLOWS]->(User): a social capability staged
+# from its read side. UserRelationshipBackend reads the edge; nothing writes it.
+_USER_FOLLOWS = PlannedEntry(
+    Readiness.DELAYED,
+    "the read side of one user following another, (User)-[:FOLLOWS]->(User), "
+    "staged: no code writes the edge (live count 0) and no service, route or page "
+    "calls these reads. Completing it needs a follow/unfollow writer on "
+    "UserRelationshipBackend, a door, a page, and a ruling on what following shows "
+    "(ADR-088: the share links are the one record of who sees what). "
+    "get_user_summary is held here for its follow counts; its pinned and group "
+    "counts read live edges",
+    since=date(2026, 11, 12),
+)
+
 PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Entity chunking: staged metadata read path ---
     "core/services/entity_chunking_service.py::get_metadata": PlannedEntry(
@@ -1227,14 +1241,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         "call site yet — wire into a /health route or startup check",
         since=date(2026, 6, 17),
     ),
-    "core/services/base_service.py::update_progress": PlannedEntry(
-        Readiness.DELAYED,
-        "no caller. It writes a `progress` property no domain model has (Goal's is "
-        "`progress_percentage`, written by update_goal_progress) and validates 0-100 "
-        "while its unit test passes 0.75 as a 0.0-1.0 value; each domain has its own "
-        "progress door. Stage or retire waits on Mike's ruling",
-        since=date(2026, 11, 12),
-    ),
     "core/services/ingestion/ingestion_history.py::get_total_count": PlannedEntry(
         Readiness.DELAYED,
         "count query for ingestion history entries; unit test coverage in "
@@ -1254,9 +1260,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # docs/roadmap/embedded-forms-fragment-staged.md.
     "adapters/inbound/learning_loop_routes.py::get_ps_embedded_forms": _EMBEDDED_FORMS_FRAGMENT,
     "adapters/inbound/learning_loop_routes.py::submit_embedded_form": _EMBEDDED_FORMS_FRAGMENT,
-    # --- ORGANIZES cycle guard: written, never called (ruled staged) ---
-    # The vault sync is the only ORGANIZES writer (``moc: true`` body links and the
-    # ``organizes:`` frontmatter field); both MERGE unguarded, so the graph can cycle.
     # --- Activity whole-set counts ---
     "core/services/tasks/tasks_core_service.py::get_stats_for_user": _ACTIVITY_STATS_FOR_USER,
     "core/services/goals/goals_core_service.py::get_stats_for_user": _ACTIVITY_STATS_FOR_USER,
@@ -1271,6 +1274,9 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         _LATERAL_COUSINS
     ),
     "adapters/persistence/neo4j/backends/collab_backends.py::get_cousins": _LATERAL_COUSINS,
+    # --- ORGANIZES cycle guard: written, never called (ruled staged) ---
+    # The vault sync is the only ORGANIZES writer (``moc: true`` body links and the
+    # ``organizes:`` frontmatter field); both MERGE unguarded, so the graph can cycle.
     "adapters/persistence/neo4j/_organizes_mixin.py::check_organizes_cycle": PlannedEntry(
         Readiness.DELAYED,
         "cycle probe for a would-be parent→child ORGANIZES edge; its Cypher is "
@@ -1281,6 +1287,13 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         "naming the file vs. a skipped edge)",
         since=date(2026, 9, 22),
     ),
+    # --- Following another user: the reads, with no writer (ruled staged) ---
+    # Below core/services, so no liveness tool sees them; the entries are the register.
+    "adapters/persistence/neo4j/user_relationship_backend.py::get_following": _USER_FOLLOWS,
+    "adapters/persistence/neo4j/user_relationship_backend.py::get_followers": _USER_FOLLOWS,
+    "adapters/persistence/neo4j/user_relationship_backend.py::is_following": _USER_FOLLOWS,
+    "adapters/persistence/neo4j/user_relationship_backend.py::get_social_stats": _USER_FOLLOWS,
+    "adapters/persistence/neo4j/user_relationship_backend.py::get_user_summary": _USER_FOLLOWS,
 }
 
 # Prompt templates staged with no render site (ADR-082 D4): committed .md

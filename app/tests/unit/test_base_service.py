@@ -626,32 +626,6 @@ class TestGetAllForUser:
 
 
 # ============================================================================
-# TESTS: Progress Management
-# ============================================================================
-
-
-class TestProgressManagement:
-    """Test the generic progress write.
-
-    Status has no generic write: ``update_status`` was deleted with ADR-087 (it had
-    zero production callers, and a status write now goes through the domain's own
-    chokepoint so its guard is evaluated at write time).
-    """
-
-    @pytest.mark.asyncio
-    async def test_update_progress_valid_range(self, service, mock_backend):
-        """Update progress within valid range (0.0-1.0)."""
-        mock_backend.get.return_value = Result.ok(
-            {"uid": "test_001", "title": "Test", "description": "Desc"}
-        )
-        mock_backend.update.return_value = Result.ok({"uid": "test_001"})
-
-        result = await service.update_progress("test_001", 0.75)
-
-        assert result.is_ok
-
-
-# ============================================================================
 # TESTS: Relationship Operations
 # ============================================================================
 

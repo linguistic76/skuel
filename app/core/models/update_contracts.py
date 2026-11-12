@@ -75,9 +75,9 @@ class RawChanges(dict[str, Any]):
     """A plain update patch — a ``dict`` that satisfies :class:`SupportsToChanges`.
 
     The bounded **default** for the base ``U`` type parameter, so non-activity services
-    (curriculum, finance, the base ``update_progress`` helper) keep expressing updates as
-    dict-shaped patches without each declaring an intent type. It is a real ``dict`` at
-    runtime, so the backend's ``SET n += $changes`` consumes it directly.
+    (curriculum, forms, groups) keep expressing updates as dict-shaped patches without
+    each declaring an intent type. It is a real ``dict`` at runtime, so the backend's
+    ``SET n += $changes`` consumes it directly.
     """
 
     def to_changes(self) -> dict[str, Any]:
