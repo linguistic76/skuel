@@ -307,7 +307,7 @@ class UserOperations(
     """Full user backend operations (composed). Use narrowest sub-protocol for ISP.
 
     Composed from:
-    - UserCrudOperations (11 methods) — identity CRUD
+    - UserCrudOperations (12 methods) — identity CRUD
     - UserLearningStateOperations (7 methods) — learning state management
     - UserActivityOperations (3 methods) — activity tracking
 
