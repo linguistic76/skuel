@@ -1,7 +1,7 @@
 """A reopened goal keeps the figure its measure gives; a milestone can be reopened.
 
-Ruled 2026-11-12 (``docs/domains/goals.md`` § "A reopened goal keeps the figure its
-measure gives"). On a goal whose percentage follows a measure held elsewhere (the
+See ``docs/domains/goals.md`` § "A reopened goal keeps the figure its measure gives".
+On a goal whose percentage follows a measure held elsewhere (the
 contribution tally, the habits' streaks, the milestones, ``current_value``), the
 reopen's subscriber rewrites the figure from that measure through the planner the
 type's own writer uses, with the status half taken off: a reopen restores the
