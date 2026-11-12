@@ -330,7 +330,7 @@ Every status-bearing write in `core/services/` goes through `backend.update_with
 
 **Ownership scoping:** every strategy (text/tags/graph/faceted) is scoped by the domain's `SearchVisibility` declaration on DomainConfig — `OWNER_ONLY` (Activities, UserEntry), `PUBLIC` (PS/LP/KU/Exercise — curriculum, a draft unlisted by the publication gate). One Cypher composition point: `build_search_visibility_clause()`. **See:** SEARCH_ARCHITECTURE § Ownership Scoping.
 
-**DomainConfig** is THE single source of truth for BaseService configuration: `dto_class`, `model_class`, `search_fields`, `search_order_by`, `category_field`, `temporal_exclude_statuses`, `supports_user_progress`, `user_ownership_relationship`, `search_visibility`, `graph_enrichment_patterns`, etc.
+**DomainConfig** is THE single source of truth for BaseService configuration: `dto_class`, `model_class`, `search_fields`, `search_order_by`, `category_field`, `temporal_exclude_statuses`, `user_ownership_relationship`, `search_visibility`, `graph_enrichment_patterns`, etc.
 
 **Factory functions:** `create_activity_domain_config()`, `create_curriculum_domain_config()`
 

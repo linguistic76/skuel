@@ -24,7 +24,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
     )
 ```
 
-**Key difference from Activity Domains:** `create_curriculum_domain_config` leaves `user_ownership_relationship` at `None` — curriculum content is shared. Ku passes `entity_label="Ku"` and `supports_user_progress=False`.
+**Key difference from Activity Domains:** `create_curriculum_domain_config` leaves `user_ownership_relationship` at `None` — curriculum content is shared. Ku passes `entity_label="Ku"`.
 
 ---
 

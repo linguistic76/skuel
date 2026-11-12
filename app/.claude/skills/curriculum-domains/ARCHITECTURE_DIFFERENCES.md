@@ -142,10 +142,10 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         search_order_by="updated_at",
         category_field="nous",
         content_field="description",
-    )   # user_ownership_relationship=None; supports_user_progress=True
+    )   # user_ownership_relationship=None
 ```
 
-Ku sets `supports_user_progress=False` and `entity_label="Ku"`.
+Ku sets `entity_label="Ku"`.
 
 ## Per-User Data in Curriculum
 
