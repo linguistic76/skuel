@@ -311,6 +311,9 @@ For auto-generated reference docs (method indexes, catalogs), run the generator 
 # Stale method index → regenerate from live code
 uv run python scripts/generate_method_index.py
 
+# Stale search-service catalog (docs/reference/SEARCH_SERVICE_METHODS.md) → same
+uv run python scripts/generate_search_method_catalog.py
+
 # Don't manually patch 50 method signatures — regenerate always wins
 ```
 

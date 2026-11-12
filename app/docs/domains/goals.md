@@ -229,32 +229,7 @@ Goals track which habits are essential for achievement:
 
 **Service:** `GoalsSearchService` (`/core/services/goals/goals_search_service.py`)
 
-### Inherited from BaseService
-
-| Method | Description |
-|--------|-------------|
-| `search(query, user_uid)` | Text search across title, description, success_criteria |
-| `get_by_status(status, user_uid)` | Filter by GoalStatus |
-| `get_by_category(category, user_uid)` | Filter by domain (category_field) |
-| `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
-| `graph_aware_faceted_search(request)` | Unified search with graph context |
-
-### Domain-Specific Methods
-
-| Method | Description |
-|--------|-------------|
-| `get_by_priority(priority, user_uid)` | Filter by priority |
-| `get_by_progress(min, max, user_uid)` | Filter by progress range |
-| `get_by_milestone_status(status, user_uid)` | Filter by milestone status |
-| `get_active(user_uid)` | Active goals — inherited from `TimeQueryMixin`; excludes `completed` + `cancelled` via `completed_statuses` config |
-| `get_upcoming(days_ahead, user_uid)` | Goals with `target_date` approaching — inherited |
-| `get_overdue(user_uid)` | Goals past `target_date` — inherited |
-| `get_goals_needing_attention(user_uid)` | Stalled or at-risk goals |
-| `get_goals_with_tasks(user_uid)` | Goals with linked tasks |
-| `list_milestones(goal_uid, user_uid)` | Get goal milestones |
-| `get_prioritized(user_uid, limit=10)` | Smart prioritization |
-
-**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
+Its methods with their real signatures, its search fields, and which of its methods are staged: [Search Service Methods § GoalsSearchService](../reference/SEARCH_SERVICE_METHODS.md#goalssearchservice). That catalog is generated from the class, so it lists only what the class has.
 
 ## Scheduling Service (January 2026)
 

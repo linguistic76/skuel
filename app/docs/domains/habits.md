@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-11-08
+updated: 2026-11-12
 status: current
 category: domains
 tags:
@@ -238,32 +238,7 @@ The habit model carries three fields of the habit loop (`Habit.cue` / `routine` 
 
 **Service:** `HabitsSearchService` (`/core/services/habits/habits_search_service.py`)
 
-### Inherited from BaseService
-
-| Method | Description |
-|--------|-------------|
-| `search(query, user_uid)` | Text search across title, description, cue, routine, reward |
-| `get_by_status(status, user_uid)` | Filter by status |
-| `get_by_category(category, user_uid)` | Filter by frequency (category_field) |
-| `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
-| `graph_aware_faceted_search(request)` | Unified search with graph context |
-
-### Domain-Specific Methods
-
-| Method | Description |
-|--------|-------------|
-| `get_by_frequency(frequency, user_uid)` | Filter by frequency (daily/weekly/etc) |
-| `get_by_streak_status(min_streak, user_uid)` | Filter by streak length |
-| `get_active(user_uid)` | Override of `TimeQueryMixin.get_active` — keeps PAUSED alongside ACTIVE |
-| `get_upcoming(days_ahead, user_uid)` | Override — frequency-window logic, not due-date columns |
-| `get_overdue(user_uid)` | Override — frequency-window logic, not due-date columns |
-| `get_user_due_today(user_uid)` | Habits due today (frequency-window) |
-| `get_habits_needing_attention(user_uid)` | Broken streaks or declining |
-| `get_habit_chain_candidates(habit_uid, user_uid)` | Potential habit stacking |
-| `get_knowledge_reinforcement_opportunities(user_uid)` | KU-habit connection opportunities |
-| `get_prioritized(user_uid, limit=10)` | Smart prioritization |
-
-**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
+Its methods with their real signatures, its search fields, and which of its methods are staged: [Search Service Methods § HabitsSearchService](../reference/SEARCH_SERVICE_METHODS.md#habitssearchservice). That catalog is generated from the class, so it lists only what the class has.
 
 ## Intelligence Service
 

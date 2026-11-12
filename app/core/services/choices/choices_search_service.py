@@ -86,15 +86,15 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="choices.search")
 
-    # Inherited from BaseService (December 2025):
+    # Inherited from BaseService:
     # - search(), get_by_status(), get_by_category(),
-    # - list_categories(), get_by_relationship()
+    # - list_user_categories(), get_by_relationship()
 
     # ========================================================================
     # DOMAIN SEARCH OPERATIONS PROTOCOL IMPLEMENTATION
     # ========================================================================
     # Inherited from BaseService: search(), get_by_status(),
-    # get_by_category(), list_categories(), get_by_relationship()
+    # get_by_category(), list_user_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
     async def get_prioritized(
@@ -211,7 +211,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         )
         return Result.ok(choices)
 
-    # get_by_category() and list_categories() - inherited from BaseService
+    # get_by_category() and list_user_categories() - inherited from BaseService
 
     # ========================================================================
     # GRAPH-AWARE FACETED SEARCH

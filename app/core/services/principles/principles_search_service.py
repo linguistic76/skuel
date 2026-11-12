@@ -408,8 +408,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         # dto.domain straight through, so a graph row carrying neither property
         # yields category None. There is then no category to match on — say so,
         # instead of sending None into Cypher where `= null` silently matches
-        # zero rows. (The former get_enum_value() wrapper here was a no-op: the
-        # property returns a str, not an enum, and its Any return hid the None.)
+        # zero rows.
         category_value = principle.category
         if category_value is None:
             return Result.ok([])

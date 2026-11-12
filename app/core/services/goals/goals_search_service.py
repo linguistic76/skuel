@@ -49,7 +49,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 
     Goal-Specific Methods:
     - get_by_category() - Filter by domain/category string
-    - list_categories() - Get all unique goal categories
+    - list_user_categories() / list_all_categories() - Distinct goal categories
 
     Semantic Types Used:
     - CONTRIBUTES_TO_GOAL: Task or event contributes to goal completion
@@ -77,13 +77,13 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     # - get_by_relationship() - Graph relationship queries
     # - get_by_status() - Filter by status field
     # - get_by_category() - Filter by domain field (via DomainConfig category_field)
-    # - list_categories() - List unique domain values
+    # - list_user_categories(), list_all_categories() - Distinct domain values
 
     # ========================================================================
     # DOMAIN SEARCH OPERATIONS PROTOCOL IMPLEMENTATION
     # ========================================================================
     # Inherited from BaseService: search(), get_by_status(),
-    # get_by_category(), list_categories(), get_by_relationship()
+    # get_by_category(), list_user_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
     async def get_prioritized(
@@ -124,7 +124,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     # get_upcoming(), get_overdue(), get_active() - inherited from TimeQueryMixin via DomainConfig
 
     # get_by_category() - inherited from BaseService (uses category_field = "domain")
-    # list_categories() - inherited from BaseService (uses category_field = "domain")
+    # list_user_categories() - inherited from BaseService (uses category_field = "domain")
 
     # ========================================================================
     # GRAPH-AWARE FACETED SEARCH

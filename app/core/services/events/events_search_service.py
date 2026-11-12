@@ -66,9 +66,8 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
     - get_in_range() - Events within date range
     - get_recurring() - Recurring events only
     - get_conflicting() - Events with time conflicts
-    - get_by_type() - Filter by event type
-    - get_upcoming() - Future events
-    - get_history() - Past completed events
+    - get_for_habit() - Events reinforcing a habit
+    - get_calendar_events() - Calendar window
 
     Semantic Types Used:
     - SUPPORTS_GOAL: Event supports goal achievement
@@ -95,15 +94,15 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="events.search")
 
-    # Inherited from BaseService (December 2025):
+    # Inherited from BaseService:
     # - search(), get_by_status(), get_by_category(),
-    # - list_categories(), get_by_relationship()
+    # - list_user_categories(), get_by_relationship()
 
     # ========================================================================
     # DOMAIN SEARCH OPERATIONS PROTOCOL IMPLEMENTATION
     # ========================================================================
     # Inherited from BaseService: search(), get_by_status(),
-    # get_by_category(), list_categories(), get_by_relationship()
+    # get_by_category(), list_user_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
     async def get_prioritized(

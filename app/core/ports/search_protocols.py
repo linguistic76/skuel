@@ -59,11 +59,11 @@ class DomainSearchOperations(Protocol[T]):
     """
     Standard search interface for activity domain services.
 
-    All activity domain SearchServices (TaskSearchService, GoalSearchService,
-    HabitsSearchService, EventSearchService, ChoiceSearchService, PrincipleSearchService)
-    implement this protocol plus domain-specific methods.
+    All activity domain search services (TasksSearchService, GoalsSearchService,
+    HabitsSearchService, EventsSearchService, ChoicesSearchService,
+    PrinciplesSearchService) implement this protocol plus domain-specific methods.
 
-    Architecture (November 2025):
+    Architecture:
     - Separates search concerns from CRUD (CoreService)
     - Provides consistent interface across all 6 activity domains
     - Supports UserContext-aware prioritization
@@ -79,11 +79,11 @@ class DomainSearchOperations(Protocol[T]):
     - get_active() - Non-terminal entities owned by the user
 
     Domain-Specific Methods (examples):
-    - TaskSearchService: get_tasks_for_goal(), get_tasks_for_path_step()
-    - GoalSearchService: get_goals_by_timeframe(), get_goals_needing_habits()
-    - HabitsSearchService: get_habits_by_frequency(), get_habits_needing_attention()
+    - TasksSearchService: get_tasks_for_goal(), get_tasks_for_path_step()
+    - HabitsSearchService: get_by_frequency(), get_needing_attention()
 
-    See: /docs/patterns/search_service_pattern.md for full documentation.
+    See: /docs/patterns/search_service_pattern.md for the pattern, and
+    /docs/reference/SEARCH_SERVICE_METHODS.md (generated) for every method.
     """
 
     async def search(
@@ -404,7 +404,6 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
 
     Adds task-specific methods:
     - Goal/Habit relationship queries
-    - Knowledge application tracking
     - Prerequisite and blocking detection
     - Curriculum task management
     """
@@ -436,12 +435,6 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
         self, user_uid: UserUID, include_completed: bool = False, limit: int = 100
     ) -> Result[list[Task]]:
         """Get tasks assigned to a user."""
-        ...
-
-    async def get_tasks_requiring_knowledge(
-        self, knowledge_uid: str, limit: int = 20
-    ) -> Result[list[Task]]:
-        """Get tasks requiring a knowledge unit."""
         ...
 
 

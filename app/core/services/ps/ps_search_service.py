@@ -50,11 +50,9 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
     - get_by_status(status, limit) - Filter by StepStatus
     - graph_aware_faceted_search(request) - Rich graph context search
     - get_with_content(uid) - Entity with full content
-    - get_with_context(uid, depth) - Entity with graph neighborhood
     - get_prerequisites(uid, depth) - Prerequisite chain
     - get_enables(uid, depth) - What this enables
     - get_hierarchy(uid) - Position in KU → PS → LP hierarchy
-    - get_user_progress(user_uid, entity_uid) - User mastery data
 
     PS-Specific Methods:
     - get_standalone_steps() - Steps not in any learning path

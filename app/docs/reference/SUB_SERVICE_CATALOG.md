@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-08
+updated: 2026-11-12
 ---
 
 # Sub-Service Responsibility Catalog
@@ -78,9 +78,9 @@ result = await core.create_task(request, user_uid)
 - `search()` - Full-text search
 - `get_by_status()` - Filter by status
 - `get_by_category()` - Filter by category/domain
-- `list_categories()` - Get available categories
+- `list_user_categories()` - A user's distinct categories
 - `search_by_tags()` - Filter by tags
-- Domain-specific queries (e.g., `get_tasks_for_goal()`, `get_habits_for_event()`)
+- Domain-specific queries (e.g., `get_tasks_for_goal()`, `get_for_habit()` on Events) — every method per service: [Search Service Methods](SEARCH_SERVICE_METHODS.md) (generated)
 
 **When to use:**
 - Finding entities by text query
