@@ -19,9 +19,13 @@ from core.utils.auth_context import AuthState, auth_state_var
 from ui.settings import render_settings_page
 
 
-def _page(*, is_admin: bool = False, is_teacher: bool = False) -> str:
+def _page(
+    *, is_admin: bool = False, is_teacher: bool = False, display_name: str | None = "Ana"
+) -> str:
     token = auth_state_var.set(
-        AuthState(user_uid="user_x", is_admin=is_admin, is_teacher=is_teacher)
+        AuthState(
+            user_uid="user_x", is_admin=is_admin, is_teacher=is_teacher, display_name=display_name
+        )
     )
     try:
         return to_xml(render_settings_page(request=None))  # type: ignore[arg-type]
@@ -82,3 +86,29 @@ def test_the_insights_row_follows_sign_out_and_shows_only_from_sm_to_md() -> Non
 def test_the_page_lights_the_avatar() -> None:
     avatar = re.search(r'<a[^>]*href="/settings"[^>]*>', _page())
     assert avatar is not None and 'aria-current="page"' in avatar.group(0)
+
+
+def test_the_account_card_sits_between_the_header_and_the_devices_link() -> None:
+    main = _main(_page())
+    header = main.index("Manage your preferences")
+    card = main.index('id="account-card"')
+    devices = main.index('href="/settings/devices"')
+    editor = main.index('hx-get="/settings/content"')
+    assert header < card < devices < editor
+
+
+def test_the_account_card_holds_the_name_and_saves_through_its_own_door() -> None:
+    main = _main(_page(display_name="Ana María"))
+    card = main[main.index('id="account-card"') : main.index('href="/settings/devices"')]
+    assert 'value="Ana María"' in card
+    assert "Shown to your teachers and the people you share with" in card
+    assert 'hx-post="/api/user/display-name"' in card
+    assert 'hx-target="#account-card"' in card
+    assert 'hx-swap="outerHTML"' in card
+    assert "x-cloak" not in card
+
+
+def test_a_user_with_no_stored_name_gets_an_empty_field() -> None:
+    main = _main(_page(display_name=None))
+    card = main[main.index('id="account-card"') : main.index('href="/settings/devices"')]
+    assert 'value=""' in card

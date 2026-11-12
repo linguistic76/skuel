@@ -20,17 +20,20 @@ from ui.layouts.base_page import BasePage, HtmlDocument
 from ui.layouts.navbar import insights_row, role_nav_rows, signout_row
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
+from ui.settings.account import render_account_card
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import Request
 
 
 def render_settings_page(request: Request) -> HtmlDocument:
-    """The settings page: phone chrome rows, then the preferences editor
-    loaded from ``/settings/content``.
+    """The settings page: phone chrome rows, the Account card, then the
+    preferences editor loaded from ``/settings/content``.
 
     Role flags come from the middleware-set auth context, as the navbar's do
     — the rows are chrome, filtered by the same predicate as the centre links.
+    The Account card's name is that context's too: the graph's value on this
+    request.
     """
     auth = current_auth_state()
     content = Div(
@@ -38,6 +41,7 @@ def render_settings_page(request: Request) -> HtmlDocument:
         insights_row(),
         *role_nav_rows(is_admin=auth.is_admin, is_teacher=auth.is_teacher),
         PageHeader("Settings", subtitle="Manage your preferences"),
+        render_account_card(auth.display_name),
         Div(
             A(
                 "Devices — vault-agent enrollment →",

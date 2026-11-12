@@ -212,6 +212,42 @@ def test_the_avatar_opens_settings_and_lights_there() -> None:
     assert 'href="/profile"' not in _navbar()
 
 
+# --- the avatar: the name's letter on the uid's colour ---------------------------
+
+
+def _avatar(**kwargs: str | None) -> str:
+    html = to_xml(create_navbar(current_user="user_1a2b", is_authenticated=True, **kwargs))
+    disc = re.search(r"<div[^>]*--avatar-hue[^>]*>([^<]*)</div>", html)
+    assert disc is not None
+    return disc.group(0)
+
+
+def test_the_avatar_shows_the_display_names_first_letter() -> None:
+    assert _avatar(display_name="mike").endswith(">M</div>")
+    assert _avatar(display_name="  ana").endswith(">A</div>")
+    assert _avatar(display_name="山田").endswith(">山</div>")
+
+
+def test_the_avatar_never_shows_the_uids_letter() -> None:
+    """Every uid starts ``user_``: a letter read from it is "U" for everyone."""
+    assert _avatar(display_name="Zed").endswith(">Z</div>")
+    assert _avatar(display_name=None).endswith(">U</div>")
+    assert _avatar(display_name="   ").endswith(">U</div>")
+
+
+def test_the_avatars_colour_is_the_uids_and_stays_when_the_name_changes() -> None:
+    hue = re.compile(r"--avatar-hue: (\d+);")
+    before = hue.search(_avatar(display_name="Mike"))
+    after = hue.search(_avatar(display_name="Zed"))
+    assert before is not None and after is not None
+    assert before.group(1) == after.group(1)
+    other = to_xml(
+        create_navbar(current_user="user_9f9f", is_authenticated=True, display_name="Mike")
+    )
+    other_hue = hue.search(other)
+    assert other_hue is not None and other_hue.group(1) != before.group(1)
+
+
 # --- the landing is the one sanctioned overlap --------------------------------
 
 

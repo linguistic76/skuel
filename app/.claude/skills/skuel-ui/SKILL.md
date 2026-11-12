@@ -469,7 +469,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
 | `/ui/workbench/nav.py` | Submissions sidebar config (`SUBMISSIONS_SIDEBAR_ITEMS`) + `render_submissions_sidebar_page()` helper |
 | `/adapters/inbound/user_entry_ui.py` | `submissions_moc` (MOC root), `gradebook_page` (exchange-lines GradeBook + `/gradebook/lines` fragment), submission history endpoints, knowledge-notes grounding page (`/submissions/knowledge`), journal submit/browse/download |
-| `/adapters/inbound/settings_routes.py` | `/settings` (the shell), `/settings/content` (the preferences fragment), `/settings/save` |
+| `/adapters/inbound/settings_routes.py` | `/settings` (the shell), `/settings/content` (the preferences fragment), `/settings/save`, `POST /api/user/display-name` (the Account card's save) |
 | `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
 | `/ui/activities/badges.py`, `/ui/activities/domain_stats_config.py` | The Tasks+ sidebar badges — `CountBadge`/`HealthIndicator` renderers + the per-row extractor config the `/api/sidebar/badges` handler (`adapters/inbound/sidebar_badges_ui.py`) iterates |
 | `/adapters/inbound/library_routes.py` | Library hub orchestrator — wires `library_ui.py` with its 6 service dependencies (extracted from `learning_loop_routes.py`) |

@@ -24,8 +24,10 @@ if TYPE_CHECKING:
     from starlette.testclient import TestClient
 
 
-def _identity(user_uid: str = "user_x", timezone: str | None = None) -> SessionIdentity:
-    return SessionIdentity(user_uid=UserUID(user_uid), timezone=timezone)
+def _identity(
+    user_uid: str = "user_x", timezone: str | None = None, display_name: str | None = None
+) -> SessionIdentity:
+    return SessionIdentity(user_uid=UserUID(user_uid), timezone=timezone, display_name=display_name)
 
 
 class _StubGraphAuth:
@@ -120,6 +122,21 @@ class TestAuthContextMiddleware:
 
         assert await _middleware().dispatch(request, call_next) is response
         assert seen == [AuthState(user_uid="user_x", is_admin=True, is_teacher=False)]
+
+    @pytest.mark.asyncio
+    async def test_the_display_name_is_the_graphs_not_the_cookies(self):
+        """The name comes from the validation's read, so a change shows on the next
+        request; a ``display_name`` in the cookie session is never read."""
+        request = _make_request(_valid_session(display_name="Cookie Name"))
+        graph_auth = _StubGraphAuth(Result.ok(_identity(display_name="Graph Name")))
+        seen: list[AuthState] = []
+
+        async def call_next(_req):
+            seen.append(current_auth_state())
+            return "response"
+
+        await _middleware(graph_auth).dispatch(request, call_next)
+        assert seen == [AuthState(user_uid="user_x", display_name="Graph Name")]
 
     @pytest.mark.asyncio
     async def test_empty_session_is_unauthenticated(self):

@@ -276,7 +276,7 @@ takes no `request`):
 from core.utils.auth_context import current_auth_state
 
 def render_section():
-    auth = current_auth_state()  # AuthState(user_uid, is_admin, is_teacher)
+    auth = current_auth_state()  # AuthState(user_uid, is_admin, is_teacher, display_name)
     if auth.is_admin:
         return SectionWithAdminLink()
     return SectionStandard()

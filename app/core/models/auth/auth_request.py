@@ -15,6 +15,7 @@ plaintext credential. Read them with ``.get_secret_value()`` at the point of use
 from pydantic import Field, SecretStr, model_validator
 
 from core.models.request_base import RequestBase
+from core.models.user.user_request import DisplayName
 
 
 class RegistrationRequest(RequestBase):
@@ -22,7 +23,7 @@ class RegistrationRequest(RequestBase):
 
     username: str = Field(min_length=1, max_length=100)
     email: str = Field(min_length=1, max_length=255)
-    display_name: str = Field(min_length=1, max_length=200)
+    display_name: DisplayName
     password: SecretStr = Field(min_length=1)
     confirm_password: SecretStr = Field(min_length=1)
     accept_terms: bool = False

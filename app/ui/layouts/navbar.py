@@ -186,14 +186,17 @@ def _avatar_hue(name: str) -> int:
     return h
 
 
-def _avatar_circle(current_user: str, fallback: str = "U") -> FT:
-    """Colored avatar circle with the user's initial.
+def _avatar_circle(current_user: str, display_name: str | None = None, fallback: str = "U") -> FT:
+    """Colored avatar circle with the first letter of the user's display name.
 
-    The hue is the user's; the lightness is the theme's. The style carries only the hue,
-    and the classes mix it: a pale disc with a dark initial in light, the mirror in dark.
-    The initial reads at 4.6:1 or better on every hue, in both themes.
+    The letter is the name's; the hue is the uid's, so it stays put when the name
+    changes. A user with no name stored shows ``fallback``. The lightness is the
+    theme's: the style carries only the hue, and the classes mix it: a pale disc
+    with a dark initial in light, the mirror in dark. The initial reads at 4.6:1
+    or better on every hue, in both themes.
     """
-    initial = current_user[0].upper() if current_user else fallback
+    name = (display_name or "").strip()
+    initial = name[0].upper() if name else fallback
     hue = _avatar_hue(current_user)
     return Div(
         initial,
@@ -253,14 +256,14 @@ def _insights_button(active_page: str) -> FT:
     )
 
 
-def _account_button(current_user: str, active_page: str) -> FT:
+def _account_button(current_user: str, active_page: str, display_name: str | None = None) -> FT:
     """Avatar circle linking to /settings — the account page (preferences,
     devices, and on phones the sign-out and role rows)."""
     is_active = active_page == "settings"
     ring = " ring-2 ring-primary" if is_active else ""
     return A(
         Span("Settings", cls="sr-only"),
-        _avatar_circle(current_user),
+        _avatar_circle(current_user, display_name),
         href="/settings",
         cls=("inline-flex items-center justify-center size-11 rounded-full hover:bg-accent" + ring),
         **({"aria-current": "page"} if is_active else {}),
@@ -290,6 +293,7 @@ def create_navbar(
     active_page: str = "",
     is_admin: bool = False,
     is_teacher: bool = False,
+    display_name: str | None = None,
 ) -> FT:
     """
     Create the slim top navigation bar — the same bar for every role.
@@ -301,11 +305,12 @@ def create_navbar(
     lg+: the role doors join the centre links.
 
     Args:
-        current_user: Current user's display name or UID
+        current_user: Current user's UID (the avatar's colour)
         is_authenticated: Whether user is logged in
         active_page: Current page's section key for highlighting
         is_admin: Whether user has admin role
         is_teacher: Whether user has teacher role or higher
+        display_name: Current user's display name (the avatar's letter)
 
     Returns:
         FastHTML Nav element (slim top bar)
@@ -336,7 +341,7 @@ def create_navbar(
             _insights_button(active_page),
             _shared_inbox_button(active_page),
             _notification_badge_placeholder(),
-            _account_button(current_user or "", active_page),
+            _account_button(current_user or "", active_page, display_name),
             _signout_button(),
             cls="flex items-center gap-1",
         )
@@ -437,6 +442,7 @@ def create_navbar_for_request(
         active_page=active_page,
         is_admin=auth.is_admin,
         is_teacher=auth.is_teacher,
+        display_name=auth.display_name,
     )
 
 

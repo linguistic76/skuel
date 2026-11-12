@@ -15,6 +15,7 @@ from typing import Any
 
 from fasthtml.common import FT, H1, A, Div, Form, P, Span, Strong
 
+from core.models.user.user import DISPLAY_NAME_MAX_LENGTH
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms.components import Checkbox, Input, LabelInput
 from ui.patterns.csrf import csrf_hidden_input
@@ -177,7 +178,7 @@ class AuthComponents:
                     name="display_name",
                     placeholder="How should we call you?",
                     required=True,
-                    maxlength="100",
+                    maxlength=str(DISPLAY_NAME_MAX_LENGTH),
                 ),
                 LabelInput(
                     "Password",

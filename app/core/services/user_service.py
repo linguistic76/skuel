@@ -222,6 +222,20 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
                 )
         return result
 
+    async def update_display_name(self, user_uid: UserUID, display_name: str) -> Result[User]:
+        """Change the name a user is shown by.
+
+        On success the cached UserContext is dropped at once, so the next reader
+        builds one holding the new name; nothing reads the name from the cache
+        alone, so there is no rebuild here.
+        """
+        result = await self.core.update_display_name(user_uid, display_name)
+        if result.is_ok:
+            await self.activity.invalidate_context(
+                user_uid, reason=InvalidationReason.DISPLAY_NAME_UPDATED, immediate=True
+            )
+        return result
+
     async def append_dual_track_checkin(  # skuel-lint: disable=SKUEL005 -- facade delegation to the safe-by-design store_callback (ADR-030)
         self,
         user_uid: UserUID,

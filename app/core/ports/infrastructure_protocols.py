@@ -142,6 +142,11 @@ class UserCrudOperations(Protocol):
         has ``user_uid``."""
         ...
 
+    async def set_display_name(self, user_uid: UserUID, display_name: str) -> Result[User | None]:
+        """Set ``display_name`` and nothing else; ``None`` when no user has
+        ``user_uid``. The caller has trimmed and checked the name."""
+        ...
+
     async def atomic_append_dual_track_checkin(
         self,
         user_uid: UserUID,

@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-09
+updated: 2026-11-12
 ---
 
 # Route Map
@@ -217,7 +217,7 @@ Other curriculum sub-pages (`/learning-paths`, `/exercises`) use `BasePage(STAND
 
 ### `/settings`
 
-The account page — the avatar's destination at every width (`page_key="settings"`). Renders first, outside any HTMX fragment or `x-cloak`, the chrome rows the top bar drops below its breakpoints: the sign-out row (`sm:hidden`) and the role-gated Admin / Teaching rows (`lg:hidden`, `role_nav_rows()`); then the preferences editor (learning, scheduling, notifications, display, goals — HTMX-loaded from `/settings/content`, saved via `/settings/save`). Links to `/settings/devices`. Shell in `ui/settings/page.py`; preferences in `ui/settings/preferences.py`; route in `adapters/inbound/settings_routes.py`.
+The account page — the avatar's destination at every width (`page_key="settings"`). Renders first, outside any HTMX fragment or `x-cloak`, the chrome rows the top bar drops below its breakpoints: the sign-out row (`sm:hidden`) and the role-gated Admin / Teaching rows (`lg:hidden`, `role_nav_rows()`); then the Account card (the display name, with its own Save: `POST /api/user/display-name` answers with the card re-rendered, and the top bar's avatar takes the new name's first letter on the next page); then the preferences editor (learning, scheduling, notifications, display, goals — HTMX-loaded from `/settings/content`, saved via `/settings/save`). Links to `/settings/devices`. Shell in `ui/settings/page.py`; Account card in `ui/settings/account.py`; preferences in `ui/settings/preferences.py`; route in `adapters/inbound/settings_routes.py`.
 
 ### `/settings/devices`
 

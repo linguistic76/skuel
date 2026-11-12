@@ -10,6 +10,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fasthtml.common import Div, to_xml
@@ -603,6 +604,22 @@ class TestInput:
         xml = to_xml(Input(error_text="Required"))
         assert "border-error" in xml
         assert "text-error" in xml
+
+    @pytest.mark.parametrize("field", [Input, TextArea, Select], ids=lambda f: f.__name__)
+    def test_a_field_with_an_error_has_one_border_colour(
+        self,
+        field: Any,  # boundary: fasthtml-elements
+    ) -> None:
+        """``border-input`` is later in output.css than ``border-error``: a field
+        carrying both shows no error border."""
+        [errored] = [
+            classes.split()
+            for classes in re.findall(r'class="([^"]*)"', to_xml(field(name="f", error_text="No")))
+            if "border-error" in classes.split()
+        ]
+        assert "border-input" not in errored
+        plain = re.findall(r'class="([^"]*)"', to_xml(field(name="f")))
+        assert any("border-input" in classes.split() for classes in plain)
 
     def test_help_text_rendered(self) -> None:
         xml = to_xml(Input(name="email", help_text="Your email"))

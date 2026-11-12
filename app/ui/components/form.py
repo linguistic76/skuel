@@ -31,6 +31,10 @@ _FIELD_SIZE = "h-11 md:h-10 rounded-md px-3 py-2 text-sm"
 # fields): 44px on phones like every field, 32px with 13px text from ``md`` up.
 _FIELD_SIZE_COMPACT = "h-11 md:h-8 rounded-lg px-2.5 py-1 text-13"
 
+# A field's border colour, and the one that takes its place on a field with an error.
+_BORDER_COLOUR = "border-input"
+_ERROR_BORDER = "border-error"
+
 _FIELD_LOOK = (
     "flex border border-input bg-background ring-offset-background "
     "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring "
@@ -87,14 +91,15 @@ def _aria_attrs(
 
 
 def _field_cls(look: str, size: str, *, full_width: bool, error_text: str | None, cls: str) -> str:
-    """One field's class list: look, size, exactly one width, then the caller's layout."""
-    return _cls(
-        look,
-        size,
-        "w-full" if full_width else "w-auto",
-        "border-error" if error_text else "",
-        cls,
-    )
+    """One field's class list: look, size, exactly one width, then the caller's layout.
+
+    A field with an error carries ``border-error`` in place of the look's
+    ``border-input``, never beside it: ``border-input`` is later in output.css, so
+    with both the error border would not show.
+    """
+    if error_text:
+        look = " ".join(_ERROR_BORDER if c == _BORDER_COLOUR else c for c in look.split())
+    return _cls(look, size, "w-full" if full_width else "w-auto", cls)
 
 
 def Label(*c: Any, cls: str = "", **kwargs: Any) -> Any:  # boundary: fasthtml-elements

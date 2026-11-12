@@ -79,9 +79,9 @@ def fake_user(_r):
 import ui.layouts.navbar as nb
 
 PERSONAS = {
-    "member": AuthState(user_uid="user_x", is_admin=False, is_teacher=False),
-    "teacher": AuthState(user_uid="user_x", is_admin=False, is_teacher=True),
-    "admin": AuthState(user_uid="user_x", is_admin=True, is_teacher=True),
+    "member": AuthState(user_uid="user_x", is_admin=False, is_teacher=False, display_name="Mike"),
+    "teacher": AuthState(user_uid="user_x", is_admin=False, is_teacher=True, display_name="Tess"),
+    "admin": AuthState(user_uid="user_x", is_admin=True, is_teacher=True, display_name="Ada"),
 }
 state = PERSONAS["member"]
 

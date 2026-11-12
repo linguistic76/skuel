@@ -11,13 +11,13 @@ See ADR-030 for details.
 
 from .user import User, UserPreferences, create_user
 from .user_dto import UserDTO, UserPreferencesDTO
-from .user_request import UserUpdateSchema
+from .user_request import DisplayNameUpdateRequest
 
 __all__ = [
+    "DisplayNameUpdateRequest",
     "User",
     "UserDTO",
     "UserPreferences",
     "UserPreferencesDTO",
-    "UserUpdateSchema",
     "create_user",
 ]

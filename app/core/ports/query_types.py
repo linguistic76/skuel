@@ -1655,10 +1655,19 @@ class SessionIdentity(TypedDict):
 
     ``timezone`` is the user's stored zone choice (``UserPreferences.timezone``,
     as stored, not yet resolved); None when they have not chosen one.
+    ``display_name`` is the name the user is shown by, as stored; None when the
+    node holds none.
     """
 
     user_uid: UserUID
     timezone: str | None
+    display_name: str | None
+
+
+class DisplayNameSaved(TypedDict):
+    """What ``POST /api/user/display-name`` answers a JSON caller: the name as stored."""
+
+    display_name: str
 
 
 # ============================================================================
@@ -4778,6 +4787,7 @@ __all__ = [
     "SignUpResult",
     "SignInResult",
     "SessionIdentity",
+    "DisplayNameSaved",
     # Teacher Review Result Types
     "ReviewQueueItem",
     # Sharing Result Types

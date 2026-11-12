@@ -4,24 +4,32 @@ Routes:
 - GET /settings — user settings/preferences page
 - GET /settings/content — the preferences editor fragment
 - POST /settings/save — save user preferences (the editor's one form)
+- POST /api/user/display-name — change the signed-in user's display name (the
+  Account card's save; answers HTMX with the card re-rendered)
 """
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import FT, Div
+from fasthtml.common import FT, Div, FtResponse
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import parse_form_body
-from core.models.user.user_request import UserPreferencesFormRequest
+from adapters.inbound.form_helpers import parse_body, parse_form_body
+from adapters.inbound.route_factories.route_helpers import refuse_unavailable
+from core.models.user.user_request import DisplayNameUpdateRequest, UserPreferencesFormRequest
+from core.ports.query_types import DisplayNameSaved
+from core.utils.auth_context import current_auth_state
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 from core.utils.type_converters import get_enum_value
 from core.utils.zone_context import default_zone
 from ui.layouts.base_page import HtmlDocument
 from ui.patterns.error_banner import render_error_banner
 from ui.settings import render_settings_page
+from ui.settings.account import DISPLAY_NAME_REFUSAL, render_account_card
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import RouteDecorator
@@ -143,6 +151,48 @@ def create_settings_routes(
             UserPreferencesComponents.render_preferences_saved_message(),
             theme_script,
         )
+
+    @rt("/api/user/display-name", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def save_display_name(
+        request: Request,
+    ) -> FtResponse | Result[DisplayNameSaved]:
+        """Change the name the signed-in user is shown by (``DisplayNameUpdateRequest``).
+
+        The name is trimmed; a blank one, one over the length limit, or one holding
+        a control character or a line break is 400 and nothing is written. HTMX gets
+        the Account card re-rendered: with the stored name and "Saved", or, refused,
+        with the name the account still has and the reason, at the refusal's status.
+        JSON gets ``{display_name}``.
+        """
+        user_uid = require_authenticated_user(request)
+        htmx = bool(request.headers.get("HX-Request"))
+        parsed = await parse_body(request, DisplayNameUpdateRequest)
+        if parsed.is_error:
+            if htmx:
+                return refuse_unavailable(
+                    render_account_card(
+                        current_auth_state().display_name, note=DISPLAY_NAME_REFUSAL
+                    ),
+                    parsed.expect_error(),
+                )
+            return Result.fail(parsed)
+        saved = await user_service.update_display_name(user_uid, parsed.value.display_name)
+        if saved.is_error:
+            if htmx:
+                return refuse_unavailable(
+                    render_account_card(
+                        current_auth_state().display_name,
+                        note="Your name could not be saved. Please try again.",
+                    ),
+                    saved.expect_error(),
+                )
+            return Result.fail(saved)
+        name = saved.value.display_name
+        if htmx:
+            return FtResponse(render_account_card(name, saved=True))
+        return Result.ok(DisplayNameSaved(display_name=name))
 
     logger.info("Settings routes registered")
 
