@@ -14,10 +14,11 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+    from datetime import datetime
 
     from core.events.base import BaseEvent
     from core.models.enums.neo_labels import NeoLabel
-    from core.models.user import User
+    from core.models.user import User, UserPreferences
     from core.services.ingestion.types import (
         IncrementalStats,
         IngestionStats,
@@ -124,8 +125,21 @@ class UserCrudOperations(Protocol):
         """Get user by email address — the sign-in lookup."""
         ...
 
-    async def update_user(self, user: User) -> Result[User]:
-        """Update user data."""
+    async def rewrite_preferences_under_lock(
+        self,
+        user_uid: UserUID,
+        plan: Callable[[UserPreferences], UserPreferences],
+        *,
+        active_at: datetime,
+    ) -> Result[User | None]:
+        """Rewrite a user's preferences from the preferences read under the user
+        node's lock, writing ``preferences`` and the ``last_active_at`` stamp alone;
+        ``None`` when no user has ``user_uid``."""
+        ...
+
+    async def reactivate_user(self, user_uid: UserUID) -> Result[User | None]:
+        """Set ``is_active`` back to true and nothing else; ``None`` when no user
+        has ``user_uid``."""
         ...
 
     async def atomic_append_dual_track_checkin(

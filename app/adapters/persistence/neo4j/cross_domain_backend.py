@@ -1392,7 +1392,7 @@ class CrossDomainBackend:
                    u.email AS email,
                    u.role AS role,
                    u.is_active AS is_active,
-                   u.updated_at AS last_login_at,
+                   u.last_login_at AS last_login_at,
                    task_count, goal_count, habit_count, ku_mastered
             ORDER BY u.title
             """,

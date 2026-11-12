@@ -193,10 +193,6 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         """Get user by username."""
         return await self.core.get_user_by_username(username)
 
-    async def update_user(self, user: User) -> Result[User]:
-        """Update user information."""
-        return await self.core.update_user(user)
-
     async def update_preferences(
         self, user_uid: UserUID, preferences_update: dict[str, Any]
     ) -> Result[User]:
@@ -263,14 +259,6 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
     ) -> Result[bool]:
         """Soft-delete a user: mark status=DELETED, scrub PII, preserve OWNS graph."""
         return await self.core.delete_user(user_uid, reason=reason, deleted_by=deleted_by)
-
-    # ========================================================================
-    # AUTHENTICATION (Delegate to UserCoreService)
-    # ========================================================================
-
-    async def authenticate(self, username: str, password: str) -> Result[User]:
-        """Authenticate user with username and password."""
-        return await self.core.authenticate(username, password)
 
     # ========================================================================
     # VAULT-AGENT DEVICES (Delegate to DeviceService — ADR-075)

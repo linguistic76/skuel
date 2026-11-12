@@ -26,8 +26,10 @@ See Also:
 - /docs/USER_MODEL_ARCHITECTURE.md
 """
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from neo4j import AsyncDriver
 from neo4j.exceptions import ConstraintError
@@ -41,7 +43,7 @@ from core.models.enums.curriculum_enums import EnrollmentStatus
 from core.models.enums.user_enums import UserStatus
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterValue, UserUID
-from core.models.user import User
+from core.models.user import User, UserPreferences
 from core.ports.query_types import MasteredWriteRow
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
@@ -50,13 +52,10 @@ from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
 
-# Append-only User properties that are managed EXCLUSIVELY via the atomic
-# `atomic_append_dual_track_checkin` path and must never be written by a whole-model
-# write. A full `update_user`/`create_user` serializes every field, so without this
-# guard a stale whole-model write (e.g. a preferences/session update that read the
-# user before a dual-track check-in but commits after it) would clobber the
-# just-persisted log. Excluding them here makes the race impossible in BOTH
-# directions (ADR-030). See `update_user` / `atomic_append_dual_track_checkin` below.
+# Append-only User properties, written EXCLUSIVELY by the atomic check-in appends
+# (`atomic_append_dual_track_checkin` / `atomic_append_knowledge_checkin`, ADR-030).
+# `create_user`, the one write that serializes the whole model, leaves them out; the
+# first append creates the property.
 _APPEND_ONLY_FIELDS: frozenset[str] = frozenset({"dual_track_checkins", "knowledge_checkins"})
 
 
@@ -254,46 +253,90 @@ class UserBackend(Neo4jSessionRunner):
         """
         return await self._get_user_by("email", email)
 
-    @safe_backend_operation("update_user")
-    async def update_user(self, user: User) -> Result[User]:
-        """
-        Update user identity.
+    @safe_backend_operation("rewrite_preferences_under_lock")
+    async def rewrite_preferences_under_lock(
+        self,
+        user_uid: UserUID,
+        plan: Callable[[UserPreferences], UserPreferences],
+        *,
+        active_at: datetime,
+    ) -> Result[User | None]:
+        """Rewrite a user's preferences from the preferences read under the node's lock.
+
+        Lock, read, plan and write are one explicit transaction. Its first statement
+        writes a sentinel, which takes the node's write-lock before the read, so two
+        saves for one user serialize and the later one plans from what the earlier one
+        wrote. The write sets ``preferences`` and the ``last_active_at`` stamp alone: a
+        field another writer changed meanwhile (the password hash, the role,
+        ``is_active``, the display name) keeps the value that writer gave it.
+
+        Both are serialized by ``to_neo4j_node``, the mapper ``create_user`` stores
+        them through, so a rewrite stores the shape every reader already parses. An
+        exception raised by ``plan`` rolls the transaction back, sentinel included.
 
         Args:
-            user: Updated User domain model
+            user_uid: The user whose preferences change.
+            plan: Pure: the stored preferences → the preferences to store.
+            active_at: The ``last_active_at`` stamp the save writes beside them.
 
         Returns:
-            Result[User]: Updated user or error
+            The user as written, or ``None`` when no user has ``user_uid``.
         """
-        # Convert User to Neo4j properties
-        user_dict = to_neo4j_node(user)
-        uid = user_dict.get("uid")
-
-        if not uid:
-            return Result.fail(
-                Errors.validation(message="User must have uid", field="uid", value=None)
-            )
-
-        # Remove uid (match key) and append-only fields (managed solely via
-        # update_user_fields — a whole-model write must never clobber them).
-        updates = {
-            k: v for k, v in user_dict.items() if k != "uid" and k not in _APPEND_ONLY_FIELDS
-        }
-
-        query = f"""
+        lock_query = f"""
         MATCH (u:{self.label} {{uid: $uid}})
-        SET u += $updates
+        SET u.`_pref_lock` = $lock_token
         RETURN u
         """
+        write_query = f"""
+        MATCH (u:{self.label} {{uid: $uid}})
+        SET u += $updates
+        REMOVE u.`_pref_lock`
+        RETURN u
+        """
+        async with (
+            self.driver.session() as session,
+            await session.begin_transaction() as tx,
+        ):
+            locked = await (
+                await tx.run(lock_query, {"uid": user_uid, "lock_token": uuid4().hex})
+            ).single()
+            if locked is None:
+                await tx.rollback()
+                return Result.ok(None)
+            current = from_neo4j_node(dict(locked["u"]), User)
+            updates = to_neo4j_node(
+                {"preferences": plan(current.preferences), "last_active_at": active_at}
+            )
+            written = await (
+                await tx.run(write_query, {"uid": user_uid, "updates": updates})
+            ).single()
+            if written is None:
+                # The node was locked above, so it cannot have gone; a write that
+                # returned no row still proves nothing was written, and must not
+                # commit the sentinel.
+                await tx.rollback()
+                return Result.ok(None)
+        return Result.ok(from_neo4j_node(dict(written["u"]), User))
 
-        record = await self._run_single(query, {"uid": uid, "updates": updates})
+    @safe_backend_operation("reactivate_user")
+    async def reactivate_user(self, user_uid: UserUID) -> Result[User | None]:
+        """Set the account's ``is_active`` back to true, and nothing else.
 
+        Deactivation is ``SessionBackend.deactivate_user_and_revoke_sessions``;
+        reactivation revokes nothing, so it is the one property.
+
+        Returns:
+            The user as written, or ``None`` when no user has ``user_uid``.
+        """
+        query = f"""
+        MATCH (u:{self.label} {{uid: $uid}})
+        SET u.is_active = true
+        RETURN u
+        """
+        record = await self._run_single(query, {"uid": user_uid})
         if not record:
-            return Result.fail(Errors.not_found(resource="User", identifier=uid))
-
-        updated_user = from_neo4j_node(dict(record["u"]), User)
-        self.logger.info(f"Updated user identity: {uid}")
-        return Result.ok(updated_user)
+            return Result.ok(None)
+        return Result.ok(from_neo4j_node(dict(record["u"]), User))
 
     @safe_backend_operation("atomic_append_dual_track_checkin")
     async def atomic_append_dual_track_checkin(
@@ -387,8 +430,9 @@ class UserBackend(Neo4jSessionRunner):
 
         The node + every OWNS-linked entity (UserEntry, Task, Goal, Habit, ...)
         are kept so teachers can still render historical submissions and
-        analytics stay intact. Login is blocked via ``is_active=false`` which
-        ``UserCoreService.authenticate`` already rejects, and every live
+        analytics stay intact. Login is blocked via ``is_active=false``, which
+        sign-in (``GraphAuthService.sign_in``) and the per-request session check
+        (``SessionBackend.validate_session_token``) both refuse, and every live
         session is revoked in the SAME statement — per-request validation
         anchors on the live User's ``is_active``, but sweeping ``is_valid``
         here keeps deletion+logout one commit with no interleaving window.

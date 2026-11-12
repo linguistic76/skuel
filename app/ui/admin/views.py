@@ -287,8 +287,9 @@ class AdminUIComponents:
             uid = user.get("uid", "")
             username = user.get("username", "Unknown")
             display_name = user.get("display_name") or username
-            last_login = user.get("last_login_at", "Never")
-            if last_login and last_login != "Never":
+            # A user who never signed in has a null stamp: the key is present, its value None.
+            last_login = user.get("last_login_at") or "Never"
+            if last_login != "Never":
                 last_login = format_date(last_login, "%Y-%m-%d")
 
             body_data.append(

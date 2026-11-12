@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from collections.abc import Callable
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
@@ -154,20 +156,27 @@ class TestBuilderWiresPreferences:
     """BOTH build paths must carry User.preferences into the context."""
 
     def _user_service(self, prefs: UserPreferences) -> UserService:
-        # Stateful repo double: update_user persists, get_user_by_uid returns
-        # the latest — the post-save context REBUILD must see the new prefs.
+        # Stateful repo double: the preferences rewrite persists, get_user_by_uid
+        # returns the latest — the post-save context REBUILD must see the new prefs.
         state = {"user": User(uid=_UID, title=_UID, email="prefs@test.local", preferences=prefs)}
 
         async def _get(_uid: str) -> Result[User]:
             return Result.ok(state["user"])
 
-        async def _update(user: User) -> Result[User]:
-            state["user"] = user
-            return Result.ok(user)
+        async def _rewrite(
+            _uid: str,
+            plan: Callable[[UserPreferences], UserPreferences],
+            *,
+            active_at: datetime,
+        ) -> Result[User | None]:
+            state["user"] = dataclasses.replace(
+                state["user"], preferences=plan(state["user"].preferences), last_active_at=active_at
+            )
+            return Result.ok(state["user"])
 
         repo = MagicMock()
         repo.get_user_by_uid = AsyncMock(side_effect=_get)
-        repo.update_user = AsyncMock(side_effect=_update)
+        repo.rewrite_preferences_under_lock = AsyncMock(side_effect=_rewrite)
         executor = MagicMock()
         executor.execute_mega_query = AsyncMock(
             return_value=Result.ok({"uids": {}, "entities": {}, "rich": {}})

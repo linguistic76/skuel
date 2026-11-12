@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-11-07'
+updated: '2026-11-12'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -357,7 +357,8 @@ One navbar for every role (`ui/layouts/navbar.py`); what changes by auth state i
 ```
 1. User logs in via /login
    ↓
-2. GraphAuthService.sign_in() creates Session node in Neo4j
+2. GraphAuthService.sign_in() creates Session node in Neo4j; the same
+   statement stamps the user's last_login_at (its one user property)
    ↓
 3. set_current_user() stores user_uid + session_token in cookie
    ↓

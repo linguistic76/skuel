@@ -1,6 +1,6 @@
 ---
 title: "Request Models No Door Reads"
-updated: 2026-11-09
+updated: 2026-11-12
 status: "open — 21 staged (6 wait on a door for a service that exists, 3 on a design, 12 on a re-evaluation) and 1 parked; 23 retired 2026-11-08; 3 bound by their doors 2026-11-08 and 2026-11-09"
 registered: 2026-11-05
 ruled: "2026-11-05 (Mike) — 23 retire; UserFilterSchema and HabitCompletionFilterRequest move from retire to staged; the rest stay staged or parked, each for the reason in its row"
@@ -89,7 +89,7 @@ A wiring door binds its model and takes its row out.
 | `GoalHabitLinkRequest` | `core/models/goal/goal_request.py` | staged: door | one door with the two habit-system models |
 | `HabitEssentialityChangeRequest` | `core/models/goal/goal_request.py` | staged: door | the same door |
 | `HabitSystemUpdateRequest` | `core/models/goal/goal_request.py` | staged: door | the same door |
-| `UserUpdateSchema` | `core/models/user/user_request.py` | staged: design | wanted (Mike 2026-11-05): narrow to display name. `update_user` exists; `/settings` has no account section; `display_name` is set only at registration |
+| `UserUpdateSchema` | `core/models/user/user_request.py` | staged: design | wanted (Mike 2026-11-05): narrow to display name. Nothing past registration writes `display_name`, and no user writer sends the whole model back (each names its fields); `/settings` has no account section |
 | `UserAnalyticsView` | `core/models/user/user_request.py` | staged: design | wanted: growth and retention on `/admin/analytics`. Growth reads `User.created_at`; `AuthEvent` is pruned at 90 days, so retention needs the ruled monthly login count per user, which has no home yet. Several fields read nothing that exists |
 | `WeeklyPlanningRequest` | `core/models/analytics/analytics_report_request.py` | staged: design | wanted: the daily plan stretched over seven days, checked against available minutes. No service; read the daily plan first. Its `user_uid` field goes: the user comes from the session |
 | `GoalFilterRequest` | `core/models/goal/goal_request.py` | staged: re-evaluate | list filters are fundamental (Mike). A GET door reads its fields through the strict readers, so a filter class is a specification until a POST door binds it |
