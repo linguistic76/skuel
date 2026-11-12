@@ -411,7 +411,7 @@ The Principles domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-`adapters/inbound/principles_ui.py` registers the list page (`/principles`, with `/principles/content` and `/principles/list-fragment` HTMX fragments), the detail page (`/principles/detail?uid=`) and the dual-track self-rate POST through `create_activity_ui_routes`, plus the `/principles/create` and `/principles/edit` forms (GET + POST). API routes live in `principles_api.py`.
+`adapters/inbound/principles_ui.py` registers the list page (`/principles`, with `/principles/content` and `/principles/list-fragment` HTMX fragments), the detail page (`/principles/detail?uid=`) and the dual-track self-rate POST through `create_activity_ui_routes`; `create_principles_ui_routes` then registers the `/principles/choice-outcomes` section the detail page HTMX-loads (how the choices the principle informs turned out, `PrincipleChoiceOutcomes`) and the `/principles/create` and `/principles/edit` forms (GET + POST) itself. API routes live in `principles_api.py`.
 
 ## Code Examples
 
