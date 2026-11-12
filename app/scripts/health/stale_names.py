@@ -484,6 +484,8 @@ DELETED: dict[str, str] = {
     # Call-shaped: the live pathways handler is `update_progress_route`.
     "update_progress(": "deleted — goals: update_goal_progress; mastery: MASTERED edges; tasks and habits: their completion doors",
     "ProgressResult": "deleted — nothing returned it; each progress door returns its own entity",
+    # A goal carries its milestones: the goal page and the goal's JSON read them from it.
+    "get_goal_milestones": "deleted — read Goal.milestones (the goal's JSON carries each milestone with its uid)",
 }
 
 

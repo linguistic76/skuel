@@ -26,6 +26,12 @@ Cross-domain links (via create_activity_link_api_routes):
     POST /api/goals/link-principle — Link goal to a principle that supports it
     POST /api/goals/link-life-path — Link goal to the life path it serves
 
+Progress and milestones (ownership-verified; JSON or the goal page's forms; the page
+is answered over HTMX with its detail view re-rendered):
+    POST /api/goals/{uid}/progress             — Record the figure the learner enters
+    POST /api/goals/{uid}/milestones           — Add a milestone
+    POST /api/goals/{uid}/milestones/complete  — Mark one of its milestones reached
+
 Knowledge intelligence:
     GET  /api/goals/knowledge-patterns — Detected learning patterns across user goals
 """
@@ -34,11 +40,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from fasthtml.common import FtResponse
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.form_helpers import parse_body, parse_json_body
 from adapters.inbound.route_factories import (
     PRIORITY_VALUES,
     ActivityFieldApiConfig,
@@ -53,6 +61,7 @@ from adapters.inbound.route_factories import (
     parse_bool_param_strict,
     parse_float_param_strict,
     parse_int_param_strict,
+    verify_entity_ownership,
 )
 from core.models.context_types import ContextualGoal
 from core.models.entity_requests import (
@@ -63,10 +72,15 @@ from core.models.entity_requests import (
 )
 from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
-from core.models.goal.goal_request import GoalCreateRequest
+from core.models.goal.goal_request import (
+    GoalCreateRequest,
+    GoalProgressUpdateRequest,
+    MilestoneCompleteRequest,
+    MilestoneCreateRequest,
+)
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.utils.result_simplified import Result
-from ui.activities.goals_views import GoalCard
+from ui.activities.goals_views import GoalCard, GoalDetailView
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import RouteDecorator
@@ -239,6 +253,91 @@ def create_goals_api_routes(
             return Result.fail(ctx_result)
         return await goals_service.create_goal_with_scheduling_context(
             parsed.value, ctx_result.value, check_capacity.value
+        )
+
+    # ================================================================
+    # PROGRESS AND MILESTONES — the goal page's controls
+    # ================================================================
+
+    async def answer(request: Request, written: Result[Goal]) -> Result[Goal] | FtResponse:
+        """The goal a door wrote: its detail view for the page, the goal for JSON.
+
+        A refusal is the same error either way: HTMX swaps nothing and the page's
+        toast reads its message.
+        """
+        if written.is_error or not request.headers.get("HX-Request"):
+            return written
+        goal = written.value
+        links = await connection_fetch_backend.fetch_entity_connections(NeoLabel.GOAL, [goal.uid])
+        return FtResponse(GoalDetailView(goal, links.get(goal.uid, [])))
+
+    @rt("/api/goals/{uid}/progress", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def record_goal_progress(request: Request, uid: str) -> Result[Goal] | FtResponse:
+        """Record the figure the caller enters for their goal (``GoalProgressUpdateRequest``).
+
+        A numeric goal takes a value in its own unit, the other entered types a
+        percentage (above 100 → 400). Not owned or missing → 404. A goal whose figure
+        is derived (task-based, habit-based, milestone) is refused (422) and keeps its
+        figure. Reaching 100 achieves the goal; falling from it un-achieves it.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, GoalProgressUpdateRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        entered = parsed.value
+        return await answer(
+            request,
+            await goals_service.update_goal_progress(
+                uid, entered.new_value, update_date=entered.update_date
+            ),
+        )
+
+    @rt("/api/goals/{uid}/milestones", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def add_goal_milestone(request: Request, uid: str) -> Result[Goal] | FtResponse:
+        """Add one milestone (``MilestoneCreateRequest``) to the caller's goal.
+
+        Not owned or missing → 404. A target date before today → 400.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, MilestoneCreateRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        milestone = parsed.value
+        return await answer(
+            request,
+            await goals_service.create_goal_milestone(
+                uid, milestone.title, milestone.target_date, milestone.description
+            ),
+        )
+
+    @rt("/api/goals/{uid}/milestones/complete", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def complete_goal_milestone(request: Request, uid: str) -> Result[Goal] | FtResponse:
+        """Mark one of the caller's goal's milestones reached (``MilestoneCompleteRequest``).
+
+        Not owned or missing, or a milestone the goal does not hold → 404. A repeat
+        changes nothing. On a milestone-measured goal the last one achieves the goal.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, MilestoneCompleteRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        return await answer(
+            request, await goals_service.complete_milestone(uid, parsed.value.milestone_uid)
         )
 
     # ================================================================

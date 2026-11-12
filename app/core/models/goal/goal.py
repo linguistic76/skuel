@@ -90,7 +90,9 @@ class Goal(UserOwnedEntity):
     # below is the percent, and it is the only thing calculate_progress() reads. This
     # pair is the measurement `{current}/{target} {unit}` renders. A writer that has
     # computed a percent writes progress_percentage and leaves current_value alone;
-    # only a writer holding a real measurement in target_value's unit may touch it.
+    # only a writer holding a real measurement in target_value's unit may touch it:
+    # the contribution tally, the habit streaks, the milestone count, and the figure
+    # a learner enters on a numeric goal (MeasurementType names which).
     target_value: float | None = None
     current_value: float = 0.0
     unit_of_measurement: str | None = None

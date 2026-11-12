@@ -319,13 +319,16 @@ Where that gate lives differs by door, and the split is the point:
 - The **chokepoint** (`GoalsCoreService.update_goal`) is handed a status target, so
   `status_transition_guard` packages the stamp as a `patch_if_prior_not_in` and the verdict comes
   from `is_completion_transition(outcome.prior_status, changes)`.
-- The **four progress writers** (`complete_milestone`, `update_goal_from_habit_progress`,
-  `recompute_goal_tally`, `_update_goal_from_habit_completion`) are handed no target
-  — they derive one. That derivation stays in Python (`new_progress >= 100 and old_progress < 100`
-  for the three progress writers, "every milestone is done" for the milestone writer), because it
-  is a statement about the NEW state. Only the *"…and it was not already achieved"* half rides the
-  guard, as a `patch_if_prior_not_in` carrying the status/stamp **pair**. So an already-completed
-  goal is written no `status` key either — the recompute still lands, the completion pair does not.
+- The **progress writers** are handed no target — they derive one from the figure:
+  `new_progress >= 100 and old_progress < 100`, a statement about the NEW state. Only the
+  *"…and it was not already achieved"* half rides the guard, as a `patch_if_prior_not_in`
+  carrying the status/stamp **pair**. So an already-completed goal is written no `status` key
+  either — the recompute still lands, the completion pair does not. `update_goal_from_habit_progress`
+  (no caller) reads the goal before it writes; the others plan under the goal's lock.
+- The **milestone writers and the entered figure** (`create_goal_milestone`, `complete_milestone`,
+  `update_goal_progress`) plan from the goal read under its lock (`rewrite_under_lock`): the
+  milestone list is appended to or changed as it stands, so two writes of one goal keep both, and
+  status follows the figure by the rule below.
 - The **two tally recomputes** (`recompute_goal_tally`, `_update_goal_from_habit_completion`) go
   further: they read the goal AND its tally under the goal's write-lock, in the same transaction as
   the write (`GoalsBackend.recompute_progress_from_contributions` / `…_from_linked_habits`, over
@@ -359,11 +362,33 @@ TASK_BASED goal whose stored tally disagrees with its contributions.
 A goal cannot be cancelled through `GoalsService.cancel_goal` while a contributing task is open
 (not COMPLETED, CANCELLED or FAILED); a contributing event does not block it.
 
-⚠ The milestone writer's "already achieved" input is the goal's **status**, not "every milestone
-is flagged done": reopening clears `achieved_date` and resets progress but leaves the milestone
-flags set, so a flag-based gate would make a reopened goal unachievable. What ADR-087 changed is
-only *where that status is read* — under the node's write-lock, at the moment it is acted on,
-rather than from a pre-read a concurrent writer may already have invalidated.
+**Whose figure it is.** A goal's measurement type names the one writer of
+`progress_percentage` (`MeasurementType.takes_entered_figure` / `follows_milestones` /
+`entered_in_units`):
+
+| Measurement type | The figure's writer |
+|---|---|
+| `task_based` | the contribution tally |
+| `habit_based` | the supporting habits' streaks |
+| `milestone` | the goal's milestones: completed over total, the two counts as `current_value` / `target_value` |
+| `numeric` | the learner, in the goal's own unit: `current_value` against `target_value`, the percentage derived and capped at 100 |
+| `percentage`, `binary`, `knowledge_based`, `mixed` | the learner, as the percentage 0-100 |
+
+A figure entered on one of the three derived types is refused (422). Milestones on a goal they do
+not measure are a checklist: adding or completing one writes the list alone. Status follows every
+figure by the recompute rule above: a rise to 100 achieves the goal unless its owner settled it,
+and a fall from 100 un-achieves it. So adding a milestone to an achieved milestone-measured goal
+un-achieves it, and so does lowering an entered figure.
+
+Doors: `POST /api/goals/{uid}/progress`, `POST /api/goals/{uid}/milestones`,
+`POST /api/goals/{uid}/milestones/complete` (owner verified; JSON or the goal page's forms). A
+milestone is named by its own uid (`milestone_{16 hex}`), a key inside the goal's list, not a
+node uid.
+
+⚠ A milestone-measured goal's "already achieved" input is the goal's **status**, not "every
+milestone is flagged done": reopening clears `achieved_date` and resets progress but leaves the
+milestone flags set, so a flag-based gate would make a reopened goal unachievable. The status is
+read under the node's write-lock, at the moment it is acted on.
 
 **The same rule applies one level down, to each milestone's own `achieved_date`.** It is
 documented as "when actually achieved", so it records the milestone's *first* completion and
@@ -375,12 +400,14 @@ transition, so there is no moment to record, matching the task stamp gate (#1125
 
 ## UI Routes
 
-Goals has an active read-focused UI at `/goals` with filtering and progress display.
+Goals has a list at `/goals` with filtering and progress display, and a detail page that
+carries the progress and milestone controls.
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/goals` | GET | Read-focused goal list with filtering |
+| `/goals` | GET | Goal list with filtering |
 | `/goals/list-fragment` | GET | HTMX filtered list fragment |
+| `/goals/detail?uid=` | GET | One goal: its figure, the progress form where the learner enters it, its milestones with a Complete button on each open one and the "Add milestone" form. A goal set aside (cancelled, archived, failed) shows no control |
 
 ## Code Examples
 
@@ -412,9 +439,9 @@ goal = result.value
 ```python
 result = await goals_service.update_goal_progress(
     goal.uid,
-    progress_value=60.0,  # percent, 0-100
-    notes="Completed core tutorials",
+    progress_value=60.0,  # a percentage; on a numeric goal, a value in the goal's unit
 )
+goal = result.value  # the goal as written
 ```
 
 ### Link Goal to Principle

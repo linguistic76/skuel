@@ -65,15 +65,13 @@ def _progress_service(backend: Mock) -> GoalsProgressService:
 @pytest.mark.asyncio
 async def test_manual_progress_update_stamps_last_progress_update() -> None:
     goal = _goal()
-    backend = Mock()
-    backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
-    backend.update = AsyncMock(return_value=Result.ok(goal))
+    backend, recorder = guarded_backend(goal, goal)
     service = _progress_service(backend)
 
     result = await service.update_goal_progress(_GOAL, 40.0)
 
     assert result.is_ok
-    updates = backend.update.await_args.args[1]
+    updates = recorder.last_updates
     assert updates["progress_percentage"] == 40.0
     assert isinstance(updates["last_progress_update"], datetime)
 
@@ -82,15 +80,13 @@ async def test_manual_progress_update_stamps_last_progress_update() -> None:
 async def test_re_posting_the_stored_figure_leaves_the_stamp_alone() -> None:
     """A manual update that changes nothing is not a progress event."""
     goal = _goal(progress=40.0)
-    backend = Mock()
-    backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
-    backend.update = AsyncMock(return_value=Result.ok(goal))
+    backend, recorder = guarded_backend(goal, goal)
     service = _progress_service(backend)
 
     result = await service.update_goal_progress(_GOAL, 40.0)
 
     assert result.is_ok
-    updates = backend.update.await_args.args[1]
+    updates = recorder.last_updates
     assert updates["progress_percentage"] == 40.0
     assert "last_progress_update" not in updates
 
@@ -124,7 +120,7 @@ async def test_milestone_completion_stamps_last_progress_update() -> None:
     backend.get_goal = AsyncMock(return_value=Result.ok(read))
     service = _progress_service(backend)
 
-    result = await service.complete_milestone(_GOAL, 0, Mock(user_uid=_USER))
+    result = await service.complete_milestone(_GOAL, "m0")
 
     assert result.is_ok
     updates = recorder.last_updates
@@ -143,7 +139,7 @@ async def test_re_completing_a_completed_milestone_leaves_the_stamp_alone() -> N
     backend.get_goal = AsyncMock(return_value=Result.ok(read))
     service = _progress_service(backend)
 
-    result = await service.complete_milestone(_GOAL, 0, Mock(user_uid=_USER))
+    result = await service.complete_milestone(_GOAL, "m0")
 
     assert result.is_ok
     updates = recorder.last_updates

@@ -414,10 +414,8 @@ class GoalsService(
     ) -> Result[dict[str, Any]]:
         return await self.progress.calculate_goal_progress_with_context(goal_uid, user_context)
 
-    async def complete_milestone(
-        self, goal_uid: str, milestone_index: int, user_context: UserContext
-    ) -> Result[Goal]:
-        return await self.progress.complete_milestone(goal_uid, milestone_index, user_context)
+    async def complete_milestone(self, goal_uid: str, milestone_uid: str) -> Result[Goal]:
+        return await self.progress.complete_milestone(goal_uid, milestone_uid)
 
     async def update_goal_from_habit_progress(
         self, goal_uid: str, habit_uid: str, new_streak: int
@@ -426,21 +424,20 @@ class GoalsService(
 
     async def update_goal_progress(
         self, uid: str, progress_value: float, notes: str = "", update_date: str | None = None
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[Goal]:
         return await self.progress.update_goal_progress(uid, progress_value, notes, update_date)
 
     async def get_goal_progress(self, uid: str, period: str = "month") -> Result[dict[str, Any]]:
         return await self.progress.get_goal_progress(uid, period)
 
     async def create_goal_milestone(
-        self, uid: str, milestone_title: str, target_date: str, description: str = ""
-    ) -> Result[bool]:
-        return await self.progress.create_goal_milestone(
-            uid, milestone_title, target_date, description
-        )
-
-    async def get_goal_milestones(self, uid: str) -> Result[list[dict[str, Any]]]:
-        return await self.progress.get_goal_milestones(uid)
+        self,
+        goal_uid: str,
+        title: str,
+        target_date: date | None = None,
+        description: str | None = None,
+    ) -> Result[Goal]:
+        return await self.progress.create_goal_milestone(goal_uid, title, target_date, description)
 
     # Learning delegations
 

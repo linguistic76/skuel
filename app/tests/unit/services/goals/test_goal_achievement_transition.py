@@ -1,28 +1,19 @@
 """``GoalAchieved`` fires on the transition, never on the state.
 
-Two writers in ``GoalsProgressService`` used to key achievement off the *state*
-(``completed_count == len(milestones)`` / ``new_progress >= 100``) rather than
-the *transition* into it. Both are reachable again after a goal is achieved — a
-milestone can be re-completed, and a streak past its 30-day normalization window
-keeps reporting 100% — so each later call set ``status=COMPLETED``, re-stamped
-``achieved_date`` to today, and re-published ``GoalAchieved``.
+A progress writer that keys achievement off the *state* (every milestone done,
+``new_progress >= 100``) rather than the *transition* into it re-achieves on every
+later call: a milestone can be re-completed, and a streak past its 30-day
+normalization window keeps reporting 100%. Each such call would set
+``status=COMPLETED``, re-stamp ``achieved_date`` to today, and re-publish
+``GoalAchieved`` — a **mutable completion stamp** and a **duplicate append**, since
+``GoalEventHandlerService`` persists a PRINCIPLE_ALIGNMENT ``PersistedInsight`` per
+``GoalAchieved`` under a UID carrying a per-second timestamp.
 
-Two defects in one: a **mutable completion stamp** (the class the
-completion-stamping arc removed everywhere else) and a **duplicate append**,
-since ``GoalEventHandlerService`` persists a PRINCIPLE_ALIGNMENT
-``PersistedInsight`` per ``GoalAchieved`` under a UID carrying a per-second
-timestamp.
-
-**Since ADR-087 PR-4 the transition half is a condition of the WRITE.** The gates were
-right about what to check and wrong about where to read it: "was it already achieved"
-came from a status the writer read before it wrote, which a concurrent writer can move
-in between. Now the progress recompute derives the achievement TARGET in Python and the
-"…and not already" half rides ``patch_if_prior_not_in``, evaluated against the status the
-node holds under its lock. So these tests come in two layers: the target derivation
-(unchanged, and still this file's subject) and the prior the write hands back — which
-``TestTheVerdictComesFromTheWrite`` drives to a value the pre-read does NOT agree with,
-because a fake that answers from the read can only ever confirm the coupling the
-primitive removed.
+The transition half is a condition of the WRITE (ADR-087): the recompute derives the
+achievement TARGET in Python and the "…and not already" half rides
+``patch_if_prior_not_in``, evaluated against the status the node holds under its lock.
+These tests pin the target derivation and the verdict read from the prior the write
+hands back.
 """
 
 from __future__ import annotations
@@ -91,14 +82,11 @@ def _service(
 ) -> tuple[GoalsProgressService, StatusGuardedWriteRecorder[Goal], _RecordingBus]:
     """A progress service over one goal, writing through the status-guarded primitive.
 
-    Two goals, deliberately separable (ADR-087): ``goal`` is what the pre-read returns
-    and what the recompute is derived from; ``prior`` is the state the WRITE sees under
-    the node's lock. They are the same object unless a test is about a writer that
-    raced, which is the only way to drive a verdict the pre-read does not already agree
-    with.
+    ``goal`` is what the habit writer's read returns; ``prior`` is the state the WRITE
+    sees under the node's lock, and what the milestone writer plans from. They are the
+    same object unless a test is about a writer that raced.
 
-    ``get_goal`` mirrors ``GoalsBackend.get_goal`` (``Result[Goal]``, a domain model);
-    the guarded write is the shared recorder, which evaluates the guard exactly as the
+    The guarded write is the shared recorder, which evaluates the guard exactly as the
     Cypher's CASE arms do.
     """
     backend, recorder = guarded_backend(prior if prior is not None else goal, goal)
@@ -165,7 +153,7 @@ class TestCompleteMilestone:
         goal = _milestone_goal(completed=(True, False), achieved_date=None)
         service, recorder, bus = _service(goal)
 
-        result = await service.complete_milestone(_GOAL, 1, Mock(user_uid=_USER))
+        result = await service.complete_milestone(_GOAL, "m1")
 
         assert result.is_ok
         updates = _patch(recorder)
@@ -186,7 +174,7 @@ class TestCompleteMilestone:
         )
         service, recorder, bus = _service(goal)
 
-        result = await service.complete_milestone(_GOAL, 1, Mock(user_uid=_USER))
+        result = await service.complete_milestone(_GOAL, "m1")
 
         assert result.is_ok
         assert _patch(recorder)["achieved_date"] == today_in(current_zone())
@@ -201,7 +189,7 @@ class TestCompleteMilestone:
         )
         service, recorder, bus = _service(goal)
 
-        result = await service.complete_milestone(_GOAL, 1, Mock(user_uid=_USER))
+        result = await service.complete_milestone(_GOAL, "m1")
 
         assert result.is_ok
         updates = _patch(recorder)
@@ -216,7 +204,7 @@ class TestCompleteMilestone:
         goal = _milestone_goal(completed=(False, False, False), achieved_date=None)
         service, recorder, bus = _service(goal)
 
-        result = await service.complete_milestone(_GOAL, 0, Mock(user_uid=_USER))
+        result = await service.complete_milestone(_GOAL, "m0")
 
         assert result.is_ok
         updates = _patch(recorder)
@@ -245,7 +233,7 @@ class TestMilestoneOwnStamp:
         goal = _milestone_goal(completed=(True, False, False), achieved_date=None)
         service, recorder, bus = _service(goal)
 
-        result = await service.complete_milestone(_GOAL, 0, Mock(user_uid=_USER))
+        result = await service.complete_milestone(_GOAL, "m0")
 
         assert result.is_ok
         milestone = self._milestones(recorder)[0]
@@ -259,7 +247,7 @@ class TestMilestoneOwnStamp:
         goal = _milestone_goal(completed=(True, False, False), achieved_date=None)
         service, recorder, _ = _service(goal)
 
-        result = await service.complete_milestone(_GOAL, 1, Mock(user_uid=_USER))
+        result = await service.complete_milestone(_GOAL, "m1")
 
         assert result.is_ok
         milestone = self._milestones(recorder)[1]
@@ -284,7 +272,7 @@ class TestMilestoneOwnStamp:
         )
         service, recorder, _ = _service(goal)
 
-        result = await service.complete_milestone(_GOAL, 0, Mock(user_uid=_USER))
+        result = await service.complete_milestone(_GOAL, "m0")
 
         assert result.is_ok
         assert self._milestones(recorder)[0].achieved_date is None

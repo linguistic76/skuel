@@ -253,50 +253,62 @@ class GoalUpdateRequest(BaseModel):
 
 class GoalProgressUpdateRequest(BaseModel):
     """
-    Request to update goal progress.
+    The figure a learner enters for a goal (``POST /api/goals/{uid}/progress``).
+
+    What ``progress`` means is the goal's measurement type's to say: a value in the
+    goal's own unit on a numeric goal, the percentage (0-100) otherwise. The service
+    holds that rule, and refuses a goal whose figure is derived.
     """
 
-    new_value: float = Field(..., validation_alias="progress", description="New progress value")
-    notes: str = Field(default="", max_length=500, description="Progress notes")
-    update_date: str | None = Field(
-        default=None, validation_alias="date", description="Progress date"
+    new_value: float = Field(
+        ..., ge=0, allow_inf_nan=False, validation_alias="progress", description="The figure"
     )
-
-    @field_validator("new_value")
-    @classmethod
-    def validate_progress(cls, v) -> Any:
-        """Validate progress is non-negative."""
-        if v < 0:
-            raise ValueError("Progress value cannot be negative")
-        return v
+    update_date: str | None = Field(
+        default=None,
+        max_length=40,
+        validation_alias="date",
+        description="When the progress happened (ISO date or datetime), when it is not now",
+    )
 
     model_config = ConfigDict(
         populate_by_name=True,
-        json_schema_extra={"example": {"progress": 75.5, "notes": "Completed 3 more chapters"}},
+        json_schema_extra={"example": {"progress": 75.5}},
     )
 
 
 class MilestoneCreateRequest(BaseModel):
     """
-    Request to add a milestone to a goal.
+    One milestone added to a goal (``POST /api/goals/{uid}/milestones``).
     """
 
     title: str = Field(..., min_length=1, max_length=200)
-    target_date: date = Field(..., description="Target date for milestone")
+    target_date: date | None = Field(default=None, description="Target date for milestone")
     description: str | None = Field(default=None, max_length=500)
-    target_value: float | None = Field(default=None, ge=0)
-    required_knowledge_uids: list[str] = Field(default_factory=list)
 
     # Shared validators (DRY pattern)
     _validate_target_date = validate_future_date("target_date")
+
+    @field_validator("title")
+    @classmethod
+    def title_has_text(cls, v: str) -> str:
+        """A title of spaces alone names nothing."""
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("A milestone needs a title")
+        return stripped
+
+    @field_validator("target_date", mode="before")
+    @classmethod
+    def blank_date_is_none(cls, v: object) -> object:
+        """An HTML form sends an unset date as an empty string."""
+        return None if isinstance(v, str) and not v.strip() else v
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "title": "Complete first module",
-                "target_date": "2024-04-15",
+                "target_date": "2027-04-15",
                 "description": "Finish all videos and assignments in Module 1",
-                "target_value": 25.0,
             }
         }
     )
@@ -304,20 +316,13 @@ class MilestoneCreateRequest(BaseModel):
 
 class MilestoneCompleteRequest(BaseModel):
     """
-    Request to mark a milestone as complete.
+    The milestone a learner marks reached (``POST /api/goals/{uid}/milestones/complete``).
     """
 
-    milestone_uid: str = Field(..., description="Milestone UID to complete")
-    achieved_date: date | None = Field(default_factory=today_in_current_zone)
-    notes: str | None = Field(default=None, max_length=500)
+    milestone_uid: str = Field(..., min_length=1, max_length=100)
 
     model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "milestone_uid": "milestone_abc123",
-                "notes": "Scored 95% on module assessment",
-            }
-        }
+        json_schema_extra={"example": {"milestone_uid": "milestone_3f9a0c41d2e87b65"}}
     )
 
 

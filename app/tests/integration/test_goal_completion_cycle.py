@@ -7,8 +7,9 @@ together, fire on the right prior, and — under a race — never leave the pair
 inconsistent.
 
 The second class covers the OTHER door onto a Goal completion: ``complete_milestone``,
-which derives achievement from a progress recompute rather than a status a caller
-supplied, and carries its own ``patch_if_prior_not_in`` for the status/stamp pair.
+which derives achievement from the milestones of a milestone-measured goal rather than
+a status a caller supplied, planned under the goal's lock, and carries its own
+``patch_if_prior_not_in`` for the status/stamp pair.
 Against a real graph the question there is the one a same-day unit test cannot answer —
 whether a repeat really leaves the stored date alone.
 
@@ -65,16 +66,6 @@ class _CapturingBus:
 
     def of[E: BaseEvent](self, event_type: type[E]) -> list[E]:
         return [event for event in self.events if isinstance(event, event_type)]
-
-
-class _UserContextStub:
-    """``complete_milestone`` reads exactly one field off the context it is handed.
-
-    A real ``UserContext`` here would mean building (and keeping in sync) ~250 fields to
-    supply a ``user_uid`` — the events it feeds are asserted through the capturing bus.
-    """
-
-    user_uid: str = USER
 
 
 async def _props(
@@ -274,7 +265,7 @@ class TestMilestoneCompletionCycle:
         service, backend, bus = rig
         uid = await self._seed(backend, "goal.milestone-1")
 
-        result = await service.complete_milestone(uid, 1, _UserContextStub())
+        result = await service.complete_milestone(uid, "m1")
         assert result.is_ok
 
         props = await _props(neo4j_driver, uid)
@@ -297,12 +288,12 @@ class TestMilestoneCompletionCycle:
         service, backend, bus = rig
         uid = await self._seed(backend, "goal.milestone-2")
 
-        assert (await service.complete_milestone(uid, 1, _UserContextStub())).is_ok
+        assert (await service.complete_milestone(uid, "m1")).is_ok
 
         original = "2026-04-02"
         await _backdate(neo4j_driver, uid, original)
 
-        assert (await service.complete_milestone(uid, 1, _UserContextStub())).is_ok
+        assert (await service.complete_milestone(uid, "m1")).is_ok
 
         props = await _props(neo4j_driver, uid)
         assert props["achieved_date"] == original, (
@@ -320,7 +311,7 @@ class TestMilestoneCompletionCycle:
         service, backend, bus = rig
         uid = await self._seed(backend, "goal.milestone-3")
 
-        assert (await service.complete_milestone(uid, 0, _UserContextStub())).is_ok
+        assert (await service.complete_milestone(uid, "m0")).is_ok
 
         props = await _props(neo4j_driver, uid)
         assert props["status"] == EntityStatus.ACTIVE.value

@@ -57,7 +57,7 @@ logger = get_logger(__name__)
 # The measurement types whose current_value the four legacy writers could reach:
 # update_goal_from_habit_progress (habit_based), _update_goal_from_task_completion
 # (task_based, mixed) and _update_goal_from_habit_completion (habit_based, mixed).
-# update_goal_progress wrote any type but has no route, so it never ran. This is
+# update_goal_progress wrote any type but had no route until 2026-11, so it never ran. This is
 # reported as a signal, NOT used to filter — a goal's measurement_type can be edited
 # after the fact, so a row outside the set is less suspicious, never proven clean.
 _LEGACY_WRITER_TYPES = frozenset(
