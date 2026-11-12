@@ -7,6 +7,8 @@ comes from otherwise. A goal its owner set aside shows what it holds and no cont
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from fasthtml.common import to_xml
 
@@ -117,3 +119,17 @@ def test_a_completed_goal_keeps_its_controls() -> None:
 
     assert "data-goal-progress" in html
     assert "data-goal-add-milestone" in html
+
+
+def test_a_reopened_milestone_shows_its_target_not_the_day_it_was_first_reached() -> None:
+    reopened = Milestone(
+        uid="m_back",
+        title="Back open",
+        target_date=date(2026, 12, 1),
+        achieved_date=date(2026, 9, 2),
+    )
+    html = _page(MeasurementType.MILESTONE, milestones=(reopened,))
+
+    assert "By 2026-12-01" in html
+    assert "Achieved 2026-09-02" not in html
+    assert 'data-goal-milestone-complete="m_back"' in html

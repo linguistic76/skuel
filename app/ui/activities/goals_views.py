@@ -421,7 +421,8 @@ def MilestonesSection(goal: Goal) -> FT:
         date_str = ""
         if ms.target_date:
             date_str = f"By {ms.target_date}"
-        if ms.achieved_date:
+        # A reopened milestone keeps the day it was first reached; it shows as open.
+        if ms.is_completed and ms.achieved_date:
             date_str = f"Achieved {ms.achieved_date}"
 
         row: list[FT] = [
