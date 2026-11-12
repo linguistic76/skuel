@@ -141,9 +141,15 @@
     --status-success: #15803d; /* green-700, 5.02:1 */
     --status-warning: #b45309; /* amber-700, 5.02:1 */
     --status-info: #2563eb; /* blue-600, 5.17:1 */
+    /* What the browser draws itself (date/time picker icons and popups, select
+       popups, checkboxes, radios, number spinners, scrollbars, autofill)
+       follows color-scheme, not these tokens — so it is set beside them, on
+       the same switch point as the dark class. */
+    color-scheme: light;
   }
 
   .dark {
+    color-scheme: dark;
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;

@@ -325,7 +325,9 @@ app, rt = fast_app(hdrs=(*skuel_headers(), *chartjs_headers()))
 Its only parameters are the vendored versions, `htmx_version` and `alpine_version`
 (defaulting to `HTMX_VERSION` / `ALPINE_VERSION`). There is no theme parameter: dark mode is
 the `dark` class on `<html>`, which `dark_mode_script()` (loaded by `build_head()`) restores
-from `localStorage` or the system preference.
+from `localStorage` or the system preference. The browser's own drawing (picker icons, popups,
+checkboxes, radios, spinners, scrollbars) follows `color-scheme`, which `static/css/input.css`
+sets on the same switch point: `light` on `:root`, `dark` on `.dark`.
 
 **What `skuel_headers()` includes, in order:**
 - Compiled Tailwind CSS — `static/css/output.css` (committed minified — rebuild with `./dev css-prod`; `./dev css-build` is the unminified dev build)
