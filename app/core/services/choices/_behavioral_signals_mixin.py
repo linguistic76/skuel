@@ -171,14 +171,14 @@ class _BehavioralSignalsMixin:
         decision_rate = len(decided) / total_choices if total_choices > 0 else 0.0
         evidence.append(f"Decision rate: {decision_rate:.0%}")
 
-        # Calculate outcome quality (for choices with recorded satisfaction scores)
-        # satisfaction_score is 1-5, normalize to 0-1
-        choices_with_satisfaction = [c for c in decided if c.satisfaction_score is not None]
+        # Outcome quality: the mean rating of the decided choices whose outcome is rated,
+        # as a share of the scale's top.
+        ratings = [c.satisfaction_score for c in decided if c.satisfaction_score is not None]
         avg_outcome_quality = 0.0
-        if choices_with_satisfaction:
+        if ratings:
             avg_outcome_quality = sum(
-                (c.satisfaction_score or 0) / 5.0 for c in choices_with_satisfaction
-            ) / len(choices_with_satisfaction)
+                rating / SatisfactionScale.HIGHEST for rating in ratings
+            ) / len(ratings)
             evidence.append(f"Average outcome quality: {avg_outcome_quality:.0%}")
 
         # Calculate principle alignment via relationships. No None guard: the service
@@ -200,14 +200,10 @@ class _BehavioralSignalsMixin:
 
         # Calculate quality calibration (decisions with good outcomes)
         calibration_score = 0.5  # Default neutral
-        # Use satisfaction_score >= 4 as "good outcome" (4-5 on 1-5 scale)
-        if choices_with_satisfaction:
-            good_outcomes = [
-                c
-                for c in choices_with_satisfaction
-                if c.satisfaction_score and c.satisfaction_score >= 4
-            ]
-            calibration_score = len(good_outcomes) / len(choices_with_satisfaction)
+        # A rating at or above the scale's GOOD is a good outcome.
+        if ratings:
+            good_outcomes = [rating for rating in ratings if rating >= SatisfactionScale.GOOD]
+            calibration_score = len(good_outcomes) / len(ratings)
             evidence.append(f"Good outcome rate: {calibration_score:.0%}")
 
         # Weighted composite score

@@ -1222,15 +1222,25 @@ class SatisfactionScale:
     The scale a learner rates how a decided choice turned out on
     (``Choice.satisfaction_score``): whole numbers, lowest to highest.
 
+    ``GOOD`` is the lowest rating that counts as a good outcome. ``SATISFYING_MEAN`` is
+    the mean rating at or above which a learner's choices read as satisfying overall,
+    halfway between the middle level (3) and ``GOOD``.
+
+    Two rescalings read the scale: ``core.models.choice.choice.outcome_quality`` maps
+    ``LOWEST`` to 0.0 and ``HIGHEST`` to 1.0; an average shown as a share of the top
+    divides by ``HIGHEST``, so ``LOWEST`` is ``1/HIGHEST``.
+
     Used by: ``ChoiceEvaluationRequest`` (its bounds), the choice page's outcome form
-    (one level per option), ``core.models.choice.choice.outcome_quality``, which
-    rescales a rating onto 0.0-1.0, and ``PrincipleChoiceOutcomes``, which counts a
-    rating at or above ``GOOD`` as a good outcome.
+    (one level per option), the choice card and stats bar, ``outcome_quality``,
+    ``PrincipleChoiceOutcomes``, the choices analytics and decision-quality reads.
+    ``tests/unit/test_satisfaction_scale_census.py`` fails on a scale number written
+    beside a satisfaction reader anywhere else.
     """
 
     LOWEST: Final = 1
     GOOD: Final = 4
     HIGHEST: Final = 5
+    SATISFYING_MEAN: Final = 3.5
 
 
 class PrincipleGuidanceThresholds:

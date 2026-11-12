@@ -102,7 +102,7 @@ class Choice(UserOwnedEntity):
     # =========================================================================
     # OUTCOME
     # =========================================================================
-    satisfaction_score: int | None = None  # 1-5 scale
+    satisfaction_score: int | None = None  # on SatisfactionScale
     actual_outcome: str | None = None
     lessons_learned: tuple[str, ...] = ()
 
@@ -187,7 +187,7 @@ class Choice(UserOwnedEntity):
         if self.decision_rationale:
             score += 0.3
         if self.satisfaction_score:
-            score += 0.2 * (self.satisfaction_score / 5.0)
+            score += 0.2 * (self.satisfaction_score / SatisfactionScale.HIGHEST)
         if self.actual_outcome:
             score += 0.2
         return min(1.0, score)
