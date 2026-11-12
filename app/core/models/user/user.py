@@ -289,10 +289,10 @@ class User:
         Get suggested QueryIntent based on user preferences and state.
 
         Business rules:
-        - Users with active learning paths → EXPLORATORY (discover content)
+        - More than three interests at a beginner or intermediate level →
+          EXPLORATORY (discover content)
         - Users with many active entities → HIERARCHICAL (organize activities)
         - Users with high energy → PRACTICE (engage with content)
-        - Users with specific interests → SPECIFIC (targeted content)
         - Default → RELATIONSHIP (explore connections)
 
         Returns:
@@ -313,11 +313,6 @@ class User:
         current_time = TimeOfDay.ANYTIME  # Would be determined by current time
         if self.get_energy_at_time(current_time) == EnergyLevel.HIGH:
             return QueryIntent.PRACTICE
-
-        # Check for specific interests
-        # GRAPH-NATIVE: current_goals field removed - would query via service layer
-        # if has_active_goals: # Would use UserRelationshipBackend.has_active_goals(user_uid)
-        # return QueryIntent.SPECIFIC
 
         # Default to relationship exploration
         return QueryIntent.RELATIONSHIP

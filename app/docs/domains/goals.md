@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-11-08
+updated: 2026-11-12
 status: current
 category: domains
 tags:
@@ -410,9 +410,9 @@ goal = result.value
 ### Update Goal Progress
 
 ```python
-result = await goals_service.update_progress(
-    goal_uid=goal.uid,
-    progress=0.6,  # 60% complete
+result = await goals_service.update_goal_progress(
+    goal.uid,
+    progress_value=60.0,  # percent, 0-100
     notes="Completed core tutorials",
 )
 ```

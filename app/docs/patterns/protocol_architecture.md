@@ -116,7 +116,7 @@ BackendOperations[T]  <- THE protocol (UniversalNeo4jBackend implements this)
 ```
 UserOperations  <- composed protocol (UserBackend implements this)
     ├── UserCrudOperations (11)          <- UserCoreService, GraphAuthService
-    ├── UserLearningStateOperations (8)  <- UserProgressRecorderService
+    ├── UserLearningStateOperations (7)  <- UserProgressRecorderService
     └── UserActivityOperations (3)       <- UserActivityService
 ```
 

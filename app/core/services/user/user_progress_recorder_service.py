@@ -12,7 +12,6 @@ Responsibilities:
 - Knowledge progress tracking
 - Learning path enrollment and completion
 - Interest and bookmark management
-- Progress metrics updates
 
 This service is part of the refactored UserService architecture:
 - UserCoreService: CRUD + Auth
@@ -29,7 +28,6 @@ from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import EventBusOperations, UserLearningStateOperations
 from core.ports.query_types import MasteredWriteRow
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -46,12 +44,10 @@ class UserProgressRecorderService:
     - Tracking in-progress learning
     - Managing learning path enrollments
     - Expressing interest and bookmarking content
-    - Updating progress metrics
 
     Architecture:
-    - Protocol-based repository dependency (UserOperations)
+    - Protocol-based repository dependency (UserLearningStateOperations)
     - Uses graph relationships for tracking learning state
-    - Integrates with progress metrics system
     """
 
     def __init__(
@@ -86,7 +82,6 @@ class UserProgressRecorderService:
         mastery_score: float,
         practice_count: int = 1,
         confidence_level: float = 0.8,
-        update_progress: bool = True,
     ) -> Result[MasteredWriteRow]:
         """
         Record knowledge mastery using graph relationships.
@@ -102,7 +97,6 @@ class UserProgressRecorderService:
             mastery_score: Mastery score (0.8 to 1.0)
             practice_count: Number of practice sessions
             confidence_level: User's confidence level
-            update_progress: Whether to update overall progress metrics
 
         Returns:
             Result[MasteredWriteRow]: the stored score and ``was_mastered``
@@ -118,10 +112,6 @@ class UserProgressRecorderService:
         result = await self.repo.record_knowledge_mastery(
             user_uid, knowledge_uid, mastery_score, practice_count, confidence_level
         )
-
-        if result.is_ok and update_progress:
-            # Update overall progress metrics
-            await self._update_progress_metrics(user_uid, knowledge_uid, mastery_score)
 
         if result.is_ok:
             logger.info(
@@ -194,7 +184,7 @@ class UserProgressRecorderService:
         """
         Enroll user in a learning path using graph relationships.
 
-        Creates: (User)-[:ENROLLED]->(LearningPath)
+        Creates: (User)-[:ENROLLED_IN]->(LearningPath)
 
         Args:
             user_uid: User's unique identifier
@@ -242,10 +232,11 @@ class UserProgressRecorderService:
         feedback_rating: int | None = None,
     ) -> Result[bool]:
         """
-        Mark a learning path as completed using graph relationships.
+        Mark the learner's enrollment in a learning path completed.
 
-        Creates: (User)-[:COMPLETED]->(LearningPath)
-        Removes: (User)-[:ENROLLED]->(LearningPath)
+        Updates: (User)-[:ENROLLED_IN]->(LearningPath) — its status becomes
+        completed, with the completion score and rating. A learner's completed
+        paths are read from these edges.
 
         Args:
             user_uid: User's unique identifier
@@ -265,8 +256,6 @@ class UserProgressRecorderService:
 
         if result.is_ok:
             logger.info(f"Completed learning path {learning_path_uid} for user {user_uid}")
-            # Update progress metrics
-            await self._update_path_completion_progress(user_uid, learning_path_uid)
 
         return result
 
@@ -349,56 +338,3 @@ class UserProgressRecorderService:
             logger.info(f"Bookmarked knowledge {knowledge_uid} for user {user_uid}")
 
         return result
-
-    # ========================================================================
-    # PROGRESS METRICS (PRIVATE HELPERS)
-    # ========================================================================
-
-    async def _update_progress_metrics(
-        self, user_uid: UserUID, _concept_uid: str, mastery_level: float
-    ) -> None:
-        """
-        Update overall progress metrics when mastery changes.
-
-        Args:
-            user_uid: User's unique identifier
-            _concept_uid: Concept UID (unused - for future use)
-            mastery_level: Mastery level achieved
-
-        Note:
-            - Increments concepts_mastered if mastery >= 0.8
-            - Logs error but doesn't fail operation if update fails
-        """
-        try:
-            # If mastery is high enough, increment concepts mastered
-            if mastery_level >= 0.8:
-                progress_updates = {
-                    "concepts_mastered": "+1"  # Increment by 1
-                }
-                await self.repo.update_user_progress(user_uid, progress_updates)
-
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Error updating progress metrics: {e}")
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Error updating progress metrics: {e}")
-
-    async def _update_path_completion_progress(self, user_uid: UserUID, _path_uid: str) -> None:
-        """
-        Update progress when a learning path is completed.
-
-        Args:
-            user_uid: User's unique identifier
-            _path_uid: Path UID (unused - for future use)
-
-        Note:
-            - Increments total_learning_paths_completed
-            - Logs error but doesn't fail operation if update fails
-        """
-        try:
-            progress_updates = {"total_learning_paths_completed": "+1"}
-            await self.repo.update_user_progress(user_uid, progress_updates)
-
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Error updating path completion progress: {e}")
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Error updating path completion progress: {e}")

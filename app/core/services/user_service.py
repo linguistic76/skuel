@@ -332,16 +332,10 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         mastery_score: float,
         practice_count: int = 1,
         confidence_level: float = 0.8,
-        update_progress: bool = True,
     ) -> Result[MasteredWriteRow]:
         """Record knowledge mastery using graph relationships."""
         return await self.progress.record_knowledge_mastery(
-            user_uid,
-            knowledge_uid,
-            mastery_score,
-            practice_count,
-            confidence_level,
-            update_progress,
+            user_uid, knowledge_uid, mastery_score, practice_count, confidence_level
         )
 
     async def get_user_mastery(self, user_uid: UserUID, concept_uid: str) -> Result[float]:

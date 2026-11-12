@@ -1227,6 +1227,14 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         "call site yet — wire into a /health route or startup check",
         since=date(2026, 6, 17),
     ),
+    "core/services/base_service.py::update_progress": PlannedEntry(
+        Readiness.DELAYED,
+        "no caller. It writes a `progress` property no domain model has (Goal's is "
+        "`progress_percentage`, written by update_goal_progress) and validates 0-100 "
+        "while its unit test passes 0.75 as a 0.0-1.0 value; each domain has its own "
+        "progress door. Stage or retire waits on Mike's ruling",
+        since=date(2026, 11, 12),
+    ),
     "core/services/ingestion/ingestion_history.py::get_total_count": PlannedEntry(
         Readiness.DELAYED,
         "count query for ingestion history entries; unit test coverage in "

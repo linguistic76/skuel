@@ -7,7 +7,7 @@ boundary (``adapters/persistence/neo4j/``) and authors parameterized Cypher
 against a ``Neo4jQueryExecutor``:
 
 - ``UserRelationshipOperations`` — user-centric graph edges (PINNED,
-  PURSUING_GOAL, FOLLOWS, MEMBER_OF).
+  FOLLOWS, MEMBER_OF).
   Implementation: ``adapters/persistence/neo4j/user_relationship_backend.py``
 
 Core-layer consumers (orchestrators, the user-intelligence factory) depend on
@@ -29,7 +29,7 @@ from core.utils.result_simplified import Result
 class UserRelationshipOperations(Protocol):
     """Graph relationship operations for User entities.
 
-    Replaces denormalized UID list fields (pinned/goals/following/teams) with
+    Replaces denormalized UID list fields (pinned/following/teams) with
     pure Neo4j graph queries. All values are passed as ``$param`` placeholders;
     labels and relationship types come from the ``RelationshipName`` enum.
     """
@@ -51,9 +51,6 @@ class UserRelationshipOperations(Protocol):
         self, user_uid: UserUID, ordered_entity_uids: list[str]
     ) -> Result[int]: ...
 
-    # Current goals
-    async def get_current_goals(self, user_uid: UserUID) -> Result[list[str]]: ...
-
     # Social connections
     async def get_following(self, user_uid: UserUID) -> Result[set[str]]: ...
     async def get_followers(self, user_uid: UserUID) -> Result[set[str]]: ...
@@ -63,7 +60,6 @@ class UserRelationshipOperations(Protocol):
 
     # Existence checks
     async def has_pinned_entities(self, user_uid: UserUID) -> Result[bool]: ...
-    async def has_active_goals(self, user_uid: UserUID) -> Result[bool]: ...
     async def is_following(self, user_uid: UserUID, other_user_uid: UserUID) -> Result[bool]: ...
     async def is_team_member(self, user_uid: UserUID, team_uid: str) -> Result[bool]: ...
 
