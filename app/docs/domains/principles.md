@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-11-08
+updated: 2026-11-12
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -411,7 +411,7 @@ The Principles domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-`adapters/inbound/principles_ui.py` registers the list page (`/principles`, with `/principles/content` and `/principles/list-fragment` HTMX fragments), the detail page (`/principles/detail?uid=`) and the dual-track self-rate POST through `create_activity_ui_routes`, plus the `/principles/create` and `/principles/edit` forms (GET + POST). API routes live in `principles_api.py`.
+`adapters/inbound/principles_ui.py` registers the list page (`/principles`, with `/principles/content` and `/principles/list-fragment` HTMX fragments), the detail page (`/principles/detail?uid=`) and the dual-track self-rate POST through `create_activity_ui_routes`; `create_principles_ui_routes` then registers the `/principles/choice-outcomes` section the detail page HTMX-loads (how the choices the principle informs turned out, `PrincipleChoiceOutcomes`) and the `/principles/create` and `/principles/edit` forms (GET + POST) itself. API routes live in `principles_api.py`.
 
 ## Code Examples
 
@@ -491,7 +491,7 @@ All ownership-verified unless otherwise noted.
 | `/api/principles/links?uid=&link_type=` | GET | Cross-domain links (all, or one `PrincipleLinkType`; any other value is 400) |
 | `/api/principles/impact?uid=` | GET | Quick impact metrics (adoption level, counts) |
 | `/api/principles/batch-impact` | POST | Parallel adoption analysis for N principles |
-| `/api/principles/choice-effectiveness?uid=&period_days=` | GET | How the choices this principle informs turned out: count, average satisfaction and positive outcomes over the period's choices (`INFORMS_CHOICE`, whichever page made the link) |
+| `/api/principles/choice-effectiveness?uid=` | GET | How the choices this principle informs turned out, all time (`PrincipleChoiceOutcomes`): count, how many are rated, and over the rated ones only the average satisfaction and good-outcome rate (`null` with none rated) (`INFORMS_CHOICE`, whichever page made the link). The principle page's outcome section (`GET /principles/choice-outcomes`) reads the same tally |
 | `/api/principles/reflection` | POST | Record alignment evidence; publishes events |
 | `/api/principles/link-knowledge` | POST | Link principle to a Ku (GROUNDED_IN_KNOWLEDGE); a `knowledge_uid` that is not a Ku is 404 |
 | `/api/principles/children?uid=` | GET | Direct sub-principles |

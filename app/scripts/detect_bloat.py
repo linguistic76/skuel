@@ -370,8 +370,10 @@ _ZOOM_LENS_FILTER_HALF = PlannedEntry(
 _USER_PRINCIPLE_INTEGRATION = PlannedEntry(
     Readiness.DELAYED,
     "staged rich-context principle-integration read surface — the populator fills "
-    "principle_guided_choice_counts/recent_principle_aligned_choices and SKUEL018 "
-    "mandates these accessors as the read path; wire a profile/insights consumer",
+    "principle_guided_choice_counts/principle_choice_satisfaction_avg/"
+    "recent_principle_aligned_choices and SKUEL018 mandates these accessors as the "
+    "read path; wire a profile/insights/Askesis consumer (the principle page reads "
+    "the same tally through PrinciplesBackend.get_principle_choice_outcomes)",
     since=date(2026, 6, 11),
 )
 # Choices dead-code campaign (2026-06): staged choice capabilities kept by
@@ -953,6 +955,9 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/filtered_context.py::build_filtered_context": _ZOOM_LENS_FILTER_HALF,
     # --- User: rich-context principle-integration read surface ---
     "core/services/user/unified_user_context.py::principle_guided_choice_counts_or_empty": (
+        _USER_PRINCIPLE_INTEGRATION
+    ),
+    "core/services/user/unified_user_context.py::principle_choice_satisfaction_avg_or_empty": (
         _USER_PRINCIPLE_INTEGRATION
     ),
     "core/services/user/unified_user_context.py::recent_principle_aligned_choices_or_empty": (

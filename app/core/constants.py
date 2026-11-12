@@ -1223,12 +1223,30 @@ class SatisfactionScale:
     (``Choice.satisfaction_score``): whole numbers, lowest to highest.
 
     Used by: ``ChoiceEvaluationRequest`` (its bounds), the choice page's outcome form
-    (one level per option), and ``core.models.choice.choice.outcome_quality``, which
-    rescales a rating onto 0.0-1.0.
+    (one level per option), ``core.models.choice.choice.outcome_quality``, which
+    rescales a rating onto 0.0-1.0, and ``PrincipleChoiceOutcomes``, which counts a
+    rating at or above ``GOOD`` as a good outcome.
     """
 
     LOWEST: Final = 1
+    GOOD: Final = 4
     HIGHEST: Final = 5
+
+
+class PrincipleGuidanceThresholds:
+    """
+    Where ``PrincipleChoiceOutcomes.recommendation`` changes its advice, over the
+    choices a principle guided whose outcome is rated.
+
+    ``GOOD_RATE_FLOOR``: below this share of good outcomes, review how the principle is
+    applied. ``SATISFACTION_FLOOR``: below this mean satisfaction (a share of the
+    scale's top), refine how it is interpreted. ``EXCELLENT``: at or above it on both,
+    the guidance is excellent.
+    """
+
+    GOOD_RATE_FLOOR: Final = 0.5
+    SATISFACTION_FLOOR: Final = 0.6
+    EXCELLENT: Final = 0.7
 
 
 class DualTrackCheckin:

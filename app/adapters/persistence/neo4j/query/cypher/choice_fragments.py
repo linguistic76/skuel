@@ -12,10 +12,15 @@ never restate.
 
 ``tests/integration/test_choice_pending_decided_reads.py`` holds each composing
 read to the rows the model's methods select.
+
+``build_choice_outcome_tally`` is the one Cypher reading of how a set of choices
+turned out, the counts ``PrincipleChoiceOutcomes`` derives every figure from. The
+principle's own read and the rich context's per-principle statement both compose it.
 """
 
 from __future__ import annotations
 
+from core.constants import SatisfactionScale
 from core.models.enums.entity_enums import EntityStatus
 
 from ._helpers import validate_identifier
@@ -41,4 +46,22 @@ def build_choice_pending_predicate(alias: str) -> str:
     return (
         f"({alias}.decided_at IS NULL AND NOT coalesce({alias}.status, '') IN "
         f"['{EntityStatus.COMPLETED.value}', '{EntityStatus.ARCHIVED.value}'])"
+    )
+
+
+def build_choice_outcome_tally(choices: str) -> str:
+    """The ``PrincipleChoiceOutcomes`` keys over ``choices``, a list of Choice nodes.
+
+    Map entries, not a map: a statement wraps them in its own ``{...}`` (with a uid
+    beside them, or alone). An unrated choice (no ``satisfaction_score``) counts toward
+    ``choices_guided`` only.
+    """
+    validate_identifier(choices, "choices")
+    return (
+        f"choices_guided: size({choices}), "
+        f"choices_rated: size([c IN {choices} WHERE c.satisfaction_score IS NOT NULL]), "
+        f"rating_total: reduce(total = 0, c IN {choices} | "
+        f"total + coalesce(c.satisfaction_score, 0)), "
+        f"choices_rated_good: size([c IN {choices} "
+        f"WHERE c.satisfaction_score >= {SatisfactionScale.GOOD}])"
     )

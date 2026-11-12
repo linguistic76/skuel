@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-11-08
+updated: 2026-11-12
 category: patterns
 related_skills: []
 related_docs:
@@ -346,7 +346,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 | `EventsBackend` | `count_recent_reschedules` | `EventsIntelligenceService` |
 | `EventsBackend` | `count_events_in_date_range` | `EventsIntelligenceService` |
 | `TasksBackend` | `get_transitive_dependencies` | `TasksIntelligenceService` |
-| `PrinciplesBackend` | `get_choice_influence_stats` | `PrinciplesIntelligenceService` |
+| `PrinciplesBackend` | `get_principle_choice_outcomes` | `PrinciplesIntelligenceService` |
 | `SubmissionsBackend` | `get_submissions_for_path_step` | `SubmissionsSearchService` |
 | `SubmissionsBackend` | `create_goal_support_relationships` | `SubmissionsRelationshipService` |
 | `_LpStepMixin` | ~~`get_next_step_sequence`~~ | none — deleted with the in-app curriculum writers (ADR-091) |

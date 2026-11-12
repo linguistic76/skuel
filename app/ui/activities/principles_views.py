@@ -22,6 +22,7 @@ from fasthtml.common import (
     Ul,
 )
 
+from core.constants import SatisfactionScale
 from core.models.enums.principle_enums import AlignmentLevel
 from core.utils.palette import StrengthColor
 from ui.activities._shared import (
@@ -38,6 +39,7 @@ from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.patterns.format_date import format_date
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -48,6 +50,7 @@ if TYPE_CHECKING:
 
     from fasthtml.common import FT
 
+    from core.models.principle.choice_outcomes import PrincipleChoiceOutcomes
     from core.models.principle.principle import Principle
     from core.ports.query_types import EntityConnection
 
@@ -397,6 +400,12 @@ def PrincipleDetailView(
     # Connections — one list per heading (ADR-090 §2)
     conn_section = ConnectionsSection(connections)
 
+    # How the choices it informs turned out — HTMX-loaded (the outcome tally runs in the
+    # fragment route)
+    choice_outcomes_section = content_loading_placeholder(
+        f"/principles/choice-outcomes?uid={principle.uid}", CHOICE_OUTCOMES_SLOT
+    )
+
     # Dual-track self-assessment (perception gap + trend) — ADR-030
     dual_track_section = DualTrackSection(
         domain="principles",
@@ -428,9 +437,62 @@ def PrincipleDetailView(
         meta_grid,
         tags_el,
         conn_section,
+        choice_outcomes_section,
         dual_track_section,
         relationships,
         size="3xl",
+    )
+
+
+CHOICE_OUTCOMES_SLOT = "principle-choice-outcomes"
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
+def PrincipleChoiceOutcomesSection(outcomes: PrincipleChoiceOutcomes) -> FT:
+    """How the choices this principle informs turned out, all time.
+
+    Rendered by the /principles/choice-outcomes HTMX endpoint and swapped into the
+    placeholder on the principle detail page. The average and the good-outcome share
+    are over the rated choices only; with none linked, or none rated, the section says
+    so instead of showing a zero.
+    """
+    mean = outcomes.mean_rating
+    good_rate = outcomes.good_outcome_rate
+    body: list[FT] = []
+    if outcomes.choices_guided == 0:
+        body.append(
+            P("No choices are linked to this principle yet.", cls="text-muted-foreground text-sm")
+        )
+    elif mean is None or good_rate is None:
+        body.append(
+            P(
+                f"{_plural(outcomes.choices_guided, 'choice')} linked, none rated yet. "
+                "Rate how a decided choice turned out on its page.",
+                cls="text-muted-foreground text-sm",
+            )
+        )
+    else:
+        body.append(
+            Div(
+                MetadataField("Choices linked", Span(str(outcomes.choices_guided))),
+                MetadataField("Rated", Span(str(outcomes.choices_rated))),
+                MetadataField(
+                    "Average satisfaction",
+                    Span(f"{mean:.1f} / {SatisfactionScale.HIGHEST}", cls="font-bold"),
+                ),
+                MetadataField("Good outcomes", Span(f"{good_rate:.0%}")),
+                cls="grid grid-cols-2 sm:grid-cols-4 gap-2",
+            )
+        )
+        body.append(P(outcomes.recommendation, cls="text-sm mt-2"))
+    return Div(
+        section_label("How its choices turned out"),
+        *body,
+        id=CHOICE_OUTCOMES_SLOT,
+        cls="my-4",
     )
 
 

@@ -1,7 +1,7 @@
 ---
 related_skills:
 - user-context-intelligence
-updated: 2026-10-31
+updated: 2026-11-12
 ---
 # UserContextIntelligence — the Hub Methods
 
@@ -109,7 +109,7 @@ published Ku and never another user's task, goal or entry), `filtered_providers`
 ## Rich context is required
 
 `factory.create()` and every mixin take a `RichUserContext` — the `UserContext` subclass that
-narrows the seven `RICH_ONLY_FIELDS` from `X | None` to `X` and pins `is_rich_context=True`.
+narrows the eight `RICH_ONLY_FIELDS` from `X | None` to `X` and pins `is_rich_context=True`.
 mypy rejects a standard context at the call site.
 
 | Read | Depth |

@@ -589,7 +589,7 @@ class UserContextBuilder:
 
         # Populate principle-choice integration (Priority 5)
         self._populator.populate_principle_choice_integration(
-            context, entities_data.get("principles", []), entities_data.get("choices", [])
+            context, entities_data.get("principles", []), rich_data
         )
 
         # Calculate derived fields — `is_rich_context` is pinned by RichUserContext default

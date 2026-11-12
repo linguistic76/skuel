@@ -95,7 +95,7 @@ returns.
 ## Rich Context Is Required
 
 `factory.create()` and every mixin take a `RichUserContext` — the `UserContext` subclass that
-narrows the seven `RICH_ONLY_FIELDS` from `X | None` to `X` and pins `is_rich_context=True`.
+narrows the eight `RICH_ONLY_FIELDS` from `X | None` to `X` and pins `is_rich_context=True`.
 mypy rejects a standard context at the call site.
 
 | Read | Returns | Depth |

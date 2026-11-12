@@ -17,10 +17,10 @@ from core.models.type_hints import UserUID
 from core.services.intelligence import MetricsCalculator, RecommendationEngine
 from core.services.whole_set_read import find_all_by
 from core.utils.decorators import requires_graph_intelligence
-from core.utils.neo4j_props import coerce_float, coerce_int
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.principle.choice_outcomes import PrincipleChoiceOutcomes
     from core.models.principle.principle import Principle
     from core.ports.domain_protocols import PrinciplesOperations
 
@@ -346,84 +346,14 @@ class _InfluenceMixin:
     # =========================================================================
 
     async def get_choice_guidance_effectiveness(
-        self,
-        principle_uid: str,
-        user_uid: UserUID,
-        period_days: int = 90,
-    ) -> Result[dict[str, Any]]:
+        self, principle_uid: str, user_uid: UserUID
+    ) -> Result[PrincipleChoiceOutcomes]:
         """
-        Analyze how effectively a principle guides user's choices.
+        How the user's choices this principle informs turned out, all time.
 
-        Examines:
-        - How many choices the principle has guided
-        - The satisfaction scores of those choices
-        - The positive outcome rate
+        Every derived figure (``PrincipleChoiceOutcomes``) is over the rated choices
+        only: an unrated choice has no satisfaction, not a low one.
 
-        Args:
-            principle_uid: Principle identifier
-            user_uid: User identifier
-            period_days: Analysis period (default 90 days)
-
-        Returns:
-            Result containing effectiveness metrics dict
+        Backend: ``PrinciplesBackend.get_principle_choice_outcomes``.
         """
-        result = await self.backend.get_choice_influence_stats(principle_uid, user_uid, period_days)
-
-        if result.is_error:
-            return Result.fail(result)
-
-        if not result.value:
-            return Result.ok(
-                {
-                    "total_choices_guided": 0,
-                    "avg_satisfaction_score": 0.0,
-                    "positive_outcome_rate": 0.0,
-                    "alignment_strength": 0.0,
-                    "recommendation": "Start linking choices to this principle",
-                }
-            )
-
-        record = result.value
-        total = coerce_int(record.get("total_choices"))
-        avg_sat = coerce_float(record.get("avg_satisfaction"))
-        positive = coerce_int(record.get("positive_outcomes"))
-
-        if total == 0:
-            return Result.ok(
-                {
-                    "total_choices_guided": 0,
-                    "avg_satisfaction_score": 0.0,
-                    "positive_outcome_rate": 0.0,
-                    "alignment_strength": 0.0,
-                    "recommendation": "Start linking choices to this principle",
-                }
-            )
-
-        # Normalize satisfaction to 0-1 (assuming 1-5 scale)
-        normalized_satisfaction = avg_sat / 5.0
-        positive_rate = positive / total
-
-        # Calculate alignment strength: combined metric
-        alignment_strength = normalized_satisfaction * positive_rate
-
-        # Generate recommendation based on effectiveness
-        if total == 0:
-            recommendation = "Start linking choices to this principle"
-        elif positive_rate < 0.5:
-            recommendation = "Review how this principle is being applied to choices"
-        elif normalized_satisfaction < 0.6:
-            recommendation = "Consider if principle interpretation needs refinement"
-        elif positive_rate >= 0.7 and normalized_satisfaction >= 0.7:
-            recommendation = "Excellent guidance - continue using this principle for decisions"
-        else:
-            recommendation = "Continue using this principle for decision guidance"
-
-        return Result.ok(
-            {
-                "total_choices_guided": total,
-                "avg_satisfaction_score": round(normalized_satisfaction, 3),
-                "positive_outcome_rate": round(positive_rate, 3),
-                "alignment_strength": round(alignment_strength, 3),
-                "recommendation": recommendation,
-            }
-        )
+        return await self.backend.get_principle_choice_outcomes(principle_uid, user_uid)

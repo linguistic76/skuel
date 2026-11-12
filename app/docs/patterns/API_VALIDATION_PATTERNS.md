@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: '2026-11-09'
+updated: '2026-11-12'
 category: patterns
 related_skills:
 - pydantic
@@ -716,7 +716,7 @@ if month.is_error:
 | `limit` (critical tasks) | 5 | ≥ 1 | 50 | `/goals/critical-tasks` |
 | `offset` | 0 | ≥ 0 | — | Pagination, Load-more |
 | `days` / `days_back` / `lookback_days` / `timeframe_days` | 30-90 | ≥ 1 | 365 | Analytics, habit history, goal prediction, knowledge patterns |
-| `period_days` | 30 / 90 | ≥ 1 | — | Intelligence analytics, principle choice-effectiveness |
+| `period_days` | 30 / 90 | ≥ 1 | — | Intelligence analytics |
 | `days_ahead` | 0 (the scheduler's horizon) | ≥ 0 | 90 | `/habits/schedule-events` |
 | `depth` | 2 / 3 | ≥ 1 | 10 (`GraphDepth.MAXIMUM`) | Graph traversal — the intelligence `/context` route, the lateral `/graph` route, `/api/path-steps/prerequisites` (default 3) |
 | `parent_depth` | 0 | ≥ -1 | — | The step tree's lazy load |
