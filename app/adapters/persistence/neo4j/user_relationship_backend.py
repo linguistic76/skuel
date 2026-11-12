@@ -16,7 +16,6 @@ queries. Core-layer consumers depend on the port, not this class (ADR-044).
 Graph Relationships Managed:
 ----------------------------
 - (user)-[:PINNED {order: int}]->(entity) - Ordered pinned entities
-- (user)-[:PURSUING_GOAL]->(goal) - Active/current goals
 - (user)-[:FOLLOWS]->(other_user) - Social following
 - (user)-[:MEMBER_OF]->(group) - Group membership
 
@@ -62,7 +61,6 @@ class UserRelationshipBackend:
 
     Semantic Types Used:
     - PINNED: User-selected important entities (with order property)
-    - PURSUING_GOAL: Active goal relationships
     - FOLLOWS: Social connections
     - MEMBER_OF: Group membership
     """
@@ -219,34 +217,6 @@ class UserRelationshipBackend:
         )
 
     # ========================================================================
-    # Current Goals (1 method)
-    # ========================================================================
-
-    async def get_current_goals(self, user_uid: UserUID) -> Result[list[str]]:
-        """
-        Get UIDs of current/active goals for a user.
-
-        Replaces: user.current_goals (removed from User model)
-        Graph relationship: (user)-[:PURSUING_GOAL]->(goal)
-
-        Args:
-            user_uid: UID of the user
-
-        Returns:
-            Result containing list of current goal UIDs
-        """
-        return await self.executor.execute(
-            query=f"""
-                MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.PURSUING_GOAL}]->(goal:Goal)
-                RETURN goal.uid as uid
-                ORDER BY goal.uid
-            """,
-            params={"user_uid": user_uid},
-            processor=extract_uids_list,
-            operation="get_current_goals",
-        )
-
-    # ========================================================================
     # Social Connections (2 methods)
     # ========================================================================
 
@@ -327,7 +297,7 @@ class UserRelationshipBackend:
         )
 
     # ========================================================================
-    # Existence Checks (4 methods)
+    # Existence Checks (3 methods)
     # ========================================================================
 
     async def has_pinned_entities(self, user_uid: UserUID) -> Result[bool]:
@@ -344,25 +314,6 @@ class UserRelationshipBackend:
             query=f"MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.PINNED}]->() RETURN user",
             params={"user_uid": user_uid},
             operation="has_pinned_entities",
-        )
-
-    async def has_active_goals(self, user_uid: UserUID) -> Result[bool]:
-        """
-        Check if user has any active goals.
-
-        Replaces: len(user.current_goals) > 0
-        Graph query: COUNT (user)-[:PURSUING_GOAL]->() > 0
-
-        Args:
-            user_uid: UID of the user
-
-        Returns:
-            Result containing True if user has active goals
-        """
-        return await self.executor.execute_exists(
-            query=f"MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.PURSUING_GOAL}]->() RETURN user",
-            params={"user_uid": user_uid},
-            operation="has_active_goals",
         )
 
     async def is_following(self, user_uid: UserUID, other_user_uid: UserUID) -> Result[bool]:
@@ -472,12 +423,10 @@ class UserRelationshipBackend:
             query=f"""
                 MATCH (user:User {{uid: $user_uid}})
                 OPTIONAL MATCH (user)-[:{RelationshipName.PINNED}]->(pinned)
-                OPTIONAL MATCH (user)-[:{RelationshipName.PURSUING_GOAL}]->(goal)
                 OPTIONAL MATCH (user)-[:{RelationshipName.FOLLOWS}]->(following)
                 OPTIONAL MATCH (follower)-[:{RelationshipName.FOLLOWS}]->(user)
                 OPTIONAL MATCH (user)-[:{RelationshipName.MEMBER_OF}]->(group:Group)
                 RETURN count(DISTINCT pinned) as pinned_count,
-                       count(DISTINCT goal) as goal_count,
                        count(DISTINCT following) as following_count,
                        count(DISTINCT follower) as follower_count,
                        count(DISTINCT group) as team_count
@@ -486,7 +435,6 @@ class UserRelationshipBackend:
             processor=extract_dict_from_first_record(
                 {
                     "pinned_count": "pinned_count",
-                    "goal_count": "goal_count",
                     "following_count": "following_count",
                     "follower_count": "follower_count",
                     "team_count": "team_count",

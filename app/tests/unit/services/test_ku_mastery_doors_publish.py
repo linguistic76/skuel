@@ -21,6 +21,7 @@ import pytest
 
 from core.events.learning_events import KnowledgeMastered, LearningPathStarted
 from core.models.type_hints import UserUID
+from core.ports.infrastructure_protocols import UserLearningStateOperations
 from core.services.user.user_progress_recorder_service import UserProgressRecorderService
 from core.utils.result_simplified import Errors, Result
 
@@ -108,10 +109,8 @@ async def test_understood_failed_write_publishes_nothing() -> None:
 
 
 def _recorder(write: Result, bus: _Bus) -> UserProgressRecorderService:
-    repo = MagicMock()
+    repo = MagicMock(spec=UserLearningStateOperations)
     repo.record_knowledge_mastery = AsyncMock(return_value=write)
-    repo.get_learning_state = AsyncMock(return_value=Result.ok({}))
-    repo.update_learning_state = AsyncMock(return_value=Result.ok(True))
     return UserProgressRecorderService(repo, event_bus=bus)
 
 
@@ -120,7 +119,7 @@ async def test_recorded_mastery_publishes_the_transition_with_the_stored_score()
     bus = _Bus()
     service = _recorder(Result.ok({"mastery_score": 0.9, "was_mastered": False}), bus)
 
-    result = await service.record_knowledge_mastery(USER, "ku.b", 0.9, update_progress=False)
+    result = await service.record_knowledge_mastery(USER, "ku.b", 0.9)
 
     assert result.is_ok
     [event] = _mastered(bus)
@@ -132,7 +131,7 @@ async def test_recorded_mastery_retry_publishes_nothing() -> None:
     bus = _Bus()
     service = _recorder(Result.ok({"mastery_score": 0.9, "was_mastered": True}), bus)
 
-    result = await service.record_knowledge_mastery(USER, "ku.b", 0.9, update_progress=False)
+    result = await service.record_knowledge_mastery(USER, "ku.b", 0.9)
 
     assert result.is_ok
     assert bus.published == []
@@ -143,7 +142,7 @@ async def test_recorded_mastery_failed_write_publishes_nothing() -> None:
     bus = _Bus()
     service = _recorder(Result.fail(Errors.database("record_knowledge_mastery", "down")), bus)
 
-    result = await service.record_knowledge_mastery(USER, "ku.b", 0.9, update_progress=False)
+    result = await service.record_knowledge_mastery(USER, "ku.b", 0.9)
 
     assert result.is_error
     assert bus.published == []
@@ -155,7 +154,7 @@ async def test_recorded_mastery_failed_write_publishes_nothing() -> None:
 
 
 def _enroller(newly_enrolled: bool, bus: _Bus) -> UserProgressRecorderService:
-    repo = MagicMock()
+    repo = MagicMock(spec=UserLearningStateOperations)
     repo.enroll_in_learning_path = AsyncMock(return_value=Result.ok(newly_enrolled))
     return UserProgressRecorderService(repo, event_bus=bus)
 

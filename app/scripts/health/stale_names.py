@@ -473,6 +473,13 @@ DELETED: dict[str, str] = {
     "create_instruction_set": "deleted — override the transcript_formatting template at data/instructions/transcript_formatting.md",
     "list_instruction_sets": "deleted — the formatting instructions are the transcript_formatting prompt template",
     "load_exercise_instructions": "deleted — the formatting instructions are the transcript_formatting prompt template",
+    # A learner's counts are read from their edges; the user node holds no copy of them.
+    "update_user_progress": "deleted — concepts mastered are MASTERED edges, a completed path is its ENROLLED_IN edge's status",
+    "_update_progress_metrics": "deleted — concepts mastered are counted from MASTERED edges (UserProgressBackend.get_mastered_knowledge)",
+    "_update_path_completion_progress": "deleted — a completed path is its ENROLLED_IN edge's status (get_completed_learning_paths)",
+    # A learner's current goals are the goals they own with an active status.
+    "get_current_goals": "deleted — read the learner's owned goals (:OWNS) by status",
+    "has_active_goals": "deleted — read the learner's owned goals (:OWNS) by status",
 }
 
 

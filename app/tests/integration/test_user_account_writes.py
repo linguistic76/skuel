@@ -5,10 +5,12 @@ patch to the preferences read under the user node's lock and writes ``preference
 and the ``last_active_at`` stamp alone; reactivation writes ``is_active`` alone. So
 two saves for one user serialize, and a password, role or deactivation another
 writer commits meanwhile keeps the value that writer gave it. The admin users table
-reads the account's ``last_login_at`` stamp.
+reads the account's ``last_login_at`` stamp. Mastering a Ku writes the ``MASTERED``
+edge and leaves the user node as it was: concept counts are counted from those edges.
 
-Wiring mirrors services_bootstrap: ``UserCoreService`` over the production
-``UserBackend``, the session writers from ``SessionBackend``.
+Wiring mirrors services_bootstrap: ``UserCoreService`` and
+``UserProgressRecorderService`` over the production ``UserBackend``, the session
+writers from ``SessionBackend``.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from core.models.type_hints import UserUID
 from core.models.user import UserPreferences, create_user
 from core.services.admin_stats_service import AdminStatsService
 from core.services.user.user_core_service import UserCoreService
+from core.services.user.user_progress_recorder_service import UserProgressRecorderService
 from core.utils.result_simplified import ErrorCategory
 from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
@@ -32,6 +35,7 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 _USER = seed_user_uid("account-writes")
 _MISSING = seed_user_uid("account-writes-nobody")
+_MASTERED_KU_UID = "ku.account-writes.mastered"
 _TRIALS = 5
 
 #: Four saves of four different fields, as four tabs (or a tab and the vault's
@@ -217,3 +221,35 @@ async def test_admin_users_table_reads_the_last_login_stamp(neo4j_driver, accoun
     assert rows.is_ok, f"admin rows failed: {rows.error}"
     (row,) = [row for row in rows.value if row["uid"] == _USER]
     assert row["last_login_at"] == "2026-11-01T08:30:00+00:00"
+
+
+async def test_recorded_mastery_leaves_the_user_node_unchanged(neo4j_driver, account):
+    """The pathways progress door's mastery write lands on the edge, not the user."""
+    _, backends = account
+    recorder = UserProgressRecorderService(user_repo=backends["users_backend"])
+    async with neo4j_driver.session() as session:
+        await session.run(
+            "MERGE (:Entity:Ku {uid: $uid, entity_type: 'ku', title: 'Mastered'})",
+            uid=_MASTERED_KU_UID,
+        )
+    try:
+        before = await _properties(neo4j_driver, _USER)
+
+        recorded = await recorder.record_knowledge_mastery(_USER, _MASTERED_KU_UID, 0.9)
+
+        assert recorded.is_ok, f"mastery failed: {recorded.error}"
+        assert recorded.value == {"mastery_score": 0.9, "was_mastered": False}
+        assert await _properties(neo4j_driver, _USER) == before
+        async with neo4j_driver.session() as session:
+            record = await (
+                await session.run(
+                    "MATCH (:User {uid: $user})-[m:MASTERED]->(:Entity {uid: $ku}) "
+                    "RETURN count(m) AS n",
+                    user=_USER,
+                    ku=_MASTERED_KU_UID,
+                )
+            ).single()
+        assert record is not None and record["n"] == 1
+    finally:
+        async with neo4j_driver.session() as session:
+            await session.run("MATCH (k:Entity {uid: $uid}) DETACH DELETE k", uid=_MASTERED_KU_UID)

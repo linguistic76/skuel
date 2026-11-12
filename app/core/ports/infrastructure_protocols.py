@@ -193,12 +193,6 @@ class UserLearningStateOperations(Protocol):
     See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
     """
 
-    async def update_user_progress(
-        self, user_uid: UserUID, progress_updates: Metadata
-    ) -> Result[bool]:
-        """Update user's learning progress."""
-        ...
-
     async def record_knowledge_mastery(
         self,
         user_uid: UserUID,
@@ -308,8 +302,8 @@ class UserOperations(
     """Full user backend operations (composed). Use narrowest sub-protocol for ISP.
 
     Composed from:
-    - UserCrudOperations (6 methods) — identity CRUD
-    - UserLearningStateOperations (8 methods) — learning state management
+    - UserCrudOperations (11 methods) — identity CRUD
+    - UserLearningStateOperations (7 methods) — learning state management
     - UserActivityOperations (3 methods) — activity tracking
 
     See: /docs/patterns/BACKEND_OPERATIONS_ISP.md

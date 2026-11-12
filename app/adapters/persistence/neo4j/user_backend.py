@@ -547,37 +547,6 @@ class UserBackend(Neo4jSessionRunner):
     # ========================================================================
     # These methods manage User-Knowledge relationships in the graph
 
-    @safe_backend_operation("update_user_progress")
-    async def update_user_progress(
-        self, user_uid: UserUID, progress_updates: dict[str, Any]
-    ) -> Result[bool]:
-        """
-        Update user's learning progress.
-
-        This updates metadata on the User node itself, not relationships.
-        For relationship-based progress tracking, use record_knowledge_mastery.
-
-        Args:
-            user_uid: User UID
-            progress_updates: Progress metadata to update
-
-        Returns:
-            Result[bool]: Success status
-        """
-        query = f"""
-        MATCH (u:{self.label} {{uid: $uid}})
-        SET u += $updates
-        RETURN u
-        """
-
-        record = await self._run_single(query, {"uid": user_uid, "updates": progress_updates})
-
-        if not record:
-            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-
-        self.logger.info(f"Updated user progress: {user_uid}")
-        return Result.ok(True)
-
     @safe_backend_operation("record_knowledge_mastery")
     async def record_knowledge_mastery(
         self,
