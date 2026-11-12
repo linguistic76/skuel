@@ -424,6 +424,48 @@ class TestGoalsChokepoint:
         assert result.is_ok
         assert "progress_percentage" not in recorder.merged_patch()
 
+    async def test_a_reopen_that_clears_the_type_is_judged_as_a_percentage(self):
+        """An explicit null clears the stored type, and a goal with none is measured
+        by its percentage: the reset applies (the subscriber has nothing to restore)."""
+        service, _backend, recorder = self._service(
+            EntityStatus.COMPLETED, measurement_type=MeasurementType.MILESTONE
+        )
+        intent = GoalUpdateIntent(status="active", measurement_type=None)
+        result = await service.update_goal("goal_1", intent)
+        assert result.is_ok
+        assert recorder.merged_patch()["progress_percentage"] == 0.0
+
+    async def test_a_reopen_answers_the_goal_its_subscriber_left(self):
+        """The bus awaits ``GoalReopened``'s subscriber, which rewrites the figure, so the
+        update answers the goal as stored after it, not as the status write left it."""
+        from core.services.goals.goals_core_service import GoalsCoreService
+
+        current = Goal(
+            uid="goal_1",
+            user_uid=USER,
+            title="g",
+            status=EntityStatus.COMPLETED,
+            measurement_type=MeasurementType.NUMERIC,
+            progress_percentage=100.0,
+        )
+        restored = dataclasses.replace(
+            current, status=EntityStatus.ACTIVE, progress_percentage=20.0
+        )
+        backend, _recorder = guarded_backend(current, current)
+
+        class _RestoringBus(_CapturingBus):
+            async def publish_async(self, event: BaseEvent) -> None:
+                await super().publish_async(event)
+                if isinstance(event, GoalReopened):
+                    backend.get.return_value = Result.ok(restored)
+
+        service = GoalsCoreService(backend=backend, event_bus=_RestoringBus())
+
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
+
+        assert result.is_ok
+        assert result.value.progress_percentage == 20.0
+
     async def test_an_open_goal_is_not_zeroed_by_the_reopen_reset(self):
         """The reset is conditional, not unconditional: a lateral move between two
         open statuses must leave progress alone. Only the write knows the prior, so

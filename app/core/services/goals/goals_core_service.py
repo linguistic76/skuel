@@ -116,11 +116,13 @@ def _measurement_after(
     changes: Mapping[str, Any],
     current: Goal | None,
 ) -> MeasurementType:
-    """The goal's measurement type once this patch lands: the patch's own, else the
-    stored one, else the percentage a goal with none is measured by."""
-    raw = changes.get("measurement_type")
-    if raw is None and current is not None:
-        raw = current.measurement_type
+    """The goal's measurement type once this patch lands: the patch's own when it names
+    one (an explicit null clears it), else the stored one, else the percentage a goal
+    with none is measured by."""
+    if "measurement_type" in changes:
+        raw = changes["measurement_type"]
+    else:
+        raw = current.measurement_type if current is not None else None
     if raw is None:
         return MeasurementType.PERCENTAGE
     return raw if isinstance(raw, MeasurementType) else MeasurementType(str(raw))
@@ -924,7 +926,10 @@ class GoalsCoreService(
 
         # GoalReopened: out of COMPLETED to a working status, decided from the same prior.
         # A move to a terminal status keeps its figure as the record, as the reset does.
-        if is_reopen_transition(outcome.prior_status, changes) and _targets_working_status(changes):
+        reopened = is_reopen_transition(outcome.prior_status, changes) and (
+            _targets_working_status(changes)
+        )
+        if reopened:
             await publish_event(
                 self.event_bus,
                 GoalReopened(goal_uid=goal.uid, user_uid=goal.user_uid),
@@ -936,6 +941,13 @@ class GoalsCoreService(
             self.event_bus, EntityType.GOAL, goal, self.logger, changed_fields=updated_fields
         )
 
+        if reopened:
+            # The bus awaits its subscribers, so the reopen's figure rewrite
+            # (``GoalsProgressService.handle_goal_reopened``) has landed: answer the goal
+            # as stored, not as this write left it. A failed read answers the write's.
+            stored = await self.backend.get(uid)
+            if stored.is_ok and stored.value is not None:
+                return Result.ok(stored.value)
         return Result.ok(goal)
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
