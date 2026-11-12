@@ -183,13 +183,19 @@ async def test_the_validation_round_trip_carries_the_choice(neo4j_driver, auth, 
     token = await _sign_in(auth, username)
 
     before = await auth[0].validate_session_identity(token)
-    assert before.is_ok and before.value == {"user_uid": _UID[username], "timezone": None}
+    # Registered with no display name, the account's name is its username.
+    assert before.is_ok and before.value == {
+        "user_uid": _UID[username],
+        "timezone": None,
+        "display_name": username,
+    }
 
     await user_service.update_preferences(_UID[username], {"timezone": "Asia/Bangkok"})
     after = await auth[0].validate_session_identity(token)
     assert after.is_ok and after.value == {
         "user_uid": _UID[username],
         "timezone": "Asia/Bangkok",
+        "display_name": username,
     }
 
 
