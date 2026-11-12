@@ -480,6 +480,10 @@ DELETED: dict[str, str] = {
     # A learner's current goals are the goals they own with an active status.
     "get_current_goals": "deleted — read the learner's owned goals (:OWNS) by status",
     "has_active_goals": "deleted — read the learner's owned goals (:OWNS) by status",
+    # Each domain owns its progress write; no entity model has a `progress` property.
+    # Call-shaped: the live pathways handler is `update_progress_route`.
+    "update_progress(": "deleted — goals: update_goal_progress; mastery: MASTERED edges; tasks and habits: their completion doors",
+    "ProgressResult": "deleted — nothing returned it; each progress door returns its own entity",
 }
 
 

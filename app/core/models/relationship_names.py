@@ -260,7 +260,7 @@ class RelationshipName(StrEnum):
     # User-specific relationships for social features and preferences
     # =========================================================================
     PINNED = "PINNED"  # (user)-[:PINNED {order: int}]->(entity) - User's pinned items
-    FOLLOWS = "FOLLOWS"  # (user)-[:FOLLOWS]->(user) - Social following
+    FOLLOWS = "FOLLOWS"  # (user)-[:FOLLOWS]->(user) - Social following, staged: read by UserRelationshipBackend, no writer yet
     INTERESTED_IN = "INTERESTED_IN"  # (user)-[:INTERESTED_IN {interest_score, interest_source}]->(ku) - written by UserBackend.record_interest
     PURSUING_GOAL = "PURSUING_GOAL"  # (user)-[:PURSUING_GOAL]->(goal) - Active goals
     ENROLLED_IN = "ENROLLED_IN"  # (user)-[:ENROLLED_IN {enrolled_at, status}]->(lp) - LP enrollment; r.status='completed' marks completion (written by UserBackend.enroll_in_learning_path)

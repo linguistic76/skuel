@@ -698,37 +698,6 @@ class BaseService(
 
         return cast("Result[T]", result)
 
-    # ========================================================================
-    # STATUS AND PROGRESS TRACKING
-    # ========================================================================
-
-    async def update_progress(self, uid: str, progress: float) -> Result[T]:
-        """
-        Update progress/mastery for an entity.
-
-        Universal concept across SKUEL:
-        - KnowledgeUnits have mastery progress
-        - Tasks have completion progress
-        - Habits have streak progress
-        - Goals have achievement progress
-        """
-        if not uid:
-            return Result.fail(Errors.validation(message="UID is required", field="uid"))
-
-        if progress < 0 or progress > 100:
-            return Result.fail(
-                Errors.validation(
-                    message="Progress must be between 0 and 100",
-                    field="progress",
-                    user_message="Progress percentage must be between 0% and 100%",
-                )
-            )
-
-        # raw-write: generic system field bump. The validated/event-firing service contract
-        # is the domain `update_<x>(intent)` path; this universal helper writes a single
-        # column directly (U is the subclass's narrowed intent type — not constructible here).
-        return await self.backend.update(uid, {"progress": progress})
-
     # -------------------------------------------------------------------------
     # Test-covered health API — no production caller yet (PLANNED)
     # -------------------------------------------------------------------------
