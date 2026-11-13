@@ -771,11 +771,15 @@ class AccountMonthRow:
 
 @dataclass(frozen=True, slots=True)
 class PresenceMonthRow:
-    """Users present in one UTC month, and how many of them were present the month after."""
+    """Users present in one UTC month, and how many of them were present the month after.
+
+    ``days_active`` is the month's days active summed over its present users.
+    """
 
     month: str
     present: int
     returned: int
+    days_active: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -824,12 +828,26 @@ class RetentionMonth:
     ``returned`` is how many of the month's present users were present the
     month after: None while that month has not begun, and a count so far while
     it is the current month (``next_month_in_progress``).
+
+    ``days_active`` is the month's days active summed over its present users:
+    the UTC days each signed in or had a session make a request. In a month
+    marked ``days_active_is_floor`` only some of those days were counted, so
+    the figure is a lower bound.
     """
 
     month: str
     present: int
     returned: int | None
     next_month_in_progress: bool
+    days_active: int
+    days_active_is_floor: bool
+
+    @property
+    def mean_days_active(self) -> float | None:
+        """Days active per present user; None with no one present."""
+        if self.present == 0:
+            return None
+        return self.days_active / self.present
 
     @property
     def rate(self) -> float | None:

@@ -24,6 +24,7 @@ from core.ports.query_types import (
 )
 from core.services.admin_stats_service import (
     ANALYTICS_MONTHS,
+    DAYS_ACTIVE_COUNTED_FROM,
     build_growth_report,
     build_retention_report,
 )
@@ -66,7 +67,14 @@ def test_trailing_months_end_at_the_current_one() -> None:
 
 
 def test_rows_are_frozen() -> None:
-    line = RetentionMonth(month="2026-10", present=3, returned=2, next_month_in_progress=True)
+    line = RetentionMonth(
+        month="2026-10",
+        present=3,
+        returned=2,
+        next_month_in_progress=True,
+        days_active=9,
+        days_active_is_floor=False,
+    )
     with pytest.raises(AttributeError):
         line.present = 4  # type: ignore[misc]
     with pytest.raises(AttributeError):
@@ -74,12 +82,12 @@ def test_rows_are_frozen() -> None:
 
 
 def test_retention_rate() -> None:
-    assert RetentionMonth("2026-09", 3, 2, False).rate == pytest.approx(2 / 3)
-    assert RetentionMonth("2026-09", 3, 0, False).rate == 0.0
+    assert RetentionMonth("2026-09", 3, 2, False, 0, False).rate == pytest.approx(2 / 3)
+    assert RetentionMonth("2026-09", 3, 0, False, 0, False).rate == 0.0
     # No one was present: there is no rate, and no division.
-    assert RetentionMonth("2026-09", 0, 0, False).rate is None
+    assert RetentionMonth("2026-09", 0, 0, False, 0, False).rate is None
     # The month after has not begun.
-    assert RetentionMonth("2026-11", 3, None, False).rate is None
+    assert RetentionMonth("2026-11", 3, None, False, 0, False).rate is None
 
 
 # ----------------------------------------------------------------------------
@@ -148,9 +156,9 @@ def test_retention_with_no_presence() -> None:
 
 def test_retention_lines() -> None:
     rows = [
-        PresenceMonthRow(month="2026-09", present=3, returned=2),
-        PresenceMonthRow(month="2026-10", present=2, returned=1),
-        PresenceMonthRow(month="2026-11", present=1, returned=0),
+        PresenceMonthRow(month="2026-09", present=3, returned=2, days_active=12),
+        PresenceMonthRow(month="2026-10", present=2, returned=1, days_active=3),
+        PresenceMonthRow(month="2026-11", present=1, returned=0, days_active=1),
     ]
     report = build_retention_report(rows, "2026-11")
     september, october, november = report.months[-3:]
@@ -169,6 +177,35 @@ def test_retention_lines() -> None:
         False,
     )
     assert report.present_this_month == 1
+    assert (september.days_active, october.days_active, november.days_active) == (12, 3, 1)
+    assert september.mean_days_active == pytest.approx(4.0)
+    assert october.mean_days_active == pytest.approx(1.5)
+
+
+def test_days_active_with_no_one_present() -> None:
+    report = build_retention_report([], "2026-11")
+    assert all(m.days_active == 0 for m in report.months)
+    # No one was present: there is no mean, and no division.
+    assert all(m.mean_days_active is None for m in report.months)
+    html = to_xml(AdminAnalyticsComponents.render_retention(report))
+    assert "Days active" in html
+    assert "≥" not in html.split("</table>")[0]
+
+
+def test_days_active_is_a_floor_before_every_day_was_counted() -> None:
+    months = trailing_months("2027-02", 4)  # 2026-11 .. 2027-02
+    report = build_retention_report([PresenceMonthRow(m, 2, 1, 9) for m in months], "2027-02")
+    november, december, january, february = report.months[-4:]
+    assert DAYS_ACTIVE_COUNTED_FROM == "2026-12"
+    assert november.days_active_is_floor
+    assert not (
+        december.days_active_is_floor
+        or january.days_active_is_floor
+        or february.days_active_is_floor
+    )
+    table = to_xml(AdminAnalyticsComponents.render_retention(report)).split("</table>")[0]
+    assert table.count("≥ 4.5") == 1
+    assert table.count(">4.5<") == 3
 
 
 # ----------------------------------------------------------------------------
@@ -205,7 +242,8 @@ def test_cards_in_order_growth_and_retention_first() -> None:
     assert positions == sorted(positions)
     assert "Activity Statistics (30 days)" not in html
     assert "Active Habits" not in html and "Active Goals" not in html
-    assert html.count("Months are UTC") == 2
+    assert html.count("Months are UTC") == 1
+    assert html.count("Months and days are UTC") == 1
 
 
 def test_empty_graph_renders_twelve_lines_of_zeros() -> None:
@@ -221,7 +259,7 @@ def test_empty_graph_renders_twelve_lines_of_zeros() -> None:
 
 def test_one_month_of_history() -> None:
     growth = build_growth_report([AccountMonthRow("2026-11", 1, 0)], "2026-11")
-    retention = build_retention_report([PresenceMonthRow("2026-11", 1, 0)], "2026-11")
+    retention = build_retention_report([PresenceMonthRow("2026-11", 1, 0, 1)], "2026-11")
     html = _html(_page(growth=growth, retention=retention))
     assert "1 account ·" in html
     assert "1 new this month (+1 on last month)" in html
@@ -234,7 +272,7 @@ def test_twelve_months_of_history() -> None:
         [AccountMonthRow(month, index + 1, 0) for index, month in enumerate(months)], "2026-11"
     )
     retention = build_retention_report(
-        [PresenceMonthRow(month, 3, 2) for month in months], "2026-11"
+        [PresenceMonthRow(month, 3, 2, 14) for month in months], "2026-11"
     )
     html = _html(_page(growth=growth, retention=retention))
 

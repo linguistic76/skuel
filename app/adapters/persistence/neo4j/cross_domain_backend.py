@@ -1390,18 +1390,20 @@ class CrossDomainBackend:
     async def get_presence_by_month(
         self, months: list[str], month_after: dict[str, str]
     ) -> Result[list[PresenceMonthRow]]:
-        """Users present in each of ``months``, and how many were present the month after.
+        """Users present in each of ``months``, their days active, and who came back.
 
         ``month_after`` names, for each month key, the key of the month that
-        follows it. A month no one was present in has no row.
+        follows it. A month's days active are the sum over its present users.
+        A month no one was present in has no row.
         """
         result = await self.executor.execute_query(
             f"""
-            MATCH (u:User)-[:{RelationshipName.PRESENT_IN.value}]->(m:{NeoLabel.MONTH.value})
+            MATCH (u:User)-[p:{RelationshipName.PRESENT_IN.value}]->(m:{NeoLabel.MONTH.value})
             WHERE m.key IN $months
             OPTIONAL MATCH (u)-[:{RelationshipName.PRESENT_IN.value}]->
                            (after:{NeoLabel.MONTH.value} {{key: $month_after[m.key]}})
-            RETURN m.key AS month, count(u) AS present, count(after) AS returned
+            RETURN m.key AS month, count(u) AS present, count(after) AS returned,
+                   sum(coalesce(p.days, 0)) AS days_active
             ORDER BY month
             """,
             {"months": months, "month_after": month_after},
@@ -1414,6 +1416,7 @@ class CrossDomainBackend:
                     month=str(row["month"]),
                     present=int(row["present"]),
                     returned=int(row["returned"]),
+                    days_active=int(row["days_active"]),
                 )
                 for row in result.value or []
             ]

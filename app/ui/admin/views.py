@@ -79,6 +79,15 @@ def _returned(line: RetentionMonth) -> str:
     return f"{figure}, so far" if line.next_month_in_progress else figure
 
 
+def _days_active(line: RetentionMonth) -> str:
+    """A month's mean days active per present user: ``4.5``, or ``≥ 4.5`` for a floor."""
+    mean = line.mean_days_active
+    if mean is None:
+        return "-"
+    figure = f"{mean:.1f}"
+    return f"≥ {figure}" if line.days_active_is_floor else figure
+
+
 def account_card_id(uid: str) -> str:
     """DOM id of a user's account card — the target every account action swaps."""
     return f"account-card-{_uid_css(uid)}"
@@ -568,12 +577,13 @@ class AdminAnalyticsComponents:
 
     @staticmethod
     def render_retention(retention: RetentionReport) -> FT:
-        """Who was present each month and who came back the month after, newest month first."""
+        """Each month's present users, who came back, and their days active, newest first."""
         body_data = [
             {
                 "Month": _month(line.month),
                 "Present": line.present,
                 "Present the month after": _returned(line),
+                "Days active": _days_active(line),
             }
             for line in reversed(retention.months)
         ]
@@ -584,15 +594,22 @@ class AdminAnalyticsComponents:
             ),
             Div(
                 TableFromDicts(
-                    header_data=["Month", "Present", "Present the month after"],
+                    header_data=[
+                        "Month",
+                        "Present",
+                        "Present the month after",
+                        "Days active",
+                    ],
                     body_data=body_data,
-                    cls=(TableT.striped,),
+                    cls=(TableT.striped, TableT.sm),
                 ),
                 cls="overflow-x-auto",
             ),
             P(
-                "Months are UTC. A user is present in a month when they signed in during it, "
-                "or a session of theirs was seen in it.",
+                "Months and days are UTC. A user is present in a month when they signed in "
+                "during it, or a session of theirs was seen in it. Days active is the mean, over "
+                "the month's present users, of the days each signed in or used the app. A month "
+                "marked ≥ counted only the days with a sign-in for some or all of its days.",
                 cls="text-sm text-muted-foreground mt-3",
             ),
         )

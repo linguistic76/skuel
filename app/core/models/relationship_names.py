@@ -449,7 +449,8 @@ class RelationshipName(StrEnum):
     HAD_AUTH_EVENT = "HAD_AUTH_EVENT"  # (user)-[:HAD_AUTH_EVENT]->(auth_event)
     HAS_RESET_TOKEN = "HAS_RESET_TOKEN"  # (user)-[:HAS_RESET_TOKEN]->(reset_token)
     # (user)-[:PRESENT_IN {sign_ins, days, last_day}]->(:Month) — the user signed
-    # in during the month, or a live session of theirs was seen in it.
+    # in during the month, or a live session of theirs was seen in it; ``days``
+    # counts the UTC days of the month they signed in or made a request.
     PRESENT_IN = "PRESENT_IN"
     HAS_DEVICE = "HAS_DEVICE"  # (user)-[:HAS_DEVICE]->(device) - enrolled vault-agent (ADR-075)
 
