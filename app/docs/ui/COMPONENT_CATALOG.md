@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-08
+updated: 2026-11-13
 ---
 
 # SKUEL UI Component Catalog
@@ -644,7 +644,7 @@ Individual statistics card (lower-level, use StatItem + StatsGrid for grids).
 - `value: str | int` - Stat value
 - `change: str | None` - Change text
 - `trend: str | None` - Trend direction
-- `color: str | None` - Semantic color token
+- `color: StatColor | None` - The value's colour: `primary`, `success`, `info`, `warning`, `error` or `muted-foreground`. A palette name (`purple-600`) is a type error and raises `ValueError` at render: no class is compiled for it.
 - `**kwargs` - Additional attributes
 
 **Examples:**

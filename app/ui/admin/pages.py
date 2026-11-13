@@ -26,7 +26,7 @@ from ui.patterns.error_banner import render_error_banner
 from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader
-from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.patterns.stats_grid import StatColor, StatItem, StatsGrid
 from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
@@ -280,7 +280,7 @@ def _pct(fraction: float) -> str:
 def _coverage_stat(label: str, metric: KnowledgeCoverageMetric, total_kus: int) -> StatItem:
     """A coverage slice as a StatItem: `edges · participating/total Kus`."""
     coverage = metric["coverage"]
-    color = "success" if coverage >= 0.5 else ("warning" if coverage > 0 else "error")
+    color: StatColor = "success" if coverage >= 0.5 else ("warning" if coverage > 0 else "error")
     return StatItem(
         label=label,
         value=_pct(coverage),
@@ -408,7 +408,7 @@ def knowledge_health_page(report: KnowledgeHealthReport) -> Any:
     GDS-readiness score, and authoring-guidance flags.
     """
     total_kus = report["total_kus"]
-    orphan_color = "error" if report["orphan_fraction"] > 0.05 else "success"
+    orphan_color: StatColor = "error" if report["orphan_fraction"] > 0.05 else "success"
 
     node_stats = [
         StatItem(label="Kus", value=total_kus, color="info"),

@@ -86,6 +86,7 @@ async def presence(neo4j_driver):
                 uids=seeded,
             )
             await session.run("MATCH (e:AuthEvent) WHERE e.user_uid IN $uids DELETE e", uids=seeded)
+            await session.run("MATCH (e:AuthEvent) WHERE e.email STARTS WITH 'presence_' DELETE e")
             await session.run("MATCH (m:Month) WHERE m.key >= '2089' DETACH DELETE m")
             await session.run(
                 "MATCH (r:MigrationRecord {name: $name}) DELETE r", name=backfill.PRESENCE_BACKFILL
@@ -425,6 +426,24 @@ async def test_erasure_takes_auth_events_and_presence_edges_and_leaves_the_month
             )
             assert logged.is_ok, logged.error
 
+        # A failed sign-in logged with an email and no uid, for each account's
+        # email and for an email no account holds.
+        for email in (
+            "presence_erased@example.com",
+            "presence_kept@example.com",
+            "presence_nobody@example.com",
+        ):
+            logged = await backends["session_backend"].log_auth_event(
+                create_auth_event(
+                    event_type=AuthEventType.LOGIN_FAILED,
+                    ip_address="203.0.113.7",
+                    user_agent=_BROWSER,
+                    email=email,
+                    metadata={"reason": "user_not_found"},
+                )
+            )
+            assert logged.is_ok, logged.error
+
     erased = await backends["users_backend"].hard_delete_user(user)
     assert erased.is_ok and erased.value >= 1, erased.error
 
@@ -434,6 +453,10 @@ async def test_erasure_takes_auth_events_and_presence_edges_and_leaves_the_month
         )
         == 0
     )
+    by_email = "MATCH (e:AuthEvent {email: $email}) WHERE e.user_uid IS NULL RETURN count(e)"
+    assert await _scalar(neo4j_driver, by_email, email="presence_erased@example.com") == 0
+    assert await _scalar(neo4j_driver, by_email, email="presence_kept@example.com") == 1
+    assert await _scalar(neo4j_driver, by_email, email="presence_nobody@example.com") == 1
     assert (
         await _scalar(
             neo4j_driver, "MATCH (e:AuthEvent {user_uid: $uid}) RETURN count(e)", uid=other

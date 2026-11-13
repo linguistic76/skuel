@@ -418,7 +418,7 @@ SKUEL uses **graph-native authentication** where all auth data lives in Neo4j:
 ```
 (User)-[:HAS_SESSION]->(Session)
      |-[:HAS_RESET_TOKEN]->(PasswordResetToken)
-     |-[:HAS_AUTH_EVENT]->(AuthEvent)
+     |-[:HAD_AUTH_EVENT]->(AuthEvent)
 ```
 
 ### Session Structure
@@ -641,7 +641,7 @@ if result.is_error and "rate" in (result.expect_error().message or "").lower():
 
 ```cypher
 // Per-account
-MATCH (u:User {email: $email})-[:HAS_AUTH_EVENT]->(e:AuthEvent)
+MATCH (u:User {email: $email})-[:HAD_AUTH_EVENT]->(e:AuthEvent)
 WHERE e.event_type = 'LOGIN_FAILED'
   AND e.timestamp > datetime() - duration('PT15M')
 RETURN count(e) as failures
