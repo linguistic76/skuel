@@ -4,7 +4,6 @@
 ``ActivityServices`` — one key per Activity Domain, each naming the facade built
 under it — and a function that takes the set as ``activity_services`` names that
 type, so a read of ``activity_services["goals"]`` is checked as a ``GoalsService``.
-One function takes a read-only mapping instead and checks each value itself.
 
 Annotations are read from source: the facade and port names are
 ``TYPE_CHECKING``-only where they are declared.
@@ -20,9 +19,6 @@ FACTORY = APP / "services_bootstrap" / "_activity_services.py"
 TYPED_SET = APP / "core" / "services" / "activity_services.py"
 TREES = ("core", "services_bootstrap")
 SET_PARAMETERS = frozenset({"activity_services", "_activity_services"})
-# ``_filtered_context_providers`` checks each value against a protocol itself and
-# is handed plain dicts by its tests, so it takes the widest read-only mapping.
-SET_ANNOTATIONS = frozenset({"ActivityServices", "Mapping[str, object]"})
 
 
 def _factory() -> ast.FunctionDef:
@@ -106,7 +102,7 @@ def test_every_function_handed_the_set_names_its_type() -> None:
                     annotation = (
                         ast.unparse(parameter.annotation) if parameter.annotation else "<none>"
                     )
-                    if annotation not in SET_ANNOTATIONS:
+                    if annotation != "ActivityServices":
                         weak.append(f"{path.relative_to(APP)}:{node.lineno} {node.name}")
     assert seen, "the sweep found no function that takes the set"
     assert weak == []

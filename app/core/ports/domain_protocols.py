@@ -91,7 +91,6 @@ from core.ports.query_types import (
     FutureContextStateResult,
     GoalsAchievedCount,
     GoalStats,
-    GraphContextResult,
     HabitStats,
     LinkedHabitTally,
     NextActionResult,
@@ -856,30 +855,10 @@ class PrinciplesOperations(
 @runtime_checkable
 class BaseRelationshipOperations(Protocol):
     """
-    Protocol for the relationship service consumed by domain services.
+    The registry-keyed related-UID read of a domain's relationship service.
 
-    Satisfied by UnifiedRelationshipService: cross-domain context retrieval
-    plus registry-keyed related-UID reads.
+    Satisfied by UnifiedRelationshipService.
     """
-
-    async def get_cross_domain_context(
-        self,
-        uid: str,
-        depth: int = 2,
-        min_confidence: float = 0.7,
-    ) -> Result[GraphContextResult]:
-        """
-        Get cross-domain relationship context for an entity.
-
-        Args:
-            uid: Entity UID
-            depth: Graph traversal depth (default 2)
-            min_confidence: Minimum path confidence filter (default 0.7)
-
-        Returns dict with keys like "goals", "knowledge", "principles", etc.
-        Each value is a list of related entity UIDs or entity objects.
-        """
-        ...
 
     async def get_related_uids(
         self, relationship_key: str, entity_uid: EntityUID

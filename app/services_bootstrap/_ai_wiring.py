@@ -1,12 +1,13 @@
 """AI service wiring — conditional on INTELLIGENCE_TIER=FULL."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from core.services.activity_services import ActivityServices
     from core.services.embeddings_service import EmbeddingsService
+    from core.services.learning_services import LearningServices
     from core.services.llm_service import LLMService
 
 logger = get_logger("skuel.bootstrap")
@@ -16,7 +17,7 @@ def _wire_ai_services(
     llm_service: LLMService | None,
     embeddings_service: EmbeddingsService | None,
     _activity_services: ActivityServices,
-    learning_services: dict[str, Any],
+    learning_services: LearningServices,
 ) -> None:
     """Create and wire AI services into domain facades (ADR-024: Two-Tier Intelligence).
 

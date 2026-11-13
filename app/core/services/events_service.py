@@ -741,6 +741,7 @@ class EventsService(
     async def get_filtered_context(
         self,
         user_uid: UserUID,
+        *,
         status_filter: str = "scheduled",
         sort_by: str = "start_time",
     ) -> Result[ListContext]:

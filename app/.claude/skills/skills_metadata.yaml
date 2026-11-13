@@ -247,7 +247,7 @@ skills:
 
   - name: ui-error-handling
     description: Expert guide for UI error handling patterns and user feedback
-    last_reviewed: "2026-11-03"
+    last_reviewed: "2026-11-14"
     foundation: [result-pattern, ui-css]
     dependencies: [result-pattern, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -474,7 +474,7 @@ skills:
 
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
-    last_reviewed: "2026-11-13"
+    last_reviewed: "2026-11-14"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     library_package: null  # SKUEL pattern, not external library
@@ -539,7 +539,7 @@ skills:
 
   - name: user-context-intelligence
     description: UserContextIntelligence - central cross-domain intelligence hub
-    last_reviewed: "2026-10-16"
+    last_reviewed: "2026-11-14"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
     library_package: null  # SKUEL pattern, not external library

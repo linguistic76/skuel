@@ -1,6 +1,6 @@
 ---
 title: "Askesis Intelligence Doors — the Hub Methods' Second Door"
-updated: 2026-10-09
+updated: 2026-11-13
 status: "staged"
 registered: "2026-10-08 (F8 — the hub methods, realized)"
 ruled: "2026-10-08 — the founder: the Insights cards are the first door; the Askesis catalog entries are the staged second door"
@@ -55,7 +55,7 @@ relationship with 'Askesis.'"*
 
 ## The zoom lens's place in it
 
-`get_filtered_context` on the nine facades (over `build_filtered_context`,
+`get_filtered_context` on the eight facades (over `build_filtered_context`,
 `core/services/filtered_context.py`) is the per-domain filtered view with stats — the zoom lens
 beside the context's map. Its one caller, the daily plan, passes `status_filter="all"`, never
 `sort_by`, and reads `stats` only; `metadata` has no reader. The filter / sort / metadata half

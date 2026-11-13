@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-11-12
+updated: 2026-11-13
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -730,7 +730,7 @@ async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> R
     1. Validate Neo4j + API keys (fail-fast)
     2. Create every backend (create_all_backends — services_bootstrap/_backends.py)
     3. _create_activity_services() — 6 Activity Domain facades
-    4. _create_core_services() — Finance, Transcription, User passthrough
+    4. _create_core_services() — Finance, Transcription
     5. _create_learning_services() — Curriculum (KU, PS, LP)
     6. _wire_ai_services() — 8 AI services into facades (FULL tier only)
     7. _wire_event_subscribers() — 43 context invalidation + cross-domain events
@@ -749,7 +749,7 @@ async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> R
 
     # 3-5. Delegate to helper functions
     activity_services = _create_activity_services(tasks_backend=..., ...)  # 6 facades
-    core_services = _create_core_services(finance_backend=..., ...)  # Finance + Transcription
+    core_services = _create_core_services(invoice_backend=..., ...)  # Finance + Transcription
     learning_services = _create_learning_services(backends=backends, ...)  # KU, PS, LP
 
     # 6. Wire AI (FULL tier: 8 services — 6 Activity + 2 Curriculum, each onto its facade's .ai)

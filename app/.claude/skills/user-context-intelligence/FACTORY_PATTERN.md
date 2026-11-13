@@ -115,16 +115,14 @@ miss the post-wiring and produce contexts without a ZPD assessment or engagement
 ## `filtered_providers`
 
 ```python
-filtered_providers = _filtered_context_providers(
-    activity_services, learning_services, services.exercises
-)
-# keys: tasks, goals, habits, events, choices, principles, ps, learning_paths, exercises
+filtered_providers = _filtered_context_providers(activity_services, learning_services)
+# keys: tasks, goals, habits, events, choices, principles, ps, learning_paths
 ```
 
-`_filtered_context_providers` (`services_bootstrap/_intelligence_hub.py`) checks each facade
-with `isinstance(facade, FilteredContextProvider)` and raises `RuntimeError` naming the domain
-when one has no `get_filtered_context` — the service dicts it reads are `Any`-valued, so the
-annotation alone would not catch it. `KuService` is not a provider and is not registered.
+`_filtered_context_providers` (`services_bootstrap/_intelligence_hub.py`) reads two typed sets
+(`ActivityServices`, `LearningServices`), so mypy holds each facade to
+`FilteredContextProvider` where it is put in the dict. `KuService` and `ExerciseService` are
+not providers and are not registered.
 
 The protocol (`core/ports/filtered_context_protocols.py`) is one method:
 
@@ -132,6 +130,7 @@ The protocol (`core/ports/filtered_context_protocols.py`) is one method:
 async def get_filtered_context(
     self,
     user_uid: UserUID,
+    *,
     status_filter: str = ...,
     sort_by: str = ...,
 ) -> Result[ListContext]: ...
@@ -140,8 +139,8 @@ async def get_filtered_context(
 What the code does with the dict:
 
 - `DailyPlanningMixin` is the only reader, and it looks up the six Activity keys by name. Nothing
-  reads `ps`, `learning_paths` or `exercises`.
-- Every registered value is a provider, held by the check above and by
+  reads `ps` or `learning_paths`.
+- Every registered value is a provider, held by the type checker and by
   `tests/unit/test_filtered_context_provider_wiring.py` (the registry is exactly the facades
   that define the method) and `tests/integration/test_filtered_provider_wiring.py` (the
   composed app).

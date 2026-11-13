@@ -1,31 +1,42 @@
 """Event bus subscription wiring — 45+ event handler subscriptions."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.ports import EventBusOperations
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
+    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
     from core.services.activity_services import ActivityServices
+    from core.services.analytics_service import AnalyticsService
+    from core.services.insight.insight_store import InsightStore
+    from core.services.interaction.interaction_service import InteractionService
+    from core.services.learning_services import LearningServices
+    from core.services.notifications.notification_service import NotificationService
+    from core.services.ps_engagement.ps_engagement_service import PsEngagementService
+    from core.services.search_event_recorder import SearchEventRecorder
     from core.services.tasks.task_grounding_service import TaskGroundingService
+    from core.services.user_entry.exercise_linker import UserEntryExerciseLinker
+    from core.services.user_service import UserService
 
 logger = get_logger("skuel.bootstrap")
 
 
 def _wire_event_subscribers(
     event_bus: EventBusOperations,
-    user_service: Any,
+    user_service: UserService,
     activity_services: ActivityServices,
-    learning_services: dict[str, Any],
-    user_entry_exercise_linker: Any,
-    notification_service: Any,
-    analytics_service: Any,
-    user_entry_backend: Any,
-    insight_store: Any,
-    group_backend: Any,
-    ps_engagement: Any,
-    search_event_recorder: Any,
-    interaction_service: Any,
+    learning_services: LearningServices,
+    user_entry_exercise_linker: UserEntryExerciseLinker,
+    notification_service: NotificationService,
+    analytics_service: AnalyticsService,
+    user_entry_backend: UserEntryBackend,
+    insight_store: InsightStore,
+    group_backend: GroupBackend,
+    ps_engagement: PsEngagementService,
+    search_event_recorder: SearchEventRecorder,
+    interaction_service: InteractionService,
     task_grounding: TaskGroundingService,
 ) -> None:
     """Wire all event subscribers for context invalidation, cross-domain, and intelligence.

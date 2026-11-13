@@ -593,6 +593,7 @@ class ChoicesService(
     async def get_filtered_context(
         self,
         user_uid: UserUID,
+        *,
         status_filter: str = "pending",
         sort_by: str = "deadline",
     ) -> Result[ListContext]:
