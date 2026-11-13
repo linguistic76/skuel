@@ -70,7 +70,11 @@ if TYPE_CHECKING:
     from core.models.enums.learning_enums import SELCategory
     from core.models.pathways.learning_progress import LearningJourney
     from core.models.pathways.path_step import PathStep
-    from core.ports.curriculum_protocols import KuOperations, PsOperations
+    from core.ports.curriculum_protocols import (
+        KuOperations,
+        PsIntelligenceBackendOperations,
+        PsOperations,
+    )
     from core.services.ps.ps_intelligence_service import PsIntelligenceService
     from core.services.ps.ps_organization_service import StepNavigation, StepOrganizationView
     from core.services.user import UserContext
@@ -174,7 +178,7 @@ class PsService:
         user_service: Any | None = None,
         vector_search_service: Any | None = None,
         embeddings_service: Any | None = None,
-        ps_intelligence_backend: Any | None = None,
+        ps_intelligence_backend: PsIntelligenceBackendOperations | None = None,
     ) -> None:
         """Initialize facade with sub-services via factory.
 

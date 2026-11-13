@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
     from core.ports import EventBusOperations
+    from core.ports.curriculum_protocols import LpOperations
     from core.ports.query_types import ListContext
     from core.services.ps_service import PsService
 
@@ -115,7 +116,7 @@ class LpService:
 
     def __init__(
         self,
-        backend: Any,
+        backend: LpOperations,
         ps_service: PsService,
         ku_service: PsService | None = None,
         progress_service: Any | None = None,
