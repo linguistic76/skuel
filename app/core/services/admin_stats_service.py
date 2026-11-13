@@ -48,6 +48,10 @@ logger = get_logger("skuel.services.admin_stats")
 #: How many months the growth and retention tables show, the current one included.
 ANALYTICS_MONTHS = 12
 
+#: The first month whose every day counts days active. A month before it holds,
+#: for some or all of its days, only the days a user signed in: a floor.
+DAYS_ACTIVE_COUNTED_FROM = "2026-12"
+
 
 def build_growth_report(rows: list[AccountMonthRow], current_month: str) -> GrowthReport:
     """The growth table for the months ending at ``current_month``.
@@ -85,7 +89,8 @@ def build_retention_report(rows: list[PresenceMonthRow], current_month: str) -> 
     Every month of the window has a line, a month no one was present in
     included. The current month has no month after it yet, so no one has
     returned from it; the month before it is measured against a month still in
-    progress.
+    progress. A month before ``DAYS_ACTIVE_COUNTED_FROM`` carries its days
+    active as a floor.
     """
     by_month = {row.month: row for row in rows}
     lines: list[RetentionMonth] = []
@@ -101,6 +106,8 @@ def build_retention_report(rows: list[PresenceMonthRow], current_month: str) -> 
                 present=present,
                 returned=returned,
                 next_month_in_progress=shift_month(month, 1) == current_month,
+                days_active=row.days_active if row else 0,
+                days_active_is_floor=month < DAYS_ACTIVE_COUNTED_FROM,
             )
         )
     return RetentionReport(months=tuple(lines))
@@ -272,7 +279,8 @@ class AdminStatsService:
         """Who was present each month, and who of them was present the month after.
 
         A user is present in a UTC month when they signed in during it or a
-        live session of theirs was seen in it.
+        live session of theirs was seen in it. Each month also carries its
+        present users' days active.
 
         Backend: CrossDomainBackend.get_presence_by_month
         """

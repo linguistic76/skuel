@@ -227,9 +227,10 @@ node cap.
 so pruning it by age erased the history that retention on `/admin/analytics` is read from. The
 presence record keeps that history outside the prune: `(:User)-[:PRESENT_IN {sign_ins, days,
 last_day}]->(:Month {key})`, one shared node per UTC month, written by the sign-in statement and by a
-session's first request of a month (`SessionBackend`). It grows by one edge per present user per
-month and at most one node per month, so it is not unbounded telemetry and the prune never touches
-it. Sign-ins from before the writers existed are copied onto it once, from the browser sign-ins in
+session's first request of a UTC day (`SessionBackend`), which also counts the day on the edge
+(`days`: the days of the month the user signed in or used the app). It grows by one edge per present
+user per month and at most one node per month, so it is not unbounded telemetry and the prune never
+touches it. Sign-ins from before the writers existed are copied onto it once, from the browser sign-ins in
 the audit trail, by `scripts/migrations/backfill_presence_months_2026_11.py`; run it before the
 first prune.
 

@@ -253,7 +253,7 @@ Cross-domain aggregation queries, injected with the `CrossDomainBackend` (plus a
 | `get_user_ku_detail(user_uid)` | Detailed KU list for a user with relationship data |
 | `get_activity_entity_counts()` | Every Task, Habit and Goal on the graph (any status, any age) via a single Cypher COUNT query |
 | `get_growth()` | `GrowthReport`: new accounts per UTC month for the trailing twelve months, the change from the month before, the running total, deactivated accounts |
-| `get_retention()` | `RetentionReport`: users present per UTC month and how many were present the month after, read from the `PRESENT_IN` record |
+| `get_retention()` | `RetentionReport`: users present per UTC month and how many were present the month after, and the days active summed over the present users, read from the `PRESENT_IN` record |
 | `get_user_role_counts()` | User counts grouped by role via single Cypher GROUP BY query |
 | `get_search_gaps(max_result_count, days, limit)` | Zero/low-result search queue (content authoring) — empty list when no search-event backend is wired |
 | `get_search_event_total()` | Running `:SearchEvent` count vs the 1,000+ Phase-2 analytics trigger |

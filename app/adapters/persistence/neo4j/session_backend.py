@@ -63,9 +63,12 @@ def _stored_zone_choice(preferences: object) -> str | None:
 
 
 # The presence record: (user)-[:PRESENT_IN {sign_ins, days, last_day}]->(:Month {key}).
-# ``days`` counts the distinct UTC days the user signed in or was first seen in
-# the month; ``last_day`` is the latest of them, which is how a write tells a new
-# day. A null ``last_day`` (the edge was just created) reads as a new day.
+# ``days`` counts the distinct UTC days in the month the user was active: signed
+# in, or had a live session make a request. ``last_day`` is the latest of them,
+# and a write counts a day only when it is later than that, so a request that
+# read the clock just before midnight and lands after one that read it just
+# after counts nothing twice. A null ``last_day`` (the edge was just created)
+# reads as a new day.
 #
 # Lock order: the month node is written (``SET m.key``, a no-op that takes its
 # exclusive lock) before the edge is merged. Creating an edge takes a shared
@@ -79,8 +82,8 @@ _MARK_PRESENT = f"""
         SET m.key = $month
         MERGE (u)-[p:{_PRESENT_IN}]->(m)
         ON CREATE SET p.sign_ins = 0, p.days = 0
-        SET p.days = p.days + CASE WHEN p.last_day = $day THEN 0 ELSE 1 END,
-            p.last_day = $day"""
+        SET p.days = p.days + CASE WHEN $day > coalesce(p.last_day, '') THEN 1 ELSE 0 END,
+            p.last_day = CASE WHEN $day > coalesce(p.last_day, '') THEN $day ELSE p.last_day END"""
 
 # Rate limiting configuration
 MAX_FAILED_ATTEMPTS = 5
@@ -136,8 +139,9 @@ class SessionBackend(Neo4jSessionRunner):
 
         The same statement records the sign-in on the user's presence edge to
         the session's UTC month (``PRESENT_IN``: one more sign-in, and one more
-        day when this is the first of its UTC day), so a session and its count
-        land together, and stamps the session as seen in that month.
+        day active when this is the user's first activity of its UTC day), so a
+        session and its count land together, and stamps the session as seen on
+        that day.
 
         The WHERE clause atomically requires the user to still be active at
         creation time — sign_in checks ``user.is_active`` early, then spends
@@ -171,7 +175,7 @@ class SessionBackend(Neo4jSessionRunner):
             user_agent: $user_agent,
             is_valid: $is_valid,
             user_is_active: true,
-            seen_month: $month
+            seen_day: $day
         }})
         CREATE (u)-[:HAS_SESSION]->(s)
         WITH u, s{_MARK_PRESENT},
@@ -280,11 +284,14 @@ class SessionBackend(Neo4jSessionRunner):
         when it is older than the batch interval, so most validations stay
         read-only.
 
-        A session seen in a UTC month it has not been seen in before marks its
-        user present in that month (``PRESENT_IN``) and remembers the month on
-        the session (``seen_month``): one write per session per month, so a
-        user whose 30-day session spans a month with no sign-in still counts
-        as present in it. That branch runs first and writes the user node
+        A session seen on a UTC day it has not been seen on before marks its
+        user active that day on the presence edge to the day's month
+        (``PRESENT_IN``) and remembers the day on the session (``seen_day``):
+        one write per session per day, so a user who signs in once and uses
+        the session for weeks is counted on each day they use it, and is
+        present in a month they never signed in during. A session that
+        carries no ``seen_day`` writes on its next request. That branch runs
+        first and writes the user node
         before anything else (a no-op ``SET`` of ``last_login_at`` to itself),
         so it takes its locks in the order the sign-in does: user, session,
         month.
@@ -311,8 +318,8 @@ class SessionBackend(Neo4jSessionRunner):
           AND s.expires_at > datetime()
           AND coalesce(u.is_active, true) = true
         FOREACH (_ IN CASE
-            WHEN coalesce(s.seen_month, '') <> $month THEN [1] ELSE [] END |
-            SET u.last_login_at = u.last_login_at, s.seen_month = $month{_MARK_PRESENT}
+            WHEN coalesce(s.seen_day, '') <> $day THEN [1] ELSE [] END |
+            SET u.last_login_at = u.last_login_at, s.seen_day = $day{_MARK_PRESENT}
         )
         FOREACH (_ IN CASE
             WHEN s.last_active_at < datetime() - duration({{seconds: $interval}})

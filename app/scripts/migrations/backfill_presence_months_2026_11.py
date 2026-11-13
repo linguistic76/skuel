@@ -5,7 +5,7 @@ Backfill the presence record from the sign-in audit trail
 
 The presence record is ``(:User)-[:PRESENT_IN {sign_ins, days, last_day}]->
 (:Month {key})``: the months a user signed in during, or had a live session seen
-in. Every sign-in and every session's first request of a month writes it
+in. Every sign-in and every session's first request of a day writes it
 (``SessionBackend``), and ``/admin/analytics`` reads retention from it. A
 sign-in also leaves an ``:AuthEvent``, which the telemetry prune deletes by age.
 This run copies the sign-ins the audit trail holds onto the record, once, for
@@ -32,7 +32,9 @@ What it writes
 --------------
 One edge per user and month that has a browser sign-in, with ``sign_ins`` the
 events in the month, ``days`` the distinct UTC days among them and ``last_day``
-the latest. A user-month that already holds an edge is left exactly as it is:
+the latest. The live writers count every day a session makes a request; a
+backfilled month counts only the days with a sign-in, so its ``days`` is a
+floor on the days active, and ``/admin/analytics`` marks it "≥". A user-month that already holds an edge is left exactly as it is:
 the live writers have been counting it, and adding the audit trail on top would
 count its sign-ins twice.
 

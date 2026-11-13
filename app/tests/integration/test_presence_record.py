@@ -1,8 +1,9 @@
 """The presence record, its two writers, its reads, its backfill and its erasure.
 
 ``(:User)-[:PRESENT_IN {sign_ins, days, last_day}]->(:Month {key})`` says a user
-signed in during a UTC month, or had a live session seen in it. These tests run
-the production statements against the testcontainer graph:
+signed in during a UTC month, or had a live session seen in it, and counts the
+UTC days of the month they were active on. These tests run the production
+statements against the testcontainer graph:
 
 - the sign-in write (``SessionBackend.create_session``) and the presence write
   (``SessionBackend.validate_session_token``);
@@ -204,14 +205,16 @@ async def test_a_deactivated_users_sign_in_writes_nothing(neo4j_driver, presence
 # ----------------------------------------------------------------------------
 
 
-async def test_a_session_seen_in_a_new_month_marks_its_user_present_once(neo4j_driver, presence):
+async def test_a_session_marks_each_day_it_is_seen_on_once(neo4j_driver, presence):
     backends, seed = presence
     user = await seed("seen")
     sessions = backends["session_backend"]
 
     with _at("2090-07-28T10:00:00"):
         token = await _sign_in(backends, user)
-        # The sign-in already saw the session in its own month: nothing more to write.
+        # The sign-in already saw the session on its own day: nothing more to write.
+        assert (await sessions.validate_session_token(token)).value is not None
+    with _at("2090-07-28T23:59:00"):
         assert (await sessions.validate_session_token(token)).value is not None
     assert await _edge(neo4j_driver, user, "2090-07") == {
         "sign_ins": 1,
@@ -219,6 +222,17 @@ async def test_a_session_seen_in_a_new_month_marks_its_user_present_once(neo4j_d
         "last_day": "2090-07-28",
     }
 
+    # The next day, with no sign-in: one more day active, however many requests.
+    with _at("2090-07-29T00:01:00"):
+        for _ in range(3):
+            assert (await sessions.validate_session_token(token)).value is not None
+    assert await _edge(neo4j_driver, user, "2090-07") == {
+        "sign_ins": 1,
+        "days": 2,
+        "last_day": "2090-07-29",
+    }
+
+    # A new month starts a new edge.
     with _at("2090-08-03T10:00:00"):
         identity = await sessions.validate_session_token(token)
     assert identity.is_ok and identity.value is not None
@@ -229,13 +243,19 @@ async def test_a_session_seen_in_a_new_month_marks_its_user_present_once(neo4j_d
         "last_day": "2090-08-03",
     }
 
-    # A later request in the same month, on a later day, writes nothing.
+    # A later day in that month is one more day on the same edge.
     with _at("2090-08-09T10:00:00"):
+        assert (await sessions.validate_session_token(token)).value is not None
         assert (await sessions.validate_session_token(token)).value is not None
     assert await _edge(neo4j_driver, user, "2090-08") == {
         "sign_ins": 0,
-        "days": 1,
-        "last_day": "2090-08-03",
+        "days": 2,
+        "last_day": "2090-08-09",
+    }
+    assert await _edge(neo4j_driver, user, "2090-07") == {
+        "sign_ins": 1,
+        "days": 2,
+        "last_day": "2090-07-29",
     }
     assert (
         await _scalar(
@@ -245,8 +265,56 @@ async def test_a_session_seen_in_a_new_month_marks_its_user_present_once(neo4j_d
     )
 
 
-async def test_sign_ins_and_first_requests_of_a_month_do_not_deadlock(neo4j_driver, presence):
-    """Sign-ins and sessions' first requests of a month, all at once, all land.
+async def test_two_sessions_seen_on_one_day_count_one_day(neo4j_driver, presence):
+    backends, seed = presence
+    user = await seed("two-devices")
+    sessions = backends["session_backend"]
+
+    with _at("2090-10-01T08:00:00"):
+        phone = await _sign_in(backends, user)
+        laptop = await _sign_in(backends, user)
+    with _at("2090-10-02T08:00:00"):
+        results = await asyncio.gather(
+            *(sessions.validate_session_token(t) for t in (phone, laptop, phone, laptop))
+        )
+    assert all(r.is_ok and r.value is not None for r in results)
+    assert await _edge(neo4j_driver, user, "2090-10") == {
+        "sign_ins": 2,
+        "days": 2,
+        "last_day": "2090-10-02",
+    }
+
+
+async def test_a_request_that_read_the_clock_before_midnight_and_lands_late_counts_no_day_twice(
+    neo4j_driver, presence
+):
+    backends, seed = presence
+    user = await seed("midnight")
+    sessions = backends["session_backend"]
+
+    with _at("2090-11-20T23:00:00"):
+        token = await _sign_in(backends, user)
+    with _at("2090-11-21T00:00:01"):
+        assert (await sessions.validate_session_token(token)).value is not None
+    # A request stamped the day before lands after it, then the day's next one.
+    with _at("2090-11-20T23:59:59"):
+        assert (await sessions.validate_session_token(token)).value is not None
+    with _at("2090-11-21T00:00:02"):
+        assert (await sessions.validate_session_token(token)).value is not None
+
+    assert await _edge(neo4j_driver, user, "2090-11") == {
+        "sign_ins": 1,
+        "days": 2,
+        "last_day": "2090-11-21",
+    }
+
+
+async def test_sign_ins_and_first_requests_of_a_day_do_not_deadlock(neo4j_driver, presence):
+    """Sign-ins and sessions' first requests of a day, all at once, all land.
+
+    Each round runs the mix twice: on the first day of a month no one has been
+    present in, which creates the month node and every edge, and on the next
+    day, which writes edges that are already there.
 
     Each writer takes its locks in one order: the user node, the session, the
     month node, and the month node before the edge to it. Neither statement is
@@ -288,11 +356,31 @@ async def test_sign_ins_and_first_requests_of_a_month_do_not_deadlock(neo4j_driv
         assert await _scalar(neo4j_driver, edges + "sum(p.sign_ins)", k=month) == 10
         assert await _scalar(neo4j_driver, edges + "sum(p.days)", k=month) == 5
 
+        with _at(f"{month}-03T12:00:00"):
+            again = [
+                create_session(user_uid=user, ip_address="test", user_agent=_BROWSER)
+                for user in users
+                for _ in range(2)
+            ]
+            results = await asyncio.gather(
+                *(
+                    sessions.validate_session_token(s.session_token)
+                    for s in (*minted, *more)
+                    for _ in (1, 2)
+                ),
+                *(sessions.create_session(s) for s in again),
+            )
+        assert not [r.error for r in results if r.is_error]
+        assert all(r.value is not None for r in results)
+        assert await _scalar(neo4j_driver, edges + "count(p)", k=month) == 5
+        assert await _scalar(neo4j_driver, edges + "sum(p.sign_ins)", k=month) == 20
+        assert await _scalar(neo4j_driver, edges + "sum(p.days)", k=month) == 10
 
-async def test_a_session_with_no_seen_month_marks_presence_on_its_next_request(
+
+async def test_a_session_with_no_seen_day_marks_presence_on_its_next_request(
     neo4j_driver, presence
 ):
-    """A session that carries no ``seen_month`` is marked on its next request."""
+    """A session that carries no ``seen_day`` is marked on its next request."""
     backends, seed = presence
     user = await seed("legacy")
 
@@ -300,7 +388,7 @@ async def test_a_session_with_no_seen_month_marks_presence_on_its_next_request(
         token = await _sign_in(backends, user)
         async with neo4j_driver.session() as session:
             await session.run(
-                "MATCH (u:User {uid: $uid})-[:HAS_SESSION]->(s:Session) REMOVE s.seen_month "
+                "MATCH (u:User {uid: $uid})-[:HAS_SESSION]->(s:Session) REMOVE s.seen_day "
                 "WITH u MATCH (u)-[p:PRESENT_IN]->() DELETE p",
                 uid=user,
             )
@@ -362,6 +450,7 @@ async def test_retention_reads_who_came_back_the_month_after(neo4j_driver, prese
     b = await seed("r2")
     c = await seed("r3", active=False)
     present = {"2092-01": [a, b, c], "2092-02": [a, b], "2092-04": [a]}
+    days = {"2092-01": 4, "2092-02": 1, "2092-04": 7}
     async with neo4j_driver.session() as session:
         for month, users in present.items():
             await session.run(
@@ -370,10 +459,11 @@ async def test_retention_reads_who_came_back_the_month_after(neo4j_driver, prese
                 WITH m UNWIND $users AS uid
                 MATCH (u:User {uid: uid})
                 MERGE (u)-[p:PRESENT_IN]->(m)
-                SET p.sign_ins = 1, p.days = 1, p.last_day = $month + '-01'
+                SET p.sign_ins = 1, p.days = $days, p.last_day = $month + '-01'
                 """,
                 month=month,
                 users=users,
+                days=days[month],
             )
     service = AdminStatsService(backend=backends["cross_domain_backend"])
 
@@ -386,6 +476,11 @@ async def test_retention_reads_who_came_back_the_month_after(neo4j_driver, prese
 
     assert (january.present, january.returned, january.next_month_in_progress) == (3, 2, False)
     assert january.rate == pytest.approx(2 / 3)
+    assert (january.days_active, february.days_active) == (12, 2)
+    assert january.mean_days_active == pytest.approx(4.0)
+    assert (march.days_active, march.mean_days_active) == (0, None)
+    assert (april.days_active, april.mean_days_active) == (7, 7.0)
+    assert not january.days_active_is_floor
     assert (february.present, february.returned) == (2, 0)
     assert february.rate == 0.0
     # No one was present in March: a line all the same, and no rate to show.

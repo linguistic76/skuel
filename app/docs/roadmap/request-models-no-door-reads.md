@@ -87,7 +87,7 @@ payload, `AdminAnalyticsData`. The Pydantic model is deleted. Its fields:
 | `activity_trend` | kept: `RetentionReport.months`, presence over the trailing twelve months |
 | `verified_users` | retired, always constant: registration sets `is_verified` true for everyone |
 | `premium_users` | retired, no source: nothing writes `is_premium`, in either tier |
-| `daily_active_users`, `weekly_active_users` | retired, no source: presence is recorded by month. A day count per user-month is stored (`PRESENT_IN.days`) and no read uses it yet |
+| `daily_active_users`, `weekly_active_users` | retired, no source: presence is recorded by month. Each user-month counts its days active (`PRESENT_IN.days`), which `/admin/analytics` shows as a mean per present user; which users were active on a given day or week is not stored |
 | `average_session_duration_minutes` | retired, no source: a session has no end stamp |
 | `average_learning_level`, `users_by_level` | retired, no source: no door sets a learning level |
 | `average_completion_rate`, `average_active_items`, `average_daily_minutes`, `completion_trend` | retired, no source: no per-user figure of these is stored, and none is derived across users |

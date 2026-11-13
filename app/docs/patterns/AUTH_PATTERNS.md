@@ -369,9 +369,10 @@ One navbar for every role (`ui/layouts/navbar.py`); what changes by auth state i
      (revoked/expired, or another user's than the cookie's user_uid → cookie
      session cleared → forced re-login); the same
      statement returns the user's zone choice, which becomes the request's
-     zone (`current_zone()`), and on a session's first request of a UTC month
-     marks its user present in that month (PRESENT_IN: one write per session
-     per month, so a 30-day session spanning a month with no sign-in counts)
+     zone (`current_zone()`), and on a session's first request of a UTC day
+     marks its user active that day on the month's edge (PRESENT_IN: one write
+     per session per day, so a session used for weeks after one sign-in counts
+     each day it is used, and a month with no sign-in counts)
    - Route helpers (get_current_user() etc.) then read the cookie — the graph
      round-trip already happened once, upstream
    ↓
