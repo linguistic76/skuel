@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-11-12'
+updated: '2026-11-13'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -1186,12 +1186,12 @@ MetadataField("Satisfaction",
 
 ### Solution: Single-Fetch `get_filtered_context()` with `FilteredContextProvider` Protocol
 
-The six Activity facades plus `PsService`, `LpService` and `ExerciseService` expose `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. Each facade delegates to a shared skeleton (`build_filtered_context()` in `core/services/filtered_context.py`) with domain-specific callables for stats, filters, and sorting.
+The six Activity facades plus `PsService` and `LpService` expose `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. Each facade delegates to a shared skeleton (`build_filtered_context()` in `core/services/filtered_context.py`) with domain-specific callables for stats, filters, and sorting.
 
 ```python
 # Shared skeleton orchestrates: fetch → stats → filter → sort → return
 # Sort/filter logic is config-driven via declarative dicts (core/utils/list_helpers.py)
-async def get_filtered_context(self, user_uid, status_filter="active", sort_by="due_date"):
+async def get_filtered_context(self, user_uid, *, status_filter="active", sort_by="due_date"):
     async def fetch_all():
         return await self.core.get_all_for_user(user_uid)
 
