@@ -496,6 +496,17 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
                 )
             )
 
+    async def ensure_month_key_is_unique(self) -> Result[str]:
+        """Create the uniqueness constraint on ``Month.key``, when it is missing.
+
+        The presence record (``(:User)-[:PRESENT_IN]->(:Month)``) shares one node
+        per calendar month between every user. Each write MERGEs it, and the
+        constraint is what makes two concurrent MERGEs in a fresh month write
+        one node. Boot runs this through ``sync_auth_indexes``; the presence
+        backfill runs it before its first write.
+        """
+        return await self._create_unique_constraint(NeoLabel.MONTH, "key")
+
     async def sync_auth_indexes(self) -> Result[dict[str, Any]]:
         """
         Create authentication-specific indexes for optimal query performance.
@@ -512,6 +523,7 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
           uid is generated and carries no username to collide on
         - Unique constraint on Device(pubkey) — WS handshake auth lookup (ADR-075)
         - Index on User(pairing_code_hash) — enrollment redemption lookup (ADR-075)
+        - Unique constraint on Month(key) — one node per calendar month
 
         Returns:
             Result with summary of created indexes
@@ -590,6 +602,15 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             results["created"].append("User_pairing_code_hash_idx")
         else:
             results["failed"].append("User_pairing_code_hash_idx")
+
+        # One :Month node per calendar month: the sign-in and the per-request
+        # validation both MERGE it, and without the constraint two concurrent
+        # MERGEs in a fresh month can each create one.
+        month_result = await self.ensure_month_key_is_unique()
+        if month_result.is_ok:
+            results["created"].append("Month_key_unique")
+        else:
+            results["failed"].append("Month_key_unique")
 
         self.logger.info(
             f"Auth indexes synced: {len(results['created'])} created, {len(results['failed'])} failed"

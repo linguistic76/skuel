@@ -4,7 +4,7 @@ Covers:
 - AdminStatsService.get_search_gaps / get_search_event_total happy paths
 - None-backend degrade (Result.ok([]) / Result.ok(0), never an error)
 - Error propagation from the backend
-- AdminOrchestrator.get_analytics_data passthrough + empty-on-error degrade
+- AdminOrchestrator.get_analytics_data passthrough; a failed read is None, never zero
 - render_search_gaps empty state and populated table shape
 """
 
@@ -16,7 +16,12 @@ import pytest
 from fasthtml.common import to_xml
 
 from core.orchestrator.admin_orchestrator import AdminOrchestrator
-from core.ports.query_types import SearchGapRow
+from core.ports.query_types import (
+    AdminAnalyticsData,
+    GrowthReport,
+    RetentionReport,
+    SearchGapRow,
+)
 from core.services.admin_stats_service import AdminStatsService
 from core.utils.result_simplified import Errors, Result
 from ui.admin.views import AdminAnalyticsComponents
@@ -112,27 +117,31 @@ def _orchestrator(admin_stats: MagicMock) -> AdminOrchestrator:
         )
     )
     admin_stats.get_activity_entity_counts = AsyncMock(
-        return_value=Result.ok({"tasks_created": 2, "habits_active": 1, "goals_active": 1})
+        return_value=Result.ok({"tasks": 2, "habits": 1, "goals": 1})
     )
+    admin_stats.get_growth = AsyncMock(
+        return_value=Result.ok(GrowthReport(total_accounts=1, deactivated_accounts=0, months=()))
+    )
+    admin_stats.get_retention = AsyncMock(return_value=Result.ok(RetentionReport(months=())))
     return AdminOrchestrator(user_service=MagicMock(), admin_stats=admin_stats)
 
 
 @pytest.mark.anyio
 async def test_analytics_data_includes_search_gaps() -> None:
-    """get_analytics_data carries the gap rows (as dicts) and the event total."""
+    """get_analytics_data carries the gap rows and the event total."""
     admin_stats = MagicMock()
     admin_stats.get_search_gaps = AsyncMock(return_value=Result.ok([GAP_ROW]))
     admin_stats.get_search_event_total = AsyncMock(return_value=Result.ok(42))
 
     data = await _orchestrator(admin_stats).get_analytics_data()
 
-    assert data["search_gaps"] == [dict(GAP_ROW)]
-    assert data["search_event_total"] == 42
+    assert data.search_gaps == (GAP_ROW,)
+    assert data.search_event_total == 42
 
 
 @pytest.mark.anyio
 async def test_analytics_data_degrades_on_gap_errors() -> None:
-    """Failed gap sub-queries fall back to []/0 — the page never sees an error."""
+    """A failed gap read is None, not an empty queue or a zero; the other reads stand."""
     admin_stats = MagicMock()
     admin_stats.get_search_gaps = AsyncMock(
         return_value=Result.fail(Errors.database(operation="get_search_gaps", message="down"))
@@ -143,11 +152,16 @@ async def test_analytics_data_degrades_on_gap_errors() -> None:
 
     data = await _orchestrator(admin_stats).get_analytics_data()
 
-    assert data["search_gaps"] == []
-    assert data["search_event_total"] == 0
-    # The pre-existing sections still render their (mocked) values
-    assert data["user_stats"]["total"] == 1
-    assert data["activity_stats"]["tasks_created"] == 2
+    assert data.search_gaps is None
+    assert data.search_event_total is None
+    assert data.roles is not None and data.roles["total"] == 1
+    assert data.activity is not None and data.activity["tasks"] == 2
+    assert data.growth is not None and data.retention is not None
+
+    html = to_xml(AdminAnalyticsComponents.render_analytics_dashboard(data))
+    assert "Search gaps unavailable" in html
+    assert "Search event total unavailable" in html
+    assert "No zero/low-result searches recorded yet" not in html
 
 
 # ============================================================================
@@ -157,7 +171,7 @@ async def test_analytics_data_degrades_on_gap_errors() -> None:
 
 def test_render_search_gaps_empty_state() -> None:
     """No gaps → empty-state line + running total vs the Phase-2 trigger."""
-    html = to_xml(AdminAnalyticsComponents.render_search_gaps([], 0))
+    html = to_xml(AdminAnalyticsComponents.render_search_gaps((), 0))
 
     assert "No zero/low-result searches recorded yet" in html
     assert "0 search event(s) logged" in html
@@ -166,7 +180,7 @@ def test_render_search_gaps_empty_state() -> None:
 
 def test_render_search_gaps_table_row() -> None:
     """A gap row renders query, counts, formatted avg, date, and entry points."""
-    html = to_xml(AdminAnalyticsComponents.render_search_gaps([dict(GAP_ROW)], 42))
+    html = to_xml(AdminAnalyticsComponents.render_search_gaps((GAP_ROW,), 42))
 
     assert "meditation basics" in html
     assert "0.5" in html  # avg_results formatted to one decimal
@@ -179,12 +193,14 @@ def test_render_analytics_dashboard_includes_gap_section() -> None:
     """The dashboard renders the Search Gaps card alongside the existing sections."""
     html = to_xml(
         AdminAnalyticsComponents.render_analytics_dashboard(
-            {
-                "user_stats": {},
-                "activity_stats": {},
-                "search_gaps": [dict(GAP_ROW)],
-                "search_event_total": 42,
-            }
+            AdminAnalyticsData(
+                growth=None,
+                retention=None,
+                roles=None,
+                activity=None,
+                search_gaps=(GAP_ROW,),
+                search_event_total=42,
+            )
         )
     )
 

@@ -23,6 +23,15 @@ from fasthtml.common import FT, A, Div, Form, Option, P, Span
 
 from core.models.enums import UserRole
 from core.models.type_hints import UserUID
+from core.ports.query_types import (
+    ActivityTotals,
+    AdminAnalyticsData,
+    GrowthReport,
+    RetentionMonth,
+    RetentionReport,
+    RoleCounts,
+    SearchGapRow,
+)
 from ui.admin.types import UserCardData
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.components.table import Td
@@ -38,6 +47,36 @@ from ui.primitives import ButtonLink
 
 def _uid_css(uid: str) -> str:
     return uid.replace(":", "-").replace(".", "-")
+
+
+def _card_error(message: str) -> FT:
+    """A card's own error: the read behind it failed, so it shows no figure."""
+    return render_error_banner(message, severity="warning")
+
+
+def _count(number: int, noun: str) -> str:
+    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
+
+
+def _month(key: str) -> FT:
+    """A month key as a table cell that does not break at its hyphen."""
+    return Span(key, cls="whitespace-nowrap")
+
+
+def _signed(number: int) -> str:
+    """A change as a signed count: ``+2``, ``-1``, ``0``."""
+    return f"+{number}" if number > 0 else str(number)
+
+
+def _returned(line: RetentionMonth) -> str:
+    """How many of a month's present users came back: ``2 of 3 (67%)``."""
+    if line.returned is None:
+        return "month not over"
+    rate = line.rate
+    figure = f"{line.returned} of {line.present}"
+    if rate is not None:
+        figure += f" ({round(rate * 100)}%)"
+    return f"{figure}, so far" if line.next_month_in_progress else figure
 
 
 def account_card_id(uid: str) -> str:
@@ -174,7 +213,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_user_stats(stats: dict) -> FT:
+    def render_user_stats(stats: RoleCounts) -> FT:
         """
         Render user statistics cards.
 
@@ -436,58 +475,134 @@ class AdminAnalyticsComponents:
     PHASE_2_EVENT_TRIGGER: ClassVar[int] = 1000
 
     @staticmethod
-    def render_analytics_dashboard(analytics_data: dict) -> FT:
+    def render_analytics_dashboard(analytics_data: AdminAnalyticsData) -> FT:
+        """The analytics cards: growth and retention first, then roles, totals and search gaps.
+
+        A field of ``analytics_data`` that is None is a read that failed; its
+        card shows an error, never zeros.
         """
-        Render full analytics dashboard.
-
-        Args:
-            analytics_data: Dict with user_stats, activity_stats, search_gaps, etc.
-
-        Returns:
-            Div with analytics sections
-        """
-        user_stats = analytics_data.get("user_stats", {})
-        activity_stats = analytics_data.get("activity_stats", {})
-        search_gaps = analytics_data.get("search_gaps", [])
-        search_event_total = analytics_data.get("search_event_total", 0)
-
         return Div(
-            # User distribution section
+            Card(
+                CardHeader(CardTitle("Growth")),
+                CardBody(
+                    AdminAnalyticsComponents.render_growth(analytics_data.growth)
+                    if analytics_data.growth is not None
+                    else _card_error("Growth figures unavailable")
+                ),
+            ),
+            Card(
+                CardHeader(CardTitle("Retention")),
+                CardBody(
+                    AdminAnalyticsComponents.render_retention(analytics_data.retention)
+                    if analytics_data.retention is not None
+                    else _card_error("Retention figures unavailable")
+                ),
+            ),
             Card(
                 CardHeader(CardTitle("User Distribution")),
-                CardBody(AdminAnalyticsComponents.render_user_distribution(user_stats)),
+                CardBody(
+                    AdminAnalyticsComponents.render_user_distribution(analytics_data.roles)
+                    if analytics_data.roles is not None
+                    else _card_error("User distribution unavailable")
+                ),
             ),
-            # Activity stats section
             Card(
-                CardHeader(CardTitle("Activity Statistics (30 days)")),
-                CardBody(AdminAnalyticsComponents.render_activity_stats(activity_stats)),
+                CardHeader(CardTitle("Activity Totals (all time)")),
+                CardBody(
+                    AdminAnalyticsComponents.render_activity_stats(analytics_data.activity)
+                    if analytics_data.activity is not None
+                    else _card_error("Activity totals unavailable")
+                ),
             ),
             # Search gaps section — the content authoring queue
             Card(
                 CardHeader(CardTitle("Search Gaps (content authoring queue)")),
                 CardBody(
-                    AdminAnalyticsComponents.render_search_gaps(search_gaps, search_event_total)
+                    AdminAnalyticsComponents.render_search_gaps(
+                        analytics_data.search_gaps, analytics_data.search_event_total
+                    )
                 ),
             ),
             cls="space-y-6",
         )
 
     @staticmethod
-    def render_user_distribution(stats: dict) -> FT:
-        """
-        Render user distribution by role as bar chart.
+    def render_growth(growth: GrowthReport) -> FT:
+        """Accounts in total, and new accounts month by month, newest month first."""
+        summary = P(
+            f"{_count(growth.total_accounts, 'account')} · "
+            f"{growth.accounts_not_deactivated} not deactivated · "
+            f"{growth.deactivated_accounts} deactivated · "
+            f"{growth.new_this_month} new this month "
+            f"({_signed(growth.change_this_month)} on last month)",
+            cls="text-sm mb-3",
+        )
+        body_data = [
+            {
+                "Month": _month(line.month),
+                "New": line.new_accounts,
+                "Change": _signed(line.change),
+                "Total": line.total,
+            }
+            for line in reversed(growth.months)
+        ]
+        return Div(
+            summary,
+            Div(
+                TableFromDicts(
+                    header_data=["Month", "New", "Change", "Total"],
+                    body_data=body_data,
+                    cls=(TableT.striped,),
+                ),
+                cls="overflow-x-auto",
+            ),
+            P(
+                "Months are UTC. New is the accounts created in the month; Change is that "
+                "figure less the month before's. "
+                "A deactivated account stays counted in the month it signed up in.",
+                cls="text-sm text-muted-foreground mt-3",
+            ),
+        )
 
-        Args:
-            stats: Dict with counts by role
+    @staticmethod
+    def render_retention(retention: RetentionReport) -> FT:
+        """Who was present each month and who came back the month after, newest month first."""
+        body_data = [
+            {
+                "Month": _month(line.month),
+                "Present": line.present,
+                "Present the month after": _returned(line),
+            }
+            for line in reversed(retention.months)
+        ]
+        return Div(
+            P(
+                f"{_count(retention.present_this_month, 'user')} present this month.",
+                cls="text-sm mb-3",
+            ),
+            Div(
+                TableFromDicts(
+                    header_data=["Month", "Present", "Present the month after"],
+                    body_data=body_data,
+                    cls=(TableT.striped,),
+                ),
+                cls="overflow-x-auto",
+            ),
+            P(
+                "Months are UTC. A user is present in a month when they signed in during it, "
+                "or a session of theirs was seen in it.",
+                cls="text-sm text-muted-foreground mt-3",
+            ),
+        )
 
-        Returns:
-            Div with visual role distribution
-        """
+    @staticmethod
+    def render_user_distribution(stats: RoleCounts) -> FT:
+        """Accounts by role, as bars."""
         roles = [
-            ("Admin", stats.get("admins", 0), ProgressT.error),
-            ("Teacher", stats.get("teachers", 0), ProgressT.warning),
-            ("Member", stats.get("members", 0), ProgressT.success),
-            ("Registered", stats.get("registered", 0), ProgressT.info),
+            ("Admin", stats["admins"], ProgressT.error),
+            ("Teacher", stats["teachers"], ProgressT.warning),
+            ("Member", stats["members"], ProgressT.success),
+            ("Registered", stats["registered"], ProgressT.info),
         ]
 
         total = sum(r[1] for r in roles) or 1  # Avoid division by zero
@@ -510,55 +625,43 @@ class AdminAnalyticsComponents:
         return Div(*bars)
 
     @staticmethod
-    def render_activity_stats(activity_data: dict) -> FT:
-        """
-        Render activity statistics cards.
-
-        Args:
-            activity_data: Dict with activity counts
-
-        Returns:
-            Div with activity stats grid
-        """
+    def render_activity_stats(activity: ActivityTotals) -> FT:
+        """Every task, habit and goal on the graph: any status, any age."""
         return StatsGrid(
             [
-                StatItem(
-                    label="Tasks Created",
-                    value=activity_data.get("tasks_created", 0),
-                    color="success",
-                ),
-                StatItem(
-                    label="Active Habits",
-                    value=activity_data.get("habits_active", 0),
-                    color="purple-600",
-                ),
-                StatItem(
-                    label="Active Goals",
-                    value=activity_data.get("goals_active", 0),
-                    color="orange-600",
-                ),
+                StatItem(label="Tasks", value=activity["tasks"], color="success"),
+                StatItem(label="Habits", value=activity["habits"], color="purple-600"),
+                StatItem(label="Goals", value=activity["goals"], color="orange-600"),
             ]
         )
 
     @staticmethod
-    def render_search_gaps(gaps: list[dict], event_total: int) -> FT:
+    def render_search_gaps(gaps: tuple[SearchGapRow, ...] | None, event_total: int | None) -> FT:
         """
         Render the zero/low-result search queue plus the running event total.
 
         Args:
-            gaps: SearchGapRow dicts (query, searches, zero_count, avg_results,
-                  last_seen, entry_points) from AdminOrchestrator.get_analytics_data
-            event_total: Running :SearchEvent count vs the Phase-2 trigger
+            gaps: the gap rows from AdminOrchestrator.get_analytics_data; None
+                when the read failed
+            event_total: Running :SearchEvent count vs the Phase-2 trigger; None
+                when the read failed
 
         Returns:
-            Div with the gap table (or empty state) and the event-total line
+            Div with the gap table (or empty state, or error) and the event-total line
         """
-        total_line = P(
-            f"{event_total:,} search event(s) logged — Phase 2 analytics "
-            f"(clustering, temporal patterns) unlock at "
-            f"{AdminAnalyticsComponents.PHASE_2_EVENT_TRIGGER:,}+.",
-            cls="text-sm text-muted-foreground mt-3",
+        total_line = (
+            P(
+                f"{event_total:,} search event(s) logged — Phase 2 analytics "
+                f"(clustering, temporal patterns) unlock at "
+                f"{AdminAnalyticsComponents.PHASE_2_EVENT_TRIGGER:,}+.",
+                cls="text-sm text-muted-foreground mt-3",
+            )
+            if event_total is not None
+            else P("Search event total unavailable", cls="text-sm text-muted-foreground mt-3")
         )
+
+        if gaps is None:
+            return Div(_card_error("Search gaps unavailable"), total_line)
 
         if not gaps:
             return Div(
@@ -573,13 +676,13 @@ class AdminAnalyticsComponents:
         for gap in gaps:
             body_data.append(
                 {
-                    "Query": gap.get("query", ""),
-                    "Searches": gap.get("searches", 0),
-                    "Zero Results": gap.get("zero_count", 0),
-                    "Avg Results": f"{float(gap.get('avg_results', 0.0)):.1f}",
+                    "Query": gap["query"],
+                    "Searches": gap["searches"],
+                    "Zero Results": gap["zero_count"],
+                    "Avg Results": f"{gap['avg_results']:.1f}",
                     # last_seen is toString(datetime) — the date part is enough here
-                    "Last Seen": format_date(gap.get("last_seen"), "%Y-%m-%d"),
-                    "Entry Points": ", ".join(gap.get("entry_points", [])),
+                    "Last Seen": format_date(gap["last_seen"], "%Y-%m-%d"),
+                    "Entry Points": ", ".join(gap["entry_points"]),
                 }
             )
 

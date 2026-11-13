@@ -31,12 +31,15 @@ from adapters.persistence.neo4j.query.cypher.habit_fragments import (
 )
 from core.models.enums import EntityStatus, EntityType
 from core.models.enums.curriculum_enums import EnrollmentStatus
+from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
 from core.ports.query_types import (
+    AccountMonthRow,
     HabitAnalyticsRow,
     JournalEntryRow,
     LearningVelocityRow,
+    PresenceMonthRow,
     ProductivityAnalyticsRow,
     SelCategoryRow,
     UserKnowledgeChannelRow,
@@ -1341,16 +1344,79 @@ class CrossDomainBackend:
         )
 
     async def get_activity_entity_counts(self) -> Result[list[dict[str, Any]]]:
-        """System-wide entity counts for admin analytics dashboard."""
+        """Every task, habit and goal on the graph: any status, any age."""
         return await self.executor.execute_query(
             """
             OPTIONAL MATCH (t:Task)
-            WITH count(t) AS tasks_created
+            WITH count(t) AS tasks
             OPTIONAL MATCH (h:Habit)
-            WITH tasks_created, count(h) AS habits_active
+            WITH tasks, count(h) AS habits
             OPTIONAL MATCH (g:Goal)
-            RETURN tasks_created, habits_active, count(g) AS goals_active
+            RETURN tasks, habits, count(g) AS goals
             """
+        )
+
+    async def get_accounts_by_signup_month(self) -> Result[list[AccountMonthRow]]:
+        """Accounts grouped by the UTC month they were created in, oldest first.
+
+        One row per month that has an account, each with how many of its
+        accounts are deactivated. ``created_at`` is read as stored (an ISO
+        stamp in UTC, or a datetime): its first seven characters are the month.
+        An account with no stamp is a row whose month is null.
+        """
+        result = await self.executor.execute_query(
+            """
+            MATCH (u:User)
+            WITH substring(toString(u.created_at), 0, 7) AS month,
+                 coalesce(u.is_active, true) AS active
+            RETURN month, count(*) AS new_accounts,
+                   sum(CASE WHEN active THEN 0 ELSE 1 END) AS deactivated
+            ORDER BY month
+            """
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                AccountMonthRow(
+                    month=None if row["month"] is None else str(row["month"]),
+                    new_accounts=int(row["new_accounts"]),
+                    deactivated=int(row["deactivated"]),
+                )
+                for row in result.value or []
+            ]
+        )
+
+    async def get_presence_by_month(
+        self, months: list[str], month_after: dict[str, str]
+    ) -> Result[list[PresenceMonthRow]]:
+        """Users present in each of ``months``, and how many were present the month after.
+
+        ``month_after`` names, for each month key, the key of the month that
+        follows it. A month no one was present in has no row.
+        """
+        result = await self.executor.execute_query(
+            f"""
+            MATCH (u:User)-[:{RelationshipName.PRESENT_IN.value}]->(m:{NeoLabel.MONTH.value})
+            WHERE m.key IN $months
+            OPTIONAL MATCH (u)-[:{RelationshipName.PRESENT_IN.value}]->
+                           (after:{NeoLabel.MONTH.value} {{key: $month_after[m.key]}})
+            RETURN m.key AS month, count(u) AS present, count(after) AS returned
+            ORDER BY month
+            """,
+            {"months": months, "month_after": month_after},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                PresenceMonthRow(
+                    month=str(row["month"]),
+                    present=int(row["present"]),
+                    returned=int(row["returned"]),
+                )
+                for row in result.value or []
+            ]
         )
 
     async def get_user_role_counts(self) -> Result[list[dict[str, Any]]]:

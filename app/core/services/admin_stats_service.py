@@ -15,23 +15,95 @@ Methods:
 - get_user_ku_detail          — Detailed KU progress for a specific user
 - get_user_detail_stats       — Cross-domain activity stats for a specific user
 - get_users_with_activity_counts — Users list with entity counts (for admin table)
+- get_growth                  — Accounts by sign-up month, trailing twelve months
+- get_retention               — Presence by month and who came back the month after
 - get_search_gaps             — Zero/low-result search queue (content authoring)
 - get_search_event_total      — Running :SearchEvent count (Phase-2 trigger)
 """
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
+from core.ports.query_types import (
+    ActivityTotals,
+    GrowthMonth,
+    GrowthReport,
+    RetentionMonth,
+    RetentionReport,
+    RoleCounts,
+)
 from core.utils.logging import get_logger
+from core.utils.month_keys import month_key, shift_month, trailing_months
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports.cross_domain_protocols import CrossDomainBackendOperations
-    from core.ports.query_types import SearchGapRow
+    from core.ports.query_types import AccountMonthRow, PresenceMonthRow, SearchGapRow
     from core.ports.search_protocols import SearchEventBackendOperations
 
 logger = get_logger("skuel.services.admin_stats")
+
+#: How many months the growth and retention tables show, the current one included.
+ANALYTICS_MONTHS = 12
+
+
+def build_growth_report(rows: list[AccountMonthRow], current_month: str) -> GrowthReport:
+    """The growth table for the months ending at ``current_month``.
+
+    Every month of the window has a line, a month with no new account
+    included. A month's total counts every account created up to its end:
+    those from before the window, and those with no creation stamp, are in it
+    from the first line.
+    """
+    months = trailing_months(current_month, ANALYTICS_MONTHS)
+    new_by_month = {row.month: row.new_accounts for row in rows if row.month is not None}
+    running = sum(row.new_accounts for row in rows if row.month is None or row.month < months[0])
+    lines: list[GrowthMonth] = []
+    for month in months:
+        new_accounts = new_by_month.get(month, 0)
+        running += new_accounts
+        lines.append(
+            GrowthMonth(
+                month=month,
+                new_accounts=new_accounts,
+                change=new_accounts - new_by_month.get(shift_month(month, -1), 0),
+                total=running,
+            )
+        )
+    return GrowthReport(
+        total_accounts=sum(row.new_accounts for row in rows),
+        deactivated_accounts=sum(row.deactivated for row in rows),
+        months=tuple(lines),
+    )
+
+
+def build_retention_report(rows: list[PresenceMonthRow], current_month: str) -> RetentionReport:
+    """The retention table for the months ending at ``current_month``.
+
+    Every month of the window has a line, a month no one was present in
+    included. The current month has no month after it yet, so no one has
+    returned from it; the month before it is measured against a month still in
+    progress.
+    """
+    by_month = {row.month: row for row in rows}
+    lines: list[RetentionMonth] = []
+    for month in trailing_months(current_month, ANALYTICS_MONTHS):
+        row = by_month.get(month)
+        present = row.present if row else 0
+        returned: int | None = None
+        if month != current_month:
+            returned = row.returned if row else 0
+        lines.append(
+            RetentionMonth(
+                month=month,
+                present=present,
+                returned=returned,
+                next_month_in_progress=shift_month(month, 1) == current_month,
+            )
+        )
+    return RetentionReport(months=tuple(lines))
 
 
 class AdminStatsService:
@@ -166,31 +238,54 @@ class AdminStatsService:
 
         return Result.ok(defaults)
 
-    async def get_activity_entity_counts(self) -> Result[dict[str, int]]:
-        """System-wide entity counts for admin analytics dashboard.
-
-        Single Cypher COUNT query — replaces fetching full entity lists just to count them.
-        """
+    async def get_activity_entity_counts(self) -> Result[ActivityTotals]:
+        """Every task, habit and goal on the graph, counted: any status, any age."""
         result = await self.backend.get_activity_entity_counts()
 
         if result.is_error:
             return Result.fail(result)
 
-        defaults: dict[str, int] = {
-            "tasks_created": 0,
-            "habits_active": 0,
-            "goals_active": 0,
-        }
-
         records = result.value or []
-        if records:
-            r = records[0]
-            for key in defaults:
-                defaults[key] = r[key] or 0
+        row = records[0] if records else {}
+        return Result.ok(
+            ActivityTotals(
+                tasks=int(row.get("tasks") or 0),
+                habits=int(row.get("habits") or 0),
+                goals=int(row.get("goals") or 0),
+            )
+        )
 
-        return Result.ok(defaults)
+    async def get_growth(self) -> Result[GrowthReport]:
+        """New accounts per month for the trailing twelve months, with the running total.
 
-    async def get_user_role_counts(self) -> Result[dict[str, int]]:
+        Months are UTC. A deactivated account stays counted in the month it
+        signed up in; an erased one is counted nowhere.
+
+        Backend: CrossDomainBackend.get_accounts_by_signup_month
+        """
+        result = await self.backend.get_accounts_by_signup_month()
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(build_growth_report(result.value or [], month_key(datetime.now(UTC))))
+
+    async def get_retention(self) -> Result[RetentionReport]:
+        """Who was present each month, and who of them was present the month after.
+
+        A user is present in a UTC month when they signed in during it or a
+        live session of theirs was seen in it.
+
+        Backend: CrossDomainBackend.get_presence_by_month
+        """
+        current = month_key(datetime.now(UTC))
+        months = trailing_months(current, ANALYTICS_MONTHS)
+        result = await self.backend.get_presence_by_month(
+            months, {month: shift_month(month, 1) for month in months}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(build_retention_report(result.value or [], current))
+
+    async def get_user_role_counts(self) -> Result[RoleCounts]:
         """User counts grouped by role.
 
         Single Cypher GROUP BY query — replaces fetching all users just to count roles.
@@ -200,7 +295,7 @@ class AdminStatsService:
         if result.is_error:
             return Result.fail(result)
 
-        stats: dict[str, int] = {
+        stats: RoleCounts = {
             "total": 0,
             "admins": 0,
             "teachers": 0,

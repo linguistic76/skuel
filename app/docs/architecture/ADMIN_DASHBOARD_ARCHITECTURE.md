@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-11-05
+updated: 2026-11-13
 status: current
 category: architecture
 tags:
@@ -99,9 +99,9 @@ The user management section (`/admin/users`) provides:
 │   ├─ get_users_with_activity_counts() → AdminStatsService               │
 │   ├─ get_user_role_counts()       → AdminStatsService                   │
 │   ├─ get_user_detail_stats(uid)   → AdminStatsService                   │
-│   ├─ _get_activity_entity_counts() → AdminStatsService (private)        │
-│   └─ get_analytics_data()         → role_counts + entity_counts +      │
-│                                      search gaps/event total            │
+│   └─ get_analytics_data()         → AdminAnalyticsData: growth,        │
+│                                      retention, role counts, activity   │
+│                                      totals, search gaps/event total    │
 │                                                                          │
 │   user_service property           → exposed for @require_admin          │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -222,9 +222,11 @@ User management UI components:
 
 | Method | Purpose |
 |--------|---------|
-| `render_analytics_dashboard(data)` | Full analytics view |
+| `render_analytics_dashboard(data)` | The five cards, from an `AdminAnalyticsData`; a field that is None renders that card's error |
+| `render_growth(growth)` | Account totals + the twelve-month table (new accounts, change, running total) |
+| `render_retention(retention)` | The twelve-month presence table ("2 of 3 (67%)") |
 | `render_user_distribution(stats)` | Role distribution bars |
-| `render_activity_stats(data)` | Activity count cards |
+| `render_activity_stats(activity)` | All-time task / habit / goal totals |
 | `render_search_gaps(gaps, event_total)` | Zero/low-result search queue table + running `:SearchEvent` total vs the Phase-2 trigger |
 
 ### AdminLearningComponents (ui/admin/views.py)
@@ -249,7 +251,9 @@ Cross-domain aggregation queries, injected with the `CrossDomainBackend` (plus a
 | `get_entity_system_metrics()` | Aggregate KU counts, VIEWED/IN_PROGRESS/MASTERED totals |
 | `get_all_users_progress()` | Per-user KU progress (mastered, in_progress, viewed counts) |
 | `get_user_ku_detail(user_uid)` | Detailed KU list for a user with relationship data |
-| `get_activity_entity_counts()` | System-wide Task/Habit/Goal/Journal counts via single Cypher COUNT query |
+| `get_activity_entity_counts()` | Every Task, Habit and Goal on the graph (any status, any age) via a single Cypher COUNT query |
+| `get_growth()` | `GrowthReport`: new accounts per UTC month for the trailing twelve months, the change from the month before, the running total, deactivated accounts |
+| `get_retention()` | `RetentionReport`: users present per UTC month and how many were present the month after, read from the `PRESENT_IN` record |
 | `get_user_role_counts()` | User counts grouped by role via single Cypher GROUP BY query |
 | `get_search_gaps(max_result_count, days, limit)` | Zero/low-result search queue (content authoring) — empty list when no search-event backend is wired |
 | `get_search_event_total()` | Running `:SearchEvent` count vs the 1,000+ Phase-2 analytics trigger |
@@ -474,7 +478,7 @@ system_status_content = (
 )
 ```
 
-`get_analytics_data()` is partial-failure tolerant — returns zero-value fallbacks for each failed sub-query rather than surfacing a top-level error:
+`get_analytics_data()` is partial-failure tolerant — it returns a typed `AdminAnalyticsData` whose field is `None` for each read that failed, and that card renders its own error. A failed read is never shown as zero:
 
 ```python
 analytics_data = await orchestrator.get_analytics_data()

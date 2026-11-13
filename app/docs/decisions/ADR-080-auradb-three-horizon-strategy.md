@@ -1,6 +1,6 @@
 ---
 title: "ADR-080: AuraDB Three-Horizon Strategy & GDS Deferral"
-updated: 2026-09-28
+updated: 2026-11-13
 status: accepted
 category: decisions
 tags: [adr, decisions, neo4j, auradb, graph-data-science, infrastructure]
@@ -222,6 +222,16 @@ initial connectivity probe with bounded exponential backoff (`connect_with_retry
 `core/constants.py` `Neo4jConnectRetry`), so a paused/waking AuraDB Free instance no longer crashes
 bootstrap. Telemetry retention (`./dev telemetry-retention`, one-shot) keeps the graph under the Free
 node cap.
+
+**What the prune may not take with it (2026-11-13).** `:AuthEvent` was the only trace of a sign-in,
+so pruning it by age erased the history that retention on `/admin/analytics` is read from. The
+presence record keeps that history outside the prune: `(:User)-[:PRESENT_IN {sign_ins, days,
+last_day}]->(:Month {key})`, one shared node per UTC month, written by the sign-in statement and by a
+session's first request of a month (`SessionBackend`). It grows by one edge per present user per
+month and at most one node per month, so it is not unbounded telemetry and the prune never touches
+it. Sign-ins from before the writers existed are copied onto it once, from the browser sign-ins in
+the audit trail, by `scripts/migrations/backfill_presence_months_2026_11.py`; run it before the
+first prune.
 
 What is **deliberately not built** is **mid-request** resilience — reconnect / circuit-breaker across
 the ~124 `session.run` query sites, so an in-flight request survives an instance that pauses under

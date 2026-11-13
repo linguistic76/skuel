@@ -51,6 +51,7 @@ Date Added: January 2026 (Type Safety Improvements)
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, NotRequired, Required, TypedDict
 
 # EntityDTO is a runtime import (not TYPE_CHECKING) so reflection on
@@ -734,6 +735,134 @@ class SearchGapRow(TypedDict):
     avg_results: float
     last_seen: str
     entry_points: list[str]
+
+
+# ---------------------------------------------------------------------------
+# /admin/analytics — accounts, presence, and the page's payload
+# ---------------------------------------------------------------------------
+
+
+class RoleCounts(TypedDict):
+    """Accounts by role, from ``AdminStatsService.get_user_role_counts``."""
+
+    total: int
+    admins: int
+    teachers: int
+    members: int
+    registered: int
+
+
+class ActivityTotals(TypedDict):
+    """Every task, habit and goal on the graph, in any status, of any age."""
+
+    tasks: int
+    habits: int
+    goals: int
+
+
+@dataclass(frozen=True, slots=True)
+class AccountMonthRow:
+    """Accounts created in one UTC month; ``month`` is None for an account with no creation stamp."""
+
+    month: str | None
+    new_accounts: int
+    deactivated: int
+
+
+@dataclass(frozen=True, slots=True)
+class PresenceMonthRow:
+    """Users present in one UTC month, and how many of them were present the month after."""
+
+    month: str
+    present: int
+    returned: int
+
+
+@dataclass(frozen=True, slots=True)
+class GrowthMonth:
+    """One month of the growth table.
+
+    ``change`` is this month's new accounts less the month before's; ``total``
+    is every account created up to the month's end, deactivated ones included.
+    """
+
+    month: str
+    new_accounts: int
+    change: int
+    total: int
+
+
+@dataclass(frozen=True, slots=True)
+class GrowthReport:
+    """Accounts over the trailing months, oldest month first; the last is the current one.
+
+    A deactivated account stays counted in the month it signed up in and in
+    every total; an erased one is on the graph no longer and is in none.
+    """
+
+    total_accounts: int
+    deactivated_accounts: int
+    months: tuple[GrowthMonth, ...]
+
+    @property
+    def accounts_not_deactivated(self) -> int:
+        return self.total_accounts - self.deactivated_accounts
+
+    @property
+    def new_this_month(self) -> int:
+        return self.months[-1].new_accounts if self.months else 0
+
+    @property
+    def change_this_month(self) -> int:
+        return self.months[-1].change if self.months else 0
+
+
+@dataclass(frozen=True, slots=True)
+class RetentionMonth:
+    """One month of the retention table.
+
+    ``returned`` is how many of the month's present users were present the
+    month after: None while that month has not begun, and a count so far while
+    it is the current month (``next_month_in_progress``).
+    """
+
+    month: str
+    present: int
+    returned: int | None
+    next_month_in_progress: bool
+
+    @property
+    def rate(self) -> float | None:
+        """The share that returned, 0.0 to 1.0; None with no one present or no month after yet."""
+        if self.returned is None or self.present == 0:
+            return None
+        return self.returned / self.present
+
+
+@dataclass(frozen=True, slots=True)
+class RetentionReport:
+    """Presence over the trailing months, oldest month first; the last is the current one."""
+
+    months: tuple[RetentionMonth, ...]
+
+    @property
+    def present_this_month(self) -> int:
+        return self.months[-1].present if self.months else 0
+
+
+@dataclass(frozen=True, slots=True)
+class AdminAnalyticsData:
+    """What ``/admin/analytics`` renders. A field is None when its read failed.
+
+    None is not zero: each card shows its own error for a failed read.
+    """
+
+    growth: GrowthReport | None
+    retention: RetentionReport | None
+    roles: RoleCounts | None
+    activity: ActivityTotals | None
+    search_gaps: tuple[SearchGapRow, ...] | None
+    search_event_total: int | None
 
 
 def _numeric_or_zero(value: object) -> float:

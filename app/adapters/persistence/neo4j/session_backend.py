@@ -17,6 +17,7 @@ See Also:
 """
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -28,10 +29,13 @@ from core.models.auth.auth_event import AuthEvent
 from core.models.auth.password_reset_token import PasswordResetClaim, PasswordResetToken
 from core.models.auth.session import Session, hash_session_token
 from core.models.enums import UserRole
+from core.models.enums.neo_labels import NeoLabel
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.query_types import SessionIdentity
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
+from core.utils.month_keys import day_key, month_key
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
@@ -57,6 +61,26 @@ def _stored_zone_choice(preferences: object) -> str | None:
     choice = parsed.get("timezone")
     return choice if isinstance(choice, str) and choice else None
 
+
+# The presence record: (user)-[:PRESENT_IN {sign_ins, days, last_day}]->(:Month {key}).
+# ``days`` counts the distinct UTC days the user signed in or was first seen in
+# the month; ``last_day`` is the latest of them, which is how a write tells a new
+# day. A null ``last_day`` (the edge was just created) reads as a new day.
+#
+# Lock order: the month node is written (``SET m.key``, a no-op that takes its
+# exclusive lock) before the edge is merged. Creating an edge takes a shared
+# lock on each end and then upgrades; two transactions upgrading on the one
+# shared month node deadlock, and holding the exclusive lock first means the
+# second simply waits. The caller writes the user node first for the same reason.
+_MONTH = NeoLabel.MONTH.value
+_PRESENT_IN = RelationshipName.PRESENT_IN.value
+_MARK_PRESENT = f"""
+        MERGE (m:{_MONTH} {{key: $month}})
+        SET m.key = $month
+        MERGE (u)-[p:{_PRESENT_IN}]->(m)
+        ON CREATE SET p.sign_ins = 0, p.days = 0
+        SET p.days = p.days + CASE WHEN p.last_day = $day THEN 0 ELSE 1 END,
+            p.last_day = $day"""
 
 # Rate limiting configuration
 MAX_FAILED_ATTEMPTS = 5
@@ -110,6 +134,11 @@ class SessionBackend(Neo4jSessionRunner):
         property this statement writes; it is serialized by ``to_neo4j_node``,
         the mapper every ``User`` read parses.
 
+        The same statement records the sign-in on the user's presence edge to
+        the session's UTC month (``PRESENT_IN``: one more sign-in, and one more
+        day when this is the first of its UTC day), so a session and its count
+        land together, and stamps the session as seen in that month.
+
         The WHERE clause atomically requires the user to still be active at
         creation time — sign_in checks ``user.is_active`` early, then spends
         ~100ms verifying the password, and a deactivation landing in that
@@ -127,10 +156,11 @@ class SessionBackend(Neo4jSessionRunner):
             Result[Session]: Created session, or error if the user doesn't
             exist or has been deactivated
         """
-        query = """
-        MATCH (u:User {uid: $user_uid})
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
         WHERE coalesce(u.is_active, true) = true
-        CREATE (s:Session {
+        SET u.last_login_at = $last_login_at
+        CREATE (s:Session {{
             uid: $uid,
             token_hash: $token_hash,
             user_uid: $user_uid,
@@ -140,10 +170,12 @@ class SessionBackend(Neo4jSessionRunner):
             ip_address: $ip_address,
             user_agent: $user_agent,
             is_valid: $is_valid,
-            user_is_active: true
-        })
+            user_is_active: true,
+            seen_month: $month
+        }})
         CREATE (u)-[:HAS_SESSION]->(s)
-        SET u.last_login_at = $last_login_at
+        WITH u, s{_MARK_PRESENT},
+            p.sign_ins = p.sign_ins + 1
         RETURN s
         """
 
@@ -162,6 +194,8 @@ class SessionBackend(Neo4jSessionRunner):
                 "ip_address": session.ip_address,
                 "user_agent": session.user_agent,
                 "is_valid": session.is_valid,
+                "month": month_key(session.created_at),
+                "day": day_key(session.created_at),
             },
         )
 
@@ -246,6 +280,15 @@ class SessionBackend(Neo4jSessionRunner):
         when it is older than the batch interval, so most validations stay
         read-only.
 
+        A session seen in a UTC month it has not been seen in before marks its
+        user present in that month (``PRESENT_IN``) and remembers the month on
+        the session (``seen_month``): one write per session per month, so a
+        user whose 30-day session spans a month with no sign-in still counts
+        as present in it. That branch runs first and writes the user node
+        before anything else (a no-op ``SET`` of ``last_login_at`` to itself),
+        so it takes its locks in the order the sign-in does: user, session,
+        month.
+
         The same statement returns the User's stored ``preferences`` (a JSON
         string), from which the user's zone choice is read: the middleware
         resolves the request's zone from it (ADR-089 §3) at no extra round
@@ -262,13 +305,17 @@ class SessionBackend(Neo4jSessionRunner):
             and their display name if the session is live, None otherwise
         """
         token_hash = hash_session_token(session_token)
-        query = """
-        MATCH (u:User)-[:HAS_SESSION]->(s:Session {token_hash: $token_hash})
+        query = f"""
+        MATCH (u:User)-[:HAS_SESSION]->(s:Session {{token_hash: $token_hash}})
         WHERE s.is_valid = true
           AND s.expires_at > datetime()
           AND coalesce(u.is_active, true) = true
         FOREACH (_ IN CASE
-            WHEN s.last_active_at < datetime() - duration({seconds: $interval})
+            WHEN coalesce(s.seen_month, '') <> $month THEN [1] ELSE [] END |
+            SET u.last_login_at = u.last_login_at, s.seen_month = $month{_MARK_PRESENT}
+        )
+        FOREACH (_ IN CASE
+            WHEN s.last_active_at < datetime() - duration({{seconds: $interval}})
             THEN [1] ELSE [] END |
             SET s.last_active_at = datetime()
         )
@@ -276,8 +323,15 @@ class SessionBackend(Neo4jSessionRunner):
                u.display_name AS display_name
         """
 
+        now = datetime.now(UTC)
         record = await self._run_single(
-            query, {"token_hash": token_hash, "interval": batch_interval_seconds}
+            query,
+            {
+                "token_hash": token_hash,
+                "interval": batch_interval_seconds,
+                "month": month_key(now),
+                "day": day_key(now),
+            },
         )
 
         if not record:

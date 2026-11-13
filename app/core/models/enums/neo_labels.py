@@ -171,6 +171,10 @@ class NeoLabel(StrEnum):
     AUTH_EVENT = "AuthEvent"  # Audit trail nodes for security events
     DEVICE = "Device"  # Enrolled vault-agent devices (ADR-075) — auth infra, not an Entity
     PASSWORD_RESET_TOKEN = "PasswordResetToken"  # (user)-[:HAS_RESET_TOKEN]->(PasswordResetToken)
+    # One shared node per UTC calendar month, keyed by ``key`` (``YYYY-MM``); it
+    # carries no uid. A user present in the month holds a PRESENT_IN edge to it:
+    # the record retention is read from once the month's AuthEvents are pruned.
+    MONTH = "Month"
 
     # =========================================================================
     # Conversation Persistence (ADR-078) — discussion sessions, owner-private
