@@ -251,6 +251,12 @@ class GoalUpdateRequest(BaseModel):
         )
 
 
+#: The longest progress note the form takes: a remark beside a figure, a few
+#: sentences, the same bound as a milestone's description. Every note stays on the
+#: goal's history, one JSON property appended to for the goal's life, so it is bounded.
+PROGRESS_NOTE_MAX_LENGTH = 500
+
+
 class GoalProgressUpdateRequest(BaseModel):
     """
     The figure a learner enters for a goal (``POST /api/goals/{uid}/progress``).
@@ -269,11 +275,25 @@ class GoalProgressUpdateRequest(BaseModel):
         validation_alias="date",
         description="When the progress happened (ISO date or datetime), when it is not now",
     )
+    note: str = Field(
+        default="",
+        max_length=PROGRESS_NOTE_MAX_LENGTH,
+        description="The learner's note on this entry; blank is no note",
+    )
 
     model_config = ConfigDict(
         populate_by_name=True,
-        json_schema_extra={"example": {"progress": 75.5}},
+        json_schema_extra={"example": {"progress": 75.5, "note": "Finished chapter three"}},
     )
+
+    @field_validator("note", mode="before")
+    @classmethod
+    def strip_note(cls, v: object) -> object:
+        """A note is held without its surrounding space; one of spaces alone is none.
+        Stripped before the length check, so padding never counts against it."""
+        if v is None:
+            return ""
+        return v.strip() if isinstance(v, str) else v
 
 
 class MilestoneCreateRequest(BaseModel):

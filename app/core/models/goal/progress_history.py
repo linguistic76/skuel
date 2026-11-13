@@ -1,21 +1,33 @@
 """The shape of one ``Goal.progress_history`` entry.
 
 Every progress writer appends one of these (``core/services/goals/
-progress_history.py``); the report's ``goals_progressed`` counts them by
-``date``. The node stores the list as one JSON string, so the fields are the
-JSON-ready spellings: an ISO datetime and the figure written.
+progress_history.py``); the report's ``goals_progressed`` counts its progress
+events by ``date``, and the goal page lists them all. The node stores the list
+as one JSON string, so the fields are the JSON-ready spellings: an ISO datetime,
+the figure, and the learner's note when they wrote one.
 """
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 
 class ProgressHistoryEntry(TypedDict):
-    """One progress event: the figure written and when (ISO datetime)."""
+    """One entry: when (ISO datetime), the figure, and the learner's note.
+
+    ``note`` is present only where the learner wrote one, on the progress form.
+    ``note_only`` is present, and true, only on an entry recording a note written
+    without moving the figure: ``progress_percentage`` is the figure as it stood,
+    and the entry is something the learner said, not a progress event, so the
+    report does not count it. ``progress_percentage`` is ``None`` on an entry that
+    records no figure; that alone does not make it note-only, and it is a progress
+    event.
+    """
 
     date: str
     progress_percentage: float | None
+    note: NotRequired[str]
+    note_only: NotRequired[bool]
 
 
 __all__ = ["ProgressHistoryEntry"]

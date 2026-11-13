@@ -369,12 +369,41 @@ class TestAnEnteredFigure:
         assert "status" not in recorder.merged_patch()
         assert bus.of(GoalAchieved) == []
 
-    async def test_a_note_is_appended_to_the_notes_a_frozen_goal_holds(self) -> None:
-        held = MappingProxyType({"progress_notes": ({"date": "2026-01-01", "notes": "first"},)})
-        goal = _goal(MeasurementType.PERCENTAGE, metadata=held)
+    async def test_a_note_rides_the_entry_the_figure_appends_after_a_frozen_history(
+        self,
+    ) -> None:
+        held = (MappingProxyType({"date": "2026-01-01T09:00:00", "progress_percentage": 5.0}),)
+        goal = _goal(MeasurementType.PERCENTAGE, progress=5.0, progress_history=held)
+        service, recorder, bus = _service(goal)
+
+        assert (await service.update_goal_progress(_GOAL, 10.0, note="second")).is_ok
+
+        history = recorder.last_updates["progress_history"]
+        assert [entry.get("note") for entry in history] == [None, "second"]
+        assert "note_only" not in history[-1]
+        assert "metadata" not in recorder.last_updates
+        assert len(bus.of(GoalProgressUpdated)) == 1
+
+    async def test_a_note_with_the_figure_unmoved_is_a_note_only_entry_and_no_event(
+        self,
+    ) -> None:
+        goal = _goal(MeasurementType.PERCENTAGE, progress=40.0)
+        service, recorder, bus = _service(goal)
+
+        assert (await service.update_goal_progress(_GOAL, 40.0, note="Stuck this week")).is_ok
+
+        updates = recorder.last_updates
+        (entry,) = updates["progress_history"]
+        assert entry["note"] == "Stuck this week"
+        assert entry["note_only"] is True
+        assert entry["progress_percentage"] == 40.0
+        assert "last_progress_update" not in updates, "a note alone is not a progress event"
+        assert bus.of(GoalProgressUpdated) == []
+
+    async def test_an_unmoved_figure_without_a_note_appends_nothing(self) -> None:
+        goal = _goal(MeasurementType.PERCENTAGE, progress=40.0)
         service, recorder, _bus = _service(goal)
 
-        assert (await service.update_goal_progress(_GOAL, 10.0, notes="second")).is_ok
+        assert (await service.update_goal_progress(_GOAL, 40.0)).is_ok
 
-        notes = recorder.last_updates["metadata"]["progress_notes"]
-        assert [n["notes"] for n in notes] == ["first", "second"]
+        assert "progress_history" not in recorder.merged_patch()

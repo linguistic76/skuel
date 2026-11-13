@@ -125,7 +125,7 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 | `target_date` | `date?` | Target completion date |
 | `progress_percentage` | `float` | Progress percentage (0-100) — the goal's one progress field |
 | `last_progress_update` | `datetime?` | Stamp of the last progress EVENT (a figure that moved); overwritten by every later one |
-| `progress_history` | `tuple[ProgressHistoryEntry, ...]` | Every progress event, `{date, progress_percentage}`, appended by each writer that moves the figure (manual door, milestone door, task/habit propagation, an intent carrying a figure, the reopen reset of a goal whose percentage is the measure, the reopen recompute of one whose is not); the activity report's `goals_progressed` counts from these, never from the stamp |
+| `progress_history` | `tuple[ProgressHistoryEntry, ...]` | Every progress event, `{date, progress_percentage}`, appended by each writer that moves the figure (manual door, milestone door, task/habit propagation, an intent carrying a figure, the reopen reset of a goal whose percentage is the measure, the reopen recompute of one whose is not), plus the learner's `note` where they wrote one on the progress form. A note written without moving the figure is an entry of its own, marked `note_only` (the figure as it stood). The activity report's `goals_progressed` counts the progress events (not a `note_only` entry), never the stamp; the goal page lists every entry |
 | `measurement_type` | `MeasurementType` | Binary, Percentage, Numeric, Milestone, etc. |
 | `domain` | `Domain` | TECH, HEALTH, PERSONAL, etc. |
 
@@ -402,6 +402,17 @@ verified; JSON or the goal page's forms). A milestone is named by its own uid
 mirror of completing it: on a milestone-measured goal the figure falls, and a fall from 100
 un-achieves the goal.
 
+**A progress note and the history the page shows** (ruled 2026-11-13). The progress form takes
+an optional note (`GoalProgressUpdateRequest.note`, stripped, 500 characters at most, blank is no
+note). It rides the `progress_history` entry the entered figure appends, under the goal's lock, so
+notes racing on one goal are all kept. A note entered with the figure unmoved still writes an
+entry, marked `note_only`: it moves no `last_progress_update`, publishes no
+`GoalProgressUpdated`, and the report does not count it as progress. The goal page lists the
+history below the progress control on every goal (derived and set-aside ones too, read-only),
+newest first by the day each entry names, in the user's zone: the day, the figure ("unchanged" on a
+note-only entry) and the note. The five latest show, the rest fold under "Show all N entries".
+Derived goals (task-based, habit-based, milestone) have no progress form, so no place for a note.
+
 **A reopened goal keeps the figure its measure gives** (ruled 2026-11-12). Reopening a goal
 (COMPLETED → a working status, `update_goal` or the vault door) resets the percentage to 0 only
 where the percentage is the whole measurement (`MeasurementType.percentage_is_the_measure`:
@@ -439,7 +450,7 @@ carries the progress and milestone controls.
 |-------|--------|-------------|
 | `/goals` | GET | Goal list with filtering |
 | `/goals/list-fragment` | GET | HTMX filtered list fragment |
-| `/goals/detail?uid=` | GET | One goal: its figure, the progress form where the learner enters it, its milestones with a Complete button on each open one, a Reopen button on each reached one, and the "Add milestone" form; the habit section below them. A goal set aside (cancelled, archived, failed) shows no control |
+| `/goals/detail?uid=` | GET | One goal: its figure, the progress form where the learner enters it (with an optional note), its progress history, its milestones with a Complete button on each open one, a Reopen button on each reached one, and the "Add milestone" form; the habit section below them. A goal set aside (cancelled, archived, failed) shows no control |
 | `/goals/habits?uid=` | GET | HTMX fragment the detail page loads: the habits that support the goal, each with its tier select and Unlink button, and the "Link a habit" form (a habit picker and a tier). A goal set aside shows each habit's tier and no control |
 
 ## Code Examples
@@ -473,6 +484,7 @@ goal = result.value
 result = await goals_service.update_goal_progress(
     goal.uid,
     progress_value=60.0,  # a percentage; on a numeric goal, a value in the goal's unit
+    note="Finished chapter three",  # optional; kept on the history entry
 )
 goal = result.value  # the goal as written
 ```

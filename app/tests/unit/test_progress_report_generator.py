@@ -811,13 +811,29 @@ class TestCompletionsFromContext:
                         }
                     ),
                     _row({"uid": "g4", "title": "Never moved"}),
+                    _row(
+                        {
+                            "uid": "g5",
+                            "title": "A note in period, the figure unmoved",
+                            "progress_history": [
+                                {"date": "2026-07-01T09:00:00", "progress_percentage": 30.0},
+                                {
+                                    "date": "2026-09-10T09:00:00",
+                                    "progress_percentage": 30.0,
+                                    "note": "Stuck",
+                                    "note_only": True,
+                                },
+                            ],
+                        }
+                    ),
                 ]
             },
         )
+        # g1 only: a note written without moving the figure is not a progress event.
         assert completions["goals_progressed"] == 1
-        assert len(completions["goals_details"]) == 4
+        assert len(completions["goals_details"]) == 5
         trends = generator._compute_domain_trends(completions)["goals"]
-        assert (trends["total"], trends["progressed"]) == (4, 1)
+        assert (trends["total"], trends["progressed"]) == (5, 1)
 
     def test_choices_made_counts_in_period_decisions(self, generator):
         completions = self._map(

@@ -431,12 +431,9 @@ class GoalsService(
         return await self.progress.reopen_milestone(goal_uid, milestone_uid)
 
     async def update_goal_progress(
-        self, uid: str, progress_value: float, notes: str = "", update_date: str | None = None
+        self, uid: str, progress_value: float, note: str = "", update_date: str | None = None
     ) -> Result[Goal]:
-        return await self.progress.update_goal_progress(uid, progress_value, notes, update_date)
-
-    async def get_goal_progress(self, uid: str, period: str = "month") -> Result[dict[str, Any]]:
-        return await self.progress.get_goal_progress(uid, period)
+        return await self.progress.update_goal_progress(uid, progress_value, note, update_date)
 
     async def create_goal_milestone(
         self,

@@ -77,7 +77,7 @@ Each row names the live means that does the model's job.
 | `ActivityReviewRequest` | `POST /api/activity-reviews/request`, the "Ask for a personal review" card on `/submit-activity-report` (2026-11-09) |
 | `ActivityFeedbackSubmitRequest` | `POST /activity-review/submit-feedback`, the admin review form; its snapshot is stored with the report and its request closed (2026-11-09) |
 | `DisplayNameUpdateRequest` (was `UserUpdateSchema`) | `POST /api/user/display-name`, the Account card on `/settings` (2026-11-12). Narrowed to `display_name` alone; the fields it lost are below |
-| `GoalProgressUpdateRequest` | `POST /api/goals/{uid}/progress`, the goal page's "Save progress" form (2026-11-12). Narrowed to the figure and its date; the field it lost is below |
+| `GoalProgressUpdateRequest` | `POST /api/goals/{uid}/progress`, the goal page's "Save progress" form (2026-11-12): the figure, its date, and the optional `note` (2026-11-13), stored on the history entry the write appends |
 | `MilestoneCreateRequest` | `POST /api/goals/{uid}/milestones`, the goal page's "Add milestone" form (2026-11-12). `target_date` became optional; the fields it lost are below |
 | `MilestoneUidRequest` | `POST /api/goals/{uid}/milestones/complete` and `/milestones/reopen`, the Complete button on each open milestone and the Reopen button on each reached one (2026-11-12). Narrowed to `milestone_uid`: the service finds the milestone by uid under the goal's lock |
 | `GoalHabitLinkRequest` | `POST /api/goals/{uid}/habits`, the goal page's "Link a habit" form (2026-11-13). Gained `essentiality` (the tier it links at, default supporting); the field it lost is below |
@@ -88,7 +88,7 @@ Each row names the live means that does the model's job.
 
 | Field | Verdict |
 |---|---|
-| `GoalProgressUpdateRequest.notes` | retired from the door: a note was stored in the goal's `metadata.progress_notes`, which only the uncalled `get_goal_progress` reads. The figure's own record is the goal's `progress_history`. `update_goal_progress` still takes `notes` for a caller that has somewhere to show them |
+| `GoalProgressUpdateRequest.notes` | **bound again as `note` (2026-11-13, ruled by Mike: "A note should get a place on the goal page, as a field on the progress form, shown beside a progress history the page would start displaying").** The note now rides the `progress_history` entry the write appends, and the goal page lists that history. `metadata.progress_notes` and its one reader, `get_goal_progress`, are retired |
 | `MilestoneCreateRequest.target_value` | retired: no code reads `Milestone.target_value`. The field is still on `Milestone` |
 | `MilestoneCreateRequest.required_knowledge_uids` | **staged.** `Milestone.required_knowledge_uids` has one reader (`GoalTaskGenerator` copies it into a generated task's metadata), and no door writes it. A door needs the Ku admitted as the link doors admit one, and a picker on the page |
 | `MilestoneUidRequest.achieved_date` | retired: a milestone's date is stamped by the write, today in the user's zone, on its first completion only |
