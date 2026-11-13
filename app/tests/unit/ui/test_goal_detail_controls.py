@@ -236,3 +236,106 @@ def test_the_detail_page_loads_the_section_and_lists_habits_there_alone() -> Non
     assert "Principles that support this goal" in html
     assert "Honesty" in html
     assert ">Run<" not in html, "a supporting habit is listed by the habit section, not twice"
+
+
+# ---------------------------------------------------------------------------
+# The progress history
+# ---------------------------------------------------------------------------
+
+
+def _history_page(
+    measurement: MeasurementType,
+    history: tuple[dict, ...],  # type: ignore[type-arg]
+    status: EntityStatus = EntityStatus.ACTIVE,
+) -> str:
+    goal = Goal(
+        uid="goal_page",
+        user_uid="user_page",
+        title="A goal",
+        status=status,
+        measurement_type=measurement,
+        progress_history=history,
+    )
+    return to_xml(GoalDetailView(goal, []))
+
+
+def _entries(html: str) -> list[str]:
+    """Each history row's text, tags stripped, in page order."""
+    rows = re.findall(r"<li[^>]*data-goal-history-entry[^>]*>(.*?)</li>", html, re.DOTALL)
+    return [" ".join(re.sub(r"<[^>]+>", " ", row).split()) for row in rows]
+
+
+def test_the_progress_form_takes_a_bounded_optional_note() -> None:
+    html = _page(MeasurementType.PERCENTAGE)
+
+    note = re.search(r"<textarea[^>]*name=[\"']note[\"'][^>]*>", html)
+    assert note is not None
+    assert re.search(r"""maxlength=["']500["']""", note.group(0))
+    assert "required" not in note.group(0)
+    assert "Note (optional)" in html
+
+
+def test_the_history_lists_entries_newest_first_with_their_notes() -> None:
+    history = (
+        {"date": "2026-09-01T12:00:00", "progress_percentage": 10.0},
+        {"date": "2026-09-20T12:00:00", "progress_percentage": 37.5, "note": "Chapter three"},
+        # Written last, dated earliest: a backdated correction sits in its own day.
+        {"date": "2026-08-15T12:00:00", "progress_percentage": 5.0, "note": "Late entry"},
+        {
+            "date": "2026-09-21T12:00:00",
+            "progress_percentage": 37.5,
+            "note": "Stuck",
+            "note_only": True,
+        },
+    )
+    rows = _entries(_history_page(MeasurementType.PERCENTAGE, history))
+
+    assert rows == [
+        "21 Sep 2026 37.5%, unchanged Stuck",
+        "20 Sep 2026 37.5% Chapter three",
+        "01 Sep 2026 10%",
+        "15 Aug 2026 5% Late entry",
+    ]
+
+
+def test_the_history_folds_all_but_the_latest_five_under_show_all() -> None:
+    history = tuple(
+        {"date": f"2026-09-{day:02d}T12:00:00", "progress_percentage": float(day)}
+        for day in range(1, 8)
+    )
+    html = _history_page(MeasurementType.PERCENTAGE, history)
+
+    shown, folded = html.split("<details", 1)
+    assert _entries(shown)[0].startswith("07 Sep 2026")
+    assert len(_entries(shown)) == 5
+    assert "Show all 7 entries" in folded
+    assert [row[:11] for row in _entries(folded)] == ["02 Sep 2026", "01 Sep 2026"]
+
+
+def test_a_goal_with_no_history_says_so() -> None:
+    html = _history_page(MeasurementType.PERCENTAGE, ())
+
+    assert re.search(r"""data-goal-history=["']0["']""", html)
+    assert "No progress recorded yet." in html
+    assert "<details" not in html
+
+
+@pytest.mark.parametrize(
+    "measurement",
+    [MeasurementType.TASK_BASED, MeasurementType.HABIT_BASED, MeasurementType.MILESTONE],
+)
+def test_a_derived_goal_shows_its_history_and_no_form(measurement: MeasurementType) -> None:
+    history = ({"date": "2026-09-01T12:00:00", "progress_percentage": 50.0},)
+    html = _history_page(measurement, history)
+
+    assert _entries(html) == ["01 Sep 2026 50%"]
+    assert "data-goal-progress" not in html
+    assert 'name="note"' not in html
+
+
+def test_a_goal_set_aside_shows_its_history_and_no_form() -> None:
+    history = ({"date": "2026-09-01T12:00:00", "progress_percentage": 50.0, "note": "Paused"},)
+    html = _history_page(MeasurementType.PERCENTAGE, history, EntityStatus.CANCELLED)
+
+    assert _entries(html) == ["01 Sep 2026 50% Paused"]
+    assert "data-goal-progress" not in html

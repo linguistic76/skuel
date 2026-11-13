@@ -10,7 +10,7 @@ entry rides the transition patch and a repeat appends nothing.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -22,7 +22,11 @@ from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.goal.milestone import Milestone
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_progress_service import GoalsProgressService
-from core.services.goals.progress_history import progress_entry, with_progress_entry
+from core.services.goals.progress_history import (
+    is_progress_event,
+    progress_entry,
+    with_progress_entry,
+)
 from core.utils.result_simplified import Result
 from tests.helpers.laptop_clock import laptop_wall
 from tests.helpers.status_guarded_backend import guarded_backend, wire_locked_recompute
@@ -94,6 +98,21 @@ def test_with_progress_entry_appends_after_the_stored_history() -> None:
 def test_with_progress_entry_starts_the_history_without_a_goal() -> None:
     at = datetime(2026, 9, 12, 10, 0)
     assert with_progress_entry(None, 10.0, at) == [progress_entry(10.0, at)]
+
+
+def test_an_entry_carries_a_note_only_when_written_and_marks_a_note_alone() -> None:
+    at = datetime(2026, 9, 12, 10, 0)
+    assert progress_entry(55.0, at, "Chapter three") == {
+        "date": "2026-09-12T10:00:00",
+        "progress_percentage": 55.0,
+        "note": "Chapter three",
+    }
+    alone = progress_entry(55.0, at, "Stuck", note_only=True)
+    assert alone["note_only"] is True
+    assert not is_progress_event(alone)
+    assert is_progress_event(progress_entry(55.0, at, "Chapter three"))
+    # The seeded and pre-note entries carry neither key, and are progress events.
+    assert is_progress_event(_EARLIER)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +274,7 @@ async def test_manual_update_dates_its_entry_and_stamp_at_the_supplied_date() ->
     service = _progress_service(backend)
 
     result = await service.update_goal_progress(
-        _GOAL, 45.0, notes="late entry", update_date="2026-09-05"
+        _GOAL, 45.0, note="late entry", update_date="2026-09-05"
     )
 
     assert result.is_ok
@@ -265,8 +284,8 @@ async def test_manual_update_dates_its_entry_and_stamp_at_the_supplied_date() ->
     assert _entries(updates)[-1] == {
         "date": first_instant.isoformat(),
         "progress_percentage": 45.0,
+        "note": "late entry",
     }
-    assert updates["metadata"]["progress_notes"][-1]["date"] == first_instant.isoformat()
 
 
 @pytest.mark.asyncio
@@ -325,29 +344,3 @@ async def test_a_null_or_unknown_status_is_a_validation_failure_not_a_crash(
     assert result.is_error
     assert result.expect_error().category.value == "validation"
     assert recorder.calls == []  # refused before the write
-
-
-@pytest.mark.asyncio
-async def test_the_progress_window_reads_each_note_as_an_instant() -> None:
-    """Notes dated naive (a naive writer), aware or unreadably share one window."""
-    now = datetime.now(UTC)
-    notes = [
-        {"date": (now - timedelta(days=3)).replace(tzinfo=None).isoformat(), "notes": "naive"},
-        {
-            "date": (now - timedelta(days=5)).astimezone(timezone(timedelta(hours=7))).isoformat(),
-            "notes": "bangkok",
-        },
-        {"date": (now - timedelta(days=9)).isoformat(), "notes": "stale"},
-        {"date": "not-a-date", "notes": "unreadable"},
-    ]
-    goal = _goal()
-    dto = goal.to_dto()
-    dto.metadata = {"progress_notes": notes}
-    backend = Mock()
-    backend.get_goal = AsyncMock(return_value=Result.ok(dto))
-    service = _progress_service(backend)
-
-    result = await service.get_goal_progress(_GOAL, period="week")
-
-    assert result.is_ok
-    assert [n["notes"] for n in result.value["progress_history"]] == ["naive", "bangkok"]

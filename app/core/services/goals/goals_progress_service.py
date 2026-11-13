@@ -61,7 +61,6 @@ from core.utils.timestamp_helpers import (
     as_stored_clock,
     as_utc,
     from_wall_clock,
-    instant_of,
     now_utc,
     today_in,
 )
@@ -386,12 +385,14 @@ def _plan_milestones(goal: Goal, milestones: list[Milestone]) -> _ProgressWrite:
 
 
 def _plan_entered_figure(
-    goal: Goal, value: float, notes: str, at: datetime
+    goal: Goal, value: float, note: str, at: datetime
 ) -> Result[_ProgressWrite]:
     """Plan the write of a figure the learner entered, or the refusal it is owed.
 
     Runs under the goal's lock. ``at`` is the moment the progress happened, on the
-    stored clock.
+    stored clock. ``note`` rides the history entry the write appends; a note with
+    the figure unmoved is still an entry, marked ``note_only`` (it records what the
+    learner said, not a progress event, so no stamp and no event).
     """
     measurement = goal.measurement_type or MeasurementType.PERCENTAGE
     if not measurement.takes_entered_figure():
@@ -437,14 +438,11 @@ def _plan_entered_figure(
     progress_changed = abs(new_progress - old_progress) >= 0.01
     if progress_changed:
         updates["last_progress_update"] = at
-        updates["progress_history"] = with_progress_entry(goal, new_progress, at)
-    if notes:
-        metadata = dict(goal.metadata or {})
-        metadata["progress_notes"] = [
-            *metadata.get("progress_notes", ()),
-            {"date": at.isoformat(), "notes": notes},
-        ]
-        updates["metadata"] = metadata
+        updates["progress_history"] = with_progress_entry(goal, new_progress, at, note)
+    elif note:
+        updates["progress_history"] = with_progress_entry(
+            goal, new_progress, at, note, note_only=True
+        )
 
     guard, achievement, unachievement = _recompute_status_write(old_progress, new_progress)
     return Result.ok(
@@ -489,10 +487,6 @@ if TYPE_CHECKING:
     from core.events.habit_events import HabitCompleted
     from core.models.graph.path_aware_types import GoalCrossContext
     from core.services.relationships import UnifiedRelationshipService
-
-
-#: The trailing window each ``get_goal_progress`` period names, in days.
-_PROGRESS_PERIOD_DAYS: dict[str, int] = {"week": 7, "month": 30, "quarter": 90, "year": 365}
 
 
 def _parse_progress_date(raw: str) -> datetime | None:
@@ -1205,7 +1199,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     async def update_goal_progress(
-        self, uid: str, progress_value: float, notes: str = "", update_date: str | None = None
+        self, uid: str, progress_value: float, note: str = "", update_date: str | None = None
     ) -> Result[Goal]:
         """Record the figure the learner enters for a goal; the goal as written.
 
@@ -1223,7 +1217,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Args:
             uid: Goal UID
             progress_value: The entered figure
-            notes: Optional progress notes
+            note: The learner's note on this entry, if any (stored on the
+                history entry the write appends, the figure moved or not)
             update_date: The date the progress happened (ISO date or datetime),
                 when it is not now — a September correction entered in October
                 is a September event. Unparseable or in the future: validation
@@ -1251,7 +1246,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             at = parsed
 
         def enter(goal: Goal) -> Result[_ProgressWrite]:
-            return _plan_entered_figure(goal, progress_value, notes, at)
+            return _plan_entered_figure(goal, progress_value, note, at)
 
         rewrite = await self._rewrite_goal(uid, enter)
         if rewrite.is_error:
@@ -1262,57 +1257,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             uid, UserUID(str(goal.user_uid)), plan, outcome.prior_status, trigger="manual"
         )
         return Result.ok(goal)
-
-    async def get_goal_progress(self, uid: str, period: str = "month") -> Result[dict[str, Any]]:
-        """
-        Get goal progress history for a period.
-
-        Args:
-            uid: Goal UID
-            period: Time period ("week", "month", "quarter", "year", "all")
-
-        Returns:
-            Result containing progress history data
-        """
-        # Get goal (as DTO to access metadata)
-        goal_result = await self.backend.get_goal(uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
-
-        goal_dto = goal_result.value
-        if not goal_dto:
-            return Result.fail(Errors.not_found(resource="Goal", identifier=uid))
-
-        goal = to_domain_model(goal_dto, GoalDTO, Goal)
-
-        # Extract progress notes from DTO metadata
-        metadata: dict[str, Any] = goal_dto.metadata or {}
-        progress_notes = metadata.get("progress_notes", [])
-
-        # Filter notes by period — a trailing window of whole days, compared as instants
-        window_days = _PROGRESS_PERIOD_DAYS.get(period)
-        if window_days is not None and progress_notes:
-            cutoff = now_utc() - timedelta(days=window_days)
-            zone = current_zone()
-            progress_notes = [
-                note
-                for note in progress_notes
-                if (noted := instant_of(note["date"], zone)) is not None and noted >= cutoff
-            ]
-
-        return Result.ok(
-            {
-                "goal_uid": uid,
-                "current_progress": goal.progress_percentage,
-                "target_value": goal.target_value,
-                "period": period,
-                "progress_history": progress_notes,
-                "days_remaining": goal.days_remaining(),
-                "is_on_track": goal.progress_percentage >= goal.expected_progress_percentage()
-                if goal.target_date
-                else None,
-            }
-        )
 
     # ========================================================================
     # EVENT HANDLERS

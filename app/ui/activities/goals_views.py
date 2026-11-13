@@ -8,10 +8,12 @@ Usage:
 """
 
 import json
-from typing import TYPE_CHECKING, Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, cast
 
 from fasthtml.common import (
     A,
+    Details,
     Div,
     Form,
     Li,
@@ -19,6 +21,7 @@ from fasthtml.common import (
     P,
     Small,
     Span,
+    Summary,
     Ul,
 )
 from fasthtml.common import Button as HtmlButton
@@ -26,8 +29,11 @@ from fasthtml.common import Button as HtmlButton
 from core.models.enums.activity_enums import ProgressLevel
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.goal_enums import HabitEssentiality, MeasurementType
+from core.models.goal.goal_request import PROGRESS_NOTE_MAX_LENGTH
 from core.models.relationship_names import RelationshipName
 from core.utils.activity_stats import compute_goal_stats
+from core.utils.timestamp_helpers import instant_of
+from core.utils.zone_context import current_zone
 from ui.activities._shared import (
     ActivityList,
     ConnectionRows,
@@ -37,7 +43,7 @@ from ui.activities._shared import (
     TagsBlock,
     safe_id,
 )
-from ui.components import Button, ButtonT, Icon, Input, Label, Select
+from ui.components import Button, ButtonT, Icon, Input, Label, Select, TextArea
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, Progress, ProgressT, StatusBadge
 from ui.patterns.entity_picker import EntityPicker
@@ -56,6 +62,7 @@ if TYPE_CHECKING:
     from core.models.goal.goal import Goal
     from core.models.goal.goal_habit_link import GoalHabitLink
     from core.models.goal.milestone import Milestone
+    from core.models.goal.progress_history import ProgressHistoryEntry
     from core.ports.query_types import EntityConnection
 
 
@@ -239,6 +246,7 @@ def GoalDetailView(
             variant=ProgressT.success if on_track else ProgressT.warning,
         ),
         _ProgressControl(goal),
+        ProgressHistorySection(goal),
         cls="my-4",
     )
 
@@ -401,21 +409,33 @@ def _ProgressControl(goal: Goal) -> FT | None:
         value, ceiling = f"{goal.progress_percentage or 0.0:g}", 100
     return Form(
         Label(label, fr=f"goal-progress-{form_id}", cls="block mb-2"),
+        Input(
+            name="progress",
+            id=f"goal-progress-{form_id}",
+            type="number",
+            min=0,
+            max=ceiling,
+            step="any",
+            value=value,
+            required=True,
+            inputmode="decimal",
+            cls="sm:w-40",
+        ),
+        Label("Note (optional)", fr=f"goal-progress-note-{form_id}", cls="block mt-3 mb-2"),
+        TextArea(
+            name="note",
+            id=f"goal-progress-note-{form_id}",
+            rows=2,
+            maxlength=PROGRESS_NOTE_MAX_LENGTH,
+            placeholder="What moved, or what held it back",
+        ),
+        Small(
+            "Kept with this entry in the history below, even when the figure stays the same.",
+            cls="block mt-2 text-muted-foreground",
+        ),
         Div(
-            Input(
-                name="progress",
-                id=f"goal-progress-{form_id}",
-                type="number",
-                min=0,
-                max=ceiling,
-                step="any",
-                value=value,
-                required=True,
-                inputmode="decimal",
-                cls="sm:w-40",
-            ),
             Button("Save progress", type="submit", cls=ButtonT.default, size="field"),
-            cls="flex flex-col sm:flex-row gap-2",
+            cls="mt-3",
         ),
         hx_post=f"/api/goals/{goal.uid}/progress",
         hx_target=f"#{goal_detail_id(goal.uid)}",
@@ -423,6 +443,80 @@ def _ProgressControl(goal: Goal) -> FT | None:
         hx_disabled_elt="find button[type=submit]",
         cls="mt-4",
         data_goal_progress="1",
+    )
+
+
+#: How many history entries show before the rest fold under "Show all".
+_HISTORY_SHOWN = 5
+
+_NO_INSTANT = datetime.min.replace(tzinfo=UTC)
+
+
+def ProgressHistorySection(goal: Goal) -> FT:
+    """The goal's progress history, newest first: each entry's day in the user's zone,
+    the figure, and the learner's note.
+
+    The latest ``_HISTORY_SHOWN`` entries show; the rest fold under a "Show all"
+    disclosure. An entry recording a note written without moving the figure says
+    the figure was unchanged. Shown on every goal, derived ones and goals set aside
+    included: it is the figure's record, read-only.
+    """
+    # Every writer appends in the entry shape (``with_progress_entry``).
+    entries = _newest_first(cast("Sequence[ProgressHistoryEntry]", goal.progress_history))
+    if not entries:
+        return Div(
+            section_label("Progress history"),
+            P("No progress recorded yet.", cls="text-sm text-muted-foreground"),
+            cls="mt-4",
+            data_goal_history="0",
+        )
+    shown, folded = entries[:_HISTORY_SHOWN], entries[_HISTORY_SHOWN:]
+    return Div(
+        section_label("Progress history"),
+        Ul(*(_ProgressHistoryRow(entry) for entry in shown), cls="space-y-2"),
+        Details(
+            Summary(
+                f"Show all {len(entries)} entries",
+                cls="text-sm text-muted-foreground cursor-pointer select-none mt-2",
+            ),
+            Ul(*(_ProgressHistoryRow(entry) for entry in folded), cls="space-y-2 mt-2"),
+        )
+        if folded
+        else "",
+        cls="mt-4",
+        data_goal_history=str(len(entries)),
+    )
+
+
+def _newest_first(history: Sequence[ProgressHistoryEntry]) -> list[ProgressHistoryEntry]:
+    """The entries newest first by the moment each names (a backdated entry sits at
+    its own date, not where it was written), the later-written first among entries
+    dated alike; an unreadable date sorts last."""
+    zone = current_zone()
+
+    def when(entry: ProgressHistoryEntry) -> datetime:
+        return instant_of(entry.get("date"), zone) or _NO_INSTANT
+
+    return sorted(reversed(history), key=when, reverse=True)
+
+
+def _ProgressHistoryRow(entry: ProgressHistoryEntry) -> FT:
+    """One history entry: the day, the figure (unchanged on a note written alone),
+    and the note."""
+    raw = entry.get("progress_percentage")
+    figure = f"{round(float(raw), 1):g}%" if raw is not None else "No figure"
+    if entry.get("note_only"):
+        figure = f"{figure}, unchanged"
+    note = entry.get("note")
+    return Li(
+        Div(
+            Span(format_date(entry.get("date"), empty="Undated"), cls="text-muted-foreground"),
+            Span(figure, cls="font-medium"),
+            cls="flex flex-wrap gap-x-3 text-sm",
+        ),
+        P(note, cls="text-sm whitespace-pre-line break-words") if note else "",
+        cls="border-l-2 border-border pl-3",
+        data_goal_history_entry="1",
     )
 
 

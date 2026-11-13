@@ -289,9 +289,11 @@ def create_goals_api_routes(
         """Record the figure the caller enters for their goal (``GoalProgressUpdateRequest``).
 
         A numeric goal takes a value in its own unit, the other entered types a
-        percentage (above 100 → 400). Not owned or missing → 404. A goal whose figure
-        is derived (task-based, habit-based, milestone) is refused (422) and keeps its
-        figure. Reaching 100 achieves the goal; falling from it un-achieves it.
+        percentage (above 100 → 400). An optional ``note`` (500 characters at most)
+        is kept on the history entry the write appends, the figure moved or not. Not
+        owned or missing → 404. A goal whose figure is derived (task-based,
+        habit-based, milestone) is refused (422) and keeps its figure. Reaching 100
+        achieves the goal; falling from it un-achieves it.
         """
         user_uid = require_authenticated_user(request)
         ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
@@ -304,7 +306,7 @@ def create_goals_api_routes(
         return await answer(
             request,
             await goals_service.update_goal_progress(
-                uid, entered.new_value, update_date=entered.update_date
+                uid, entered.new_value, entered.note, update_date=entered.update_date
             ),
         )
 

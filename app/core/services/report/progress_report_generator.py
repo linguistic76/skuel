@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any, cast
 from core.models.enums import EntityStatus
 from core.models.goal.progress_history import ProgressHistoryEntry
 from core.models.principle.principle_types import AlignmentHistoryRecord
+from core.services.goals.progress_history import is_progress_event
 
 if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
@@ -930,7 +931,8 @@ class ProgressReportGenerator:
         (the rich query selects completed tasks by ``updated_at``, so an old
         completion re-edited in the period must not count) over ``tasks_total`` =
         completed in period + open now, the period's own denominator; ``goals_progressed`` =
-        a ``progress_history`` entry dated in period; ``habits_completed`` = a
+        a ``progress_history`` progress event dated in period (a note written
+        without moving the figure is not one); ``habits_completed`` = a
         ``HabitCompletion`` row in period (a habit whose NODE status is completed is
         a retired habit); ``events_attended`` = in-period events whose status is
         completed (attendance is the completed state, as
@@ -1038,7 +1040,7 @@ class ProgressReportGenerator:
                 if not existed_by_period_end(entity):
                     continue
                 progressed_in_period = any(
-                    in_period(entry.get("date"))
+                    in_period(entry.get("date")) and is_progress_event(entry)
                     for entry in _progress_history(entity.get("progress_history"))
                 )
                 if progressed_in_period:

@@ -199,7 +199,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### GoalsService
 
-**Facade-specific public methods:** 62
+**Facade-specific public methods:** 61
 
 | Method | Async |
 |--------|-------|
@@ -232,7 +232,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `get_goal_hierarchy()` | ✅ |
 | `get_goal_learning_requirements()` | ✅ |
 | `get_goal_load_by_timeframe()` | ✅ |
-| `get_goal_progress()` | ✅ |
 | `get_goal_progress_dashboard()` | ✅ |
 | `get_goals_blocked_by_knowledge()` | ✅ |
 | `get_goals_needing_habits()` | ✅ |

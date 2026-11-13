@@ -19,6 +19,10 @@ Each door verifies the owner at the route, reads JSON or the page's form through
   the completion that follows;
 - a goal reopened at the status door takes the figure its measure gives (milestones,
   units), and only a goal whose percentage is the measure is reset to 0;
+- a note posted with a figure from the page's form rides the history entry the
+  write appends, a note with the figure unmoved is an entry of its own and moves no
+  stamp, the page shows the history newest first, and notes racing on one goal are
+  all kept;
 - another user's goal is not found at any of the doors, and stays as it was.
 """
 
@@ -505,12 +509,15 @@ async def test_another_users_goal_is_not_found_at_any_door_and_stays_as_it_was(e
 
     answers = [
         await env.client.post(f"/api/goals/{STRANGERS_GOAL}/progress", json={"progress": 90}),
+        await env.client.post(
+            f"/api/goals/{STRANGERS_GOAL}/progress", json={"progress": 10, "note": "Mine now"}
+        ),
         await env.client.post(f"/api/goals/{STRANGERS_GOAL}/milestones", json={"title": "Mine"}),
         await _complete(env, STRANGERS_GOAL, milestone["uid"]),
         await _reopen(env, STRANGERS_GOAL, milestone["uid"]),
     ]
 
-    assert [answer.status_code for answer in answers] == [404, 404, 404, 404]
+    assert [answer.status_code for answer in answers] == [404, 404, 404, 404, 404]
     assert await _node(env, STRANGERS_GOAL) == before
 
 
@@ -609,6 +616,76 @@ async def test_the_progress_form_posts_the_figure_the_page_asks_for(env: Env) ->
     assert 'value="12.5"' in saved.text
     node = await _node(env, numeric)
     assert (node["current_value"], node["progress_percentage"]) == (12.5, 25.0)
+
+
+# ---------------------------------------------------------------------------
+# A progress note, kept on the history the page shows
+# ---------------------------------------------------------------------------
+
+
+async def test_a_figure_and_a_note_from_the_page_form_land_in_the_history_it_shows(
+    env: Env,
+) -> None:
+    uid = await _goal(env, "page-note")
+    page = await _page(env, uid)
+    assert "No progress recorded yet." in page
+    form = _tag(page, "data-goal-progress")
+
+    # The form's own encoding (multipart), the note padded as a learner might type it.
+    saved = await env.client.post(
+        _attribute(form, "hx-post"),
+        files={"progress": (None, "30"), "note": (None, "  Read chapter three \n")},
+        headers=HTMX,
+    )
+    assert saved.status_code == 200, saved.text
+    (entry,) = _rows(await _node(env, uid), "progress_history")
+    assert (entry["progress_percentage"], entry["note"]) == (30.0, "Read chapter three")
+    assert "note_only" not in entry
+
+    # The same figure with a note: an entry of its own, marked, and no stamp moves.
+    before = await _node(env, uid)
+    form = _tag(saved.text, "data-goal-progress")
+    held = await env.client.post(
+        _attribute(form, "hx-post"),
+        files={"progress": (None, "30"), "note": (None, "Stuck on four")},
+        headers=HTMX,
+    )
+    assert held.status_code == 200, held.text
+    after = await _node(env, uid)
+    assert _changed(before, after) == {"progress_history"}
+    assert [
+        (row.get("note"), row.get("note_only")) for row in _rows(after, "progress_history")
+    ] == [
+        ("Read chapter three", None),
+        ("Stuck on four", True),
+    ]
+
+    shown = unescape(await _page(env, uid))
+    assert re.search(r">30%, unchanged</span>\s*</div>\s*<p[^>]*>Stuck on four</p>", shown)
+    assert re.search(r">30%</span>\s*</div>\s*<p[^>]*>Read chapter three</p>", shown)
+    assert shown.index("Stuck on four") < shown.index("Read chapter three"), "newest first"
+    assert "No progress recorded yet." not in shown
+
+
+async def test_notes_posted_at_once_are_all_kept(env: Env) -> None:
+    uid = await _goal(env, "notes-race")
+
+    for trial in range(_TRIALS):
+        answers = await asyncio.gather(
+            *(
+                env.client.post(
+                    f"/api/goals/{uid}/progress",
+                    json={"progress": 10 * trial + racer, "note": f"t{trial}-r{racer}"},
+                )
+                for racer in range(_RACERS)
+            )
+        )
+        assert [answer.status_code for answer in answers] == [200] * _RACERS
+
+    notes = [row["note"] for row in _rows(await _node(env, uid), "progress_history")]
+    assert sorted(notes) == sorted(
+        f"t{trial}-r{racer}" for trial in range(_TRIALS) for racer in range(_RACERS)
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -352,8 +352,43 @@ class TestProgressAndMilestoneDoors:
         assert _post_form(client, _DOORS[0][0], {"progress": "62.5"}).status_code == 200
 
         calls = goals_service.update_goal_progress.await_args_list
-        assert [c.args for c in calls] == [(_GOAL_UID, 40.0), (_GOAL_UID, 62.5)]
+        assert [c.args for c in calls] == [(_GOAL_UID, 40.0, ""), (_GOAL_UID, 62.5, "")]
         assert [c.kwargs for c in calls] == [{"update_date": None}, {"update_date": None}]
+
+    def test_a_note_reaches_the_service_trimmed_and_a_blank_one_as_no_note(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+
+        noted = _post_form(client, _DOORS[0][0], {"progress": "40", "note": "  Chapter three "})
+        blank = _post_form(client, _DOORS[0][0], {"progress": "40", "note": "   "})
+        as_json = _post_json(client, _DOORS[0][0], {"progress": 40, "note": None})
+
+        assert [r.status_code for r in (noted, blank, as_json)] == [200, 200, 200]
+        calls = goals_service.update_goal_progress.await_args_list
+        assert [c.args[2] for c in calls] == ["Chapter three", "", ""]
+
+    @pytest.mark.parametrize("note", ["x" * 501, 7])
+    def test_a_note_too_long_or_not_text_is_400_and_writes_nothing(
+        self, monkeypatch: pytest.MonkeyPatch, note: object
+    ) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+
+        response = _post_json(client, _DOORS[0][0], {"progress": 40, "note": note})
+
+        assert response.status_code == 400
+        goals_service.update_goal_progress.assert_not_awaited()
+
+    def test_a_note_of_the_longest_length_padded_with_space_is_taken(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+
+        note = "x" * 500
+        response = _post_json(client, _DOORS[0][0], {"progress": 40, "note": f"  {note}  "})
+
+        assert response.status_code == 200
+        assert goals_service.update_goal_progress.await_args.args[2] == note
 
     def test_a_milestone_reaches_the_service_trimmed_with_a_blank_date_as_none(
         self, monkeypatch: pytest.MonkeyPatch
