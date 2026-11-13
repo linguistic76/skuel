@@ -172,7 +172,7 @@ Progress(value=88, variant=ProgressT.success)  # success/warning/error/primary/.
 ### StatsGrid Usage Rules
 
 - **Never hand-roll** stat grids with raw `Div()` + grid + Tailwind — always use `StatsGrid()`/`StatItem()`.
-- Use `StatItem` frozen dataclass (not dicts) for type-safe data passing: `label`, `value`, `change`, `trend`, `color`.
+- Use `StatItem` frozen dataclass (not dicts) for type-safe data passing: `label`, `value`, `change`, `trend`, `color` (a `StatColor` token: `primary`, `success`, `info`, `warning`, `error`, `muted-foreground`; a palette name is refused).
 - `StatsGrid(stats, cols=4)` — responsive grid container. `StatCard()` for individual cards outside a grid.
 - Adopted across ~16 files (insights, pathways, analytics, finance, admin, profile).
 

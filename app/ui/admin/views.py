@@ -227,7 +227,7 @@ class AdminUIComponents:
             [
                 StatItem(label="Total Users", value=stats.get("total", 0), color="info"),
                 StatItem(label="Admins", value=stats.get("admins", 0), color="error"),
-                StatItem(label="Teachers", value=stats.get("teachers", 0), color="orange-600"),
+                StatItem(label="Teachers", value=stats.get("teachers", 0)),
                 StatItem(label="Members", value=stats.get("members", 0), color="success"),
                 StatItem(
                     label="Free Users", value=stats.get("registered", 0), color="muted-foreground"
@@ -407,10 +407,9 @@ class AdminUIComponents:
             StatItem(
                 label=f"Habits ({stats.get('habits_active', 0)} active)",
                 value=stats.get("habits_total", 0),
-                color="purple-600",
             ),
-            StatItem(label="Events", value=stats.get("events_total", 0), color="orange-600"),
-            StatItem(label="Choices", value=stats.get("choices_total", 0), color="indigo-600"),
+            StatItem(label="Events", value=stats.get("events_total", 0)),
+            StatItem(label="Choices", value=stats.get("choices_total", 0)),
             StatItem(label="Principles", value=stats.get("principles_total", 0), color="warning"),
         ]
 
@@ -418,7 +417,9 @@ class AdminUIComponents:
         learning_stats = [
             StatItem(label="KUs Viewed", value=stats.get("ku_viewed", 0), color="muted-foreground"),
             StatItem(
-                label="KUs In Progress", value=stats.get("ku_in_progress", 0), color="orange-600"
+                label="KUs In Progress",
+                value=stats.get("ku_in_progress", 0),
+                color="warning",
             ),
             StatItem(label="KUs Mastered", value=stats.get("ku_mastered", 0), color="success"),
         ]
@@ -427,7 +428,8 @@ class AdminUIComponents:
         session_stats = [
             StatItem(label="Total Logins", value=stats.get("login_count", 0), color="info"),
             StatItem(
-                label="Total Sessions", value=stats.get("session_count", 0), color="purple-600"
+                label="Total Sessions",
+                value=stats.get("session_count", 0),
             ),
         ]
 
@@ -629,9 +631,9 @@ class AdminAnalyticsComponents:
         """Every task, habit and goal on the graph: any status, any age."""
         return StatsGrid(
             [
-                StatItem(label="Tasks", value=activity["tasks"], color="success"),
-                StatItem(label="Habits", value=activity["habits"], color="purple-600"),
-                StatItem(label="Goals", value=activity["goals"], color="orange-600"),
+                StatItem(label="Tasks", value=activity["tasks"]),
+                StatItem(label="Habits", value=activity["habits"]),
+                StatItem(label="Goals", value=activity["goals"]),
             ]
         )
 
@@ -928,16 +930,16 @@ class AdminLearningComponents:
                 StatItem(
                     label="In Progress",
                     value=metrics.get("total_in_progress", 0),
-                    color="orange-600",
+                    color="warning",
                 ),
                 StatItem(label="Mastered", value=metrics.get("total_mastered", 0), color="success"),
                 StatItem(
-                    label="Bookmarked", value=metrics.get("total_bookmarked", 0), color="indigo-600"
+                    label="Bookmarked",
+                    value=metrics.get("total_bookmarked", 0),
                 ),
                 StatItem(
                     label="Active Learners",
                     value=metrics.get("users_with_progress", 0),
-                    color="purple-600",
                 ),
             ]
         )
@@ -1030,11 +1032,12 @@ class AdminLearningComponents:
                 StatItem(
                     label="In Progress",
                     value=summary.get("in_progress_count", 0),
-                    color="orange-600",
+                    color="warning",
                 ),
                 StatItem(label="Mastered", value=summary.get("mastered_count", 0), color="success"),
                 StatItem(
-                    label="Bookmarked", value=summary.get("bookmarked_count", 0), color="indigo-600"
+                    label="Bookmarked",
+                    value=summary.get("bookmarked_count", 0),
                 ),
             ]
         )

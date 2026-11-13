@@ -16,7 +16,7 @@ from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
 from ui.finance.types import InvoiceRow, InvoiceStats
 from ui.patterns.page_header import PageHeader
-from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.patterns.stats_grid import StatColor, StatItem, StatsGrid
 
 
 class InvoiceViews:
@@ -63,7 +63,7 @@ class InvoiceViews:
     @staticmethod
     def _render_stats_cards(stats: InvoiceStats) -> FT:
         """Render invoice statistics cards."""
-        overdue_color = "error" if stats.overdue_count > 0 else "success"
+        overdue_color: StatColor = "error" if stats.overdue_count > 0 else "success"
         return StatsGrid(
             [
                 StatItem(label="Total Invoices", value=stats.total_count, color="info"),

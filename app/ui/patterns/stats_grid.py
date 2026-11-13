@@ -5,12 +5,44 @@ dashboards. They show counts, totals, and trends in a compact format.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from fasthtml.common import FT, Div, Span
 
 from ui.components import Card, CardBody
 from ui.layout import Grid
+
+#: The colours a statistic's value may take: a semantic token that has a text
+#: colour in both themes.
+StatColor = Literal["primary", "success", "info", "warning", "error", "muted-foreground"]
+
+# Each class is written out whole: the stylesheet is compiled from the class
+# names found in the source, and a name assembled at render time is not one.
+_VALUE_COLOR_CLASSES: dict[str, str] = {
+    "primary": "text-primary",
+    "success": "text-success",
+    "info": "text-info",
+    "warning": "text-warning",
+    "error": "text-error",
+    "muted-foreground": "text-muted-foreground",
+}
+
+
+def value_color_class(color: StatColor | None) -> str:
+    """The text class for a statistic's value; the default text colour for none.
+
+    Raises:
+        ValueError: ``color`` is not a ``StatColor`` token. A palette name such
+            as ``purple-600`` has no compiled class and would render as plain text.
+    """
+    if color is None:
+        return "text-foreground"
+    try:
+        return _VALUE_COLOR_CLASSES[color]
+    except KeyError:
+        raise ValueError(
+            f"{color!r} is not a stat colour; use one of {', '.join(_VALUE_COLOR_CLASSES)}"
+        ) from None
 
 
 @dataclass(frozen=True)
@@ -21,7 +53,7 @@ class StatItem:
     value: str | int
     change: str | None = None
     trend: str | None = None
-    color: str | None = None
+    color: StatColor | None = None
     href: str | None = None
 
 
@@ -30,7 +62,7 @@ def StatCard(
     value: str | int,
     change: str | None = None,
     trend: str | None = None,
-    color: str | None = None,
+    color: StatColor | None = None,
     href: str | None = None,
     **kwargs: Any,
 ) -> FT:
@@ -42,8 +74,9 @@ def StatCard(
         change: Optional change text (e.g., "+5 this week")
         trend: Optional trend direction - "up", "down", or "neutral"
             Used to color the change text
-        color: Optional semantic color token (e.g., "primary", "success",
-            "accent", "secondary", "error"). Applied as text-{color} to the value.
+        color: Optional ``StatColor`` token ("primary", "success", "info",
+            "warning", "error", "muted-foreground"), the colour of the value.
+            Anything else raises ``ValueError``.
         href: Optional URL — makes the entire card a clickable link.
         **kwargs: Additional attributes passed to Card
 
@@ -67,9 +100,7 @@ def StatCard(
         "neutral": "text-muted-foreground",
     }
 
-    value_cls = (
-        f"text-3xl font-bold text-{color}" if color else "text-3xl font-bold text-foreground"
-    )
+    value_cls = f"text-3xl font-bold {value_color_class(color)}"
 
     content: list[Any] = [
         Span(label, cls="text-xs text-muted-foreground uppercase tracking-wide"),

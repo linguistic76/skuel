@@ -1,6 +1,6 @@
 ---
 title: "ADR-022: Graph-Native Authentication"
-updated: 2026-10-24
+updated: 2026-11-13
 status: current
 category: decisions
 tags: [adr, decisions, authentication, security, neo4j]
@@ -57,7 +57,7 @@ All authentication data lives in Neo4j alongside user data:
 ```
 (User)-[:HAS_SESSION]->(Session)
      |-[:HAS_RESET_TOKEN]->(PasswordResetToken)
-     |-[:HAS_AUTH_EVENT]->(AuthEvent)
+     |-[:HAD_AUTH_EVENT]->(AuthEvent)
 ```
 
 **Key Components:**

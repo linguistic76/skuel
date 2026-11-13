@@ -512,8 +512,13 @@ class UserBackend(Neo4jSessionRunner):
         plus every :Session node, every :ReviewRequest they made and every
         :AuthEvent logged for the account (each carries its uid, email and IP
         address), in the same transaction (an orphaned session carrying the
-        erased uid must not outlive the account). The account's presence edges
-        go with the User node; the shared :Month nodes they pointed at stay.
+        erased uid must not outlive the account). An auth event is the
+        account's when it is linked to it or carries its email: a failed
+        sign-in for an email no account held yet has the email and no uid, and
+        nothing joins it to the account once the User node is gone. An account
+        that holds no email (a soft-deleted one) has only its linked events to
+        take. The account's presence edges go with the User node; the shared
+        :Month nodes they pointed at stay.
         Use only when
         compliance requires full erasure — the default account closure path
         is ``delete_user`` (soft-delete, keeps history).
@@ -533,7 +538,9 @@ class UserBackend(Neo4jSessionRunner):
         # didn't anchor on the User would keep resolving those tokens after
         # the account is erased. Erasure means the sessions go too.
         # Review requests go too: each carries the user's uid and their own message.
-        # So do the account's auth events: uid, email and IP address.
+        # So do the account's auth events: uid, email and IP address. The
+        # ones matched by email alone are read while the User node still
+        # holds it; a null email matches none.
         query = f"""
         MATCH (u:{self.label} {{uid: $uid}})
         OPTIONAL MATCH (u)-[:HAS_SESSION]->(sess:Session)
@@ -541,7 +548,10 @@ class UserBackend(Neo4jSessionRunner):
         WITH u, collect(DISTINCT sess) + collect(DISTINCT asked) AS trailing_nodes
         OPTIONAL MATCH (u)-[:{RelationshipName.HAD_AUTH_EVENT.value}]->(logged:AuthEvent)
         WITH u, trailing_nodes, collect(DISTINCT logged) AS logged_nodes
-        WITH u, trailing_nodes + logged_nodes AS trailing_nodes
+        OPTIONAL MATCH (mailed:AuthEvent)
+        WHERE mailed.email = u.email AND NOT mailed IN logged_nodes
+        WITH u, trailing_nodes, logged_nodes, collect(DISTINCT mailed) AS mailed_nodes
+        WITH u, trailing_nodes + logged_nodes + mailed_nodes AS trailing_nodes
         OPTIONAL MATCH (u)-[:OWNS]->(owned)
         WITH u, trailing_nodes, collect(DISTINCT owned) AS owned_nodes
         WITH u, trailing_nodes, owned_nodes, size(owned_nodes) AS owned_count
