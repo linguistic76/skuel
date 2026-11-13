@@ -37,7 +37,6 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     """
 
     # Populated by EventsIntelligenceService.__init__
-    orchestrator: Any
     graph_intel: Any
     relationships: Any
     logger: Any

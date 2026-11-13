@@ -14,6 +14,7 @@ from core.services.askesis_service import AskesisDeps, AskesisService
 if TYPE_CHECKING:
     from core.ports.askesis_protocols import AskesisCoreOperations
     from core.ports.zpd_protocols import ZPDOperations
+    from core.services.activity_services import ActivityServices
     from core.services.canon import CanonRetrievalService
     from core.services.user.intelligence import UserContextIntelligenceFactory
 
@@ -22,7 +23,7 @@ def create_askesis_service(
     *,
     intelligence_factory: UserContextIntelligenceFactory,
     learning_services: dict[str, Any],
-    activity_services: dict[str, Any],
+    activity_services: ActivityServices,
     user_service: Any,
     askesis_core_service: AskesisCoreOperations,
     zpd_service: ZPDOperations,
@@ -39,8 +40,8 @@ def create_askesis_service(
         intelligence_factory: UserContextIntelligenceFactory (required).
         learning_services: Dict from _create_learning_services() — keys: graph_intelligence,
             llm_service, embeddings_service, path_steps.
-        activity_services: Dict from _create_activity_services() — keys: tasks, goals,
-            habits, events.
+        activity_services: The six Activity facades — tasks, goals, habits, events and
+            principles are read.
         user_service: UserOperations instance.
         askesis_core_service: AskesisCoreService — CRUD ops for Askesis instances.
         zpd_service: ZPDService — required for guided pipeline (ZPD readiness assessment).
@@ -71,7 +72,7 @@ def create_askesis_service(
         # PS bundle dependencies for ContextRetriever
         ku_service=learning_services.get("atomic_ku_service"),
         lp_service=learning_services.get("learning_paths"),
-        principles_service=activity_services.get("principles"),
+        principles_service=activity_services["principles"],
         # Backends for ContextRetriever graph queries (migrated from inline Cypher)
         ku_backend=getattr(learning_services.get("atomic_ku_service"), "backend", None),
         ps_backend=getattr(learning_services.get("ps"), "repo", None),

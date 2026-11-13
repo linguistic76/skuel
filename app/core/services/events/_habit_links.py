@@ -13,13 +13,16 @@ populated at fetch time and never written back.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.event.event import Event
+    from core.ports.domain_protocols import EventsOperations
 
 
-async def enrich_events_with_habit_links(backend: Any, events: list[Event]) -> list[Event]:
+async def enrich_events_with_habit_links(
+    backend: EventsOperations, events: list[Event]
+) -> list[Event]:
     """Return events with their derived ``reinforces_habit_uid`` populated.
 
     Batch-looks up the REINFORCES_HABIT edge for ``events`` and returns new Event

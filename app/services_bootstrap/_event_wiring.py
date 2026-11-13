@@ -6,6 +6,7 @@ from core.ports import EventBusOperations
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from core.services.activity_services import ActivityServices
     from core.services.tasks.task_grounding_service import TaskGroundingService
 
 logger = get_logger("skuel.bootstrap")
@@ -14,7 +15,7 @@ logger = get_logger("skuel.bootstrap")
 def _wire_event_subscribers(
     event_bus: EventBusOperations,
     user_service: Any,
-    activity_services: dict[str, Any],
+    activity_services: ActivityServices,
     learning_services: dict[str, Any],
     user_entry_exercise_linker: Any,
     notification_service: Any,

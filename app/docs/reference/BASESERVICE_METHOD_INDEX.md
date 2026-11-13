@@ -269,7 +269,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### HabitsService
 
-**Facade-specific public methods:** 78
+**Facade-specific public methods:** 77
 
 | Method | Async |
 |--------|-------|
@@ -279,7 +279,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `assess_habit_learning_impact()` | ✅ |
 | `check_habit_capacity()` | ✅ |
 | `complete_habit_with_quality()` | ✅ |
-| `complete_with_goal_impacts()` | ✅ |
 | `create()` | ✅ |
 | `create_habit()` | ✅ |
 | `create_habit_from_learning_goal()` | ✅ |

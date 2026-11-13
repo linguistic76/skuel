@@ -39,7 +39,6 @@ class _BehavioralSignalsMixin:
 
     # Populated by HabitsIntelligenceService.__init__
     backend: HabitsOperations
-    orchestrator: Any
     relationships: Any
     cross_domain_query: Any
     insight_store: Any

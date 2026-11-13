@@ -450,7 +450,6 @@ async def compose_services(
         context_service = UserContextService(
             context_builder=context_builder,
             user_service=user_service,
-            tasks_service=None,  # Will be wired after tasks service is created
         )
         logger.info("✅ UserContextService created (context-aware intelligence)")
         logger.info("   - Single UserContextBuilder (owned by UserService) shared app-wide")
@@ -563,12 +562,6 @@ async def compose_services(
             event_bus=event_bus,
         )
         logger.info("✅ Core services created (Finance + event bus wiring)")
-
-        tasks_service = activity_services["tasks"]
-
-        # Wire tasks_service into context_service for context-aware operations
-        context_service.tasks_service = tasks_service
-        logger.info("✅ UserContextService wired with TasksService")
 
         # Note: TranscriptionService is already created in core_services with Deepgram wiring
         # Note: MarkdownSyncService DELETED (January 2026) - use UnifiedIngestionService
@@ -1785,7 +1778,6 @@ async def compose_services(
         # VALIDATE POST-CONSTRUCTION WIRING (fail-fast if any was missed)
         # ========================================================================
         post_wiring_checks = {
-            "context_service.tasks_service": context_service.tasks_service,
             "context_service.goal_task_generator": context_service.goal_task_generator,
             "context_service.habits_service": context_service.habits_service,
             "user_service.intelligence_factory": user_service.intelligence_factory,

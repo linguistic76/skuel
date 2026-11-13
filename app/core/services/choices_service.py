@@ -73,6 +73,7 @@ if TYPE_CHECKING:
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.choices.choices_types import ChoiceImpactAnalysis, DecisionIntelligence
     from core.services.cross_domain import CrossDomainQueryService
+    from core.services.insight.insight_store import InsightStore
     from core.services.user import UserContext
 
 
@@ -327,7 +328,7 @@ class ChoicesService(
         graph_intel: GraphIntelligenceService,
         cross_domain_query: CrossDomainQueryService,
         event_bus: EventBusOperations | None = None,
-        insight_store: Any = None,
+        insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: ChoicesAIService | None = None,
     ) -> None:

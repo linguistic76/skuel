@@ -27,9 +27,12 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 from core.constants import SatisfactionScale
+from core.models.choice.choice import Choice
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
+from core.ports.domain_protocols import ChoicesOperations
+from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import day_of, today_in
@@ -38,25 +41,21 @@ from core.utils.zone_context import current_zone
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from core.ports.domain_protocols import ChoicesOperations
+    from core.services.cross_domain import CrossDomainQueryService
 
 
-class _BehavioralSignalsMixin:
+class _BehavioralSignalsMixin(BaseAnalyticsService[ChoicesOperations, Choice]):
     """
     Dual-track assessment, principle analysis, and ZPD behavioral signals.
 
     Event handlers migrated to ChoiceEventHandlerService (March 2026).
 
-    Declares class-level attributes used by these methods so mypy
-    resolves them without runtime cost.
+    Inherits the analytics base its host is built on, so the dual-track template
+    these methods call is the base's own, checked against its signature.
     """
 
     # Populated by ChoicesIntelligenceService.__init__
-    backend: ChoicesOperations
-    relationships: Any
-    insight_store: Any
-    logger: Any
-    cross_domain_query: Any
+    cross_domain_query: CrossDomainQueryService
 
     # ========================================================================
     # DUAL-TRACK ASSESSMENT (ADR-030)
@@ -92,7 +91,7 @@ class _BehavioralSignalsMixin:
         Returns:
             Result[DualTrackResult[DecisionQualityLevel]] with gap analysis
         """
-        return await self._dual_track_assessment(  # type: ignore[attr-defined]
+        return await self._dual_track_assessment(
             uid=user_uid,  # Using user_uid as entity for user-level assessment
             user_uid=user_uid,
             user_level=user_decision_quality_level,
@@ -181,8 +180,8 @@ class _BehavioralSignalsMixin:
             avg_outcome_quality = sum(outcome_quality(rating) for rating in ratings) / len(ratings)
             evidence.append(f"Average outcome quality: {avg_outcome_quality:.0%}")
 
-        # Calculate principle alignment via relationships. No None guard: the service
-        # declares _require_relationships = True, so it cannot be constructed without one.
+        # Calculate principle alignment via relationships.
+        assert self.relationships is not None  # _require_relationships = True
         principle_aligned_count = 0
         for choice in decided[:10]:  # Sample first 10 for efficiency
             # Service get_related_uids takes (method_key, uid). "informing_principles" is
@@ -347,8 +346,8 @@ class _BehavioralSignalsMixin:
 
         # Average satisfaction per principle, over the choices whose outcome is recorded
         # (a choice with none has no satisfaction, not a zero), as a share of the top.
-        for p_uid, scores in satisfaction_scores.items():
-            principle_breakdown[p_uid]["avg_satisfaction"] = (
+        for principle_uid, scores in satisfaction_scores.items():
+            principle_breakdown[principle_uid]["avg_satisfaction"] = (
                 sum(scores) / len(scores) / SatisfactionScale.HIGHEST
             )
 

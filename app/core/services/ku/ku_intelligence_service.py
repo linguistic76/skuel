@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import MasteryLevel
+from core.models.enums import EntityType, MasteryLevel
 from core.models.ku.ku import Ku
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
@@ -290,7 +290,7 @@ class KuIntelligenceService(
             user_reflection=user_reflection,
             system_calculator=_system_calculator,
             level_scorer=MasteryLevel.to_score,
-            entity_type="ku",
+            entity_type=EntityType.KU.value,
             require_entity=True,
             store_callback=store_callback,
         )

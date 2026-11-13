@@ -18,7 +18,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import ProductivityLevel
 from core.models.shared.dual_track import DualTrackResult
+from core.models.task.task import Task
 from core.models.type_hints import UserUID
+from core.ports.domain_protocols import TasksOperations
+from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
@@ -27,22 +30,15 @@ from core.utils.zone_context import current_zone
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from core.ports.domain_protocols import TasksOperations
 
-
-class _DualTrackMixin:
+class _DualTrackMixin(BaseAnalyticsService[TasksOperations, Task]):
     """Dual-track productivity self-assessment for the Tasks domain.
 
-    Declares class-level attributes used by these methods so mypy resolves them
-    without runtime cost (the house mixin pattern).
+    Inherits the analytics base its host is built on, so the dual-track template
+    these methods call is the base's own, checked against its signature.
 
     See: /docs/decisions/ADR-030-dual-track-assessment-pattern.md
     """
-
-    # Populated by TasksIntelligenceService / BaseAnalyticsService
-    backend: TasksOperations
-    logger: Any
-    _dual_track_assessment: Any  # provided by BaseAnalyticsService
 
     async def assess_productivity_dual_track(
         self,

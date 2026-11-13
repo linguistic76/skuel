@@ -42,7 +42,12 @@ from core.utils.bounded_gather import gather_bounded
 from core.utils.timestamp_helpers import as_utc, now_utc
 
 if TYPE_CHECKING:
-    from core.ports.query_types import KnowledgePrerequisitesResult
+    from core.ports.query_types import (
+        KnowledgeGenerationResult,
+        KnowledgePrerequisitesResult,
+        KnowledgeSuggestionsResult,
+        LearningOpportunitiesResult,
+    )
 from core.models.entity import Entity
 from core.models.enums import EntityStatus, Priority
 from core.ports.base_protocols import BackendOperations
@@ -91,7 +96,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
 
     async def get_knowledge_suggestions(
         self, user_uid: UserUID, entity_uid: EntityUID | None = None
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[KnowledgeSuggestionsResult]:
         """
         Generate knowledge suggestions from entity patterns.
 
@@ -177,7 +182,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
 
     async def generate_knowledge_from_entities(
         self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[KnowledgeGenerationResult]:
         """
         Generate knowledge units from completed entities.
 
@@ -272,7 +277,9 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
     # LEARNING INTELLIGENCE - Domain-agnostic implementations
     # ========================================================================
 
-    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_learning_opportunities(
+        self, user_uid: UserUID
+    ) -> Result[LearningOpportunitiesResult]:
         """
         Discover learning opportunities from entity patterns.
 

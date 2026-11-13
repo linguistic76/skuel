@@ -13,8 +13,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.activity_enums import EngagementLevel
+from core.models.event.event import Event
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
+from core.ports.domain_protocols import EventsOperations
+from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
@@ -24,25 +27,17 @@ from core.utils.zone_context import current_zone
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from core.ports.domain_protocols import EventsOperations
 
-
-class _BehavioralSignalsMixin:
+class _BehavioralSignalsMixin(BaseAnalyticsService[EventsOperations, Event]):
     """
     Dual-track engagement assessment for EventsIntelligenceService.
 
     Compares user self-assessment against system-measured behavioral signals
     (attendance rate, goal support, habit reinforcement, recency).
 
-    Declares class-level attributes used by these methods so mypy
-    resolves them without runtime cost.
+    Inherits the analytics base its host is built on, so the dual-track template
+    these methods call is the base's own, checked against its signature.
     """
-
-    # Populated by EventsIntelligenceService.__init__
-    backend: EventsOperations
-    relationships: Any
-    logger: Any
-    _dual_track_assessment: Any  # provided by BaseAnalyticsService
 
     async def assess_engagement_dual_track(
         self,

@@ -896,9 +896,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Habits: scheduling-aware creation ---
     "core/services/habits_service.py::create_habit_with_scheduling_context": (_HABITS_SCHED_CREATE),
     # --- Habits: goal/Ku orchestration ---
-    "core/services/habits/_orchestration_mixin.py::complete_with_goal_impacts": (
-        _HABITS_ORCHESTRATION
-    ),
     "core/services/habits/_orchestration_mixin.py::create_with_goal_links": (_HABITS_ORCHESTRATION),
     "core/services/habits/_orchestration_mixin.py::get_skills_developed_by_habits": (
         _HABITS_ORCHESTRATION

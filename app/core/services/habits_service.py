@@ -11,7 +11,7 @@ Architecture: Shell delegates to 3 facade mixins in the habits/ package:
   _enrichment_mixin.py    — get_habit_analytics, get_habits_summary_analytics, get_habit_trends,
                              get_enriched_learning_summary,
                              get_enriched_curriculum/prerequisite_metadata
-  _orchestration_mixin.py — complete_with_goal_impacts, create_with_goal_links,
+  _orchestration_mixin.py — create_with_goal_links,
                              link_habit_to_knowledge/principle,
                              get_skills_developed_by_habits, create_semantic_skill_relationship,
                              find_habits_developing_knowledge, create_habit_with_context
@@ -95,9 +95,11 @@ if TYPE_CHECKING:
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import HabitsSearchOperations
     from core.services.cross_domain import CrossDomainQueryService
+    from core.services.goals_service import GoalsService
     from core.services.habits.habits_ai_service import HabitsAIService
     from core.services.habits.habits_core_service import HabitsCoreService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
+    from core.services.insight.insight_store import InsightStore
     from core.services.user import UserContext
 
 
@@ -176,7 +178,7 @@ class HabitsService(
       get_completion_calendar, set/get/delete_habit_reminder
     - _EnrichmentMixin: get_habit_analytics, get_habits_summary_analytics, get_habit_trends,
       get_enriched_learning/curriculum/prerequisite_metadata
-    - _OrchestrationMixin: complete_with_goal_impacts, create_with_goal_links,
+    - _OrchestrationMixin: create_with_goal_links,
       link_habit_to_knowledge/principle,
       get_skills_developed_by_habits, create_habit_with_context, etc.
     """
@@ -547,7 +549,7 @@ class HabitsService(
         completions_backend: BackendOperations[HabitCompletion],
         cross_domain_query: CrossDomainQueryService,
         event_bus: EventBusOperations | None = None,
-        insight_store: Any = None,
+        insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: HabitsAIService | None = None,
     ) -> None:
@@ -654,7 +656,7 @@ class HabitsService(
         # HabitsGoalAnalyticsService shelved (2026-03-28)
 
         # Cross-domain dependency — post-wired in bootstrap
-        self.goals_service: Any = None
+        self.goals_service: GoalsService | None = None
 
         self.logger.info(
             "HabitsService facade initialized with 12 sub-services: "

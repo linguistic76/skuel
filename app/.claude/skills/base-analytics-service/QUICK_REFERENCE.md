@@ -125,7 +125,7 @@ async def _dual_track_assessment(
     user_level: L,
     user_evidence: str,
     user_reflection: str | None,
-    system_calculator: Callable[[Entity | None, str], Awaitable[tuple[L, float, list[str]]]],
+    system_calculator: Callable[[Entity | None, UserUID], Awaitable[tuple[L, float, list[str]]]],
     level_scorer: Callable[[L], float],
     entity_type: str = "",
     require_entity: bool = True,

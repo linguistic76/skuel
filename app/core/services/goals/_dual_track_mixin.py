@@ -10,33 +10,27 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, EntityType
 from core.models.enums.activity_enums import ProgressLevel
+from core.models.goal.goal import Goal
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
+from core.ports.domain_protocols import GoalsOperations
+from core.services.base_analytics_service import BaseAnalyticsService
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
-if TYPE_CHECKING:
-    from core.models.goal.goal import Goal
 
-
-class _DualTrackMixin:
+class _DualTrackMixin(BaseAnalyticsService[GoalsOperations, Goal]):
     """
     Dual-track assessment for GoalsIntelligenceService.
 
-    Declares class-level attributes used by these methods so mypy
-    resolves them without runtime cost.
+    Inherits the analytics base its host is built on, so the dual-track template
+    these methods call is the base's own, checked against its signature.
     """
-
-    # Populated by GoalsIntelligenceService.__init__
-    logger: Any
-    # Provided by BaseAnalyticsService on the composed service.
-    _dual_track_assessment: Any
-    _store_dual_track_checkin: Any
 
     async def assess_progress_dual_track(
         self,
@@ -62,7 +56,7 @@ class _DualTrackMixin:
             user_reflection=user_reflection,
             system_calculator=self._calculate_system_progress,
             level_scorer=self._progress_level_to_score,
-            entity_type="goal",
+            entity_type=EntityType.GOAL.value,
             insight_generator=self._generate_progress_gap_insights,
             recommendation_generator=self._generate_progress_gap_recommendations,
             store_callback=self._store_dual_track_checkin,

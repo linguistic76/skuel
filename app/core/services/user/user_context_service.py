@@ -26,7 +26,7 @@ Dependencies:
 - ``UserContextBuilder`` — context construction (used by view-shaping methods)
 - ``UserService`` — owns ``intelligence_factory`` and ``get_daily_work_plan``
   (used by ``get_next_action``)
-- ``TasksOperations`` / ``GoalTaskGenerator`` / ``HabitsService`` — for the
+- ``GoalTaskGenerator`` / ``HabitsService`` — for the
   context-aware action methods (``complete_habit_with_context``, etc.)
 """
 
@@ -37,7 +37,6 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.task.task import Task as Task
 from core.models.type_hints import UserUID
-from core.ports.domain_protocols import TasksOperations
 from core.ports.query_types import (
     AdaptiveLearningPathResult,
     AtRiskHabitsResult,
@@ -61,6 +60,7 @@ if TYPE_CHECKING:
     from core.models.enums import ContextHealthScore
     from core.models.habit.habit import Habit
     from core.ports.service_protocols import GoalTaskGeneratorOperations
+    from core.services.habits_service import HabitsService
     from core.services.user_service import UserService
 
 logger = get_logger(__name__)
@@ -88,10 +88,9 @@ class UserContextService:
     def __init__(
         self,
         context_builder: UserContextBuilder,
-        user_service: UserService,  # String annotation to avoid circular import
-        tasks_service: TasksOperations | None = None,
+        user_service: UserService,
         goal_task_generator: GoalTaskGeneratorOperations | None = None,
-        habits_service: Any | None = None,  # HabitsService
+        habits_service: HabitsService | None = None,
     ) -> None:
         """
         Initialize context service with infrastructure dependencies.
@@ -99,13 +98,11 @@ class UserContextService:
         Args:
             context_builder: Builds UserContext
             user_service: For user operations
-            tasks_service: For task operations (optional)
             goal_task_generator: For generating tasks from goals (optional)
             habits_service: For habit operations including completion (optional)
         """
         self.context_builder = context_builder
         self.user_service = user_service
-        self.tasks_service = tasks_service
         self.goal_task_generator = goal_task_generator
         self.habits_service = habits_service
         self.logger = get_logger(__name__)

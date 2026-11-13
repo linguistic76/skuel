@@ -11,12 +11,16 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from core.models.enums import EntityType
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.graph.path_aware_types import PrincipleCrossContext
+from core.models.principle.principle import Principle
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
+from core.ports.domain_protocols import PrinciplesOperations
+from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
     MetricsCalculator,
     PatternAnalyzer,
@@ -33,26 +37,14 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
-if TYPE_CHECKING:
-    from core.models.principle.principle import Principle
-    from core.ports.domain_protocols import PrinciplesOperations
 
-
-class _AlignmentIntelligenceMixin:
+class _AlignmentIntelligenceMixin(BaseAnalyticsService[PrinciplesOperations, Principle]):
     """
     Alignment assessment methods for PrinciplesIntelligenceService.
 
-    Declares class-level attributes used by these methods so mypy
-    resolves them without runtime cost.
+    Inherits the analytics base its host is built on, so the dual-track template
+    these methods call is the base's own, checked against its signature.
     """
-
-    # Populated by PrinciplesIntelligenceService.__init__
-    backend: PrinciplesOperations
-    relationships: Any
-    logger: Any
-    # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
-    _analyze_entity_with_typed_context: Any
-    _store_dual_track_checkin: Any
 
     @requires_graph_intelligence("assess_principle_alignment")
     async def assess_principle_alignment(
@@ -178,7 +170,7 @@ class _AlignmentIntelligenceMixin:
             Result[DualTrackResult[AlignmentLevel]] with dual-track analysis
         """
 
-        return await self._dual_track_assessment(  # type: ignore[attr-defined]
+        return await self._dual_track_assessment(
             uid=principle_uid,
             user_uid=user_uid,
             user_level=user_alignment_level,
@@ -186,7 +178,7 @@ class _AlignmentIntelligenceMixin:
             user_reflection=user_reflection,
             system_calculator=self._calculate_system_alignment_for_dual_track,
             level_scorer=self._alignment_level_to_score,
-            entity_type="principle",
+            entity_type=EntityType.PRINCIPLE.value,
             insight_generator=principle_gap_insights,
             recommendation_generator=principle_gap_recommendations,
             store_callback=self._store_dual_track_checkin,

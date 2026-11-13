@@ -22,7 +22,7 @@ Usage:
 
     # In facade __init__:
     common = create_common_sub_services(
-        domain="tasks",
+        domain="principles",
         backend=backend,
         graph_intel=graph_intel,
         event_bus=event_bus,
@@ -30,7 +30,7 @@ Usage:
     self.core = common.core
     self.search = common.search
     self.relationships = common.relationships
-    self.intelligence = common.intelligence
+    self.intelligence = common.intelligence  # None for every domain but Principles
 
 Created: January 2026
 Reason: Consolidate repetitive facade initialization (~480 lines reduction)
@@ -227,11 +227,11 @@ class CommonSubServices(Generic[T_Core, T_Search, T_Intelligence]):
     Facades annotate the full three-arg form:
 
         common: CommonSubServices[
-            TasksCoreService, TasksSearchOperations, TasksIntelligenceService
+            PrinciplesCoreService, PrinciplesSearchOperations, PrinciplesIntelligenceService
         ] = create_common_sub_services(...)
 
-        self.search = common.search          # typed as TasksSearchOperations
-        self.intelligence = common.intelligence  # typed as TasksIntelligenceService
+        self.search = common.search  # typed as PrinciplesSearchOperations
+        self.intelligence = common.intelligence  # PrinciplesIntelligenceService | None
 
     ``event_handler``, ``learning``, and ``knowledge_intelligence`` stay ``Any``
     for now — parametrizing every slot would require five more type vars with
@@ -287,20 +287,21 @@ def create_common_sub_services(
         Callers annotate with the three-arg generic for type safety:
 
             common: CommonSubServices[
-                TasksCoreService, TasksSearchOperations, TasksIntelligenceService
+                PrinciplesCoreService, PrinciplesSearchOperations, PrinciplesIntelligenceService
             ] = create_common_sub_services(...)
 
     Example:
         common: CommonSubServices[
-            TasksCoreService, TasksSearchOperations, TasksIntelligenceService
+            PrinciplesCoreService, PrinciplesSearchOperations, PrinciplesIntelligenceService
         ] = create_common_sub_services(
-            "tasks", backend, graph_intel, event_bus, insight_store,
+            "principles", backend, graph_intel, event_bus, insight_store,
             activity_knowledge_intelligence=knowledge_intelligence,
         )
-        self.core = common.core                  # TasksCoreService
-        self.search = common.search              # TasksSearchOperations
+        assert common.intelligence is not None  # the principles config declares its class
+        self.core = common.core                  # PrinciplesCoreService
+        self.search = common.search              # PrinciplesSearchOperations
         self.relationships = common.relationships
-        self.intelligence = common.intelligence  # TasksIntelligenceService
+        self.intelligence = common.intelligence  # PrinciplesIntelligenceService
         self.event_handler = common.event_handler
         self.learning = common.learning
         self.knowledge_intelligence = common.knowledge_intelligence
