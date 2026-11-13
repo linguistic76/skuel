@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import FT, A, Div, Li, P, Span, Ul
 
 from core.models.type_hints import UserUID
+from core.ports.query_types import AdminAnalyticsData, RoleCounts
 from ui.admin.prereq_views import AdminPrereqComponents
 from ui.admin.types import UserCardData
 from ui.admin.views import (
@@ -101,7 +102,7 @@ def batch_transcribe_page() -> Any:
 
 def users_list_page(
     users_data: list[Any],
-    user_stats: dict[str, Any],
+    user_stats: RoleCounts,
     stats_error: bool,
     users_error: str | None,
     role: str | None,
@@ -109,9 +110,7 @@ def users_list_page(
 ) -> Any:
     """/admin/users — stats, filters, and the user table."""
     subtitle = (
-        "User statistics unavailable"
-        if stats_error
-        else f"{user_stats.get('total', 0)} total users"
+        "User statistics unavailable" if stats_error else f"{user_stats['total']} total users"
     )
 
     stats_content = (
@@ -265,10 +264,10 @@ def account_fragment(user_data: UserCardData) -> tuple[FT, FT]:
     )
 
 
-def analytics_page(analytics_data: dict[str, Any]) -> Any:
-    """/admin/analytics — platform usage dashboard."""
+def analytics_page(analytics_data: AdminAnalyticsData) -> FT:
+    """/admin/analytics — growth, retention, and platform usage."""
     return Div(
-        PageHeader("Analytics", subtitle="Platform usage and user statistics"),
+        PageHeader("Analytics", subtitle="Growth, retention and platform usage"),
         AdminAnalyticsComponents.render_analytics_dashboard(analytics_data),
     )
 

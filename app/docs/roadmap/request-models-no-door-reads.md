@@ -1,7 +1,7 @@
 ---
 title: "Request Models No Door Reads"
 updated: 2026-11-13
-status: "open — 17 staged (3 wait on a door for a service that exists, 2 on a design, 12 on a re-evaluation) and 1 parked; 23 retired 2026-11-08; 7 bound by their doors 2026-11-08 to 2026-11-12; one staged field (a user's interests) waits on its representation"
+status: "open — 16 staged (3 wait on a door for a service that exists, 1 on a design, 12 on a re-evaluation) and 1 parked; 23 retired 2026-11-08 and 1 on 2026-11-13; 7 bound by their doors 2026-11-08 to 2026-11-12; one staged field (a user's interests) waits on its representation"
 registered: 2026-11-05
 ruled: "2026-11-05 (Mike) — 23 retire; UserFilterSchema and HabitCompletionFilterRequest move from retire to staged; the rest stay staged or parked, each for the reason in its row"
 trigger: "a door is being built that would bind one of these shapes, or a session takes a staged model's re-evaluation"
@@ -69,6 +69,32 @@ Each row names the live means that does the model's job.
 | `UserServiceContextSchema` | `UserContext`, `GET /api/context/dashboard` |
 | `UserPreferencesSchema` | `POST /settings/save` (`UserPreferencesFormRequest`). No door edits `preferred_subjects` or `energy_pattern`; read only by `UserView` and `UserUpdateSchema`'s `preferences` field, which went with it (`UserUpdateSchema` is now `DisplayNameUpdateRequest`, one field) |
 
+## Retired 2026-11-13: `UserAnalyticsView`
+
+Growth and retention on `/admin/analytics` do its job (design ruled by Mike 2026-11-13), as frozen
+typed rows in `core/ports/query_types.py`: `GrowthReport`, `RetentionReport`, and the page's whole
+payload, `AdminAnalyticsData`. The Pydantic model is deleted. Its fields:
+
+| Field | Verdict |
+|---|---|
+| `total_users` | kept: `GrowthReport.total_accounts` |
+| `active_users` | kept, renamed: `GrowthReport.accounts_not_deactivated`. It never meant "active recently"; the page shows deactivated accounts as their own figure |
+| `new_users_this_month` | kept: `GrowthReport.new_this_month` |
+| `user_growth_rate` | kept, as a count: `GrowthMonth.change`, a month's new accounts less the month before's |
+| `user_growth_trend` | kept: `GrowthReport.months`, the trailing twelve months |
+| `retention_rate` | kept: `RetentionMonth.rate`, shown beside its count ("2 of 3 (67%)") |
+| `monthly_active_users` | kept: `RetentionMonth.present`, users present in the month. Present means signed in during it, or a live session seen in it |
+| `activity_trend` | kept: `RetentionReport.months`, presence over the trailing twelve months |
+| `verified_users` | retired, always constant: registration sets `is_verified` true for everyone |
+| `premium_users` | retired, no source: nothing writes `is_premium`, in either tier |
+| `daily_active_users`, `weekly_active_users` | retired, no source: presence is recorded by month. A day count per user-month is stored (`PRESENT_IN.days`) and no read uses it yet |
+| `average_session_duration_minutes` | retired, no source: a session has no end stamp |
+| `average_learning_level`, `users_by_level` | retired, no source: no door sets a learning level |
+| `average_completion_rate`, `average_active_items`, `average_daily_minutes`, `completion_trend` | retired, no source: no per-user figure of these is stored, and none is derived across users |
+
+`User.is_verified` and `User.is_premium` are still on the model; they wait for the later
+User-model-fields row, with the fields `UserUpdateSchema` lost.
+
 ## Bound by a door
 
 | Model | Door |
@@ -123,7 +149,6 @@ A wiring door binds its model and takes its row out.
 
 | Model | File | Verdict | Why |
 |---|---|---|---|
-| `UserAnalyticsView` | `core/models/user/user_request.py` | staged: design | wanted: growth and retention on `/admin/analytics`. Growth reads `User.created_at`; `AuthEvent` is pruned at 90 days, so retention needs the ruled monthly login count per user, which has no home yet. Several fields read nothing that exists |
 | `WeeklyPlanningRequest` | `core/models/analytics/analytics_report_request.py` | staged: design | wanted: the daily plan stretched over seven days, checked against available minutes. No service; read the daily plan first. Its `user_uid` field goes: the user comes from the session |
 | `GoalFilterRequest` | `core/models/goal/goal_request.py` | staged: re-evaluate | list filters are fundamental (Mike). A GET door reads its fields through the strict readers, so a filter class is a specification until a POST door binds it |
 | `HabitFilterRequest` | `core/models/habit/habit_request.py` | staged: re-evaluate | the same |

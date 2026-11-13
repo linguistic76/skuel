@@ -29,8 +29,8 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 168, with_contract: 89}
-    labels: {total: 57, with_contract: 16}
+    relationships: {total: 169, with_contract: 89}
+    labels: {total: 58, with_contract: 16}
   legacy_label_config_aliases: []
 
 relationships:
@@ -814,6 +814,8 @@ relationships:
     contract: null
   HAS_RESET_TOKEN:
     contract: null
+  PRESENT_IN:
+    contract: null
   HAS_DEVICE:
     contract: null
   SIBLING:
@@ -1211,6 +1213,8 @@ labels:
   Device:
     contract: null
   PasswordResetToken:
+    contract: null
+  Month:
     contract: null
   ConversationSession:
     contract: null

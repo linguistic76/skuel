@@ -21,9 +21,11 @@ if TYPE_CHECKING:
 
     from core.models.query_types import QueryIntent
     from core.ports.query_types import (
+        AccountMonthRow,
         HabitAnalyticsRow,
         JournalEntryRow,
         LearningVelocityRow,
+        PresenceMonthRow,
         ProductivityAnalyticsRow,
         SelCategoryRow,
         UserKnowledgeChannelRow,
@@ -209,6 +211,12 @@ class CrossDomainBackendOperations(Protocol):
     async def get_user_detail_stats(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
 
     async def get_activity_entity_counts(self) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_accounts_by_signup_month(self) -> Result[list[AccountMonthRow]]: ...
+
+    async def get_presence_by_month(
+        self, months: list[str], month_after: dict[str, str]
+    ) -> Result[list[PresenceMonthRow]]: ...
 
     async def get_user_role_counts(self) -> Result[list[dict[str, Any]]]: ...
 

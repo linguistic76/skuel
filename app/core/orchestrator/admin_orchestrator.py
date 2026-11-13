@@ -14,12 +14,13 @@ See: /docs/patterns/UI_ORCHESTRATOR_PATTERN.md
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
+from core.ports.query_types import AdminAnalyticsData
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.user import User
-    from core.ports.query_types import KnowledgeHealthReport
+    from core.ports.query_types import KnowledgeHealthReport, RoleCounts
     from core.services.admin_stats_service import AdminStatsService
     from core.services.analytics_service import AnalyticsService
     from core.services.system_service import SystemService
@@ -130,7 +131,7 @@ class AdminOrchestrator:
             active_only=active_only,
         )
 
-    async def get_user_role_counts(self) -> Result[dict[str, int]]:
+    async def get_user_role_counts(self) -> Result[RoleCounts]:
         """Fetch aggregate user counts grouped by role."""
         return await self._admin_stats.get_user_role_counts()
 
@@ -142,52 +143,39 @@ class AdminOrchestrator:
     # Analytics
     # ------------------------------------------------------------------
 
-    async def _get_activity_entity_counts(self) -> Result[dict[str, int]]:
-        """Fetch entity counts across activity domains (tasks, habits, etc.)."""
-        return await self._admin_stats.get_activity_entity_counts()
+    async def get_analytics_data(self) -> AdminAnalyticsData:
+        """Everything ``/admin/analytics`` shows: growth, retention, roles, totals, search gaps.
 
-    async def get_analytics_data(self) -> dict[str, Any]:
-        """Aggregate role counts + activity counts + search gaps for the analytics page.
-
-        Partial-failure tolerant — returns zero-value fallbacks for each
-        failed sub-query rather than surfacing a top-level error.
+        Each read stands alone. One that fails is logged and its field is None,
+        so its card shows an error and the others still render: a failed read
+        is never shown as zero.
         """
-        user_stats_result = await self.get_user_role_counts()
-        user_stats: dict[str, Any] = (
-            user_stats_result.value
-            if not user_stats_result.is_error
-            else {"total": 0, "admins": 0, "teachers": 0, "members": 0, "registered": 0}
+        growth = await self._admin_stats.get_growth()
+        retention = await self._admin_stats.get_retention()
+        roles = await self._admin_stats.get_user_role_counts()
+        activity = await self._admin_stats.get_activity_entity_counts()
+        gaps = await self._admin_stats.get_search_gaps()
+        event_total = await self._admin_stats.get_search_event_total()
+
+        for name, result in (
+            ("growth", growth),
+            ("retention", retention),
+            ("user role counts", roles),
+            ("activity totals", activity),
+            ("search gaps", gaps),
+            ("search event total", event_total),
+        ):
+            if result.is_error:
+                logger.error(f"Failed to load {name}: {result.error}")
+
+        return AdminAnalyticsData(
+            growth=None if growth.is_error else growth.value,
+            retention=None if retention.is_error else retention.value,
+            roles=None if roles.is_error else roles.value,
+            activity=None if activity.is_error else activity.value,
+            search_gaps=None if gaps.is_error else tuple(gaps.value or ()),
+            search_event_total=None if event_total.is_error else event_total.value,
         )
-        if user_stats_result.is_error:
-            logger.error(f"Failed to load user role counts: {user_stats_result.error}")
-
-        activity_result = await self._get_activity_entity_counts()
-        activity_stats: dict[str, Any] = (
-            activity_result.value
-            if not activity_result.is_error
-            else {k: 0 for k in ("tasks_created", "habits_active", "goals_active")}
-        )
-        if activity_result.is_error:
-            logger.error(f"Error fetching activity stats: {activity_result.error}")
-
-        gaps_result = await self._admin_stats.get_search_gaps()
-        search_gaps: list[dict[str, Any]] = (
-            [dict(row) for row in (gaps_result.value or [])] if not gaps_result.is_error else []
-        )
-        if gaps_result.is_error:
-            logger.error(f"Failed to load search gaps: {gaps_result.error}")
-
-        total_result = await self._admin_stats.get_search_event_total()
-        search_event_total: int = (total_result.value or 0) if not total_result.is_error else 0
-        if total_result.is_error:
-            logger.error(f"Failed to load search event total: {total_result.error}")
-
-        return {
-            "user_stats": user_stats,
-            "activity_stats": activity_stats,
-            "search_gaps": search_gaps,
-            "search_event_total": search_event_total,
-        }
 
     # ------------------------------------------------------------------
     # Knowledge-Subgraph Structural Health (ADR-080 Horizon-1)

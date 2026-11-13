@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Route Map
@@ -13,6 +13,10 @@ For layout primitives (`BasePage`, `SidebarPage`, `AuthPage`) and shared compone
 ## Admin Navigation
 
 An admin sees the one chrome every role sees (`ui/layouts/navbar.py`) — there is no admin navbar and no admin home. Admin (`/admin`) and Teaching (`/teaching/students`) are role-gated `MAIN_NAV_ITEMS` doors — centre links at lg+, `lg:hidden` rows on `/settings` below. `/` is a 303 to `/today` for every authenticated role. The admin pages share one sidebar (`ui/admin/layout.py`, `ADMIN_SIDEBAR_ITEMS`).
+
+### `/admin/analytics` — Growth, Retention and Platform Usage
+
+Admin-only read-only page (sidebar: "Analytics"), five cards. **Growth**: accounts in total, deactivated accounts as their own figure, and a table of the trailing twelve months, newest first: new accounts, the change from the month before as a count, the running total. A deactivated account stays counted in the month it signed up in; an erased one is counted nowhere. **Retention**: for each of the same months, how many users were present and how many of them were present the month after, as a count with the rate beside it ("2 of 3 (67%)"); the current month reads "month not over" and the month before it "so far". A user is present in a month when they signed in during it or a live session of theirs was seen in it: the presence record, `(:User)-[:PRESENT_IN {sign_ins, days, last_day}]->(:Month {key})`, written by the sign-in and by a session's first request of a month (`SessionBackend`). Months are UTC, and the page says so. Then **User Distribution** (accounts by role), **Activity Totals (all time)** (every task, habit and goal, any status) and **Search Gaps**. Each card has its own error state: a read that failed shows "unavailable", never zeros. Route in `adapters/inbound/admin_dashboard_ui.py` → `AdminOrchestrator.get_analytics_data()` (an `AdminAnalyticsData`) → `AdminStatsService.get_growth()` / `get_retention()`, grouped counts on `CrossDomainBackend`; cards in `ui/admin/views.py`.
 
 ### `/admin/prereq-suggestions` — Prerequisite-Edge Suggestion Queue
 

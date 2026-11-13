@@ -32,6 +32,7 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.type_hints import UserUID
+from core.ports.query_types import RoleCounts
 from core.utils.logging import get_logger
 from ui.admin import pages
 from ui.admin.layout import create_admin_page
@@ -145,7 +146,7 @@ def create_admin_dashboard_routes(
         # Fetch stats for header via efficient Cypher COUNT query
         user_stats_result = await orchestrator.get_user_role_counts()
         stats_error = user_stats_result.is_error
-        user_stats: dict[str, Any] = (
+        user_stats: RoleCounts = (
             user_stats_result.value
             if not stats_error
             else {

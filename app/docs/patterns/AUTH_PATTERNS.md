@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-11-12'
+updated: '2026-11-13'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -358,7 +358,9 @@ One navbar for every role (`ui/layouts/navbar.py`); what changes by auth state i
 1. User logs in via /login
    ↓
 2. GraphAuthService.sign_in() creates Session node in Neo4j; the same
-   statement stamps the user's last_login_at (its one user property)
+   statement stamps the user's last_login_at (its one user property) and
+   counts the sign-in on the user's presence edge to the UTC month:
+   (User)-[:PRESENT_IN {sign_ins, days, last_day}]->(Month {key})
    ↓
 3. set_current_user() stores user_uid + session_token in cookie
    ↓
@@ -367,7 +369,9 @@ One navbar for every role (`ui/layouts/navbar.py`); what changes by auth state i
      (revoked/expired, or another user's than the cookie's user_uid → cookie
      session cleared → forced re-login); the same
      statement returns the user's zone choice, which becomes the request's
-     zone (`current_zone()`)
+     zone (`current_zone()`), and on a session's first request of a UTC month
+     marks its user present in that month (PRESENT_IN: one write per session
+     per month, so a 30-day session spanning a month with no sign-in counts)
    - Route helpers (get_current_user() etc.) then read the cookie — the graph
      round-trip already happened once, upstream
    ↓

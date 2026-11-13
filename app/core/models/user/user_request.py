@@ -17,7 +17,7 @@ from core.models.type_hints import UserUID
 __version__ = "1.0"
 
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, Field, field_validator
 
@@ -183,37 +183,3 @@ class UserFilterSchema(BaseModel):
     search_text: str | None = Field(
         default=None, min_length=1, description="Search in username/display_name"
     )
-
-
-class UserAnalyticsView(BaseModel):
-    """Analytics view for user data"""
-
-    total_users: int
-    active_users: int
-    verified_users: int
-    premium_users: int
-
-    # Activity metrics
-    average_completion_rate: float
-    average_active_items: float
-    average_daily_minutes: float
-
-    # Growth metrics
-    new_users_this_month: int
-    user_growth_rate: float
-    retention_rate: float
-
-    # Engagement metrics
-    daily_active_users: int
-    weekly_active_users: int
-    monthly_active_users: int
-    average_session_duration_minutes: float
-
-    # Learning metrics
-    average_learning_level: float
-    users_by_level: dict[LearningLevel, int]
-
-    # Trends
-    user_growth_trend: list[dict[str, Any]]
-    activity_trend: list[dict[str, Any]]
-    completion_trend: list[dict[str, Any]]
