@@ -110,6 +110,7 @@ if TYPE_CHECKING:
     from core.models.choice.choice import Choice
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
+    from core.models.goal.goal_habit_link import GoalHabitLink
     from core.models.habit.habit import Habit
     from core.models.principle.choice_outcomes import PrincipleChoiceOutcomes
     from core.models.principle.principle import Principle
@@ -664,11 +665,15 @@ class GoalsOperations(
     async def recompute_progress_from_linked_habits[P: GuardedWritePlan](
         self,
         goal_uid: str,
-        user_uid: UserUID,
         plan: Callable[[Goal, LinkedHabitTally], P | None],
     ) -> Result[GuardedRecompute[Goal, P] | None]:
-        """Recompute a goal from its supporting habits' average streak, read under the
-        goal's lock — the habit sibling of ``recompute_progress_from_contributions``."""
+        """Recompute a goal from its owner's supporting habits' average streak, read
+        under the goal's lock — the habit sibling of ``recompute_progress_from_contributions``."""
+        ...
+
+    async def get_habit_system(self, goal_uid: str) -> Result[list[GoalHabitLink]]:
+        """The goal owner's habits that support the goal, each at its tier, essential
+        first. Backend: GoalsBackend.get_habit_system"""
         ...
 
     async def get_achievement_context(

@@ -382,51 +382,58 @@ class GoalFilterRequest(BaseModel):
 
 class HabitSystemUpdateRequest(BaseModel):
     """
-    Request to update a goal's habit system.
-    Implements James Clear's Atomic Habits philosophy.
+    A goal's whole habit system, replaced (``POST /api/goals/{uid}/habits/system``).
+
+    The four lists together are every habit the goal keeps, each at the tier its list
+    names; a habit the goal has and no list names is unlinked, and a tier left out is
+    empty, so an empty body unlinks every habit. Every habit must be one of the goal
+    owner's own. A habit named in two tiers is refused (400).
     """
 
-    essential_habit_uids: list[str] | None = Field(
-        default=None, description="Habits that are ESSENTIAL - goal is impossible without these"
+    essential_habit_uids: list[str] = Field(
+        default_factory=list, description="Habits the goal is impossible without"
     )
-    critical_habit_uids: list[str] | None = Field(
-        default=None, description="Habits that are CRITICAL - goal is very difficult without these"
+    critical_habit_uids: list[str] = Field(
+        default_factory=list, description="Habits the goal is very difficult without"
     )
-    supporting_habit_uids: list[str] | None = Field(
-        default=None, description="Habits that are SUPPORTING - goal is easier with these"
+    supporting_habit_uids: list[str] = Field(
+        default_factory=list, description="Habits that make the goal easier"
     )
-    optional_habit_uids: list[str] | None = Field(
-        default=None, description="Habits that are OPTIONAL - tangentially helpful"
+    optional_habit_uids: list[str] = Field(
+        default_factory=list, description="Habits that help the goal a little"
     )
 
     @model_validator(mode="after")
-    def validate_no_duplicates(self):
-        """Ensure no habit appears in multiple essentiality levels."""
-        # Collect all habit UIDs from each essentiality level
-        habit_fields = {
-            "essential": self.essential_habit_uids or [],
-            "critical": self.critical_habit_uids or [],
-            "supporting": self.supporting_habit_uids or [],
-            "optional": self.optional_habit_uids or [],
-        }
-
-        # Check for duplicates across levels
-        all_habits = []
-        for habits in habit_fields.values():
-            all_habits.extend(habits)
-
-        # Find duplicates
-        seen = set()
-        duplicates = set()
-        for habit in all_habits:
-            if habit in seen:
-                duplicates.add(habit)
-            seen.add(habit)
-
+    def validate_no_duplicates(self) -> HabitSystemUpdateRequest:
+        """Refuse a habit named in more than one tier."""
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for habit_uid in self._named():
+            if habit_uid in seen:
+                duplicates.add(habit_uid)
+            seen.add(habit_uid)
         if duplicates:
-            raise ValueError(f"Habits cannot appear in multiple essentiality levels: {duplicates}")
-
+            raise ValueError(
+                f"Habits cannot appear in multiple essentiality levels: {sorted(duplicates)}"
+            )
         return self
+
+    def _named(self) -> list[str]:
+        return [
+            *self.essential_habit_uids,
+            *self.critical_habit_uids,
+            *self.supporting_habit_uids,
+            *self.optional_habit_uids,
+        ]
+
+    def tiers(self) -> dict[str, HabitEssentiality]:
+        """Each habit the system keeps, at its tier."""
+        return {
+            **dict.fromkeys(self.essential_habit_uids, HabitEssentiality.ESSENTIAL),
+            **dict.fromkeys(self.critical_habit_uids, HabitEssentiality.CRITICAL),
+            **dict.fromkeys(self.supporting_habit_uids, HabitEssentiality.SUPPORTING),
+            **dict.fromkeys(self.optional_habit_uids, HabitEssentiality.OPTIONAL),
+        }
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -507,22 +514,16 @@ class SystemHealthCheckRequest(BaseModel):
 
 class HabitEssentialityChangeRequest(BaseModel):
     """
-    Request to change a habit's essentiality level for a goal.
+    Move a habit already linked to a goal to another tier
+    (``POST /api/goals/{uid}/habits/essentiality``).
     """
 
-    habit_uid: str = Field(..., description="UID of habit to reclassify")
-    new_essentiality: HabitEssentiality = Field(..., description="New essentiality level")
-    reason: str | None = Field(
-        default=None, max_length=500, description="Optional reason for the change"
-    )
+    habit_uid: str = Field(..., min_length=1, max_length=100, description="The linked habit")
+    new_essentiality: HabitEssentiality = Field(..., description="The tier it moves to")
 
     model_config = ConfigDict(
         json_schema_extra={
-            "example": {
-                "habit_uid": "habit_9c4e2b7a1d6f0835",
-                "new_essentiality": "essential",
-                "reason": "Realized this habit is absolutely critical for goal achievement",
-            }
+            "example": {"habit_uid": "habit_9c4e2b7a1d6f0835", "new_essentiality": "essential"}
         }
     )
 
@@ -562,7 +563,28 @@ class ContextualGoalTaskGenerationRequest(BaseModel):
 
 
 class GoalHabitLinkRequest(BaseModel):
-    """Request to link a habit to a goal."""
+    """
+    Link one of the caller's habits to their goal, at a tier
+    (``POST /api/goals/{uid}/habits``). A habit already linked takes the tier given.
+    """
 
-    habit_uid: str = Field(..., description="UID of the habit to link")
-    weight: float = Field(default=1.0, gt=0, description="Contribution weight")
+    habit_uid: str = Field(..., min_length=1, max_length=100, description="The habit to link")
+    essentiality: HabitEssentiality = Field(
+        default=HabitEssentiality.SUPPORTING, description="The tier it is linked at"
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"habit_uid": "habit_9c4e2b7a1d6f0835", "essentiality": "critical"}
+        }
+    )
+
+
+class GoalHabitUidRequest(BaseModel):
+    """The habit a goal door unlinks (``POST /api/goals/{uid}/habits/unlink``)."""
+
+    habit_uid: str = Field(..., min_length=1, max_length=100)
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"habit_uid": "habit_9c4e2b7a1d6f0835"}}
+    )

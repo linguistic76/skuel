@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
@@ -31,17 +31,16 @@ from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.milestone import Milestone
 from core.services.goals.goals_progress_service import GoalsProgressService
-from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 from tests.helpers.status_guarded_backend import (
     StatusGuardedWriteRecorder,
     guarded_backend,
+    wire_locked_recompute,
 )
 
 _USER = "user_achievement"
 _GOAL = "goal_achievement"
-_HABIT = "habit_meditation"
 
 #: An achievement recorded before today — the value a re-stamp would destroy.
 _ORIGINAL_ACHIEVED = date(2026, 1, 15)
@@ -60,44 +59,34 @@ class _RecordingBus:
         return [event for event in self.events if isinstance(event, event_type)]
 
 
-class _Relationships:
-    """Only ``get_related_uids`` — the shape ``fetch_relationships_parallel`` falls back to.
-
-    A bare ``Mock`` would auto-create a ``supporting_habits`` attribute and the
-    fetcher would call *that* instead, handing ``asyncio.gather`` a non-awaitable.
-    """
-
-    def __init__(self, mapping: dict[str, list[str]]) -> None:
-        self._mapping = mapping
-
-    async def get_related_uids(self, key: str, uid: str) -> Result[list[str]]:
-        return Result.ok(list(self._mapping.get(key, [])))
-
-
 def _service(
     goal: Goal,
     *,
-    relationships: _Relationships | None = None,
-    prior: Goal | None = None,
+    habit_tally: dict[str, Any] | None = None,  # boundary: LinkedHabitTally's row shape
 ) -> tuple[GoalsProgressService, StatusGuardedWriteRecorder[Goal], _RecordingBus]:
-    """A progress service over one goal, writing through the status-guarded primitive.
-
-    ``goal`` is what the habit writer's read returns; ``prior`` is the state the WRITE
-    sees under the node's lock, and what the milestone writer plans from. They are the
-    same object unless a test is about a writer that raced.
+    """A progress service over one goal, as held under its lock, writing through the
+    status-guarded primitive.
 
     The guarded write is the shared recorder, which evaluates the guard exactly as the
-    Cypher's CASE arms do.
+    Cypher's CASE arms do. ``habit_tally`` is what the habit recompute reads under the
+    lock (``recompute_progress_from_linked_habits``).
     """
-    backend, recorder = guarded_backend(prior if prior is not None else goal, goal)
-    backend.get_goal = AsyncMock(return_value=Result.ok(goal))
+    backend, recorder = guarded_backend(goal, goal)
+    if habit_tally is not None:
+        wire_locked_recompute(
+            backend,
+            recorder,
+            goal,
+            method="recompute_progress_from_linked_habits",
+            tally=habit_tally,
+        )
 
     bus = _RecordingBus()
     service = GoalsProgressService.__new__(GoalsProgressService)
     service.backend = backend
     service.logger = Mock()
     service.event_bus = bus
-    service.relationships = relationships  # type: ignore[assignment]
+    service.relationships = None  # type: ignore[assignment]
     return service, recorder, bus
 
 
@@ -289,15 +278,19 @@ def _habit_goal(*, progress: float, achieved_date: date | None) -> Goal:
     )
 
 
-class TestUpdateGoalFromHabitProgress:
-    async def test_reaching_the_streak_target_stamps_and_publishes(self):
-        """0% → 100% is the transition: a 30-day streak fills the normalization window."""
-        goal = _habit_goal(progress=0.0, achieved_date=None)
-        service, recorder, bus = _service(
-            goal, relationships=_Relationships({"supporting_habits": [_HABIT]})
-        )
+class TestRecomputeHabitFigure:
+    """The habit recompute (``recompute_habit_figure``) against a 30-day streak target."""
 
-        result = await service.update_goal_from_habit_progress(_GOAL, _HABIT, new_streak=30)
+    @staticmethod
+    def _tally(avg_streak: float) -> dict[str, Any]:  # boundary: LinkedHabitTally row
+        return {"total_habits": 1, "avg_streak": avg_streak}
+
+    async def test_reaching_the_streak_target_stamps_and_publishes(self):
+        """0% → 100% is the transition: the average streak reaches the target."""
+        goal = _habit_goal(progress=0.0, achieved_date=None)
+        service, recorder, bus = _service(goal, habit_tally=self._tally(30.0))
+
+        result = await service.recompute_habit_figure(_GOAL)
 
         assert result.is_ok
         updates = _patch(recorder)
@@ -306,17 +299,15 @@ class TestUpdateGoalFromHabitProgress:
         assert len(_achieved(bus)) == 1
 
     async def test_a_longer_streak_on_an_achieved_goal_is_not_re_stamped(self):
-        """Day 31 of a 30-day target is still 100% — the old gate re-stamped on every report."""
+        """45 days on a 30-day target is still 100%: the recorded achievement stays."""
         goal = _habit_goal(progress=100.0, achieved_date=_ORIGINAL_ACHIEVED)
-        service, recorder, bus = _service(
-            goal, relationships=_Relationships({"supporting_habits": [_HABIT]})
-        )
+        service, recorder, bus = _service(goal, habit_tally=self._tally(45.0))
 
-        result = await service.update_goal_from_habit_progress(_GOAL, _HABIT, new_streak=45)
+        result = await service.recompute_habit_figure(_GOAL)
 
         assert result.is_ok
         updates = _patch(recorder)
-        assert updates["progress_percentage"] == 100.0, "the recompute still runs"
+        assert updates["current_value"] == 45.0, "the measurement still moves"
         assert "achieved_date" not in updates, "the recorded achievement must survive"
         assert "status" not in updates
         assert _achieved(bus) == [], "a re-publish would duplicate the alignment insight"
@@ -324,11 +315,9 @@ class TestUpdateGoalFromHabitProgress:
     async def test_a_short_streak_neither_stamps_nor_publishes(self):
         """Baseline: 15 of 30 days is 50%."""
         goal = _habit_goal(progress=0.0, achieved_date=None)
-        service, recorder, bus = _service(
-            goal, relationships=_Relationships({"supporting_habits": [_HABIT]})
-        )
+        service, recorder, bus = _service(goal, habit_tally=self._tally(15.0))
 
-        result = await service.update_goal_from_habit_progress(_GOAL, _HABIT, new_streak=15)
+        result = await service.recompute_habit_figure(_GOAL)
 
         assert result.is_ok
         updates = _patch(recorder)

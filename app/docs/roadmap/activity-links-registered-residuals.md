@@ -1,6 +1,6 @@
 ---
 title: "Activity Links Arc — Registered Residuals"
-updated: 2026-11-12
+updated: 2026-11-13
 status: "registered"
 registered: "2026-10-04 to 2026-10-08 (the censuses of Activity Links arc PRs 1c–5)"
 trigger: "the next touch of the subsystem an item names (each item carries its file and line), or the quarterly review walk"
@@ -54,9 +54,9 @@ or DSL link parsed and discarded, answering 200 and writing no edge.
 10. `GoalsProgressService._get_relationships_from_rich_context` reads a goal's rich-context keys
    `supporting_habits`, `aligned_paths` and `guiding_principles`, none of which the user context's
    goals statement emits (it projects `contributing_tasks`, `sub_goals`, `required_knowledge`),
-   so the relationships it builds hold no habit, path or principle; its two callers
-   (`calculate_goal_progress_with_context`, `update_goal_from_habit_progress`) are reached only
-   through facade delegators nothing calls — `core/services/goals/goals_progress_service.py:456`,
+   so the relationships it builds hold no habit, path or principle; its caller
+   (`calculate_goal_progress_with_context`) is reached only through a facade delegator nothing
+   calls — `core/services/goals/goals_progress_service.py:456`,
    `adapters/persistence/neo4j/user_context_queries.py:351-355`. Registered by PR 2. (Its
    `PrinciplesPlanningService` half — `aligned_principles` read off the same goal context — is
    struck by F8-2c, which reads `principles_by_goal`.)

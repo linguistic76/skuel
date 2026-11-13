@@ -7,16 +7,19 @@ comes from otherwise. A goal its owner set aside shows what it holds and no cont
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
 import pytest
 from fasthtml.common import to_xml
 
 from core.models.enums import EntityStatus
-from core.models.enums.goal_enums import MeasurementType
+from core.models.enums.goal_enums import HabitEssentiality, MeasurementType
 from core.models.goal.goal import Goal
+from core.models.goal.goal_habit_link import GoalHabitLink
 from core.models.goal.milestone import Milestone
-from ui.activities.goals_views import GoalDetailView
+from core.ports.query_types import EntityConnection
+from ui.activities.goals_views import GoalDetailView, GoalHabitsSection
 
 _MILESTONES = (
     Milestone(uid="m_open", title="Open one"),
@@ -133,3 +136,103 @@ def test_a_reopened_milestone_shows_its_target_not_the_day_it_was_first_reached(
     assert "By 2026-12-01" in html
     assert "Achieved 2026-09-02" not in html
     assert 'data-goal-milestone-complete="m_back"' in html
+
+
+# ---------------------------------------------------------------------------
+# The habit section (``GoalHabitsSection``, loaded by ``/goals/habits``)
+# ---------------------------------------------------------------------------
+
+_LINKS = (
+    GoalHabitLink(habit_uid="habit_run", title="Run", essentiality=HabitEssentiality.ESSENTIAL),
+    GoalHabitLink(habit_uid="habit_read", title="Read", essentiality=HabitEssentiality.OPTIONAL),
+)
+
+
+def _habits(
+    status: EntityStatus = EntityStatus.ACTIVE, links: tuple[GoalHabitLink, ...] = _LINKS
+) -> str:
+    goal = Goal(uid="goal_page", user_uid="user_page", title="A goal", status=status)
+    return to_xml(GoalHabitsSection(goal, links))
+
+
+def _selected_tier(html: str, habit_uid: str) -> str:
+    """The option chosen in a habit row's tier select."""
+    select = re.search(
+        rf"<select[^>]*data-goal-habit-tier-select=\"{habit_uid}\"[^>]*>(.*?)</select>",
+        html,
+        re.DOTALL,
+    )
+    assert select is not None, f"no tier select for {habit_uid}"
+    chosen = re.findall(r"<option[^>]*value=\"(\w+)\"[^>]*selected", select.group(1))
+    assert len(chosen) == 1
+    return chosen[0]
+
+
+def test_each_linked_habit_shows_its_tier_in_its_own_select() -> None:
+    html = _habits()
+
+    assert _selected_tier(html, "habit_run") == "essential"
+    assert _selected_tier(html, "habit_read") == "optional"
+    assert re.search(r"hx-post=[\"']/api/goals/goal_page/habits/essentiality[\"']", html), (
+        "the select posts the tier door"
+    )
+    assert re.search(r"hx-vals=['\"]\{(&quot;|\")habit_uid(&quot;|\"): (&quot;|\")habit_run", html)
+
+
+def test_each_linked_habit_carries_unlink_and_the_section_a_link_form() -> None:
+    html = _habits()
+
+    assert 'data-goal-habit-unlink="habit_run"' in html
+    assert 'data-goal-habit-unlink="habit_read"' in html
+    assert "data-goal-link-habit" in html
+    assert re.search(r"hx-post=[\"']/api/goals/goal_page/habits[\"']", html)
+    assert 'name="habit_uid"' in html, "the picker's hidden field is what the form posts"
+
+
+def test_a_goal_with_no_habits_says_so_and_offers_the_link_form() -> None:
+    html = _habits(links=())
+
+    assert "No habits support this goal yet." in html
+    assert "data-goal-link-habit" in html
+
+
+@pytest.mark.parametrize(
+    "status", [EntityStatus.CANCELLED, EntityStatus.ARCHIVED, EntityStatus.FAILED]
+)
+def test_a_goal_set_aside_shows_its_habits_and_tiers_and_no_control(status: EntityStatus) -> None:
+    html = _habits(status)
+
+    assert "Run" in html and "Read" in html
+    assert 'data-goal-habit-tier="essential"' in html
+    assert 'data-goal-habit-tier="optional"' in html
+    assert "<select" not in html
+    assert "data-goal-habit-unlink" not in html
+    assert "data-goal-link-habit" not in html
+
+
+def test_the_detail_page_loads_the_section_and_lists_habits_there_alone() -> None:
+    goal = Goal(uid="goal_page", user_uid="user_page", title="A goal")
+    habit_link: EntityConnection = {
+        "heading": "Habits that support this goal",
+        "rel_type": "SUPPORTS_GOAL",
+        "connected_uid": "habit_run",
+        "title": "Run",
+        "connected_type": "habit",
+        "inferred": False,
+        "confidence": None,
+    }
+    principle_link: EntityConnection = {
+        **habit_link,
+        "heading": "Principles that support this goal",
+        "connected_uid": "principle_honesty",
+        "title": "Honesty",
+        "connected_type": "principle",
+    }
+
+    html = to_xml(GoalDetailView(goal, [habit_link, principle_link]))
+
+    assert re.search(r"hx-get=[\"']/goals/habits\?uid=goal_page[\"']", html)
+    assert 'id="goal-habits-goal_page"' in html
+    assert "Principles that support this goal" in html
+    assert "Honesty" in html
+    assert ">Run<" not in html, "a supporting habit is listed by the habit section, not twice"

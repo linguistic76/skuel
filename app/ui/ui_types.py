@@ -16,31 +16,8 @@ Pattern:
 """
 
 from dataclasses import dataclass
-from datetime import date
 
 from core.models.type_hints import UserUID
-
-
-@dataclass(frozen=True)
-class HabitMigration:
-    """
-    Habit essentiality level migration data.
-
-    Tracks when a habit's essentiality level changed and why.
-
-    Attributes:
-        habit: Habit name
-        from_level: Previous essentiality level (critical, essential, supporting, optional)
-        to_level: New essentiality level
-        migration_date: When the migration occurred
-        reason: Explanation for the change
-    """
-
-    habit: str
-    from_level: str
-    to_level: str
-    migration_date: date
-    reason: str
 
 
 @dataclass(frozen=True)

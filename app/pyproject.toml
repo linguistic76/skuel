@@ -948,8 +948,8 @@ fixable = ["ALL"]
 # exist. The LIVE register for this class of debt is docs/reference/PLACEHOLDER_INDEX.md
 # ("Placeholder Parameter Index", Groups A–J) — that is where a deferred parameter gets
 # recorded, not here. Of the four tag families the old header named, only FUTURE-IMPL-*
-# survives in code (6 sites in goal_event_handler_service.py, goals_progress_service.py
-# and lp_progress_service.py, repointed at PLACEHOLDER_INDEX.md § Groups E/I in 2026-07).
+# survives in code (5 sites in goal_event_handler_service.py and lp_progress_service.py,
+# pointing at PLACEHOLDER_INDEX.md § Groups E/I).
 #
 # ⚠ MOST OF THIS BLOCK WAS DEAD, for a reason worth keeping: SKUEL marks a deferred
 # parameter by UNDERSCORE-PREFIXING it (`_user_uid`), and ruff's ARG rules already skip
@@ -960,10 +960,6 @@ fixable = ["ALL"]
 # the last also named `newly_mastered_ku`, a parameter absent from the file). Before
 # adding an entry here, check whether underscore-prefixing is the real fix.
 
-# Future personalization (FUTURE-IMPL-008) — `current_streak` is genuinely unused and NOT
-# underscore-prefixed, so this is the one entry in the block with a live violation behind
-# it. (Three broader keys also suppress it, so it is documentation more than mechanism.)
-"core/services/goals/goals_progress_service.py" = ["ARG002"]       # FUTURE-IMPL-008: current_streak
 
 # ============================================================================
 # SKUEL PATTERN EXCEPTIONS (January 2025)

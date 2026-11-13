@@ -1000,7 +1000,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     ),
     # --- Goals: gravity links (inlined from _relationship_mixin into facade) ---
     "core/services/goals_service.py::create_semantic_goal_relationship": _GOALS_GRAVITY,
-    "core/services/goals_service.py::unlink_goal_from_habit": _GOALS_GRAVITY,
     "core/services/goals_service.py::unlink_goal_from_principle": _GOAL_PRINCIPLE_UNLINK,
     "core/services/tasks_service.py::unlink_task_from_goal": _GOAL_CONTRIBUTION_UNLINK,
     "core/services/events/_orchestration_mixin.py::unlink_event_from_goal": (

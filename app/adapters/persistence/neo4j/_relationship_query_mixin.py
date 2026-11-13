@@ -375,18 +375,26 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         to_uid: str,
         relationship_type: RelationshipName,
         properties: dict[str, Any],
+        *,
+        from_label: NeoLabel | None = None,
+        to_label: NeoLabel | None = None,
     ) -> Result[bool]:
         """
         Update specific properties on a relationship edge.
 
         Updates only the specified properties using SET +=, leaving others unchanged.
-        More flexible than update_edge_metadata() which replaces all properties.
+        More flexible than update_edge_metadata() which replaces all properties. An edge
+        that is not there is not created: the answer is not found.
 
         Args:
             from_uid: Source entity UID
             to_uid: Target entity UID
             relationship_type: Neo4j relationship type
             properties: Dict of properties to update
+            from_label: The kind the source must be; an edge from another kind is
+                left alone (two kinds can share an edge type, as a goal's supporting
+                habits and principles do)
+            to_label: The kind the target must be
 
         Returns:
             Result[bool] indicating success
@@ -404,18 +412,21 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             return Result.ok(True)  # Nothing to update
 
         rel_type = relationship_type.value
+        from_kind = f"WITH a WHERE a:{from_label.value}" if from_label else ""
+        to_kind = f":{to_label.value}" if to_label else ""
         query = f"""
         {build_uid_anchor("a", "$from_uid", self.label)}
-        MATCH (a)-[r:{rel_type}]->(b {{uid: $to_uid}})
+        {from_kind}
+        MATCH (a)-[r:{rel_type}]->(b{to_kind} {{uid: $to_uid}})
         SET r += $properties
-        RETURN r
+        RETURN count(r) AS updated
         """
 
         record = await self._run_single(
             query, {"from_uid": from_uid, "to_uid": to_uid, "properties": properties}
         )
 
-        if not record:
+        if not record or not record["updated"]:
             return Result.fail(
                 Errors.not_found(
                     resource="Relationship",

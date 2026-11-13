@@ -59,7 +59,6 @@ from core.utils.result_simplified import ErrorCategory, Errors, Result
 from core.utils.timestamp_helpers import (
     as_stored_clock,
     as_utc,
-    day_of,
     from_wall_clock,
     instant_of,
     now_utc,
@@ -282,9 +281,12 @@ def _plan_contribution_progress(goal: Goal, tally: ContributionTally) -> _Progre
 
 
 def _plan_habit_progress(goal: Goal, tally: LinkedHabitTally) -> _ProgressWrite | None:
-    """Plan a HABIT_BASED goal's write from its habits' average streak; ``None`` for none.
+    """Plan a HABIT_BASED goal's write from its habits' average streak; ``None`` for no write.
 
     Runs under the goal's lock (``GoalsBackend.recompute_progress_from_linked_habits``).
+    A goal whose last habit left is written an average of 0 and 0%, as a task-based goal
+    whose last contribution left is, so its figure never describes a habit it no longer
+    has.
     """
     # Only HABIT_BASED goals — MIXED for the reason given in _plan_contribution_progress.
     if goal.measurement_type != MeasurementType.HABIT_BASED:
@@ -292,8 +294,6 @@ def _plan_habit_progress(goal: Goal, tally: LinkedHabitTally) -> _ProgressWrite 
 
     total_habits = tally["total_habits"]
     avg_streak = tally["avg_streak"]
-    if total_habits == 0:
-        return None
 
     old_progress = goal.progress_percentage or 0.0
     # target_value is the desired streak length
@@ -950,7 +950,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             trigger: Literal["contributions", "habits"] | None = "contributions"
         elif measurement is MeasurementType.HABIT_BASED:
             tallied = await self.backend.recompute_progress_from_linked_habits(
-                goal_uid, user_uid, _habit_figure
+                goal_uid, _habit_figure
             )
             trigger = "habits"
         elif measurement.follows_milestones() or (
@@ -990,126 +990,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         plan, outcome = rewrite.value.plan, rewrite.value.outcome
         await self._publish_recompute(goal_uid, user_uid, plan, outcome.prior_status, trigger=None)
         return Result.ok(True)
-
-    # ========================================================================
-    # HABIT INTEGRATION
-    # ========================================================================
-
-    async def update_goal_from_habit_progress(
-        self, goal_uid: str, habit_uid: str, new_streak: int
-    ) -> Result[Goal]:
-        """
-        Update goal progress based on habit streak changes.
-
-        Args:
-            goal_uid: Goal identifier,
-            habit_uid: Habit that was updated,
-            new_streak: New streak count for the habit
-
-        Returns:
-            Result containing updated Goal (or unchanged if not habit-based)
-        """
-        goal_result = await self.backend.get_goal(goal_uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
-
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
-
-        # GRAPH-NATIVE: Fetch relationships from graph
-        rels = None
-        if self.relationships:
-            from core.services.goals.goal_relationships import GoalRelationships
-
-            rels = await GoalRelationships.fetch(goal_uid, self.relationships)
-
-        # Only update if this is a habit-based goal
-        if (
-            not rels
-            or goal.measurement_type != "habit_based"
-            or habit_uid not in rels.supporting_habit_uids
-        ):
-            return Result.ok(goal)
-
-        # Build habit streaks dict (use new_streak for the updated habit)
-        habit_streaks = {
-            h_uid: new_streak if h_uid == habit_uid else 0 for h_uid in rels.supporting_habit_uids
-        }
-
-        # Use ProgressCalculator for habit contribution
-        habit_result = ProgressCalculator.calculate_habit_contribution(
-            habit_uids=list(rels.supporting_habit_uids),
-            habit_streaks=habit_streaks,
-        )
-
-        if habit_result.habit_count > 0:
-            new_progress = habit_result.contribution * 100
-            old_progress = goal.progress_percentage or 0.0
-
-            # current_value is untouched: the contribution is normalized against
-            # STREAK_NORMALIZATION_DAYS, not against this goal's target_value, so
-            # there is no measurement in target_value's unit to record here.
-            updates: dict[str, Any] = {"progress_percentage": new_progress}
-            # The progress stamp records a CHANGE: a streak advancing past the
-            # normalization window recomputes to the same capped figure, and that
-            # is not a progress event a period report should count.
-            if abs(new_progress - old_progress) >= 0.01:
-                now = datetime.now()
-                updates["last_progress_update"] = now
-                updates["progress_history"] = with_progress_entry(goal, new_progress, now)
-
-            # Check if goal is achieved — on the TRANSITION, matching the gate in
-            # _update_goal_from_habit_completion. `>= 100` alone re-stamps
-            # achieved_date on every later streak report once the streak has reached its
-            # normalization window (30 -> 31 days is 100% both times), moving the
-            # recorded achievement to today. The percentage crossing is this recompute's
-            # TARGET derivation and stays here; whether the goal was ALREADY completed is
-            # the write's to decide, under the node's lock (ADR-087).
-            target_achieved = new_progress >= 100 and old_progress < 100
-            guard, achievement = _achievement_write(target_achieved)
-
-            update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
-            if update_result.is_error:
-                return Result.fail(update_result)
-
-            # This guard refuses nothing, so the write always applied.
-            outcome = update_result.value
-            updated_goal = outcome.entity
-            goal_achieved_now = is_completion_transition(outcome.prior_status, achievement)
-
-            self.logger.info(
-                f"Updated goal {goal_uid} progress from habit {habit_uid} to {new_progress:.1f}%"
-            )
-
-            # Publish GoalProgressUpdated event
-            progress_event = GoalProgressUpdated(
-                goal_uid=goal_uid,
-                user_uid=goal.user_uid,
-                old_progress=goal.progress_percentage,
-                new_progress=new_progress,
-            )
-            await publish_event(self.event_bus, progress_event, self.logger)
-
-            # Publish GoalAchieved only on the transition — GoalEventHandlerService
-            # appends a PRINCIPLE_ALIGNMENT PersistedInsight per event, under a UID
-            # carrying a per-second timestamp, so a re-publish duplicates the row.
-            if goal_achieved_now:
-                achieved_event = GoalAchieved(
-                    goal_uid=goal_uid,
-                    user_uid=goal.user_uid,
-                    actual_duration_days=(
-                        today_in(current_zone()) - day_of(goal.created_at, current_zone())
-                    ).days
-                    if goal.created_at
-                    else None,
-                    completed_ahead_of_schedule=today_in(current_zone()) < goal.target_date
-                    if goal.target_date
-                    else False,
-                )
-                await publish_event(self.event_bus, achieved_event, self.logger)
-
-            return Result.ok(updated_goal)
-
-        return Result.ok(goal)
 
     # ========================================================================
     # VELOCITY & FORECASTING HELPERS
@@ -1570,11 +1450,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
             for goal_uid in goal_uids:
                 try:
-                    await self._update_goal_from_habit_completion(
-                        goal_uid=goal_uid,
-                        user_uid=event.user_uid,
-                        current_streak=event.current_streak,
-                    )
+                    recomputed = await self.recompute_habit_figure(goal_uid)
+                    if recomputed.is_error:
+                        self.logger.error(
+                            f"Failed to recompute goal {goal_uid}: {recomputed.expect_error()}"
+                        )
                 except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                     # Best-effort: Don't let one goal failure block others
                     self.logger.error(
@@ -1585,30 +1465,27 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # Best-effort: Log error but don't raise (prevent habit completion failure)
             self.logger.error(f"Error handling habit_completed event: {e}")
 
-    # FUTURE-IMPL-008: See docs/reference/PLACEHOLDER_INDEX.md § I2
-    async def _update_goal_from_habit_completion(
-        self, goal_uid: str, user_uid: UserUID, current_streak: int
-    ) -> None:
-        """Recompute one HABIT_BASED goal from its supporting habits' average streak.
+    async def recompute_habit_figure(self, goal_uid: str) -> Result[bool]:
+        """Recompute one HABIT_BASED goal from its owner's supporting habits, and publish
+        the result. ``Result.ok(True)`` when the goal was written.
 
         Progress is ``avg_streak / target_value * 100``, capped at 100 — target_value is
-        the desired streak length. Decided under the goal's write-lock, like the
-        task-based sibling (``GoalsBackend.recompute_progress_from_linked_habits``).
+        the desired streak length; a goal with no supporting habit is written 0. Decided
+        under the goal's write-lock, like the task-based sibling, so a habit completed
+        while another is linked is counted by whichever recompute runs second. Run after
+        a habit completion and after every change to the goal's habit links; any other
+        measurement type is left alone.
 
-        Args:
-            goal_uid: Goal to update
-            user_uid: User owning the goal
-            current_streak: Current streak length of the completed habit
+        Backend: ``GoalsBackend.recompute_progress_from_linked_habits``.
         """
         result = await self.backend.recompute_progress_from_linked_habits(
-            goal_uid, user_uid, _plan_habit_progress
+            goal_uid, _plan_habit_progress
         )
         if result.is_error:
-            self.logger.error(f"Failed to recompute goal {goal_uid}: {result.error}")
-            return
+            return Result.fail(result)
         if result.value is None:
             self.logger.debug(f"Goal {goal_uid}: no habit-based progress change")
-            return
+            return Result.ok(False)
 
         plan, outcome = result.value.plan, result.value.outcome
         self.logger.info(
@@ -1616,8 +1493,13 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             f"({plan.detail})"
         )
         await self._publish_recompute(
-            goal_uid, user_uid, plan, outcome.prior_status, trigger="habits"
+            goal_uid,
+            UserUID(str(outcome.entity.user_uid)),
+            plan,
+            outcome.prior_status,
+            trigger="habits",
         )
+        return Result.ok(True)
 
     async def _publish_recompute(
         self,

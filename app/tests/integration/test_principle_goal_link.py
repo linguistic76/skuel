@@ -238,15 +238,19 @@ async def test_the_goal_page_lists_each_supporter_under_its_own_heading(
     response = await env.client.get(f"/goals/detail/content?uid={supported.goal}")
     assert response.status_code == 200, response.text[:500]
     page = response.text
+    # The habits are listed by the habit section the page loads, with their tiers.
+    section = await env.client.get(f"/goals/habits?uid={supported.goal}")
+    assert section.status_code == 200, section.text[:500]
 
-    habits = under_heading(page, HABITS_HEADING)
+    habits = under_heading(section.text, HABITS_HEADING)
     principles = under_heading(page, PRINCIPLES_HEADING)
 
     assert Supported.habit_title in habits
-    assert Supported.principle_title not in habits
+    assert Supported.principle_title not in section.text
     assert Supported.principle_title in principles
-    assert Supported.habit_title not in principles
+    assert Supported.habit_title not in page, "a supporting habit is listed once, in its section"
     assert Supported.step_title not in page, "a PathStep supporter is under no heading"
+    assert Supported.step_title not in section.text
 
 
 async def test_the_path_aware_goal_context_separates_habits_from_principles(
@@ -309,7 +313,7 @@ async def test_the_habit_progress_tally_counts_the_one_habit(
         seen.append(tally)
 
     recomputed = await env.services.goals.backend.recompute_progress_from_linked_habits(
-        supported.goal, CALLER, read_only
+        supported.goal, read_only
     )
 
     assert recomputed.is_ok, recomputed

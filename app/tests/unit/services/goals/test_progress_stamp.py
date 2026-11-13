@@ -9,7 +9,7 @@ door, and an intent that carries a progress figure through the core update.
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -18,11 +18,10 @@ from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.goal.milestone import Milestone
-from core.services.goals.goal_relationships import GoalRelationships
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.utils.result_simplified import Result
-from tests.helpers.status_guarded_backend import guarded_backend
+from tests.helpers.status_guarded_backend import guarded_backend, wire_locked_recompute
 
 _USER = "user_stamp"
 _GOAL = "goal_stamp"
@@ -93,18 +92,28 @@ async def test_re_posting_the_stored_figure_leaves_the_stamp_alone() -> None:
 
 @pytest.mark.asyncio
 async def test_habit_progress_recompute_to_the_same_capped_figure_leaves_the_stamp_alone() -> None:
-    """A streak advancing past the normalization window recomputes to the same
-    100%: the write happens, the stamp does not."""
+    """A streak advancing past its target recomputes to the same 100%: the measure
+    is written, the stamp is not."""
     goal = _goal(progress=100.0)
-    goal = Goal(**{**goal.__dict__, "measurement_type": MeasurementType.HABIT_BASED})
+    goal = Goal(
+        **{
+            **goal.__dict__,
+            "measurement_type": MeasurementType.HABIT_BASED,
+            "current_value": 30.0,
+            "target_value": 30.0,
+        }
+    )
     backend, recorder = guarded_backend(goal, goal)
-    backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
+    wire_locked_recompute(
+        backend,
+        recorder,
+        goal,
+        method="recompute_progress_from_linked_habits",
+        tally={"total_habits": 1, "avg_streak": 31.0},
+    )
     service = _progress_service(backend)
-    service.relationships = Mock()  # type: ignore[assignment]
-    linked = GoalRelationships(supporting_habit_uids=["habit_1"])
 
-    with patch.object(GoalRelationships, "fetch", AsyncMock(return_value=linked)):
-        result = await service.update_goal_from_habit_progress(_GOAL, "habit_1", 31)
+    result = await service.recompute_habit_figure(_GOAL)
 
     assert result.is_ok
     updates = recorder.last_updates

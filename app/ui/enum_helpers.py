@@ -36,7 +36,6 @@ from core.models.enums import (
     TimeOfDay,
     TrendDirection,
 )
-from core.models.enums.goal_enums import HabitEssentiality
 from core.models.enums.user_enums import UserRole
 from ui.feedback import FALLBACK_BADGE_CLS, Badge, BadgeT
 
@@ -95,24 +94,6 @@ def get_priority_border_class(priority: str) -> str:
 def get_priority_dot_class(priority: str) -> str:
     """Get background dot class for a priority/impact level."""
     return _enum_method(priority, Priority, "get_dot_class", "bg-muted")
-
-
-def get_essentiality_badge_class(essentiality: str) -> str:
-    """Get Tailwind badge class for a habit essentiality level."""
-    return _enum_method(
-        essentiality,
-        HabitEssentiality,
-        "get_badge_class",
-        FALLBACK_BADGE_CLS,
-    )
-
-
-def get_essentiality_styled(essentiality: str) -> tuple[str, str, str]:
-    """Get (emoji, border_class, bg_class) for a habit essentiality level."""
-    try:
-        return HabitEssentiality(essentiality.lower().strip()).get_styled()
-    except ValueError:
-        return ("\u26aa", "border-border", "bg-muted")
 
 
 def get_health_bg_class(status: str) -> str:

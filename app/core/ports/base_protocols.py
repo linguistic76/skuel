@@ -1088,8 +1088,13 @@ class RelationshipMetadataOperations(Protocol):
         to_uid: str,
         relationship_type: RelationshipName,
         properties: Neo4jProperties,
+        *,
+        from_label: NeoLabel | None = None,
+        to_label: NeoLabel | None = None,
     ) -> ResultType[bool]:
-        """Update specific properties on a relationship edge."""
+        """Set properties on an existing edge, leaving its others; not found when no edge
+        of the type joins the two (with ``from_label`` / ``to_label``, none from / to a
+        node of that kind)."""
         ...
 
     async def get_relationships_batch(

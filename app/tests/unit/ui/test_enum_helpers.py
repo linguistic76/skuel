@@ -10,8 +10,6 @@ from ui.enum_helpers import (
     get_completion_emoji,
     get_content_icon,
     get_educational_icon,
-    get_essentiality_badge_class,
-    get_essentiality_styled,
     get_health_bg_class,
     get_health_color,
     get_health_dot_class,
@@ -99,28 +97,6 @@ class TestPriorityBridgeFunctions:
     def test_priority_dot_class_invalid(self) -> None:
         result = get_priority_dot_class("invalid")
         assert result == "bg-muted"
-
-
-class TestEssentialityBridge:
-    def test_essentiality_badge_class_valid(self) -> None:
-        result = get_essentiality_badge_class("essential")
-        assert isinstance(result, str)
-
-    def test_essentiality_badge_class_invalid(self) -> None:
-        result = get_essentiality_badge_class("invalid")
-        assert result == "bg-muted text-foreground/70 border-border"
-
-    def test_essentiality_styled_valid(self) -> None:
-        emoji, border, bg = get_essentiality_styled("essential")
-        assert isinstance(emoji, str)
-        assert isinstance(border, str)
-        assert isinstance(bg, str)
-
-    def test_essentiality_styled_invalid(self) -> None:
-        emoji, border, bg = get_essentiality_styled("invalid")
-        assert emoji == "\u26aa"
-        assert border == "border-border"
-        assert bg == "bg-muted"
 
 
 class TestHealthBridge:

@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-08
+updated: 2026-11-13
 ---
 
 # Placeholder Parameter Index
@@ -388,14 +388,9 @@ at 152, which receives it positionally as `data_points` (541) and buckets it at 
 
 | Marker | File | Line | Placeholder | Notes |
 |--------|------|------|-------------|-------|
-| `FUTURE-IMPL-008` | `core/services/goals/goals_progress_service.py` | 1408 | `current_streak: int` (1409) on `_update_goal_from_habit_completion()` (1408) | ⚠ **One of the two deferred *parameters* in this register that are NOT underscore-prefixed** (the other is `user_uid` on `_generate_recommendations()`, Group E2). ⚠ **Intent unknown — do not assume a remedy.** The value is not lost: the completing habit's streak is persisted (`habits_progress_service.py:242`) *before* the event is published, and `recompute_progress_from_linked_habits` averages the persisted `current_streak` of every linked habit, so it is already counted. The parameter is redundant as it stands, and the handler receives no `habit_uid` with which to single that habit out. |
 | `FUTURE-IMPL-009` | `core/services/lp/lp_progress_service.py` | 171 | `average_mastery_score=1.0` on `LearningPathCompleted` | The prior-progress half is resolved: progress is recorded on the learner's `ENROLLED_IN` edge (`r.progress`, `_LpProgressMixin.record_enrollment_progress`) and `old_progress` is the prior the write reports. What remains: whenever the completion branch fires, `LearningPathCompleted` reports mastery of exactly 1.0. |
 
 **What full implementation requires:**
-- `FUTURE-IMPL-008`: **decide, don't implement.** The averaged progress already includes the
-  completing habit, so there is no missing input to restore — establish whether a per-habit
-  emphasis was ever intended (which would need a `habit_uid` this handler is not given), and if
-  not, delete the parameter rather than invent a use for it.
 - `FUTURE-IMPL-009`: the average mastery score at completion. **Read the live relationship
   state** — per-KU progression is the `VIEWED → IN_PROGRESS → MASTERED` edge chain, and every
   MASTERED edge carries a `mastery_score` (one writer, one shape), so the average is a read over
@@ -411,17 +406,6 @@ at 152, which receives it positionally as `data_points` (541) and buckets it at 
   ADR-002 records that this vocabulary "was never built" — a reader against it silently returned
   zero from the day it shipped. Being instantiated is not the same as being written; check for a
   writer that can actually run before building on a model.
-
-> **Why `FUTURE-IMPL-008` has a named ruff entry — and why that entry is documentation, not
-> mechanism.** SKUEL defers a parameter by underscore-prefixing it, and ruff's `ARG` rules already
-> skip underscore-prefixed arguments, so a placeholder recorded here normally needs no suppression
-> at all. `current_streak` is not underscore-prefixed, so it *is* a genuine ARG002 violation — which
-> is why `"core/services/goals/goals_progress_service.py" = ["ARG002"]` survived the #855
-> per-file-ignores sweep. But that key is not what silences it: broader keys already cover the file
-> (`"core/services/*_service.py"` and `"core/services/*/[!_]*.py"` both match, because ruff's `*`
-> crosses `/`). The named entry is documentation of the one live violation, not the mechanism.
-> Prefer underscore-prefixing over adding a suppression, and never read a named per-file entry as
-> proof that it is load-bearing — measure with the table cleared.
 
 ---
 
@@ -456,7 +440,7 @@ table rotted last time.
 
 Deletions are recorded here so they are not re-added from memory. **Group letters are identifiers,
 not a sequence** — the gaps at C, G and K are deliberate; do not re-letter, because `§ E2` and `§ I2`
-are cited by name from six `FUTURE-IMPL-*` comments in the code.
+are cited by name from five `FUTURE-IMPL-*` comments in the code.
 
 | Removed | When | Why |
 |---------|------|-----|

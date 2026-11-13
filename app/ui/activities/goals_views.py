@@ -15,6 +15,7 @@ from fasthtml.common import (
     Div,
     Form,
     Li,
+    Option,
     P,
     Small,
     Span,
@@ -23,8 +24,9 @@ from fasthtml.common import (
 from fasthtml.common import Button as HtmlButton
 
 from core.models.enums.activity_enums import ProgressLevel
-from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.goal_enums import MeasurementType
+from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.goal_enums import HabitEssentiality, MeasurementType
+from core.models.relationship_names import RelationshipName
 from core.utils.activity_stats import compute_goal_stats
 from ui.activities._shared import (
     ActivityList,
@@ -35,21 +37,24 @@ from ui.activities._shared import (
     TagsBlock,
     safe_id,
 )
-from ui.components import Button, ButtonT, Icon, Input, Label
+from ui.components import Button, ButtonT, Icon, Input, Label, Select
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, Progress, ProgressT, StatusBadge
+from ui.patterns.entity_picker import EntityPicker
 from ui.patterns.format_date import format_date
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import section_label
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
     from fasthtml.common import FT
 
     from core.models.goal.goal import Goal
+    from core.models.goal.goal_habit_link import GoalHabitLink
     from core.models.goal.milestone import Milestone
     from core.ports.query_types import EntityConnection
 
@@ -292,8 +297,16 @@ def GoalDetailView(
     # Milestones section
     milestones_section = MilestonesSection(goal)
 
-    # Connections — one list per heading (ADR-090 §2)
-    conn_section = ConnectionsSection(connections)
+    # Connections — one list per heading (ADR-090 §2). The habits that support the goal
+    # are listed in their own section, with their tiers, so not here as well.
+    conn_section = ConnectionsSection(
+        [conn for conn in connections if not _is_supporting_habit(conn)]
+    )
+
+    # The goal's habit system — HTMX-loaded (its tiers are read in the fragment route)
+    habits_section = content_loading_placeholder(
+        f"/goals/habits?uid={goal.uid}", goal_habits_id(goal.uid)
+    )
 
     # Dual-track self-assessment (perception gap + trend) — ADR-030
     dual_track_section = DualTrackSection(
@@ -320,6 +333,7 @@ def GoalDetailView(
         meta_grid,
         tags_el,
         milestones_section,
+        habits_section,
         conn_section,
         dual_track_section,
         relationships,
@@ -329,8 +343,22 @@ def GoalDetailView(
 
 
 def goal_detail_id(goal_uid: str) -> str:
-    """The detail view's element id: what the progress and milestone controls replace."""
+    """The detail view's element id: what the progress, milestone and habit controls
+    replace."""
     return f"goal-detail-{safe_id(goal_uid)}"
+
+
+def goal_habits_id(goal_uid: str) -> str:
+    """The habit section's element id: the slot its fragment fills."""
+    return f"goal-habits-{safe_id(goal_uid)}"
+
+
+def _is_supporting_habit(conn: EntityConnection) -> bool:
+    """A link the habit section lists: a habit supporting this goal."""
+    return (
+        conn["rel_type"] == RelationshipName.SUPPORTS_GOAL.value
+        and conn["connected_type"] == EntityType.HABIT.value
+    )
 
 
 #: Statuses in which a goal's owner has set it aside: its page shows what it holds
@@ -500,4 +528,135 @@ def _AddMilestoneForm(goal: Goal, target: str) -> FT:
         hx_disabled_elt="find button[type=submit]",
         cls="mt-4",
         data_goal_add_milestone="1",
+    )
+
+
+#: Each tier's name on the page, in the order the section lists and offers them.
+_TIER_LABELS: dict[HabitEssentiality, str] = {
+    HabitEssentiality.ESSENTIAL: "Essential",
+    HabitEssentiality.CRITICAL: "Critical",
+    HabitEssentiality.SUPPORTING: "Supporting",
+    HabitEssentiality.OPTIONAL: "Optional",
+}
+
+
+def GoalHabitsSection(goal: Goal, links: Sequence[GoalHabitLink]) -> FT:
+    """The habits that support a goal, each at its tier, with the controls that change
+    them.
+
+    Each row's tier select moves the habit to another tier
+    (``/api/goals/{uid}/habits/essentiality``) and its Unlink button removes it
+    (``/api/goals/{uid}/habits/unlink``); the form below links one of the learner's
+    habits at a tier (``/api/goals/{uid}/habits``). Each is answered with the whole
+    detail view, which loads this section again. A goal set aside shows its habits and
+    their tiers, and no control. Rendered by the ``/goals/habits`` fragment route.
+    """
+    editable = goal.status not in _SET_ASIDE
+    target = f"#{goal_detail_id(goal.uid)}"
+    rows = [_HabitRow(goal, link, target, editable) for link in links]
+    if rows:
+        body: FT = Ul(*rows, cls="divide-y")
+    else:
+        body = P("No habits support this goal yet.", cls="text-sm text-muted-foreground")
+    return Div(
+        section_label("Habits that support this goal"),
+        body,
+        _LinkHabitForm(goal, target) if editable else "",
+        id=goal_habits_id(goal.uid),
+        cls="my-4",
+    )
+
+
+def _HabitRow(goal: Goal, link: GoalHabitLink, target: str, editable: bool) -> FT:
+    """One linked habit: its title, then its tier as a select and an Unlink button, or
+    as a badge on a goal set aside."""
+    title = A(
+        link.title or "Untitled habit",
+        href=f"/habits/detail?uid={link.habit_uid}",
+        cls="break-words hover:underline",
+    )
+    if not editable:
+        return Li(
+            Div(title, cls="flex-1 min-w-0"),
+            Span(
+                _TIER_LABELS[link.essentiality],
+                cls=f"shrink-0 rounded-md border px-2 py-0.5 text-xs "
+                f"{link.essentiality.get_badge_class()}",
+                data_goal_habit_tier=link.essentiality.value,
+            ),
+            cls="flex items-center gap-2 py-2",
+        )
+    tier_select = Select(
+        *_tier_options(link.essentiality),
+        name="new_essentiality",
+        hx_post=f"/api/goals/{goal.uid}/habits/essentiality",
+        hx_trigger="change",
+        hx_vals=json.dumps({"habit_uid": link.habit_uid}),
+        hx_target=target,
+        hx_swap="outerHTML",
+        hx_disabled_elt="this",
+        aria_label=f"Tier of habit {link.title}",
+        full_width=False,
+        cls="sm:w-40",
+        data_goal_habit_tier_select=link.habit_uid,
+    )
+    unlink = HtmlButton(
+        "Unlink",
+        type="button",
+        hx_post=f"/api/goals/{goal.uid}/habits/unlink",
+        hx_vals=json.dumps({"habit_uid": link.habit_uid}),
+        hx_target=target,
+        hx_swap="outerHTML",
+        hx_disabled_elt="this",
+        cls=(
+            "shrink-0 rounded-md border border-input px-3 h-11 md:h-10 text-sm "
+            "hover:bg-accent disabled:opacity-50"
+        ),
+        aria_label=f"Unlink habit {link.title}",
+        data_goal_habit_unlink=link.habit_uid,
+    )
+    return Li(
+        Div(title, cls="flex-1 min-w-0"),
+        Div(tier_select, unlink, cls="flex items-center gap-2"),
+        cls="flex flex-col sm:flex-row sm:items-center gap-2 py-2",
+    )
+
+
+def _tier_options(selected: HabitEssentiality) -> list[FT]:
+    """The four tiers as select options, ``selected`` chosen."""
+    return [
+        Option(label, value=tier.value, selected=tier is selected)
+        for tier, label in _TIER_LABELS.items()
+    ]
+
+
+def _LinkHabitForm(goal: Goal, target: str) -> FT:
+    """Link one of the learner's habits at a tier. Posts ``/api/goals/{uid}/habits``."""
+    form_id = safe_id(goal.uid)
+    return Form(
+        P("Link a habit", cls="text-sm font-medium mb-2"),
+        Div(
+            Div(EntityPicker("habit_uid", "habit", required=True), cls="sm:flex-1"),
+            Select(
+                *_tier_options(HabitEssentiality.SUPPORTING),
+                name="essentiality",
+                id=f"goal-habit-tier-{form_id}",
+                aria_label="Tier of the habit to link",
+                full_width=False,
+                cls="sm:w-40",
+            ),
+            Button("Link habit", type="submit", cls=ButtonT.default, size="field"),
+            cls="flex flex-col sm:flex-row gap-2",
+        ),
+        Small(
+            "The tier says how much this goal depends on the habit: essential, then "
+            "critical, supporting and optional.",
+            cls="block mt-2 text-muted-foreground",
+        ),
+        hx_post=f"/api/goals/{goal.uid}/habits",
+        hx_target=target,
+        hx_swap="outerHTML",
+        hx_disabled_elt="find button[type=submit]",
+        cls="mt-4",
+        data_goal_link_habit="1",
     )

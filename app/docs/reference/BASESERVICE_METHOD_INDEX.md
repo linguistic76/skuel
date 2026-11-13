@@ -199,7 +199,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### GoalsService
 
-**Facade-specific public methods:** 60
+**Facade-specific public methods:** 62
 
 | Method | Async |
 |--------|-------|
@@ -211,6 +211,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `assess_goal_learning_alignment()` | ✅ |
 | `calculate_goal_progress_with_context()` | ✅ |
 | `cancel_goal()` | ✅ |
+| `change_habit_essentiality()` | ✅ |
 | `check_goal_capacity()` | ✅ |
 | `complete_goal()` | ✅ |
 | `complete_milestone()` | ✅ |
@@ -235,6 +236,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `get_goal_progress_dashboard()` | ✅ |
 | `get_goals_blocked_by_knowledge()` | ✅ |
 | `get_goals_needing_habits()` | ✅ |
+| `get_habit_system()` | ✅ |
 | `get_learning_supporting_goals()` | ✅ |
 | `get_overdue()` | ✅ |
 | `get_parent_goal()` | ✅ |
@@ -252,6 +254,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `pause_goal()` | ✅ |
 | `remove_subgoal_relationship()` | ✅ |
 | `reopen_milestone()` | ✅ |
+| `replace_habit_system()` | ✅ |
 | `set_status()` | ✅ |
 | `suggest_goal_timeline()` | ✅ |
 | `suggest_learning_aligned_goals()` | ✅ |
@@ -261,7 +264,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `update()` | ✅ |
 | `update_for_user()` | ✅ |
 | `update_goal()` | ✅ |
-| `update_goal_from_habit_progress()` | ✅ |
 | `update_goal_progress()` | ✅ |
 
 ---

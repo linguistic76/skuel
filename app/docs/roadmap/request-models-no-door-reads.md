@@ -1,6 +1,6 @@
 ---
 title: "Request Models No Door Reads"
-updated: 2026-11-12
+updated: 2026-11-13
 status: "open — 17 staged (3 wait on a door for a service that exists, 2 on a design, 12 on a re-evaluation) and 1 parked; 23 retired 2026-11-08; 7 bound by their doors 2026-11-08 to 2026-11-12; one staged field (a user's interests) waits on its representation"
 registered: 2026-11-05
 ruled: "2026-11-05 (Mike) — 23 retire; UserFilterSchema and HabitCompletionFilterRequest move from retire to staged; the rest stay staged or parked, each for the reason in its row"
@@ -80,6 +80,9 @@ Each row names the live means that does the model's job.
 | `GoalProgressUpdateRequest` | `POST /api/goals/{uid}/progress`, the goal page's "Save progress" form (2026-11-12). Narrowed to the figure and its date; the field it lost is below |
 | `MilestoneCreateRequest` | `POST /api/goals/{uid}/milestones`, the goal page's "Add milestone" form (2026-11-12). `target_date` became optional; the fields it lost are below |
 | `MilestoneUidRequest` | `POST /api/goals/{uid}/milestones/complete` and `/milestones/reopen`, the Complete button on each open milestone and the Reopen button on each reached one (2026-11-12). Narrowed to `milestone_uid`: the service finds the milestone by uid under the goal's lock |
+| `GoalHabitLinkRequest` | `POST /api/goals/{uid}/habits`, the goal page's "Link a habit" form (2026-11-13). Gained `essentiality` (the tier it links at, default supporting); the field it lost is below |
+| `HabitEssentialityChangeRequest` | `POST /api/goals/{uid}/habits/essentiality`, the tier select on each linked habit (2026-11-13); the field it lost is below |
+| `HabitSystemUpdateRequest` | `POST /api/goals/{uid}/habits/system` (2026-11-13), JSON only: no page control replaces the whole system. A full replace: the four lists are every habit the goal keeps, a tier left out is empty (the lists default to empty, not `None`) |
 
 ### The fields the goal models lost (2026-11-12)
 
@@ -90,6 +93,13 @@ Each row names the live means that does the model's job.
 | `MilestoneCreateRequest.required_knowledge_uids` | **staged.** `Milestone.required_knowledge_uids` has one reader (`GoalTaskGenerator` copies it into a generated task's metadata), and no door writes it. A door needs the Ku admitted as the link doors admit one, and a picker on the page |
 | `MilestoneUidRequest.achieved_date` | retired: a milestone's date is stamped by the write, today in the user's zone, on its first completion only |
 | `MilestoneUidRequest.notes` | retired: `Milestone` has no field to hold one |
+
+### The fields the habit-system models lost (2026-11-13)
+
+| Field | Verdict |
+|---|---|
+| `GoalHabitLinkRequest.weight` | retired: nothing reads a `SUPPORTS_GOAL` edge's `weight`. Every door still writes it 1.0 |
+| `HabitEssentialityChangeRequest.reason` | retired: there was nowhere to store it. `ui/ui_types.py`'s `HabitMigration` (a tier change's from, to, when, why) had no producer and no reader, and went with it |
 
 ### The fields `UserUpdateSchema` lost (ruled 2026-11-12)
 
@@ -113,9 +123,6 @@ A wiring door binds its model and takes its row out.
 
 | Model | File | Verdict | Why |
 |---|---|---|---|
-| `GoalHabitLinkRequest` | `core/models/goal/goal_request.py` | staged: door | one door with the two habit-system models |
-| `HabitEssentialityChangeRequest` | `core/models/goal/goal_request.py` | staged: door | the same door |
-| `HabitSystemUpdateRequest` | `core/models/goal/goal_request.py` | staged: door | the same door |
 | `UserAnalyticsView` | `core/models/user/user_request.py` | staged: design | wanted: growth and retention on `/admin/analytics`. Growth reads `User.created_at`; `AuthEvent` is pruned at 90 days, so retention needs the ruled monthly login count per user, which has no home yet. Several fields read nothing that exists |
 | `WeeklyPlanningRequest` | `core/models/analytics/analytics_report_request.py` | staged: design | wanted: the daily plan stretched over seven days, checked against available minutes. No service; read the daily plan first. Its `user_uid` field goes: the user comes from the session |
 | `GoalFilterRequest` | `core/models/goal/goal_request.py` | staged: re-evaluate | list filters are fundamental (Mike). A GET door reads its fields through the strict readers, so a filter class is a specification until a POST door binds it |

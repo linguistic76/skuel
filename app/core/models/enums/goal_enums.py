@@ -118,31 +118,6 @@ class HabitEssentiality(StrEnum):
             HabitEssentiality.OPTIONAL: "bg-muted text-foreground/70 border-border",
         }.get(self, "bg-muted text-foreground/70 border-border")
 
-    def get_styled(self) -> tuple[str, str, str]:
-        """Get (emoji, border_class, bg_class) for essentiality display."""
-        return {
-            HabitEssentiality.ESSENTIAL: (
-                "\U0001f534",
-                "border-red-500",
-                "bg-red-50 dark:bg-red-400/10",
-            ),
-            HabitEssentiality.CRITICAL: (
-                "\U0001f7e0",
-                "border-orange-500",
-                "bg-orange-50 dark:bg-orange-400/10",
-            ),
-            HabitEssentiality.SUPPORTING: (
-                "\U0001f7e1",
-                "border-yellow-500",
-                "bg-yellow-50 dark:bg-yellow-400/10",
-            ),
-            HabitEssentiality.OPTIONAL: (
-                "\U0001f7e2",
-                "border-green-500",
-                "bg-green-50 dark:bg-green-400/10",
-            ),
-        }.get(self, ("\u26aa", "border-border", "bg-muted"))
-
     def get_weight(self) -> float:
         """How much this tier weighs in a goal's essentiality-weighted habit figure.
 
