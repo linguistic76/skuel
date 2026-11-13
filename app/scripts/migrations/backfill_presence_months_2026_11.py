@@ -6,10 +6,12 @@ Backfill the presence record from the sign-in audit trail
 The presence record is ``(:User)-[:PRESENT_IN {sign_ins, days, last_day}]->
 (:Month {key})``: the months a user signed in during, or had a live session seen
 in. Every sign-in and every session's first request of a month writes it
-(``SessionBackend``), and ``/admin/analytics`` reads retention from it. Before
-those writers existed the only trace of a sign-in was its ``:AuthEvent``, which
-the telemetry prune deletes by age. This run copies that trace onto the record,
-once, so the prune can run without taking the history with it.
+(``SessionBackend``), and ``/admin/analytics`` reads retention from it. A
+sign-in also leaves an ``:AuthEvent``, which the telemetry prune deletes by age.
+This run copies the sign-ins the audit trail holds onto the record, once, for
+the user-months the record does not hold.
+
+See: /docs/decisions/ADR-080-auradb-three-horizon-strategy.md
 
 What it reads
 -------------

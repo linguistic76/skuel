@@ -247,11 +247,9 @@ async def test_a_session_seen_in_a_new_month_marks_its_user_present_once(neo4j_d
 async def test_sign_ins_and_first_requests_of_a_month_do_not_deadlock(neo4j_driver, presence):
     """Sign-ins and sessions' first requests of a month, all at once, all land.
 
-    Each writer takes the user node, then the session, then the month node. A
-    writer that took the shared month node before its user deadlocked against a
-    sign-in holding that user, and one that merged the edge before writing the
-    month node deadlocked on the month's lock upgrade: either fails a request
-    here, since neither statement is retried.
+    Each writer takes its locks in one order: the user node, the session, the
+    month node, and the month node before the edge to it. Neither statement is
+    retried, so a writer out of that order fails a request here with a deadlock.
     """
     backends, seed = presence
     sessions = backends["session_backend"]
@@ -290,10 +288,10 @@ async def test_sign_ins_and_first_requests_of_a_month_do_not_deadlock(neo4j_driv
         assert await _scalar(neo4j_driver, edges + "sum(p.days)", k=month) == 5
 
 
-async def test_a_session_from_before_the_record_marks_presence_on_its_next_request(
+async def test_a_session_with_no_seen_month_marks_presence_on_its_next_request(
     neo4j_driver, presence
 ):
-    """A session minted before ``seen_month`` existed carries none, and is seen now."""
+    """A session that carries no ``seen_month`` is marked on its next request."""
     backends, seed = presence
     user = await seed("legacy")
 
