@@ -1200,6 +1200,7 @@ class TasksService(
     async def get_filtered_context(
         self,
         user_uid: UserUID,
+        *,
         project: str | None = None,
         assignee: str | None = None,
         due_filter: str | None = None,

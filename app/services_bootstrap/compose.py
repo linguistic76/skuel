@@ -553,7 +553,6 @@ async def compose_services(
         core_services = _create_core_services(
             invoice_backend=invoice_backend,
             transcription_backend=transcription_backend,
-            user_service=user_service,
             deepgram_api_key=deepgram_api_key,
             event_bus=event_bus,
         )
@@ -686,11 +685,9 @@ async def compose_services(
             chunking_service=chunking_service,
             user_service=user_service,
             graph_intelligence=graph_intelligence,
-            llm_service=llm_service,  # Pass LLM service for askesis RAG
             tier=tier,  # single IntelligenceTier.from_env() read lives above
             event_bus=event_bus,  # Event-driven architecture
             prometheus_metrics=prometheus_metrics,  # Metrics instrumentation
-            activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         logger.info("✅ Learning services created")
 
@@ -1521,7 +1518,7 @@ async def compose_services(
         logger.info("✅ Lateral Relationships Orchestrator created")
 
         # Create advanced services
-        advanced = _create_advanced_services(driver, cross_domain_backend=cross_domain_backend)
+        advanced = _create_advanced_services(cross_domain_backend=cross_domain_backend)
         logger.info("✅ Advanced services created")
 
         from core.orchestrator.calendar_optimization_orchestrator import (
@@ -1602,7 +1599,7 @@ async def compose_services(
             # Curriculum
             ku=learning_services["atomic_ku_service"],
             resource=resource_service,
-            activity_knowledge_intelligence=learning_services["activity_knowledge_intelligence"],
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
             # Content
             content_enrichment=content_enrichment,
             report_mastery=report_mastery_service,  # Explicit mastery propagation
@@ -1643,7 +1640,7 @@ async def compose_services(
             visualization=visualization_service,  # Chart.js + Frappe Gantt chart data
             transcription=core_services["transcription"],
             # User management
-            user=core_services["user"],
+            user=user_service,
             user_relationships=user_relationships,  # UserRelationshipBackend (pinning, following)
             graph_auth=graph_auth,  # Graph-native authentication (January 2026)
             context=context_service,  # Context-aware intelligence (NEW: 2025-11-18)
@@ -1711,6 +1708,8 @@ async def compose_services(
             services=services,
             activity_services=activity_services,
             learning_services=learning_services,
+            graph_intelligence=graph_intelligence,
+            llm_service=llm_service,
             user_entry_backend=user_entry_backend,
             calendar_service=calendar_service,
             vector_search_service=vector_search_service,

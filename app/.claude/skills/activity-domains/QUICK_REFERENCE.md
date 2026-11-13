@@ -115,7 +115,7 @@ from core.services.relationships import UnifiedRelationshipService
 
 ## Filtered List Query Method
 
-Nine facades (the 6 Activity facades + PS, LP, Exercise; not Ku) expose `get_filtered_context()` → `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. Uses shared `build_filtered_context()` skeleton. Stats always include `total` + `active` (BaseStats contract). Its one caller is daily planning's domain-health warnings; the Activity list pages use the UI factory's `get_all` + `filter_fn` instead.
+Eight facades (the 6 Activity facades + PS, LP; not Ku or Exercise) expose `get_filtered_context()` → `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. Uses shared `build_filtered_context()` skeleton. Stats always include `total` + `active` (BaseStats contract). Its one caller is daily planning's domain-health warnings; the Activity list pages use the UI factory's `get_all` + `filter_fn` instead.
 
 ```python
 result = await habits_service.get_filtered_context(user_uid)

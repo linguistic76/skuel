@@ -9,7 +9,7 @@ different lifecycle, different consumers.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, TypedDict
 
 from core.models.choice.choice import Choice
 from core.models.event.event import Event
@@ -28,7 +28,30 @@ from core.ports.infrastructure_protocols import EventBusOperations
 from core.ports.template_protocols import TemplateAttachmentOperations
 from core.utils.logging import get_logger
 
+if TYPE_CHECKING:
+    from core.services.ps_engagement import PsEngagementService
+    from core.services.templates import (
+        ChoiceTemplateService,
+        EventTemplateService,
+        GoalTemplateService,
+        HabitTemplateService,
+        PrincipleTemplateService,
+        TaskTemplateService,
+    )
+
 logger = get_logger("skuel.bootstrap")
+
+
+class TemplateServices(TypedDict):
+    """The engagement service and the six Activity Template read services."""
+
+    ps_engagement: PsEngagementService
+    task_templates: TaskTemplateService
+    goal_templates: GoalTemplateService
+    habit_templates: HabitTemplateService
+    event_templates: EventTemplateService
+    choice_templates: ChoiceTemplateService
+    principle_templates: PrincipleTemplateService
 
 
 def _create_template_services(
@@ -50,7 +73,7 @@ def _create_template_services(
     choices_backend: BackendOperations[Choice],
     principles_backend: BackendOperations[Principle],
     event_bus: EventBusOperations,
-) -> dict[str, Any]:
+) -> TemplateServices:
     """Construct the template + engagement layer.
 
     Builds (Phase 5):

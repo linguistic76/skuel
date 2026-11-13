@@ -1,7 +1,6 @@
 """Intelligence hub wiring — UserContextIntelligence, ZPD, and Askesis."""
 
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.ports import EventBusOperations, ZPDOperations
 from core.ports.filtered_context_protocols import FilteredContextProvider
@@ -9,28 +8,33 @@ from core.ports.zpd_protocols import ZPDBackendOperations, ZPDSnapshotOperations
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
     from core.config.intelligence_tier import IntelligenceTier
     from core.services.activity_services import ActivityServices
+    from core.services.askesis.askesis_core_service import AskesisCoreService
+    from core.services.calendar_service import CalendarService
+    from core.services.canon.canon_retrieval_service import CanonRetrievalService
+    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+    from core.services.learning_services import LearningServices
+    from core.services.llm_service import LLMService
+    from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+    from core.services.user.user_context_builder import UserContextBuilder
+    from core.services.user_service import UserService
     from services_bootstrap._container import Services
 
 logger = get_logger("skuel.bootstrap")
 
 
 def _filtered_context_providers(
-    activity_services: Mapping[str, object],
-    learning_services: Mapping[str, object],
+    activity_services: ActivityServices,
+    learning_services: LearningServices,
 ) -> dict[str, FilteredContextProvider]:
     """Map each domain name to the facade that serves its filtered context.
 
-    The learning services arrive in an ``Any``-valued dict, so an annotation on
-    the returned dict would prove nothing about what is put in it. Each facade is
-    checked against ``FilteredContextProvider`` here, and one that does not expose
-    ``get_filtered_context`` stops the boot rather than reaching a caller.
-
-    Raises:
-        RuntimeError: naming the domain whose facade is not a provider.
+    Both sets are typed, so each facade is checked against
+    ``FilteredContextProvider`` where it is put in the dict.
     """
-    candidates: dict[str, object] = {
+    return {
         "tasks": activity_services["tasks"],
         "goals": activity_services["goals"],
         "habits": activity_services["habits"],
@@ -40,32 +44,25 @@ def _filtered_context_providers(
         "ps": learning_services["ps"],
         "learning_paths": learning_services["learning_paths"],
     }
-    providers: dict[str, FilteredContextProvider] = {}
-    for domain, facade in candidates.items():
-        if not isinstance(facade, FilteredContextProvider):
-            raise RuntimeError(
-                f"filtered_providers[{domain!r}] is a {type(facade).__name__}, which has no "
-                "get_filtered_context — only a FilteredContextProvider may be registered."
-            )
-        providers[domain] = facade
-    return providers
 
 
 def _create_intelligence_hub(
     services: Services,
     activity_services: ActivityServices,
-    learning_services: dict[str, Any],
-    user_entry_backend: Any,
-    calendar_service: Any,
-    vector_search_service: Any,
+    learning_services: LearningServices,
+    graph_intelligence: GraphIntelligenceService,
+    llm_service: LLMService | None,
+    user_entry_backend: UserEntryBackend,
+    calendar_service: CalendarService,
+    vector_search_service: Neo4jVectorSearchService | None,
     zpd_backend: ZPDBackendOperations,
     zpd_snapshot_backend: ZPDSnapshotOperations,
     event_bus: EventBusOperations,
     tier: IntelligenceTier,
-    context_builder: Any,
-    user_service: Any,
-    askesis_core_service: Any,
-    canon_service: Any = None,
+    context_builder: UserContextBuilder,
+    user_service: UserService,
+    askesis_core_service: AskesisCoreService,
+    canon_service: CanonRetrievalService | None = None,
 ) -> None:
     """Create UserContextIntelligence factory, ZPD service, and Askesis.
 
@@ -219,6 +216,8 @@ def _create_intelligence_hub(
         services.askesis = create_askesis_service(
             intelligence_factory=context_intelligence_factory,
             learning_services=learning_services,
+            graph_intelligence=graph_intelligence,
+            llm_service=llm_service,
             activity_services=activity_services,
             user_service=user_service,
             askesis_core_service=askesis_core_service,

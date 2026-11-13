@@ -358,7 +358,7 @@ _ASKESIS_HUB_DOOR = PlannedEntry(
 _ZOOM_LENS_FILTER_HALF = PlannedEntry(
     Readiness.DELAYED,
     "the zoom lens's filter / sort / metadata half: the apply_filters, apply_sort and "
-    "compute_metadata parameters the nine get_filtered_context facades pass. The one "
+    "compute_metadata parameters the eight get_filtered_context facades pass. The one "
     "caller (daily_planning) passes status_filter='all', never sort_by, and reads stats "
     "only — the stats half is live; the rest is the typed, vetted per-domain read an "
     "Askesis tool-selection entry would call ('my overdue tasks by due date'); ruled "

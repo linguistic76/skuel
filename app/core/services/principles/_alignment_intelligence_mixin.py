@@ -309,7 +309,7 @@ class _AlignmentIntelligenceMixin(BaseAnalyticsService[PrinciplesOperations, Pri
         if self.relationships is None:
             return Result.fail(
                 Errors.system(
-                    message="relationship service (BaseRelationshipOperations) not available",
+                    message="relationship service not available",
                     operation="calculate_adherence",
                 )
             )

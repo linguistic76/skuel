@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-09
+updated: 2026-11-13
 ---
 
 # Any Usage Policy
@@ -111,7 +111,6 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 - `RelationshipCrudOperations`, `RelationshipQueryOperations` → `properties: Neo4jProperties`
 - `RelationshipMetadataOperations.get_relationships_batch()` → returns `list[RelationshipMetadata]`
 - Domain CRUD params (`create_goal`, `update_habit`, etc.) → `Metadata`
-- Cross-domain context returns → `GraphContextResult`
 
 **Phase 4 — Return types:** ~170 protocol methods migrated from `Result[Any]` to specific types (0 `Result[Any]` remain in protocols, 2 intentional: `base_service_interface.py` and `OwnershipVerifier.verify_ownership` in `service_protocols.py` — the latter is a narrow internal callback protocol used by `LateralRelationshipService` and `LateralRelationshipsOrchestrator` to accept any domain facade's `verify_ownership(uid, user_uid) -> Result[T]`; `Result[T]` is invariant, each facade returns a different concrete `T`, and callers only branch on `.is_error`):
 

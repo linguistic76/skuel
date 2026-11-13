@@ -678,6 +678,7 @@ class PrinciplesService(
     async def get_filtered_context(
         self,
         user_uid: UserUID,
+        *,
         category_filter: str = "all",
         strength_filter: str = "all",
         sort_by: str = "strength",

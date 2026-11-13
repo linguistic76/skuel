@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-11-13
 ---
 
 # Askesis Architecture - Cross-Cutting Intelligence System
@@ -193,24 +193,27 @@ Askesis is fundamentally different:
 Askesis is created in `compose_services()` AFTER the intelligence factory, via `create_askesis_service()` — **only when `INTELLIGENCE_TIER=full`** (March 2026):
 
 ```python
-# /services_bootstrap/compose.py (PHASE 4)
+# /services_bootstrap/_intelligence_hub.py
 from core.services.askesis_factory import create_askesis_service
 
 if tier.ai_enabled:
     # First: Create factory with all domain services
     context_intelligence_factory = UserContextIntelligenceFactory(
-        tasks=activity_services["tasks"].relationships,
-        goals=activity_services["goals"].relationships,
+        tasks=activity_services["tasks"],
+        goals=activity_services["goals"],
         # ... all activity + curriculum domains
     )
 
     # Then: Create Askesis via factory function (handles AskesisDeps construction)
-    # KeyError on missing deps is intentional — fail-fast, no degraded mode
     services.askesis = create_askesis_service(
         intelligence_factory=context_intelligence_factory,
-        learning_services=learning_services,
-        activity_services=activity_services,
+        learning_services=learning_services,  # LearningServices — a typed set
+        graph_intelligence=graph_intelligence,
+        llm_service=llm_service,
+        activity_services=activity_services,  # ActivityServices — a typed set
         user_service=user_service,
+        # ... askesis_core_service, zpd_service, ps_engagement_service,
+        #     citation_service, canon_service
     )
 else:
     logger.info("Askesis: skipped (INTELLIGENCE_TIER=%s)", tier.value)

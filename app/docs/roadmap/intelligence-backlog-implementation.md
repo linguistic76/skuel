@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-11-13
 ---
 
 # Intelligence Backlog: Implementation Guide
@@ -40,7 +40,7 @@ been **verified against the tree**; design the wiring when the work is actually 
 | Activity services are built **before** learning services, so a curriculum reader cannot simply be constructor-injected into the task service | `compose.py:532` (activity) vs `:709` (learning) |
 | `LearningAlignmentBridge` cannot supply the path — its methods take an `LpPosition` from the caller rather than fetching it | `core/services/infrastructure/learning_alignment_bridge.py` |
 | The KU-detail-page reverse lookup **already exists — do not build a new one.** Both surfaces return bare **UIDs**, not hydrated models, so the only genuinely missing work is hydration + presentation | `PsService.find_tasks_applying_knowledge(ku_uid, user_uid, status_filter)` → `ps_service.py:505` → `ps_application_discovery_service.py:161` (**user-scoped**, `Result[list[str]]`); and `KuOperations.get_applying_task_uids(ku_uid)` → `curriculum_protocols.py:431` → `curriculum_backends.py:289` (**not** user-scoped) |
-| `_create_learning_services()` takes no activity services; its four placeholder params were deleted 2026-07-29 | `_learning_services.py`, call site `compose.py:709` |
+| `_create_learning_services()` takes no activity services; its four placeholder params were deleted 2026-07-29 | `_learning_services.py`, call site `compose.py:680` |
 
 **The two methods are not one problem.** `create_tasks_from_learning_path()` needs curriculum data
 it currently has no route to, and the construction order above means that route has to be arranged
@@ -52,7 +52,7 @@ on the **task** side.
 
 Note `services_bootstrap` is a **package, not a module** — there is no `services_bootstrap.py`. If
 a design does end up threading services through the composition root, the working shape to copy is
-`create_askesis_service()` (`_intelligence_hub.py:201`) → `core/services/askesis_factory.py:63–66`.
+`create_askesis_service()` (`_intelligence_hub.py:216`) → `core/services/askesis_factory.py:72–75`.
 
 **Prerequisite:** Item 2B must be implemented before any of this pays off, otherwise
 `create_tasks_from_learning_path()` would have its inputs and still return `[]`.

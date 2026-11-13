@@ -105,7 +105,7 @@ from core.ports.query_types import ListContext
 
 # In the service facade:
 async def get_filtered_context(
-    self, user_uid: UserUID, status_filter: str = "active", sort_by: str = "due_date",
+    self, user_uid: UserUID, *, status_filter: str = "active", sort_by: str = "due_date",
 ) -> Result[ListContext]:
     """Get filtered and sorted tasks with pre-filter stats in a single query."""
 

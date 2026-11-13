@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-29
+updated: 2026-11-13
 ---
 
 # Intelligence Backlog
@@ -13,7 +13,7 @@ Deferred intelligence gaps. Each item has a clear trigger condition and implemen
 ## 2A: Connect task generation to curriculum data
 
 **Consumers:** `core/services/tasks/tasks_learning_service.py`
-**Possible wiring point:** `services_bootstrap/_learning_services.py` (call site: `compose.py:709`)
+**Possible wiring point:** `services_bootstrap/_learning_services.py` (call site: `compose.py:680`)
 
 **Purpose when implemented:**
 - KU detail pages can surface "Tasks that apply this knowledge" — the `APPLIES_KNOWLEDGE`
@@ -59,8 +59,8 @@ since Askesis creation moved out of that function in January 2026. There is no u
 left to remove.
 
 **If the settled direction does need services threaded through the composition root**, the shape to
-copy is `create_askesis_service()` (`services_bootstrap/_intelligence_hub.py:201`), which passes
-`activity_services` through to `core/services/askesis_factory.py:63–66` as required,
+copy is `create_askesis_service()` (`services_bootstrap/_intelligence_hub.py:216`), which passes
+`activity_services` through to `core/services/askesis_factory.py:72–75` as required,
 non-underscore `AskesisDeps` fields.
 
 **Prerequisite:** Item 2B (`create_tasks_from_learning_path`) must be implemented first.

@@ -1,32 +1,42 @@
 """Curriculum service creation — KU, PS, LP, embeddings, vector search."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from core.config.intelligence_tier import IntelligenceTier
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.models.progress import UserProgress
+    from core.ports import BackendOperations, EventBusOperations
+    from core.ports.curriculum_protocols import KuOperations, PsOperations
+    from core.services.entity_chunking_service import EntityChunkingService
+    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+    from core.services.learning_services import LearningServices
+    from core.services.user_service import UserService
     from services_bootstrap._backends import Backends
 
 logger = get_logger("skuel.bootstrap")
 
 
 def _create_learning_services(
+    *,
     backends: Backends,
-    progress_backend: Any,
-    knowledge_backend: Any,
-    atomic_ku_backend: Any,  # KuBackend for atomic Ku entities
-    chunking_service: Any,
-    user_service: Any,
-    graph_intelligence: Any,
-    llm_service: Any,  # LLMService for RAG generation (None when CORE tier)
+    progress_backend: BackendOperations[UserProgress],
+    knowledge_backend: PsOperations,
+    atomic_ku_backend: KuOperations,  # KuBackend for atomic Ku entities
+    chunking_service: EntityChunkingService,
+    user_service: UserService,
+    graph_intelligence: GraphIntelligenceService,
     tier: IntelligenceTier,  # resolved once in compose_services — the single from_env() read
-    event_bus: Any = None,
+    event_bus: EventBusOperations,
     prometheus_metrics: PrometheusMetrics | None = None,
-    activity_knowledge_intelligence: Any = None,
-) -> dict[str, Any]:
-    """Create all learning-related services using 100% dynamic backends."""
+) -> LearningServices:
+    """Create the curriculum facades, the progress service and the embedding pair.
+
+    The embedding and vector search services are built in the FULL tier only and
+    are ``None`` in CORE.
+    """
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ps_service import PsService
     from core.services.user_progress_service import UserProgressService
@@ -123,21 +133,12 @@ def _create_learning_services(
         user_service=user_service,
     )
 
-    # NOTE: Askesis creation MOVED to compose_services() (January 2026)
-    # This allows intelligence_factory to be passed at construction time (not post-wired)
-
     return {
         "learning_intelligence": learning_paths.intelligence,  # Access via facade
         "atomic_ku_service": atomic_ku_service,
         "user_progress": user_progress,
-        # unified_progress DELETED (January 2026)
         "learning_paths": learning_paths,
         "ps": ps_service,
-        # NOTE: "askesis" MOVED to compose_services() (January 2026)
-        "activity_knowledge_intelligence": activity_knowledge_intelligence,
         "embeddings_service": embeddings_service,  # For intelligence services
         "vector_search_service": vector_search_service,  # For semantic search
-        # Components needed for Askesis creation in compose_services()
-        "graph_intelligence": graph_intelligence,
-        "llm_service": llm_service,
     }

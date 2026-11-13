@@ -114,9 +114,9 @@ result = await tasks_service.create_task_with_context(request, user_context)
 
 **Problem**: Intelligence services need a per-domain view (fetch → stats → filter → sort) without knowing each domain's internals.
 
-**Solution**: Nine facades (the 6 Activity facades plus `PsService`, `LpService`, `ExerciseService`) expose `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. `KuService` has none. A shared skeleton (`build_filtered_context()`) enforces the pattern; domains provide callables for their stats, filters, and sort logic.
+**Solution**: Eight facades (the 6 Activity facades plus `PsService` and `LpService`) expose `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. `KuService` and `ExerciseService` have none. Everything after `user_uid` is taken by keyword. A shared skeleton (`build_filtered_context()`) enforces the pattern; domains provide callables for their stats, filters, and sort logic.
 
-**One consumer**: `DailyPlanningMixin._query_domain_stats()` (`core/services/user/intelligence/daily_planning.py`), which calls it with `status_filter="all"` for the 6 Activity domains and feeds `_generate_domain_health_warnings()` (aggregate health + cross-domain balance). It returns `None` on a failed read, which its caller treats as "stats unavailable", not zero. The providers reach it as the `filtered_providers` dict built by `_filtered_context_providers()` in `services_bootstrap/_intelligence_hub.py`, which checks every facade it registers against the protocol and stops the boot on one without the method. UserContext is the broad snapshot (the MEGA-QUERY); `get_filtered_context()` is the per-domain zoom lens.
+**One consumer**: `DailyPlanningMixin._query_domain_stats()` (`core/services/user/intelligence/daily_planning.py`), which calls it with `status_filter="all"` for the 6 Activity domains and feeds `_generate_domain_health_warnings()` (aggregate health + cross-domain balance). It returns `None` on a failed read, which its caller treats as "stats unavailable", not zero. The providers reach it as the `filtered_providers` dict built by `_filtered_context_providers()` in `services_bootstrap/_intelligence_hub.py`, which reads two typed sets, so mypy holds every facade it registers to the protocol. UserContext is the broad snapshot (the MEGA-QUERY); `get_filtered_context()` is the per-domain zoom lens.
 
 **The Activity list pages do not use it.** `activity_ui_factory.py` fetches with the config's `get_all` (e.g. `goals_service.get_user_goals`) and filters with its `filter_fn` (`core/utils/entity_filters.py`: `filter_tasks` … `filter_principles`) — see [Route file convention](#route-file-convention) below.
 
@@ -136,22 +136,21 @@ stats = result.value["stats"]
 
 | Service | Signature |
 |---------|-----------|
-| `HabitsService` | `get_filtered_context(user_uid, status_filter="active", sort_by="streak")` |
-| `TasksService` | `get_filtered_context(user_uid, project=None, assignee=None, due_filter=None, status_filter="active", sort_by="due_date")` |
-| `GoalsService` | `get_filtered_context(user_uid, status_filter="active", sort_by="target_date")` |
-| `EventsService` | `get_filtered_context(user_uid, status_filter="scheduled", sort_by="start_time")` |
-| `ChoicesService` | `get_filtered_context(user_uid, status_filter="pending", sort_by="deadline")` |
-| `PrinciplesService` | `get_filtered_context(user_uid, category_filter="all", strength_filter="all", sort_by="strength", status_filter="all")` |
+| `HabitsService` | `get_filtered_context(user_uid, *, status_filter="active", sort_by="streak")` |
+| `TasksService` | `get_filtered_context(user_uid, *, project=None, assignee=None, due_filter=None, status_filter="active", sort_by="due_date")` |
+| `GoalsService` | `get_filtered_context(user_uid, *, status_filter="active", sort_by="target_date")` |
+| `EventsService` | `get_filtered_context(user_uid, *, status_filter="scheduled", sort_by="start_time")` |
+| `ChoicesService` | `get_filtered_context(user_uid, *, status_filter="pending", sort_by="deadline")` |
+| `PrinciplesService` | `get_filtered_context(user_uid, *, category_filter="all", strength_filter="all", sort_by="strength", status_filter="all")` |
 
 **Pending and decided are Choice predicates, not statuses.** A Choice's legal statuses are `draft`, `active`, `completed` and `archived`. `Choice.is_decided()` (a `decided_at`, or COMPLETED) and `Choice.is_pending()` (not decided and not ARCHIVED) are the one definition; `_CHOICE_FILTER_CONFIG`, `compute_choice_stats`, the list page's `filter_choices` and `ChoiceStatsBar` all call them, and their one Cypher spelling (`build_choice_pending_predicate` / `build_choice_decided_predicate`, `adapters/persistence/neo4j/query/cypher/choice_fragments.py`) is composed by `ChoicesBackend`'s stats and list reads and by UserContext's `pending_choice_uids`. An archived choice that was never decided is neither.
 
-**Method signatures (Curriculum — 3):**
+**Method signatures (Curriculum — 2):**
 
 | Service | Signature |
 |---------|-----------|
-| `PsService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
-| `LpService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
-| `ExerciseService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
+| `PsService` | `get_filtered_context(user_uid, *, status_filter="all", sort_by="title")` |
+| `LpService` | `get_filtered_context(user_uid, *, status_filter="all", sort_by="title")` |
 
 **Shared skeleton** (`core/services/filtered_context.py`):
 

@@ -920,6 +920,7 @@ class GoalsService(
     async def get_filtered_context(
         self,
         user_uid: UserUID,
+        *,
         status_filter: str = "active",
         sort_by: str = "target_date",
     ) -> Result[ListContext]:
