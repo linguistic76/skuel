@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 
+from adapters.infrastructure.event_bus import InMemoryEventBus
+from core.events import GoalHabitsChanged
 from core.models.enums.goal_enums import HabitEssentiality
 from core.services.goals_service import GoalsService
 from core.services.mixins.link_edge_guard import HABIT_FAR_END, KNOWLEDGE_FAR_END, PRINCIPLE_FAR_END
@@ -18,6 +20,15 @@ from core.utils.result_simplified import Errors, Result
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+def _announced(bus: InMemoryEventBus) -> list[tuple[str, tuple[str, ...], tuple[str, ...]]]:
+    """Each GoalHabitsChanged the bus saw, as (user_uid, goal_uids, habit_uids)."""
+    return [
+        (e.user_uid, e.goal_uids, e.habit_uids)
+        for e in bus.get_event_history()
+        if isinstance(e, GoalHabitsChanged)
+    ]
 
 
 @pytest.fixture
@@ -174,17 +185,19 @@ class TestGoalsServiceOrchestration:
 
 class TestGoalsServiceRelationships:
     @pytest.mark.asyncio
-    async def test_link_goal_to_habit_writes_its_tier_and_recomputes_the_figure(
-        self, goals_service: GoalsService
+    async def test_link_goal_to_habit_writes_its_tier_and_announces_the_goal(
+        self, goals_service: GoalsService, mock_backend: Mock
     ) -> None:
         """link_goal_to_habit writes the SUPPORTS_GOAL edge with its essentiality tier, then
-        recomputes the goal's habit figure.
+        publishes GoalHabitsChanged for the goal, under the owner read off it.
 
         The essentiality property is THE key the GOALS_CONFIG tier mappings filter on —
         see test_goal_habit_essentiality.py.
         """
+        bus = InMemoryEventBus(capture_history=True)
+        goals_service.event_bus = bus
+        mock_backend.get = AsyncMock(return_value=Result.ok(Mock(user_uid="user.owner")))
         goals_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
-        goals_service.progress.recompute_habit_figure = AsyncMock(return_value=Result.ok(False))
 
         result = await goals_service.link_goal_to_habit(
             "goal_abc", "habit_xyz", HabitEssentiality.ESSENTIAL
@@ -198,21 +211,43 @@ class TestGoalsServiceRelationships:
             {"weight": 1.0, "essentiality": "essential"},
             far_end=HABIT_FAR_END,
         )
-        goals_service.progress.recompute_habit_figure.assert_awaited_once_with("goal_abc")
+        assert _announced(bus) == [("user.owner", ("goal_abc",), ())]
 
     @pytest.mark.asyncio
-    async def test_a_refused_habit_link_recomputes_nothing(
+    @pytest.mark.parametrize("door", ["unlink", "replace"])
+    async def test_the_unlink_and_replace_doors_announce_the_goal(
+        self, goals_service: GoalsService, mock_backend: Mock, door: str
+    ) -> None:
+        bus = InMemoryEventBus(capture_history=True)
+        goals_service.event_bus = bus
+        mock_backend.get = AsyncMock(return_value=Result.ok(Mock(user_uid="user.owner")))
+        goals_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        goals_service.relationships.replace_links_with_properties = AsyncMock(
+            return_value=Result.ok(frozenset())
+        )
+
+        if door == "unlink":
+            ok = (await goals_service.unlink_goal_from_habit("goal_abc", "habit_xyz")).is_ok
+        else:
+            ok = (await goals_service.replace_habit_system("goal_abc", {})).is_ok
+
+        assert ok
+        assert _announced(bus) == [("user.owner", ("goal_abc",), ())]
+
+    @pytest.mark.asyncio
+    async def test_a_refused_habit_link_announces_nothing(
         self, goals_service: GoalsService
     ) -> None:
+        bus = InMemoryEventBus(capture_history=True)
+        goals_service.event_bus = bus
         goals_service.relationships.create_relationship = AsyncMock(
             return_value=Result.fail(Errors.not_found("habit", "habit_theirs"))
         )
-        goals_service.progress.recompute_habit_figure = AsyncMock(return_value=Result.ok(False))
 
         result = await goals_service.link_goal_to_habit("goal_abc", "habit_theirs")
 
         assert result.is_error
-        goals_service.progress.recompute_habit_figure.assert_not_awaited()
+        assert _announced(bus) == []
 
     @pytest.mark.asyncio
     async def test_link_goal_to_knowledge_passes_proficiency_params(

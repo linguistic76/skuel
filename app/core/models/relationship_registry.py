@@ -158,6 +158,14 @@ class LateralRelationshipSpec:
     category: str = ""  # "structural", "dependency", "semantic", "associative"
 
 
+# Every SUPPORTS_GOAL write gives a link it creates these: weight 1.0 and the
+# ``supporting`` tier, the tier a link names when it names none (HabitEssentiality).
+SUPPORTS_GOAL_LINK_PROPERTIES: tuple[tuple[str, float | str], ...] = (
+    ("weight", 1.0),
+    ("essentiality", "supporting"),
+)
+
+
 @dataclass(frozen=True)
 class UnifiedRelationshipDefinition:
     """
@@ -229,6 +237,10 @@ class UnifiedRelationshipDefinition:
     # Needed when multiple EntityTypes share a Neo4j label.
     # None means: applies to the default EntityType for this label.
     ingestion_entity_type: EntityType | None = None
+    # Properties the ingestion writer gives an edge it CREATES from ``yaml_field_path``,
+    # so a link a vault file wrote is the link the app's doors write. An edge already
+    # there keeps its own (a tier the app set is never reset by a re-sync).
+    create_properties: tuple[tuple[str, float | str], ...] = ()
 
     # The Activity page (ADR-090 §2): this domain's name for the link, written from
     # its own side ("Goals this habit supports"). A definition with a heading is
@@ -726,6 +738,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "supporting_habits",
             fields=("uid", "title", "current_streak"),  # Context: include streak
             yaml_field_path="connections.supporting_habits",
+            create_properties=SUPPORTS_GOAL_LINK_PROPERTIES,
             page_heading="Habits that support this goal",
         ),
         # Tasks and events contribute to a goal through one edge type; each kind is its own
@@ -770,6 +783,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "supporting_principles",
             "supporting_principles",
             yaml_field_path="connections.supporting_principles",
+            create_properties=SUPPORTS_GOAL_LINK_PROPERTIES,
             page_heading="Principles that support this goal",
         ),
         # Essentiality-filtered habits
@@ -873,6 +887,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "supported_goals",
             fields=("uid", "title", "progress_percentage"),  # Context: include progress
             yaml_field_path="connections.supports_goal",
+            create_properties=SUPPORTS_GOAL_LINK_PROPERTIES,
             page_heading="Goals this habit supports",
         ),
         # Incoming: Other → Habit
@@ -1346,6 +1361,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "supported_goals",
             "supported_goals",
             yaml_field_path="connections.supports_goal",
+            create_properties=SUPPORTS_GOAL_LINK_PROPERTIES,
             page_heading="Goals this principle supports",
         ),
         UnifiedRelationshipDefinition(

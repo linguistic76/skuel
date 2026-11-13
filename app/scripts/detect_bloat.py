@@ -196,8 +196,9 @@ EXEMPTED_METHODS: dict[str, str] = {
     "core/services/goals/goals_progress_service.py::reconcile_goal_tallies": (
         "LIVE — called only by scripts/reconcile_goal_tallies.py "
         "(./dev reconcile-goal-tallies), outside the scanner's production roots: the "
-        "one-shot that recomputes a TASK_BASED goal the best-effort "
-        "GoalContributionsChanged handler left behind, through the same locked recompute"
+        "one-shot that recomputes a TASK_BASED or HABIT_BASED goal the best-effort "
+        "GoalContributionsChanged / GoalHabitsChanged handlers left behind, through the "
+        "same locked recompute"
     ),
     "core/services/lp/lp_progress_service.py::reconcile_enrollment_progress": (
         "LIVE — called only by scripts/reconcile_learning_progress.py "

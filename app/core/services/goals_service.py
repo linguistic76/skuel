@@ -25,12 +25,14 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
+from core.events import GoalHabitsChanged, publish_event
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, HabitEssentiality
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_habit_link import GoalHabitLink
 from core.models.goal.goal_update_intent import GoalUpdateIntent
+from core.models.relationship_registry import SUPPORTS_GOAL_LINK_PROPERTIES
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import EntityHierarchy, GoalsAchievedCount
@@ -197,7 +199,7 @@ def _apply_goal_sort(goals: list[Any], sort_by: str = "target_date") -> list[Any
 
 def _habit_link_properties(essentiality: HabitEssentiality) -> Neo4jProperties:
     """The properties of a goal's habit link: its tier, and the weight every door writes."""
-    return {"weight": 1.0, "essentiality": essentiality.value}
+    return {**dict(SUPPORTS_GOAL_LINK_PROPERTIES), "essentiality": essentiality.value}
 
 
 class GoalsService(
@@ -588,6 +590,7 @@ class GoalsService(
             Fail-fast at construction, not at method call.
         """
         super().__init__(backend, "goals")
+        self.event_bus = event_bus
 
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: GoalsAIService | None = ai_service
@@ -686,8 +689,8 @@ class GoalsService(
         ``supporting`` and unset falling to the ``contributing_habits`` catch-all).
         ``weight`` is written 1.0, as every create door writes it.
 
-        A habit-based goal's figure follows its habits, so it is recomputed
-        (``recompute_habit_figure``) once the link lands.
+        A habit-based goal's figure follows its habits, so ``GoalHabitsChanged`` is
+        published once the link lands.
         """
         written = await self.relationships.create_relationship(
             "supporting_habits",
@@ -697,18 +700,18 @@ class GoalsService(
             far_end=HABIT_FAR_END,
         )
         if written.is_ok:
-            await self._recompute_habit_figure(goal_uid)
+            await self._announce_habits_changed(goal_uid)
         return written
 
     async def unlink_goal_from_habit(self, uid: str, habit_uid: str) -> Result[bool]:
         """Unlink a habit from a goal. A principle's support of the goal is left alone.
 
-        A habit not linked changes nothing. A habit-based goal's figure is recomputed
-        once the link is gone.
+        A habit not linked changes nothing. ``GoalHabitsChanged`` is published once the
+        link is gone, so a habit-based goal's figure follows.
         """
         removed = await self.relationships.delete_relationship("supporting_habits", uid, habit_uid)
         if removed.is_ok:
-            await self._recompute_habit_figure(uid)
+            await self._announce_habits_changed(uid)
         return removed
 
     async def change_habit_essentiality(
@@ -735,8 +738,9 @@ class GoalsService(
         refused leaves the links as they were. The removals and the links are one
         transaction holding the goal's lock, so a habit linked by another door either
         landed first, and is unlinked here when ``tiers`` does not name it, or lands
-        after, and is kept. A principle's support of the goal is never touched. A
-        habit-based goal's figure is recomputed once the links land.
+        after, and is kept. A principle's support of the goal is never touched.
+        ``GoalHabitsChanged`` is published once the links land, so a habit-based goal's
+        figure follows.
 
         Returns:
             Result[frozenset[str]] — the habits this replace newly linked.
@@ -748,7 +752,7 @@ class GoalsService(
             far_end=HABIT_FAR_END,
         )
         if replaced.is_ok:
-            await self._recompute_habit_figure(goal_uid)
+            await self._announce_habits_changed(goal_uid)
         return replaced
 
     async def get_habit_system(self, goal_uid: str) -> Result[list[GoalHabitLink]]:
@@ -758,18 +762,23 @@ class GoalsService(
         """
         return await self.backend.get_habit_system(goal_uid)
 
-    async def _recompute_habit_figure(self, goal_uid: str) -> None:
-        """Recompute a habit-based goal's figure after its habit links changed.
+    async def _announce_habits_changed(self, goal_uid: str) -> None:
+        """Publish ``GoalHabitsChanged`` for a goal whose habit links this door changed.
 
-        Best-effort, like the habit-completion subscriber: the link has landed, and a
-        recompute failure is logged rather than reported as the link's.
+        The event's owner is read off the goal. Best-effort, like the subscriber: the
+        link has landed, and a failed read is logged rather than reported as the link's.
         """
-        recomputed = await self.progress.recompute_habit_figure(goal_uid)
-        if recomputed.is_error:
+        goal = await self.backend.get(goal_uid)
+        if goal.is_error or goal.value is None:
             self.logger.error(
-                f"Goal {goal_uid}: habit links changed, figure not recomputed: "
-                f"{recomputed.expect_error()}"
+                f"Goal {goal_uid}: habit links changed, owner not read, figure not announced"
             )
+            return
+        await publish_event(
+            self.event_bus,
+            GoalHabitsChanged(user_uid=UserUID(str(goal.value.user_uid)), goal_uids=(goal_uid,)),
+            self.logger,
+        )
 
     async def link_goal_to_knowledge(
         self,

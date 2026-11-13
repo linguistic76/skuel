@@ -43,7 +43,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from core.events import GoalContributionsChanged, publish_event
+from core.events import GoalContributionsChanged, GoalHabitsChanged, publish_event
 from core.models.choice.choice import Choice
 from core.models.enums import EntityStatus
 from core.models.event.event import Event
@@ -72,10 +72,11 @@ from .engagement import Engagement
 
 
 # boundary: raw driver rows from ``PsEngagementOperations.delete_instance`` — one
-# ``{"goal_uids": [...]}`` record per deleted node.
-def _goal_uids(rows: list[dict[str, Any]] | None) -> list[str]:
-    """The goals a deleted instance contributed to, from ``delete_instance``'s rows."""
-    return [str(uid) for row in rows or [] for uid in row.get("goal_uids") or []]
+# ``{"goal_uids": [...], "supported_goal_uids": [...]}`` record per deleted node.
+def _goal_uids(rows: list[dict[str, Any]] | None, column: str = "goal_uids") -> list[str]:
+    """The goals a deleted instance contributed to (``goal_uids``) or, for a habit,
+    supported (``supported_goal_uids``), from ``delete_instance``'s rows."""
+    return [str(uid) for row in rows or [] for uid in row.get(column) or []]
 
 
 logger = get_logger(__name__)
@@ -286,6 +287,7 @@ class PsEngagementService:
         # contributed to are announced on every exit — a later failure must not
         # strand the ones already deleted (a retry cannot find them again).
         goals_losing: list[str] = []
+        goals_losing_habits: list[str] = []
         try:
             for template_uid, instance_uid, _label in spawned.value:
                 decision = review.get(template_uid, "keep")
@@ -294,6 +296,7 @@ class PsEngagementService:
                     if del_res.is_error:
                         return Result.fail(del_res)
                     goals_losing.extend(_goal_uids(del_res.value))
+                    goals_losing_habits.extend(_goal_uids(del_res.value, "supported_goal_uids"))
                 else:
                     upd_res = await self._backend.mark_instance_owned(
                         instance_uid, datetime.now(UTC).isoformat()
@@ -301,7 +304,7 @@ class PsEngagementService:
                     if upd_res.is_error:
                         return Result.fail(upd_res)
         finally:
-            await self._announce_goals(student_uid, goals_losing)
+            await self._announce_goals(student_uid, goals_losing, goals_losing_habits)
 
         return await self._gateway.mark_completed(student_uid, ps_uid)
 
@@ -336,19 +339,25 @@ class PsEngagementService:
             return Result.fail(spawned)
         # Announced on every exit, as in ``complete_pathstep``.
         goals_losing: list[str] = []
+        goals_losing_habits: list[str] = []
         try:
             for _template_uid, instance_uid, _label in spawned.value:
                 del_res = await self._backend.delete_instance(instance_uid, "abandon_instance")
                 if del_res.is_error:
                     return Result.fail(del_res)
                 goals_losing.extend(_goal_uids(del_res.value))
+                goals_losing_habits.extend(_goal_uids(del_res.value, "supported_goal_uids"))
         finally:
-            await self._announce_goals(student_uid, goals_losing)
+            await self._announce_goals(student_uid, goals_losing, goals_losing_habits)
 
         return await self._gateway.mark_abandoned(student_uid, ps_uid)
 
-    async def _announce_goals(self, student_uid: str, goal_uids: list[str]) -> None:
-        """Announce the goals deleted instances contributed to — each loses a contribution.
+    async def _announce_goals(
+        self, student_uid: str, goal_uids: list[str], habit_goal_uids: list[str]
+    ) -> None:
+        """Announce the goals deleted instances contributed to — each loses a contribution
+        — and the goals a deleted habit supported, which a learner may have linked it to
+        after the spawn: each loses a habit.
 
         A goal the same engagement spawned may be gone too; its recompute finds
         nothing to write.
@@ -358,6 +367,15 @@ class PsEngagementService:
                 self._event_bus,
                 GoalContributionsChanged(
                     user_uid=UserUID(student_uid), goal_uids=tuple(dict.fromkeys(goal_uids))
+                ),
+                self.logger,
+            )
+        if habit_goal_uids:
+            await publish_event(
+                self._event_bus,
+                GoalHabitsChanged(
+                    user_uid=UserUID(student_uid),
+                    goal_uids=tuple(dict.fromkeys(habit_goal_uids)),
                 ),
                 self.logger,
             )

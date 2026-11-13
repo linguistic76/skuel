@@ -382,8 +382,9 @@ class IngestionBackend:
         by the end-of-sync sweep.
 
         Each row also carries ``goal_uids``: the goals a deleted task or event
-        contributed to (``CONTRIBUTES_TO_GOAL``), read before the DETACH takes the
-        edges, so the caller can announce the goals whose tally lost it.
+        contributed to (``CONTRIBUTES_TO_GOAL``), and ``supported_goal_uids``: the goals
+        a deleted habit supported (``SUPPORTS_GOAL``), both read before the DETACH takes
+        the edges, so the caller can announce the goals that lost it.
         """
         return await self._executor.execute_query(
             f"""
@@ -402,9 +403,14 @@ class IngestionBackend:
             WITH item, s, e, g,
                  CASE WHEN e IS NULL THEN []
                       ELSE [(e)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(goal:{NeoLabel.GOAL.value}) | goal.uid]
-                 END AS goal_uids
+                 END AS goal_uids,
+                 CASE WHEN e:{NeoLabel.HABIT.value}
+                      THEN [(e)-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal:{NeoLabel.GOAL.value}) | goal.uid]
+                      ELSE []
+                 END AS supported_goal_uids
             DETACH DELETE e, g, s
-            RETURN item.file_path AS file_path, item.entity_uid AS entity_uid, goal_uids
+            RETURN item.file_path AS file_path, item.entity_uid AS entity_uid, goal_uids,
+                   supported_goal_uids
             """,
             {"items": items},
         )

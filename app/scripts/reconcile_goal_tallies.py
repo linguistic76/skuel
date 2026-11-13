@@ -1,14 +1,16 @@
-"""Close the goal-tally gaps the graph shows: every TASK_BASED goal whose stored tally
-(``current_value`` / ``target_value`` / ``progress_percentage``) disagrees with the
-tasks and events that contribute to it.
+"""Close the derived goal-figure gaps the graph shows: every TASK_BASED goal whose stored
+tally (``current_value`` / ``target_value`` / ``progress_percentage``) disagrees with the
+tasks and events that contribute to it, and every HABIT_BASED goal whose stored figure
+disagrees with its supporting habits' average streak.
 
-The tally's trigger (``GoalContributionsChanged``) runs best-effort behind each door
-that changes a contribution; a recompute that fails after the change it answers has
-committed leaves the stored figure behind, and nothing replays the event. This
-one-shot reads each goal's live tally and closes every gap through the same locked
-recompute — publishing ``GoalProgressUpdated`` / ``GoalAchieved`` for the transitions
-it writes. It is also the stored-tally step of a migration that moves contributions.
-Idempotent: a second run finds nothing.
+The two triggers (``GoalContributionsChanged``, and ``GoalHabitsChanged`` with
+``HabitCompleted``) run best-effort behind each door that changes an input; a recompute
+that fails after the change it answers has committed leaves the stored figure behind,
+and nothing replays the event. This one-shot reads each goal's live inputs and closes
+every gap through the same locked recompute — publishing ``GoalProgressUpdated`` /
+``GoalAchieved`` for the transitions it writes. It is also the stored-figure step of a
+migration that moves contributions or habit links. Idempotent: a second run finds
+nothing.
 
 Usage:
     uv run scripts/reconcile_goal_tallies.py --dry-run   # list the gaps, write nothing
@@ -56,7 +58,7 @@ async def run(*, dry_run: bool) -> int:
             print(f"ERROR: {gaps.expect_error()}", file=sys.stderr)
             return 1
         verb = "would write" if dry_run else "wrote"
-        print(f"{verb} {len(gaps.value)} goal tally figure(s)")
+        print(f"{verb} {len(gaps.value)} goal figure(s)")
         for gap in gaps.value:
             print(f"  {gap.user_uid} → {gap.goal_uid}: stored {gap.stored}, live {gap.live}")
         return 0

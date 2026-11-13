@@ -124,6 +124,8 @@ def generate_ingestion_relationship_config(
         )
         if rel.order_by_property:
             rel_entry["order_property"] = rel.order_by_property
+        if rel.create_properties:
+            rel_entry["create_properties"] = dict(rel.create_properties)
         result[rel.yaml_field_path] = rel_entry
 
     return result if result else None

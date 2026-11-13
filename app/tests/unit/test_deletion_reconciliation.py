@@ -824,3 +824,48 @@ class TestGoalsLosingContributions:
         assert result.value.edges_deleted == 0
         assert result.value.goals_losing_contributions == ["goal.task"]
         assert result.value.failure is not None and "paused" in result.value.failure
+
+
+class TestGoalsLosingHabits:
+    """The habit twin: a deleted habit file, or a deleted SUPPORTS_GOAL Edge YAML, takes a
+    supporting habit from a goal; the reconciliation hands those goals to its caller
+    apart from the contribution ones, so each is announced on its own trigger."""
+
+    @staticmethod
+    def _vault(tmp_path):
+        for name in ("habit.alive-1.md", "habit.alive-2.md", "habit.alive-3.md"):
+            (tmp_path / name).write_text("x")
+        rows = [
+            {"file_path": str(tmp_path / name), "entity_uid": name.removesuffix(".md")}
+            for name in ("habit.alive-1.md", "habit.alive-2.md", "habit.alive-3.md")
+        ]
+        rows.append({"file_path": str(tmp_path / "habit.gone.md"), "entity_uid": "habit.gone"})
+        rows.append(
+            {
+                "file_path": str(tmp_path / "gone-edge.yaml"),
+                "entity_uid": "edge:habit.x|SUPPORTS_GOAL|goal.edge",
+            }
+        )
+        return rows
+
+    @pytest.mark.asyncio
+    async def test_deleted_habits_name_their_goals(self, tmp_path) -> None:
+        tracker, backend = _tracker_with_tracked(self._vault(tmp_path))
+        backend.delete_entities_with_metadata = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "file_path": "x",
+                        "entity_uid": "habit.gone",
+                        "goal_uids": [],
+                        "supported_goal_uids": ["goal.habit"],
+                    }
+                ]
+            )
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path)
+
+        assert result.is_ok
+        assert result.value.goals_losing_habits == ["goal.edge", "goal.habit"]
+        assert result.value.goals_losing_contributions == []

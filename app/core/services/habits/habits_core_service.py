@@ -13,9 +13,10 @@ Responsibilities:
 """
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
-from core.events import publish_event
+from core.events import GoalHabitsChanged, publish_event
 from core.events.embedding_publisher import publish_embedding_requested
 from core.events.habit_events import HabitCreated, HabitUpdated
 from core.events.knowledge_credit_publisher import KnowledgeCreditSource, publish_knowledge_credit
@@ -26,6 +27,7 @@ from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.models.relationship_names import RelationshipName
+from core.models.relationship_registry import SUPPORTS_GOAL_LINK_PROPERTIES
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitStats
@@ -44,6 +46,23 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.type_converters import get_enum_value
 from core.utils.uid_generator import UIDGenerator
 from core.utils.zone_context import current_zone
+
+
+@dataclass(frozen=True)
+class WrittenHabitLinks:
+    """What ``HabitsCoreService._write_link_edges`` actually put in the graph.
+
+    Everything announced after the batch is derived from these, never from what the
+    request asked for, so a refused or dangling link cannot claim an edge that does
+    not exist.
+
+    Attributes:
+        knowledge_uids: REINFORCES_KNOWLEDGE targets written, deduplicated in order.
+        goal_uids: SUPPORTS_GOAL targets written, deduplicated in order.
+    """
+
+    knowledge_uids: tuple[str, ...] = ()
+    goal_uids: tuple[str, ...] = ()
 
 
 class HabitsCoreService(
@@ -375,7 +394,7 @@ class HabitsCoreService(
             return create_result
 
         created = create_result.value
-        written_knowledge_uids = await self._write_link_edges(created, habit_request)
+        written = await self._write_link_edges(created, habit_request)
 
         # Edges are written — only now announce the habit.
         await self._publish_created(created)
@@ -384,7 +403,14 @@ class HabitsCoreService(
         # times_built_into_habits. Published from the WRITTEN uids, never the requested
         # ones — a refused or dangling link must not claim knowledge was built into a
         # habit when no edge exists.
-        await self.publish_knowledge_built(created, written_knowledge_uids)
+        await self.publish_knowledge_built(created, list(written.knowledge_uids))
+        if written.goal_uids:
+            # A new habit's streak is 0, so it moves each habit-based goal it supports.
+            await publish_event(
+                self.event_bus,
+                GoalHabitsChanged(user_uid=created.user_uid, goal_uids=written.goal_uids),
+                self.logger,
+            )
         return Result.ok(created)
 
     async def publish_knowledge_built(  # skuel-lint: disable=SKUEL005 -- an event publisher: nothing to return, publish_event logs a missing bus
@@ -413,7 +439,9 @@ class HabitsCoreService(
             self.logger,
         )
 
-    async def _write_link_edges(self, habit: Habit, request: HabitCreateRequest) -> list[str]:
+    async def _write_link_edges(
+        self, habit: Habit, request: HabitCreateRequest
+    ) -> WrittenHabitLinks:
         """GRAPH-NATIVE: turn the request's four link lists into edges, in one batch.
 
         Each list names a registered, READ relationship that nothing was writing at
@@ -443,9 +471,9 @@ class HabitsCoreService(
         why the atom and not the PathStep).
 
         Returns:
-            The knowledge UIDs actually WRITTEN — the caller announces substance from
-            these, never from what was requested, so a refused or dangling link cannot
-            claim knowledge was built into a habit when no edge exists.
+            The knowledge and goal UIDs actually WRITTEN — the caller announces substance
+            and the goals' habits changed from these, never from what was requested, so a
+            refused or dangling link cannot claim an edge that does not exist.
 
         A failure is logged, not propagated — the habit itself is created. Mirrors
         ``TasksCoreService.create_task`` and ``ChoicesCoreService.create_choice``.
@@ -485,7 +513,7 @@ class HabitsCoreService(
                     habit_uid,
                     goal_uid,
                     RelationshipName.SUPPORTS_GOAL.value,
-                    {"weight": 1.0, "essentiality": "supporting"},
+                    dict(SUPPORTS_GOAL_LINK_PROPERTIES),
                 ),
                 other_uid=goal_uid,
                 allowed_labels=frozenset({NeoLabel.GOAL.value}),
@@ -502,7 +530,7 @@ class HabitsCoreService(
         )
 
         if not candidates:
-            return []
+            return WrittenHabitLinks()
 
         relationships = await keep_permitted_link_edges(
             self.backend,
@@ -512,7 +540,7 @@ class HabitsCoreService(
             logger=self.logger,
         )
         if not relationships:
-            return []
+            return WrittenHabitLinks()
 
         batch_result = await self.backend.create_relationships_batch(relationships)
         if batch_result.is_error:
@@ -525,18 +553,24 @@ class HabitsCoreService(
             # The batch is all-or-nothing, so a failure means NOTHING was written.
             # Reporting the admitted uids here would announce substance for edges that
             # do not exist.
-            return []
+            return WrittenHabitLinks()
 
         # DEDUPED: the batch MERGEs, so a UID repeated in the request yields ONE edge —
         # but the bulk substance event UNWINDs what it is given, incrementing
         # times_built_into_habits once per row. Without this, one habit could count
         # several times for a single knowledge connection. dict.fromkeys keeps the order.
-        return list(
-            dict.fromkeys(
-                target_uid
-                for _src, target_uid, rel_type, _props in relationships
-                if rel_type == RelationshipName.REINFORCES_KNOWLEDGE.value
+        def written_targets(rel_type: RelationshipName) -> tuple[str, ...]:
+            return tuple(
+                dict.fromkeys(
+                    target_uid
+                    for _src, target_uid, written_type, _props in relationships
+                    if written_type == rel_type.value
+                )
             )
+
+        return WrittenHabitLinks(
+            knowledge_uids=written_targets(RelationshipName.REINFORCES_KNOWLEDGE),
+            goal_uids=written_targets(RelationshipName.SUPPORTS_GOAL),
         )
 
     @with_error_handling("update_habit", error_type="database", uid_param="uid")
@@ -641,20 +675,41 @@ class HabitsCoreService(
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """
-        Delete (archive) a habit.
+        Delete a habit — THE habit delete door (the CRUD route reaches it through
+        ``HabitsService.delete_for_user``).
 
-        Note: Habits are typically archived rather than deleted.
-        No specific event for habit deletion - archived status is sufficient.
+        The goals the habit supports are read BEFORE the delete: the edges go with the
+        node, so afterwards nothing could find the goals whose habits lost it.
 
         Args:
             uid: Habit UID
-            cascade: Whether to cascade delete (default False)
+            cascade: Whether its edges go with it (the route always passes True)
 
         Returns:
             Result indicating success
+
+        Events Published:
+            - GoalHabitsChanged: for the goals the habit supported
         """
-        # Call parent delete (no special event for habit deletion)
-        return await super().delete(uid, cascade=cascade)
+        if not uid:
+            return Result.fail(Errors.validation(message="UID is required", field="uid"))
+        existing = await self.get(uid)
+        if existing.is_error:
+            return Result.fail(existing)
+        goals = await self.backend.get_goal_links_for_habits([uid])
+        if goals.is_error:
+            return Result.fail(goals)
+
+        result = await self.backend.delete(uid, cascade=cascade)
+        await self._post_delete(uid, existing.value, result)
+        supported = tuple(goals.value.get(uid, ()))
+        if result.is_ok and supported:
+            await publish_event(
+                self.event_bus,
+                GoalHabitsChanged(user_uid=existing.value.user_uid, goal_uids=supported),
+                self.logger,
+            )
+        return result
 
     # ========================================================================
     # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Universal Hierarchical Pattern)

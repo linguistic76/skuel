@@ -67,6 +67,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         GoalAchieved,
         GoalContributionsChanged,
         GoalCreated,
+        GoalHabitsChanged,
         GoalMilestoneReached,
         GoalProgressUpdated,
         GoalReopened,
@@ -140,6 +141,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         TasksBulkCompleted: 1,
         # Goals
         GoalContributionsChanged: 1,  # goal progress — the contribution tally's one trigger
+        GoalHabitsChanged: 1,  # goal progress — a habit-based goal's membership trigger
         GoalCreated: 1,
         GoalUpdated: 1,
         GoalAchieved: 4,  # invalidate + event handler + PS auto-complete + analytics report

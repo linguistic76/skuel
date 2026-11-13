@@ -22,6 +22,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Final
 
 from core.models.relationship_names import RelationshipName
+from core.models.relationship_registry import SUPPORTS_GOAL_LINK_PROPERTIES
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.services.whole_set_read import find_all_by
 
@@ -34,6 +35,7 @@ from core.events.goal_events import (
     GoalAbandoned,
     GoalAchieved,
     GoalCreated,
+    GoalHabitsChanged,
     GoalReopened,
     GoalUpdated,
 )
@@ -515,9 +517,17 @@ class GoalsCoreService(
 
         goal: Goal = result.value  # Type hint to help MyPy
         await self._write_hierarchy_edge(goal, progress_weight)
+        linked_habit_uids: tuple[str, ...] = ()
         if request is not None:
-            await self._write_link_edges(goal, request)
+            linked_habit_uids = await self._write_link_edges(goal, request)
         await self._publish_created(goal)
+        if linked_habit_uids:
+            # A habit-based goal born with habits takes their average at once.
+            await publish_event(
+                self.event_bus,
+                GoalHabitsChanged(user_uid=goal.user_uid, goal_uids=(goal.uid,)),
+                self.logger,
+            )
         return result
 
     async def _create_validated(self, entity: Goal) -> Result[Goal]:
@@ -588,7 +598,7 @@ class GoalsCoreService(
                 edge_result.error,
             )
 
-    async def _write_link_edges(self, goal: Goal, request: GoalCreateRequest) -> None:
+    async def _write_link_edges(self, goal: Goal, request: GoalCreateRequest) -> tuple[str, ...]:
         """GRAPH-NATIVE: turn the request's three link lists into edges, in one batch.
 
         Each names a registered, READ relationship that nothing was writing at creation
@@ -616,6 +626,10 @@ class GoalsCoreService(
         reading the target position would check this goal against itself and leave that
         list unguarded. The declared labels come from the field names;
         ``required_knowledge_uids`` means Kus (KNOWLEDGE_LABELS). (Codex, #965.)
+
+        Returns:
+            The supporting habits actually WRITTEN, so the caller announces the goal's
+            habits changed only when an edge exists; ``()`` when the batch failed.
         """
         candidates: list[LinkEdge] = []
 
@@ -638,7 +652,7 @@ class GoalsCoreService(
                     principle_uid,
                     goal.uid,
                     RelationshipName.SUPPORTS_GOAL.value,
-                    {"weight": 1.0, "essentiality": "supporting"},
+                    dict(SUPPORTS_GOAL_LINK_PROPERTIES),
                 ),
                 other_uid=principle_uid,
                 allowed_labels=frozenset({NeoLabel.PRINCIPLE.value}),
@@ -653,7 +667,7 @@ class GoalsCoreService(
                     habit_uid,
                     goal.uid,
                     RelationshipName.SUPPORTS_GOAL.value,
-                    {"weight": 1.0, "essentiality": "supporting"},
+                    dict(SUPPORTS_GOAL_LINK_PROPERTIES),
                 ),
                 other_uid=habit_uid,
                 allowed_labels=frozenset({NeoLabel.HABIT.value}),
@@ -662,7 +676,7 @@ class GoalsCoreService(
         )
 
         if not candidates:
-            return
+            return ()
 
         relationships = await keep_permitted_link_edges(
             self.backend,
@@ -672,7 +686,7 @@ class GoalsCoreService(
             logger=self.logger,
         )
         if not relationships:
-            return
+            return ()
 
         batch_result = await self.backend.create_relationships_batch(relationships)
         if batch_result.is_error:
@@ -682,6 +696,16 @@ class GoalsCoreService(
                 goal.uid,
                 batch_result.error,
             )
+            # All-or-nothing: a failed batch wrote no habit link.
+            return ()
+        habit_uids = set(request.supporting_habit_uids)
+        return tuple(
+            dict.fromkeys(
+                source_uid
+                for source_uid, _target, rel_type, _props in relationships
+                if rel_type == RelationshipName.SUPPORTS_GOAL.value and source_uid in habit_uids
+            )
+        )
 
     async def _publish_created(self, goal: Goal) -> None:
         """Announce a newly created goal: GoalCreated, GoalAchieved when it was born
