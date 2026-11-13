@@ -10,6 +10,8 @@ Setup:
 - Real service instances
 """
 
+import asyncio
+import contextlib
 import shutil
 import tempfile
 from collections.abc import Generator
@@ -179,6 +181,24 @@ def skuel_app_container():
     container.stop()
 
 
+async def _stop_graph_health_poller() -> None:
+    """Cancel the poller ``bootstrap_skuel()`` starts, and wait for it to unwind.
+
+    The app runs it until process exit. Left running here, it is suspended inside a
+    transaction when the driver closes, and the connection that transaction holds
+    outlives the event loop — the driver's ``__del__`` then raises at interpreter exit.
+    """
+    from scripts.dev import bootstrap
+
+    task = bootstrap._graph_health_task
+    if task is None:
+        return
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+    bootstrap._graph_health_task = None
+
+
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def skuel_app(skuel_app_container):
     """
@@ -227,6 +247,7 @@ async def skuel_app(skuel_app_container):
                 )
             yield container.app
         finally:
+            await _stop_graph_health_poller()
             await container.services.cleanup()
             reload_config()
 

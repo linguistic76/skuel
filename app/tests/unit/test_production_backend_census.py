@@ -64,7 +64,9 @@ def _production_shape() -> tuple[frozenset[str], frozenset[str], frozenset[str]]
         if value
     )
     entity_classes = frozenset(
-        b.entity_class.__name__ for b in backends if getattr(b, "entity_class", None)
+        entity_class.__name__
+        for b in backends
+        if (entity_class := getattr(b, "entity_class", None)) is not None
     )
     return classes, labels, entity_classes
 

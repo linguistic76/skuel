@@ -49,6 +49,7 @@ from .lifepath_vision_service import LifePathVisionService
 
 if TYPE_CHECKING:
     from core.ports.cross_domain_protocols import CrossDomainBackendOperations
+    from core.ports.lifepath_protocols import LifePathBackendOperations
     from core.ports.service_protocols import LifePathAlignmentOperations
     from core.services.llm_service import LLMService
     from core.services.lp_service import LpService
@@ -97,7 +98,7 @@ class LifePathService:
 
     def __init__(
         self,
-        backend: Any = None,
+        backend: LifePathBackendOperations | None = None,
         lp_service: LpService | None = None,
         ku_service: PsService | None = None,
         user_service: UserService | None = None,

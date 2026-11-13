@@ -24,7 +24,8 @@ from core.models.entity import Entity
 from core.models.entity_dto import EntityDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
-from core.ports import BackendOperations
+from core.models.user_entry.user_entry import UserEntry
+from core.ports.user_entry_protocols import UserEntryOperations
 from core.prompts import PROMPT_REGISTRY
 from core.services.base_service import BaseService
 from core.services.content_enrichment.types import (
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
 
 
-class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
+class ContentEnrichmentService(BaseService[UserEntryOperations, UserEntry]):
     """
     Transcript processor service - transforms raw transcripts into formatted documents.
 
@@ -83,7 +84,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     def __init__(
         self,
-        backend: BackendOperations[Entity],
+        backend: UserEntryOperations,
         transcription_service=None,
         chat_port: ChatCompletionPort | None = None,  # For intelligent editing
         event_bus=None,  # For publishing domain events
@@ -92,7 +93,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         Initialize transcript processor service.
 
         Args:
-            backend: Backend for Ku storage,
+            backend: UserEntry backend — the active-goal context read,
             transcription_service: TranscriptionService for audio → text,
             chat_port: Chat-completion adapter for intelligent editing,
             event_bus: Event bus for publishing domain events (optional)
@@ -230,22 +231,27 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing EnrichmentContext with active-goal context
         """
-        query_result = await self.backend.get_journal_processing_context(user_uid)  # type: ignore[attr-defined]
+        query_result = await self.backend.get_journal_processing_context(user_uid)
 
         if query_result.is_error:
             return Result.fail(query_result)
 
         records = query_result.value or []
-        context_data = records[0]["context"] if records else {}
+        context_data = records[0].get("context") if records else None
+        goal_rows: list[dict[str, str | None]] = (
+            context_data.get("active_goals", []) if isinstance(context_data, dict) else []
+        )
 
+        # A goal with no description stores null, and a user with no active goal
+        # yields one all-null row: both read as absent text, never as None.
         active_goals_list = [
             {
-                "uid": g["uid"],
-                "title": g.get("title", ""),
-                "description": g.get("description", ""),
+                "uid": uid,
+                "title": g.get("title") or "",
+                "description": g.get("description") or "",
             }
-            for g in context_data.get("active_goals", [])
-            if g and g.get("uid")
+            for g in goal_rows
+            if g and (uid := g.get("uid"))
         ]
 
         return Result.ok(

@@ -25,7 +25,6 @@ from services_bootstrap._intelligence_hub import _create_intelligence_hub
 from services_bootstrap._learning_services import _create_learning_services
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.user_backend import UserBackend
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
 
 logger = get_logger("skuel.bootstrap")
@@ -336,10 +335,7 @@ async def compose_services(
         goals_backend = backends["goals_backend"]
         invoice_backend = backends["invoice_backend"]
         transcription_backend = backends["transcription_backend"]
-        # Annotated, not merely unpacked: create_backends returns dict[str, Any],
-        # so an unannotated local stays Any and every downstream call site that
-        # takes it silently type-checks against nothing.
-        users_backend: UserBackend = backends["users_backend"]
+        users_backend = backends["users_backend"]
         ps_backend = backends["ps_backend"]
         ku_backend = backends["ku_backend"]
         principles_backend = backends["principles_backend"]

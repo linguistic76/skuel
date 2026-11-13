@@ -1,8 +1,112 @@
 """Backend instantiation — the one constructor of every backend the application runs."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
+from adapters.persistence.neo4j.backends.activity_backends import (
+    ChoicesBackend,
+    EventsBackend,
+    GoalsBackend,
+    HabitsBackend,
+    PrinciplesBackend,
+    TasksBackend,
+)
+from adapters.persistence.neo4j.backends.collab_backends import (
+    GroupBackend,
+    LateralRelationshipBackend,
+    NotificationBackend,
+    ReviewQueueBackend,
+)
+from adapters.persistence.neo4j.backends.conversation_backend import ConversationBackend
+from adapters.persistence.neo4j.backends.curriculum_backends import (
+    EmbeddingCoverageBackend,
+    KnowledgeHealthBackend,
+    KuBackend,
+    LpBackend,
+    PsBackend,
+)
+from adapters.persistence.neo4j.backends.exercise_backends import (
+    EntryReportBackend,
+    ExerciseBackend,
+    RevisedExerciseBackend,
+)
+from adapters.persistence.neo4j.backends.forms_backends import (
+    FormSubmissionBackend,
+    FormTemplateBackend,
+)
+from adapters.persistence.neo4j.backends.misc_backends import (
+    ActivityReportBackend,
+    ActivityReportGeneratorBackend,
+    InteractionBackend,
+    ResourceBackend,
+)
+from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
+from adapters.persistence.neo4j.backends.templates_backends import (
+    ChoiceTemplateBackend,
+    EventTemplateBackend,
+    GoalTemplateBackend,
+    HabitTemplateBackend,
+    PrincipleTemplateBackend,
+    TaskTemplateBackend,
+)
+from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
+from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
+from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
+from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
+from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
+from adapters.persistence.neo4j.device_backend import DeviceBackend
+from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
+from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
+from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
+from adapters.persistence.neo4j.insight_backend import InsightBackend
+from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
+from adapters.persistence.neo4j.prereq_candidate_backend import PrereqCandidateBackend
+from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
+from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
+from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
+from adapters.persistence.neo4j.session_backend import SessionBackend
+from adapters.persistence.neo4j.task_grounding_backend import TaskGroundingBackend
+from adapters.persistence.neo4j.template_attachment_backend import TemplateAttachmentBackend
+from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
+from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from adapters.persistence.neo4j.user_backend import UserBackend
+from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
+from adapters.persistence.neo4j.user_relationship_backend import UserRelationshipBackend
+from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
+from adapters.persistence.neo4j.zpd_backend import ZPDBackend
+from adapters.persistence.neo4j.zpd_snapshot_backend import ZPDSnapshotBackend
+from core.models.askesis.askesis import Askesis
+from core.models.choice.choice import Choice
+from core.models.entity import Entity
 from core.models.enums.neo_labels import NeoLabel
+from core.models.event.event import Event
+from core.models.exercises.exercise import Exercise
+from core.models.exercises.revised_exercise import RevisedExercise
+from core.models.finance.invoice import InvoicePure
+from core.models.forms.form_submission import FormSubmission
+from core.models.forms.form_template import FormTemplate
+from core.models.goal.goal import Goal
+from core.models.group.group import Group
+from core.models.habit.completion import HabitCompletion
+from core.models.habit.habit import Habit
+from core.models.interaction.interaction import Interaction
+from core.models.ku.ku import Ku
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.path_step import PathStep
+from core.models.principle.principle import Principle
+from core.models.principle.reflection import PrincipleReflection
+from core.models.progress import UserProgress
+from core.models.report.activity_report import ActivityReport
+from core.models.report.entry_report import EntryReport
+from core.models.resource.resource import Resource
+from core.models.task.task import Task
+from core.models.templates.choice_template import ChoiceTemplate
+from core.models.templates.event_template import EventTemplate
+from core.models.templates.goal_template import GoalTemplate
+from core.models.templates.habit_template import HabitTemplate
+from core.models.templates.principle_template import PrincipleTemplate
+from core.models.templates.task_template import TaskTemplate
+from core.models.transcription.transcription import Transcription
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -12,16 +116,93 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.bootstrap")
 
 
+class Backends(TypedDict):
+    """Every backend ``create_all_backends`` builds, by name, each under its concrete class.
+
+    The classes are the adapters themselves — this is the composition root, the one
+    layer that names them. A consumer declares the ``core/ports`` protocol it needs,
+    so handing it ``backends["x"]`` checks that class against that protocol at the call.
+    ``tests/unit/test_backends_typed_set.py`` holds each entry to what the function
+    returns.
+    """
+
+    session_backend: SessionBackend
+    device_backend: DeviceBackend
+    user_relationship_backend: UserRelationshipBackend
+    conversation_backend: ConversationBackend
+    cross_domain_backend: CrossDomainBackend
+    knowledge_health_backend: KnowledgeHealthBackend
+    embedding_coverage_backend: EmbeddingCoverageBackend
+    insight_backend: InsightBackend
+    search_event_backend: SearchEventBackend
+    uid_census_backend: UidCensusBackend
+    ingestion_backend: IngestionBackend
+    ingestion_write_backend: IngestionWriteBackend
+    bulk_upsert_backend: BulkUpsertBackend
+    batch_chunking_backend: BatchChunkingBackend
+    lp_backend: LpBackend
+    user_progress_backend: UserProgressBackend
+    ps_intelligence_backend: PsIntelligenceBackend
+    template_attachment_backend: TemplateAttachmentBackend
+    ps_engagement_backend: PsEngagementBackend
+    prereq_candidate_backend: PrereqCandidateBackend
+    lateral_relationship_backend: LateralRelationshipBackend
+    embeddings_backend: EmbeddingsBackend
+    vector_search_backend: VectorSearchBackend
+    entry_grounding_backend: EntryGroundingBackend
+    task_grounding_backend: TaskGroundingBackend
+    zpd_backend: ZPDBackend
+    zpd_snapshot_backend: ZPDSnapshotBackend
+    exercise_backend: ExerciseBackend
+    entry_report_backend: EntryReportBackend
+    revised_exercise_backend: RevisedExerciseBackend
+    interaction_backend: InteractionBackend
+    review_queue_backend: ReviewQueueBackend
+    activity_report_generator_backend: ActivityReportGeneratorBackend
+    resource_backend: ResourceBackend
+    form_template_backend: FormTemplateBackend
+    form_submission_backend: FormSubmissionBackend
+    group_backend: GroupBackend
+    sharing_backend: SharingBackend
+    notification_backend: NotificationBackend
+    lifepath_backend: LifePathBackend
+    connection_fetch_backend: ConnectionFetchBackend
+    activity_entity_backend: UniversalNeo4jBackend[Entity]
+    tasks_backend: TasksBackend
+    events_backend: EventsBackend
+    habits_backend: HabitsBackend
+    habit_completions_backend: UniversalNeo4jBackend[HabitCompletion]
+    goals_backend: GoalsBackend
+    invoice_backend: UniversalNeo4jBackend[InvoicePure]
+    transcription_backend: UniversalNeo4jBackend[Transcription]
+    users_backend: UserBackend
+    ps_backend: PsBackend
+    ku_backend: KuBackend
+    principles_backend: PrinciplesBackend
+    reflection_backend: UniversalNeo4jBackend[PrincipleReflection]
+    choices_backend: ChoicesBackend
+    progress_backend: UniversalNeo4jBackend[UserProgress]
+    user_entry_backend: UserEntryBackend
+    activity_report_backend: ActivityReportBackend
+    askesis_backend: UniversalNeo4jBackend[Askesis]
+    task_template_backend: TaskTemplateBackend
+    goal_template_backend: GoalTemplateBackend
+    habit_template_backend: HabitTemplateBackend
+    event_template_backend: EventTemplateBackend
+    choice_template_backend: ChoiceTemplateBackend
+    principle_template_backend: PrincipleTemplateBackend
+
+
 def create_all_backends(
-    driver: Any,
+    driver: Any,  # boundary: neo4j AsyncDriver or a test double
     query_executor: Neo4jQueryExecutor,
     prometheus_metrics: PrometheusMetrics | None = None,
-) -> dict[str, Any]:
+) -> Backends:
     """Create every backend the application runs — the one place each is built.
 
-    Returns a dict of named backends: the domain backends for the entity types,
-    then the purpose-built backends each service family reads through. Every
-    consumer in the composition root takes its backend from this dict, and so
+    Returns the named backends (``Backends``): the domain backends for the entity
+    types, then the purpose-built backends each service family reads through. Every
+    consumer in the composition root takes its backend from this set, and so
     do every test and every script (``tests/unit/test_production_backend_census.py``),
     so the class, label, base label and entity class a backend runs with are
     stated once.
@@ -30,30 +211,6 @@ def create_all_backends(
     backends that take an executor rather than a driver (e.g.
     ``ConnectionFetchBackend``) are built from it here.
     """
-    from adapters.persistence.neo4j.backends.activity_backends import (
-        ChoicesBackend,
-        EventsBackend,
-        GoalsBackend,
-        HabitsBackend,
-        PrinciplesBackend,
-        TasksBackend,
-    )
-    from adapters.persistence.neo4j.backends.curriculum_backends import (
-        KuBackend,
-        PsBackend,
-    )
-    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
-    from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.models.askesis.askesis import Askesis
-    from core.models.event.event import Event
-    from core.models.finance.invoice import InvoicePure
-    from core.models.goal.goal import Goal
-    from core.models.habit.completion import HabitCompletion
-    from core.models.habit.habit import Habit
-    from core.models.principle.reflection import PrincipleReflection
-    from core.models.progress import UserProgress
-    from core.models.task.task import Task
-    from core.models.transcription.transcription import Transcription
 
     # ACTIVITY DOMAINS - Domain-specific labels with base_label=NeoLabel.ENTITY
     # for multi-label CREATE: (n:Entity:Task)
@@ -99,8 +256,6 @@ def create_all_backends(
     )
 
     # IDENTITY/FOUNDATION - Use dedicated UserBackend (no DTO conversion lifecycle)
-    from adapters.persistence.neo4j.user_backend import UserBackend
-    from core.models.pathways.path_step import PathStep
 
     users_backend = UserBackend(driver)
     ps_backend = PsBackend(
@@ -110,17 +265,14 @@ def create_all_backends(
         prometheus_metrics=prometheus_metrics,
         base_label=NeoLabel.ENTITY,
     )
-    from core.models.ku.ku import Ku as AtomicKu
 
     ku_backend = KuBackend(
         driver,
         NeoLabel.KU,
-        AtomicKu,
+        Ku,
         prometheus_metrics=prometheus_metrics,
         base_label=NeoLabel.ENTITY,
     )
-
-    from core.models.principle.principle import Principle
 
     principles_backend = PrinciplesBackend(
         driver,
@@ -135,7 +287,6 @@ def create_all_backends(
         PrincipleReflection,
         prometheus_metrics=prometheus_metrics,
     )
-    from core.models.choice.choice import Choice
 
     choices_backend = ChoicesBackend(
         driver,
@@ -148,10 +299,7 @@ def create_all_backends(
         driver, NeoLabel.USER_PROGRESS, UserProgress, prometheus_metrics=prometheus_metrics
     )
 
-    # ADR-054 Commit 7 — UserEntryBackend replaces SubmissionsBackend
     user_entry_backend = UserEntryBackend(driver, prometheus_metrics=prometheus_metrics)
-    from adapters.persistence.neo4j.backends.misc_backends import ActivityReportBackend
-    from core.models.report.activity_report import ActivityReport
 
     activity_report_backend = ActivityReportBackend(
         driver,
@@ -164,22 +312,8 @@ def create_all_backends(
         driver, NeoLabel.ASKESIS, Askesis, prometheus_metrics=prometheus_metrics
     )
 
-    # ACTIVITY TEMPLATE BACKENDS (Phase 2 of PS+Activity Templates build)
-    # Used by PsEngagementService (Phase 4) to load/manage PS-attached templates.
-    from adapters.persistence.neo4j.backends.templates_backends import (
-        ChoiceTemplateBackend,
-        EventTemplateBackend,
-        GoalTemplateBackend,
-        HabitTemplateBackend,
-        PrincipleTemplateBackend,
-        TaskTemplateBackend,
-    )
-    from core.models.templates.choice_template import ChoiceTemplate
-    from core.models.templates.event_template import EventTemplate
-    from core.models.templates.goal_template import GoalTemplate
-    from core.models.templates.habit_template import HabitTemplate
-    from core.models.templates.principle_template import PrincipleTemplate
-    from core.models.templates.task_template import TaskTemplate
+    # ACTIVITY TEMPLATE BACKENDS - PsEngagementService loads a step's templates
+    # through these.
 
     task_template_backend = TaskTemplateBackend(
         driver,
@@ -226,7 +360,6 @@ def create_all_backends(
 
     # Cross-activity reads over any :Entity node — ActivityKnowledgeIntelligenceService,
     # the one knowledge-intelligence service the six Activity facades share.
-    from core.models.entity import Entity
 
     activity_entity_backend = UniversalNeo4jBackend[Entity](
         driver,
@@ -239,74 +372,14 @@ def create_all_backends(
     # The Activity pages' link reader (list cards, detail pages, the day view).
     # Standalone backend over the shared executor — keeps raw Cypher below the
     # boundary (ADR-044); what a page shows is the registry's page views (ADR-090 §2).
-    from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
 
     connection_fetch_backend = ConnectionFetchBackend(query_executor)
 
     # PURPOSE-BUILT BACKENDS - each serves one service family, over the driver or
     # the shared executor. Built in every tier: a backend holds only its handle and
     # runs nothing until called, so the tier gates the services, not these.
-    from adapters.persistence.neo4j.backends.collab_backends import (
-        GroupBackend,
-        LateralRelationshipBackend,
-        NotificationBackend,
-        ReviewQueueBackend,
-    )
-    from adapters.persistence.neo4j.backends.conversation_backend import ConversationBackend
-    from adapters.persistence.neo4j.backends.curriculum_backends import (
-        EmbeddingCoverageBackend,
-        KnowledgeHealthBackend,
-        LpBackend,
-    )
-    from adapters.persistence.neo4j.backends.exercise_backends import (
-        EntryReportBackend,
-        ExerciseBackend,
-        RevisedExerciseBackend,
-    )
-    from adapters.persistence.neo4j.backends.forms_backends import (
-        FormSubmissionBackend,
-        FormTemplateBackend,
-    )
-    from adapters.persistence.neo4j.backends.misc_backends import (
-        ActivityReportGeneratorBackend,
-        InteractionBackend,
-        ResourceBackend,
-    )
-    from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-    from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
-    from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
-    from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
-    from adapters.persistence.neo4j.device_backend import DeviceBackend
-    from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
-    from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
-    from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
-    from adapters.persistence.neo4j.insight_backend import InsightBackend
-    from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
-    from adapters.persistence.neo4j.prereq_candidate_backend import PrereqCandidateBackend
-    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
-    from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
-    from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
-    from adapters.persistence.neo4j.session_backend import SessionBackend
-    from adapters.persistence.neo4j.task_grounding_backend import TaskGroundingBackend
-    from adapters.persistence.neo4j.template_attachment_backend import TemplateAttachmentBackend
-    from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
-    from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
-    from adapters.persistence.neo4j.user_relationship_backend import UserRelationshipBackend
-    from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
-    from adapters.persistence.neo4j.zpd_backend import ZPDBackend
-    from adapters.persistence.neo4j.zpd_snapshot_backend import ZPDSnapshotBackend
-    from core.models.exercises.exercise import Exercise
-    from core.models.exercises.revised_exercise import RevisedExercise
-    from core.models.forms.form_submission import FormSubmission
-    from core.models.forms.form_template import FormTemplate
-    from core.models.group.group import Group
-    from core.models.interaction.interaction import Interaction
-    from core.models.pathways.learning_path import LearningPath
-    from core.models.report.entry_report import EntryReport
-    from core.models.resource.resource import Resource
 
-    purpose_built = {
+    result: Backends = {
         # Identity, sessions, devices, social graph
         "session_backend": SessionBackend(driver),
         "device_backend": DeviceBackend(driver),
@@ -407,12 +480,6 @@ def create_all_backends(
         ),
         "notification_backend": NotificationBackend(executor=query_executor),
         "lifepath_backend": LifePathBackend(query_executor),
-    }
-
-    logger.info("✅ Backends created (100% dynamic pattern - direct instantiation)")
-
-    return {
-        **purpose_built,
         "connection_fetch_backend": connection_fetch_backend,
         "activity_entity_backend": activity_entity_backend,
         "tasks_backend": tasks_backend,
@@ -432,7 +499,7 @@ def create_all_backends(
         "user_entry_backend": user_entry_backend,
         "activity_report_backend": activity_report_backend,
         "askesis_backend": askesis_backend,
-        # Activity template backends (Phase 4 — PsEngagementService)
+        # Activity template backends
         "task_template_backend": task_template_backend,
         "goal_template_backend": goal_template_backend,
         "habit_template_backend": habit_template_backend,
@@ -440,3 +507,7 @@ def create_all_backends(
         "choice_template_backend": choice_template_backend,
         "principle_template_backend": principle_template_backend,
     }
+
+    logger.info("✅ Backends created (100% dynamic pattern - direct instantiation)")
+
+    return result

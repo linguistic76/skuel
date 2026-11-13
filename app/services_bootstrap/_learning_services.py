@@ -7,12 +7,13 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from core.config.intelligence_tier import IntelligenceTier
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from services_bootstrap._backends import Backends
 
 logger = get_logger("skuel.bootstrap")
 
 
 def _create_learning_services(
-    backends: dict[str, Any],  # boundary: create_all_backends' named heterogeneous backends
+    backends: Backends,
     progress_backend: Any,
     knowledge_backend: Any,
     atomic_ku_backend: Any,  # KuBackend for atomic Ku entities

@@ -1,7 +1,7 @@
 ---
 title: Protocol Implementation Guide
 created: 2026-01-03
-updated: 2026-10-25
+updated: 2026-11-13
 status: active
 audience: developers
 tags: [guide, protocols, implementation]
@@ -209,7 +209,8 @@ class TasksService:
 
 Every backend is built in one place, `create_all_backends`
 (`services_bootstrap/_backends.py`). The composition root, every test and every
-script take their backend from the dict it returns; nothing else constructs one
+script take their backend from the typed set it returns (`Backends` — each key
+under its concrete class, so a read is checked against the consumer's protocol); nothing else constructs one
 (`tests/unit/test_production_backend_census.py` fails a test or script that does).
 A script opens its own driver and reads one entry:
 `create_all_backends(driver, Neo4jQueryExecutor(driver))["uid_census_backend"]`.
@@ -230,110 +231,90 @@ tasks_backend = TasksBackend(
 # (create(task) -> Result[Task], get(uid) -> Result[Task | None], ...) and its
 # mixins the relationship and hierarchy operations.
 
-# services_bootstrap/compose.py — each facade reads its entry from the dict
+# services_bootstrap/compose.py — each consumer reads its entry from the set
 backends = create_all_backends(driver, query_executor, prometheus_metrics=prometheus_metrics)
-tasks_service = TasksService(backend=backends["tasks_backend"], ...)  # checked against TasksOperations
+tasks_backend = backends["tasks_backend"]  # TasksBackend
+activity_services = _create_activity_services(
+    tasks_backend=tasks_backend,  # checked against TasksOperations
+    ...
+)
 ```
 
 ## Breaking Circular Dependencies with Protocols
 
-> The `UserContextService` / `context_service` names below are illustrative — the
-> walkthrough shows the shape, not real services. For a real protocol-typed
-> dependency wired after construction, read `FormSubmissionService.sharing_service`
-> (`SharingOperations | None`, set in `services_bootstrap/compose.py` once
-> `UnifiedSharingService` exists).
+Two services that each need the other cannot both take the other in `__init__`,
+and neither module can import the other's at runtime. SKUEL breaks the cycle in
+two moves: the dependent names a type that needs no runtime import of the other
+service, and the composition root sets the attribute once both exist.
 
-### The Problem
+### A protocol-typed dependency, wired after construction
 
-```python
-# ❌ CIRCULAR DEPENDENCY
-# File: tasks_service.py
-from core.services.user_context_service import UserContextService
-
-class TasksService:
-    def __init__(self, context: UserContextService):
-        self.context = context
-
-# File: user_context_service.py
-from core.services.tasks_service import TasksService
-
-class UserContextService:
-    def __init__(self, tasks: TasksService):
-        self.tasks = tasks
-
-# Result: TasksService → UserContextService → TasksService ❌
-```
-
-### The Solution: Protocol Abstraction
-
-**Step 1**: Create minimal protocol interface
+`FormSubmissionService` checks a submission's audience through the sharing
+service, which the composition root builds later. It depends on the
+`SharingOperations` protocol (`core/ports/sharing_protocols.py`), never on
+`UnifiedSharingService`:
 
 ```python
-# File: core/ports/domain_protocols.py
-from typing import Protocol
-from core.utils.result_simplified import Result
+# core/services/forms/form_submission_service.py
+from core.ports.sharing_protocols import SharingOperations
 
-class UserContextOperations(Protocol):
-    """Minimal protocol for user context operations."""
-
-    async def invalidate_context(self, user_uid: UserUID) -> Result[None]:
-        """Invalidate user context cache."""
-        ...
-
-    async def get_context(self, user_uid: UserUID) -> Result[dict[str, Any]]:
-        """Get user context."""
-        ...
-```
-
-**Step 2**: Service depends on protocol, not concrete implementation
-
-```python
-# File: tasks_service.py
-from typing import Optional
-from core.ports import UserContextOperations
-
-class TasksService:
+class FormSubmissionService(...):
     def __init__(
         self,
-        backend: TasksOperations,
-        context_service: Optional[UserContextOperations] = None  # Protocol!
-    ):
-        self.backend = backend
-        self.context_service = context_service
-
-    async def create_task(self, data: dict) -> Result[Task]:
-        """Create task and invalidate context if service available."""
-        result = await self.backend.create(data)
-
-        if result.is_ok and self.context_service:
-            await self.context_service.invalidate_context(data["user_uid"])
-
-        return result
+        backend: FormSubmissionBackendOperations,
+        form_template_service: FormTemplateOperations,
+        event_bus: EventBusOperations | None = None,
+        sharing_service: SharingOperations | None = None,
+    ) -> None:
+        ...
+        self.sharing_service = sharing_service
 ```
-
-**Step 3**: Wire concrete implementation during bootstrap
 
 ```python
-# File: services_bootstrap/compose.py — inside compose_services
-    # Every backend, built once (services_bootstrap/_backends.py)
-    backends = create_all_backends(driver, query_executor, prometheus_metrics=prometheus_metrics)
+# services_bootstrap/compose.py — inside compose_services
+unified_sharing_service = UnifiedSharingService(backend=backends["sharing_backend"])
 
-    # Create services (no context yet - avoids circular dependency)
-    tasks_service = TasksService(backend=backends["tasks_backend"], context_service=None)
-
-    # Create context service (depends on tasks)
-    user_context_service = UserContextService(tasks=tasks_service, ...)
-
-    # Wire context service back to tasks (post-construction)
-    tasks_service.context_service = user_context_service
-
-    return Services(tasks=tasks_service, user_context=user_context_service)
+# Wire sharing into FormSubmissionService, created earlier without it.
+form_submission_service.sharing_service = unified_sharing_service
 ```
 
-**Result**: ✅ No circular dependency
-- TasksService → `UserContextOperations` (protocol interface)
-- UserContextService → TasksService (concrete implementation)
-- No import cycle because protocol is just an interface
+mypy checks the assignment: `UnifiedSharingService` must satisfy
+`SharingOperations`. A method that needs the dependency refuses while it is
+`None` — `FormSubmissionService` answers a forbidden `Result` when it cannot
+verify an audience — it never skips the check.
+
+### A facade-typed dependency, wired after construction
+
+Between two facades the type is the concrete class (the facade is the contract —
+see `/docs/patterns/protocol_architecture.md`), imported under `TYPE_CHECKING` so
+no import cycle forms:
+
+```python
+# core/services/habits_service.py
+if TYPE_CHECKING:
+    from core.services.goals_service import GoalsService
+
+class HabitsService(...):
+    def __init__(self, ...) -> None:
+        ...
+        self.goals_service: GoalsService | None = None
+```
+
+```python
+# services_bootstrap/compose.py — inside compose_services
+activity_services["habits"].goals_service = activity_services["goals"]
+```
+
+`activity_services` is a typed set (`ActivityServices`,
+`core/services/activity_services.py`), so this assignment is checked too.
+
+### What the two share
+
+- The attribute is declared `X | None` in `__init__` and set at the composition
+  root, after both services exist.
+- No service imports the other's module at runtime.
+- Fail-fast still holds: a `None` here is the "true circular dependency" case, not
+  an optional feature.
 
 ## Complete Protocol Examples
 

@@ -7,7 +7,7 @@ runs the class, label, base label and entity class production runs.
 
 ``build_production_backends(driver)["tasks_backend"]`` over any driver — the shared
 container's, a test's own graph, a mock; the integration ``production_backends``
-fixture is the same dict over ``neo4j_driver``. A unit test over a fake executor
+fixture is the same set over ``neo4j_driver``. A unit test over a fake executor
 passes it: ``build_production_backends(Mock(), executor)["cross_domain_backend"]``.
 
 ``build_ingestion_service(driver, ...)`` is the ``UnifiedIngestionService`` the
@@ -20,13 +20,13 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.type_hints import UserUID
 from core.ports import QueryExecutor
 from core.services.ingestion import UnifiedIngestionService
-from services_bootstrap._backends import create_all_backends
+from services_bootstrap._backends import Backends, create_all_backends
 
 
 def build_production_backends(
     driver: Any,  # boundary: neo4j AsyncDriver or a test double
     executor: QueryExecutor | None = None,
-) -> dict[str, Any]:  # boundary: create_all_backends' named heterogeneous backends
+) -> Backends:
     """Every backend ``create_all_backends`` builds, over ``driver``.
 
     ``executor`` defaults to a ``Neo4jQueryExecutor`` over the same driver, as the
