@@ -33,6 +33,12 @@ is answered over HTMX with its detail view re-rendered):
     POST /api/goals/{uid}/milestones/complete  — Mark one of its milestones reached
     POST /api/goals/{uid}/milestones/reopen    — Mark a reached milestone not reached
 
+Habit system (ownership-verified; the goal page's habit section, or JSON):
+    POST /api/goals/{uid}/habits               — Link one of the caller's habits at a tier
+    POST /api/goals/{uid}/habits/essentiality  — Move a linked habit to another tier
+    POST /api/goals/{uid}/habits/unlink        — Unlink a habit
+    POST /api/goals/{uid}/habits/system        — Replace the whole habit system
+
 Knowledge intelligence:
     GET  /api/goals/knowledge-patterns — Detected learning patterns across user goals
 """
@@ -75,7 +81,11 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_request import (
     GoalCreateRequest,
+    GoalHabitLinkRequest,
+    GoalHabitUidRequest,
     GoalProgressUpdateRequest,
+    HabitEssentialityChangeRequest,
+    HabitSystemUpdateRequest,
     MilestoneCreateRequest,
     MilestoneUidRequest,
 )
@@ -360,6 +370,113 @@ def create_goals_api_routes(
             return Result.fail(parsed)
         return await answer(
             request, await goals_service.reopen_milestone(uid, parsed.value.milestone_uid)
+        )
+
+    # ================================================================
+    # HABIT SYSTEM — the goal page's habit section
+    # ================================================================
+
+    async def answer_relinked[T](
+        request: Request, uid: str, written: Result[T]
+    ) -> Result[Goal] | FtResponse:
+        """The goal as a habit door left it, read after the write (and after the figure's
+        recompute); a refusal is the door's own error."""
+        if written.is_error:
+            return Result.fail(written)
+        return await answer(request, await goals_service.get_goal(uid))
+
+    @rt("/api/goals/{uid}/habits", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def link_goal_habit(request: Request, uid: str) -> Result[Goal] | FtResponse:
+        """Link one of the caller's habits to their goal at a tier (``GoalHabitLinkRequest``).
+
+        Not owned or missing → 404; a habit that is not the caller's own (another user's,
+        a principle, a uid naming nothing) → 404 and nothing is written; a tier outside
+        the four → 400. A habit already linked takes the tier given. A habit-based goal's
+        figure follows.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, GoalHabitLinkRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        link = parsed.value
+        return await answer_relinked(
+            request,
+            uid,
+            await goals_service.link_goal_to_habit(uid, link.habit_uid, link.essentiality),
+        )
+
+    @rt("/api/goals/{uid}/habits/essentiality", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def change_goal_habit_tier(request: Request, uid: str) -> Result[Goal] | FtResponse:
+        """Move a habit linked to the caller's goal to another tier
+        (``HabitEssentialityChangeRequest``).
+
+        Not owned or missing, or a habit not linked to it → 404, and no link is made; a
+        tier outside the four → 400. Only the link's tier changes.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, HabitEssentialityChangeRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        change = parsed.value
+        return await answer_relinked(
+            request,
+            uid,
+            await goals_service.change_habit_essentiality(
+                uid, change.habit_uid, change.new_essentiality
+            ),
+        )
+
+    @rt("/api/goals/{uid}/habits/unlink", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def unlink_goal_habit(request: Request, uid: str) -> Result[Goal] | FtResponse:
+        """Unlink a habit from the caller's goal (``GoalHabitUidRequest``).
+
+        Not owned or missing → 404. A habit not linked changes nothing; a principle that
+        supports the goal is never unlinked here. A habit-based goal's figure follows.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, GoalHabitUidRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        return await answer_relinked(
+            request, uid, await goals_service.unlink_goal_from_habit(uid, parsed.value.habit_uid)
+        )
+
+    @rt("/api/goals/{uid}/habits/system", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def replace_goal_habit_system(request: Request, uid: str) -> Result[Goal] | FtResponse:
+        """Replace the caller's goal's whole habit system (``HabitSystemUpdateRequest``).
+
+        The habits named, each at its tier, become the goal's habits; every other habit
+        is unlinked, a habit linked by another door after the caller read the system
+        included. Not owned or missing → 404; any habit that is not the caller's own →
+        404 and the links stay as they were; a habit in two tiers → 400. A principle that
+        supports the goal is untouched. A habit-based goal's figure follows.
+        """
+        user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_body(request, HabitSystemUpdateRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        return await answer_relinked(
+            request, uid, await goals_service.replace_habit_system(uid, parsed.value.tiers())
         )
 
     # ================================================================

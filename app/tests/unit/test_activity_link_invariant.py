@@ -126,6 +126,8 @@ KEYED_WRITERS: dict[str, str] = {
     "create_relationship_with_properties": "names both uids",
     "delete_relationship": "names both uids and carries the far end's label",
     "reorder_relationships": "rewrites the order of edges to named uids",
+    "set_link_properties": "names both uids and carries the far end's label; refuses a tiered key",
+    "replace_links_with_properties": "the far ends' kind is admitted from the door's LinkFarEnd",
 }
 
 # Keyed readers whose far-end label comes from their caller, not from the definition.

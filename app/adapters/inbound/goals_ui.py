@@ -2,7 +2,9 @@
 
 Provides the read-focused goal list view at /goals and detail view at /goals/detail.
 The detail page and the cards list the goal's links in both directions, under the
-goal's names for them (the registry's page views, ADR-090 §2).
+goal's names for them (the registry's page views, ADR-090 §2). The detail page also
+HTMX-loads /goals/habits: the habits that support the goal, each at its tier, with the
+controls that link, re-tier and unlink them (``GoalHabitsSection``).
 
 Also registers the create / edit forms (``GET|POST /goals/create``,
 ``GET|POST /goals/edit``) which use ``ui/activities/goals_form.py`` to render
@@ -17,7 +19,7 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING
 
-from fasthtml.common import Div, FtResponse
+from fasthtml.common import FT, Div, FtResponse
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
@@ -25,7 +27,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
-from adapters.inbound.route_factories import refuse
+from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.models.enums.activity_enums import ProgressLevel
 from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
@@ -33,14 +35,20 @@ from core.utils.entity_filters import filter_goals
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
 from ui.activities.goals_form import GoalCreateForm, GoalEditForm
-from ui.activities.goals_views import GoalDetailView, GoalList, GoalStatsBar
+from ui.activities.goals_views import (
+    GoalDetailView,
+    GoalHabitsSection,
+    GoalList,
+    GoalStatsBar,
+    goal_habits_id,
+)
 from ui.activities.nav import (
     render_activity_sidebar_error,
     render_activity_sidebar_page,
 )
 from ui.layouts.base_page import HtmlDocument
 from ui.patterns import PageHeader
-from ui.patterns.error_banner import render_error_banner
+from ui.patterns.error_banner import render_error_banner, render_slot_error
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import RouteDecorator
@@ -77,6 +85,29 @@ def create_goals_ui_routes(
         list_categories=goals_service.search.list_user_categories,
     )
     create_activity_ui_routes(rt, config)
+
+    @rt("/goals/habits")
+    async def goal_habits_fragment(request: Request) -> FT | FtResponse:
+        """HTMX fragment: the habits that support one goal, each at its tier, with the
+        controls that change them (``GoalHabitsSection``).
+
+        A foreign or missing goal answers the slot's 404, a failed read its own status
+        (``refuse``).
+        """
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        slot = partial(render_slot_error, goal_habits_id(uid))
+        if not uid:
+            return refuse_not_found(slot("Missing goal UID"))
+
+        owned = await goals_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse(owned.expect_error(), slot, "Goal")
+
+        links = await goals_service.get_habit_system(uid)
+        if links.is_error:
+            return refuse(links.expect_error(), slot, "Goal")
+        return GoalHabitsSection(owned.value, links.value)
 
     # ------------------------------------------------------------------
     # Create form: GET /goals/create  +  POST /goals/create

@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-11-12
+updated: 2026-11-13
 status: current
 category: domains
 tags:
@@ -225,6 +225,32 @@ Goals track which habits are essential for achievement:
 | `SUPPORTING` | Goal is easier with this habit |
 | `OPTIONAL` | Habit is tangentially helpful |
 
+The tier is the `essentiality` property of `(Habit)-[:SUPPORTS_GOAL {weight, essentiality}]->(Goal)`;
+`HabitEssentiality.from_stored` reads an absent or unknown value as `supporting`. It weighs the
+habit's adherence in the dashboard's habit-support figure (`dashboard_figures`) and sorts the
+habit into the tier buckets; it does not enter a habit-based goal's percentage, which is the
+plain average streak. Nothing reads `weight`; every door writes it 1.0.
+
+**The habit system's doors** (owner verified; JSON or the goal page's habit section). Every habit
+must be the goal owner's own (`HABIT_FAR_END`): another user's habit, a principle or a uid that
+names nothing is not found and nothing is written. A principle's `SUPPORTS_GOAL` on the same goal
+is never touched by any of them.
+
+| Door | Model | Service |
+|---|---|---|
+| `POST /api/goals/{uid}/habits` | `GoalHabitLinkRequest` (`habit_uid`, `essentiality`, default supporting) | `link_goal_to_habit`. A habit already linked keeps its one edge and takes the tier given |
+| `POST /api/goals/{uid}/habits/essentiality` | `HabitEssentialityChangeRequest` | `change_habit_essentiality`: sets the tier alone; a habit not linked is not found and no link is made |
+| `POST /api/goals/{uid}/habits/unlink` | `GoalHabitUidRequest` | `unlink_goal_from_habit`; a habit not linked changes nothing |
+| `POST /api/goals/{uid}/habits/system` | `HabitSystemUpdateRequest` | `replace_habit_system`: a full replace. The four lists are every habit the goal keeps; a habit not named is unlinked, a habit linked by another door after the caller read the system included. One transaction under the goal's lock |
+
+A habit-based goal's figure follows its habits, so the link, unlink and replace doors recompute it
+(`GoalsProgressService.recompute_habit_figure`, the locked recompute a habit completion runs) once
+the links land. A goal whose last habit leaves is written 0, as a task-based goal whose last
+contribution leaves is. The other membership writers do not recompute yet: goal create with
+`supporting_habit_uids`, habit create with `linked_goal_uids`, habit delete, and the vault's
+`connections.supports_goal` / `connections.supporting_habits`; the figure catches up at a linked
+habit's next completion.
+
 ## Search Methods
 
 **Service:** `GoalsSearchService` (`/core/services/goals/goals_search_service.py`)
@@ -299,13 +325,13 @@ Where that gate lives differs by door, and the split is the point:
   `new_progress >= 100 and old_progress < 100`, a statement about the NEW state. Only the
   *"…and it was not already achieved"* half rides the guard, as a `patch_if_prior_not_in`
   carrying the status/stamp **pair**. So an already-completed goal is written no `status` key
-  either — the recompute still lands, the completion pair does not. `update_goal_from_habit_progress`
-  (no caller) reads the goal before it writes; the others plan under the goal's lock.
+  either — the recompute still lands, the completion pair does not. Every one of them plans under
+  the goal's lock.
 - The **milestone writers and the entered figure** (`create_goal_milestone`, `complete_milestone`,
   `update_goal_progress`) plan from the goal read under its lock (`rewrite_under_lock`): the
   milestone list is appended to or changed as it stands, so two writes of one goal keep both, and
   status follows the figure by the rule below.
-- The **two tally recomputes** (`recompute_goal_tally`, `_update_goal_from_habit_completion`) go
+- The **two tally recomputes** (`recompute_goal_tally`, `recompute_habit_figure`) go
   further: they read the goal AND its tally under the goal's write-lock, in the same transaction as
   the write (`GoalsBackend.recompute_progress_from_contributions` / `…_from_linked_habits`, over
   `_CrudMixin._recompute_with_status_guard`). Two recomputes of one goal therefore serialize, and
@@ -400,7 +426,8 @@ carries the progress and milestone controls.
 |-------|--------|-------------|
 | `/goals` | GET | Goal list with filtering |
 | `/goals/list-fragment` | GET | HTMX filtered list fragment |
-| `/goals/detail?uid=` | GET | One goal: its figure, the progress form where the learner enters it, its milestones with a Complete button on each open one, a Reopen button on each reached one, and the "Add milestone" form. A goal set aside (cancelled, archived, failed) shows no control |
+| `/goals/detail?uid=` | GET | One goal: its figure, the progress form where the learner enters it, its milestones with a Complete button on each open one, a Reopen button on each reached one, and the "Add milestone" form; the habit section below them. A goal set aside (cancelled, archived, failed) shows no control |
+| `/goals/habits?uid=` | GET | HTMX fragment the detail page loads: the habits that support the goal, each with its tier select and Unlink button, and the "Link a habit" form (a habit picker and a tier). A goal set aside shows each habit's tier and no control |
 
 ## Code Examples
 

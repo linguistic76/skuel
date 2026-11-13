@@ -2,10 +2,8 @@
 Progress Calculator - Unified Progress Calculations
 ====================================================
 
-Consolidates duplicate progress calculation logic from:
+Used by:
 - GoalsProgressService.calculate_goal_progress_with_context()
-- GoalsProgressService.update_goal_from_habit_progress()
-- GoalsProgressService._update_goal_from_habit_completion()
 
 Provides reusable calculation methods for all Activity Domain progress services.
 """

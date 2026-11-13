@@ -1,8 +1,8 @@
 """A link between two Activities shows on both pages and both cards, under each side's name.
 
 ADR-090 §2, ruling R10: an Activity page renders its domain's registry definitions that
-carry a ``page_heading``, in both directions — the detail page's Connections section and
-the list card. The pairs are derived, never hand-listed: every Activity link the
+carry a ``page_heading``, in both directions — the detail page's Connections section (or
+the section of its own a view has, ``OWN_SECTIONS``) and the list card. The pairs are derived, never hand-listed: every Activity link the
 registry reads at both ends (``links_read_at_both_ends``, the invariant's own census).
 
 Each pair gets its own two entities, created through the domains' real create doors
@@ -51,6 +51,12 @@ pytestmark = [
 CALLER = seed_user_uid("pagelinks_caller")
 
 PAIRS = links_read_at_both_ends()
+
+# A page view the detail page lists in a section of its own, loaded by that section's
+# fragment rather than in its Connections block: (page label, heading) -> fragment URL.
+OWN_SECTIONS: dict[tuple[NeoLabel, str], str] = {
+    (NeoLabel.GOAL, "Habits that support this goal"): "/goals/habits?uid={uid}",
+}
 
 # label -> (URL segment, card id prefix)
 DOMAINS: dict[NeoLabel, tuple[str, str]] = {
@@ -204,7 +210,9 @@ async def test_both_detail_pages_show_the_link_under_their_own_heading(
 ) -> None:
     for label, uid, heading, far_title in _ends(link, linked[link]):
         segment, _prefix = DOMAINS[label]
-        response = await client.get(f"/{segment}/detail/content?uid={uid}")
+        section = OWN_SECTIONS.get((label, heading))
+        url = section.format(uid=uid) if section else f"/{segment}/detail/content?uid={uid}"
+        response = await client.get(url)
 
         assert response.status_code == 200, (label, response.text[:500])
         assert far_title in _under_heading(response.text, heading, "</ul>"), (label, heading)

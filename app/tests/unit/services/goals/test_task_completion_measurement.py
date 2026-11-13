@@ -254,7 +254,7 @@ class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
         )
         service, recorder = _habit_service(goal, total_habits=1, avg_streak=31.0)
 
-        await service._update_goal_from_habit_completion(goal.uid, _USER, 31)
+        await service.recompute_habit_figure(goal.uid)
 
         assert len(recorder.calls) == 1
         assert recorder.merged_patch()["current_value"] == 31.0
@@ -268,7 +268,7 @@ class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
         )
         service, recorder = _habit_service(goal, total_habits=1, avg_streak=31.0)
 
-        await service._update_goal_from_habit_completion(goal.uid, _USER, 31)
+        await service.recompute_habit_figure(goal.uid)
 
         updates = recorder.merged_patch()
         assert "achieved_date" not in updates
@@ -285,7 +285,7 @@ class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
         published: list[object] = []
         service.event_bus = _RecordingBus(published)
 
-        await service._update_goal_from_habit_completion(goal.uid, _USER, 31)
+        await service.recompute_habit_figure(goal.uid)
 
         assert published == []
 
@@ -298,7 +298,7 @@ class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
         )
         service, recorder = _habit_service(goal, total_habits=1, avg_streak=30.0)
 
-        await service._update_goal_from_habit_completion(goal.uid, _USER, 30)
+        await service.recompute_habit_figure(goal.uid)
 
         assert recorder.calls == []
 
@@ -318,6 +318,6 @@ class TestMixedGoalsAreNotRecomputedByCompletions:
         goal = _goal(MeasurementType.MIXED, target_value=30.0, progress_percentage=15.0)
         service, recorder = _habit_service(goal, total_habits=1, avg_streak=30.0)
 
-        await service._update_goal_from_habit_completion(goal.uid, _USER, 30)
+        await service.recompute_habit_figure(goal.uid)
 
         assert recorder.calls == []

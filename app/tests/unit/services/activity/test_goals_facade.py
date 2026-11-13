@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 
+from core.models.enums.goal_enums import HabitEssentiality
 from core.services.goals_service import GoalsService
 from core.services.mixins.link_edge_guard import HABIT_FAR_END, KNOWLEDGE_FAR_END, PRINCIPLE_FAR_END
 from core.utils.result_simplified import Errors, Result
@@ -173,18 +174,20 @@ class TestGoalsServiceOrchestration:
 
 class TestGoalsServiceRelationships:
     @pytest.mark.asyncio
-    async def test_link_goal_to_habit_passes_weight_and_essentiality(
+    async def test_link_goal_to_habit_writes_its_tier_and_recomputes_the_figure(
         self, goals_service: GoalsService
     ) -> None:
-        """link_goal_to_habit writes the SUPPORTS_GOAL edge with weight + essentiality tier.
+        """link_goal_to_habit writes the SUPPORTS_GOAL edge with its essentiality tier, then
+        recomputes the goal's habit figure.
 
-        The essentiality property (not the former ``contribution_type``) is THE key the
-        GOALS_CONFIG tier mappings filter on — see test_goal_habit_essentiality.py.
+        The essentiality property is THE key the GOALS_CONFIG tier mappings filter on —
+        see test_goal_habit_essentiality.py.
         """
         goals_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
+        goals_service.progress.recompute_habit_figure = AsyncMock(return_value=Result.ok(False))
 
         result = await goals_service.link_goal_to_habit(
-            "goal_abc", "habit_xyz", weight=0.7, essentiality="essential"
+            "goal_abc", "habit_xyz", HabitEssentiality.ESSENTIAL
         )
 
         assert result.is_ok
@@ -192,9 +195,24 @@ class TestGoalsServiceRelationships:
             "supporting_habits",
             "goal_abc",
             "habit_xyz",
-            {"weight": 0.7, "essentiality": "essential"},
+            {"weight": 1.0, "essentiality": "essential"},
             far_end=HABIT_FAR_END,
         )
+        goals_service.progress.recompute_habit_figure.assert_awaited_once_with("goal_abc")
+
+    @pytest.mark.asyncio
+    async def test_a_refused_habit_link_recomputes_nothing(
+        self, goals_service: GoalsService
+    ) -> None:
+        goals_service.relationships.create_relationship = AsyncMock(
+            return_value=Result.fail(Errors.not_found("habit", "habit_theirs"))
+        )
+        goals_service.progress.recompute_habit_figure = AsyncMock(return_value=Result.ok(False))
+
+        result = await goals_service.link_goal_to_habit("goal_abc", "habit_theirs")
+
+        assert result.is_error
+        goals_service.progress.recompute_habit_figure.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_link_goal_to_knowledge_passes_proficiency_params(

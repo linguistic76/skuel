@@ -272,34 +272,29 @@ class GoalCreateRequest(BaseModel):
 
 ### Complex Cross-Field Example
 
+Abridged from `core/models/goal/goal_request.py` (`_named()` concatenates the four lists).
+
 ```python
 class HabitSystemUpdateRequest(BaseModel):
-    """Validate habits don't appear in multiple essentiality levels"""
-    essential_habit_uids: list[str] | None = None
-    critical_habit_uids: list[str] | None = None
-    supporting_habit_uids: list[str] | None = None
-    optional_habit_uids: list[str] | None = None
+    """A goal's whole habit system: a habit may sit in one tier only."""
+    essential_habit_uids: list[str] = Field(default_factory=list)
+    critical_habit_uids: list[str] = Field(default_factory=list)
+    supporting_habit_uids: list[str] = Field(default_factory=list)
+    optional_habit_uids: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_no_duplicates(self):
-        """Ensure no habit UID appears in multiple levels"""
-        all_levels = {
-            "essential": self.essential_habit_uids or [],
-            "critical": self.critical_habit_uids or [],
-            "supporting": self.supporting_habit_uids or [],
-            "optional": self.optional_habit_uids or [],
-        }
-
-        seen = set()
-        duplicates = set()
-        for habits in all_levels.values():
-            for habit in habits:
-                if habit in seen:
-                    duplicates.add(habit)
-                seen.add(habit)
-
+    def validate_no_duplicates(self) -> HabitSystemUpdateRequest:
+        """Refuse a habit named in more than one tier."""
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for habit_uid in self._named():
+            if habit_uid in seen:
+                duplicates.add(habit_uid)
+            seen.add(habit_uid)
         if duplicates:
-            raise ValueError(f"Habits in multiple levels: {duplicates}")
+            raise ValueError(
+                f"Habits cannot appear in multiple essentiality levels: {sorted(duplicates)}"
+            )
         return self
 ```
 

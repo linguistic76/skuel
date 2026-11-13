@@ -31,12 +31,13 @@ from core.constants import QueryLimit
 from core.models.choice.choice import Choice
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.goal_enums import MeasurementType
+from core.models.enums.goal_enums import HabitEssentiality, MeasurementType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.principle_enums import PrincipleStrength
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.goal.goal_contribution import CONTRIBUTOR_TYPES
+from core.models.goal.goal_habit_link import GoalHabitLink
 from core.models.habit.habit import Habit
 from core.models.habit.learning_state import HABIT_LEARNING_PROPERTIES
 from core.models.principle.choice_outcomes import PrincipleChoiceOutcomes
@@ -943,6 +944,38 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             ]
         )
 
+    async def get_habit_system(self, goal_uid: str) -> Result[list[GoalHabitLink]]:
+        """The habits that support the goal, each at its tier.
+
+        ``(Habit)-[:SUPPORTS_GOAL]->(Goal)`` over the goal owner's habits — the owner is
+        read off the goal, so another user's habit never shows, and the ``Habit`` label
+        keeps a principle's support of the goal out. A habit joined by more than one
+        edge is listed once, at the first edge's tier. Ordered by tier (essential
+        first), then title; a goal with none, or no goal, reads an empty list.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (goal:{NeoLabel.ENTITY.value} {{uid: $uid}})
+            MATCH (habit:{NeoLabel.ENTITY.value}:{NeoLabel.HABIT.value} {{user_uid: goal.user_uid}})-[edge:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
+            WITH habit, head(collect(edge.essentiality)) AS essentiality
+            RETURN habit.uid AS habit_uid, habit.title AS title, essentiality
+            """,
+            {"uid": goal_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        links = [
+            GoalHabitLink(
+                habit_uid=str(row["habit_uid"]),
+                title=str(row.get("title") or ""),
+                essentiality=HabitEssentiality.from_stored(
+                    str(row["essentiality"]) if row.get("essentiality") is not None else None
+                ),
+            )
+            for row in (result.value or [])
+        ]
+        return Result.ok(sorted(links, key=GoalHabitLink.listing_order))
+
     async def get_required_knowledge_tally(self, goal_uid: str) -> Result[RequiredKnowledgeTally]:
         """How many Kus the goal ``REQUIRES_KNOWLEDGE`` and how many its owner has ``MASTERED``.
 
@@ -1006,23 +1039,24 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
     async def recompute_progress_from_linked_habits[P: GuardedWritePlan](
         self,
         goal_uid: str,
-        user_uid: UserUID,
         plan: Callable[[Goal, LinkedHabitTally], P | None],
     ) -> Result[GuardedRecompute[Goal, P] | None]:
         """Recompute a goal from the habits that support it, read under the goal's lock.
 
-        The tally is ``(Habit)-[:SUPPORTS_GOAL]->(Goal)`` over the user's habits, with
-        their average ``current_streak`` (absent read as 0). The habit sibling of
+        The tally is ``(Habit)-[:SUPPORTS_GOAL]->(Goal)`` over the goal owner's habits
+        (the owner read off the goal, as the contribution tally's is), each habit once,
+        with their average ``current_streak`` (absent read as 0). The habit sibling of
         :meth:`recompute_progress_from_contributions`.
         """
         query = f"""
-        MATCH (goal:Entity {{uid: $uid}})
-        OPTIONAL MATCH (habit:Entity {{entity_type: $habit_type}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
-        WHERE habit.user_uid = $user_uid
+        MATCH (goal:{NeoLabel.ENTITY.value} {{uid: $uid}})
+        OPTIONAL MATCH (habit:{NeoLabel.ENTITY.value}:{NeoLabel.HABIT.value})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
+        WHERE habit.user_uid = goal.user_uid
+        WITH DISTINCT habit
         RETURN count(habit) AS total_habits,
                coalesce(avg(coalesce(habit.current_streak, 0)), 0) AS avg_streak
         """
-        params: Neo4jProperties = {"user_uid": user_uid, "habit_type": EntityType.HABIT.value}
+        params: Neo4jProperties = {}
 
         def plan_from_row(goal: Goal, row: Mapping[str, Any]) -> P | None:
             return plan(

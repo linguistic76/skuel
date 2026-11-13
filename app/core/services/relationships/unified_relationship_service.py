@@ -634,6 +634,114 @@ class UnifiedRelationshipService[
         await self._publish_links_changed(owners.value.get(from_uid, ()), from_uid)
         return deleted
 
+    async def set_link_properties(
+        self,
+        relationship_key: str,
+        from_uid: str,
+        to_uid: str,
+        properties: Neo4jProperties,
+    ) -> Result[bool]:
+        """Set properties on a link that is already there, leaving its others.
+
+        The edge is matched as ``delete_relationship`` matches it: oriented per the
+        registry, and to the key's own kind only when its definition names one, so a
+        key never touches a sibling kind's edge of the same type (a goal's supporting
+        principle, under ``supporting_habits``). No such link is not found, and nothing
+        is created: a property write is never a link door. A key whose definition
+        filters on an edge property is refused, since setting that property would move
+        the link out of the key.
+
+        Returns:
+            Result[bool] — True once the properties are set.
+        """
+        spec = self._spec(relationship_key)
+        if spec.is_error:
+            return Result.fail(spec)
+        if spec.value.filter_property is not None:
+            return Result.fail(
+                Errors.validation(
+                    f"Relationship key '{relationship_key}' filters on an edge property "
+                    "and cannot set properties"
+                )
+            )
+        owners = await self.backend.get_owner_uids_batch([from_uid])
+        if owners.is_error:
+            return Result.fail(owners)
+
+        edge_from, edge_to = self._orient(spec.value, from_uid, to_uid)
+        far_label = far_end_label(spec.value)
+        far_is_source = spec.value.direction == "incoming"
+        updated = await self.backend.update_relationship_properties(
+            edge_from,
+            edge_to,
+            spec.value.relationship,
+            dict(properties),
+            from_label=far_label if far_is_source else None,
+            to_label=None if far_is_source else far_label,
+        )
+        if updated.is_error:
+            return Result.fail(updated)
+        await self._publish_links_changed(owners.value.get(from_uid, ()), from_uid)
+        return Result.ok(True)
+
+    async def replace_links_with_properties(
+        self,
+        entity_uid: str,
+        relationship_key: str,
+        links: Mapping[str, Neo4jProperties],
+        *,
+        far_end: LinkFarEnd,
+    ) -> Result[frozenset[str]]:
+        """Make the key's links exactly ``links``' far ends, each edge given its own
+        properties — an empty mapping clears the key.
+
+        ``replace_relationships`` for one key whose edges differ by a property (a goal's
+        habits, each at its tier). Every far end is admitted once, before anything is
+        written; then ONE transaction removes the key's other edges and merges each
+        link with its own properties. A refused far end leaves the links as they were.
+        Properties a link already carries and ``links`` does not name are kept.
+
+        A key whose definition filters on an edge property is refused, as
+        ``replace_relationships`` refuses one.
+
+        Returns:
+            Result[frozenset[str]] — the far ends this replace created a link to.
+        """
+        spec = self._spec(relationship_key)
+        if spec.is_error:
+            return Result.fail(spec)
+        if spec.value.filter_property is not None:
+            return Result.fail(
+                Errors.validation(
+                    f"Relationship key '{relationship_key}' filters on an edge property "
+                    "and cannot be replaced"
+                )
+            )
+        far_uids = list(links)
+        admitted = await self._admitted(entity_uid, far_uids, far_end)
+        if admitted.is_error:
+            return Result.fail(admitted)
+        admission = admitted.value
+
+        # The replace sets no property; each link is then merged with its own. Every
+        # write names only far ends the replace keeps, so their order inside the
+        # transaction does not change what lands.
+        writes = [
+            (self._guarded_write(spec.value, far_uids, far_end, None, replace=True), admission)
+        ]
+        writes.extend(
+            (
+                self._guarded_write(spec.value, [far_uid], far_end, properties, replace=False),
+                admission,
+            )
+            for far_uid, properties in links.items()
+            if properties
+        )
+        written = await self._write_links(entity_uid, writes)
+        if written.is_error:
+            return Result.fail(written)
+        return Result.ok(frozenset().union(*written.value))
+
     async def create_relationships_batch(
         self,
         entity_uid: EntityUID,

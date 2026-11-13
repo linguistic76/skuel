@@ -296,8 +296,7 @@ def wire_locked_recompute[T](
     ``locked``, and the plan's write goes through ``recorder`` (whose prior must be the
     same ``locked``), so ``recorder.calls`` / ``merged_patch()`` read as for a plain
     guarded write. A declining planner writes nothing and answers ``None``. The planner
-    is the wrapper's last argument whatever comes between it and the uid (the habit
-    wrapper also takes the owner; the contribution wrapper reads the owner off the goal).
+    is the wrapper's last argument (both wrappers read the owner off the goal).
     """
 
     def _call(

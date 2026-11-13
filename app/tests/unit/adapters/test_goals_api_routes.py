@@ -30,6 +30,7 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.goals_api import create_goals_api_routes
+from core.models.enums.goal_enums import HabitEssentiality
 from core.models.enums.relationship_enums import ProficiencyLevel
 from core.models.goal.goal import Goal
 from core.utils.result_simplified import Errors, Result
@@ -67,6 +68,11 @@ def _make_services() -> tuple[MagicMock, MagicMock]:
     goals_service.update_goal_progress = AsyncMock(return_value=Result.ok(_owned_goal()))
     goals_service.create_goal_milestone = AsyncMock(return_value=Result.ok(_owned_goal()))
     goals_service.complete_milestone = AsyncMock(return_value=Result.ok(_owned_goal()))
+    goals_service.get_goal = AsyncMock(return_value=Result.ok(_owned_goal()))
+    goals_service.link_goal_to_habit = AsyncMock(return_value=Result.ok(True))
+    goals_service.change_habit_essentiality = AsyncMock(return_value=Result.ok(True))
+    goals_service.unlink_goal_from_habit = AsyncMock(return_value=Result.ok(True))
+    goals_service.replace_habit_system = AsyncMock(return_value=Result.ok(frozenset()))
 
     principles_service = MagicMock()
     principles_service.verify_ownership = AsyncMock(return_value=Result.ok(MagicMock()))
@@ -397,6 +403,190 @@ class TestProgressAndMilestoneDoors:
         assert response.status_code == 422
 
     @pytest.mark.parametrize(("path", "body", "method"), _DOORS)
+    def test_json_answers_the_goal_and_htmx_answers_the_detail_view(
+        self, monkeypatch: pytest.MonkeyPatch, path: str, body: dict[str, str], method: str
+    ) -> None:
+        client, _goals_service, _principles = _make_client(monkeypatch)
+
+        as_json = _post_json(client, path, dict(body))
+        token = mint_token()
+        client.cookies.set(CSRF_COOKIE_NAME, token)
+        as_page = client.post(
+            path, data=body, headers={CSRF_HEADER_NAME: token, "HX-Request": "true"}
+        )
+
+        assert as_json.headers["content-type"].startswith("application/json")
+        assert as_json.json()["uid"] == _GOAL_UID
+        assert as_page.headers["content-type"].startswith("text/html")
+        assert f'id="goal-detail-{_GOAL_UID}"' in as_page.text
+        assert "<html" not in as_page.text
+
+
+_HABIT_UID = "habit_1"
+
+#: The four habit-system doors: path, a good form body, and the service method it calls.
+_HABIT_DOORS: tuple[tuple[str, dict[str, str], str], ...] = (
+    (f"/api/goals/{_GOAL_UID}/habits", {"habit_uid": _HABIT_UID}, "link_goal_to_habit"),
+    (
+        f"/api/goals/{_GOAL_UID}/habits/essentiality",
+        {"habit_uid": _HABIT_UID, "new_essentiality": "critical"},
+        "change_habit_essentiality",
+    ),
+    (f"/api/goals/{_GOAL_UID}/habits/unlink", {"habit_uid": _HABIT_UID}, "unlink_goal_from_habit"),
+    (f"/api/goals/{_GOAL_UID}/habits/system", {}, "replace_habit_system"),
+)
+
+
+class TestHabitSystemDoors:
+    """The goal page's habit section: link, change a tier, unlink, replace the system."""
+
+    @pytest.mark.parametrize(("path", "body", "method"), _HABIT_DOORS)
+    def test_unauthenticated_is_401(
+        self, monkeypatch: pytest.MonkeyPatch, path: str, body: dict[str, str], method: str
+    ) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch, authenticated=False)
+
+        response = _post_json(client, path, dict(body))
+
+        assert response.status_code == 401
+        getattr(goals_service, method).assert_not_awaited()
+
+    @pytest.mark.parametrize(("path", "body", "method"), _HABIT_DOORS)
+    def test_no_csrf_token_is_403(
+        self, monkeypatch: pytest.MonkeyPatch, path: str, body: dict[str, str], method: str
+    ) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+
+        response = client.post(path, json=body)
+
+        assert response.status_code == 403
+        getattr(goals_service, method).assert_not_awaited()
+
+    @pytest.mark.parametrize(("path", "body", "method"), _HABIT_DOORS)
+    def test_a_goal_that_is_not_the_callers_is_404(
+        self, monkeypatch: pytest.MonkeyPatch, path: str, body: dict[str, str], method: str
+    ) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+        goals_service.verify_ownership = AsyncMock(
+            return_value=Result.fail(Errors.not_found("goal", _GOAL_UID))
+        )
+
+        response = _post_json(client, path, dict(body))
+
+        assert response.status_code == 404
+        getattr(goals_service, method).assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        ("path", "body", "method"),
+        [
+            (_HABIT_DOORS[0][0], {}, "link_goal_to_habit"),
+            (_HABIT_DOORS[0][0], {"habit_uid": ""}, "link_goal_to_habit"),
+            (
+                _HABIT_DOORS[0][0],
+                {"habit_uid": _HABIT_UID, "essentiality": "vital"},
+                "link_goal_to_habit",
+            ),
+            (_HABIT_DOORS[1][0], {"habit_uid": _HABIT_UID}, "change_habit_essentiality"),
+            (
+                _HABIT_DOORS[1][0],
+                {"habit_uid": _HABIT_UID, "new_essentiality": "vital"},
+                "change_habit_essentiality",
+            ),
+            (_HABIT_DOORS[2][0], {}, "unlink_goal_from_habit"),
+        ],
+    )
+    def test_a_bad_body_is_400_and_reaches_no_service(
+        self, monkeypatch: pytest.MonkeyPatch, path: str, body: dict[str, str], method: str
+    ) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+
+        response = _post_form(client, path, body)
+
+        assert response.status_code == 400
+        getattr(goals_service, method).assert_not_awaited()
+
+    def test_a_habit_in_two_tiers_is_400(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+
+        response = _post_json(
+            client,
+            _HABIT_DOORS[3][0],
+            {"essential_habit_uids": [_HABIT_UID], "optional_habit_uids": [_HABIT_UID]},
+        )
+
+        assert response.status_code == 400
+        goals_service.replace_habit_system.assert_not_awaited()
+
+    def test_a_habit_that_is_not_the_callers_is_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The service's admission refuses it; the door answers its 404 and reads no goal."""
+        client, goals_service, _principles = _make_client(monkeypatch)
+        goals_service.link_goal_to_habit = AsyncMock(
+            return_value=Result.fail(Errors.not_found("habit", "habit_theirs"))
+        )
+
+        response = _post_form(client, _HABIT_DOORS[0][0], {"habit_uid": "habit_theirs"})
+
+        assert response.status_code == 404
+        goals_service.get_goal.assert_not_awaited()
+
+    def test_a_tier_change_on_a_habit_not_linked_is_404(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+        goals_service.change_habit_essentiality = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Relationship", "habit_9 -> goal_1"))
+        )
+
+        response = _post_form(
+            client,
+            _HABIT_DOORS[1][0],
+            {"habit_uid": "habit_9", "new_essentiality": "essential"},
+        )
+
+        assert response.status_code == 404
+
+    def test_each_door_reaches_its_service_with_the_tier_as_the_enum(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+
+        linked_default = _post_form(client, _HABIT_DOORS[0][0], {"habit_uid": _HABIT_UID})
+        linked_critical = _post_json(
+            client, _HABIT_DOORS[0][0], {"habit_uid": "habit_2", "essentiality": "critical"}
+        )
+        changed = _post_form(client, *_HABIT_DOORS[1][:2])
+        unlinked = _post_form(client, *_HABIT_DOORS[2][:2])
+        replaced = _post_json(
+            client,
+            _HABIT_DOORS[3][0],
+            {"essential_habit_uids": ["habit_2"], "supporting_habit_uids": [_HABIT_UID]},
+        )
+
+        assert {
+            r.status_code for r in (linked_default, linked_critical, changed, unlinked, replaced)
+        } == {200}
+        assert [c.args for c in goals_service.link_goal_to_habit.await_args_list] == [
+            (_GOAL_UID, _HABIT_UID, HabitEssentiality.SUPPORTING),
+            (_GOAL_UID, "habit_2", HabitEssentiality.CRITICAL),
+        ]
+        goals_service.change_habit_essentiality.assert_awaited_once_with(
+            _GOAL_UID, _HABIT_UID, HabitEssentiality.CRITICAL
+        )
+        goals_service.unlink_goal_from_habit.assert_awaited_once_with(_GOAL_UID, _HABIT_UID)
+        goals_service.replace_habit_system.assert_awaited_once_with(
+            _GOAL_UID,
+            {"habit_2": HabitEssentiality.ESSENTIAL, _HABIT_UID: HabitEssentiality.SUPPORTING},
+        )
+
+    def test_an_empty_system_unlinks_every_habit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+
+        response = _post_json(client, _HABIT_DOORS[3][0], {})
+
+        assert response.status_code == 200
+        goals_service.replace_habit_system.assert_awaited_once_with(_GOAL_UID, {})
+
+    @pytest.mark.parametrize(("path", "body", "method"), _HABIT_DOORS)
     def test_json_answers_the_goal_and_htmx_answers_the_detail_view(
         self, monkeypatch: pytest.MonkeyPatch, path: str, body: dict[str, str], method: str
     ) -> None:

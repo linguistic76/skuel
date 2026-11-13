@@ -21,6 +21,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
+    from core.models.enums.goal_enums import HabitEssentiality
     from core.models.habit.habit import Habit
     from core.models.habit.habit_request import HabitCreateRequest
     from core.ports.domain_protocols import HabitsOperations
@@ -110,7 +111,7 @@ class _OrchestrationMixin:
         self,
         create_request: HabitCreateRequest,
         user_uid: UserUID,
-        goal_essentiality: dict[str, str] | None = None,
+        goal_essentiality: dict[str, HabitEssentiality] | None = None,
     ) -> Result[Habit]:
         """
         Create a habit and optionally link it to goals with essentiality.

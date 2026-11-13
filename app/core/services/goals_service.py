@@ -26,9 +26,10 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus, Priority
-from core.models.enums.goal_enums import GoalTimeframe, GoalType
+from core.models.enums.goal_enums import GoalTimeframe, GoalType, HabitEssentiality
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
+from core.models.goal.goal_habit_link import GoalHabitLink
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.domain_protocols import GoalsOperations
@@ -67,6 +68,8 @@ from core.utils.sort_functions import get_created_at_attr
 from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.context_types import ContextualGoal
     from core.models.enums import Domain
@@ -190,6 +193,11 @@ _GOAL_SORT_CONFIG: SortConfig = {
 def _apply_goal_sort(goals: list[Any], sort_by: str = "target_date") -> list[Any]:
     """Sort goals using declarative config."""
     return apply_entity_sort(goals, sort_by, _GOAL_SORT_CONFIG, "target_date")
+
+
+def _habit_link_properties(essentiality: HabitEssentiality) -> Neo4jProperties:
+    """The properties of a goal's habit link: its tier, and the weight every door writes."""
+    return {"weight": 1.0, "essentiality": essentiality.value}
 
 
 class GoalsService(
@@ -419,11 +427,6 @@ class GoalsService(
 
     async def reopen_milestone(self, goal_uid: str, milestone_uid: str) -> Result[Goal]:
         return await self.progress.reopen_milestone(goal_uid, milestone_uid)
-
-    async def update_goal_from_habit_progress(
-        self, goal_uid: str, habit_uid: str, new_streak: int
-    ) -> Result[Goal]:
-        return await self.progress.update_goal_from_habit_progress(goal_uid, habit_uid, new_streak)
 
     async def update_goal_progress(
         self, uid: str, progress_value: float, notes: str = "", update_date: str | None = None
@@ -670,27 +673,103 @@ class GoalsService(
         self,
         goal_uid: str,
         habit_uid: str,
-        weight: float = 1.0,
-        essentiality: str = "supporting",
+        essentiality: HabitEssentiality = HabitEssentiality.SUPPORTING,
     ) -> Result[bool]:
-        """Link goal to supporting habit, tagged with its essentiality tier.
+        """Link one of the goal owner's habits to the goal, at a tier.
 
-        Writes ``(Habit)-[:SUPPORTS_GOAL {weight, essentiality}]->(Goal)``. The
-        ``essentiality`` property (``essential`` / ``critical`` / ``supporting`` /
-        ``optional``) is THE single source for the GOALS_CONFIG tier buckets
-        (``essential_habits`` / ``critical_habits`` / ``optional_habits``, with the
-        ``supporting`` and unset cases falling to the ``contributing_habits`` catch-all).
-        It MUST match the read mappings' ``filter_property="essentiality"`` — storing the
-        tier under any other key (the former ``contribution_type``) left every tier empty.
+        Writes ``(Habit)-[:SUPPORTS_GOAL {weight, essentiality}]->(Goal)``, admitted as
+        the owner's own habit (``HABIT_FAR_END``: another user's habit, a principle or
+        a uid that names nothing is not found and nothing is written). A habit already
+        linked keeps its one edge and takes the tier given. The ``essentiality``
+        property is THE single source for the GOALS_CONFIG tier buckets
+        (``essential_habits`` / ``critical_habits`` / ``optional_habits``, with
+        ``supporting`` and unset falling to the ``contributing_habits`` catch-all).
+        ``weight`` is written 1.0, as every create door writes it.
+
+        A habit-based goal's figure follows its habits, so it is recomputed
+        (``recompute_habit_figure``) once the link lands.
         """
-        properties: Neo4jProperties = {"weight": weight, "essentiality": essentiality}
-        return await self.relationships.create_relationship(
-            "supporting_habits", goal_uid, habit_uid, properties, far_end=HABIT_FAR_END
+        written = await self.relationships.create_relationship(
+            "supporting_habits",
+            goal_uid,
+            habit_uid,
+            _habit_link_properties(essentiality),
+            far_end=HABIT_FAR_END,
         )
+        if written.is_ok:
+            await self._recompute_habit_figure(goal_uid)
+        return written
 
     async def unlink_goal_from_habit(self, uid: str, habit_uid: str) -> Result[bool]:
-        """Unlink a habit from a goal. A principle's support of the goal is left alone."""
-        return await self.relationships.delete_relationship("supporting_habits", uid, habit_uid)
+        """Unlink a habit from a goal. A principle's support of the goal is left alone.
+
+        A habit not linked changes nothing. A habit-based goal's figure is recomputed
+        once the link is gone.
+        """
+        removed = await self.relationships.delete_relationship("supporting_habits", uid, habit_uid)
+        if removed.is_ok:
+            await self._recompute_habit_figure(uid)
+        return removed
+
+    async def change_habit_essentiality(
+        self, goal_uid: str, habit_uid: str, essentiality: HabitEssentiality
+    ) -> Result[bool]:
+        """Move a habit already linked to the goal to another tier.
+
+        Sets the link's ``essentiality`` and nothing else, on either node or the edge. A
+        habit not linked to the goal — a principle's uid included — is not found, and no
+        link is made. The tier does not enter a habit-based goal's figure (an unweighted
+        average streak), so nothing is recomputed.
+        """
+        return await self.relationships.set_link_properties(
+            "supporting_habits", goal_uid, habit_uid, {"essentiality": essentiality.value}
+        )
+
+    async def replace_habit_system(
+        self, goal_uid: str, tiers: Mapping[str, HabitEssentiality]
+    ) -> Result[frozenset[str]]:
+        """Make the goal's habit links exactly ``tiers``: each habit at its tier, every
+        other habit unlinked. An empty mapping unlinks every habit.
+
+        Each habit is admitted as the goal owner's own before anything is written; one
+        refused leaves the links as they were. The removals and the links are one
+        transaction holding the goal's lock, so a habit linked by another door either
+        landed first, and is unlinked here when ``tiers`` does not name it, or lands
+        after, and is kept. A principle's support of the goal is never touched. A
+        habit-based goal's figure is recomputed once the links land.
+
+        Returns:
+            Result[frozenset[str]] — the habits this replace newly linked.
+        """
+        replaced = await self.relationships.replace_links_with_properties(
+            goal_uid,
+            "supporting_habits",
+            {habit_uid: _habit_link_properties(tier) for habit_uid, tier in tiers.items()},
+            far_end=HABIT_FAR_END,
+        )
+        if replaced.is_ok:
+            await self._recompute_habit_figure(goal_uid)
+        return replaced
+
+    async def get_habit_system(self, goal_uid: str) -> Result[list[GoalHabitLink]]:
+        """The habits that support the goal, each at its tier, essential first.
+
+        Backend: ``GoalsBackend.get_habit_system``.
+        """
+        return await self.backend.get_habit_system(goal_uid)
+
+    async def _recompute_habit_figure(self, goal_uid: str) -> None:
+        """Recompute a habit-based goal's figure after its habit links changed.
+
+        Best-effort, like the habit-completion subscriber: the link has landed, and a
+        recompute failure is logged rather than reported as the link's.
+        """
+        recomputed = await self.progress.recompute_habit_figure(goal_uid)
+        if recomputed.is_error:
+            self.logger.error(
+                f"Goal {goal_uid}: habit links changed, figure not recomputed: "
+                f"{recomputed.expect_error()}"
+            )
 
     async def link_goal_to_knowledge(
         self,
