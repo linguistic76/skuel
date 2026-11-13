@@ -42,12 +42,17 @@ class RelationshipConfig(TypedDict, total=False):
             sourced from the registry's ``order_by_property`` (e.g. HAS_STEP
             ``sequence``, ORGANIZES ``order``). The vault list IS the ordering;
             dropping it would lose authored sequence.
+        create_properties: Properties an edge this field CREATES is given, from the
+            registry's ``create_properties`` (e.g. SUPPORTS_GOAL ``weight`` and
+            ``essentiality``), so a vault-written link is the one the app's doors write.
+            An edge already there keeps its own.
     """
 
     rel_type: str
     target_label: str
     direction: Literal["incoming", "outgoing", "both"]
     order_property: str
+    create_properties: dict[str, float | str]
 
 
 # The two edge patterns the relationship template writes, relative to the

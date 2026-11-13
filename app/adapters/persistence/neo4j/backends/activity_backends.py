@@ -199,6 +199,29 @@ def _contribution_tally(row: Mapping[str, Any]) -> ContributionTally:
     )
 
 
+# A goal's supporting habits: the goal owner's habits on ``SUPPORTS_GOAL``, each once,
+# with their average ``current_streak`` (absent read as 0). One statement for the locked
+# recompute and the reconciler's read.
+_LINKED_HABIT_TALLY_QUERY = f"""
+MATCH (goal:{NeoLabel.ENTITY.value} {{uid: $uid}})
+OPTIONAL MATCH (habit:{NeoLabel.ENTITY.value}:{NeoLabel.HABIT.value})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
+WHERE habit.user_uid = goal.user_uid
+WITH DISTINCT habit
+RETURN count(habit) AS total_habits,
+       coalesce(avg(coalesce(habit.current_streak, 0)), 0) AS avg_streak
+"""
+
+
+# boundary: the habit tally statement's row — a driver record under the lock, a plain dict
+# from ``execute_query``; narrowed here to the TypedDict both callers hand on.
+def _linked_habit_tally(row: Mapping[str, Any]) -> LinkedHabitTally:
+    """A supporting-habit tally row as ``LinkedHabitTally``; an absent row reads 0."""
+    return LinkedHabitTally(
+        total_habits=int(row.get("total_habits") or 0),
+        avg_streak=float(row.get("avg_streak") or 0.0),
+    )
+
+
 async def _contributed_goal_uids(
     backend: UniversalNeo4jBackend[Any], contributor_uid: str
 ) -> Result[list[str]]:
@@ -1008,18 +1031,21 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             )
         )
 
-    async def list_task_based_goals(self) -> Result[list[tuple[str, UserUID]]]:
-        """Every TASK_BASED goal as ``(goal_uid, owner_uid)`` — the reconciler's work list."""
+    async def list_goals_by_measurement(
+        self, measurement_type: MeasurementType
+    ) -> Result[list[tuple[str, UserUID]]]:
+        """Every goal of one measurement type as ``(goal_uid, owner_uid)`` — the
+        reconciler's work list."""
         result = await self.execute_query(
             """
-            MATCH (goal:Entity {entity_type: $goal_type, measurement_type: $task_based})
+            MATCH (goal:Entity {entity_type: $goal_type, measurement_type: $measurement_type})
             WHERE goal.user_uid IS NOT NULL
             RETURN goal.uid AS goal_uid, goal.user_uid AS user_uid
             ORDER BY goal_uid
             """,
             {
                 "goal_type": EntityType.GOAL.value,
-                "task_based": MeasurementType.TASK_BASED.value,
+                "measurement_type": measurement_type.value,
             },
         )
         if result.is_error:
@@ -1048,26 +1074,27 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         with their average ``current_streak`` (absent read as 0). The habit sibling of
         :meth:`recompute_progress_from_contributions`.
         """
-        query = f"""
-        MATCH (goal:{NeoLabel.ENTITY.value} {{uid: $uid}})
-        OPTIONAL MATCH (habit:{NeoLabel.ENTITY.value}:{NeoLabel.HABIT.value})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
-        WHERE habit.user_uid = goal.user_uid
-        WITH DISTINCT habit
-        RETURN count(habit) AS total_habits,
-               coalesce(avg(coalesce(habit.current_streak, 0)), 0) AS avg_streak
-        """
         params: Neo4jProperties = {}
 
         def plan_from_row(goal: Goal, row: Mapping[str, Any]) -> P | None:
-            return plan(
-                goal,
-                LinkedHabitTally(
-                    total_habits=int(row.get("total_habits") or 0),
-                    avg_streak=float(row.get("avg_streak") or 0.0),
-                ),
-            )
+            return plan(goal, _linked_habit_tally(row))
 
-        return await self._recompute_with_status_guard(goal_uid, query, params, plan_from_row)
+        return await self._recompute_with_status_guard(
+            goal_uid, _LINKED_HABIT_TALLY_QUERY, params, plan_from_row
+        )
+
+    async def get_linked_habit_tally(self, goal_uid: str) -> Result[LinkedHabitTally]:
+        """A goal's supporting-habit tally as it stands now — a read; no lock, no write.
+
+        The statement :meth:`recompute_progress_from_linked_habits` counts with, so the
+        reconciler compares the stored figure against the membership rule it was
+        written by. A goal with no supporting habit — or no goal — reads 0 habits.
+        """
+        result = await self.execute_query(_LINKED_HABIT_TALLY_QUERY, {"uid": goal_uid})
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(_linked_habit_tally(rows[0] if rows else {}))
 
     async def get_achievement_context(
         self, goal_uid: str, user_uid: UserUID

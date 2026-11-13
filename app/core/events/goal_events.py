@@ -156,6 +156,33 @@ class GoalContributionsChanged(BaseEvent):
 
 
 @dataclass(frozen=True)
+class GoalHabitsChanged(BaseEvent):
+    """
+    Published when the habits that support a goal may have changed.
+
+    A habit supports a goal through ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``, and a
+    HABIT_BASED goal's figure is its supporting habits' average streak, so it changes
+    when a goal gains or loses a habit. Every door that writes or removes that edge
+    publishes this event; the goal progress service recomputes the goals it names. A
+    habit's completion moves a streak, not the membership, and is ``HabitCompleted``.
+
+    Attributes:
+        goal_uids: goals named directly — a goal whose links a door changed, and a
+            removed habit's goals, captured before its edge went.
+        habit_uids: habits whose current goals are recomputed.
+
+    Subscribers:
+    - GoalsProgressService.handle_goal_habits_changed (recompute each goal)
+    """
+
+    user_uid: UserUID
+    goal_uids: tuple[str, ...] = ()
+    habit_uids: tuple[str, ...] = ()
+
+    event_type: ClassVar[str] = "goal.habits_changed"
+
+
+@dataclass(frozen=True)
 class GoalProgressUpdated(BaseEvent):
     """
     Published when goal progress percentage changes.

@@ -13,7 +13,7 @@ Responsibilities:
 """
 
 import dataclasses
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Final, Literal
@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Final, Literal
 from core.events import (
     GoalAchieved,
     GoalContributionsChanged,
+    GoalHabitsChanged,
     GoalMilestoneReached,
     GoalProgressUpdated,
     GoalReopened,
@@ -175,7 +176,8 @@ def _recompute_status_write(
 
 @dataclass(frozen=True)
 class GoalTallyGap:
-    """A TASK_BASED goal whose stored tally disagrees with its contributions."""
+    """A derived goal figure (TASK_BASED or HABIT_BASED) that disagrees with what it is
+    derived from: its contributions or its supporting habits."""
 
     goal_uid: str
     user_uid: UserUID
@@ -1383,18 +1385,54 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         return Result.ok(True)
 
     async def reconcile_goal_tallies(self, *, dry_run: bool) -> Result[list[GoalTallyGap]]:
-        """Recompute every TASK_BASED goal whose stored tally disagrees with its contributions.
+        """Recompute every derived goal figure that disagrees with what it is derived from.
 
-        The tally's trigger (``GoalContributionsChanged``) is best-effort: a recompute
-        that fails after the change it answers has committed leaves the stored figure
-        behind, and nothing replays the event. This reads every TASK_BASED goal, plans
-        its write under the rule the recompute uses (``_plan_contribution_progress``)
-        and, unless ``dry_run``, closes each gap through the same locked recompute.
-        Idempotent: a second run finds nothing.
+        A TASK_BASED goal's tally follows its contributions (``GoalContributionsChanged``)
+        and a HABIT_BASED goal's figure follows its supporting habits (``GoalHabitsChanged``
+        and ``HabitCompleted``). Each trigger is best-effort: a recompute that fails after
+        the change it answers has committed leaves the stored figure behind, and nothing
+        replays the event. This reads every goal of the two types, plans its write under
+        the rule its recompute uses (``_plan_contribution_progress`` /
+        ``_plan_habit_progress``) and, unless ``dry_run``, closes each gap through the
+        same locked recompute. Idempotent: a second run finds nothing.
 
-        Backend: GoalsBackend.list_task_based_goals / get_contribution_tally.
+        Backend: GoalsBackend.list_goals_by_measurement / get_contribution_tally /
+        get_linked_habit_tally.
         """
-        goals = await self.backend.list_task_based_goals()
+        gaps: list[GoalTallyGap] = []
+        task_gaps = await self._reconcile_measure(
+            MeasurementType.TASK_BASED,
+            self.backend.get_contribution_tally,
+            _plan_contribution_progress,
+            self.recompute_goal_tally,
+            dry_run=dry_run,
+        )
+        if task_gaps.is_error:
+            return Result.fail(task_gaps)
+        gaps.extend(task_gaps.value)
+        habit_gaps = await self._reconcile_measure(
+            MeasurementType.HABIT_BASED,
+            self.backend.get_linked_habit_tally,
+            _plan_habit_progress,
+            self.recompute_habit_figure,
+            dry_run=dry_run,
+        )
+        if habit_gaps.is_error:
+            return Result.fail(habit_gaps)
+        gaps.extend(habit_gaps.value)
+        return Result.ok(gaps)
+
+    async def _reconcile_measure[Tally](
+        self,
+        measurement_type: MeasurementType,
+        read_tally: Callable[[str], Awaitable[Result[Tally]]],
+        plan: Callable[[Goal, Tally], _ProgressWrite | None],
+        recompute: Callable[[str], Awaitable[Result[bool]]],
+        *,
+        dry_run: bool,
+    ) -> Result[list[GoalTallyGap]]:
+        """One measurement type's half of :meth:`reconcile_goal_tallies`."""
+        goals = await self.backend.list_goals_by_measurement(measurement_type)
         if goals.is_error:
             return Result.fail(goals)
         gaps: list[GoalTallyGap] = []
@@ -1405,22 +1443,22 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             if goal_result.value is None:
                 continue
             goal = to_domain_model(goal_result.value, GoalDTO, Goal)
-            tally = await self.backend.get_contribution_tally(goal_uid)
+            tally = await read_tally(goal_uid)
             if tally.is_error:
                 return Result.fail(tally)
-            plan = _plan_contribution_progress(goal, tally.value)
-            if plan is None:
+            planned = plan(goal, tally.value)
+            if planned is None:
                 continue
             gaps.append(
                 GoalTallyGap(
                     goal_uid=goal_uid,
                     user_uid=owner_uid,
                     stored=f"{goal.current_value}/{goal.target_value}",
-                    live=plan.detail,
+                    live=planned.detail,
                 )
             )
             if not dry_run:
-                written = await self.recompute_goal_tally(goal_uid)
+                written = await recompute(goal_uid)
                 if written.is_error:
                     return Result.fail(written)
         return Result.ok(gaps)
@@ -1434,36 +1472,49 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Args:
             event: HabitCompleted carrying habit_uid, user_uid and current_streak
         """
-        try:
-            # Goals this habit supports (Backend: GoalsBackend.find_linked_goals_for_habit)
-            result = await self.backend.find_linked_goals_for_habit(event.habit_uid, event.user_uid)
-            if result.is_error:
-                self.logger.error(
-                    f"Failed to query goals for habit {event.habit_uid}: {result.error}"
-                )
-                return
+        await self._recompute_habit_goals(event.user_uid, (), (event.habit_uid,))
 
-            goal_uids = result.value or []
-            if not goal_uids:
-                self.logger.debug(f"No goals linked to habit {event.habit_uid}")
-                return
+    async def handle_goal_habits_changed(self, event: GoalHabitsChanged) -> None:
+        """Recompute every goal whose supporting habits the event says may have changed.
 
-            for goal_uid in goal_uids:
-                try:
-                    recomputed = await self.recompute_habit_figure(goal_uid)
-                    if recomputed.is_error:
-                        self.logger.error(
-                            f"Failed to recompute goal {goal_uid}: {recomputed.expect_error()}"
-                        )
-                except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-                    # Best-effort: Don't let one goal failure block others
+        The goals are the ones the event names (a goal whose links a door changed, a
+        removed habit's goals captured before its edge went) and the ones each named
+        habit supports now. The recompute counts graph state, so a doubled or redundant
+        announcement is harmless. Event-driven, so the habit, engagement and ingestion
+        services hold no dependency on GoalsService. Best-effort: a failure is logged,
+        never raised.
+        """
+        await self._recompute_habit_goals(event.user_uid, event.goal_uids, event.habit_uids)
+
+    async def _recompute_habit_goals(
+        self, user_uid: UserUID, goal_uids: tuple[str, ...], habit_uids: tuple[str, ...]
+    ) -> None:
+        """Recompute each goal named and each goal the named habits support, once each.
+
+        Backend: GoalsBackend.find_linked_goals_for_habit.
+        """
+        goals: list[str] = list(dict.fromkeys(goal_uids))
+        for habit_uid in habit_uids:
+            try:
+                found = await self.backend.find_linked_goals_for_habit(habit_uid, user_uid)
+            except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
+                self.logger.error(f"Failed to query goals for habit {habit_uid}: {e}")
+                continue
+            if found.is_error:
+                self.logger.error(f"Failed to query goals for habit {habit_uid}: {found.error}")
+                continue
+            goals.extend(g for g in found.value or [] if g not in goals)
+
+        for goal_uid in goals:
+            try:
+                recomputed = await self.recompute_habit_figure(goal_uid)
+                if recomputed.is_error:
                     self.logger.error(
-                        f"Failed to update goal {goal_uid} from habit completion: {e}"
+                        f"Failed to recompute goal {goal_uid}: {recomputed.expect_error()}"
                     )
-
-        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-            # Best-effort: Log error but don't raise (prevent habit completion failure)
-            self.logger.error(f"Error handling habit_completed event: {e}")
+            except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
+                # Best-effort: one goal's failure does not block the others.
+                self.logger.error(f"Failed to update goal {goal_uid} from its habits: {e}")
 
     async def recompute_habit_figure(self, goal_uid: str) -> Result[bool]:
         """Recompute one HABIT_BASED goal from its owner's supporting habits, and publish
@@ -1474,7 +1525,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         under the goal's write-lock, like the task-based sibling, so a habit completed
         while another is linked is counted by whichever recompute runs second. Run after
         a habit completion and after every change to the goal's habit links; any other
-        measurement type is left alone.
+        measurement type is left alone. A goal that no longer exists (deleted with the
+        habit that named it) is nothing to write: ``Result.ok(False)``.
 
         Backend: ``GoalsBackend.recompute_progress_from_linked_habits``.
         """
@@ -1482,6 +1534,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             goal_uid, _plan_habit_progress
         )
         if result.is_error:
+            if result.expect_error().category is ErrorCategory.NOT_FOUND:
+                self.logger.debug(f"Goal {goal_uid}: gone, no habit figure to write")
+                return Result.ok(False)
             return Result.fail(result)
         if result.value is None:
             self.logger.debug(f"Goal {goal_uid}: no habit-based progress change")

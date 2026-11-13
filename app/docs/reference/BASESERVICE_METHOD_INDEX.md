@@ -270,7 +270,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### HabitsService
 
-**Facade-specific public methods:** 77
+**Facade-specific public methods:** 78
 
 | Method | Async |
 |--------|-------|
@@ -290,6 +290,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_semantic_skill_relationship()` | ✅ |
 | `create_subhabit_relationship()` | ✅ |
 | `create_with_goal_links()` | ✅ |
+| `delete_for_user()` | ✅ |
 | `delete_habit_reminder()` | ✅ |
 | `enrich_with_adherence()` | ✅ |
 | `find_habits_developing_knowledge()` | ✅ |

@@ -189,14 +189,20 @@ class PsEngagementBackend:
     async def delete_instance(
         self, instance_uid: str, operation: str
     ) -> Result[list[dict[str, Any]]]:
-        # The goals the instance contributed to are read before the DETACH takes
-        # the edges, so the caller can announce the goals that lose it.
+        # The goals the instance contributed to, and the goals a habit instance
+        # supports, are read before the DETACH takes the edges, so the caller can
+        # announce the goals that lose it.
         return await self._executor.execute_write(
             query=f"""
             MATCH (n:Entity {{uid: $uid}})
-            WITH n, [(n)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(goal:{NeoLabel.GOAL.value}) | goal.uid] AS goal_uids
+            WITH n,
+                 [(n)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(goal:{NeoLabel.GOAL.value}) | goal.uid] AS goal_uids,
+                 CASE WHEN n:{NeoLabel.HABIT.value}
+                      THEN [(n)-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal:{NeoLabel.GOAL.value}) | goal.uid]
+                      ELSE []
+                 END AS supported_goal_uids
             DETACH DELETE n
-            RETURN goal_uids
+            RETURN goal_uids, supported_goal_uids
             """,
             params={"uid": instance_uid},
             operation=operation,

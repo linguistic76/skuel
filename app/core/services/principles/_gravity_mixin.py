@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from core.models.enums.principle_enums import PrincipleLinkType
+from core.models.relationship_registry import SUPPORTS_GOAL_LINK_PROPERTIES
 from core.models.type_hints import Neo4jProperties
 from core.services.mixins.link_edge_guard import (
     CHOICE_FAR_END,
@@ -54,7 +55,7 @@ class _GravityMixin:
     # type with no entry writes no properties. A principle supports a goal with the
     # importance level a habit's support carries, at the habit doors' default.
     _LINK_PROPERTIES: ClassVar[dict[PrincipleLinkType, Neo4jProperties]] = {
-        PrincipleLinkType.GOAL: {"weight": 1.0, "essentiality": "supporting"},
+        PrincipleLinkType.GOAL: dict(SUPPORTS_GOAL_LINK_PROPERTIES),
     }
 
     # What each link type links to — the kind the far end must be, and the name a

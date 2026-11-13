@@ -41,6 +41,7 @@ from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Re
 from .authored_edges import (
     authored_edge_fingerprint,
     goals_losing_contributions,
+    goals_losing_habits,
     retracted_edges,
 )
 from .config import (
@@ -635,13 +636,14 @@ def _reconcile_failure(failure: str) -> dict[str, str]:
 
 
 async def _announce_goals(
-    goal_contributions_fn: Callable[[tuple[str, ...]], Awaitable[None]] | None,
+    goals_fn: Callable[[tuple[str, ...]], Awaitable[None]] | None,
     goal_uids: Iterable[str],
 ) -> None:
-    """Hand ``goal_contributions_fn`` the goals a sync changed a contribution of, if any."""
+    """Hand ``goals_fn`` (``goal_contributions_fn`` or ``goal_habits_fn``) the goals a sync
+    changed that input of, if any."""
     goals = tuple(sorted(set(goal_uids)))
-    if goal_contributions_fn is not None and goals:
-        await goal_contributions_fn(goals)
+    if goals_fn is not None and goals:
+        await goals_fn(goals)
 
 
 async def ingest_directory(
@@ -672,6 +674,7 @@ async def ingest_directory(
     ]
     | None = None,
     goal_contributions_fn: Callable[[tuple[str, ...]], Awaitable[None]] | None = None,
+    goal_habits_fn: Callable[[tuple[str, ...]], Awaitable[None]] | None = None,
     links_created_fn: Callable[
         [
             EntityType | NonKuDomain,
@@ -765,6 +768,12 @@ async def ingest_directory(
             ``connections.contributes_to_goal`` target, a deleted task or event file,
             a written or deleted ``CONTRIBUTES_TO_GOAL`` Edge YAML. The contributors a
             sync re-ingests are announced by ``status_transition_fn``.
+        goal_habits_fn: Optional end-of-sync callback, the habit twin of
+            ``goal_contributions_fn``: the goals this sync took a supporting habit from
+            or gave one to through a path the habit cannot name afterwards — a dropped
+            ``connections.supports_goal`` / ``connections.supporting_habits`` target, a
+            deleted habit file, a written or deleted ``SUPPORTS_GOAL`` Edge YAML. The
+            habits and goals a sync re-ingests are announced by ``status_transition_fn``.
         links_created_fn: Optional callback after each type batch's relationship
             pass, with the persisted entity dicts and the frontmatter links that pass
             CREATED (``IngestionResult.created_targets``: uid → field → targets no
@@ -855,6 +864,7 @@ async def ingest_directory(
                 await _announce_goals(
                     goal_contributions_fn, reconcile_result.value.goals_losing_contributions
                 )
+                await _announce_goals(goal_habits_fn, reconcile_result.value.goals_losing_habits)
                 empty_warnings.extend(reconcile_result.value.ownership_mismatches)
                 mass_deletion_refused = reconcile_result.value.mass_deletion_refused
                 if reconcile_result.value.refusal_warning:
@@ -956,6 +966,7 @@ async def ingest_directory(
                 await _announce_goals(
                     goal_contributions_fn, reconcile_result.value.goals_losing_contributions
                 )
+                await _announce_goals(goal_habits_fn, reconcile_result.value.goals_losing_habits)
                 reconcile_warnings.extend(reconcile_result.value.ownership_mismatches)
                 mass_deletion_refused = reconcile_result.value.mass_deletion_refused
                 if reconcile_result.value.refusal_warning:
@@ -1239,6 +1250,9 @@ async def ingest_directory(
     # Goals this sync took a contribution from (or gave one to) that no contributor
     # can name afterwards — see ``goal_contributions_fn``.
     touched_goal_uids: set[str] = set()
+    # The habit twin: goals this sync took a supporting habit from (or gave one to) that
+    # no habit can name afterwards — see ``goal_habits_fn``.
+    touched_habit_goal_uids: set[str] = set()
 
     # Per-file routing — two types whose persistence is more than the bulk
     # upsert, so the batch door hands each file to ingest_file_fn (the
@@ -1668,6 +1682,7 @@ async def ingest_directory(
                 f"({len(dropped)} dropped from its registered fields)"
             )
             touched_goal_uids.update(goals_losing_contributions(dropped))
+            touched_habit_goal_uids.update(goals_losing_habits(dropped, source_uid))
 
     # Ingest edge files (after entities, so referenced nodes likely exist)
     edge_outcome = _EdgeBatchOutcome()
@@ -1678,6 +1693,11 @@ async def ingest_directory(
             success["to_uid"]
             for success in edge_outcome.successes
             if success["rel_type"] == RelationshipName.CONTRIBUTES_TO_GOAL.value
+        )
+        touched_habit_goal_uids.update(
+            success["to_uid"]
+            for success in edge_outcome.successes
+            if success["rel_type"] == RelationshipName.SUPPORTS_GOAL.value
         )
         if edge_outcome.written:
             logger.info(
@@ -1762,6 +1782,7 @@ async def ingest_directory(
             edges_deleted = reconcile_result.value.edges_deleted
             stale_metadata_removed = reconcile_result.value.stale_metadata_removed
             touched_goal_uids.update(reconcile_result.value.goals_losing_contributions)
+            touched_habit_goal_uids.update(reconcile_result.value.goals_losing_habits)
             validation_warnings.extend(reconcile_result.value.ownership_mismatches)
             mass_deletion_refused = reconcile_result.value.mass_deletion_refused
             if reconcile_result.value.refusal_warning:
@@ -1819,6 +1840,7 @@ async def ingest_directory(
         for st_entity_type, st_entities, st_prior in status_transition_batches:
             await status_transition_fn(st_entity_type, st_entities, st_prior)
     await _announce_goals(goal_contributions_fn, touched_goal_uids)
+    await _announce_goals(goal_habits_fn, touched_habit_goal_uids)
 
     duration = (datetime.now() - start_time).total_seconds()
 

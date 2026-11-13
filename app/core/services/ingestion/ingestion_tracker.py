@@ -1235,6 +1235,7 @@ class IngestionTracker:
 
         entities_deleted = 0
         goals_losing_contributions: list[str] = []
+        goals_losing_habits: list[str] = []
         if plan.entity_deletions:
             items = [
                 {"file_path": planned.file_path, "entity_uid": planned.entity_uid}
@@ -1246,6 +1247,7 @@ class IngestionTracker:
             entities_deleted = len(delete_result.value or [])
             for row in delete_result.value or []:
                 goals_losing_contributions.extend(str(uid) for uid in row.get("goal_uids") or [])
+                goals_losing_habits.extend(str(uid) for uid in row.get("supported_goal_uids") or [])
             self.logger.info(
                 "Deletion propagation: removed %d entities for vault-deleted files under %s",
                 entities_deleted,
@@ -1270,6 +1272,8 @@ class IngestionTracker:
             edges_deleted += 1
             if planned_edge.rel_type is RelationshipName.CONTRIBUTES_TO_GOAL:
                 goals_losing_contributions.append(planned_edge.to_uid)
+            if planned_edge.rel_type is RelationshipName.SUPPORTS_GOAL:
+                goals_losing_habits.append(planned_edge.to_uid)
         if edges_deleted:
             self.logger.info(
                 "Deletion propagation: removed %d relationships for vault-deleted "
@@ -1285,6 +1289,7 @@ class IngestionTracker:
                 stale_metadata_removed=stale_removed,
                 ownership_mismatches=list(plan.ownership_mismatches),
                 goals_losing_contributions=sorted(set(goals_losing_contributions)),
+                goals_losing_habits=sorted(set(goals_losing_habits)),
                 failure=failure,
             )
         )

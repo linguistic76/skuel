@@ -51,6 +51,7 @@ def _wire_event_subscribers(
         GoalAchieved,
         GoalContributionsChanged,
         GoalCreated,
+        GoalHabitsChanged,
         GoalMilestoneReached,
         GoalProgressUpdated,
         GoalReopened,
@@ -375,6 +376,11 @@ def _wire_event_subscribers(
         GoalContributionsChanged, goals_service.progress.handle_goal_contributions_changed
     )
     logger.info("✅ GoalsProgressService subscribed to GoalContributionsChanged (goal tally)")
+
+    # A goal's supporting habits changed (a goal or habit door, a habit delete, the
+    # vault, an engagement's discard or abandon) → recompute each HABIT_BASED goal named.
+    event_bus.subscribe(GoalHabitsChanged, goals_service.progress.handle_goal_habits_changed)
+    logger.info("✅ GoalsProgressService subscribed to GoalHabitsChanged (habit-based figure)")
 
     # A goal reopened (app or vault door) → its figure from the measure its type names,
     # so a goal completed by hand is not left at the 100% its completion wrote.

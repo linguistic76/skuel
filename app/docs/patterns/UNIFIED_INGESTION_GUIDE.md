@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-11-08
+updated: 2026-11-13
 category: patterns
 related_skills: []
 related_docs:
@@ -1179,6 +1179,13 @@ connections:
 them, and every reader of a task's goals traverses the edge. Each target added or retracted,
 a deleted file's edges, and every task and event the batch writes are announced to goal
 progress (`GoalContributionsChanged`), so the goals' tallies follow the file.
+
+**A habit's goals are edges too.** `connections.supports_goal` on a habit file and
+`connections.supporting_habits` on a goal file write `(Habit)-[:SUPPORTS_GOAL]->(Goal)`, created
+with the app doors' `weight` 1.0 and `supporting` tier (the registry's `create_properties`, set
+`ON CREATE` only, so a re-sync never resets a tier the app set). Each target added or retracted,
+a deleted habit file, a `SUPPORTS_GOAL` Edge YAML, and every habit and goal the batch writes are
+announced to goal progress (`GoalHabitsChanged`), so a habit-based goal's figure follows the file.
 
 **Retraction on re-ingest.** A target dropped from any registered relationship
 field loses its edge on the file's next ingest — both doors (`ingest_file` and

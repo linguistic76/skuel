@@ -273,6 +273,20 @@ class HabitsService(
             return ownership
         return await self.update_habit(uid, updates)
 
+    async def delete_for_user(
+        self, uid: str, user_uid: UserUID, cascade: bool = False
+    ) -> Result[bool]:
+        """Override the inherited ownership-verified CRUD delete (generated route).
+
+        Verifies ownership BEFORE the delete, then deletes through the one habit delete
+        door (``HabitsCoreService.delete``), which announces the goals the habit
+        supported. A habit's edges always go with it, so ``cascade`` is not read.
+        """
+        ownership = await self.verify_ownership(uid, user_uid)
+        if ownership.is_error:
+            return Result.fail(ownership)
+        return await self.core.delete(uid, cascade=True)
+
     # Reads — every Habit a read method of this facade returns carries its
     # derived ``success_rate`` (_AdherenceReadsMixin also hydrates the
     # inherited get / get_for_user / list). A write's result (create, update,

@@ -138,9 +138,26 @@ def goals_losing_contributions(edges: Iterable[AuthoredEdge]) -> list[str]:
     ]
 
 
+def goals_losing_habits(edges: Iterable[AuthoredEdge], source_uid: str) -> list[str]:
+    """The goals a retraction takes a supporting habit from — its SUPPORTS_GOAL edges' goals.
+
+    A habit file authors ``SUPPORTS_GOAL`` outgoing, so its target is the goal; a goal
+    file authors it incoming (``connections.supporting_habits``), so the goal is the
+    file's own ``source_uid``. A principle authors the same edge type; its goal is named
+    too, and the recompute, which counts habits only, writes nothing for it. The caller
+    announces them, since nothing can find them from the habit once the edge is gone.
+    """
+    return [
+        edge.target_uid if edge.direction == "outgoing" else source_uid
+        for edge in edges
+        if edge.rel_type is RelationshipName.SUPPORTS_GOAL
+    ]
+
+
 __all__ = [
     "authored_edge_fingerprint",
     "goals_losing_contributions",
+    "goals_losing_habits",
     "parse_authored_edge",
     "retracted_edges",
 ]

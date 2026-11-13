@@ -66,7 +66,7 @@ if TYPE_CHECKING:
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.vault.vault_descriptor import VaultRegistry
 
-from core.events import GoalContributionsChanged, publish_event
+from core.events import GoalContributionsChanged, GoalHabitsChanged, publish_event
 from core.events.knowledge_credit_publisher import (
     KNOWLEDGE_CREDIT_EDGES,
     KnowledgeCreditSource,
@@ -88,6 +88,7 @@ from core.utils.result_simplified import Errors, Result
 from .authored_edges import (
     authored_edge_fingerprint,
     goals_losing_contributions,
+    goals_losing_habits,
     retracted_edges,
 )
 from .batch import ingest_directory, parse_file_for_batch
@@ -143,6 +144,18 @@ from .vault_policy import (
 )
 
 logger = get_logger("skuel.services.unified_ingestion")
+
+
+def _uids_by_owner(
+    entities: list[dict[str, Any]],  # boundary: prepared frontmatter dicts, keyed by type
+) -> dict[UserUID, tuple[str, ...]]:
+    """A persisted batch's uids grouped by owner, for the per-owner goal announcements;
+    a row with no uid or no owner is skipped."""
+    by_owner: dict[UserUID, list[str]] = {}
+    for entity in entities:
+        if entity.get("uid") and entity.get("user_uid"):
+            by_owner.setdefault(UserUID(str(entity["user_uid"])), []).append(str(entity["uid"]))
+    return {owner: tuple(uids) for owner, uids in by_owner.items()}
 
 
 class UnifiedIngestionService:
@@ -359,6 +372,8 @@ class UnifiedIngestionService:
             )
             if rel_type is RelationshipName.CONTRIBUTES_TO_GOAL:
                 await self._announce_goal_contributions(self.default_user_uid, goal_uids=(to_uid,))
+            if rel_type is RelationshipName.SUPPORTS_GOAL:
+                await self._announce_goal_habits(self.default_user_uid, goal_uids=(to_uid,))
 
             return Result.ok(
                 {
@@ -646,18 +661,26 @@ class UnifiedIngestionService:
         recount and changes nothing. (A dropped target cannot be found from the
         contributor afterwards; the retraction announces it — see
         ``_announce_goal_contributions``.)
+
+        Its habit twin (``GoalHabitsChanged``): every habit in the batch, whose
+        ``connections.supports_goal`` may have gained a goal, and every goal, whose
+        ``connections.supporting_habits`` may have gained a habit, so a HABIT_BASED
+        goal's figure follows its habits. A goal file's own figure on a habit-based goal
+        is overwritten by the recompute: its habits are that figure's one writer.
         """
         await self._apply_creation_rules(entity_type, prior_status_by_uid)
         await self._apply_status_transitions(entity_type, entities, prior_status_by_uid)
         if entity_type in CONTRIBUTOR_TYPES:
-            by_owner: dict[str, list[str]] = {}
-            for entity in entities:
-                if entity.get("uid") and entity.get("user_uid"):
-                    by_owner.setdefault(str(entity["user_uid"]), []).append(str(entity["uid"]))
-            for owner_uid, contributor_uids in by_owner.items():
+            for owner_uid, contributor_uids in _uids_by_owner(entities).items():
                 await self._announce_goal_contributions(
-                    UserUID(owner_uid), contributor_uids=tuple(contributor_uids)
+                    owner_uid, contributor_uids=contributor_uids
                 )
+        if entity_type is EntityType.HABIT:
+            for owner_uid, habit_uids in _uids_by_owner(entities).items():
+                await self._announce_goal_habits(owner_uid, habit_uids=habit_uids)
+        if entity_type is EntityType.GOAL:
+            for owner_uid, goal_uids in _uids_by_owner(entities).items():
+                await self._announce_goal_habits(owner_uid, goal_uids=goal_uids)
 
     async def _credit_created_knowledge(
         self,
@@ -738,6 +761,29 @@ class UnifiedIngestionService:
             GoalContributionsChanged(
                 user_uid=user_uid, goal_uids=goal_uids, contributor_uids=contributor_uids
             ),
+            self.logger,
+        )
+
+    async def _announce_goal_habits(
+        self,
+        user_uid: UserUID,
+        *,
+        goal_uids: tuple[str, ...] = (),
+        habit_uids: tuple[str, ...] = (),
+    ) -> None:
+        """Publish ``GoalHabitsChanged`` — the vault doors' half of a habit-based goal's
+        trigger, the twin of :meth:`_announce_goal_contributions`.
+
+        ``goal_uids`` are goals a habit left or joined through a path the habit cannot
+        name afterwards (a retracted frontmatter target, a deleted habit file, an Edge
+        YAML) or goals a sync re-ingested; ``habit_uids`` are habits whose current goals
+        are recomputed. Analog: runs in both tiers.
+        """
+        if self.event_bus is None or not (goal_uids or habit_uids):
+            return
+        await publish_event(
+            self.event_bus,
+            GoalHabitsChanged(user_uid=user_uid, goal_uids=goal_uids, habit_uids=habit_uids),
             self.logger,
         )
 
@@ -1450,6 +1496,10 @@ class UnifiedIngestionService:
                 await self._announce_goal_contributions(
                     effective_user_uid, goal_uids=tuple(goals_losing_contributions(dropped))
                 )
+                await self._announce_goal_habits(
+                    effective_user_uid,
+                    goal_uids=tuple(dict.fromkeys(goals_losing_habits(dropped, source_uid))),
+                )
             # A stamp failure is logged by the tracker; the entity write stands
             # and the row keeps its prior fingerprint (a superset — re-diffed on
             # the next ingest, where an already-deleted edge matches nothing).
@@ -1662,12 +1712,22 @@ class UnifiedIngestionService:
             goal_contributions_fn=functools.partial(
                 self._announce_goals_of_sync, effective_user_uid
             ),
+            goal_habits_fn=functools.partial(
+                self._announce_habit_goals_of_sync, effective_user_uid
+            ),
             links_created_fn=self._credit_created_knowledge,
         )
 
     async def _announce_goals_of_sync(self, user_uid: UserUID, goal_uids: tuple[str, ...]) -> None:
         """The directory door's ``goal_contributions_fn``: announce the goals a sync touched."""
         await self._announce_goal_contributions(user_uid, goal_uids=goal_uids)
+
+    async def _announce_habit_goals_of_sync(
+        self, user_uid: UserUID, goal_uids: tuple[str, ...]
+    ) -> None:
+        """The directory door's ``goal_habits_fn``: announce the goals whose habits a sync
+        touched."""
+        await self._announce_goal_habits(user_uid, goal_uids=goal_uids)
 
     # ========================================================================
     # VALIDATION - Delegate to validator module

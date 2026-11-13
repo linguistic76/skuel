@@ -13,8 +13,8 @@ The link is ``(Principle)-[:SUPPORTS_GOAL]->(Goal)``, whichever side made it:
 After each door the pair holds exactly that one edge, the goal's keyed read
 ``supporting_principles`` returns the principle and the principle's keyed read
 ``supported_goals`` returns the goal. The app doors stamp
-``{weight: 1.0, essentiality: "supporting"}``; a vault file's edge carries no
-property. The same link made at two doors is still one edge.
+``{weight: 1.0, essentiality: "supporting"}``, and a vault file's edge carries the
+same on create. The same link made at two doors is still one edge.
 
 Both pages showing the link under their own heading is held by
 ``test_activity_page_links.py``: its pairs are the registry's census, and
@@ -219,8 +219,8 @@ DOORS = (
     Door("POST /api/goals/link-principle", "glink", _goal_link_principle_door, stamps=True),
     Door("POST /api/goals/create", "gcreate", _goal_create_door, stamps=True),
     Door("note line @context(goal) @link(principle:)", "note", _note_line_door, stamps=True),
-    Door("principle file connections.supports_goal", "pfile", _principle_file_door, stamps=False),
-    Door("goal file connections.supporting_principles", "gfile", _goal_file_door, stamps=False),
+    Door("principle file connections.supports_goal", "pfile", _principle_file_door, stamps=True),
+    Door("goal file connections.supporting_principles", "gfile", _goal_file_door, stamps=True),
 )
 _DOOR_IDS = [door.label for door in DOORS]
 
@@ -286,7 +286,7 @@ async def test_the_principle_reads_the_goal_among_its_supported_goals(
 
 
 @pytest.mark.parametrize("door", DOORS, ids=_DOOR_IDS)
-async def test_an_app_door_stamps_the_importance_and_a_vault_file_stamps_nothing(
+async def test_every_door_stamps_the_importance(
     env: Env, linked: dict[str, tuple[str, str]], door: Door
 ) -> None:
     stored = await edges_between(env.driver, *linked[door.label])
@@ -334,7 +334,7 @@ async def test_the_link_declared_in_both_files_is_one_edge(env: Env) -> None:
 
     await sync_vault(env.driver, vault)
 
-    assert await _one_edge(env, principle, goal) == Edge(SUPPORTS_GOAL, principle, goal, {})
+    assert await _one_edge(env, principle, goal) == Edge(SUPPORTS_GOAL, principle, goal, APP_STAMP)
 
 
 async def test_both_pages_showing_the_link_is_held_by_the_page_tests() -> None:

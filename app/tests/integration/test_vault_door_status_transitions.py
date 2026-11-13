@@ -586,6 +586,8 @@ async def test_habit_reopen_clears_without_an_event(
     assert (await door.ingest_directory(vault, ingestion_mode="incremental")).is_ok
 
     assert await _prop(neo4j_driver, "habit.vault-status-habit", "completed_at") is None
-    assert len(bus.published) == len(published_before) + 1, (
-        "only the embedding request — a habit reopen announces no completion event"
+    after = [type(e).__name__ for e in bus.published[len(published_before) :]]
+    assert after == ["HabitEmbeddingRequested", "GoalHabitsChanged"], (
+        "the embedding request and the re-synced habit's goal recount — a habit reopen "
+        "announces no completion event"
     )

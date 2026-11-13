@@ -230,8 +230,10 @@ def build_relationship_template(
     The pair is not created — grounding credited it when it inferred it.
 
     Fields with ``order_property`` persist the YAML list index onto the edge
-    (0-based, refreshed on every ingest so vault reorderings propagate).
-    Zero APOC dependency.
+    (0-based, refreshed on every ingest so vault reorderings propagate). Fields with
+    ``create_properties`` give an edge they create those properties, read from
+    ``$create_properties_{index}`` (:func:`relationship_template_params`); an edge
+    already there keeps its own. Zero APOC dependency.
     """
     rel_clauses = []
     created_columns = []
@@ -241,6 +243,9 @@ def build_relationship_template(
         target_label = rel_info["target_label"]
         direction = rel_info.get("direction", "outgoing")  # Default to outgoing
         order_property = rel_info.get("order_property")
+        create_set = (
+            f", _r += $create_properties_{index}" if rel_info.get("create_properties") else ""
+        )
         column = f"_created_{index}"
         created_columns.append(column)
 
@@ -270,7 +275,7 @@ CALL (n, item) {{
 {targets}
   MATCH (target:{target_label} {{uid: _target_uid}})
   MERGE {rel_pattern}
-    ON CREATE SET _r.{_CREATE_MARKER} = true
+    ON CREATE SET _r.{_CREATE_MARKER} = true{create_set}
   WITH {carried}, coalesce(_r.{_CREATE_MARKER}, false) AS _created
   REMOVE _r.{_CREATE_MARKER}
   FOREACH (_ IN CASE WHEN coalesce(_r.inferred, false) THEN [1] ELSE [] END |
@@ -292,6 +297,18 @@ RETURN n.uid AS uid, [{", ".join(created_columns)}] AS created
         template=template_str,
         description=f"Create relationships for {entity_label}",
     )
+
+
+def relationship_template_params(
+    config: dict[str, RelationshipConfig],
+) -> dict[str, dict[str, float | str]]:
+    """The parameters :func:`build_relationship_template`'s statement reads besides its
+    items: each field's ``create_properties``, as ``create_properties_{index}``."""
+    return {
+        f"create_properties_{index}": dict(rel_info["create_properties"])
+        for index, rel_info in enumerate(config.values())
+        if rel_info.get("create_properties")
+    }
 
 
 def _created_targets(
@@ -549,7 +566,10 @@ class BulkUpsertBackend:
                         template=template,
                         items=items[start : start + batch_size],
                         batch_size=batch_size,
-                        extra_params={"entity_label": entity_label},
+                        extra_params={
+                            "entity_label": entity_label,
+                            **relationship_template_params(relationship_config),
+                        },
                     )
                     if result.is_error:
                         errors.append(str(result.expect_error()))

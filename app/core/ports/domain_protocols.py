@@ -108,6 +108,7 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.choice.choice import Choice
+    from core.models.enums.goal_enums import MeasurementType
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.goal.goal_habit_link import GoalHabitLink
@@ -652,8 +653,19 @@ class GoalsOperations(
         """
         ...
 
-    async def list_task_based_goals(self) -> Result[list[tuple[str, UserUID]]]:
-        """Every TASK_BASED goal as ``(goal_uid, owner_uid)`` — the tally reconciler's work list."""
+    async def list_goals_by_measurement(
+        self, measurement_type: MeasurementType
+    ) -> Result[list[tuple[str, UserUID]]]:
+        """Every goal of one measurement type as ``(goal_uid, owner_uid)`` — the figure
+        reconciler's work list."""
+        ...
+
+    async def get_linked_habit_tally(self, goal_uid: str) -> Result[LinkedHabitTally]:
+        """Read a goal's supporting-habit tally as it stands now — no lock, no write.
+
+        Counted by the membership rule ``recompute_progress_from_linked_habits`` writes a
+        HABIT_BASED goal's figure by. A goal with no supporting habit reads 0 habits.
+        """
         ...
 
     async def find_linked_goals_for_habit(

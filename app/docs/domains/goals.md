@@ -243,13 +243,25 @@ is never touched by any of them.
 | `POST /api/goals/{uid}/habits/unlink` | `GoalHabitUidRequest` | `unlink_goal_from_habit`; a habit not linked changes nothing |
 | `POST /api/goals/{uid}/habits/system` | `HabitSystemUpdateRequest` | `replace_habit_system`: a full replace. The four lists are every habit the goal keeps; a habit not named is unlinked, a habit linked by another door after the caller read the system included. One transaction under the goal's lock |
 
-A habit-based goal's figure follows its habits, so the link, unlink and replace doors recompute it
-(`GoalsProgressService.recompute_habit_figure`, the locked recompute a habit completion runs) once
-the links land. A goal whose last habit leaves is written 0, as a task-based goal whose last
-contribution leaves is. The other membership writers do not recompute yet: goal create with
-`supporting_habit_uids`, habit create with `linked_goal_uids`, habit delete, and the vault's
-`connections.supports_goal` / `connections.supporting_habits`; the figure catches up at a linked
-habit's next completion.
+A habit-based goal's figure follows its habits. The recompute
+(`GoalsProgressService.recompute_habit_figure`, the locked recompute a habit completion runs) has
+one membership trigger, `GoalHabitsChanged` (`goal_uids`, `habit_uids`), and
+`GoalsProgressService.handle_goal_habits_changed` is its one subscriber. Every door that writes or
+removes a habit's `SUPPORTS_GOAL` edge publishes it: the link, unlink and replace doors above; goal
+create with `supporting_habit_uids` and habit create with `linked_goal_uids` (each announcing only
+the links its batch wrote; a new habit's streak is 0, so it lowers the average); habit delete (the
+goals read before the edge goes); the vault (`connections.supports_goal` on a habit file or
+`connections.supporting_habits` on a goal file, added or retracted, a re-synced habit or goal, a
+deleted habit file, a `SUPPORTS_GOAL` Edge YAML written or deleted); and a PathStep engagement's
+discard or abandon of a habit the learner had linked. A goal whose last habit leaves is written 0,
+as a task-based goal whose last contribution leaves is. A habit's status change does not change
+membership: the recompute counts every linked habit whatever its status. A habit-based goal's
+figure on a vault goal file is overwritten by the recompute, since its habits are that figure's
+one writer. The trigger is best-effort, so `./dev reconcile-goal-tallies` recomputes every
+HABIT_BASED goal whose stored figure disagrees with its habits, as it does a task-based tally.
+
+A link a vault file creates carries the create doors' `weight` 1.0 and `supporting` tier
+(`SUPPORTS_GOAL_LINK_PROPERTIES`); a re-sync leaves an existing link's tier alone.
 
 ## Search Methods
 
@@ -359,7 +371,8 @@ methods; task and event delete (the goals captured before the edge goes); the va
 (`connections.contributes_to_goal`) added or retracted, a vault file deleted, a content-vault Edge
 file; and a PathStep engagement's spawn, discard and abandon. The trigger is best-effort, so
 `./dev reconcile-goal-tallies` (`GoalsProgressService.reconcile_goal_tallies`) recomputes every
-TASK_BASED goal whose stored tally disagrees with its contributions.
+TASK_BASED goal whose stored tally disagrees with its contributions, and every HABIT_BASED goal
+whose figure disagrees with its habits ([Habit Essentiality](#habit-essentiality)).
 
 A goal cannot be cancelled through `GoalsService.cancel_goal` while a contributing task is open
 (not COMPLETED, CANCELLED or FAILED); a contributing event does not block it.
