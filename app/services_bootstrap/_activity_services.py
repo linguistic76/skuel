@@ -1,43 +1,53 @@
 """Activity Domain service creation — all 6 Activity Domain facades."""
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.models.habit.completion import HabitCompletion
+    from core.ports.base_protocols import BackendOperations
+    from core.ports.domain_protocols import (
+        ChoicesOperations,
+        EventsOperations,
+        GoalsOperations,
+        HabitsOperations,
+        PrinciplesOperations,
+        TasksOperations,
+    )
+    from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
+    from core.services.activity_services import ActivityServices
+    from core.services.cross_domain import CrossDomainQueryService
+    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+    from core.services.insight.insight_store import InsightStore
 
 logger = get_logger("skuel.bootstrap")
 
 
 def _create_activity_services(
-    # Backends for all 6 Activity Domains
-    tasks_backend: Any,
-    events_backend: Any,
-    habits_backend: Any,
-    habit_completions_backend: Any,
-    goals_backend: Any,
-    choices_backend: Any,
-    principles_backend: Any,
-    # Shared dependencies
-    graph_intelligence: Any = None,
-    cross_domain_query: Any = None,
-    event_bus: Any = None,
-    # Event-driven insights
-    insight_store: Any = None,
-    # Knowledge intelligence (shared singleton for all 6 domains)
-    activity_knowledge_intelligence: Any = None,
-) -> dict[str, Any]:
-    """Create all 6 Activity Domain services.
+    *,
+    tasks_backend: TasksOperations,
+    events_backend: EventsOperations,
+    habits_backend: HabitsOperations,
+    habit_completions_backend: BackendOperations[HabitCompletion],
+    goals_backend: GoalsOperations,
+    choices_backend: ChoicesOperations,
+    principles_backend: PrinciplesOperations,
+    graph_intelligence: GraphIntelligenceService,
+    cross_domain_query: CrossDomainQueryService,
+    event_bus: EventBusOperations,
+    insight_store: InsightStore,
+    activity_knowledge_intelligence: KnowledgeIntelligenceOperations,
+) -> ActivityServices:
+    """Create the six Activity Domain facades.
 
-    Activity Domains share:
-        - backend: UniversalNeo4jBackend[T] for CRUD
-        - graph_intelligence: Pure Cypher graph queries (REQUIRED)
-        - event_bus: Domain event publishing (optional)
+    Every facade takes its own backend and the shared dependencies: the graph
+    intelligence service, the cross-domain query service, the event bus, the
+    insight store and the knowledge intelligence singleton. Habits also takes the
+    completions backend.
 
-    Domain-specific dependencies:
-        - Habits: completions_backend (for achievements)
-
-    All facades embed intelligence (access via facade.intelligence).
-
-    Note: analytics_engine removed — TasksIntelligenceService owns it directly.
+    Each facade holds its intelligence service as ``facade.intelligence``.
     """
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService

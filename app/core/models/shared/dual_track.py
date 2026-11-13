@@ -39,7 +39,8 @@ class DualTrackResult(Generic[L]):
 
     Attributes:
         entity_uid: UID of the assessed entity
-        entity_type: EntityType value (e.g., "principle", "goal", "habit")
+        entity_type: The word for what was assessed — an entity kind's value
+            ("principle", "goal", "habit") or a user-level subject ("productivity")
 
         # USER-DECLARED (Vision)
         user_level: User's self-reported level

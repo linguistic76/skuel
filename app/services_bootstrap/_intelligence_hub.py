@@ -10,6 +10,7 @@ from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from core.config.intelligence_tier import IntelligenceTier
+    from core.services.activity_services import ActivityServices
     from services_bootstrap._container import Services
 
 logger = get_logger("skuel.bootstrap")
@@ -21,11 +22,10 @@ def _filtered_context_providers(
 ) -> dict[str, FilteredContextProvider]:
     """Map each domain name to the facade that serves its filtered context.
 
-    The composition root holds its services in ``Any``-valued dicts, so an
-    annotation on the returned dict would prove nothing about what is put in it.
-    Each facade is checked against ``FilteredContextProvider`` here, and one that
-    does not expose ``get_filtered_context`` stops the boot rather than reaching
-    a caller.
+    The learning services arrive in an ``Any``-valued dict, so an annotation on
+    the returned dict would prove nothing about what is put in it. Each facade is
+    checked against ``FilteredContextProvider`` here, and one that does not expose
+    ``get_filtered_context`` stops the boot rather than reaching a caller.
 
     Raises:
         RuntimeError: naming the domain whose facade is not a provider.
@@ -53,7 +53,7 @@ def _filtered_context_providers(
 
 def _create_intelligence_hub(
     services: Services,
-    activity_services: dict[str, Any],
+    activity_services: ActivityServices,
     learning_services: dict[str, Any],
     user_entry_backend: Any,
     calendar_service: Any,

@@ -2,8 +2,8 @@
 Every facade the composition root registers as a filtered-context provider is one.
 
 ``_filtered_context_providers`` builds the ``filtered_providers`` dict the
-intelligence factory hands to ``DailyPlanningMixin``. The service dicts it reads
-are ``Any``-valued, so the dict's annotation checks nothing; the function checks
+intelligence factory hands to ``DailyPlanningMixin``. The learning-services dict
+it reads is ``Any``-valued, so the dict's annotation checks nothing; the function checks
 each facade against ``FilteredContextProvider`` itself and stops the boot on one
 that has no ``get_filtered_context``.
 """

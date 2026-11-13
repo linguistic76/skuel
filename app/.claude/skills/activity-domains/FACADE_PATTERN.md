@@ -196,11 +196,8 @@ self.goals_service: GoalsService | None = None
 activity_services["habits"].goals_service = activity_services["goals"]
 ```
 
-`HabitsService` declares the slot `Any` today; type a new post-wired slot against the facade,
-as above.
-
-Orchestration methods (`create_with_goal_links`, `complete_with_goal_impacts`) use
-`self.goals_service` — routes never pass cross-domain services as parameters.
+The staged `create_with_goal_links` reads `self.goals_service` — routes never pass
+cross-domain services as parameters.
 
 ### Cross-Domain Read Queries
 

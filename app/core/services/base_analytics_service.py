@@ -291,7 +291,9 @@ class BaseAnalyticsService(Generic[B, T]):
         user_evidence: str,
         user_reflection: str | None,
         # SYSTEM CALCULATION
-        system_calculator: Callable[[Any, str], Awaitable[tuple[L, float, list[str]]]],
+        # boundary: dual-track-entity — the fetched entity when require_entity, else
+        # whatever the read answered (None for a user-level assessment)
+        system_calculator: Callable[[Any, UserUID], Awaitable[tuple[L, float, list[str]]]],
         # LEVEL SCORING (domain-specific enum → float)
         level_scorer: Callable[[L], float],
         # OPTIONAL CUSTOMIZATION
@@ -319,7 +321,9 @@ class BaseAnalyticsService(Generic[B, T]):
             user_reflection: Optional reflection on their alignment
             system_calculator: Async fn(entity, user_uid) -> (level, score, evidence)
             level_scorer: Fn(level) -> float score (0.0-1.0)
-            entity_type: EntityType value for result (e.g., "principle", "goal")
+            entity_type: The word for what is assessed — an entity kind's value
+                ("principle", "goal") or, for a user-level assessment, its subject
+                ("productivity"). The display name when the entity has none.
             insight_generator: Optional custom insight generation
             recommendation_generator: Optional custom recommendations
             store_callback: Optional async fn(uid, DualTrackResult) to persist.

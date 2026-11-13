@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from core.services.activity_services import ActivityServices
     from core.services.embeddings_service import EmbeddingsService
     from core.services.llm_service import LLMService
 
@@ -14,7 +15,7 @@ logger = get_logger("skuel.bootstrap")
 def _wire_ai_services(
     llm_service: LLMService | None,
     embeddings_service: EmbeddingsService | None,
-    _activity_services: dict[str, Any],
+    _activity_services: ActivityServices,
     learning_services: dict[str, Any],
 ) -> None:
     """Create and wire AI services into domain facades (ADR-024: Two-Tier Intelligence).

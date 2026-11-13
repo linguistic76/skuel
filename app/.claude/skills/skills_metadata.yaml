@@ -418,7 +418,7 @@ skills:
 
   - name: base-analytics-service
     description: BaseAnalyticsService for domain analytics
-    last_reviewed: "2026-11-02"
+    last_reviewed: "2026-11-13"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -474,7 +474,7 @@ skills:
 
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
-    last_reviewed: "2026-11-05"
+    last_reviewed: "2026-11-13"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     library_package: null  # SKUEL pattern, not external library

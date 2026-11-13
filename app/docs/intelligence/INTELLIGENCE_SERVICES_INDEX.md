@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-11-12
+updated: 2026-11-13
 category: intelligence
 status: current
 related_skills:
@@ -279,7 +279,7 @@ async def _dual_track_assessment(
     user_reflection: str | None,
     # SYSTEM CALCULATION
     system_calculator: Callable[
-        [Any, str], Awaitable[tuple[Any, float, list[str]]]  # (entity, user_uid)
+        [Any, UserUID], Awaitable[tuple[Any, float, list[str]]]  # (entity, user_uid)
     ],
     # LEVEL SCORING
     level_scorer: Callable[[Any], float],

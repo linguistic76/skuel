@@ -15,34 +15,30 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums import EntityType
 from core.models.enums.activity_enums import ConsistencyLevel
+from core.models.habit.habit import Habit
 from core.models.type_hints import UserUID
+from core.ports.domain_protocols import HabitsOperations
+from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.habits._adherence import enrich_habit_with_adherence
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.habit.habit import Habit
     from core.models.shared.dual_track import DualTrackResult
-    from core.ports.domain_protocols import HabitsOperations
     from core.services.cross_domain import CrossDomainQueryService
 
 
-class _DualTrackMixin:
+class _DualTrackMixin(BaseAnalyticsService[HabitsOperations, Habit]):
     """
     Dual-track assessment and ZPD bridge methods for HabitsIntelligenceService.
 
-    Declares class-level attributes used by these methods so mypy
-    resolves them without runtime cost.
+    Inherits the analytics base its host is built on, so the dual-track template
+    these methods call is the base's own, checked against its signature.
     """
 
     # Populated by HabitsIntelligenceService.__init__
-    backend: HabitsOperations
-    orchestrator: Any
-    relationships: Any
     cross_domain_query: CrossDomainQueryService
-    logger: Any
-    # Provided by BaseAnalyticsService on the composed service.
-    _store_dual_track_checkin: Any
 
     async def assess_consistency_dual_track(
         self,
@@ -104,7 +100,7 @@ class _DualTrackMixin:
         ) -> tuple[ConsistencyLevel, float, list[str]]:
             return self._calculate_system_consistency(habit, calling_user_uid)
 
-        return await self._dual_track_assessment(  # type: ignore[attr-defined]
+        return await self._dual_track_assessment(
             uid=habit_uid,
             user_uid=user_uid,
             user_level=user_consistency_level,
@@ -112,7 +108,7 @@ class _DualTrackMixin:
             user_reflection=user_reflection,
             system_calculator=calculate_system_consistency,
             level_scorer=self._consistency_level_to_score,
-            entity_type="habit",
+            entity_type=EntityType.HABIT.value,
             insight_generator=self._generate_consistency_gap_insights,
             recommendation_generator=self._generate_consistency_gap_recommendations,
             store_callback=self._store_dual_track_checkin,

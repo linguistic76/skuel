@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-09
+updated: 2026-11-13
 ---
 
 # Shared Intelligence Utilities
@@ -81,7 +81,7 @@ async def _dual_track_assessment(
     user_evidence: str,         # User's evidence for assessment
     user_reflection: str | None,
     # SYSTEM CALCULATION
-    system_calculator: Callable[[Any, str], Awaitable[tuple[L, float, list[str]]]],
+    system_calculator: Callable[[Any, UserUID], Awaitable[tuple[L, float, list[str]]]],
     # LEVEL SCORING (domain-specific enum → float)
     level_scorer: Callable[[L], float],
     # OPTIONAL CUSTOMIZATION

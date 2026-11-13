@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.models.habit.habit_request import HabitCreateRequest
     from core.ports.domain_protocols import HabitsOperations
+    from core.services.goals_service import GoalsService
     from core.services.user import UserContext
 
 
@@ -39,73 +40,13 @@ class _OrchestrationMixin:
     # Populated by HabitsService.__init__ / BaseService
     backend: HabitsOperations
     core: Any
-    completions: Any
-    learning: Any
     relationships: Any
-    goals_service: Any
+    goals_service: GoalsService | None
     logger: Any
 
     # ========================================================================
     # ORCHESTRATION METHODS (cross-domain coordination)
     # ========================================================================
-
-    async def complete_with_goal_impacts(
-        self,
-        habit_uid: str,
-        user_uid: UserUID,
-    ) -> Result[dict[str, Any]]:
-        """
-        Complete a habit and calculate goal impacts.
-
-        Delegates streak/identity logic to HabitsCompletionService.record_completion()
-        (no duplication). Then estimates goal strength deltas if goals_service is available.
-
-        Returns Result with dict: {"habit": Habit, "goal_impacts": list[dict]}.
-        """
-        # 1. Ownership verification
-        ownership_result = await self.core.verify_ownership(habit_uid, user_uid)
-        if ownership_result.is_error:
-            return Result.fail(ownership_result)
-
-        # 2. Record completion — handles ALL streak/identity logic
-        completion_result = await self.completions.record_completion(habit_uid, user_uid)
-        if completion_result.is_error:
-            return Result.fail(completion_result)
-
-        # 3. Get updated habit
-        habit_result = await self.core.get_habit(habit_uid)
-        if habit_result.is_error:
-            return Result.fail(habit_result)
-        updated_habit = habit_result.value
-
-        # 4. Calculate goal impacts
-        goal_impacts: list[dict[str, Any]] = []
-        if self.goals_service:
-            linked_goal_uids: list[str] = getattr(updated_habit, "linked_goal_uids", [])
-            for goal_uid in linked_goal_uids:
-                try:
-                    goal_result = await self.goals_service.get_goal(goal_uid)
-                    if goal_result.is_error:
-                        continue
-                    goal = goal_result.value
-                    if goal is None:
-                        continue
-
-                    old_strength = goal.calculate_system_strength()
-                    new_strength = goal.calculate_system_strength()
-                    strength_delta = (new_strength - old_strength) * 100
-
-                    goal_impacts.append(
-                        {
-                            "title": goal.title,
-                            "system_strength_delta": round(strength_delta, 1),
-                            "velocity_delta": 1,
-                        }
-                    )
-                except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-                    self.logger.warning(f"Failed to calculate impact for goal {goal_uid}: {e}")
-
-        return Result.ok({"habit": updated_habit, "goal_impacts": goal_impacts})
 
     async def create_with_goal_links(
         self,
@@ -130,13 +71,18 @@ class _OrchestrationMixin:
         if self.goals_service and goal_essentiality:
             for goal_uid, essentiality in goal_essentiality.items():
                 try:
-                    await self.goals_service.link_goal_to_habit(
+                    linked = await self.goals_service.link_goal_to_habit(
                         goal_uid=goal_uid,
                         habit_uid=habit.uid,
                         essentiality=essentiality,
                     )
                 except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                     self.logger.warning(f"Failed to link habit to goal {goal_uid}: {e}")
+                    continue
+                if linked.is_error:
+                    self.logger.warning(
+                        f"Habit {habit.uid} not linked to goal {goal_uid}: {linked.expect_error()}"
+                    )
 
         return Result.ok(habit)
 

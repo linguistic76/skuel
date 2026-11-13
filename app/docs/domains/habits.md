@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-11-12
+updated: 2026-11-13
 status: current
 category: domains
 tags:
@@ -91,7 +91,7 @@ class HabitsService(
 |-------|------|---------|
 | `_CompletionMixin` | `_completion_mixin.py` | `track_habit`, `untrack_habit`, `get_habit_streak/progress/history`, `get_completion_calendar`, `set/get/delete_habit_reminder` |
 | `_EnrichmentMixin` | `_enrichment_mixin.py` | `get_habit_analytics`, `get_habits_summary_analytics`, `get_habit_trends`, `get_enriched_learning/curriculum/prerequisite_metadata` |
-| `_OrchestrationMixin` | `_orchestration_mixin.py` | `complete_with_goal_impacts`, `create_with_goal_links`, `link_habit_to_knowledge/principle`, `get_skills_developed_by_habits`, `create_habit_with_context` |
+| `_OrchestrationMixin` | `_orchestration_mixin.py` | `create_with_goal_links`, `link_habit_to_knowledge/principle`, `get_skills_developed_by_habits`, `create_habit_with_context` |
 
 **Sub-services** (13, created in `__init__`):
 
@@ -114,7 +114,7 @@ Common sub-services created via `create_common_sub_services()` factory (the fact
 
 ### Cross-Domain Wiring
 
-`HabitsService.goals_service` is post-wired in `services_bootstrap/compose.py` (circular dependency). The facade's orchestration methods (`create_with_goal_links`, `complete_with_goal_impacts`) use `self.goals_service` internally — routes do not pass cross-domain services as parameters.
+`HabitsService.goals_service` is post-wired in `services_bootstrap/compose.py` (circular dependency). The facade's staged `create_with_goal_links` uses `self.goals_service` internally — routes do not pass cross-domain services as parameters.
 
 ## Model Fields
 
