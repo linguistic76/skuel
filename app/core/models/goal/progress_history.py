@@ -19,8 +19,9 @@ class ProgressHistoryEntry(TypedDict):
     ``note_only`` is present, and true, only on an entry recording a note written
     without moving the figure: ``progress_percentage`` is the figure as it stood,
     and the entry is something the learner said, not a progress event, so the
-    report does not count it. ``progress_percentage`` is ``None`` on an entry the
-    2026-09 history seed wrote for a goal stamped with no figure.
+    report does not count it. ``progress_percentage`` is ``None`` on an entry that
+    records no figure; that alone does not make it note-only, and it is a progress
+    event.
     """
 
     date: str
