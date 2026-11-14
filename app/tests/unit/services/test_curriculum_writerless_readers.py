@@ -228,3 +228,19 @@ async def test_completion_strategy_names_the_paths_learning_level(level: Learnin
     assert result.is_ok, result
     assert service.captured["learning_level"] == level.value
     assert "difficulty" not in service.captured
+
+
+@pytest.mark.anyio
+async def test_completion_strategy_says_unknown_when_the_path_authored_no_level() -> None:
+    """A path whose file authored no level is not sent to the model as a beginner path."""
+    path = LearningPath(uid="lp.readers.unlevelled", title="Unlevelled", domain=Domain.TECH)
+    backend = Mock()
+    backend.get = AsyncMock(return_value=Result.ok(path))
+    service = _CapturingLpAI(
+        backend=backend, llm_service=Mock(), embeddings_service=Mock(), vector_search=Mock()
+    )
+
+    result = await service.suggest_completion_strategy(path.uid)
+
+    assert result.is_ok, result
+    assert service.captured["learning_level"] == "Unknown"

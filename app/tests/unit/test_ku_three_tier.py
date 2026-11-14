@@ -200,7 +200,7 @@ class TestCurriculumDTOFromDict:
         }
         dto = CurriculumDTO.from_dict(data)
         assert dto.sel_category is None
-        assert dto.learning_level == LearningLevel.BEGINNER  # default
+        assert dto.learning_level is None
         assert dto.times_applied_in_tasks == 0
         assert dto.last_applied_date is None
 

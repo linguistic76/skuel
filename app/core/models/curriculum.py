@@ -19,7 +19,7 @@ not because they are structurally equivalent.
 
 Adds ~24 fields to Entity:
 - Confidence (1): admin-assessed certainty about content quality/accuracy
-- Learning metadata (11): complexity (None when not authored), learning_level, sel_category,
+- Learning metadata (11): complexity and learning_level (None when not authored), sel_category,
   publication_state, quality_score, estimated_time_minutes, difficulty_rating,
   semantic_links, target_age_range, learning_objectives,
   structured_learning_objectives
@@ -110,9 +110,9 @@ class Curriculum(Entity):
     # =========================================================================
     # LEARNING METADATA (11)
     # =========================================================================
-    # As the file authored it; None when it authored none — never a stand-in level.
+    # As the file authored them; None when it authored none — never a stand-in level.
     complexity: KuComplexity | None = None
-    learning_level: LearningLevel = LearningLevel.BEGINNER
+    learning_level: LearningLevel | None = None
     sel_category: SELCategory | None = None
     # Authoring gate, NOT lifecycle — see PublicationState. Defaults to
     # PUBLISHED so unmarked content (the whole existing corpus) stays visible;
@@ -224,7 +224,13 @@ class Curriculum(Entity):
         return self.learning_level == LearningLevel.EXPERT
 
     def is_appropriate_for_level(self, user_level: LearningLevel) -> bool:
-        """Check if this KU is appropriate for a user's learning level."""
+        """Whether this curriculum suits a learner at ``user_level``.
+
+        Content at or below the learner's level suits them. Curriculum that authored
+        no level suits every learner: an unknown level holds no one back.
+        """
+        if self.learning_level is None:
+            return True
         level_hierarchy = {
             LearningLevel.BEGINNER: [LearningLevel.BEGINNER],
             LearningLevel.INTERMEDIATE: [LearningLevel.BEGINNER, LearningLevel.INTERMEDIATE],
@@ -255,7 +261,7 @@ class Curriculum(Entity):
     def get_sel_context(self) -> dict[str, Any]:
         """Get SEL-specific context for adaptive curriculum delivery."""
         base: dict[str, Any] = {
-            "learning_level": self.learning_level.value,
+            "learning_level": self.learning_level.value if self.learning_level else None,
             "estimated_time_minutes": self.estimated_time_minutes,
             "difficulty_rating": self.difficulty_rating,
             "is_beginner_friendly": self.is_beginner_level(),

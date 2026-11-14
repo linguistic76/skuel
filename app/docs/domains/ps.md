@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-11-06
+updated: 2026-11-14
 status: current
 category: domains
 tags:
@@ -130,7 +130,7 @@ domain, page or sidebar. Two public methods, each delegated by the facade:
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `get_personalized_curriculum(user_uid, sel_category, limit=10)` | `list[PathStep]` | Steps in the category the learner is ready for (not mastered, prerequisites met, level fits), ranked by learning value |
+| `get_personalized_curriculum(user_uid, sel_category, limit=10)` | `list[PathStep]` | Steps in the category the learner is ready for (not mastered, prerequisites met, level fits; a step that authored no level fits every learner), ranked by learning value |
 | `get_sel_journey(user_uid)` | `LearningJourney` | Progress across all five categories + the recommended next one |
 
 Routes (JSON, authenticated; `adapters/inbound/path_steps_api.py`): `GET /api/path-steps/journey`

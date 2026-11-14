@@ -64,7 +64,7 @@ class TestCurriculumKuCreation:
         """Learning metadata fields have correct defaults."""
         cu = Curriculum(uid="ku_test", title="Test")
         assert cu.complexity is None
-        assert cu.learning_level == LearningLevel.BEGINNER
+        assert cu.learning_level is None
         assert cu.sel_category is None
         assert cu.quality_score == 0.0
         assert cu.estimated_time_minutes == 15
@@ -211,6 +211,16 @@ class TestCurriculumKuLearningMethods:
         assert step.to_dto().complexity is None
         assert PathStepDTO.from_dict({"uid": "ps.test.n", "title": "N"}).complexity is None
 
+    def test_unauthored_level_survives_the_dto_round_trip(self):
+        """A DTO with no learning level builds a model with none, and back."""
+        dto = LearningPathDTO(uid="lp.test.n", title="N", entity_type=EntityType.LEARNING_PATH)
+        assert dto.learning_level is None
+        path = Entity.from_dto(dto)
+        assert isinstance(path, LearningPath)
+        assert path.learning_level is None
+        assert path.to_dto().learning_level is None
+        assert PathStepDTO.from_dict({"uid": "ps.test.n", "title": "N"}).learning_level is None
+
     def test_requires_prerequisites(self):
         """Advanced TECH knowledge requires prerequisites."""
         cu = Curriculum(
@@ -244,6 +254,18 @@ class TestCurriculumKuLearningMethods:
         cu = Curriculum(uid="ku_test", title="Test", estimated_time_minutes=15)
         assert cu.matches_time_available(20) is True
         assert cu.matches_time_available(10) is False
+
+    @pytest.mark.parametrize("learner_level", list(LearningLevel))
+    def test_unauthored_level_fits_every_learner(self, learner_level: LearningLevel):
+        """Curriculum that authored no level holds no learner back, and claims no level."""
+        cu = Curriculum(uid="ku_n", title="N")
+        assert cu.is_appropriate_for_level(learner_level) is True
+        assert cu.is_beginner_level() is False
+
+    def test_unauthored_level_reads_none_in_the_sel_context(self):
+        ctx = Curriculum(uid="ku_n", title="N").get_sel_context()
+        assert ctx["learning_level"] is None
+        assert ctx["is_beginner_friendly"] is False
 
     def test_is_appropriate_for_level(self):
         beginner = Curriculum(uid="ku_test", title="Test", learning_level=LearningLevel.BEGINNER)

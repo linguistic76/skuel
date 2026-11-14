@@ -110,6 +110,22 @@ class TestCategoryLevel:
         assert level == LearningLevel.ADVANCED
 
 
+class TestReadyStepsLevel:
+    """A step's level gates readiness only when its file authored one."""
+
+    def test_a_step_with_no_authored_level_is_ready_for_a_beginner(
+        self, service: PsAdaptiveService
+    ) -> None:
+        unlevelled = PathStep(uid="ps.sel.unlevelled", title="Unlevelled")
+        expert = PathStep(uid="ps.sel.expert", title="Expert", learning_level=LearningLevel.EXPERT)
+        intel = make_intelligence({})
+        assert service._category_level(intel, [unlevelled, expert]) is LearningLevel.BEGINNER
+
+        ready = service._ready_steps(intel, [unlevelled, expert], {})
+
+        assert [ps.uid for ps in ready] == ["ps.sel.unlevelled"]
+
+
 class TestQueryUserMasteriesCarriesSelCategory:
     @pytest.mark.asyncio
     async def test_sel_category_flows_from_backend_record_to_mastery(self) -> None:
