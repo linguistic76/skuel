@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: '2026-11-03'
+updated: '2026-11-14'
 category: patterns
 related_skills:
 - result-pattern
@@ -921,7 +921,7 @@ Some catches must remain broad. Annotate with a suppression comment:
 
 ### `safe_backend_operation` Behavior
 
-The `@safe_backend_operation` decorator catches `NEO4J_EXCEPTIONS` first (→ `Errors.database()`) and falls back to a safety-net `except Exception` (→ `Errors.system()` with `type(e).__name__` logged).
+The `@safe_backend_operation` decorator catches `NEO4J_EXCEPTIONS` first (→ `Errors.database()`), then the mapper's refusals (`UnreadableValueError` — a stored value a read cannot read, or a value a write would store that no read could read back → `Errors.system()` whose message names the class, uid, field and reason), and falls back to a safety-net `except Exception` (→ `Errors.system()` with `type(e).__name__` logged).
 
 **Enforcement:** SKUEL017 linter rule flags bare `except Exception` without `# intentional-broad:` or `# safety-net:` comment. **Status:** ✅ Zero violations (March 2026). Persistence layer (19 files) uses `NEO4J_EXCEPTIONS`; API/UI boundaries (16 files) use `# safety-net:` annotations.
 
