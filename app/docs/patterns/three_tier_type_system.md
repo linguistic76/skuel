@@ -108,7 +108,7 @@ they are absent rather than null (ADR-037 § Amendment).
 **See:** `/docs/decisions/ADR-037-embedding-infrastructure-separation.md`
 
 **A stored value a converter cannot read fails the read:** both converters read an enum
-string by one rule (`read_enum_value`, `core/models/dto_helpers.py` — the member's value,
+string by one rule (`read_enum_value`, `core/utils/type_converters.py` — the member's value,
 its name, any casing, the enum's `from_string` aliases, `none` for an optional field), and
 `from_neo4j_node` reads every enum, temporal, collection, mapping and nested dataclass field
 as its declared type or raises `UnreadableStoredValueError` naming the class, uid and field.

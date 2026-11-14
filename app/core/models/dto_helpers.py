@@ -31,7 +31,7 @@ from core.utils.neo4j_temporal import (
     is_neo4j_datetime,
     is_neo4j_time,
 )
-from core.utils.type_converters import EnumLike
+from core.utils.type_converters import EnumLike, read_enum_value
 
 
 def parse_datetime_field(data: dict, field_name: str) -> None:
@@ -113,50 +113,6 @@ def parse_time_field(data: dict, field_name: str) -> None:
         data[field_name] = time.fromisoformat(value)
     elif is_neo4j_time(value):
         data[field_name] = convert_neo4j_time(value)
-
-
-def read_enum_value[E: Enum](raw: str, enum_class: type[E], *, may_be_absent: bool) -> E | None:
-    """
-    Read one string as a member of ``enum_class``: the one rule both read paths use.
-
-    The backend's mapper (``from_neo4j_node``) and every DTO's ``from_dict``
-    (``parse_enum_field``) read an enum-valued string through this function, so
-    one stored value reads the same whichever path builds the model. Accepted,
-    in order:
-
-    - the enum's own ``from_string`` parser, when it defines one (aliases such as
-      ``EntityStatus``'s ``pending``);
-    - the member's value, as stored;
-    - the member's name (``BEGINNER``);
-    - the member's value in any casing (``Beginner``, ``SELF_AWARENESS``);
-    - ``none`` in any casing, the authored absence marker (``sel_category`` on a
-      NOUS anchor Ku), read as ``None`` when ``may_be_absent`` — only for an enum
-      with no member it names (``Pipeline.NONE`` parses above).
-
-    Anything else raises ``ValueError`` naming the valid values.
-    """
-    from_string = getattr(enum_class, "from_string", None)
-    if from_string is not None:
-        resolved = from_string(raw)
-        if isinstance(resolved, enum_class):
-            return resolved
-    try:
-        return enum_class(raw)
-    except ValueError:
-        pass
-    by_name = enum_class.__members__.get(raw)
-    if by_name is not None:
-        return by_name
-    lowered = raw.lower()
-    for member in enum_class:
-        if isinstance(member.value, str) and member.value.lower() == lowered:
-            return member
-    if may_be_absent and lowered == "none":
-        return None
-    raise ValueError(
-        f"'{raw}' is not a {enum_class.__name__} value; "
-        f"valid values: {[member.value for member in enum_class]}"
-    )
 
 
 def parse_enum_field(data: dict, field_name: str, enum_class: type[Enum]) -> None:

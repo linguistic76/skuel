@@ -24,7 +24,6 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import Any, TypeVar, Union, get_args, get_origin, get_type_hints
 
-from core.models.dto_helpers import read_enum_value
 from core.models.type_hints import Neo4jProperties
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -36,6 +35,7 @@ from core.utils.neo4j_temporal import (
     is_neo4j_datetime,
     is_neo4j_time,
 )
+from core.utils.type_converters import read_enum_value
 
 T = TypeVar("T")
 

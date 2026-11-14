@@ -22,6 +22,7 @@ Usage:
 """
 
 import math
+from enum import Enum
 from typing import Any, Protocol, overload, runtime_checkable
 
 
@@ -232,3 +233,48 @@ __all__ = [
     "get_enum_value",
     "normalize_enum_str",
 ]
+
+
+def read_enum_value[E: Enum](raw: str, enum_class: type[E], *, may_be_absent: bool) -> E | None:
+    """
+    Read one string as a member of ``enum_class``: the one rule both read paths use.
+
+    The backend's mapper (``from_neo4j_node``) and every DTO's ``from_dict``
+    (``parse_enum_field``, ``core/models/dto_helpers.py``) read an enum-valued
+    string through this function, so one stored value reads the same whichever
+    path builds the model. Accepted,
+    in order:
+
+    - the enum's own ``from_string`` parser, when it defines one (aliases such as
+      ``EntityStatus``'s ``pending``);
+    - the member's value, as stored;
+    - the member's name (``BEGINNER``);
+    - the member's value in any casing (``Beginner``, ``SELF_AWARENESS``);
+    - ``none`` in any casing, the authored absence marker (``sel_category`` on a
+      NOUS anchor Ku), read as ``None`` when ``may_be_absent`` — only for an enum
+      with no member it names (``Pipeline.NONE`` parses above).
+
+    Anything else raises ``ValueError`` naming the valid values.
+    """
+    from_string = getattr(enum_class, "from_string", None)
+    if from_string is not None:
+        resolved = from_string(raw)
+        if isinstance(resolved, enum_class):
+            return resolved
+    try:
+        return enum_class(raw)
+    except ValueError:
+        pass
+    by_name = enum_class.__members__.get(raw)
+    if by_name is not None:
+        return by_name
+    lowered = raw.lower()
+    for member in enum_class:
+        if isinstance(member.value, str) and member.value.lower() == lowered:
+            return member
+    if may_be_absent and lowered == "none":
+        return None
+    raise ValueError(
+        f"'{raw}' is not a {enum_class.__name__} value; "
+        f"valid values: {[member.value for member in enum_class]}"
+    )
