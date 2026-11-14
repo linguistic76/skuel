@@ -190,14 +190,8 @@ class User:
     knowledge_checkins: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
     def zone(self) -> ZoneInfo:
-        """The zone this user's calendar values belong to: their choice, else the app default.
-
-        A preferences blob the mapper could not parse arrives as its raw string
-        (the mapper's fail-soft) and reads as no choice, so resolving a zone never
-        fails a build or a sync.
-        """
-        prefs = self.preferences
-        return zone_for(prefs.timezone if isinstance(prefs, UserPreferences) else None)
+        """The zone this user's calendar values belong to: their choice, else the app default."""
+        return zone_for(self.preferences.timezone)
 
     def is_entity_active(self, entity_uid: EntityUID) -> bool:
         """Check if an entity is in the active set"""

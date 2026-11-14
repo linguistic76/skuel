@@ -911,6 +911,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         rows = result.value or []
         return Result.ok(_contribution_tally(rows[0] if rows else {}))
 
+    @safe_backend_operation("get_supporting_habit_windows")
     async def get_supporting_habit_windows(
         self, goal_uid: str, window_start: str, window_end: str
     ) -> Result[list[SupportingHabitWindow]]:
@@ -1177,6 +1178,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         """Get all tasks for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid, limit=QueryLimit.MAXIMUM)
 
+    @safe_backend_operation("get_tasks_reinforcing_habit")
     async def get_tasks_reinforcing_habit(
         self, habit_uid: str, user_uid: str
     ) -> Result[list[Task]]:
@@ -1205,6 +1207,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
             [from_neo4j_node(dict(row["t"]), self.entity_class) for row in (result.value or [])]
         )
 
+    @safe_backend_operation("get_tasks_contributing_to_goal")
     async def get_tasks_contributing_to_goal(
         self, goal_uid: str, user_uid: str
     ) -> Result[list[Task]]:

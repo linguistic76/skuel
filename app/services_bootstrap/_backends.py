@@ -65,6 +65,10 @@ from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
 from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
 from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
 from adapters.persistence.neo4j.session_backend import SessionBackend
+from adapters.persistence.neo4j.stored_value_census_backend import (
+    StoredValueCensusBackend,
+    mapper_readers,
+)
 from adapters.persistence.neo4j.task_grounding_backend import TaskGroundingBackend
 from adapters.persistence.neo4j.template_attachment_backend import TemplateAttachmentBackend
 from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
@@ -136,6 +140,7 @@ class Backends(TypedDict):
     insight_backend: InsightBackend
     search_event_backend: SearchEventBackend
     uid_census_backend: UidCensusBackend
+    stored_value_census_backend: StoredValueCensusBackend
     ingestion_backend: IngestionBackend
     ingestion_write_backend: IngestionWriteBackend
     bulk_upsert_backend: BulkUpsertBackend
@@ -506,7 +511,11 @@ def create_all_backends(
         "event_template_backend": event_template_backend,
         "choice_template_backend": choice_template_backend,
         "principle_template_backend": principle_template_backend,
+        # Its readers are every node reader in this set, named below.
+        "stored_value_census_backend": StoredValueCensusBackend(query_executor),
     }
+
+    result["stored_value_census_backend"].readers = mapper_readers(result.values())
 
     logger.info("✅ Backends created (100% dynamic pattern - direct instantiation)")
 

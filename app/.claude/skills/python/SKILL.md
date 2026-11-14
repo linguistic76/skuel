@@ -61,7 +61,7 @@ class Task(UserOwnedEntity):
 1. **Pydantic at edges** - HTTP requests; a rejected body is a **400** (`ErrorCategory.VALIDATION`), not 422
 2. **DTOs for transfer** - Between layers
 3. **Frozen for business logic** - Domain models are immutable
-4. **A node map becomes a model through a converter** - `from_neo4j_node` (`adapters/persistence/neo4j/neo4j_mapper.py`) or `DTO.from_dict` / `to_domain_model` (`core/utils/dto_converters.py`), never `Model(**props)`: nodes carry undeclared bookkeeping keys (`embedding_version`, `embedding_text_hash`, …) and a splat raises on the first one
+4. **A node map becomes a model through a converter** - `from_neo4j_node` (`adapters/persistence/neo4j/neo4j_mapper.py`) or `DTO.from_dict` / `to_domain_model` (`core/utils/dto_converters.py`), never `Model(**props)`: nodes carry undeclared bookkeeping keys (`embedding_version`, `embedding_text_hash`, …) and a splat raises on the first one. A stored value its field's type cannot read fails the read (`UnreadableStoredValueError`), never a model holding the raw value
 
 **See:** `/docs/patterns/three_tier_type_system.md`
 

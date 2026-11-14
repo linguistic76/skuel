@@ -115,14 +115,63 @@ def parse_time_field(data: dict, field_name: str) -> None:
         data[field_name] = convert_neo4j_time(value)
 
 
+def read_enum_value[E: Enum](raw: str, enum_class: type[E], *, may_be_absent: bool) -> E | None:
+    """
+    Read one string as a member of ``enum_class``: the one rule both read paths use.
+
+    The backend's mapper (``from_neo4j_node``) and every DTO's ``from_dict``
+    (``parse_enum_field``) read an enum-valued string through this function, so
+    one stored value reads the same whichever path builds the model. Accepted,
+    in order:
+
+    - the enum's own ``from_string`` parser, when it defines one (aliases such as
+      ``EntityStatus``'s ``pending``);
+    - the member's value, as stored;
+    - the member's name (``BEGINNER``);
+    - the member's value in another casing — vault-authored content once
+      persisted uppercase values, and a strict read made every such entity
+      unconvertible (curriculum exercises vanished from search sweeps);
+    - ``none`` in any casing, the authored absence marker (``sel_category`` on a
+      NOUS anchor Ku), read as ``None`` when ``may_be_absent`` — only for an enum
+      with no member it names (``Pipeline.NONE`` parses above).
+
+    Anything else raises ``ValueError`` naming the valid values.
+    """
+    from_string = getattr(enum_class, "from_string", None)
+    if from_string is not None:
+        resolved = from_string(raw)
+        if isinstance(resolved, enum_class):
+            return resolved
+    try:
+        return enum_class(raw)
+    except ValueError:
+        pass
+    by_name = enum_class.__members__.get(raw)
+    if by_name is not None:
+        return by_name
+    lowered = raw.lower()
+    for member in enum_class:
+        if isinstance(member.value, str) and member.value.lower() == lowered:
+            return member
+    if may_be_absent and lowered == "none":
+        return None
+    raise ValueError(
+        f"'{raw}' is not a {enum_class.__name__} value; "
+        f"valid values: {[member.value for member in enum_class]}"
+    )
+
+
 def parse_enum_field(data: dict, field_name: str, enum_class: type[Enum]) -> None:
     """
-    Parse enum field in-place if it's a string.
+    Parse enum field in-place if it's a string, through ``read_enum_value``.
 
     Args:
         data: Dictionary to modify
         field_name: Field name to parse
         enum_class: Enum class to instantiate (must be type[Enum])
+
+    Raises:
+        ValueError: the string names no member (``read_enum_value``).
 
     Example:
         data = {'status': 'active'}
@@ -130,34 +179,11 @@ def parse_enum_field(data: dict, field_name: str, enum_class: type[Enum]) -> Non
         # data['status'] is now EntityStatus.ACTIVE
     """
     if field_name in data and isinstance(data[field_name], str):
-        if enum_class is EntityStatus:
-            resolved = EntityStatus.from_string(data[field_name])
-            if resolved is None:
-                raise ValueError(f"'{data[field_name]}' is not a valid EntityStatus")
-            data[field_name] = resolved
-        else:
-            try:
-                data[field_name] = enum_class(data[field_name])
-            except ValueError:
-                # Case-insensitive fallback: vault-authored content persists
-                # uppercase enum values (e.g. "BEGINNER", "SELF_AWARENESS").
-                # A strict parse made every such entity unconvertible —
-                # curriculum exercises silently vanished from search sweeps.
-                lowered = data[field_name].lower()
-                try:
-                    data[field_name] = enum_class(lowered)
-                except ValueError:
-                    if lowered == "none":
-                        # Authored absence marker: optional enum fields may be
-                        # written as `none` in vault YAML (e.g. sel_category on
-                        # NOUS anchor Kus — the rawness principle makes
-                        # deliberately-unassigned VALID). Reached only when the
-                        # enum has no NONE member — "NONE" on Pipeline /
-                        # RecurrencePattern parses above (Kody, PR #536). Same
-                        # vanishing-entity bug class as the casing fallback.
-                        data[field_name] = None
-                    else:
-                        raise
+        # A DTO does not know which of its fields are optional; every entity
+        # requires a status, so ``none`` is never read as an absent one.
+        data[field_name] = read_enum_value(
+            data[field_name], enum_class, may_be_absent=enum_class is not EntityStatus
+        )
 
 
 def ensure_list_field(data: dict, field_name: str) -> None:

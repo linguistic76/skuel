@@ -36,6 +36,7 @@ from core.ports.query_types import (
     VaultRetiredTaskRow,
 )
 from core.ports.user_entry_protocols import UPSERT_UID_TAKEN
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -81,6 +82,7 @@ class _UserEntryCrudMixin:
     # Deterministic upsert (MERGE-on-uid)
     # ------------------------------------------------------------------
 
+    @safe_backend_operation("upsert")
     async def upsert(self, entry: UserEntry) -> Result[UserEntry]:
         """Create-or-update a ``UserEntry`` keyed on its (caller-supplied) uid.
 

@@ -2,7 +2,7 @@
 
 An authored value is stored and reads back as ``KuComplexity``; an absent one stores no
 property and reads back ``None``; a value outside the vocabulary is refused before
-anything is written; and a stray value already in the graph is never read as absent.
+anything is written; and a stray value already in the graph refuses the read.
 """
 
 from __future__ import annotations
@@ -94,9 +94,9 @@ async def test_a_complexity_outside_the_vocabulary_is_refused(
     assert await _stored(neo4j_driver, "ku.test.cx-bogus") is None
 
 
-async def test_a_stray_value_in_the_graph_never_reads_as_absent(clean_neo4j, neo4j_driver) -> None:
-    """The backend's mapper keeps an unconvertible enum value as stored (every enum
-    field, every type); what this pins is that a stray is never read as ``None``."""
+async def test_a_stray_value_in_the_graph_refuses_the_read(clean_neo4j, neo4j_driver) -> None:
+    """A value no ``KuComplexity`` names, stored around the ingestion gate, fails the
+    read as an error naming the node — it never reads as absent or as the raw value."""
     async with neo4j_driver.session() as session:
         await session.run(
             "CREATE (:Entity:Ku {uid: 'ku.test.cx-stray', title: 'Stray', entity_type: 'ku', "
@@ -105,5 +105,7 @@ async def test_a_stray_value_in_the_graph_never_reads_as_absent(clean_neo4j, neo
 
     result = await build_production_backends(neo4j_driver)["ku_backend"].get("ku.test.cx-stray")
 
-    assert result.is_ok, result
-    assert getattr(result.value, "complexity", _ABSENT) == "bogus"
+    assert result.is_error
+    error = result.expect_error()
+    assert error.category is ErrorCategory.SYSTEM
+    assert "ku.test.cx-stray" in str(error.details)

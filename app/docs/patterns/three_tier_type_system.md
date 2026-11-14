@@ -107,6 +107,19 @@ they are absent rather than null (ADR-037 § Amendment).
 
 **See:** `/docs/decisions/ADR-037-embedding-infrastructure-separation.md`
 
+**A stored value a converter cannot read fails the read:** both converters read an enum
+string by one rule (`read_enum_value`, `core/models/dto_helpers.py` — the member's value,
+its name, any casing, the enum's `from_string` aliases, `none` for an optional field), and
+`from_neo4j_node` reads every enum, temporal, collection, mapping and nested dataclass field
+as its declared type or raises `UnreadableStoredValueError` naming the class, uid and field.
+It never hands a model the raw value, a default, or `None` for a required field. A backend
+read answers it as a failed `Result` — every one that builds a model is guarded, the query
+builder's `execute` alone raising by contract
+(`tests/unit/adapters/test_mapper_readers_answer_a_result.py`); one bad node fails a list
+whole. `./dev stored-value-census` names every such value in the graph, and the
+graph-health poller logs ERROR while one is stored (`check_stored_values`). A primitive
+field is handed over as stored.
+
 ### When to Use Each Tier
 
 **Always use Tier 1 (Pydantic)**:

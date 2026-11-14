@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-11-13
+updated: 2026-11-14
 category: patterns
 related_skills: []
 related_docs:
@@ -625,11 +625,11 @@ task = Task(priority=Priority.HIGH, status=EntityStatus.ACTIVE)
 
 # to_neo4j_node() automatically:
 # priority: Priority.HIGH → 'high'  (extracts .value)
-# status: EntityStatus.ACTIVE → 'in_progress'
+# status: EntityStatus.ACTIVE → 'active'
 
 # from_neo4j_node() automatically:
 # 'high' → Priority.HIGH  (reconstructs enum)
-# 'in_progress' → EntityStatus.ACTIVE
+# 'active' → EntityStatus.ACTIVE
 
 # ✅ Edit core/models/enums/ → Add Priority.URGENT → Works immediately in adapters
 ```
@@ -651,6 +651,10 @@ class Task:
 # float → float
 # 'high' → Priority.HIGH (enum reconstruction)
 ```
+
+A stored value its field's type cannot read — `status: 'bogus'`, an unparseable date —
+raises `UnreadableStoredValueError` and the read fails; nothing reads it as the raw
+value or a default (`/docs/patterns/three_tier_type_system.md`).
 
 ### 4. **Complex Types** (100% Dynamic)
 

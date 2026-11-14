@@ -139,7 +139,19 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         if results.is_error:
             return Result.fail(results)
 
-        items = self._to_domain_models(results.value, dto_class, model_class)
+        try:
+            items = self._to_domain_models(results.value, dto_class, model_class)
+        except ValueError as unreadable:
+            # The rows are read through the DTO path, whose parsers refuse a stored
+            # value its field cannot read; the range read fails whole, as a backend
+            # read meeting one does.
+            self.logger.error(f"Unreadable stored {self.config_lookup_label}: {unreadable}")
+            return Result.fail(
+                Errors.system(
+                    message=f"A stored {self.config_lookup_label} is unreadable",
+                    exception=unreadable,
+                )
+            )
 
         self.logger.debug(
             f"Found {len(items)} {self.config_lookup_label}(s) for user {user_uid} "

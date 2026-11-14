@@ -191,10 +191,10 @@ def validate_entity_data(
     persisted, it hides from every exact-match filter until a data migration
     (the 2026-08 event_type cleanup). The 2026-07-23 severity ruling already
     classifies it as a content fault (reported ignored-with-reason by the
-    vault-sync doors, never a sync error). The READ side stays tolerant by
-    design — the backend's mapper keeps an unconvertible stored value as it is
-    (and logs it) so already-persisted strays load — making this door the one
-    place the vocabulary is enforced. USER_ENTRY files are
+    vault-sync doors, never a sync error). A stray that reaches the graph some
+    other way fails every read of its node (``UnreadableStoredValueError``) and is
+    named by ``./dev stored-value-census``; this door keeps vault content from
+    storing one. USER_ENTRY files are
     exempt from the gate: their ADR-054 door owns their frontmatter with
     alias-aware parsers ("in process" → active) and fails loudly on genuine
     garbage — a literal gate here would reject on the batch path what

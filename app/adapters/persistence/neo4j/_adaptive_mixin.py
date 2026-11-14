@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, cast
 from core.models.pathways.learning_path import LearningPath
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -178,6 +178,7 @@ class _AdaptiveMixin:
         ]
         return Result.ok(rows)
 
+    @safe_backend_operation("query_active_learning_paths")
     async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[LearningPath]]:
         """Query user's active/in-progress learning paths as typed models.
 
@@ -201,10 +202,7 @@ class _AdaptiveMixin:
             lp_node = record.get("lp")
             if not lp_node:
                 continue
-            try:
-                paths.append(from_neo4j_node(lp_node, LearningPath))
-            except DATA_CONVERSION_EXCEPTIONS as e:
-                self.logger.warning("Skipping unconvertible LearningPath node: %s", e)
+            paths.append(from_neo4j_node(lp_node, LearningPath))
         return Result.ok(paths)
 
     async def query_completed_learning_paths(

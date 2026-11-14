@@ -37,6 +37,7 @@ from adapters.inbound.middleware import (
     RequestTimingMiddleware,
     StaticCacheHeadersMiddleware,
 )
+from adapters.persistence.neo4j.stored_value_census_backend import StoredValueCensusBackend
 from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
 from core.config import UnifiedConfig
 from core.events.embedding_publisher import EMBEDDING_EVENT_TYPES
@@ -106,7 +107,14 @@ async def bootstrap_skuel() -> AppContainer:
         )
         if services.uid_census_backend is None:
             raise RuntimeError("Service composition produced no uid census backend")
-        _start_graph_health_poller(neo4j_adapter, prometheus_metrics, services.uid_census_backend)
+        if services.stored_value_census_backend is None:
+            raise RuntimeError("Service composition produced no stored-value census backend")
+        _start_graph_health_poller(
+            neo4j_adapter,
+            prometheus_metrics,
+            services.uid_census_backend,
+            services.stored_value_census_backend,
+        )
 
         # Step 4: Wire routes
         static_dir = getattr(config.application, "static_directory", None)
@@ -209,11 +217,14 @@ def _start_graph_health_poller(
     neo4j_adapter: Neo4jAdapter,
     prometheus_metrics: PrometheusMetrics,
     uid_census: UidCensusBackend,
+    stored_values: StoredValueCensusBackend,
 ) -> None:
     """Start the background task that refreshes the graph-health gauges every 5 minutes."""
     from core.infrastructure.monitoring import (
+        STORED_VALUE_SAMPLE,
         UID_BREACH_SAMPLE,
         check_aura_cap_headroom,
+        check_stored_values,
         check_uid_grammar,
     )
 
@@ -427,6 +438,18 @@ def _start_graph_health_poller(
                 prometheus_metrics.relationships.uids_outside_grammar.set(breaches.value.outside)
                 prometheus_metrics.relationships.uids_shared.set(breaches.value.shared)
                 check_uid_grammar(breaches.value)
+
+                # Query 6: every stored value read as its field's type — a value a
+                # read would refuse fails every read of its node.
+                unreadable = await stored_values.read_summary(STORED_VALUE_SAMPLE)
+                if unreadable.is_error:
+                    raise RuntimeError(
+                        f"stored-value census unreadable: {unreadable.expect_error()}"
+                    )
+                prometheus_metrics.relationships.stored_values_unreadable.set(
+                    unreadable.value.count
+                )
+                check_stored_values(unreadable.value)
 
                 prometheus_metrics.relationships.poll_last_success.set_to_current_time()
                 logger.debug("✅ Graph health metrics updated")

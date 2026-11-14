@@ -19,9 +19,8 @@ coercion. A "fix" that merely repointed the key to ``find_by(created_at__gte=...
 compare a string bound against the datetime-stored row, evaluate to null, and drop it;
 that variant fails here at count 1.
 
-``TestDomainPatternsTolerateUnknownDomain`` guards a second, unrelated failure on the same
-fetch: a stored ``domain`` outside the ``Domain`` enum used to crash the domain split with
-``AttributeError``. See that class's docstring.
+``TestDomainPatternsRefuseAnUnknownDomain`` guards a second, unrelated failure on the same
+fetch: a stored ``domain`` outside the ``Domain`` enum. See that class's docstring.
 
 See: tests/integration/test_created_at_window_coercion.py (the mixed-shape column)
      tests/unit/services/choices/test_choices_analytics_window.py (the cheap half)
@@ -158,22 +157,20 @@ class TestChoicesAnalyticsWindow:
 
 
 @pytest.mark.asyncio
-class TestDomainPatternsTolerateUnknownDomain:
-    """A stored ``domain`` outside the ``Domain`` enum must degrade, not crash.
+class TestDomainPatternsRefuseAnUnknownDomain:
+    """A stored ``domain`` outside the ``Domain`` enum fails the report as a ``Result``.
 
-    ``Entity.domain`` is annotated ``Domain``, but nothing enforces that at the read
-    boundary: ``Neo4jGenericMapper`` logs "Failed to convert field" for an unrecognised
-    value and keeps the **raw string**, deliberately, so the real value survives rather
-    than being coerced to the field default and silently mislabelling the row. That makes
-    the annotation wider than the truth, and ``get_domain_decision_patterns`` used to do
-    ``domain.value`` — ``AttributeError: 'str' object has no attribute 'value'``, taking
-    down the entire report over a single bad row.
+    ``Entity.domain`` is annotated ``Domain`` and the read holds it to that: the mapper
+    refuses the node (``UnreadableStoredValueError``) and the backend's read answers a
+    failed ``Result``, so the report neither raises nor reads the row as some other
+    domain, nor drops it and reports wrong percentages over the rest.
 
     Seeded through raw Cypher on purpose: the API create/update path types the field as
     the enum (``ChoiceCreateRequest.domain: Domain``) and so cannot produce this shape.
     The durable route in is ``Domain`` itself changing — drop or rename a member and every
-    historical row carrying it becomes unreadable to this report, which is exactly when a
-    crash is least acceptable. Migrations and manual graph edits are the other two.
+    historical row carrying it is unreadable until migrated
+    (``./dev stored-value-census`` names each). Migrations and manual graph edits are the
+    other two.
     """
 
     @pytest_asyncio.fixture
@@ -220,45 +217,27 @@ class TestDomainPatternsTolerateUnknownDomain:
             relationship_service=relationships,
         )
 
-    async def test_unknown_domain_returns_a_result_instead_of_raising(self, intelligence):
-        """The headline guard. Pre-fix this call raised AttributeError."""
+    async def test_each_period_method_answers_a_failed_result(self, intelligence):
+        """The three period methods share ``_find_choices_in_window`` and so the bad row;
+        each answers a failure naming it rather than raising or reporting over the rest."""
+        for method in (
+            intelligence.get_domain_decision_patterns,
+            intelligence.get_decision_patterns,
+            intelligence.get_choice_quality_correlations,
+        ):
+            result = await method(USER_UNKNOWN_DOMAIN, days=30)
+
+            assert result.is_error, (method.__name__, result)
+            assert UNKNOWN_DOMAIN_CHOICE in str(result.expect_error().details), method.__name__
+
+    async def test_the_known_row_alone_reads(self, intelligence, neo4j_driver):
+        """The control: with the bad row gone, the same report reads its one choice."""
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MATCH (n:Choice {uid: $uid}) DETACH DELETE n", uid=UNKNOWN_DOMAIN_CHOICE
+            )
+
         result = await intelligence.get_domain_decision_patterns(USER_UNKNOWN_DOMAIN, days=30)
 
-        assert result.is_ok, f"get_domain_decision_patterns failed: {result}"
-
-    async def test_unknown_domain_is_grouped_under_its_raw_value(self, intelligence):
-        """Degrade by *keeping* the row, not by skipping it.
-
-        Asserting only ``is_ok`` would pass against a "fix" that skipped unrecognised
-        domains — which silently drops real decisions out of the report and makes every
-        remaining percentage wrong. So pin the raw key, the count, and the split.
-        """
-        result = await intelligence.get_domain_decision_patterns(USER_UNKNOWN_DOMAIN, days=30)
-        assert result.is_ok, f"get_domain_decision_patterns failed: {result}"
-
-        assert result.value["total_choices"] == 2
-        domains = result.value["domain_patterns"]
-        assert UNKNOWN_DOMAIN in domains, (
-            f"{UNKNOWN_DOMAIN!r} was dropped instead of grouped under its raw value"
-        )
-        assert domains[UNKNOWN_DOMAIN]["choice_count"] == 1
-        assert domains[UNKNOWN_DOMAIN]["percentage"] == pytest.approx(50.0)
-        # The valid row still resolves through the enum, un-disturbed by the fallback.
-        assert domains["personal"]["choice_count"] == 1
-
-    async def test_sibling_period_methods_survive_the_same_row(self, intelligence):
-        """The other two methods share ``_find_choices_in_window`` and so the same bad row.
-
-        A forward guard, not a regression proof: this one passes pre-fix too, because
-        neither method reads ``.domain``. It pins that — the day one of them starts
-        splitting by domain, it has to reach for the same tolerant unwrap.
-        """
-        patterns = await intelligence.get_decision_patterns(USER_UNKNOWN_DOMAIN, days=30)
-        correlations = await intelligence.get_choice_quality_correlations(
-            USER_UNKNOWN_DOMAIN, days=30
-        )
-
-        assert patterns.is_ok, f"get_decision_patterns failed: {patterns}"
-        assert correlations.is_ok, f"get_choice_quality_correlations failed: {correlations}"
-        assert patterns.value["decision_metrics"]["total_choices"] == 2
-        assert correlations.value["total_choices_analyzed"] == 2
+        assert result.is_ok, result
+        assert result.value["domain_patterns"]["personal"]["choice_count"] == 1

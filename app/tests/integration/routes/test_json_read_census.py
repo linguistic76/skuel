@@ -28,6 +28,15 @@ seeded title. A route takes a uid when its path has a parameter, its handler bin
 uid-named one, or its handler's source names a uid key or hands the query on whole;
 it is read once per seed. Any other route is read once. ``/logout`` is read last,
 since it ends the session.
+
+The tree is then read a second time with a stored ``status`` on every seed that no
+``EntityStatus`` names, as a raw-Cypher write or a retired member would leave it. A
+read that builds a model refuses the node (``UnreadableStoredValueError``) rather than
+hand the value on, so that pass fails on
+
+- an exception that escapes the app instead of answering an error, and
+- a route that serves the stray value other than the readers that hand on raw node
+  properties without building a model (``RAW_PROPERTY_READERS``).
 """
 
 from __future__ import annotations
@@ -103,6 +112,16 @@ VECTOR_VALUE = 0.0617283945
 VECTOR_TEXT = repr(VECTOR_VALUE)
 DIMENSION = 1024
 
+# The stored status of the second pass: a value no EntityStatus member names.
+STRAY_STATUS = f"{MARK}-stray-status"
+# The routes that serve a node's stored properties as they are, building no model —
+# each serves the stray status of the second pass, and nothing else may.
+RAW_PROPERTY_READERS: dict[str, str] = {
+    "/api/ku/{uid}/lateral/graph": "the lateral graph's nodes are raw property maps",
+    "/api/lp/{uid}/lateral/graph": "the lateral graph's nodes are raw property maps",
+    "/api/ps/{uid}/lateral/graph": "the lateral graph's nodes are raw property maps",
+}
+
 # The GET routes the crawl leaves out, each with why it reads no entity. Two more are
 # never in the crawl: the static files are a ``Mount`` and the websockets are
 # ``WebSocketRoute``s, not ``Route``s, and the rig's ``/sign-in`` is not in the app's
@@ -133,6 +152,8 @@ class Census:
     json_answers: set[str] = field(default_factory=set)
     # seed kind -> the routes whose JSON answer named it
     seen_in_json: dict[str, set[str]] = field(default_factory=dict)
+    # the routes whose answer below 500 carried the stray status
+    served_stray: set[str] = field(default_factory=set)
     # read just before the first session-ending route
     signed_in_before_logout: bool | None = None
     query_names: tuple[str, ...] = ()
@@ -588,6 +609,8 @@ async def _read(
         detail = log.tail() or " ".join(response.text.split())[:200]
         census.server_errors.setdefault(path, []).append(f"{uid}: {response.status_code}: {detail}")
     body = response.text
+    if STRAY_STATUS in body and response.status_code < 500:
+        census.served_stray.add(path)
     if VECTOR_TEXT in body:
         census.carried_vector.setdefault(path, set()).add(uid)
     content_type = response.headers.get("content-type", "")
@@ -603,9 +626,17 @@ async def _still_signed_in(client: httpx.AsyncClient, task_uid: str) -> bool:
     return response.status_code == 200 and response.json().get("uid") == task_uid
 
 
+@dataclass(frozen=True)
+class Crawls:
+    """The two passes over the route tree: as seeded, then with a stray stored status."""
+
+    census: Census
+    stray: Census
+
+
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def census(skuel_app: FastHTMLApp) -> AsyncIterator[Census]:
-    """One pass over every read route, signed in as the seeded user."""
+async def crawls(skuel_app: FastHTMLApp) -> AsyncIterator[Crawls]:
+    """Two passes over every read route, each signed in as the seeded user."""
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     async with signed_in_client(skuel_app, READER, MARK) as client:
         # Seeded after sign-in: the rig's setup wipes every node carrying the mark.
@@ -621,7 +652,22 @@ async def census(skuel_app: FastHTMLApp) -> AsyncIterator[Census]:
         assert tuple(seeds) == SEED_KINDS
         await _seed_learner_state(client, driver)
         await _embed_and_restamp(driver, seeds)
-        yield await _crawl(client, skuel_app, seeds)
+        census = await _crawl(client, skuel_app, seeds)
+
+        await _run(
+            driver,
+            "MATCH (n:Entity) WHERE n.uid IN $uids SET n.status = $stray",
+            uids=list(seeds.values()),
+            stray=STRAY_STATUS,
+        )
+        # The first pass ended with /logout.
+        assert (await client.get(f"/sign-in/{READER}")).status_code == 200
+        yield Crawls(census=census, stray=await _crawl(client, skuel_app, seeds))
+
+
+@pytest_asyncio.fixture(loop_scope="module")
+async def census(crawls: Crawls) -> Census:
+    return crawls.census
 
 
 def _listing(found: dict[str, Any]) -> str:  # boundary: route -> uids or failure lines
@@ -660,3 +706,30 @@ async def test_the_crawl_read_every_seed_signed_in(census: Census) -> None:
     assert len(census.json_answers) > 100, len(census.json_answers)
     # Every seed reached a JSON answer, so its vector had a body to ride in.
     assert {kind for kind in SEED_KINDS if not census.seen_in_json.get(kind)} == set()
+
+
+async def test_a_stray_stored_value_escapes_no_read(crawls: Crawls) -> None:
+    """Every read meeting the stray status answers, an error or a page, and none raises
+    out of the app."""
+    escaped = {
+        path: lines
+        for path, lines in crawls.stray.server_errors.items()
+        if any(": raised: " in line for line in lines)
+    }
+    assert not escaped, f"\n{len(escaped)} routes raise out of the app:\n" + _listing(escaped)
+
+
+async def test_no_model_hands_on_a_stray_stored_value(crawls: Crawls) -> None:
+    """Only the raw-property readers serve the stray status; every read that builds a
+    model refuses its node. The controls: the first pass served it nowhere, the second
+    read every route as often, and its typed by-uid reads refused (a signed-out read
+    would answer 401, not refuse)."""
+    assert not crawls.census.served_stray, crawls.census.served_stray
+    assert crawls.stray.served_stray == set(RAW_PROPERTY_READERS), sorted(crawls.stray.served_stray)
+    assert crawls.stray.requests == crawls.census.requests
+    refused = {
+        path
+        for path, lines in crawls.stray.server_errors.items()
+        if any(": 500: " in line for line in lines)
+    }
+    assert {f"/api/{domain}/get" for domain in ("tasks", "goals", "habits", "events")} <= refused

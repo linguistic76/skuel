@@ -181,7 +181,21 @@ groups:
           description: "A uid names one node in every label at once; no constraint can say so across labels"
           runbook: "Run ./dev uid-census to list each shared uid with its holders' labels"
 
-      # The 18 relationship/knowledge/uid gauges freeze at their last values when
+      # The stored-value census, read by the same poller: a stored value its field's
+      # declared type cannot read fails every read of its node until it is migrated.
+      # Evaluates only in dev; the PRODUCTION evaluator is the poller's ERROR log
+      # (core/infrastructure/monitoring/stored_value_check.py).
+      - alert: StoredValueUnreadable
+        expr: skuel_stored_values_unreadable_count > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} stored value(s) their field's type cannot read"
+          description: "Every read of each such node fails (UnreadableStoredValueError)"
+          runbook: "Run ./dev stored-value-census to name each node and field; fix the writer, then migrate the values"
+
+      # The 19 relationship/knowledge/uid/stored-value gauges freeze at their last values when
       # the poller can't reach Neo4j — this alert makes that staleness visible.
       # Baseline is set at task start, so "never succeeded since boot" also fires.
       # 900s = 3 missed 5-min cycles.

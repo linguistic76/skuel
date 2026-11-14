@@ -23,6 +23,7 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -60,6 +61,7 @@ class _LpStepMixin:
     # STEP READS (HAS_STEP edges)
     # ========================================================================
 
+    @safe_backend_operation("get_steps_raw")
     async def get_steps_raw(self, path_uid: str, depth: int = 1) -> Result[list[PathStep]]:
         """Get ordered steps in a learning path as typed models."""
         from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
@@ -112,6 +114,7 @@ class _LpStepMixin:
         object.__setattr__(path, "metadata", metadata)
         return path
 
+    @safe_backend_operation("get_path_with_steps")
     async def get_path_with_steps(self, path_uid: str) -> Result[LearningPath | None]:
         """
         Get a single learning path (with its HAS_STEP steps in
@@ -139,6 +142,7 @@ class _LpStepMixin:
             )
         )
 
+    @safe_backend_operation("list_user_paths_with_steps")
     async def list_user_paths_with_steps(
         self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[LearningPath]]:
@@ -177,6 +181,7 @@ class _LpStepMixin:
             ]
         )
 
+    @safe_backend_operation("list_all_paths_with_steps")
     async def list_all_paths_with_steps(
         self,
         limit: int | None = None,
