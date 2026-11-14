@@ -19,7 +19,7 @@ This test suite verifies:
 5. Profile hub data completeness
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, time
 
 import pytest
 
@@ -126,8 +126,8 @@ async def test_event_relationship_auto_creation(events_backend, test_user_uid, c
         uid="event.test-001",
         user_uid=test_user_uid,
         title="Test Event",
-        start_time=datetime.now(),
-        end_time=datetime.now() + timedelta(hours=1),
+        start_time=time(9, 0),
+        end_time=time(10, 0),
         status=EntityStatus.SCHEDULED,
         created_at=datetime.now(),
         updated_at=datetime.now(),
