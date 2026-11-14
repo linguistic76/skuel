@@ -7,7 +7,7 @@ does not start by rediscovering what a first render would have thrown.
 
 from fasthtml.common import to_xml
 
-from core.models.enums import SELCategory
+from core.models.enums import LearningLevel, SELCategory
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import UserUID
@@ -49,6 +49,19 @@ def test_recommendation_card_links_to_the_path_step_detail_page() -> None:
     html = to_xml(AdaptiveKUCard(step))
     assert 'href="/explore/ps/ps.sel.knowing-yourself"' in html
     assert "/explore/ku/" not in html
+
+
+def test_recommendation_card_shows_the_level_its_file_authored() -> None:
+    step = PathStep(
+        uid="ps.sel.levelled", title="Levelled", summary="s", learning_level=LearningLevel.ADVANCED
+    )
+    assert "Advanced" in to_xml(AdaptiveKUCard(step))
+
+
+def test_recommendation_card_claims_no_level_its_file_did_not_author() -> None:
+    step = PathStep(uid="ps.sel.unlevelled", title="Unlevelled", summary="s")
+    html = to_xml(AdaptiveKUCard(step))
+    assert not any(level.value.title() in html for level in LearningLevel)
 
 
 def test_journey_overview_renders_every_category_including_empty_ones() -> None:

@@ -620,6 +620,7 @@ These YAML fields are constrained by Python enums. Using an invalid value fails 
 | `recurrence_pattern` | `RecurrencePattern` | Habit, Event | `daily`, `weekly`, `monthly` |
 | `sel_category` | `SELCategory` | Ku, PathStep | `self_awareness`, `self_management` |
 | `complexity` | `KuComplexity` | Ku, PathStep, LearningPath, Exercise (`None` when not authored) | `basic`, `medium`, `advanced` |
+| `learning_level` | `LearningLevel` | PathStep, LearningPath, Exercise (`None` when not authored) | `beginner`, `intermediate`, `advanced`, `expert` |
 
 ### Annotated Example
 

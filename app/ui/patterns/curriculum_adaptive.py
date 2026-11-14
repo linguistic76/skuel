@@ -74,8 +74,9 @@ def AdaptiveKUCard(step: PathStep, prerequisites_met: bool = True) -> FT:
     metadata: list[str | FT] = [
         f"⏱ {step.estimated_time_minutes} min",
         f"🎯 {step.difficulty_rating:.1f}/1.0 difficulty",
-        Badge(step.learning_level.value.title(), variant=BadgeT.neutral),
     ]
+    if step.learning_level is not None:
+        metadata.append(Badge(step.learning_level.value.title(), variant=BadgeT.neutral))
 
     if prerequisites_met:
         metadata.append(Badge("✓ Prerequisites met", variant=BadgeT.success))

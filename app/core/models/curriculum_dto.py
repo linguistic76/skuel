@@ -54,7 +54,7 @@ class CurriculumDTO(EntityDTO):
     # LEARNING METADATA
     # =========================================================================
     complexity: KuComplexity | None = None  # None when the file authored none
-    learning_level: LearningLevel = LearningLevel.BEGINNER
+    learning_level: LearningLevel | None = None  # None when the file authored none
     sel_category: SELCategory | None = None
     # Declared, not merely listed in enum_fields: dto_from_dict filters input
     # against dataclasses.fields(cls), so an undeclared name is parsed and then

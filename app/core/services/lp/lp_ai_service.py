@@ -148,7 +148,7 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
         context = {
             "name": lp.title,
             "estimated_hours": lp.estimated_hours or "Unknown",
-            "learning_level": lp.learning_level.value,
+            "learning_level": lp.learning_level.value if lp.learning_level else "Unknown",
         }
 
         insight_result = await self._generate_insight(
