@@ -24,13 +24,14 @@ from pathlib import Path
 
 import pytest
 
-from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_patch
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.templates.offset_helpers import (
     TEMPLATE_OFFSET_FIELDS,
     jsonable_to_offset,
 )
 from core.models.templates.relative_offset import RelativeOffset
+from core.models.templates.task_template import TaskTemplate
 from core.models.templates.task_template_dto import TaskTemplateDTO
 from core.services.ingestion.config import (
     ENTITY_CONFIGS,
@@ -233,10 +234,10 @@ def test_ingested_offset_matches_the_dto_write_path_byte_for_byte() -> None:
         _FILE,
         INGESTION_TEST_OWNER,
     )
-    from_vault = to_neo4j_node(prepared)["due_offset"]
+    from_vault = to_neo4j_patch(prepared, TaskTemplate)["due_offset"]
 
     dto = TaskTemplateDTO(uid="tt.x", title="T", due_offset=RelativeOffset(days=7))
-    from_dto = to_neo4j_node(dto.to_dict())["due_offset"]
+    from_dto = to_neo4j_patch(dto.to_dict(), TaskTemplate)["due_offset"]
 
     assert from_vault == from_dto
     assert jsonable_to_offset(from_vault) == RelativeOffset(days=7)

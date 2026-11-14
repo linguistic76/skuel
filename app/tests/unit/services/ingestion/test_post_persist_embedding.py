@@ -284,6 +284,8 @@ class _FakeBulkBackend:
         entities: list[dict[str, Any]],
         relationship_config: dict[str, Any],
         batch_size: int = 500,
+        *,
+        entity_class: type,
     ) -> Any:
         from core.ingestion.ingestion_types import IngestionResult
         from core.utils.result_simplified import Result
@@ -306,6 +308,8 @@ class _FakeBulkBackend:
         entities: list[dict[str, Any]],
         relationship_config: dict[str, Any],
         batch_size: int = 500,
+        *,
+        entity_class: type,
     ) -> Any:
         from core.ingestion.ingestion_types import IngestionResult
         from core.utils.result_simplified import Result

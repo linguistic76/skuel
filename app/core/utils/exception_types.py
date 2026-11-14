@@ -20,7 +20,7 @@ See: /docs/patterns/ERROR_HANDLING.md
 """
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import yaml
 
@@ -172,6 +172,43 @@ PARSING_EXCEPTIONS = (
 
 DATA_CONVERSION_EXCEPTIONS = (ValueError, TypeError, AttributeError, KeyError, ZeroDivisionError)
 """Data transformation and conversion exceptions. Map to Errors.validation() or Errors.system()."""
+
+
+class UnreadableValueError(Exception):
+    """A node property its field's declared type cannot read.
+
+    The base of the persistence mapper's two refusals
+    (``adapters/persistence/neo4j/neo4j_mapper.py``): ``UnreadableStoredValueError``,
+    a read meeting one already stored, and ``UnstorableValueError``, a write refusing
+    one before it is stored. Declared here so ``safe_backend_operation`` answers either
+    with the refusal's own words. Not a ``ValueError``: a
+    ``DATA_CONVERSION_EXCEPTIONS`` catch must not swallow it, and
+    ``with_error_handling`` must not answer it as a caller's bad input.
+    """
+
+    #: Whether the raiser logged it: a read refusal is logged where the mapper reads,
+    #: so whoever answers it does not log it again.
+    logged_where_raised: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        entity_class: type,
+        uid: object,
+        field: str,
+        value: object,
+        reason: str,
+    ) -> None:
+        self.entity_class = entity_class.__name__
+        self.uid = uid
+        self.field = field
+        self.value = value
+        self.reason = reason
+        super().__init__(self.describe())
+
+    def describe(self) -> str:
+        """The refusal in one line: class, uid, field, value and why."""
+        return f"{self.entity_class} {self.uid!r}: {self.field}={self.value!r:.80} ({self.reason})"
+
 
 # ============================================================================
 # CONFIG EXCEPTIONS

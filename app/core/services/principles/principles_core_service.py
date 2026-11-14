@@ -448,7 +448,7 @@ class PrinciplesCoreService(
         self,
         principle_uid: str,
         # boundary: pre-serialization patch — a list field (``expressions``,
-        # ``alignment_history``) is JSON-encoded at the write (``to_neo4j_node``).
+        # ``alignment_history``) is JSON-encoded at the write (``to_neo4j_patch``).
         plan: Callable[[Principle], dict[str, Any]],
     ) -> Result[Principle]:
         """Write a patch derived from the principle as it stands, under its lock.

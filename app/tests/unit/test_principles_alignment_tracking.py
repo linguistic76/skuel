@@ -307,9 +307,11 @@ class TestSelfAssessmentReviewStamp:
         }
         # The stored entries come first, in their record shape.
         assert written["alignment_history"][0]["assessed_date"] == "2025-10-01"
-        from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
+        from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_patch
+        from core.models.principle.principle import Principle
 
-        to_neo4j_node({"alignment_history": written["alignment_history"]})  # encodes
+        # encodes, and a Principle read takes it back
+        to_neo4j_patch({"alignment_history": written["alignment_history"]}, Principle)
 
     @pytest.mark.asyncio
     async def test_a_failed_store_fails_the_assessment(

@@ -33,7 +33,12 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import (
+    UnstorableValueError,
+    from_neo4j_node,
+    to_neo4j_node,
+    to_neo4j_patch,
+)
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, Neo4jProperties, UserUID
@@ -525,8 +530,8 @@ class _CrudMixin[T: DomainModelProtocol]:
             updates: Dictionary of field names to new values (partial update)
 
         Returns:
-            Result[T]: Success with updated entity, or Failure if entity not found
-                      or database error occurs
+            Result[T]: Success with updated entity; Failure if the entity is not found,
+                      a value is refused, or a database error occurs
 
         Example:
             ```python
@@ -535,22 +540,21 @@ class _CrudMixin[T: DomainModelProtocol]:
             # Update specific fields
             result = await backend.update(
                 "task_3f9a0c41d2e87b65",
-                {
-                    "status": "completed",
-                    "priority": "high",
-                    "completion_notes": "Finished ahead of schedule",
-                },
+                {"priority": "high", "due_date": date(2026, 11, 20)},
             )
 
             if result.is_ok:
                 task = result.value
-                print(f"Updated task: {task.title}")
             ```
 
         Note:
             - Uses Neo4j's += operator for partial updates (preserves other fields)
             - Automatically adds updated_at timestamp
             - Returns error if entity doesn't exist (use get() first to check)
+            - A value no read of the node could read back (``due_date: "soon"``), or a
+              null on a field that requires a value, is refused before the statement
+              runs and the node is untouched (``to_neo4j_patch``)
+            - A status transition belongs to ``update_with_status_guard`` (ADR-087)
             - Empty updates dictionary returns validation error
         """
         start_time = time.time()
@@ -566,10 +570,10 @@ class _CrudMixin[T: DomainModelProtocol]:
         for k in self.default_filters:
             updates.pop(k, None)
 
-        # Serialize complex types for Neo4j (dicts → JSON strings, enums → values, etc.)
-        # This matches what to_neo4j_node() does for create(), closing the SoC gap
-        # where services previously had to manually json.dumps() before calling update().
-        updates = to_neo4j_node(updates)
+        # Serialized as create() serializes a model (dicts → JSON strings, enums →
+        # values), and refused before the statement runs when a value is one no read
+        # of the node could read back (UnstorableValueError).
+        updates = to_neo4j_patch(updates, self.entity_class, uid=uid)
 
         df_clause = self._default_filter_clause()
         where_line = f"WHERE {df_clause}" if df_clause else ""
@@ -605,7 +609,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         # Neo4jProperties. Callers hand this `intent.to_changes()`, which can carry a
         # `list[dict]` (GoalUpdateIntent.milestones), a bare `dict`
         # (GoalUpdateIntent.metadata), or an enum — none of them Neo4jValue members.
-        # `to_neo4j_node` below is what turns them into storable properties; declaring
+        # `to_neo4j_patch` below is what turns them into storable properties; declaring
         # the parameter Neo4jProperties would claim a contract the callers do not meet
         # and this method does not require. Same shape as `update` above, deliberately.
         updates: dict[str, Any],
@@ -635,9 +639,12 @@ class _CrudMixin[T: DomainModelProtocol]:
               complement would silently let through.
             - ``updated_at`` is stamped Python-side into ``updates`` (as ``update`` does),
               so it rides the same conditional merge and only lands when the write applies.
-            - All three payloads pass through ``to_neo4j_node``, so storage shapes match
+            - All three payloads pass through ``to_neo4j_patch``, so storage shapes match
               every other write (dates/datetimes → ISO strings) and a ``None`` survives to
               ``SET n += {field: null}``, which REMOVES the property — the reopen clear.
+            - **Refused** (a value no read of the node could read back, or a null on a
+              field that requires one) → ``Result.fail`` before the statement runs; the
+              node is untouched (``UnstorableValueError``).
 
         Args:
             uid: UID of the entity to update.
@@ -768,7 +775,8 @@ class _CrudMixin[T: DomainModelProtocol]:
                     await tx.rollback()
                     return Result.fail(Errors.not_found(self.entity_class.__name__, uid))
                 await tx.commit()
-            except NEO4J_EXCEPTIONS:
+            except (*NEO4J_EXCEPTIONS, UnstorableValueError):
+                # A refused plan wrote nothing but the lock sentinel; it goes with the rest.
                 await tx.rollback()
                 raise
 
@@ -823,10 +831,12 @@ class _CrudMixin[T: DomainModelProtocol]:
         # ``date``/enum/collection reach the driver and persist in a DIFFERENT shape
         # than every other writer stores (a native Date instead of an ISO string) —
         # the writer decides the storage type, so both write paths must decide alike.
-        updates = to_neo4j_node(updates)
+        # All three payloads are refused, like update()'s, when a value is one no read
+        # of the node could read back.
+        updates = to_neo4j_patch(updates, self.entity_class, uid=uid)
 
-        patch_in_statuses, patch_in = self._guard_patch(guard.patch_if_prior_in)
-        patch_not_in_statuses, patch_not_in = self._guard_patch(guard.patch_if_prior_not_in)
+        patch_in_statuses, patch_in = self._guard_patch(guard.patch_if_prior_in, uid)
+        patch_not_in_statuses, patch_not_in = self._guard_patch(guard.patch_if_prior_not_in, uid)
 
         df_clause = self._default_filter_clause()
         where_line = f"WHERE {df_clause}" if df_clause else ""
@@ -896,9 +906,10 @@ class _CrudMixin[T: DomainModelProtocol]:
             entity=entity,
         )
 
-    @staticmethod
     def _guard_patch(
+        self,
         conditional: tuple[frozenset[str], Neo4jProperties] | None,
+        uid: str,
     ) -> tuple[builtins.list[str], dict[str, Any]]:
         """Split a guard's conditional patch into its (statuses, serialized patch) params.
 
@@ -908,7 +919,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         if conditional is None:
             return [], {}
         statuses, patch = conditional
-        return sorted(statuses), to_neo4j_node(dict(patch))
+        return sorted(statuses), to_neo4j_patch(patch, self.entity_class, uid=uid)
 
     @safe_backend_operation("atomic_append_dual_track_checkin")
     async def atomic_append_dual_track_checkin(

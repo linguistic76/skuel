@@ -74,6 +74,19 @@ class AuthoredEdge(NamedTuple):
     target_uid: str
 
 
+class UnstorableValue(NamedTuple):
+    """A file's value its field's type cannot read, refused before anything is written.
+
+    The write refuses what every later read of the node would refuse, so a file that
+    authors one (``due_date: soon``, a bare ``tags: work``) is reported against its
+    field and left for its author to fix, and the rest of its batch is written.
+    """
+
+    field: str
+    value: object  # boundary: the value as authored, of whatever type it was
+    reason: str
+
+
 @dataclass
 class IngestionResult:
     """Results from a bulk ingestion operation."""
@@ -97,6 +110,10 @@ class IngestionResult:
     #: than the row's owner, and the write never changes a node's owner. Absent
     #: from ``prior_status_by_uid`` — nothing was written to transition.
     refused_uids: tuple[str, ...] = ()
+    #: uid → the value its file holds that no read of its node could read back
+    #: (``UnstorableValue``): nothing was written for it, so it is absent from
+    #: ``prior_status_by_uid`` too.
+    unstorable_by_uid: dict[str, UnstorableValue] = field(default_factory=dict)
     #: source uid → relationship field → the targets whose edge this write CREATED:
     #: no edge of the field's type joined them before. A link already there is not
     #: in it, so an unchanged re-ingest reports none. Empty for every operation that

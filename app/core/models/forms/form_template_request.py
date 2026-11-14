@@ -10,6 +10,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from core.models.enums.entity_enums import EntityStatus, EntityType
+
 VALID_FIELD_TYPES = {"text", "textarea", "select", "checkbox", "number", "date"}
 
 
@@ -60,7 +62,7 @@ class FormTemplateUpdateRequest(BaseModel):
     instructions: str | None = None
     form_schema: list[dict[str, Any]] | None = None
     tags: list[str] | None = None
-    status: str | None = None
+    status: EntityStatus | None = None
 
     @field_validator("form_schema")
     @classmethod
@@ -69,3 +71,13 @@ class FormTemplateUpdateRequest(BaseModel):
         if v is None:
             return None
         return validate_form_field_specs(v)
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: EntityStatus | None) -> EntityStatus | None:
+        """A form template's status is one a form template can hold."""
+        allowed = EntityType.FORM_TEMPLATE.valid_statuses()
+        if v is not None and v not in allowed:
+            msg = f"status must be one of {sorted(s.value for s in allowed)}, not '{v.value}'"
+            raise ValueError(msg)
+        return v

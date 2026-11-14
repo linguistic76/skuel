@@ -25,7 +25,7 @@ from enum import Enum
 from typing import Any, TypeVar, Union, get_args, get_origin, get_type_hints
 
 from core.models.type_hints import Neo4jProperties
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, UnreadableValueError
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import (
     convert_neo4j_date,
@@ -42,33 +42,39 @@ T = TypeVar("T")
 logger = get_logger(__name__)
 
 
-class UnreadableStoredValueError(Exception):
+class UnreadableStoredValueError(UnreadableValueError):
     """A stored property its field's declared type cannot read.
 
     ``from_neo4j_node`` raises it rather than build a model that holds a value of
     another type: a read meeting one fails, and no reader is handed the raw value,
-    a default, or ``None`` for a field that requires a value. It is not a
-    ``ValueError``, so neither a caller's ``DATA_CONVERSION_EXCEPTIONS`` catch nor
-    ``with_error_handling``'s validation category takes it for bad input; a backend
-    read answers it as a failed ``Result``. The stored-value census
-    (``./dev stored-value-census``) names every one the graph holds.
+    a default, or ``None`` for a field that requires a value. A backend read answers
+    it as a failed ``Result``. The stored-value census (``./dev stored-value-census``)
+    names every one the graph holds. ``from_neo4j_node`` logs each at ERROR.
     """
 
-    def __init__(
-        self,
-        entity_class: type,
-        uid: object,
-        field: str,
-        value: object,
-        reason: str,
-    ) -> None:
-        self.entity_class = entity_class.__name__
-        self.uid = uid
-        self.field = field
-        self.value = value
-        self.reason = reason
-        super().__init__(
-            f"{self.entity_class} {uid!r}: stored {field}={value!r:.80} is unreadable ({reason})"
+    logged_where_raised = True
+
+    def describe(self) -> str:
+        return (
+            f"{self.entity_class} {self.uid!r}: stored {self.field}={self.value!r:.80} "
+            f"is unreadable ({self.reason})"
+        )
+
+
+class UnstorableValueError(UnreadableValueError):
+    """A value a write would store that its field's declared type could not read back.
+
+    ``to_neo4j_node`` and ``to_neo4j_patch`` read every property they serialize for a
+    field of the class by the read's own rule, and raise this before anything is
+    written: neither stores a value that every later read of its node would refuse.
+    A backend write answers it as a failed ``Result``; the vault door refuses the
+    file that holds it.
+    """
+
+    def describe(self) -> str:
+        return (
+            f"{self.entity_class} {self.uid!r}: {self.field}={self.value!r:.80} "
+            f"cannot be stored: its type cannot read it ({self.reason})"
         )
 
 
@@ -198,28 +204,26 @@ class Neo4jGenericMapper:
     @staticmethod
     def to_node(entity: Any) -> dict[str, Any]:
         """
-        Convert any domain entity to Neo4j node properties.
+        Convert a dataclass instance to Neo4j node properties.
 
         Handles:
-        - Dict entities (from UnifiedIngestionService)
         - Dataclass fields with type-aware serialization
         - Enum values (extracts .value)
         - Date/datetime to ISO format
         - Lists/sets to JSON strings
         - None values appropriately
 
+        Serialization only: ``to_neo4j_node`` is the public writer, which also
+        refuses a value its field's type cannot read.
+
         Args:
-            entity: Domain entity (dataclass or dict)
+            entity: Domain entity (a dataclass instance)
 
         Returns:
             Dictionary of Neo4j-compatible properties
         """
-        # Handle dict entities directly (from UnifiedIngestionService)
-        if isinstance(entity, dict):
-            return Neo4jGenericMapper._dict_to_node(entity)
-
-        if not is_dataclass(entity):
-            raise ValueError(f"Entity must be a dataclass or dict, got {type(entity)}")
+        if not is_dataclass(entity) or isinstance(entity, type):
+            raise TypeError(f"Entity must be a dataclass instance, got {type(entity)}")
 
         node_data: dict[str, Any] = {}
 
@@ -314,10 +318,11 @@ class Neo4jGenericMapper:
     @staticmethod
     def _dict_to_node(entity: dict[str, Any]) -> dict[str, Any]:
         """
-        Convert a dict entity to Neo4j node properties.
+        Convert a dict of properties to Neo4j node properties.
 
-        Used by UnifiedIngestionService which passes dicts rather than dataclasses.
-        Applies the same serialization rules as to_node() for dataclasses.
+        A patch (``update``) or a vault file's prepared data. Applies the same
+        serialization rules as to_node() for dataclasses; ``to_neo4j_patch`` is
+        the public writer, which also refuses a value its field's type cannot read.
 
         Args:
             entity: Dict of entity properties
@@ -419,6 +424,14 @@ class Neo4jGenericMapper:
                     kwargs[name] = spec.field.default
                 elif spec.field.default_factory is not MISSING:
                     kwargs[name] = spec.field.default_factory()
+                else:
+                    raise UnreadableStoredValueError(
+                        entity_class,
+                        data.get("uid"),
+                        name,
+                        None,
+                        "is absent, and the field requires a value",
+                    )
                 continue
             kwargs[name] = _read_field(data, entity_class, spec)
         return entity_class(**kwargs)
@@ -625,8 +638,22 @@ class _FieldSpec:
     optional: bool
 
 
+_field_specs_by_class: dict[type, tuple[_FieldSpec, ...]] = {}
+
+
 def _field_specs(entity_class: type) -> tuple[_FieldSpec, ...]:
-    """The fields of ``entity_class``, each with the type the mapper reads it as."""
+    """The fields of ``entity_class``, each with the type the mapper reads it as.
+
+    Kept per class: resolving the type hints costs more than the conversions they
+    drive, and every read and write of a node asks for them.
+    """
+    specs = _field_specs_by_class.get(entity_class)
+    if specs is None:
+        specs = _field_specs_by_class[entity_class] = _resolve_field_specs(entity_class)
+    return specs
+
+
+def _resolve_field_specs(entity_class: type) -> tuple[_FieldSpec, ...]:
     if not is_dataclass(entity_class):
         raise ValueError(f"Entity class must be a dataclass, got {entity_class}")
 
@@ -763,24 +790,86 @@ def unreadable_fields(
 _mapper = Neo4jGenericMapper()
 
 
-def to_neo4j_node(entity: Any) -> dict[str, Any]:
+def to_neo4j_node(entity: object) -> dict[str, Any]:  # boundary: serialized node properties
     """
-    Convert domain entity to Neo4j node properties.
+    A model instance's node properties, as a write stores them.
 
-    This is the single function that replaces all the repetitive
-    *_to_node() functions across backends.
+    Every backend's one serializer of a whole model (a create, an upsert). Each
+    property is read back by its field's type, by the read's own rule, before it
+    is returned: a value that every later read of the node would refuse raises
+    ``UnstorableValueError`` and nothing is written. An enum value is stored as
+    its member's value.
 
-    Examples:
-        # Replaces task_to_node()
+    Example:
         node_props = to_neo4j_node(task)
 
-        # Replaces report_to_node()
-        node_props = to_neo4j_node(report)
-
-        # Replaces habit_to_node()
-        node_props = to_neo4j_node(habit)
+    Raises:
+        UnstorableValueError: a value its field's type cannot read.
+        TypeError: ``entity`` is not a dataclass instance (a patch is
+            ``to_neo4j_patch``).
     """
-    return _mapper.to_node(entity)
+    if not is_dataclass(entity) or isinstance(entity, type):
+        raise TypeError(
+            f"to_neo4j_node serializes a model instance, not a {type(entity).__name__}; "
+            "a patch is to_neo4j_patch(changes, entity_class)"
+        )
+    return _stored_form(_mapper.to_node(entity), type(entity), getattr(entity, "uid", None))
+
+
+def to_neo4j_patch(
+    changes: Mapping[str, Any],  # boundary: a pre-serialization patch, one value per field
+    entity_class: type,
+    *,
+    uid: object = None,
+) -> dict[str, Any]:  # boundary: serialized node properties
+    """
+    A partial update's properties, as a write stores them on a node read as ``entity_class``.
+
+    The patch twin of ``to_neo4j_node``: each key that names a field of
+    ``entity_class`` is read back by that field's type before it is returned, so
+    a value every later read of the node would refuse raises
+    ``UnstorableValueError`` and nothing is written. A ``None`` stays an explicit
+    null (under ``SET n += $props`` it removes the property) where the field may
+    be absent; on a field that requires a value and has no default it is refused.
+    A key that names no field passes as it is: the read never reads it.
+
+    Args:
+        changes: The patch, in model types (enums, dates, collections, mappings).
+        entity_class: The class the node is read as.
+        uid: The node's uid, for the refusal's message.
+
+    Raises:
+        UnstorableValueError: a value its field's type cannot read.
+    """
+    return _stored_form(Neo4jGenericMapper._dict_to_node(dict(changes)), entity_class, uid)
+
+
+def _stored_form(
+    props: dict[str, Any],  # boundary: serialized node properties
+    entity_class: type,
+    uid: object,
+) -> dict[str, Any]:  # boundary: serialized node properties
+    """``props`` with every field read by the read's rule, or the write refused.
+
+    A field the read would refuse raises ``UnstorableValueError``, logged by the door
+    that answers it (a backend write, at ERROR; the vault door reports the file). An
+    enum field read from a spelling the rule tolerates (``BASIC``, an
+    alias) is stored as its member's value, so a Cypher filter comparing the stored
+    value finds it; every other value is stored as serialized.
+    """
+    for spec in _field_specs(entity_class):
+        name = spec.field.name
+        if name not in props or _null_takes_the_default(props, spec):
+            continue
+        try:
+            read = _read_field(props, entity_class, spec)
+        except UnreadableStoredValueError as refusal:
+            raise UnstorableValueError(
+                entity_class, uid, name, props[name], refusal.reason
+            ) from refusal
+        if isinstance(read, Enum):
+            props[name] = read.value
+    return props
 
 
 def from_neo4j_node[T](data: Neo4jProperties, entity_class: type[T]) -> T:

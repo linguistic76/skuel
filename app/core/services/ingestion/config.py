@@ -22,8 +22,10 @@ from typing import Any
 import yaml
 
 from core.ingestion.ingestion_types import RelationshipConfig
+from core.models.entity_types import ENTITY_TYPE_CLASS_MAP
 from core.models.enums.entity_enums import EntityStatus, EntityType, NonKuDomain
 from core.models.enums.pipeline import JeUse
+from core.models.group.group import Group
 from core.models.ps_content.content_chunks import (
     DEFAULT_CHUNKING_PARAMS,
     ChunkingParams,
@@ -415,6 +417,19 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
 # ============================================================================
 # CHUNKING PARAMETER RESOLUTION
 # ============================================================================
+
+
+def ingested_model_class(entity_type: EntityType | NonKuDomain) -> type:
+    """The model class every read of an ingested node of ``entity_type`` builds.
+
+    The class the write reads a file's values as before storing them, so a file
+    holding a value its node's read would refuse is refused instead of written.
+    """
+    if entity_type is NonKuDomain.GROUP:
+        return Group
+    if isinstance(entity_type, EntityType):
+        return ENTITY_TYPE_CLASS_MAP[entity_type]
+    raise ValueError(f"{entity_type.value} is not an ingested type")
 
 
 def resolve_chunking_params(entity_type: EntityType | NonKuDomain) -> ChunkingParams:

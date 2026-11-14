@@ -35,8 +35,9 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.batch_preparer import prepare_batch_items
 from adapters.persistence.neo4j.cypher_executor import CypherExecutor, CypherTemplate
+from adapters.persistence.neo4j.neo4j_mapper import UnstorableValueError
 from adapters.persistence.neo4j.timed_driver import neo4j_query_timeout
-from core.ingestion.ingestion_types import IngestionResult, RelationshipConfig
+from core.ingestion.ingestion_types import IngestionResult, RelationshipConfig, UnstorableValue
 from core.models.enums.neo_labels import NeoLabel
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -101,6 +102,14 @@ def _refused_uids(
 ) -> tuple[str, ...]:
     """The uids the node template refused to write (see :func:`build_node_upsert_template`)."""
     return tuple(sorted({str(row["uid"]) for row in rows if row.get("uid") and row.get("refused")}))
+
+
+def _unstorable_by_uid(refusals: list[UnstorableValueError]) -> dict[str, UnstorableValue]:
+    """Each refused entity's uid and the value that refused it (``prepare_batch_items``)."""
+    return {
+        str(refusal.uid): UnstorableValue(refusal.field, refusal.value, refusal.reason)
+        for refusal in refusals
+    }
 
 
 def build_node_upsert_template(
@@ -356,18 +365,39 @@ class BulkUpsertBackend:
         entities: list[dict[str, Any]],
         relationship_config: dict[str, RelationshipConfig],
         batch_size: int = 500,
+        *,
+        entity_class: type,
     ) -> Result[IngestionResult]:
         """Node-only upsert (phase 1) — connection fields filtered off the node.
 
         Refuses the whole batch when an owner it names has no ``:User`` node —
         see :meth:`_refuse_unknown_owners` (ADR-086 door 2 hardening).
+
+        An entity holding a value its field's type cannot read — read as
+        ``entity_class``, the class its node is read as — is not written;
+        it comes back in ``unstorable_by_uid`` for its file to be reported, and the
+        rest of the batch is written.
         """
         template = build_node_upsert_template(entity_label, base_label)
+        items, refusals = prepare_batch_items(
+            entities, entity_class, rel_config=relationship_config
+        )
+        unstorable = _unstorable_by_uid(refusals)
+        if not items:
+            return Result.ok(
+                IngestionResult(
+                    total_processed=len(entities),
+                    nodes_created=0,
+                    nodes_updated=0,
+                    relationships_created=0,
+                    errors=[],
+                    unstorable_by_uid=unstorable,
+                )
+            )
 
         with neo4j_query_timeout(_BULK_INGESTION_TIMEOUT_SECONDS):
             async with self._driver.session() as session:
                 executor = CypherExecutor(session, dict)
-                items = prepare_batch_items(entities, rel_config=relationship_config)
 
                 refusal = await self._refuse_unknown_owners(session, base_label, items)
                 if refusal is not None:
@@ -406,6 +436,7 @@ class BulkUpsertBackend:
                         errors=[],
                         prior_status_by_uid=prior_status_by_uid,
                         refused_uids=_refused_uids(stats.get("rows", [])),
+                        unstorable_by_uid=unstorable,
                     )
                 )
 
@@ -532,6 +563,8 @@ class BulkUpsertBackend:
         entities: list[dict[str, Any]],
         relationship_config: dict[str, RelationshipConfig],
         batch_size: int = 500,
+        *,
+        entity_class: type,
     ) -> Result[IngestionResult]:
         """Relationships-only pass (phase 2) — every node batch already ran.
 
@@ -539,6 +572,9 @@ class BulkUpsertBackend:
         the batches before it are committed, so the result carries what they created
         (``created_targets``) with the failure in ``errors`` — the caller credits what
         was written and retries the rest, whose edges the retry then creates.
+
+        ``entities`` are the ones phase 1 wrote. One phase 1 refused as unstorable is
+        a caller's mistake, reported in ``errors`` and given no edges.
         """
         if not relationship_config:
             return Result.ok(
@@ -556,11 +592,13 @@ class BulkUpsertBackend:
         with neo4j_query_timeout(_BULK_INGESTION_TIMEOUT_SECONDS):
             async with self._driver.session() as session:
                 executor = CypherExecutor(session, dict)
-                items = prepare_batch_items(entities, rel_config=relationship_config)
+                items, refusals = prepare_batch_items(
+                    entities, entity_class, rel_config=relationship_config
+                )
                 # boundary: the template's uid/created rows (see ``_created_targets``)
                 rows: list[dict[str, Any]] = []
                 relationships_created = 0
-                errors: list[str] = []
+                errors: list[str] = [str(refusal) for refusal in refusals]
                 for start in range(0, len(items), batch_size):
                     result = await executor.execute_batch(
                         template=template,
@@ -595,6 +633,8 @@ class BulkUpsertBackend:
         entities: list[dict[str, Any]],
         relationship_config: dict[str, RelationshipConfig],
         batch_size: int = 500,
+        *,
+        entity_class: type,
     ) -> Result[IngestionResult]:
         """Upsert entities, then create their graph edges (two-phase).
 
@@ -606,16 +646,27 @@ class BulkUpsertBackend:
         created, with the failure in ``errors``.
         """
         nodes_result = await self.upsert_nodes(
-            entity_label, base_label, entities, relationship_config, batch_size
+            entity_label,
+            base_label,
+            entities,
+            relationship_config,
+            batch_size,
+            entity_class=entity_class,
         )
         if nodes_result.is_error:
             return nodes_result
 
-        # A refused row's node is someone else's: its edges are not this file's to write.
-        refused = set(nodes_result.value.refused_uids)
+        # A refused row's node is someone else's, and an unstorable one was never
+        # written: neither file's edges are this write's to make.
+        refused = set(nodes_result.value.refused_uids) | set(nodes_result.value.unstorable_by_uid)
         written = [entity for entity in entities if str(entity.get("uid")) not in refused]
         rels_result = await self.create_relationships(
-            entity_label, base_label, written, relationship_config, batch_size
+            entity_label,
+            base_label,
+            written,
+            relationship_config,
+            batch_size,
+            entity_class=entity_class,
         )
         if rels_result.is_error:
             return rels_result
@@ -631,6 +682,7 @@ class BulkUpsertBackend:
                 # The prior statuses belong to phase 1; phase 2 writes only edges.
                 prior_status_by_uid=nodes.prior_status_by_uid,
                 refused_uids=nodes.refused_uids,
+                unstorable_by_uid=nodes.unstorable_by_uid,
                 created_targets=rels_result.value.created_targets,
             )
         )

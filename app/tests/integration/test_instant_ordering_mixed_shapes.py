@@ -193,6 +193,7 @@ async def test_recent_tasks_list_by_last_update(clean_neo4j, neo4j_driver, newer
         "Entity",
         [{"uid": "task.6b-resynced", "title": "resynced", "user_uid": str(user)}],
         {},
+        entity_class=Task,
     )
     assert resynced.is_ok, resynced.expect_error()
     if not newer_is_native:
@@ -233,7 +234,7 @@ async def test_curriculum_searches_list_by_last_update(
         with _at(edit_at):
             assert (await kus.update("ku.6b.edited", {"description": "edited"})).is_ok
     resynced = await backends["bulk_upsert_backend"].upsert_nodes(
-        "Ku", "Entity", [{"uid": "ku.6b.resynced", "description": "resynced"}], {}
+        "Ku", "Entity", [{"uid": "ku.6b.resynced", "description": "resynced"}], {}, entity_class=Ku
     )
     assert resynced.is_ok, resynced.expect_error()
     if not newer_is_native:

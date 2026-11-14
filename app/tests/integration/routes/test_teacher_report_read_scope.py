@@ -49,6 +49,7 @@ from adapters.inbound.teaching_api import create_teaching_api_routes
 from adapters.inbound.teaching_ui import create_teaching_ui_routes
 from adapters.persistence.neo4j.backends.exercise_backends import EntryReportBackend
 from core.models.enums import UserRole
+from core.models.enums.entity_enums import EntityStatus
 from core.models.user.user import User
 from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 from core.services.report.entry_report_service import EntryReportService
@@ -488,10 +489,10 @@ class TestTheWritesRefuseHistory:
     async def test_approve_on_history_writes_nothing(self, seeded_newer_copy, neo4j_driver) -> None:
         backend = build_production_backends(neo4j_driver)["user_entry_backend"]
         refused = await backend.approve_and_get_linked_kus(
-            SUB_UID, "2026-09-27T10:00:00", "completed", ["submitted"], IN_TEACHER
+            SUB_UID, "2026-09-27T10:00:00", EntityStatus.COMPLETED, ["submitted"], IN_TEACHER
         )
         assert refused.is_ok and refused.value == []
         landed = await backend.approve_and_get_linked_kus(
-            NEWER_UID, "2026-09-27T10:00:00", "completed", ["submitted"], IN_TEACHER
+            NEWER_UID, "2026-09-27T10:00:00", EntityStatus.COMPLETED, ["submitted"], IN_TEACHER
         )
         assert landed.is_ok and len(landed.value) == 1

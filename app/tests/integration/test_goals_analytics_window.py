@@ -124,6 +124,7 @@ async def _seed(neo4j_driver) -> None:
             }
         ],
         relationship_config=GOAL_CONFIG.relationship_config or {},
+        entity_class=Goal,
     )
     assert reingested.is_ok, f"seed bulk upsert failed: {reingested}"
 

@@ -1,6 +1,6 @@
 ---
 title: Async/Sync Design Pattern
-updated: 2026-10-24
+updated: 2026-11-14
 category: patterns
 related_skills:
 - python
@@ -125,8 +125,9 @@ Type conversion is pure computation with no I/O:
 ```python
 # adapters/persistence/neo4j/neo4j_mapper.py
 
-def to_neo4j_node(entity: Any) -> dict[str, Any]:
-    """NO I/O - Pure type transformation"""
+def to_neo4j_node(entity: object) -> dict[str, Any]:
+    """NO I/O - Pure type transformation (simplified: the real one also reads each
+    property back by its field's type, refusing a value no read could read)"""
     node_data: dict[str, Any] = {}
     for field in fields(entity):
         value = getattr(entity, field.name)

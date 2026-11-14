@@ -17,7 +17,7 @@ from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
 from typing import Any
 
-from core.utils.exception_types import NEO4J_EXCEPTIONS
+from core.utils.exception_types import NEO4J_EXCEPTIONS, UnreadableValueError
 from core.utils.result_simplified import Errors, Result
 
 logger = logging.getLogger(__name__)
@@ -126,6 +126,11 @@ def safe_backend_operation[R, **P](
                 logger.error(f"Backend operation {operation_name} failed: {type(e).__name__}: {e}")
                 error = Errors.database(operation=operation_name, message=str(e))
                 return Result.fail(error)  # type: ignore[return-value]
+
+            except UnreadableValueError as e:
+                if not e.logged_where_raised:
+                    logger.error(f"Backend operation {operation_name} refused: {e}")
+                return Result.fail(Errors.system(message=str(e), exception=e))  # type: ignore[return-value]
 
             except Exception as e:  # safety-net: catch non-Neo4j exceptions in backend
                 logger.error(

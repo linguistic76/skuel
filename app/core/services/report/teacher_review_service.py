@@ -475,7 +475,7 @@ class TeacherReviewService:
         now = datetime.now().isoformat()
         allowed_from = [EntityStatus.REVISION_REQUESTED.value]
         result = await self.user_entry_backend.approve_and_get_linked_kus(
-            report_uid, now, EntityStatus.COMPLETED.value, allowed_from, teacher_uid
+            report_uid, now, EntityStatus.COMPLETED, allowed_from, teacher_uid
         )
         if result.is_error:
             return Result.fail(result)

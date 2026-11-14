@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-11-13
+updated: 2026-11-14
 category: patterns
 related_skills: []
 related_docs:
@@ -898,6 +898,14 @@ gate, which rejects the file (§ Minimum frontmatter, criterion 4) — so the gr
 never meets non-canonical casing, an alias spelling, OR a non-member value in a
 registered field, and exact-match property filters (the faceted `sel_category`
 facet) stay sound.
+
+**Every other value a node's read would refuse is refused at the write.** The bulk
+upsert serializes each file by the read's own rule for its type's model class
+(`to_neo4j_patch`, `ingested_model_class`): a `due_date: soon`, a bare `tags: work`, an
+unparseable `created_at`, a `start_time: 9am` is not written. The file is reported
+against that field (validation, ignored-with-reason) and left unstamped, and the rest of
+its batch is written — stored, the value would fail every read of its node and every list
+read of its owner. The dry-run validator (`validate_file`) does not see these refusals.
 
 A directory scan attributes one owner + one wall to the whole batch, so it must belong
 to a single vault: a scan of an ancestor directory that **nests** another vault's root is

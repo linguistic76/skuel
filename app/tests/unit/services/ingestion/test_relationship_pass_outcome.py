@@ -60,6 +60,8 @@ class _Bulk:
         entities: list[dict[str, object]],
         relationship_config: dict[str, object],
         batch_size: int = 500,
+        *,
+        entity_class: type,
     ) -> Result[IngestionResult]:
         return Result.ok(_result())
 
@@ -70,6 +72,8 @@ class _Bulk:
         entities: list[dict[str, object]],
         relationship_config: dict[str, object],
         batch_size: int = 500,
+        *,
+        entity_class: type,
     ) -> Result[IngestionResult]:
         return self.relationships
 

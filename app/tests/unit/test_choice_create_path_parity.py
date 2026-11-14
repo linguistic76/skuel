@@ -61,7 +61,7 @@ from typing import Any
 import pytest
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node, to_neo4j_patch
 from core.events.choice_events import ChoiceCreated
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
@@ -635,7 +635,7 @@ class StubOutcomeBackend:
         decided = plan(held)
         if decided is None:
             return Result.ok(None)
-        self.props.update(to_neo4j_node(dict(decided.updates)))
+        self.props.update(to_neo4j_patch(decided.updates, Choice, uid=uid))
         outcome = StatusGuardedOutcome(
             applied=True,
             prior_status=str(held.status),

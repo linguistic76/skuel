@@ -265,7 +265,7 @@ class UnifiedSharingService:
         result = await self.backend.update_visibility(
             entity_uid=entity_uid,
             owner_uid=owner_uid,
-            visibility=visibility.value,
+            visibility=visibility,
         )
         if result.is_error:
             return Result.fail(result)

@@ -52,7 +52,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
     from pathlib import Path
 
-    from core.ingestion.ingestion_types import RelationshipConfig
+    from core.ingestion.ingestion_types import RelationshipConfig, UnstorableValue
     from core.ports.ingestion_protocols import IngestionWriteOperations
 
     from .ingestion_tracker import IngestionTracker
@@ -152,6 +152,18 @@ def uid_in_use_reason(uid: str) -> str:
     return (
         f"uid '{uid}' is already in use by an entity this vault does not own — author a "
         "different 'uid:' (a content-vault file), or remove the line"
+    )
+
+
+def unstorable_value_reason(value: UnstorableValue) -> str:
+    """The refusal for a file holding a value its field's type cannot read.
+
+    Nothing of the file was written: stored, the value would fail every read of
+    its node, and every list that holds it.
+    """
+    return (
+        f"'{value.field}' holds {value.value!r:.80}, which that field cannot read "
+        f"({value.reason}) — fix or remove the line"
     )
 
 

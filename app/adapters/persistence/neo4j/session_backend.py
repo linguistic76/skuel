@@ -23,7 +23,10 @@ from uuid import uuid4
 
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import (
+    from_neo4j_node,
+    to_neo4j_patch,
+)
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.auth.auth_event import AuthEvent
 from core.models.auth.password_reset_token import PasswordResetClaim, PasswordResetToken
@@ -32,6 +35,7 @@ from core.models.enums import UserRole
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.models.user.user import User
 from core.ports.query_types import SessionIdentity
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
@@ -134,8 +138,8 @@ class SessionBackend(Neo4jSessionRunner):
         and stamps the user's ``last_login_at`` with the session's creation
         instant in the same statement, so an account carries a last-login time
         exactly when a session was minted for it. The stamp is the one user
-        property this statement writes; it is serialized by ``to_neo4j_node``,
-        the mapper every ``User`` read parses.
+        property this statement writes; it is serialized by ``to_neo4j_patch``,
+        by the rule every ``User`` read parses.
 
         The same statement records the sign-in on the user's presence edge to
         the session's UTC month (``PRESENT_IN``: one more sign-in, and one more
@@ -186,9 +190,9 @@ class SessionBackend(Neo4jSessionRunner):
         record = await self._run_single(
             query,
             {
-                "last_login_at": to_neo4j_node({"last_login_at": session.created_at})[
-                    "last_login_at"
-                ],
+                "last_login_at": to_neo4j_patch(
+                    {"last_login_at": session.created_at}, User, uid=session.user_uid
+                )["last_login_at"],
                 "uid": session.uid,
                 "token_hash": session.token_hash,
                 "user_uid": session.user_uid,

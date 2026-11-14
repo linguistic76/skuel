@@ -257,6 +257,8 @@ class BulkUpsertOperations(Protocol):
         entities: list[dict[str, Any]],
         relationship_config: dict[str, RelationshipConfig],
         batch_size: int = 500,
+        *,
+        entity_class: type,
     ) -> Result[IngestionResult]: ...
 
     async def create_relationships(
@@ -266,6 +268,8 @@ class BulkUpsertOperations(Protocol):
         entities: list[dict[str, Any]],
         relationship_config: dict[str, RelationshipConfig],
         batch_size: int = 500,
+        *,
+        entity_class: type,
     ) -> Result[IngestionResult]: ...
 
     async def upsert_with_relationships(
@@ -275,4 +279,6 @@ class BulkUpsertOperations(Protocol):
         entities: list[dict[str, Any]],
         relationship_config: dict[str, RelationshipConfig],
         batch_size: int = 500,
+        *,
+        entity_class: type,
     ) -> Result[IngestionResult]: ...
