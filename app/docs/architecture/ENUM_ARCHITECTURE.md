@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-16
+updated: 2026-11-14
 ---
 
 # Enum Architecture
@@ -91,6 +91,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | `valid_statuses()` | frozenset[EntityStatus] | Which statuses are valid for this type? |
 | `default_status()` | EntityStatus | What status does a new entity get? |
 | `content_origin()` | ContentOrigin | Which content tier (A-D)? |
+| `kind_domain()` | Domain | Which system domain names its kind (never a subject area)? |
 | `from_string(text)` | EntityType \| None | Parse with alias support ("ps" → PATH_STEP, "lp" → LEARNING_PATH, "ku" → KU, "book"/"film"/"talk" → RESOURCE) |
 
 ### Canonical Values vs Aliases — the Emission Rule

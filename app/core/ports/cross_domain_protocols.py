@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from core.models.query_types import QueryIntent
     from core.ports.query_types import (
         AccountMonthRow,
+        EntityTypeRow,
         HabitAnalyticsRow,
         JournalEntryRow,
         LearningVelocityRow,
@@ -179,7 +180,7 @@ class CrossDomainBackendOperations(Protocol):
         relationship_types: list[str] | None = None,
     ) -> Result[list[dict[str, Any]]]: ...
 
-    async def get_entity_labels(self, uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_entity_type(self, uid: str) -> Result[list[EntityTypeRow]]: ...
 
     async def get_sel_categories(self, uids: list[str]) -> Result[list[SelCategoryRow]]: ...
 

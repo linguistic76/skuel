@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-10-23
+updated: 2026-11-14
 status: current
 category: architecture
 version: 8.1.0
@@ -231,6 +231,7 @@ Each entity type is a peer — no hierarchy of categories. Behavioral traits (no
 |-------|--------|--------------------|
 | **Ownership** | `requires_user_uid()` | User-owned vs shared (admin-created) |
 | **Content Origin** | `content_origin()` | Where content comes from (4 tiers: Curated, Curriculum, User-Created, Report) |
+| **Kind Domain** | `kind_domain()` | The system `Domain` naming what kind of entity it is (Ku → knowledge, the rest of the curriculum → learning, each activity → its own, entries and reports → reports, the rest → system) — never a subject area; the graph context's node domain |
 | **Processable** | `is_processable()` | Goes through a processing pipeline |
 | **Derived** | `is_derived()` | Has parent in derivation chain |
 | **Activity** | `is_activity()` | Shares Activity infrastructure (factory, facade, sub-services) |

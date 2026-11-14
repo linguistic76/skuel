@@ -659,8 +659,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (464, "ActivityReviewService"): Allow(_askesis_arch),
     },
     "docs/architecture/ENTITY_TYPE_ARCHITECTURE.md": {
-        (408, "ProcessorType"): Allow(_entity_arch),
-        (417, "ProcessorType"): Allow(_entity_arch),
+        (409, "ProcessorType"): Allow(_entity_arch),
+        (418, "ProcessorType"): Allow(_entity_arch),
     },
     "docs/decisions/ADR-023-curriculum-baseservice-migration.md": {
         (85, "supports_user_progress"): Allow(_adr023_progress),

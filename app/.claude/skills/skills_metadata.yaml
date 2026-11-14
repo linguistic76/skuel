@@ -418,7 +418,7 @@ skills:
 
   - name: base-analytics-service
     description: BaseAnalyticsService for domain analytics
-    last_reviewed: "2026-11-13"
+    last_reviewed: "2026-11-14"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library

@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from core.models.enums import Domain
+from core.models.enums import Domain, EntityType
 from core.models.graph_context import (
     ContextRelevance,
     DomainContext,
@@ -22,46 +22,33 @@ from core.models.graph_context import (
     GraphRelationship,
     RelationshipStrength,
 )
+from core.models.type_hints import Neo4jValue
+from core.utils.logging import get_logger
 from core.utils.type_converters import get_enum_value
 
+logger = get_logger(__name__)
 
-def determine_domain(node_dict: dict[str, Any], labels: list[str]) -> Domain:
+
+def determine_domain(stored_entity_type: Neo4jValue, uid: str) -> Domain:
+    """The kind of entity a graph node is, from its stored ``entity_type``.
+
+    ``EntityType.kind_domain`` names it; a node that stores no ``entity_type`` (a
+    ``User``) is system. Labels are not read — their order is arbitrary — and neither
+    is the node's ``domain`` property, which holds what the entity is about (a
+    subject area, or the model's default), not what it is.
     """
-    Determine domain from node properties or labels.
-
-    Args:
-        node_dict: Node properties dictionary
-        labels: Node labels list
-
-    Returns:
-        Domain enum value
-    """
-    # Check if domain is in properties
-    if "domain" in node_dict:
-        domain_val = node_dict["domain"]
+    if stored_entity_type is None:
+        return Domain.SYSTEM
+    if isinstance(stored_entity_type, str):
         try:
-            return Domain(domain_val) if isinstance(domain_val, str) else domain_val
+            return EntityType(stored_entity_type).kind_domain()
         except ValueError:
             pass
-
-    # Infer from labels
-    label_to_domain = {
-        "Task": Domain.TASKS,
-        "Habit": Domain.HABITS,
-        "Goal": Domain.GOALS,
-        "Event": Domain.EVENTS,
-        "Entity": Domain.KNOWLEDGE,
-        "Finance": Domain.FINANCE,
-        "Choice": Domain.CHOICES,
-        "Principle": Domain.PRINCIPLES,
-        "Journal": Domain.JOURNALS,
-    }
-
-    for label in labels:
-        if label in label_to_domain:
-            return label_to_domain[label]
-
-    return Domain.KNOWLEDGE
+    logger.warning(
+        f"Graph node {uid} stores entity_type {stored_entity_type!r}, "
+        "which is no EntityType; read as system"
+    )
+    return Domain.SYSTEM
 
 
 def _is_stronger_path(candidate: dict[str, Any], incumbent: dict[str, Any]) -> bool:
@@ -81,7 +68,7 @@ def _is_stronger_path(candidate: dict[str, Any], incumbent: dict[str, Any]) -> b
 def build_graph_context_from_domain_context(
     domain_context: list[dict[str, Any]],
     node_uid: str,
-    domain: Any,
+    domain: Domain,
     intent: Any,
     depth: int,
 ) -> GraphContext:
@@ -132,7 +119,7 @@ def build_graph_context_from_domain_context(
         # Full node properties live under "properties"; fall back to title-only for an
         # entry from a producer that predates the properties column.
         properties = entry.get("properties") or {"title": entry.get("title")}
-        node_domain = determine_domain(properties, labels)
+        node_domain = determine_domain(properties.get("entity_type"), uid)
         incident_rel = entry.get("incident_rel_type")
 
         all_nodes.append(
@@ -166,14 +153,14 @@ def build_graph_context_from_domain_context(
             )
 
     # Group nodes by domain
-    domain_contexts_dict: dict[Any, dict[str, list[Any]]] = {}
+    domain_contexts_dict: dict[Domain, dict[str, list[Any]]] = {}
     for node in all_nodes:
         if node.domain not in domain_contexts_dict:
             domain_contexts_dict[node.domain] = {"nodes": [], "relationships": []}
         domain_contexts_dict[node.domain]["nodes"].append(node)
 
     # Build DomainContext objects
-    domain_contexts: dict[Any, DomainContext] = {}
+    domain_contexts: dict[Domain, DomainContext] = {}
     for dom, data in domain_contexts_dict.items():
         domain_rels = [
             r

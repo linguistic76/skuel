@@ -31,6 +31,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
+    from core.models.query_types import QueryIntent
     from core.ports.cross_domain_protocols import CrossDomainBackendOperations
 
 logger = get_logger(__name__)
@@ -438,9 +439,9 @@ class GraphIntelligenceService:
     @with_error_handling(error_type="database", uid_param="node_uid")
     async def query_with_intent(
         self,
-        domain: Any,  # Domain enum
+        domain: Domain,
         node_uid: str,
-        intent: Any,  # QueryIntent enum
+        intent: QueryIntent,
         depth: int = 2,
         relationship_types: list[str] | None = None,
     ) -> Result[GraphContext]:
@@ -558,18 +559,16 @@ class GraphIntelligenceService:
         from core.models.query_types import QueryIntent
         from core.services.infrastructure.graph_record_transformer import determine_domain
 
-        # First, determine domain of entity by fetching it
-        result = await self.backend.get_entity_labels(uid=entity_uid)
+        # The origin's domain is its kind, read from its stored entity_type.
+        result = await self.backend.get_entity_type(uid=entity_uid)
         if result.is_error:
             return Result.fail(result)
 
-        records = result.value or []
-
-        if not records:
+        rows = result.value or []
+        if not rows:
             return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
 
-        node_labels = records[0]["labels"]
-        domain = determine_domain(records[0]["n"], node_labels)
+        domain = determine_domain(rows[0]["entity_type"], entity_uid)
 
         return await self.query_with_intent(
             domain=domain,
