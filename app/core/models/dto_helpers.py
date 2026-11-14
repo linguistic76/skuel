@@ -128,9 +128,7 @@ def read_enum_value[E: Enum](raw: str, enum_class: type[E], *, may_be_absent: bo
       ``EntityStatus``'s ``pending``);
     - the member's value, as stored;
     - the member's name (``BEGINNER``);
-    - the member's value in another casing — vault-authored content once
-      persisted uppercase values, and a strict read made every such entity
-      unconvertible (curriculum exercises vanished from search sweeps);
+    - the member's value in any casing (``Beginner``, ``SELF_AWARENESS``);
     - ``none`` in any casing, the authored absence marker (``sel_category`` on a
       NOUS anchor Ku), read as ``None`` when ``may_be_absent`` — only for an enum
       with no member it names (``Pipeline.NONE`` parses above).

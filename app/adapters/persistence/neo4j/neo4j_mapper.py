@@ -413,7 +413,8 @@ class Neo4jGenericMapper:
         kwargs: dict[str, Any] = {}  # boundary: one value per field, each its own type
         for spec in _field_specs(entity_class):
             name = spec.field.name
-            if name not in data:
+            # Neo4j stores no null: a null field reads as an absent one does.
+            if name not in data or _null_takes_the_default(data, spec):
                 if spec.field.default is not MISSING:
                     kwargs[name] = spec.field.default
                 elif spec.field.default_factory is not MISSING:
@@ -663,7 +664,11 @@ def _read_field(
     name = spec.field.name
     value = data[name]
     if value is None:
-        return None
+        if spec.optional:
+            return None
+        raise UnreadableStoredValueError(
+            entity_class, data.get("uid"), name, value, "is null, and the field requires a value"
+        )
     try:
         converted = Neo4jGenericMapper._convert_value(value, spec.target_type, name)
     except (UnreadableStoredValueError, *DATA_CONVERSION_EXCEPTIONS) as error:
@@ -679,6 +684,15 @@ def _read_field(
             "reads as absent, and the field requires a value",
         )
     return converted
+
+
+def _null_takes_the_default(data: Mapping[str, Any], spec: _FieldSpec) -> bool:
+    """A null on a field that cannot hold one but has a default: read as the key's absence."""
+    return (
+        data[spec.field.name] is None
+        and not spec.optional
+        and (spec.field.default is not MISSING or spec.field.default_factory is not MISSING)
+    )
 
 
 def _not_a(value: object, expected: str, holder: str = "it holds") -> str:
@@ -734,7 +748,7 @@ def unreadable_fields(
     """
     refusals = []
     for spec in _field_specs(entity_class):
-        if spec.field.name in data:
+        if spec.field.name in data and not _null_takes_the_default(data, spec):
             try:
                 _read_field(data, entity_class, spec)
             except UnreadableStoredValueError as refusal:

@@ -226,3 +226,45 @@ def test_the_refusal_is_not_taken_for_bad_input() -> None:
     from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 
     assert not issubclass(UnreadableStoredValueError, DATA_CONVERSION_EXCEPTIONS)
+
+
+@dataclass(frozen=True)
+class _Required:
+    uid: str
+    status: EntityStatus
+    tags: tuple[str, ...] = ()
+    note: str | None = "kept"
+
+
+class TestANullReadsAsAnAbsentKey:
+    """Neo4j stores no null, so a null — a map projection's, or a JSON blob's — reads as
+    the key's absence: the field's default, ``None`` where the field allows it, and a
+    refusal where the field has neither."""
+
+    def test_a_null_on_a_field_with_a_default_reads_as_the_default(self) -> None:
+        read = from_neo4j_node({"uid": "x", "status": "active", "tags": None}, _Required)
+
+        assert read.tags == ()
+
+    def test_a_null_on_an_optional_field_reads_as_none(self) -> None:
+        assert (
+            from_neo4j_node({"uid": "x", "status": "active", "note": None}, _Required).note is None
+        )
+
+    def test_a_null_on_a_required_field_with_no_default_refuses_the_read(self) -> None:
+        refusal = _refusal({"uid": "x", "status": None}, _Required)
+
+        assert (refusal.field, refusal.value) == ("status", None)
+        assert [r.field for r in unreadable_fields({"uid": "x", "status": None}, _Required)] == [
+            "status"
+        ]
+
+    def test_a_null_inside_a_preferences_blob_reads_as_its_default(self) -> None:
+        from core.models.enums import TimeOfDay
+        from core.models.user.user import User
+
+        blob = '{"preferred_time_of_day": null, "available_minutes_daily": 90}'
+        user = from_neo4j_node({"uid": "user_x", "title": "x", "preferences": blob}, User)
+
+        assert user.preferences.preferred_time_of_day is TimeOfDay.ANYTIME
+        assert user.preferences.available_minutes_daily == 90
