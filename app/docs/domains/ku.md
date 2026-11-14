@@ -105,7 +105,7 @@ Ku extends Entity directly (not Curriculum). Read the field set off `dataclasses
 |-------|------|-------------|
 | `aliases` | `tuple[str, ...]` | Alternative names for search/cross-referencing |
 | `sel_category` | `SELCategory?` | SEL competency: self_awareness, self_management, social_awareness, relationship_skills, responsible_decision_making |
-| `complexity` | `KuComplexity?` | basic / medium / advanced as the file authored it; `None` when it authored none (no stand-in level — PathStep's `Curriculum` field defaults to MEDIUM) |
+| `complexity` | `KuComplexity?` | basic / medium / advanced as the file authored it; `None` when it authored none (no stand-in level — PathStep, LearningPath and Exercise read the same way) |
 | `nous` | `tuple[str, ...]` | NOUS topic membership (stories, body, self-awareness, ...) — the category vocabulary; `nous` IS the category |
 | `nous_subtopic` | `tuple[str, ...]` | Sub-topic within a NOUS topic (flat; feeds the `/search` sub-topic dropdown via `nous_subtopic_pairs`) |
 | `publication_state` | `PublicationState` | Authored in frontmatter; `PUBLISHED` when absent. A `draft` is withheld from learner-facing reads (`build_publication_clause`) |

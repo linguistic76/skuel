@@ -63,7 +63,7 @@ class TestCurriculumKuCreation:
     def test_learning_field_defaults(self):
         """Learning metadata fields have correct defaults."""
         cu = Curriculum(uid="ku_test", title="Test")
-        assert cu.complexity == KuComplexity.MEDIUM
+        assert cu.complexity is None
         assert cu.learning_level == LearningLevel.BEGINNER
         assert cu.sel_category is None
         assert cu.quality_score == 0.0
@@ -191,6 +191,25 @@ class TestCurriculumKuLearningMethods:
         assert basic.complexity_score() == 1
         assert medium.complexity_score() == 2
         assert advanced.complexity_score() == 3
+
+    def test_unauthored_complexity_is_neither_level_nor_scored(self):
+        """Curriculum that authored no complexity reads as no level, never a stand-in."""
+        cu = Curriculum(uid="ku_n", title="N", domain=Domain.TECH)
+        assert cu.complexity is None
+        assert cu.complexity_score() is None
+        assert cu.is_advanced() is False
+        assert cu.is_basic() is False
+        assert cu.requires_prerequisites() is False
+
+    def test_unauthored_complexity_survives_the_dto_round_trip(self):
+        """A DTO with no complexity builds a model with none, and back."""
+        dto = PathStepDTO(uid="ps.test.n", title="N", entity_type=EntityType.PATH_STEP)
+        assert dto.complexity is None
+        step = Entity.from_dto(dto)
+        assert isinstance(step, PathStep)
+        assert step.complexity is None
+        assert step.to_dto().complexity is None
+        assert PathStepDTO.from_dict({"uid": "ps.test.n", "title": "N"}).complexity is None
 
     def test_requires_prerequisites(self):
         """Advanced TECH knowledge requires prerequisites."""

@@ -19,7 +19,7 @@ not because they are structurally equivalent.
 
 Adds ~24 fields to Entity:
 - Confidence (1): admin-assessed certainty about content quality/accuracy
-- Learning metadata (11): complexity, learning_level, sel_category,
+- Learning metadata (11): complexity (None when not authored), learning_level, sel_category,
   publication_state, quality_score, estimated_time_minutes, difficulty_rating,
   semantic_links, target_age_range, learning_objectives,
   structured_learning_objectives
@@ -108,9 +108,10 @@ class Curriculum(Entity):
     confidence: str | None = None  # Confidence enum value (UNCERTAIN/LOW/MEDIUM/HIGH/CERTAIN)
 
     # =========================================================================
-    # LEARNING METADATA (7 existing + 2 new = 9)
+    # LEARNING METADATA (11)
     # =========================================================================
-    complexity: KuComplexity = KuComplexity.MEDIUM
+    # As the file authored it; None when it authored none — never a stand-in level.
+    complexity: KuComplexity | None = None
     learning_level: LearningLevel = LearningLevel.BEGINNER
     sel_category: SELCategory | None = None
     # Authoring gate, NOT lifecycle — see PublicationState. Defaults to
@@ -199,10 +200,12 @@ class Curriculum(Entity):
     def is_terminal(self) -> bool:
         return self.is_advanced()
 
-    def complexity_score(self) -> int:
-        """1 for basic, 2 for medium, 3 for advanced."""
+    def complexity_score(self) -> int | None:
+        """1 for basic, 2 for medium, 3 for advanced; None when no complexity was authored."""
+        if self.complexity is None:
+            return None
         mapping = {KuComplexity.BASIC: 1, KuComplexity.MEDIUM: 2, KuComplexity.ADVANCED: 3}
-        return mapping.get(self.complexity, 2)
+        return mapping[self.complexity]
 
     # =========================================================================
     # SEL FRAMEWORK INTEGRATION
