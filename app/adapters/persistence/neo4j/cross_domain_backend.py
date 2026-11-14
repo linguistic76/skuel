@@ -36,6 +36,7 @@ from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
 from core.ports.query_types import (
     AccountMonthRow,
+    EntityTypeRow,
     HabitAnalyticsRow,
     JournalEntryRow,
     LearningVelocityRow,
@@ -230,6 +231,19 @@ def _to_prerequisite_graph_rows(
         {
             "uid": str(row["uid"]),
             "prerequisites": [str(uid) for uid in row["prerequisites"]],
+        }
+        for row in records
+    ]
+
+
+def _to_entity_type_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[EntityTypeRow]:
+    """Project raw rows onto EntityTypeRow (KeyError on alias drift)."""
+    return [
+        {
+            "uid": str(row["uid"]),
+            "entity_type": None if row["entity_type"] is None else str(row["entity_type"]),
         }
         for row in records
     ]
@@ -1047,14 +1061,16 @@ class CrossDomainBackend:
         )
         return await self.executor.execute_query(query, params)
 
-    async def get_entity_labels(self, uid: str) -> Result[list[dict[str, Any]]]:
-        """Get an entity node and its labels for domain determination."""
-        return await self.executor.execute_query(
-            """
+    async def get_entity_type(self, uid: str) -> Result[list[EntityTypeRow]]:
+        """Read an entity's stored ``entity_type`` and uid — no row when no entity has the uid."""
+        return await self.executor.execute(
+            query="""
             MATCH (n:Entity {uid: $uid})
-            RETURN n, labels(n) as labels
+            RETURN n.uid AS uid, n.entity_type AS entity_type
             """,
-            {"uid": uid},
+            params={"uid": uid},
+            processor=_to_entity_type_rows,
+            operation="get_entity_type",
         )
 
     async def get_sel_categories(self, uids: list[str]) -> Result[list[SelCategoryRow]]:

@@ -120,6 +120,11 @@ Methods: `get_nodes_by_domain(domain)`, `get_published_knowledge_nodes()`,
 `get_relationships_by_type(rel_type)`, `get_strongest_relationships(limit=10)`,
 `get_connected_domains()`, `has_cross_domain_connections()` and `get_summary()`.
 
+A node's `domain` (and so `domain_contexts`, `domains_involved` and `get_summary()`'s
+`domains`) is its kind: `EntityType.kind_domain()` over the stored `entity_type`, `system` for a
+node with none (the owner's `User`). Labels are not read, nor the stored `domain` property — that
+is what the entity is about and stays in `node.properties["domain"]`.
+
 `get_published_knowledge_nodes()` decides kind by the stored `entity_type` and withholds a node
 whose `publication_state` is `draft`. The traversal returns the origin's owner's own entities
 alongside shared content (never another user's — the producer ties every node to the origin's

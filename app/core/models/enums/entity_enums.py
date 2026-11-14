@@ -204,6 +204,16 @@ class EntityType(StrEnum):
         """Return the content origin tier (A-D) for this EntityType."""
         return _CONTENT_ORIGIN_BY_TYPE[self]
 
+    def kind_domain(self) -> Domain:
+        """The system ``Domain`` naming what kind of entity this is.
+
+        Ku is knowledge; the rest of the curriculum is learning; each activity is
+        its own domain; a user entry and both reports are reports; everything
+        else is system. Never a subject area — what an entity is ABOUT is its
+        ``domain`` field, a different question.
+        """
+        return _KIND_DOMAIN_BY_TYPE[self]
+
     # -------------------------------------------------------------------------
     # Ownership
     # -------------------------------------------------------------------------
@@ -1136,6 +1146,41 @@ _SUBJECT_AREA_DOMAINS: frozenset[Domain] = frozenset(
         Domain.CROSS_DOMAIN,
     }
 )
+
+
+# What kind of entity each EntityType is, as a system ``Domain`` — read by
+# ``EntityType.kind_domain``.
+_KIND_DOMAIN_BY_TYPE: dict[EntityType, Domain] = {
+    # Curriculum
+    EntityType.KU: Domain.KNOWLEDGE,
+    EntityType.PATH_STEP: Domain.LEARNING,
+    EntityType.LEARNING_PATH: Domain.LEARNING,
+    EntityType.EXERCISE: Domain.LEARNING,
+    EntityType.REVISED_EXERCISE: Domain.LEARNING,
+    # Activities
+    EntityType.TASK: Domain.TASKS,
+    EntityType.GOAL: Domain.GOALS,
+    EntityType.HABIT: Domain.HABITS,
+    EntityType.EVENT: Domain.EVENTS,
+    EntityType.CHOICE: Domain.CHOICES,
+    EntityType.PRINCIPLE: Domain.PRINCIPLES,
+    # A learner's entries and the reports on them
+    EntityType.USER_ENTRY: Domain.REPORTS,
+    EntityType.ENTRY_REPORT: Domain.REPORTS,
+    EntityType.ACTIVITY_REPORT: Domain.REPORTS,
+    # Templates, forms, audit records, the destination, curated resources
+    EntityType.TASK_TEMPLATE: Domain.SYSTEM,
+    EntityType.GOAL_TEMPLATE: Domain.SYSTEM,
+    EntityType.HABIT_TEMPLATE: Domain.SYSTEM,
+    EntityType.EVENT_TEMPLATE: Domain.SYSTEM,
+    EntityType.CHOICE_TEMPLATE: Domain.SYSTEM,
+    EntityType.PRINCIPLE_TEMPLATE: Domain.SYSTEM,
+    EntityType.FORM_TEMPLATE: Domain.SYSTEM,
+    EntityType.FORM_SUBMISSION: Domain.SYSTEM,
+    EntityType.INTERACTION: Domain.SYSTEM,
+    EntityType.LIFE_PATH: Domain.SYSTEM,
+    EntityType.RESOURCE: Domain.SYSTEM,
+}
 
 
 class NonKuDomain(StrEnum):

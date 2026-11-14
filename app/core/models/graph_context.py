@@ -57,7 +57,7 @@ class GraphNode:
 
     uid: str
     labels: list[str]
-    domain: Domain
+    domain: Domain  # its kind: EntityType.kind_domain(), never the stored subject area
     properties: dict[str, Any]
 
     # Context metadata

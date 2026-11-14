@@ -3937,6 +3937,14 @@ class UsedKuRow(TypedDict):
     title: str | None
 
 
+class EntityTypeRow(TypedDict):
+    """Return shape for get_entity_type() — an entity's uid and its stored
+    ``entity_type`` (``None`` when the node stores none)."""
+
+    uid: str
+    entity_type: str | None
+
+
 class SelCategoryRow(TypedDict):
     """Return shape for get_sel_categories() — an entity uid paired with its
     non-null ``sel_category`` field (the query filters null categories at the
