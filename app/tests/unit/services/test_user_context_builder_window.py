@@ -108,18 +108,3 @@ async def test_a_bangkok_users_window_is_bangkok_days_whoever_asks() -> None:
     _, kwargs = executor.execute_mega_query.call_args
     # 2026-09-01 00:00 in Bangkok is 2026-08-31 17:00Z.
     assert kwargs["window_start"] == datetime(2026, 8, 31, 17, 0)
-
-
-@pytest.mark.asyncio
-async def test_an_unparsed_preferences_blob_follows_the_default_zone() -> None:
-    """The mapper's fail-soft hands the raw blob string through; the build neither
-    fails nor guesses — the user follows the app default."""
-    executor = _executor()
-    builder = UserContextBuilder(executor)
-    garbled = dataclasses.replace(_user(), preferences="{not json")  # type: ignore[arg-type]
-
-    result = await builder.build_rich_user_context("user_window", garbled, window="2026-09")
-
-    assert result.is_ok, result.error
-    _, kwargs = executor.execute_mega_query.call_args
-    assert kwargs["window_start"] == laptop_wall(2026, 9, 1)

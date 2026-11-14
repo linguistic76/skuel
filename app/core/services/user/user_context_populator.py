@@ -16,13 +16,8 @@ Architecture:
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import (
-    LearningLevel,
-    TimeOfDay,
-)
 from core.models.enums.goal_enums import GoalType
 from core.models.enums.principle_enums import PrincipleStrength
 from core.models.habit.adherence import (
@@ -540,9 +535,6 @@ class UserContextPopulator:
         node-property reads (``available_minutes``, ``energy_level``, ...)
         that matched no writer and left every context at defaults (July 2026).
 
-        Fail-soft: on mapper fallback (malformed blob arrives as the raw
-        string) or unknown enum values, the context keeps its defaults.
-
         NOT populated from preferences (context defaults stand):
         - ``current_energy_level`` — the blob carries ``energy_pattern`` (a
           time-of-day → expected-energy map), not a current-state scalar, and
@@ -557,20 +549,8 @@ class UserContextPopulator:
             context: UserContext to populate
             preferences: Parsed ``User.preferences`` (authoritative source)
         """
-        if not isinstance(preferences, UserPreferences):
-            # Mapper fail-soft: a malformed blob comes through as the raw string.
-            logger.warning(
-                "User preferences blob unparsed (%s) — context keeps preference defaults",
-                type(preferences).__name__,
-            )
-            return
-
-        context.learning_level = self._coerce_enum(
-            preferences.learning_level, LearningLevel, context.learning_level
-        )
-        context.preferred_time = self._coerce_enum(
-            preferences.preferred_time_of_day, TimeOfDay, context.preferred_time
-        )
+        context.learning_level = preferences.learning_level
+        context.preferred_time = preferences.preferred_time_of_day
 
         try:
             context.available_minutes_daily = int(preferences.available_minutes_daily)
@@ -578,22 +558,6 @@ class UserContextPopulator:
             logger.debug(
                 f"Invalid available_minutes_daily value: {preferences.available_minutes_daily!r}"
             )
-
-    @staticmethod
-    def _coerce_enum[E: Enum](value: object, enum_type: type[E], default: E) -> E:
-        """Coerce a preference value to its enum, keeping ``default`` on failure.
-
-        ``from_neo4j_node`` falls back to the RAW value when a field fails
-        conversion, so an individual bad value inside an otherwise-valid blob
-        can arrive as a plain string.
-        """
-        if isinstance(value, enum_type):
-            return value
-        try:
-            return enum_type(value)
-        except ValueError:
-            logger.debug(f"Unknown {enum_type.__name__} value: {value!r}")
-            return default
 
     def populate_life_path(self, context: UserContext, life_path_data: dict[str, Any]) -> None:
         """

@@ -316,7 +316,7 @@ skills:
 
   - name: prometheus-grafana
     description: Prometheus metrics and Grafana dashboards in SKUEL
-    last_reviewed: "2026-10-15"
+    last_reviewed: "2026-11-14"
     foundation: []
     dependencies: []
     library_package: prometheus-client

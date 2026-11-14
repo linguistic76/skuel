@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
+    from adapters.persistence.neo4j.stored_value_census_backend import (
+        StoredValueCensusBackend,
+    )
     from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.config.intelligence_tier import IntelligenceTier
@@ -322,6 +325,8 @@ class Services:
 
     # The uid grammar's live read — the graph-health poller's census (bootstrap).
     uid_census_backend: UidCensusBackend | None = None
+    # Every stored value read as its field's type — the poller's second census.
+    stored_value_census_backend: StoredValueCensusBackend | None = None
 
     # Embedding + vector search services (ADR-068)
     embeddings_service: EmbeddingsService | None = None

@@ -19,7 +19,9 @@ from collections.abc import Callable
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+import pytest
+
+from adapters.persistence.neo4j.neo4j_mapper import UnreadableStoredValueError, from_neo4j_node
 from adapters.persistence.neo4j.user_context_queries import empty_context_data
 from core.models.enums import LearningLevel, TimeOfDay
 from core.models.user.user import User, UserPreferences
@@ -66,52 +68,16 @@ class TestPopulateUserPreferences:
         assert context.preferred_time == TimeOfDay.ANYTIME
         assert context.learning_level == LearningLevel.INTERMEDIATE
 
-    def test_unparsed_blob_keeps_context_defaults(self) -> None:
-        """Mapper fail-soft hands the RAW string through — populator must not blow up."""
+    def test_unreadable_minutes_keep_the_default(self) -> None:
+        """The mapper reads no primitive's type, so a minutes value that is not a
+        number keeps the context's default."""
         context = _context()
 
         UserContextPopulator().populate_user_preferences(
-            context,
-            "{not valid json",  # type: ignore[arg-type]  # simulating mapper fallback
+            context, _preferences(available_minutes_daily="not-a-number")
         )
 
         assert context.available_minutes_daily == 60
-        assert context.preferred_time == TimeOfDay.ANYTIME
-
-    def test_bad_field_values_keep_field_defaults(self) -> None:
-        """A single unconvertible field (mapper raw-value fallback) fails soft;
-        the valid fields still land."""
-        context = _context()
-        prefs = _preferences(
-            learning_level="bogus-level",
-            preferred_time_of_day="morning",  # raw string form — still coercible
-            available_minutes_daily="not-a-number",
-        )
-
-        UserContextPopulator().populate_user_preferences(context, prefs)
-
-        assert context.learning_level == LearningLevel.INTERMEDIATE  # default kept
-        assert context.preferred_time == TimeOfDay.MORNING  # string coerced
-        assert context.available_minutes_daily == 60  # default kept
-
-    def test_untouched_interaction_preferences_keep_defaults(self) -> None:
-        """personality/tone/guidance/energy have no writer anywhere — defaults stand."""
-        context = _context()
-        before = (
-            context.preferred_personality,
-            context.preferred_tone,
-            context.preferred_guidance,
-            context.current_energy_level,
-        )
-
-        UserContextPopulator().populate_user_preferences(context, _preferences())
-
-        assert (
-            context.preferred_personality,
-            context.preferred_tone,
-            context.preferred_guidance,
-            context.current_energy_level,
-        ) == before
 
 
 class TestBlobRoundTrip:
@@ -142,14 +108,20 @@ class TestBlobRoundTrip:
         assert context.available_minutes_daily == 300
         assert context.preferred_time == TimeOfDay.EVENING
 
-    def test_malformed_blob_defaults(self) -> None:
-        user = from_neo4j_node(self._node("{definitely not json"), User)
-        context = _context()
+    def test_a_malformed_blob_refuses_the_read(self) -> None:
+        with pytest.raises(UnreadableStoredValueError) as refused:
+            from_neo4j_node(self._node("{definitely not json"), User)
 
-        UserContextPopulator().populate_user_preferences(context, user.preferences)
+        assert (refused.value.entity_class, refused.value.field) == ("User", "preferences")
 
-        assert context.available_minutes_daily == 60
-        assert context.preferred_time == TimeOfDay.ANYTIME
+    def test_a_value_outside_a_preference_vocabulary_refuses_the_read(self) -> None:
+        blob = json.dumps({"learning_level": "bogus-level", "preferred_time_of_day": "morning"})
+
+        with pytest.raises(UnreadableStoredValueError) as refused:
+            from_neo4j_node(self._node(blob), User)
+
+        assert refused.value.field == "preferences"
+        assert "learning_level" in refused.value.reason
 
 
 class TestBuilderWiresPreferences:

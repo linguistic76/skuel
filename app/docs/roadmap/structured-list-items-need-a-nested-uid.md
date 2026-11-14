@@ -1,6 +1,6 @@
 ---
 title: "Structured-List Items Silently Corrupt Without a Nested `uid:`"
-updated: 2026-09-06
+updated: 2026-11-14
 status: "registered"
 registered: 2026-09-06
 trigger: "the next touch of Goal/Choice authoring, or the first vault-authored milestone or option that comes back wrong"
@@ -26,14 +26,14 @@ milestones: [{"uid": "ms.1", "title": "M1", "target_value": 1.0}]
 # → (Milestone(uid='ms.1', title='M1', …),)
 ```
 
-Authored **without** it, the read does not fail. `Neo4jGenericMapper.from_node` logs a
-`Failed to convert field` warning and falls back to assigning the raw value, so the frozen
-dataclass ends up holding the JSON **string** where a `tuple[Milestone, ...]` is declared —
-and for a template, `_copy_through` copies that string onto the spawned instance. The write
-reported success; nothing downstream is told.
+Authored **without** it, the write reports success and every later read of the node
+fails: `from_neo4j_node` cannot build a `Milestone` without its `uid` and raises
+`UnreadableStoredValueError` for the goal's `milestones` field, so the goal (or template)
+disappears behind an error until the file is fixed and re-synced. `./dev stored-value-census`
+and the graph-health poller name it; the author is told nothing at sync time.
 
 This is the same shape as the offset gate PR-1 shipped in the same arc: a structured value
-that persists happily and rebuilds as something wrong. It is **not** template-specific — Goal
+that persists happily and then cannot be read. It is **not** template-specific — Goal
 and Choice are both vault-ingestible today and have carried this since they were, so the fix
 belongs at the shared ingest gate, not on the six template configs.
 

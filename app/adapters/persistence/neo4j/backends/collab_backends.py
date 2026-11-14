@@ -12,6 +12,7 @@ from core.models.enums.pipeline import Pipeline
 from core.models.group.group import Group, default_group_uid
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -58,6 +59,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             return Result.fail(result)
         return Result.ok(True)
 
+    @safe_backend_operation("get_user_groups")
     async def get_user_groups(
         self, user_uid: UserUID, role: str | None = None, *, include_owned: bool = False
     ) -> Result[list[Group]]:

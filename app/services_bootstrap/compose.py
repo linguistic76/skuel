@@ -1667,6 +1667,7 @@ async def compose_services(
             query_executor=query_executor,
             connection_fetch_backend=connection_fetch_backend,  # Activity UI connections
             uid_census_backend=backends["uid_census_backend"],  # graph-health poller
+            stored_value_census_backend=backends["stored_value_census_backend"],  # same poller
             insight_store=insight_store,  # Event-driven insights
             # GenAI services (Neo4j native - January 2026)
             embeddings_service=embeddings_service,

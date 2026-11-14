@@ -184,13 +184,13 @@ CREATE (s_alone:Entity:PathStep {uid: $step_standalone_draft, entity_type: 'path
 // property the query returns nothing and its gate cannot be measured at all.
 CREATE (ku_draft_only:Entity:Ku {uid: $ku_via_draft_only, entity_type: 'ku',
                                  title: 'Reachable only via a draft step',
-                                 domain: 'probe', created_at: '2026-01-01',
+                                 domain: 'research', created_at: '2026-01-01',
                                  aliases: ['gate probe draft-only']})
 CREATE (ku_shared:Entity:Ku {uid: $ku_shared, entity_type: 'ku', title: 'Shared KU',
-                             domain: 'probe', created_at: '2026-01-01',
+                             domain: 'research', created_at: '2026-01-01',
                              aliases: ['gate probe shared']})
 CREATE (ku_d:Entity:Ku {uid: $ku_draft, entity_type: 'ku', title: 'Draft KU',
-                        domain: 'probe', created_at: '2026-01-01',
+                        domain: 'research', created_at: '2026-01-01',
                         publication_state: 'draft',
                         aliases: ['gate probe draft']})
 
@@ -217,10 +217,10 @@ CREATE (s_pub)-[:CONTAINS_KNOWLEDGE]->(ku_shared)
 CREATE (s_draft)-[:CONTAINS_KNOWLEDGE]->(ku_draft_only)
 
 CREATE (ku_bridge:Entity:Ku {uid: $ku_bridge, entity_type: 'ku', title: 'Bridge concept',
-                             domain: 'probe', created_at: '2026-01-01',
+                             domain: 'research', created_at: '2026-01-01',
                              aliases: ['gate probe bridge']})
 CREATE (ku_far:Entity:Ku {uid: $ku_far_draft, entity_type: 'ku', title: 'Far draft KU',
-                          domain: 'probe-far', created_at: '2026-01-01',
+                          domain: 'creative', created_at: '2026-01-01',
                           publication_state: 'draft', aliases: ['gate probe far']})
 CREATE (ku_shared)-[:RELATED_TO {confidence: 0.9}]->(ku_bridge)
 CREATE (ku_far)-[:RELATED_TO {confidence: 0.9}]->(ku_bridge)

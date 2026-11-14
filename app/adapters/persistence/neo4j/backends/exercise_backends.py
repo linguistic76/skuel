@@ -32,6 +32,7 @@ from core.ports.query_types import (
     RequiredKnowledgeResult,
     RevisionChainResult,
 )
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Errors, Result
 
 
@@ -409,6 +410,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
     - get_revision_chain         — Query all revisions of an original exercise
     """
 
+    @safe_backend_operation("list_for_student")
     async def list_for_student(
         self, student_uid: str, teacher_uid: str | None = None
     ) -> Result[list[RevisedExercise]]:
@@ -438,6 +440,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
 
         return self._to_revised_exercises(await self.execute_query(query, params))
 
+    @safe_backend_operation("get_by_report_uid")
     async def get_by_report_uid(self, report_uid: str) -> Result[RevisedExercise | None]:
         """Look up the RevisedExercise responding to a report, if any."""
         query = """

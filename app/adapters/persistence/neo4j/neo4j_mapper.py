@@ -16,8 +16,10 @@ Key Features:
 
 import inspect
 import json
+import sys
 import types
-from dataclasses import MISSING, fields, is_dataclass
+from collections.abc import Mapping
+from dataclasses import MISSING, Field, dataclass, fields, is_dataclass
 from datetime import date, datetime, time
 from enum import Enum
 from typing import Any, TypeVar, Union, get_args, get_origin, get_type_hints
@@ -33,10 +35,42 @@ from core.utils.neo4j_temporal import (
     is_neo4j_datetime,
     is_neo4j_time,
 )
+from core.utils.type_converters import read_enum_value
 
 T = TypeVar("T")
 
 logger = get_logger(__name__)
+
+
+class UnreadableStoredValueError(Exception):
+    """A stored property its field's declared type cannot read.
+
+    ``from_neo4j_node`` raises it rather than build a model that holds a value of
+    another type: a read meeting one fails, and no reader is handed the raw value,
+    a default, or ``None`` for a field that requires a value. It is not a
+    ``ValueError``, so neither a caller's ``DATA_CONVERSION_EXCEPTIONS`` catch nor
+    ``with_error_handling``'s validation category takes it for bad input; a backend
+    read answers it as a failed ``Result``. The stored-value census
+    (``./dev stored-value-census``) names every one the graph holds.
+    """
+
+    def __init__(
+        self,
+        entity_class: type,
+        uid: object,
+        field: str,
+        value: object,
+        reason: str,
+    ) -> None:
+        self.entity_class = entity_class.__name__
+        self.uid = uid
+        self.field = field
+        self.value = value
+        self.reason = reason
+        super().__init__(
+            f"{self.entity_class} {uid!r}: stored {field}={value!r:.80} is unreadable ({reason})"
+        )
+
 
 # ============================================================================
 # GRAPH-NATIVE MIGRATION - SKIP RELATIONSHIP FIELDS
@@ -352,15 +386,19 @@ class Neo4jGenericMapper:
         return node_data
 
     @staticmethod
-    def from_node(data: dict[str, Any], entity_class: type[T]) -> T:
+    def from_node(data: Mapping[str, Any], entity_class: type[T]) -> T:  # boundary: node properties
         """
         Convert Neo4j node data to domain entity.
 
         Uses type hints to automatically reconstruct:
-        - Enum instances from string values
-        - Date/datetime from ISO strings
-        - Lists/sets from JSON strings
+        - Enum instances from string values (``read_enum_value``)
+        - Date/datetime/time from ISO strings or the driver's temporals
+        - Lists/tuples/sets/dicts from JSON strings
         - Nested dataclasses
+
+        Every field holds a value of its declared type, or the read fails: a stored
+        value the type cannot read raises ``UnreadableStoredValueError``, never a model
+        holding the raw value, a default, or ``None`` for a field that requires one.
 
         Args:
             data: Neo4j node properties
@@ -368,74 +406,21 @@ class Neo4jGenericMapper:
 
         Returns:
             Instance of entity_class with data populated
+
+        Raises:
+            UnreadableStoredValueError: a stored value its field's type cannot read.
         """
-        if not is_dataclass(entity_class):
-            raise ValueError(f"Entity class must be a dataclass, got {entity_class}")
-
-        # Get type hints for the class using the module namespace so that
-        # forward references from `from __future__ import annotations` resolve
-        # correctly (locals() here doesn't contain the class's own imports).
-        import sys as _sys
-
-        try:
-            module = _sys.modules.get(entity_class.__module__)
-            globalns = getattr(module, "__dict__", {}) if module else {}
-            type_hints = get_type_hints(entity_class, globalns=globalns, localns={})
-        except (NameError, AttributeError):  # fmt: skip
-            # Fall back to field.type strings if resolution still fails
-            type_hints = {}
-        kwargs = {}
-
-        for field in fields(entity_class):
-            field_name = field.name
-            field_type = type_hints.get(field_name, field.type)
-            value = data.get(field_name)
-
-            # Skip if not in data
-            if field_name not in data:
-                # Use field default if available
-                if field.default is not MISSING:
-                    kwargs[field_name] = field.default
-                elif field.default_factory is not MISSING:
-                    kwargs[field_name] = field.default_factory()
+        kwargs: dict[str, Any] = {}  # boundary: one value per field, each its own type
+        for spec in _field_specs(entity_class):
+            name = spec.field.name
+            # Neo4j stores no null: a null field reads as an absent one does.
+            if name not in data or _null_takes_the_default(data, spec):
+                if spec.field.default is not MISSING:
+                    kwargs[name] = spec.field.default
+                elif spec.field.default_factory is not MISSING:
+                    kwargs[name] = spec.field.default_factory()
                 continue
-
-            # Handle None values
-            if value is None:
-                kwargs[field_name] = None
-                continue
-
-            # Unwrap Optional types (handle both Union and | syntax)
-            origin = get_origin(field_type)
-            # Check for UnionType (Python 3.10+ pipe syntax support)
-            is_union_type = origin is Union
-            # For Python 3.10+, check if types module has UnionType
-            if not is_union_type:
-                try:
-                    union_type = getattr(types, "UnionType", None)
-                    if union_type is not None:
-                        is_union_type = origin is union_type
-                except AttributeError:
-                    pass
-
-            if is_union_type:
-                args = get_args(field_type)
-                # Check if it's Optional (Union with None)
-                non_none_types = [t for t in args if t is not type(None)]
-                if len(non_none_types) == 1:
-                    field_type = non_none_types[0]
-                    origin = get_origin(field_type)
-
-            # Convert based on type
-            try:
-                kwargs[field_name] = Neo4jGenericMapper._convert_value(
-                    value, field_type, field_name
-                )
-            except DATA_CONVERSION_EXCEPTIONS as e:
-                # Log error and use raw value
-                logger.warning("Failed to convert field", field=field_name, error=str(e))
-                kwargs[field_name] = value
-
+            kwargs[name] = _read_field(data, entity_class, spec)
         return entity_class(**kwargs)
 
     @staticmethod
@@ -443,7 +428,10 @@ class Neo4jGenericMapper:
         """
         Convert a single value to its target type.
 
-        Internal method that handles the type-specific conversion logic.
+        Internal method that handles the type-specific conversion logic. Raises
+        ``ValueError`` (or the parser's own error) for a value the type cannot
+        read; ``from_node`` names the node and field and raises
+        ``UnreadableStoredValueError``.
 
         Args:
             value: The value to convert
@@ -487,27 +475,11 @@ class Neo4jGenericMapper:
 
         # Handle Enum types
         if inspect.isclass(target_type) and issubclass(target_type, Enum):
-            # Convert string back to enum
+            if isinstance(value, target_type):
+                return value
             if isinstance(value, str):
-                # Use alias-aware from_string for EntityStatus
-                from_string = getattr(target_type, "from_string", None)
-                if from_string is not None:
-                    resolved = from_string(value)
-                    if resolved is not None:
-                        return resolved
-                try:
-                    return target_type(value)
-                except ValueError as e:
-                    # Try by name if value doesn't work
-                    for member in target_type:
-                        if member.name == value:
-                            return member
-                    # No match found - raise with context
-                    raise ValueError(
-                        f"Field '{field_name}': Cannot convert '{value}' to enum {target_type.__name__}. "
-                        f"Valid values: {[m.value for m in target_type]}"
-                    ) from e
-            return value
+                return read_enum_value(value, target_type, may_be_absent=True)
+            raise ValueError(_not_a(value, target_type.__name__))
 
         # Handle date
         elif target_type is date or (
@@ -526,9 +498,11 @@ class Neo4jGenericMapper:
                         f"Field '{field_name}': Cannot parse '{value}' as date. "
                         f"Expected ISO format (YYYY-MM-DD)"
                     ) from e
-            elif is_neo4j_date(value):
+            if is_neo4j_date(value):
                 return convert_neo4j_date(value)
-            return value
+            if isinstance(value, date) and not isinstance(value, datetime):
+                return value
+            raise ValueError(_not_a(value, "date"))
 
         # Handle datetime
         elif target_type is datetime or (
@@ -542,9 +516,11 @@ class Neo4jGenericMapper:
                         f"Field '{field_name}': Cannot parse '{value}' as datetime. "
                         f"Expected ISO format (YYYY-MM-DDTHH:MM:SS)"
                     ) from e
-            elif is_neo4j_datetime(value):
+            if is_neo4j_datetime(value):
                 return convert_neo4j_datetime(value)
-            return value
+            if isinstance(value, datetime):
+                return value
+            raise ValueError(_not_a(value, "datetime"))
 
         # Handle time
         elif target_type is time or (
@@ -558,104 +534,22 @@ class Neo4jGenericMapper:
                         f"Field '{field_name}': Cannot parse '{value}' as time. "
                         f"Expected ISO format (HH:MM:SS)"
                     ) from e
-            elif is_neo4j_time(value):
+            if is_neo4j_time(value):
                 return convert_neo4j_time(value)
-            return value
+            if isinstance(value, time):
+                return value
+            raise ValueError(_not_a(value, "time"))
 
-        # Handle tuples
-        elif origin is tuple:
-            if isinstance(value, str):
-                # Guard: empty string means empty tuple
-                if value == "":
-                    return ()
-                try:
-                    # Parse JSON string (may be nested collection - tuple of dicts/dataclasses)
-                    parsed = json.loads(value)
-                    parsed_list = parsed if isinstance(parsed, list) else [parsed]
-
-                    # Check if element type is a dataclass and reconstruct
-                    type_args = get_args(target_type)
-                    if type_args and len(type_args) > 0:
-                        element_type = type_args[0]
-                        if inspect.isclass(element_type) and is_dataclass(element_type):
-                            # Reconstruct dataclasses from dict representation
-                            reconstructed = []
-                            for item in parsed_list:
-                                if isinstance(item, dict):
-                                    reconstructed.append(
-                                        Neo4jGenericMapper.from_node(item, element_type)
-                                    )
-                                else:
-                                    reconstructed.append(item)
-                            return tuple(reconstructed)
-
-                    return tuple(parsed_list)
-                except json.JSONDecodeError as e:
-                    raise ValueError(
-                        f"Field '{field_name}': Cannot parse JSON string for tuple: {e}"
-                    ) from e
-            elif isinstance(value, list | tuple):
-                return tuple(value)
-            return (value,)
-
-        # Handle lists
-        elif origin is list:
-            if isinstance(value, str):
-                # Guard: empty string means empty list
-                if value == "":
-                    return []
-                try:
-                    # Parse JSON string (may be nested collection - list of dicts/dataclasses)
-                    parsed = json.loads(value)
-                    parsed_list = parsed if isinstance(parsed, list) else [parsed]
-
-                    # Check element type and reconstruct
-                    type_args = get_args(target_type)
-                    if type_args and len(type_args) > 0:
-                        element_type = type_args[0]
-
-                        # Handle dataclass elements
-                        if inspect.isclass(element_type) and is_dataclass(element_type):
-                            reconstructed = []
-                            for item in parsed_list:
-                                if isinstance(item, dict):
-                                    reconstructed.append(
-                                        Neo4jGenericMapper.from_node(item, element_type)
-                                    )
-                                else:
-                                    reconstructed.append(item)
-                            return reconstructed
-
-                        # Handle enum elements
-                        if inspect.isclass(element_type) and issubclass(element_type, Enum):
-                            # Convert string values back to enum objects. Heterogeneous
-                            # by design: converted members are Enum, but unmatched raw
-                            # values are kept as-is (str) — hence list[Any].
-                            converted_list: list[Any] = []
-                            for item in parsed_list:
-                                if isinstance(item, str):
-                                    try:
-                                        converted_list.append(element_type(item))
-                                    except ValueError:
-                                        # Try by name if value doesn't work
-                                        for member in element_type:
-                                            if member.name == item:
-                                                converted_list.append(member)
-                                                break
-                                        else:
-                                            converted_list.append(item)  # Keep original if no match
-                                else:
-                                    converted_list.append(item)
-                            return converted_list
-
-                    return parsed_list
-                except json.JSONDecodeError as e:
-                    raise ValueError(
-                        f"Field '{field_name}': Cannot parse JSON string for list: {e}"
-                    ) from e
-            elif isinstance(value, list | tuple):
-                return list(value)
-            return [value]
+        # Handle tuples and lists: a JSON string or a stored list, each item read
+        # as the element type when that is a dataclass or an enum
+        elif origin is tuple or origin is list:
+            type_args = get_args(target_type)
+            element_type = type_args[0] if type_args else None
+            items = [
+                _read_element(item, element_type)
+                for item in _sequence_items(value, origin.__name__, field_name)
+            ]
+            return tuple(items) if origin is tuple else items
 
         # Handle sets
         elif origin is set:
@@ -684,35 +578,182 @@ class Neo4jGenericMapper:
                 if value == "":
                     return {}
                 try:
-                    # Parse JSON string
-                    return json.loads(value)
+                    parsed = json.loads(value)
                 except json.JSONDecodeError as e:
                     raise ValueError(
                         f"Field '{field_name}': Cannot parse JSON string for dict: {e}"
                     ) from e
-            return value
+                if not isinstance(parsed, dict):
+                    raise ValueError(_not_a(parsed, "dict", "its JSON holds"))
+                return parsed
+            if isinstance(value, Mapping):
+                return value
+            raise ValueError(_not_a(value, "dict"))
 
         # Handle nested dataclasses
         elif is_dataclass(target_type):
+            if isinstance(value, target_type):
+                return value
             if isinstance(value, str):
                 # Guard: empty string means None for optional nested dataclass
                 if value == "":
                     return None
                 try:
-                    # Parse JSON string and reconstruct
                     parsed = json.loads(value)
-                    return Neo4jGenericMapper.from_node(parsed, target_type)
                 except json.JSONDecodeError as e:
                     raise ValueError(
                         f"Field '{field_name}': Cannot parse JSON string for nested dataclass {target_type.__name__}: {e}"
                     ) from e
-            elif isinstance(value, dict):
+                if not isinstance(parsed, dict):
+                    raise ValueError(_not_a(parsed, target_type.__name__, "its JSON holds"))
+                return Neo4jGenericMapper.from_node(parsed, target_type)
+            if isinstance(value, Mapping):
                 return Neo4jGenericMapper.from_node(value, target_type)
-            return value
+            raise ValueError(_not_a(value, target_type.__name__))
 
         # Handle primitives and unknown types
         else:
             return value
+
+
+@dataclass(frozen=True)
+class _FieldSpec:
+    """One dataclass field, its resolved type with ``| None`` unwrapped, and whether ``None`` is allowed."""
+
+    field: Field[Any]  # boundary: a dataclass field of any type
+    target_type: Any  # boundary: a resolved annotation — a class, a generic alias, or a str
+    optional: bool
+
+
+def _field_specs(entity_class: type) -> tuple[_FieldSpec, ...]:
+    """The fields of ``entity_class``, each with the type the mapper reads it as."""
+    if not is_dataclass(entity_class):
+        raise ValueError(f"Entity class must be a dataclass, got {entity_class}")
+
+    # Get type hints for the class using the module namespace so that
+    # forward references from `from __future__ import annotations` resolve
+    # correctly (locals() here doesn't contain the class's own imports).
+    try:
+        module = sys.modules.get(entity_class.__module__)
+        globalns = getattr(module, "__dict__", {}) if module else {}
+        type_hints = get_type_hints(entity_class, globalns=globalns, localns={})
+    except (NameError, AttributeError):  # fmt: skip
+        # Fall back to field.type strings if resolution still fails
+        type_hints = {}
+
+    specs = []
+    for dataclass_field in fields(entity_class):
+        field_type = type_hints.get(dataclass_field.name, dataclass_field.type)
+        optional = False
+        # Unwrap Optional types (both Union and | syntax)
+        origin = get_origin(field_type)
+        if origin is Union or origin is types.UnionType:
+            args = get_args(field_type)
+            optional = type(None) in args
+            non_none_types = [t for t in args if t is not type(None)]
+            if len(non_none_types) == 1:
+                field_type = non_none_types[0]
+        specs.append(_FieldSpec(dataclass_field, field_type, optional))
+    return tuple(specs)
+
+
+def _read_field(
+    data: Mapping[str, Any], entity_class: type, spec: _FieldSpec
+) -> Any:  # boundary: node properties in, the field's value out
+    """One stored field read as its type; ``UnreadableStoredValueError`` when it cannot be."""
+    name = spec.field.name
+    value = data[name]
+    if value is None:
+        if spec.optional:
+            return None
+        raise UnreadableStoredValueError(
+            entity_class, data.get("uid"), name, value, "is null, and the field requires a value"
+        )
+    try:
+        converted = Neo4jGenericMapper._convert_value(value, spec.target_type, name)
+    except (UnreadableStoredValueError, *DATA_CONVERSION_EXCEPTIONS) as error:
+        raise UnreadableStoredValueError(
+            entity_class, data.get("uid"), name, value, str(error)
+        ) from error
+    if converted is None and not spec.optional:
+        raise UnreadableStoredValueError(
+            entity_class,
+            data.get("uid"),
+            name,
+            value,
+            "reads as absent, and the field requires a value",
+        )
+    return converted
+
+
+def _null_takes_the_default(data: Mapping[str, Any], spec: _FieldSpec) -> bool:
+    """A null on a field that cannot hold one but has a default: read as the key's absence."""
+    return (
+        data[spec.field.name] is None
+        and not spec.optional
+        and (spec.field.default is not MISSING or spec.field.default_factory is not MISSING)
+    )
+
+
+def _not_a(value: object, expected: str, holder: str = "it holds") -> str:
+    return f"{holder} a {type(value).__name__}, not a {expected}"
+
+
+def _sequence_items(
+    value: Any, kind: str, field_name: str
+) -> list[Any]:  # boundary: a stored collection's items
+    """The items a stored list holds: a JSON string's, a native list's, or a lone value."""
+    if isinstance(value, str):
+        # Guard: empty string means an empty collection
+        if value == "":
+            return []
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Field '{field_name}': Cannot parse JSON string for {kind}: {e}"
+            ) from e
+        return parsed if isinstance(parsed, list) else [parsed]
+    if isinstance(value, list | tuple):
+        return list(value)
+    return [value]
+
+
+def _read_element(
+    item: Any, element_type: Any
+) -> Any:  # boundary: one stored item and its annotation
+    """One collection item read as a dataclass or enum element type; any other item as it is."""
+    if inspect.isclass(element_type) and is_dataclass(element_type):
+        if isinstance(item, element_type):
+            return item
+        if isinstance(item, Mapping):
+            return Neo4jGenericMapper.from_node(item, element_type)
+        raise ValueError(_not_a(item, element_type.__name__, "an item is"))
+    if inspect.isclass(element_type) and issubclass(element_type, Enum):
+        if isinstance(item, element_type):
+            return item
+        if isinstance(item, str):
+            return read_enum_value(item, element_type, may_be_absent=False)
+        raise ValueError(_not_a(item, element_type.__name__, "an item is"))
+    return item
+
+
+def unreadable_fields(
+    data: Mapping[str, Any], entity_class: type
+) -> list[UnreadableStoredValueError]:  # boundary: node properties
+    """Every field of ``data`` that ``from_neo4j_node`` would refuse, read without raising.
+
+    The stored-value census reads each node through this: the same field reads
+    as a model build, collected rather than stopped at the first.
+    """
+    refusals = []
+    for spec in _field_specs(entity_class):
+        if spec.field.name in data and not _null_takes_the_default(data, spec):
+            try:
+                _read_field(data, entity_class, spec)
+            except UnreadableStoredValueError as refusal:
+                refusals.append(refusal)
+    return refusals
 
 
 # ============================================================================
@@ -744,53 +785,25 @@ def to_neo4j_node(entity: Any) -> dict[str, Any]:
 
 def from_neo4j_node[T](data: Neo4jProperties, entity_class: type[T]) -> T:
     """
-    Convert Neo4j node data to domain entity.
+    Convert Neo4j node data to domain entity — every backend's one node reader.
 
-    This is the single function that replaces all the repetitive
-    node_to_*() functions across backends.
-
-    Examples:
-        # Replaces node_to_pure()
+    Example:
         task = from_neo4j_node(node_data, Task)
 
-        # Replaces report_node_to_pure()
-        report = from_neo4j_node(node_data, Report)
+    Each refusal is logged at ERROR here, once per read, whatever its caller then
+    does with it.
 
-        # Replaces node_to_pure() for habits
-        habit = from_neo4j_node(node_data, Habit)
+    Raises:
+        UnreadableStoredValueError: a stored value its field's type cannot read.
     """
-    return _mapper.from_node(data, entity_class)
-
-
-# ============================================================================
-# USAGE EXAMPLES
-# ============================================================================
-
-"""
-# In tasks_neo4j_backend.py:
-
-from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node, from_neo4j_node
-from core.models.task import Task
-
-class Neo4jTasksBackend:
-    async def create_task(self, task: Task) -> Task:
-        props = to_neo4j_node(task)
-
-        cypher = "CREATE (t:Task $props) RETURN t"
-        records = await self.neo4j.execute_query(cypher, {"props": props})
-
-        if records:
-            return from_neo4j_node(dict(records[0]["t"]), Task)
-        return task
-
-# In reports backend (generic example):
-# NOTE: Journal backend removed (February 2026) — journals are Report nodes
-# with report_type="journal". All use UniversalNeo4jBackend[Report].
-
-# Benefits:
-# 1. Single implementation for all entities - no more duplication
-# 2. Type-safe with automatic conversions
-# 3. Handles all edge cases in one place
-# 4. New entities automatically supported
-# 5. ~90% reduction in mapping code
-"""
+    try:
+        return _mapper.from_node(data, entity_class)
+    except UnreadableStoredValueError as refusal:
+        logger.error(
+            "Unreadable stored value",
+            entity_class=refusal.entity_class,
+            uid=refusal.uid,
+            field=refusal.field,
+            reason=refusal.reason,
+        )
+        raise

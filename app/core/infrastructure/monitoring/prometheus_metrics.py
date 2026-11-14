@@ -239,6 +239,14 @@ class RelationshipMetrics:
             "Uids held by more than one node",
         )
 
+        # The stored-value census, read by the same poller. The production evaluator
+        # is check_stored_values's ERROR log
+        # (core/infrastructure/monitoring/stored_value_check.py).
+        self.stored_values_unreadable = Gauge(
+            "skuel_stored_values_unreadable_count",
+            "Stored values their field's declared type cannot read (each fails its node's reads)",
+        )
+
         # Poller self-observability — all gauges above freeze at their last
         # values when the poller can't reach Neo4j; this timestamp makes that
         # staleness alertable (GraphHealthPollerStale).

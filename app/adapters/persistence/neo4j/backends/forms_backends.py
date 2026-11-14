@@ -15,6 +15,7 @@ from core.ports.query_types import (
     TeacherSubmissionAccessRow,
     UnaudiencedSubmissionRow,
 )
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Errors, Result
 
 
@@ -151,6 +152,7 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
         raw = records[0].get("count", 0)
         return Result.ok(raw if isinstance(raw, int) else 0)
 
+    @safe_backend_operation("get_forms_for_path_step")
     async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[FormTemplate]]:
         """Get all FormTemplates embedded in a path step as typed models."""
         from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
@@ -500,6 +502,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             ]
         )
 
+    @safe_backend_operation("create_with_relationships")
     async def create_with_relationships(
         self,
         submission: FormSubmission,

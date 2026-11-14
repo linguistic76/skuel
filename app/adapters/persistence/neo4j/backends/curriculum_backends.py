@@ -46,6 +46,7 @@ from core.services.embeddings.retrievability import (
     LabelCoverage,
     label_backfill,
 )
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import stored_day_bounds
@@ -199,6 +200,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """
         return await self.execute_query(query, {"uids": uids, **published_params})
 
+    @safe_backend_operation("list_library")
     async def list_library(self, limit: int) -> Result[tuple[list[Ku], int]]:
         """The Ku library: the first ``limit`` Kus, oldest first, and how many there are.
 
@@ -684,6 +686,7 @@ class PsBackend(
     # LEARNER ENGAGEMENT (analytics reads — see _ENGAGEMENT_EDGES)
     # ========================================================================
 
+    @safe_backend_operation("find_engaged_path_steps_by_date_range")
     async def find_engaged_path_steps_by_date_range(
         self,
         user_uid: UserUID,
@@ -923,6 +926,7 @@ class PsBackend(
         data["knowledge_uids"] = [uid for uid in record["knowledge_uids"] if uid]
         return from_neo4j_node(data, PathStep)
 
+    @safe_backend_operation("get_step_with_knowledge")
     async def get_step_with_knowledge(self, uid: str) -> Result[PathStep | None]:
         """Get a step (with its CONTAINS_KNOWLEDGE UIDs) as a typed model, or None.
 
@@ -942,6 +946,7 @@ class PsBackend(
             return Result.ok(None)
         return Result.ok(self._step_with_knowledge_to_model(records[0]))
 
+    @safe_backend_operation("list_steps_raw")
     async def list_steps_raw(
         self,
         path_uid: str | None,
@@ -1017,6 +1022,7 @@ class PsBackend(
             [from_neo4j_node(record[node_key], PathStep) for record in (result.value or [])]
         )
 
+    @safe_backend_operation("find_next_steps")
     async def find_next_steps(self, uid: str, limit: int) -> Result[list[PathStep]]:
         """The published path steps that require this one, each once, in title order."""
         match, params = _dependent_steps_match()
@@ -1044,6 +1050,7 @@ class PsBackend(
             return Result.fail(result)
         return Result.ok(int(result.value[0]["total"]))
 
+    @safe_backend_operation("get_standalone_steps")
     async def get_standalone_steps(self, limit: int = 50) -> Result[list[PathStep]]:
         """Get PathStep nodes not belonging to any learning path.
 
@@ -1068,6 +1075,7 @@ class PsBackend(
             await self.execute_query(query, {"limit": limit, **published_params})
         )
 
+    @safe_backend_operation("get_prioritized_steps")
     async def get_prioritized_steps(
         self, user_uid: UserUID, limit: int = 20
     ) -> Result[list[PathStep]]:

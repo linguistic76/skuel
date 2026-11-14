@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-24
+updated: 2026-11-14
 ---
 
 # Prometheus + Grafana Observability for SKUEL
@@ -473,6 +473,19 @@ production's evaluator is `check_uid_grammar`'s ERROR log
 | `skuel_uids_shared_count` | Gauge | - | Uids held by more than one node |
 
 **See:** `/docs/decisions/ADR-013-ku-uid-flat-identity.md` § Amendment (2026-10-18).
+
+#### Stored Values (the stored-value census)
+
+The stored-value census (`./dev stored-value-census`), read by a 6th query on the same
+poller (`StoredValueCensusBackend.read_summary`): every converted property of every node a
+backend reads, read as its field's type by the mapper's own rule. A value it cannot read
+fails every read of its node (`UnreadableStoredValueError`). Alert: `StoredValueUnreadable`
+(dev); production's evaluator is `check_stored_values`'s ERROR log
+(`core/infrastructure/monitoring/stored_value_check.py`).
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `skuel_stored_values_unreadable_count` | Gauge | - | Stored values their field's declared type cannot read (each fails its node's reads) |
 
 #### Poller Freshness
 

@@ -23,6 +23,7 @@ from core.models.enums.curriculum_enums import EnrollmentStatus
 from core.models.pathways.learning_path import LearningPath
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import EnrollmentProgressGapRow
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -100,6 +101,7 @@ class _LpProgressMixin:
             [from_neo4j_node(record[node_key], LearningPath) for record in (result.value or [])]
         )
 
+    @safe_backend_operation("get_paths_aligned_with_goal")
     async def get_paths_aligned_with_goal(
         self, goal_uid: str, limit: int = 50
     ) -> Result[list[LearningPath]]:
@@ -129,6 +131,7 @@ class _LpProgressMixin:
             )
         )
 
+    @safe_backend_operation("get_paths_by_knowledge")
     async def get_paths_by_knowledge(
         self, ku_uid: str, limit: int = 20
     ) -> Result[list[LearningPath]]:
@@ -169,6 +172,7 @@ class _LpProgressMixin:
             )
         )
 
+    @safe_backend_operation("get_user_paths_prioritized")
     async def get_user_paths_prioritized(
         self, user_uid: UserUID, limit: int = 20
     ) -> Result[list[LearningPath]]:

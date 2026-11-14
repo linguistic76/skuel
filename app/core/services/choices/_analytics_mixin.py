@@ -22,7 +22,6 @@ from core.services.whole_set_read import warn_if_capped
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_domain_choice_count, get_principle_frequency_rank
 from core.utils.timestamp_helpers import today_in
-from core.utils.type_converters import get_enum_value
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -587,21 +586,9 @@ class _AnalyticsMixin:
             )
 
         # Group choices by domain.
-        #
-        # `get_enum_value`, not `domain.value`: `Entity.domain` is annotated `Domain`, but
-        # the persistence mapper does not enforce that. When a stored node carries a value
-        # that is not a `Domain` member, `Neo4jGenericMapper` logs "Failed to convert field"
-        # and keeps the **raw string** (`Neo4jGenericMapper.from_node`) — deliberately,
-        # so the real value survives instead of being coerced to the field default and
-        # silently mislabelling the row. That leaves the annotation wider than the truth, so
-        # `.value` would raise AttributeError on such a row and take down the whole report.
-        # `Domain` is a StrEnum, so the unwrapped member and the raw string are both `str`:
-        # an unrecognised domain groups under its own name rather than crashing the call.
         domain_choices: dict[str, list[Choice]] = defaultdict(list)
         for choice in choices:
-            domain = getattr(choice, "domain", None)
-            if domain:
-                domain_choices[str(get_enum_value(domain))].append(choice)
+            domain_choices[choice.domain.value].append(choice)
 
         # Analyze each domain
         domain_patterns = {}

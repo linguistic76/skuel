@@ -4,7 +4,7 @@ A Ku reaches a model through two converters: the backend's type-hint mapper
 (``from_neo4j_node``) and the DTO path (``KuDTO.from_dict`` → ``Ku.from_dto``). Each
 must turn a stored ``complexity`` into a ``KuComplexity`` and leave an unauthored one
 ``None`` (never a stand-in such as MEDIUM). A value outside the vocabulary is never
-read as absent: the DTO path refuses it, the mapper keeps it as stored.
+read as absent: both paths refuse it.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import UnreadableStoredValueError, from_neo4j_node
 from core.models.enums import KuComplexity
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -36,13 +36,11 @@ class TestMapperPath:
 
         assert getattr(ku, "complexity", _ABSENT) is None
 
-    def test_a_value_outside_the_vocabulary_never_reads_as_absent(self) -> None:
-        """The mapper keeps an unconvertible value as it was stored (and logs it) for
-        every enum field; what this pins is that a stray is never mistaken for an
-        unauthored complexity."""
-        ku = from_neo4j_node(_node(complexity="bogus"), Ku)
+    def test_a_value_outside_the_vocabulary_is_refused(self) -> None:
+        with pytest.raises(UnreadableStoredValueError) as refused:
+            from_neo4j_node(_node(complexity="bogus"), Ku)
 
-        assert getattr(ku, "complexity", _ABSENT) == "bogus"
+        assert (refused.value.uid, refused.value.field) == ("ku.test.complexity", "complexity")
 
 
 class TestDtoPath:
