@@ -790,9 +790,9 @@ update type ``U``. The old names — ``TaskUpdatePayload``, ``GoalUpdatePayload`
 ``PrincipleUpdatePayload`` — are deleted. Referencing one rebuilds the abandoned dict
 write-path (One Path Forward).
 
-The curriculum (``KuUpdatePayload``/``PsUpdatePayload``/``LpUpdatePayload``), finance, and
-report payloads are intentionally NOT forbidden — they remain valid for the non-activity
-domains, which flow as ``RawChanges`` through the same base ``U``.
+The match is on those six names exactly, not on the ``UpdatePayload`` suffix. No other
+update-payload TypedDict exists: a service whose update door carries no intent takes a
+``RawChanges`` patch through the same base ``U``.
 
 Trivially sound + AST-structural: flags an import alias, a bare ``Name``, or an ``Attribute``
 whose identifier is one of the six fixed forbidden names. No flow analysis — a string literal
@@ -5398,9 +5398,8 @@ class SkuelLinter:
                 )
             )
 
-    # The six Activity Domain update payloads deleted by ADR-066 Phase 7a. The
-    # curriculum (Ku/Ps/Lp), finance, and report ``*UpdatePayload`` TypedDicts are
-    # intentionally OUT of this set — they survive for non-activity domains.
+    # The six Activity Domain update payloads ADR-066 replaced with intents. The rule
+    # matches these names exactly, never the ``UpdatePayload`` suffix.
     _DELETED_ACTIVITY_UPDATE_PAYLOADS: frozenset[str] = frozenset(
         {
             "TaskUpdatePayload",
@@ -5426,8 +5425,7 @@ class SkuelLinter:
         ADR-066 replaced the six activity ``*UpdatePayload`` TypedDicts with frozen
         ``*UpdateIntent`` dataclasses and the parameterized CRUD base (Phase 7a). The
         old names are gone; reintroducing one rebuilds the abandoned dict write-path
-        (One Path Forward). The curriculum (Ku/Ps/Lp), finance, and report payloads are
-        NOT in the forbidden set — they remain valid for non-activity domains.
+        (One Path Forward). The match is on the six names exactly, not on the suffix.
 
         Trivially sound + AST-structural: flags an import alias, a bare ``Name``, or an
         ``Attribute`` access whose identifier is one of the six fixed forbidden names.

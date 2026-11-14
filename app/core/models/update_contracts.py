@@ -12,8 +12,8 @@ allowed to change*:
   it can build the core ``*UpdateIntent`` via ``to_intent()``. The generic ``CRUDRouteFactory``
   types update schemas against this to build the intent without knowing the concrete type.
 - ``RawChanges`` — the bounded **default** for the base's update type parameter ``U``. A
-  ``dict`` subclass (so dict-shaped callers — curriculum, the base progress helper — keep
-  passing plain mappings, wrapped once) that *also* satisfies ``SupportsToChanges``. Only
+  ``dict`` subclass (so the doors that carry no intent — form templates, groups — pass a
+  plain mapping, wrapped once) that *also* satisfies ``SupportsToChanges``. Only
   the six Activity Domains override ``U`` with their intent; the ~53 non-activity
   ``BaseService[Op, T]`` instantiations inherit ``U = RawChanges`` untouched.
 
@@ -62,8 +62,8 @@ class SupportsToIntent(Protocol):
     """A Pydantic edge request that can build its core update intent.
 
     ``CRUDRouteFactory`` checks an update schema against this protocol to build the
-    typed intent generically (``schema.to_intent()``); schemas without it (curriculum,
-    forms, groups, templates) fall back to a ``RawChanges`` patch.
+    typed intent generically (``schema.to_intent()``); schemas without it (form
+    templates, groups) fall back to a ``RawChanges`` patch.
     """
 
     def to_intent(self) -> SupportsToChanges:
@@ -74,9 +74,9 @@ class SupportsToIntent(Protocol):
 class RawChanges(dict[str, Any]):
     """A plain update patch — a ``dict`` that satisfies :class:`SupportsToChanges`.
 
-    The bounded **default** for the base ``U`` type parameter, so non-activity services
-    (curriculum, forms, groups) keep expressing updates as dict-shaped patches without
-    each declaring an intent type. It is a real ``dict`` at runtime, so the backend's
+    The bounded **default** for the base ``U`` type parameter, so a service whose update
+    door carries no intent (form templates, groups) expresses an update as a dict-shaped
+    patch without declaring an intent type. It is a real ``dict`` at runtime, so the backend's
     ``SET n += $changes`` consumes it directly.
     """
 

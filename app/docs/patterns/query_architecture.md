@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-11-13
+updated: 2026-11-14
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -406,32 +406,28 @@ All query builders support consistent filter operators:
 | `contains` | String contains | `title__contains='urgent'` |
 | `in` | List membership | `priority__in=['high', 'urgent']` |
 
-## TypedDicts for Type-Safe Queries (January 2026)
+## Typed filters and update values
 
-**Core Principle:** "Replace `dict[str, Any]` with typed filter specs, update intents, and update payloads"
+**Core Principle:** "A filter is `FilterParams`; an update is an intent or a `RawChanges` patch"
 
-SKUEL provides TypedDicts in `/core/ports/query_types.py` for type-safe query/filter
-construction, and frozen `*UpdateIntent` dataclasses (ADR-066) for Activity Domain updates:
+### Filters
 
-### Filter Specifications
+A filter is `FilterParams` (`core/models/type_hints.py`), keyed by the fields of the
+model being read, in the operator grammar above:
 
 ```python
-from core.ports.query_types import ActivityFilterSpec, PropertyFilterSpec
+from core.models.type_hints import FilterParams
 
-# Activity domain filters with IDE autocomplete
-filters: ActivityFilterSpec = {
-    "status": "active",
-    "category": "work",
-    "sort_by": "due_date",
-    "limit": 50,
+filters: FilterParams = {
+    "user_uid": user_uid,
+    "event_date__gte": today_in(current_zone()).isoformat(),
 }
-
-# Property filters with operator support
-property_filters: PropertyFilterSpec = {
-    "strength__gte": 0.8,
-    "confidence__gte": 0.7,
-}
+result = await self.backend.find_by(**filters)
 ```
+
+`find_by` and `count` check each key against the model and skip one it lacks, with a
+warning, so a misspelled key filters nothing. `get_user_entities(filters=...)`
+matches each key by equality and takes no operator suffix.
 
 ### Update values (ADR-066)
 
@@ -449,27 +445,27 @@ intent = TaskUpdateIntent(
 await tasks_service.update_task(uid, intent)
 ```
 
-Non-activity domains (curriculum, finance, reports) keep TypedDict patches, passed as a
-`RawChanges` value (a `dict` subclass that satisfies `SupportsToChanges`):
+A service whose update door carries no intent (form templates, groups) takes a
+`RawChanges` patch — a `dict` subclass that satisfies `SupportsToChanges`:
 
 ```python
 from core.models.update_contracts import RawChanges
-from core.ports.query_types import LpUpdatePayload
 
-updates: LpUpdatePayload = {"progress": 0.75, "is_completed": False}
-await lp_service.update(uid, RawChanges(updates))
+raw = schema.model_dump(exclude_unset=True)
+updates = RawChanges({k: get_enum_value(v) for k, v in raw.items()})
 ```
+
+Curriculum has no update door: the content-vault sync is its one writer (ADR-091).
 
 ### Available query/update types
 
 | Category | Types |
 |----------|------------|
-| **Filter Specs** | `BaseFilterSpec`, `ActivityFilterSpec`, `CurriculumFilterSpec`, `PrinciplesFilterSpec`, `PropertyFilterSpec` |
+| **Filters** | `FilterParams`, `FilterValue` (in `core/models/type_hints.py`) |
 | **Activity update intents** | `TaskUpdateIntent`, `GoalUpdateIntent`, `HabitUpdateIntent`, `EventUpdateIntent`, `ChoiceUpdateIntent`, `PrincipleUpdateIntent` (in `core/models/<domain>/`) |
-| **Non-activity update payloads** | `KuUpdatePayload`, `PsUpdatePayload`, `LpUpdatePayload`, `FinanceUpdatePayload`, `ReportUpdatePayload` (extend `BaseUpdatePayload`) |
 | **Update contracts** | `SupportsToChanges`, `SupportsToIntent`, `RawChanges` (in `core/models/update_contracts.py`) |
 
-See [Three-Tier Type System](three_tier_type_system.md#the-typed-write-boundary--update-intents--payloads-adr-066) and [ADR-066](../decisions/ADR-066-typed-update-intents.md) for complete documentation.
+See [Three-Tier Type System](three_tier_type_system.md#the-typed-write-boundary--update-intents-and-raw-patches-adr-066) and [ADR-066](../decisions/ADR-066-typed-update-intents.md) for complete documentation.
 
 ## Benefits of Consolidation
 

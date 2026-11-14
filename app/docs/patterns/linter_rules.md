@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-11-08
+updated: 2026-11-14
 category: patterns
 related_skills:
 - python
@@ -933,9 +933,9 @@ from core.models.task import TaskUpdateIntent
 await tasks_service.update_task(uid, TaskUpdateIntent(status="in_progress"))
 ```
 
-**Why it matters:** the six TypedDicts were decorative — structurally just `dict`, so the type was advisory and never enforced at the write seam. ADR-066 made the contract real (frozen dataclass, `UNSET` vs `None`, single `to_changes()` materialization). The non-activity payloads (curriculum `Ku`/`Ps`/`Lp`, `Finance`, `Report`) are **intentionally not forbidden** — they remain valid, flowing as `RawChanges` through the same base `U`.
+**Why it matters:** the six TypedDicts were decorative — structurally just `dict`, so the type was advisory and never enforced at the write seam. ADR-066 made the contract real (frozen dataclass, `UNSET` vs `None`, single `to_changes()` materialization). No other update-payload TypedDict exists: a service whose update door carries no intent takes a `RawChanges` patch through the same base `U`.
 
-**Detection (AST), trivially sound:** a fixed forbidden set of exactly the six deleted names. The rule flags an import alias, a bare `Name`, or an `Attribute` whose identifier is in the set — all structural facts, no flow analysis. A string literal naming a deleted type (a test asserting its removal, this rule's own metadata) is never a `Name`/`Attribute` node, so it is never flagged. Deduped per `(line, name)`.
+**Detection (AST), trivially sound:** a fixed forbidden set of exactly the six deleted names — the names, not the `UpdatePayload` suffix. The rule flags an import alias, a bare `Name`, or an `Attribute` whose identifier is in the set — all structural facts, no flow analysis. A string literal naming a deleted type (a test asserting its removal, this rule's own metadata) is never a `Name`/`Attribute` node, so it is never flagged. Deduped per `(line, name)`.
 
 **Scope:** all non-test files.
 

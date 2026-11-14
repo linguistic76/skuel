@@ -5381,15 +5381,13 @@ class TestSKUEL025:
         violations = lint_content(linter, content)
         assert len(violations) == len(names)
 
-    def test_curriculum_finance_report_payloads_not_flagged(self) -> None:
-        """Ku/Ps/Lp/Finance/Report payloads survive for non-activity domains — never flagged."""
+    def test_only_the_six_exact_names_are_flagged(self) -> None:
+        """The rule matches its six names exactly — not the suffix, not a longer name."""
         linter = make_linter(["SKUEL025"])
         content = (
-            "from core.ports.query_types import (\n"
-            "    KuUpdatePayload, PsUpdatePayload, LpUpdatePayload,\n"
-            "    FinanceUpdatePayload, ReportUpdatePayload, BaseUpdatePayload,\n"
-            ")\n"
-            "a: KuUpdatePayload = {}\n"
+            "from widgets import WidgetUpdatePayload, TaskUpdatePayloadV2\n"
+            "a: WidgetUpdatePayload = {}\n"
+            "b = widgets.TaskUpdatePayloadV2\n"
         )
         violations = lint_content(linter, content)
         assert violations == []
