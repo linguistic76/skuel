@@ -25,6 +25,7 @@ if TYPE_CHECKING:
         HabitAnalyticsRow,
         JournalEntryRow,
         LearningVelocityRow,
+        PrerequisiteGraphRow,
         PresenceMonthRow,
         ProductivityAnalyticsRow,
         SelCategoryRow,
@@ -184,7 +185,9 @@ class CrossDomainBackendOperations(Protocol):
 
     async def get_ku_titles_and_tags(self) -> Result[list[dict[str, Any]]]: ...
 
-    async def get_prerequisite_graph(self, ku_uids: list[str]) -> Result[list[dict[str, Any]]]: ...
+    async def get_prerequisite_graph(
+        self, ku_uids: list[str]
+    ) -> Result[list[PrerequisiteGraphRow]]: ...
 
     async def get_user_learning_state(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
 

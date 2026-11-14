@@ -41,3 +41,13 @@ class AggregationPeriod(StrEnum):
     LAST_QUARTER = "last_quarter"
     THIS_YEAR = "this_year"
     LAST_YEAR = "last_year"
+
+
+class RelevanceRing(StrEnum):
+    """How a knowledge unit is reached from one of the learner's activities.
+
+    The relevance engine reads two rings and names which one every reason came from.
+    """
+
+    DIRECT = "direct"  # the activity links the knowledge itself
+    ADJACENT = "adjacent"  # next to knowledge the activity links (a prerequisite, a step using it)

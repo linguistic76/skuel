@@ -39,6 +39,7 @@ from core.ports.query_types import (
     HabitAnalyticsRow,
     JournalEntryRow,
     LearningVelocityRow,
+    PrerequisiteGraphRow,
     PresenceMonthRow,
     ProductivityAnalyticsRow,
     SelCategoryRow,
@@ -219,6 +220,19 @@ RETURN a.entity_type AS entity_type,
                      WHERE k.entity_type = $ku_entity_type | k.uid])
        AS ku_uids
 """
+
+
+def _to_prerequisite_graph_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[PrerequisiteGraphRow]:
+    """Project raw rows onto PrerequisiteGraphRow (KeyError on alias drift)."""
+    return [
+        {
+            "uid": str(row["uid"]),
+            "prerequisites": [str(uid) for uid in row["prerequisites"]],
+        }
+        for row in records
+    ]
 
 
 def _to_sel_category_rows(
@@ -1073,17 +1087,21 @@ class CrossDomainBackend:
             {},
         )
 
-    async def get_prerequisite_graph(self, ku_uids: list[str]) -> Result[list[dict[str, Any]]]:
+    async def get_prerequisite_graph(
+        self, ku_uids: list[str]
+    ) -> Result[list[PrerequisiteGraphRow]]:
         """Get prerequisite edges between a set of KUs for topological sorting."""
-        return await self.executor.execute_query(
-            """
+        return await self.executor.execute(
+            query="""
             UNWIND $ku_uids AS ku_uid
             MATCH (ku:Entity {uid: ku_uid})
             OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
             WHERE prereq.uid IN $ku_uids
             RETURN ku.uid AS uid, collect(prereq.uid) AS prerequisites
             """,
-            {"ku_uids": ku_uids},
+            params={"ku_uids": ku_uids},
+            processor=_to_prerequisite_graph_rows,
+            operation="get_prerequisite_graph",
         )
 
     async def get_user_learning_state(self, user_uid: str) -> Result[list[dict[str, Any]]]:

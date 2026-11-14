@@ -561,23 +561,27 @@ async def _generate_context_aware_response(...) -> str:
     )
 ```
 
-### Prerequisite Ordering (Kahn's Algorithm)
+### Relevant Knowledge (ContextRelevanceEngine — staged)
 
-`ContextRelevanceEngine._order_by_prerequisites()`
-(`core/services/askesis/context_relevance_engine.py:286`) orders KU UIDs from the prerequisite
-edge set using Kahn's algorithm. **No test pins the output ordering, and the direction stated in
-the method's own docstring is not the direction the loop produces — do not rely on either.**
+`ContextRelevanceEngine` (`core/services/askesis/context_relevance_engine.py`) finds the published
+knowledge around a learner's activities. It has no caller yet beyond the facade's two delegators
+(`find_relevant_for_context`, `find_relevant_from_user_context`).
 
-**It contains no Cypher.** The graph read is delegated to a backend method —
-`self.graph_intel.backend.get_prerequisite_graph(ku_uids=...)` — and the service does only the
-pure in-memory sort (adjacency map → in-degree counts → Kahn's queue). This is the required
-shape. SKUEL021 fails the build on *executable* Cypher in `core/`, `adapters/inbound/` and
-`ui/`; Cypher quoted in docstrings and inert example blocks is deliberately exempt
-(`CLAUDE.md:667`), so the instruction below is discipline, not lint enforcement.
+**Two rings per activity**, each a depth-1 `GraphIntelligenceService.get_entity_context` read:
+`DIRECT` is what the activity links itself; `ADJACENT` is the knowledge one edge from a `DIRECT`
+unit (a prerequisite, a PathStep that uses it). The second ring grows out of knowledge only, so a
+goal's Ku is credited to the goal and never to a task that contributes to it — which a single
+depth-2 read would do. Only `GraphContext.get_published_knowledge_nodes()` is kept. Every reason
+names its activity, ring, `via_uid` and edge (`RelevanceReason`); every unit carries the `domain`
+(a subject area, `Domain.is_subject_area`) and `complexity` its file authored, or `None`
+(`RelevantKnowledgeRow`). A missing activity contributes nothing; any other failed read fails the
+call. The scoring is provisional: [relevance-engine-scoring.md](../roadmap/relevance-engine-scoring.md).
 
-> Earlier revisions of this doc showed an inline `MATCH ... REQUIRES_KNOWLEDGE ...` query inside
-> this method and attributed it to `AskesisService`. Both were wrong — the class name and the
-> pattern. Do not copy Cypher into a `core/services/` example.
+**Prerequisite order.** `recommended_order` puts every unit after the units it requires
+(`REQUIRES_KNOWLEDGE` among the returned set), by Kahn's algorithm in the pure function
+`prerequisites_first`; ties keep the relevance ranking, and a requirement cycle falls back to it.
+The graph read is the backend's (`CrossDomainBackend.get_prerequisite_graph`, typed
+`PrerequisiteGraphRow`); the service holds no Cypher, the required shape (SKUEL021).
 
 ---
 

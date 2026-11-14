@@ -58,8 +58,9 @@ from typing import TYPE_CHECKING, Any, Literal, NotRequired, Required, TypedDict
 # SharedWithMeItem — typing.get_type_hints() and PEP 649 lazy evaluation —
 # resolves the annotation instead of raising NameError.
 from core.models.entity_dto import EntityDTO
-from core.models.enums.entity_enums import EntityType
-from core.models.enums.learning_enums import SubstanceBand
+from core.models.enums.askesis_enums import RelevanceRing
+from core.models.enums.entity_enums import Domain, EntityType
+from core.models.enums.learning_enums import KuComplexity, SubstanceBand
 from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
@@ -3943,6 +3944,55 @@ class SelCategoryRow(TypedDict):
 
     uid: str
     sel_category: str
+
+
+class PrerequisiteGraphRow(TypedDict):
+    """Return shape for get_prerequisite_graph() — one row per asked-for uid, naming
+    the asked-for uids it requires (``REQUIRES_KNOWLEDGE``); a uid with none has an
+    empty list."""
+
+    uid: str
+    prerequisites: list[str]
+
+
+class RelevantKnowledgeRow(TypedDict):
+    """One published Ku or PathStep the relevance engine found for a learner's activities.
+
+    ``domain`` and ``complexity`` are what the curriculum file authored: ``None`` when it
+    authored none, never a stand-in value.
+    """
+
+    uid: str
+    title: str
+    entity_type: EntityType
+    domain: Domain | None  # a subject area (``Domain.is_subject_area``)
+    complexity: KuComplexity | None
+
+
+class RelevanceReason(TypedDict):
+    """Why one knowledge unit is relevant: which activity reaches it, and by what edge.
+
+    ``via_uid`` is ``None`` for a ``DIRECT`` reason (the activity's own edge) and names
+    the knowledge the activity links for an ``ADJACENT`` one. ``outgoing`` is the edge's
+    direction read from the activity (``DIRECT``) or from ``via_uid`` (``ADJACENT``).
+    """
+
+    activity_uid: str
+    activity_type: EntityType
+    ring: RelevanceRing
+    via_uid: str | None
+    relationship: str
+    outgoing: bool
+
+
+class RelevantKnowledgeResult(TypedDict):
+    """Return shape for ContextRelevanceEngine.find_relevant_for_context()."""
+
+    knowledge_units: list[RelevantKnowledgeRow]
+    relevance_scores: dict[str, float]
+    relevance_reasons: dict[str, list[RelevanceReason]]
+    domain_coverage: dict[str, list[EntityType]]  # uid -> the activity kinds reaching it
+    recommended_order: list[str]  # uids, every prerequisite before what requires it
 
 
 class ProductivityAnalyticsRow(TypedDict):

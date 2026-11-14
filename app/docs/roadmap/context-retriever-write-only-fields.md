@@ -1,6 +1,6 @@
 ---
 title: "ContextRetriever's Three Write-Only Fields"
-updated: 2026-11-06
+updated: 2026-11-14
 status: "open — events/principles half"
 registered: 2026-08-20
 ruled: 2026-08-21
@@ -65,9 +65,10 @@ docstring + TYPE_CHECKING import + 1 production site + 2 test sites. It was outs
 register only because the #1108 sweep ran solely on `ContextRetriever` — sweep the sibling
 classes before assuming a register is complete.
 
-⚠️ **Same-name decoy, already verified.** `ASKESIS_ARCHITECTURE.md:537` documents
+⚠️ **Same-name decoy, already verified.** `ASKESIS_ARCHITECTURE.md` § Relevant Knowledge documents
 `self.graph_intel.backend.get_prerequisite_graph(...)` — that is **`ContextRelevanceEngine`'s own
-live field** (`context_relevance_engine.py:58`, read at `:93` and `:247`), a different class with
+live field** (set in its `__init__`, read in `_published_knowledge_around` and
+`_order_by_prerequisites`), a different class with
 the same attribute name. It is not evidence about this one. This trap has now cost this arc
 repeatedly; see also `TemplateBundle` below.
 

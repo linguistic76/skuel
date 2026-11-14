@@ -2,15 +2,13 @@
 Context Relevance Engine - UserContext → Knowledge Discovery
 ============================================================
 
-Finds knowledge units relevant to the user's current activities across all
-six activity domains. THE bridge between UserContext awareness and knowledge
-recommendations.
+Finds the published knowledge (Ku, PathStep) relevant to the user's current
+activities across all six activity domains. THE bridge between UserContext
+awareness and knowledge recommendations.
 
-Extracted from the AskesisService facade (Tier 6): the facade coordinates
-sub-services and holds zero business logic; this ~350-line relevance engine
-(activity aggregation, graph-context knowledge extraction, relevance scoring,
-prerequisite-aware ordering) is a sub-service beside ``context_retriever`` /
-``user_state_analyzer``, not facade code.
+A sub-service of the AskesisService facade beside ``context_retriever`` /
+``user_state_analyzer``: activity aggregation, the two-ring knowledge read,
+relevance scoring and prerequisite-first ordering.
 
 Architecture:
     UserContext → Current activities (goals, habits, choices, tasks, ...)
@@ -18,42 +16,66 @@ Architecture:
 
 Status: staged (PLANNED) — ``find_relevant_from_user_context`` is the unwired
 UserContext→relevant-KU discovery entry point; see ``scripts/detect_bloat.py``
-(_ASKESIS_CONTEXT_ORCHESTRATION).
+(_ASKESIS_CONTEXT_ORCHESTRATION). The scoring is provisional and planned to
+evolve: /docs/roadmap/relevance-engine-scoring.md
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from core.utils.exception_types import NEO4J_EXCEPTIONS
+from core.constants import GraphDepth
+from core.models.enums import Domain, EntityType, KuComplexity, RelevanceRing
+from core.models.type_hints import EntityUID
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, Result
 
 if TYPE_CHECKING:
+    from core.models.graph_context import GraphContext, GraphNode
+    from core.ports.query_types import (
+        RelevanceReason,
+        RelevantKnowledgeResult,
+        RelevantKnowledgeRow,
+    )
+    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
+
+_COMPLEXITY_VALUES: frozenset[str] = frozenset(level.value for level in KuComplexity)
+
+
+@dataclass(frozen=True)
+class _ReachedKnowledge:
+    """A published knowledge node one edge from a center, and that edge."""
+
+    node: GraphNode
+    relationship: str
+    outgoing: bool  # the edge points from the center to the node
 
 
 class ContextRelevanceEngine:
     """
     Relevance engine mapping a user's current activities to supporting knowledge.
 
-    **Relevance Scoring:**
-    - Goal alignment: Knowledge required or useful for active goals
-    - Habit support: Knowledge that reinforces habit formation
-    - Choice inform: Knowledge that helps make pending decisions
-    - Task enablement: Knowledge that unblocks pending tasks
-    - Principle grounding: Knowledge that supports core principles
-    - Event preparation: Knowledge useful for upcoming events
+    Knowledge is read in two rings around each activity, and every reason names its ring:
+
+    - ``DIRECT``: the knowledge the activity links itself, by any edge.
+    - ``ADJACENT``: the knowledge one edge from a ``DIRECT`` unit (its prerequisite,
+      a PathStep that uses it). The second ring grows out of knowledge only, never
+      out of another activity — a goal's knowledge is the goal's, credited to the
+      goal when the goal is among the activities asked about.
+
+    Only published curriculum is returned (``GraphContext.get_published_knowledge_nodes``).
     """
 
-    def __init__(self, graph_intel: Any) -> None:
+    def __init__(self, graph_intel: GraphIntelligenceService) -> None:
         """
         Args:
-            graph_intel: Graph intelligence service (semantic context +
-                prerequisite graph access). Required — the engine is only
-                constructed by AskesisService, which is FULL-tier gated.
+            graph_intel: Graph intelligence service (entity context + prerequisite
+                graph). The engine is constructed only by AskesisService, which is
+                FULL-tier gated.
         """
         self.graph_intel = graph_intel
 
@@ -67,9 +89,20 @@ class ContextRelevanceEngine:
         upcoming_events: list[str] | None = None,
         max_results: int = 10,
         min_relevance_score: float = 0.5,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[RelevantKnowledgeResult]:
         """
         Find knowledge units relevant to the user's current activities.
+
+        The activity uids are read as given: this method does not know who is asking,
+        so its caller must already have checked that the asking user owns each one —
+        ``find_relevant_from_user_context`` takes them from the user's own context.
+
+        An activity that no longer exists contributes nothing; any other failed read
+        fails the call, so an unreachable graph is never reported as "no knowledge".
+
+        Scoring is provisional (planned to evolve, see the module docstring): each
+        reason adds 0.2 (capped at 1.0) and each activity kind reaching the unit 0.15,
+        so at the default ``min_relevance_score`` a unit needs two reasons to appear.
 
         Args:
             active_goals: UIDs of user's active goals
@@ -80,126 +113,100 @@ class ContextRelevanceEngine:
             upcoming_events: UIDs of upcoming events
             max_results: Maximum knowledge units to return
             min_relevance_score: Minimum relevance score (0.0-1.0)
-
-        Returns:
-            Result[dict[str, Any]]: {
-                "knowledge_units": [...], # Relevant KU data
-                "relevance_scores": {...}, # UID -> score mapping
-                "relevance_reasons": {...}, # UID -> list of reasons
-                "domain_coverage": {...}, # Which domains each KU helps
-                "recommended_order": [...], # Optimal learning order
-            }
         """
-        if not self.graph_intel:
-            return Result.fail(
-                Errors.system(
-                    message="Graph intelligence service not available",
-                    operation="find_relevant_for_context",
-                )
-            )
-
-        # Aggregate all activity UIDs
-        all_activity_uids: list[str] = []
-        domain_sources: dict[str, str] = {}  # uid -> domain
-
-        for uids, domain in (
-            (active_goals, "goal"),
-            (current_habits, "habit"),
-            (recent_choices, "choice"),
-            (pending_tasks, "task"),
-            (active_principles, "principle"),
-            (upcoming_events, "event"),
+        activities: list[tuple[str, EntityType]] = []
+        for uids, activity_type in (
+            (active_goals, EntityType.GOAL),
+            (current_habits, EntityType.HABIT),
+            (recent_choices, EntityType.CHOICE),
+            (pending_tasks, EntityType.TASK),
+            (active_principles, EntityType.PRINCIPLE),
+            (upcoming_events, EntityType.EVENT),
         ):
-            if uids:
-                all_activity_uids.extend(uids)
-                for uid in uids:
-                    domain_sources[uid] = domain
+            activities.extend((uid, activity_type) for uid in uids or [])
 
-        if not all_activity_uids:
-            # No activities to match against
-            return Result.ok(
-                {
-                    "knowledge_units": [],
-                    "relevance_scores": {},
-                    "relevance_reasons": {},
-                    "domain_coverage": {},
-                    "recommended_order": [],
-                }
-            )
+        knowledge: dict[str, RelevantKnowledgeRow] = {}
+        reasons: dict[str, list[RelevanceReason]] = {}
+        coverage: dict[str, list[EntityType]] = {}
+        # A unit linked by several activities has its own neighbourhood read once.
+        neighbourhoods: dict[str, list[_ReachedKnowledge]] = {}
 
-        # Query graph for knowledge connected to these activities
-        relevant_knowledge: dict[str, dict[str, Any]] = {}
-        relevance_reasons: dict[str, list[str]] = {}
-        domain_coverage: dict[str, list[str]] = {}
+        def credit(reached: _ReachedKnowledge, reason: RelevanceReason) -> None:
+            uid = reached.node.uid
+            if uid not in knowledge:
+                knowledge[uid] = _knowledge_row(reached.node)
+                reasons[uid] = []
+                coverage[uid] = []
+            reasons[uid].append(reason)
+            if reason["activity_type"] not in coverage[uid]:
+                coverage[uid].append(reason["activity_type"])
 
-        # Query knowledge for each activity type
-        for activity_uid in all_activity_uids:
-            domain = domain_sources[activity_uid]
+        for activity_uid, activity_type in activities:
+            direct_result = await self._published_knowledge_around(activity_uid)
+            if direct_result.is_error:
+                return Result.fail(direct_result)
+            direct = direct_result.value
+            direct_uids = {reached.node.uid for reached in direct}
 
-            # Get knowledge connected to this activity
-            ku_result = await self._find_knowledge_for_activity(activity_uid=activity_uid)
+            for reached in direct:
+                credit(
+                    reached,
+                    {
+                        "activity_uid": activity_uid,
+                        "activity_type": activity_type,
+                        "ring": RelevanceRing.DIRECT,
+                        "via_uid": None,
+                        "relationship": reached.relationship,
+                        "outgoing": reached.outgoing,
+                    },
+                )
 
-            if ku_result.is_ok and ku_result.value:
-                for ku_data in ku_result.value:
-                    ku_uid = ku_data.get("uid", "")
-                    if not ku_uid:
-                        continue
+            for via in direct:
+                via_uid = via.node.uid
+                if via_uid not in neighbourhoods:
+                    around = await self._published_knowledge_around(via_uid)
+                    if around.is_error:
+                        return Result.fail(around)
+                    neighbourhoods[via_uid] = around.value
+                for reached in neighbourhoods[via_uid]:
+                    if reached.node.uid in direct_uids:
+                        continue  # already credited to this activity directly
+                    credit(
+                        reached,
+                        {
+                            "activity_uid": activity_uid,
+                            "activity_type": activity_type,
+                            "ring": RelevanceRing.ADJACENT,
+                            "via_uid": via_uid,
+                            "relationship": reached.relationship,
+                            "outgoing": reached.outgoing,
+                        },
+                    )
 
-                    # Accumulate knowledge
-                    if ku_uid not in relevant_knowledge:
-                        relevant_knowledge[ku_uid] = ku_data
-                        relevance_reasons[ku_uid] = []
-                        domain_coverage[ku_uid] = []
-
-                    # Track why it's relevant
-                    reason = f"Supports {domain}: {activity_uid}"
-                    if reason not in relevance_reasons[ku_uid]:
-                        relevance_reasons[ku_uid].append(reason)
-
-                    # Track domain coverage
-                    if domain not in domain_coverage[ku_uid]:
-                        domain_coverage[ku_uid].append(domain)
-
-        # Calculate relevance scores
-        relevance_scores: dict[str, float] = {}
-        for ku_uid, reasons in relevance_reasons.items():
-            # Base score from number of connections
-            base_score = min(1.0, len(reasons) * 0.2)
-
-            # Bonus for multi-domain coverage
-            domain_bonus = len(domain_coverage[ku_uid]) * 0.15
-
-            # Calculate final score
-            score = min(1.0, base_score + domain_bonus)
-            relevance_scores[ku_uid] = score
-
-        # Filter by minimum score
-        filtered_knowledge = {
-            uid: data
-            for uid, data in relevant_knowledge.items()
-            if relevance_scores.get(uid, 0) >= min_relevance_score
+        scores: dict[str, float] = {
+            uid: min(1.0, min(1.0, len(unit_reasons) * 0.2) + len(coverage[uid]) * 0.15)
+            for uid, unit_reasons in reasons.items()
         }
 
-        # Sort by relevance score
         from core.utils.sort_functions import make_dict_score_getter
 
-        sort_by_relevance = make_dict_score_getter(relevance_scores, default=0.0)
-        sorted_uids = sorted(
-            filtered_knowledge.keys(),
-            key=sort_by_relevance,
+        ranked = sorted(
+            (uid for uid in knowledge if scores[uid] >= min_relevance_score),
+            key=make_dict_score_getter(scores, default=0.0),
             reverse=True,
         )[:max_results]
 
-        # Build recommended order (consider prerequisites)
-        recommended_order = await self._order_by_prerequisites(sorted_uids)
+        order_result = await self._order_by_prerequisites(ranked)
+        if order_result.is_error:
+            return Result.fail(order_result)
 
         return Result.ok(
             {
-                "knowledge_units": [filtered_knowledge[uid] for uid in sorted_uids],
-                "relevance_scores": {uid: relevance_scores[uid] for uid in sorted_uids},
-                "relevance_reasons": {uid: relevance_reasons[uid] for uid in sorted_uids},
-                "domain_coverage": {uid: domain_coverage[uid] for uid in sorted_uids},
-                "recommended_order": recommended_order,
+                "knowledge_units": [knowledge[uid] for uid in ranked],
+                "relevance_scores": {uid: scores[uid] for uid in ranked},
+                "relevance_reasons": {uid: reasons[uid] for uid in ranked},
+                "domain_coverage": {uid: coverage[uid] for uid in ranked},
+                "recommended_order": order_result.value,
             }
         )
 
@@ -208,7 +215,7 @@ class ContextRelevanceEngine:
         user_context: UserContext,
         max_results: int = 10,
         min_relevance_score: float = 0.5,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[RelevantKnowledgeResult]:
         """
         Convenience method that extracts activity UIDs from UserContext.
 
@@ -221,7 +228,7 @@ class ContextRelevanceEngine:
             min_relevance_score: Minimum relevance score (0.0-1.0)
 
         Returns:
-            Result[dict[str, Any]]: Same as find_relevant_for_context()
+            Same as find_relevant_for_context()
         """
         return await self.find_relevant_for_context(
             active_goals=user_context.active_goal_uids,
@@ -234,122 +241,105 @@ class ContextRelevanceEngine:
             min_relevance_score=min_relevance_score,
         )
 
-    async def _find_knowledge_for_activity(
-        self,
-        activity_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    async def _published_knowledge_around(self, center_uid: str) -> Result[list[_ReachedKnowledge]]:
+        """The published knowledge one edge from a center, each with that edge.
+
+        A center that does not exist (deleted since its uid was read) has none.
+        Backend: GraphIntelligenceService.get_entity_context (every edge type, both
+        directions, the center owner's nodes and shared content only).
         """
-        Find knowledge units connected to a specific activity.
-
-        Extracts Entity/KnowledgeUnit nodes from the activity's semantic
-        graph context (depth 2), regardless of relationship type.
-        """
-        if not self.graph_intel:
-            return Result.ok([])
-
-        try:
-            # Use graph intelligence for semantic context
-            context_result = await self.graph_intel.get_semantic_context(
-                entity_uid=activity_uid,
-                depth=2,
-            )
-
-            if context_result.is_error:
+        context_result = await self.graph_intel.get_entity_context(
+            EntityUID(center_uid), GraphDepth.DIRECT
+        )
+        if context_result.is_error:
+            if context_result.expect_error().category is ErrorCategory.NOT_FOUND:
+                logger.debug("Relevance read skipped a missing center: %s", center_uid)
                 return Result.ok([])
+            return Result.fail(context_result)
+        context = context_result.value
+        edges = _edges_to_center(context)
+        return Result.ok(
+            [
+                _ReachedKnowledge(
+                    node=node, relationship=edges[node.uid][0], outgoing=edges[node.uid][1]
+                )
+                for node in context.get_published_knowledge_nodes()
+            ]
+        )
 
-            context = context_result.value or {}
+    async def _order_by_prerequisites(self, ku_uids: list[str]) -> Result[list[str]]:
+        """Order knowledge units so every prerequisite comes before what requires it.
 
-            # Extract knowledge nodes from context
-            knowledge_units = []
-            nodes = context.get("nodes", [])
-
-            for node in nodes:
-                if node.get("label") in ["Entity", "KnowledgeUnit"]:
-                    knowledge_units.append(
-                        {
-                            "uid": node.get("uid", ""),
-                            "title": node.get("title", node.get("name", "")),
-                            "domain": node.get("domain", ""),
-                            "complexity": node.get("complexity", 0.5),
-                        }
-                    )
-
-            return Result.ok(knowledge_units)
-
-        except NEO4J_EXCEPTIONS as e:
-            logger.warning(f"Failed to find knowledge for {activity_uid}: {e}")
-            return Result.ok([])
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.warning(f"Failed to find knowledge for {activity_uid} ({type(e).__name__}): {e}")
-            return Result.ok([])
-
-    async def _order_by_prerequisites(
-        self,
-        ku_uids: list[str],
-    ) -> list[str]:
+        Backend: CrossDomainBackend.get_prerequisite_graph (``REQUIRES_KNOWLEDGE``
+        among the given units).
         """
-        Order knowledge units by prerequisite dependencies using topological sort.
+        if not ku_uids:
+            return Result.ok([])
+        rows = await self.graph_intel.backend.get_prerequisite_graph(ku_uids=ku_uids)
+        if rows.is_error:
+            return Result.fail(rows)
+        return Result.ok(
+            prerequisites_first(ku_uids, {row["uid"]: row["prerequisites"] for row in rows.value})
+        )
 
-        Returns UIDs in order that respects prerequisites
-        (learn A before B if B requires A).
 
-        Uses Kahn's algorithm for topological sorting with cycle detection.
-        """
-        if not ku_uids or not self.graph_intel:
-            return ku_uids
+def prerequisites_first(uids: list[str], requires: dict[str, list[str]]) -> list[str]:
+    """Topologically order ``uids`` so each comes after every uid it requires (Kahn).
 
-        try:
-            # Step 1: Build dependency graph from Neo4j
-            result = await self.graph_intel.backend.get_prerequisite_graph(ku_uids=ku_uids)
+    Only requirements inside ``uids`` count. Ties keep the input order, so a
+    relevance-ranked input stays ranked among units that are equally ready. Units on a
+    requirement cycle — and those that wait on one — follow in input order.
+    """
+    members = set(uids)
+    waiting = {uid: {p for p in requires.get(uid, []) if p in members and p != uid} for uid in uids}
+    ready = [uid for uid in uids if not waiting[uid]]
+    placed: list[str] = []
+    while ready:
+        current = ready.pop(0)
+        placed.append(current)
+        for uid in uids:
+            if current in waiting[uid]:
+                waiting[uid].discard(current)
+                if not waiting[uid]:
+                    ready.append(uid)
+    placed_set = set(placed)
+    return placed + [uid for uid in uids if uid not in placed_set]
 
-            if result.is_error or not result.value:
-                return ku_uids
 
-            # Step 2: Build adjacency map (ku -> its prerequisites)
-            prereq_map: dict[str, list[str]] = {uid: [] for uid in ku_uids}
-            for record in result.value:
-                uid = record.get("uid", "")
-                prerequisites = record.get("prerequisites", [])
-                if uid in prereq_map:
-                    prereq_map[uid] = [p for p in prerequisites if p]
+def _edges_to_center(context: GraphContext) -> dict[str, tuple[str, bool]]:
+    """Each neighbour's edge to the center: its type, and whether it points away from it.
 
-            # Step 3: Topological sort (Kahn's algorithm)
-            # in_degree counts how many things depend on each uid
-            in_degree: dict[str, int] = {uid: 0 for uid in ku_uids}
-            for prereqs in prereq_map.values():
-                for prereq in prereqs:
-                    if prereq in in_degree:
-                        in_degree[prereq] += 1
+    The context holds one edge per neighbour, and at depth 1 that edge joins it to the
+    center. A neighbour joined by two edges (a task that applies and requires one Ku)
+    keeps the one the context kept.
+    """
+    edges: dict[str, tuple[str, bool]] = {}
+    for edge in context.all_relationships:
+        if edge.start_node_uid == context.origin_uid:
+            edges[edge.end_node_uid] = (edge.type, True)
+        else:
+            edges[edge.start_node_uid] = (edge.type, False)
+    return edges
 
-            # Start with nodes that nothing depends on (leaves in dependency tree)
-            # These are the "foundational" knowledge that should be learned first
-            queue = [uid for uid, degree in in_degree.items() if degree == 0]
-            sorted_uids: list[str] = []
 
-            while queue:
-                current = queue.pop(0)
-                sorted_uids.append(current)
+def _knowledge_row(node: GraphNode) -> RelevantKnowledgeRow:
+    """What the engine reports about one knowledge node: what its file authored."""
+    properties = node.properties
+    return {
+        "uid": node.uid,
+        "title": str(properties.get("title") or node.uid),
+        "entity_type": EntityType(properties["entity_type"]),
+        "domain": _subject_area(properties.get("domain")),
+        "complexity": _authored_complexity(properties.get("complexity")),
+    }
 
-                # Reduce in-degree for things that had current as prerequisite
-                for uid, prereqs in prereq_map.items():
-                    if current in prereqs:
-                        in_degree[uid] -= 1
-                        if in_degree[uid] == 0 and uid not in sorted_uids:
-                            queue.append(uid)
 
-            # Add any remaining nodes (handles cycles gracefully)
-            remaining = [uid for uid in ku_uids if uid not in sorted_uids]
-            sorted_uids.extend(remaining)
+def _subject_area(value: object) -> Domain | None:
+    """The stored ``domain`` when it names a subject area; ``None`` otherwise."""
+    domain = Domain.from_string(value) if isinstance(value, str) else None
+    return domain if domain is not None and domain.is_subject_area() else None
 
-            return sorted_uids
 
-        except NEO4J_EXCEPTIONS as e:
-            logger.warning("Prerequisite ordering failed, returning original order: %s", e)
-            return ku_uids
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.warning(
-                "Prerequisite ordering failed (%s), returning original order: %s",
-                type(e).__name__,
-                e,
-            )
-            return ku_uids
+def _authored_complexity(value: object) -> KuComplexity | None:
+    """The stored ``complexity`` as a level; ``None`` when absent or not a level."""
+    return KuComplexity(value) if isinstance(value, str) and value in _COMPLEXITY_VALUES else None
