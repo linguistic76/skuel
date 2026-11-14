@@ -55,6 +55,8 @@ if TYPE_CHECKING:
     )
     from core.models.enums import GuidanceMode
     from core.models.search_request import SearchRequest
+    from core.ports.askesis_protocols import AskesisCoreOperations
+    from core.ports.curriculum_protocols import KnowledgeContextOperations, KuOperations
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.askesis.types import (
         AskesisAnalysis,
@@ -63,9 +65,22 @@ if TYPE_CHECKING:
     )
     from core.services.askesis_citation_service import AskesisCitationService
     from core.services.canon import CanonRetrievalService
+    from core.services.embeddings_service import EmbeddingsService
+    from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+    from core.services.ku_service import KuService
+    from core.services.llm_service import LLMService
+    from core.services.lp_service import LpService
+    from core.services.principles_service import PrinciplesService
+    from core.services.ps_engagement.ps_engagement_service import PsEngagementService
+    from core.services.ps_service import PsService
+    from core.services.tasks_service import TasksService
     from core.services.user import UserContext
     from core.services.user.intelligence import UserContextIntelligenceFactory
     from core.services.user.unified_user_context import RichUserContext
+    from core.services.user_service import UserService
 
 logger = get_logger(__name__)
 
@@ -74,24 +89,26 @@ logger = get_logger(__name__)
 class AskesisDeps:
     """Typed dependency container for AskesisService.
 
-    All services are required — Askesis is only created in FULL intelligence tier.
-    No graceful degradation: it works or it doesn't.
+    Askesis is created in the FULL intelligence tier only, and the services it
+    requires arrive here non-None: the composition root refuses to build Askesis
+    without them. No graceful degradation: it works or it doesn't.
 
-    March 2026: Made all deps required (was optional per ADR-043, but Askesis
-    is now gated at bootstrap — only created when INTELLIGENCE_TIER=FULL).
+    Each field names the class the composition root hands over; AskesisService
+    passes it to the sub-service that reads it, which names the slice it uses.
     """
 
     intelligence_factory: UserContextIntelligenceFactory
-    graph_intel: Any  # boundary: protocol not yet extracted
-    user_service: Any
-    askesis_core_service: Any  # AskesisCoreOperations — CRUD for Askesis instances
-    llm_service: Any
-    embeddings_service: Any
-    knowledge_service: Any
-    tasks_service: Any
-    goals_service: Any
-    habits_service: Any
-    events_service: Any
+    graph_intel: GraphIntelligenceService
+    user_service: UserService
+    # CRUD for Askesis instances
+    askesis_core_service: AskesisCoreOperations
+    llm_service: LLMService
+    embeddings_service: EmbeddingsService
+    knowledge_service: PsService
+    tasks_service: TasksService
+    goals_service: GoalsService
+    habits_service: HabitsService
+    events_service: EventsService
     # ZPD service — required for Askesis guided pipeline.
     # LP enrollment gate ensures curriculum data exists; ZPD assesses readiness.
     # See: core/services/zpd/zpd_service.py
@@ -99,7 +116,7 @@ class AskesisDeps:
     # PS engagement service — required for engagement-aware bundle loading.
     # Askesis is gated on FULL tier; ps_engagement is core-tier (always wired).
     # See: core/services/ps_engagement/ps_engagement_service.py
-    ps_engagement_service: Any  # boundary: PsEngagementService
+    ps_engagement_service: PsEngagementService
     # Citation service — formats graph citations for Askesis responses
     citation_service: AskesisCitationService | None = None
     # Canon retrieval — PS-scoped readings grounding for the guided pipeline
@@ -107,12 +124,12 @@ class AskesisDeps:
     # FULL-tier only, so in practice non-None wherever Askesis exists.
     canon_service: CanonRetrievalService | None = None
     # PS bundle dependencies for ContextRetriever — None is valid when not available
-    ku_service: Any | None = None
-    lp_service: Any | None = None
-    principles_service: Any | None = None
-    # Backends for ContextRetriever graph queries (migrated from inline Cypher)
-    ku_backend: Any | None = None  # boundary: KuBackend
-    ps_backend: Any | None = None  # boundary: PsBackend
+    ku_service: KuService | None = None
+    lp_service: LpService | None = None
+    principles_service: PrinciplesService | None = None
+    # Backends for ContextRetriever graph queries
+    ku_backend: KuOperations | None = None
+    ps_backend: KnowledgeContextOperations | None = None
 
 
 class AskesisService:
@@ -167,12 +184,8 @@ class AskesisService:
             )
 
         # Store the dependencies THIS facade calls. The rest reach their
-        # consumers straight off `deps` in the sub-service construction below —
-        # copying them onto `self` as well built a second, read-only surface
-        # that nothing used. Nine such copies were deleted 2026-08-20
-        # (graph_intel, embeddings_service, knowledge_service, tasks_service,
-        # goals_service, habits_service, events_service, citation_service,
-        # ps_engagement_service). Add a field here only when this class calls it.
+        # consumers straight off `deps` in the sub-service construction below.
+        # Add a field here only when this class calls it.
         self.user_service = deps.user_service
         self.askesis_core_service = deps.askesis_core_service
         self.llm_service = deps.llm_service
@@ -201,7 +214,7 @@ class AskesisService:
             events_service=deps.events_service,
             principles_service=deps.principles_service,
             lp_service=deps.lp_service,
-            # Backends for graph queries (migrated from inline Cypher)
+            # Backends for graph queries
             ku_backend=deps.ku_backend,
             ps_backend=deps.ps_backend,
             # Engagement service for lifecycle-aware bundle loading
@@ -343,12 +356,12 @@ class AskesisService:
 
         Availability comes from the multi-provider caller (see
         ``core.services.chat.available_chat_models``): a dev env with no Anthropic
-        adapter offers only the OpenAI models. Empty when no caller is wired
-        (MOCK/CORE) so the surface renders no picker.
+        adapter offers only the OpenAI models. Empty when the LLM service has no
+        caller wired (MOCK) so the surface renders no picker.
         """
         from core.services.chat import available_chat_models
 
-        if self.llm_service is None or self.llm_service.caller is None:
+        if self.llm_service.caller is None:
             return []
         return available_chat_models(self.llm_service.caller)
 

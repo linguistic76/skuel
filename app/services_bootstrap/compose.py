@@ -1715,6 +1715,7 @@ async def compose_services(
             vector_search_service=vector_search_service,
             zpd_backend=backends["zpd_backend"],
             zpd_snapshot_backend=backends["zpd_snapshot_backend"],
+            ps_backend=backends["ps_backend"],
             event_bus=event_bus,
             tier=tier,
             context_builder=context_builder,

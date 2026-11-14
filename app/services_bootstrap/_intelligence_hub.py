@@ -10,6 +10,7 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
     from core.config.intelligence_tier import IntelligenceTier
+    from core.ports.curriculum_protocols import KnowledgeContextOperations
     from core.services.activity_services import ActivityServices
     from core.services.askesis.askesis_core_service import AskesisCoreService
     from core.services.calendar_service import CalendarService
@@ -57,6 +58,7 @@ def _create_intelligence_hub(
     vector_search_service: Neo4jVectorSearchService | None,
     zpd_backend: ZPDBackendOperations,
     zpd_snapshot_backend: ZPDSnapshotOperations,
+    ps_backend: KnowledgeContextOperations,
     event_bus: EventBusOperations,
     tier: IntelligenceTier,
     context_builder: UserContextBuilder,
@@ -68,6 +70,9 @@ def _create_intelligence_hub(
 
     Mutates ``services``, ``context_builder``, and ``user_service`` to wire the
     intelligence hub into the running application.
+
+    ``ps_backend`` is the PathStep backend, handed to Askesis for its
+    knowledge-context reads.
 
     ``canon_service`` is the CanonRetrievalService built in compose_services —
     forwarded into Askesis for PS-scoped readings grounding (ADR-077). None when
@@ -213,11 +218,31 @@ def _create_intelligence_hub(
                 "tier.ai_enabled branch. Bootstrap order or ZPD wiring is broken."
             )
 
+        # The LLM and embeddings services are built in the FULL tier too, and
+        # their bootstraps refuse a FULL boot without them: the pipeline answers
+        # through the LLM and classifies a query's intent by embedding. A None
+        # here means bootstrap order is broken — fail fast
+        # rather than build an Askesis that cannot answer.
+        if llm_service is None:
+            raise RuntimeError(
+                "Askesis (FULL tier) requires LLMService — it was not created. "
+                "Bootstrap order or the LLM wiring in compose_services is broken."
+            )
+        embeddings_service = learning_services["embeddings_service"]
+        if embeddings_service is None:
+            raise RuntimeError(
+                "Askesis (FULL tier) requires EmbeddingsService — intent classification "
+                "would have nothing to embed with. Bootstrap order or the embedding "
+                "wiring (_learning_services.py) is broken."
+            )
+
         services.askesis = create_askesis_service(
             intelligence_factory=context_intelligence_factory,
             learning_services=learning_services,
             graph_intelligence=graph_intelligence,
             llm_service=llm_service,
+            embeddings_service=embeddings_service,
+            ps_backend=ps_backend,
             activity_services=activity_services,
             user_service=user_service,
             askesis_core_service=askesis_core_service,

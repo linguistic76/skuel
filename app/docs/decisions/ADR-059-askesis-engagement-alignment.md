@@ -1,6 +1,6 @@
 ---
 title: "ADR-059: Engagement-Aware Daily Plan in Askesis"
-updated: 2026-11-13
+updated: 2026-11-14
 status: current
 category: decisions
 tags: [adr, decisions, askesis, engagement, daily-plan]
@@ -41,8 +41,8 @@ between May 1 and May 9, 2026. The Askesis ↔ engagement wiring at the
   (`core/services/askesis/context_retriever.py:505-571`) prefers engaged
   candidates over published-but-not-engaged ones and populates the bundle's
   `engagement` field.
-- `create_askesis_service` (`core/services/askesis_factory.py:27`) takes
-  `ps_engagement_service` and `_intelligence_hub.py:225` wires it.
+- `create_askesis_service` (`core/services/askesis_factory.py:29`) takes
+  `ps_engagement_service` and `_intelligence_hub.py:250` wires it.
 - `_spawn_orchestrator` (`core/services/ps_engagement/_spawn_orchestrator.py:278`)
   resolves every Activity Template's `RelativeOffset` to absolute date/datetime
   fields **on the spawned instance** at engagement time. Spawned tasks and

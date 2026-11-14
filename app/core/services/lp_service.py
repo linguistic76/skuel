@@ -508,9 +508,18 @@ class LpService:
     # GENERIC READ
     # ============================================================================
 
-    async def get(self, uid: str) -> Result[LearningPath | None]:
-        """Get a learning path by uid (the generic read callers such as Askesis use)."""
-        return await self.get_learning_path(uid)
+    async def get(self, uid: str) -> Result[LearningPath]:
+        """Get a learning path by uid; a uid that names no learning path is not found.
+
+        The generic read callers such as Askesis use. A miss is an error, never a
+        ``None`` value, as on ``CrudOperationsMixin.get`` and ``PsService.get``.
+        """
+        result = await self.get_learning_path(uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is None:
+            return Result.fail(Errors.not_found("LearningPath", uid))
+        return Result.ok(result.value)
 
     # =========================================================================
     # QUERY LAYER (FilteredContextProvider)

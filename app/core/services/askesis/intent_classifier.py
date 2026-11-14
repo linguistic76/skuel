@@ -38,6 +38,7 @@ from core.utils.vector_math import cosine_similarity
 if TYPE_CHECKING:
     from core.models.askesis.ps_bundle import PsBundle
     from core.models.zpd.zpd_assessment import ZoneEvidence
+    from core.services.embeddings_service import EmbeddingsService
 
 
 @dataclass(frozen=True)
@@ -226,7 +227,7 @@ class IntentClassifier:
             intent = result.value  # QueryIntent.HIERARCHICAL
     """
 
-    def __init__(self, embeddings_service: Any) -> None:
+    def __init__(self, embeddings_service: EmbeddingsService) -> None:
         """
         Initialize intent classifier.
 
