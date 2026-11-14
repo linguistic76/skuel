@@ -491,6 +491,19 @@ DELETED: dict[str, str] = {
     "ProgressResult": "deleted — nothing returned it; each progress door returns its own entity",
     # A goal carries its milestones: the goal page and the goal's JSON read them from it.
     "get_goal_milestones": "deleted — read Goal.milestones (the goal's JSON carries each milestone with its uid)",
+    # An update is a *UpdateIntent or a RawChanges patch; no TypedDict spells one.
+    "BaseUpdatePayload": "deleted — an update is a *UpdateIntent or a RawChanges patch (core/models/update_contracts.py)",
+    "KuUpdatePayload": "deleted — curriculum has no update door: the content-vault sync is its one writer (ADR-091)",
+    "PsUpdatePayload": "deleted — curriculum has no update door: the content-vault sync is its one writer (ADR-091)",
+    "LpUpdatePayload": "deleted — curriculum has no update door: the content-vault sync is its one writer (ADR-091)",
+    "FinanceUpdatePayload": "deleted — expenses live in Firefly III (ADR-052); SKUEL holds no expense entity",
+    "ReportUpdatePayload": "deleted — a UserEntry's processing state is written by UserEntryService.update_processed_content / update_processing_state",
+    # A filter is FilterParams, keyed by the fields of the model being read.
+    "BaseFilterSpec": "deleted — a filter is FilterParams (core/models/type_hints.py), keyed by the model's fields",
+    "ActivityFilterSpec": "deleted — a filter is FilterParams (core/models/type_hints.py), keyed by the model's fields",
+    "CurriculumFilterSpec": "deleted — a filter is FilterParams; curriculum's edge filters are the SearchRequest relationship flags",
+    "PrinciplesFilterSpec": "deleted — a filter is FilterParams (core/models/type_hints.py), keyed by the model's fields",
+    "PropertyFilterSpec": "deleted — find_by takes the operator suffix on a model field (strength__gte=0.8)",
 }
 
 
@@ -645,6 +658,9 @@ _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MO
 _m_kuuid = "migration record -- the January 2026 UID migration's inventory and test names the Ku minter the 2026-10-16 ADR-013 amendment retired"
 _m_devuser = "migration record -- the January 2026 UID migration's before/after of the dev-user default the 2026-10-24 uid arc residuals deleted"
 _m_normuser = "migration record -- the May 2026 canonicalization names the one-time normalizer its script ran, both deleted 2026-10-24"
+_update_intents = (
+    "closed ADR-066 migration plan -- its Phase 7a step names the base payload it left in place"
+)
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/TROUBLESHOOTING.md": {
@@ -943,8 +959,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/patterns/three_tier_type_system.md": {
         # These two move whenever the prose above them changes length. Re-derive
         # the anchors from the scanner's report, never by adding a diff delta.
-        (891, "KuType"): Allow(_three_tier),
-        (892, "KuStatus"): Allow(_three_tier),
+        (872, "KuType"): Allow(_three_tier),
+        (873, "KuStatus"): Allow(_three_tier),
     },
     # The arc's record, granted in bulk because naming the retired identifier IS the
     # finding. Every anchor re-derived from the scanner's own report (scan_file over the
@@ -957,6 +973,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/roadmap/done/task-update-future-completion-date.md": {
         (43, "TaskStatusUpdateRequest"): Allow(_future_completion),
+    },
+    "docs/roadmap/done/update-intents.md": {
+        (287, "BaseUpdatePayload"): Allow(_update_intents),
     },
     "docs/roadmap/done/docs-defiction-pass.md": {
         (62, "sel_routes"): Allow(_defiction),

@@ -567,8 +567,8 @@ class CRUDRouteFactory[T]:
             schema = parsed.value
 
             # Build the typed update value (ADR-066). Activity Domains' `*UpdateRequest`
-            # carry `.to_intent()` → a frozen `*UpdateIntent`; other domains (curriculum,
-            # forms, groups, templates) fall back to a `RawChanges` patch from `model_dump`.
+            # carry `.to_intent()` → a frozen `*UpdateIntent`; a schema without it (form
+            # templates, groups) falls back to a `RawChanges` patch from `model_dump`.
             updates: SupportsToChanges
             if isinstance(schema, SupportsToIntent):
                 updates = schema.to_intent()

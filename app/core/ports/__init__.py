@@ -184,23 +184,14 @@ from .ps_engagement_protocols import PsEngagementOperations
 
 # Query types - TypedDicts for type-safe queries and payloads (January 2026)
 from .query_types import (
-    # Filter Specifications
-    ActivityFilterSpec,
-    BaseFilterSpec,
-    # Update Payloads (curriculum only — Activity Domains use frozen *UpdateIntent, ADR-066)
-    BaseUpdatePayload,
-    CurriculumFilterSpec,
     # Cypher Parameters
     CypherParams,
     # Response/Context Types
     GraphContextResult,
     IntelligenceResult,
-    KuUpdatePayload,
-    LpUpdatePayload,
     # Query Building Types
     OrderBySpec,
     PaginationSpec,
-    PsUpdatePayload,
     WhereClauseSpec,
 )
 from .relationship_backend_protocols import UserRelationshipOperations
@@ -267,15 +258,6 @@ __all__ = [
     # ========== QUERY TYPES - TypedDicts (January 2026) ==========
     # Cypher Parameters
     "CypherParams",
-    # Filter Specifications
-    "ActivityFilterSpec",
-    "BaseFilterSpec",
-    "CurriculumFilterSpec",
-    # Update Payloads (curriculum only — Activity Domains use frozen *UpdateIntent, ADR-066)
-    "BaseUpdatePayload",
-    "KuUpdatePayload",
-    "LpUpdatePayload",
-    "PsUpdatePayload",
     # Query Building Types
     "OrderBySpec",
     "PaginationSpec",

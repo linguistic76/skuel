@@ -224,7 +224,7 @@ class TasksOperations(
         Args:
             user_uid: User UID to query for
             relationship_type: Override relationship type (default uses OWNS)
-            filters: Filter specification (use ActivityFilterSpec for type hints)
+            filters: Exact-match filters — each key a ``Task`` field, matched by equality
             limit: Maximum results (default 100)
             offset: Skip first N results (default 0)
             sort_by: Field to sort by
@@ -233,9 +233,9 @@ class TasksOperations(
         Returns:
             Result containing (list of Task, total count)
 
-        Type Hint Example:
-            filters: ActivityFilterSpec = {"status": "active", "priority": "high"}
-            await service.get_user_entities(user_uid, filters=filters)
+        Example:
+            filters: FilterParams = {"status": "active", "priority": "high"}
+            await backend.get_user_entities(user_uid, filters=filters)
         """
         ...
 

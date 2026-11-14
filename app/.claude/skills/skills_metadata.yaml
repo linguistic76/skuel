@@ -58,7 +58,7 @@ skills:
 
   - name: python
     description: Python development patterns in SKUEL
-    last_reviewed: "2026-10-16"
+    last_reviewed: "2026-11-14"
     foundation: []
     dependencies: []
     library_package: null  # Language, not a package

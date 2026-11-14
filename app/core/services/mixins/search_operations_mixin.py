@@ -25,15 +25,13 @@ PROVIDES (Methods for Routes/Facades):
         - list_all_categories: List all categories (admin)
         - count: Count entities matching filters
 
-Type Safety (January 2026)
---------------------------
-Filter parameters accept BaseFilterSpec (or domain-specific TypedDicts like
-ActivityFilterSpec) for type safety while remaining backward compatible.
+Filter grammar
+--------------
+``count(**filters)`` passes its keywords to the backend's ``count``, which reads each
+as a field of the domain model, with an optional operator suffix (``due_date__gte``),
+and skips a key the model lacks.
 
-    from core.ports import ActivityFilterSpec
-
-    filters: ActivityFilterSpec = {"status": "active", "priority": "high"}
-    result = await service.get_by_category("work", filters=filters)
+    result = await service.count(status="active", priority="high")
 """
 
 from __future__ import annotations

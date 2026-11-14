@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-08
+updated: 2026-11-14
 ---
 
 # Functional Direction Roadmap
@@ -79,7 +79,7 @@ Tasks and UserEntries ground to Kus by embedding (`KnowledgeGroundingService`); 
 
 **Why it was the natural extension of ADR-065:** same hazard ADR-065 named ("contract becomes implicit at the boundary"), applied to the write surface. Inference computed enrichment; updates accept user intent. Both are "compute structured changes, apply to a frozen value, return new value."
 
-**What was removed (One Path Forward):** the six activity `*UpdatePayload` TypedDicts in `core/ports/query_types.py`, the per-domain `_intent_from_mapping` funnels, and the facade `Mapping`-typed `update` overrides — every alternative to the one typed path is deleted. The non-activity domains (curriculum Ku/Ps/Lp, finance, reports) keep their `*UpdatePayload` TypedDicts, flowing as `RawChanges` through the same base `U`.
+**What was removed (One Path Forward):** the six activity `*UpdatePayload` TypedDicts in `core/ports/query_types.py`, the per-domain `_intent_from_mapping` funnels, and the facade `Mapping`-typed `update` overrides — every alternative to the one typed path is deleted. A service whose update door carries no intent (form templates, groups) takes a `RawChanges` patch through the same base `U`; no `*UpdatePayload` TypedDict remains.
 
 **Per-domain deviations preserved:** Habits keeps `update_habit(uid, intent, *, force_archive)` (the transient `force_archive` directive can't ride the intent — it would persist as a junk column); Tasks/Events split edge-typed fields off the intent before the property write.
 

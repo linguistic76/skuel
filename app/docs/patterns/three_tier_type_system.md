@@ -637,7 +637,7 @@ users_backend = UserBackend(driver)
 
 User is the identity anchor upon which all activity tracking depends. It has a fundamentally different lifecycle and purpose than activity domains, requiring specialized persistence that focuses on identity management rather than activity CRUD.
 
-## The typed write boundary — update intents + payloads (ADR-066)
+## The typed write boundary — update intents and raw patches (ADR-066)
 
 **Core Principle:** "An update carries a type that names exactly what it may change"
 
@@ -671,33 +671,34 @@ Each domain's `BaseService` instantiation pins `U` to its intent, e.g.
 `model_fields_set` — see [ADR-066](../decisions/ADR-066-typed-update-intents.md) and
 `docs/roadmap/done/update-intents.md`.
 
-### Non-activity domains → update-payload TypedDicts
+### Doors with no intent → `RawChanges`
 
-Domains with no intent (curriculum, finance, reports) keep TypedDict patches, defined in
-`/core/ports/query_types.py`. They flow as `RawChanges` (a `dict` subclass that satisfies
-`SupportsToChanges`) through the same base `U`, so no per-domain intent type is required.
+A service whose update door carries no intent takes a `RawChanges` patch: a `dict`
+subclass that satisfies `SupportsToChanges`, so it flows through the same base `U` and no
+per-domain type is declared. `CRUDRouteFactory` builds one from
+`model_dump(exclude_unset=True)` when the update schema has no `to_intent()` — form
+templates and groups.
 
-| TypedDict | Domain | Key Fields |
-|-----------|--------|------------|
-| `KuUpdatePayload` | KU (cross-domain) | `complexity`, `domain`, `source_path`, `tags`, `aliases` |
-| `PsUpdatePayload` | PS | `order_index`, `estimated_minutes`, `is_optional`, `is_completed` |
-| `LpUpdatePayload` | LP | `goal`, `domain`, `estimated_hours`, `progress`, `is_completed` |
-| `FinanceUpdatePayload` | Finance | `amount`, `paid_at`, `receipt_link`, `has_receipt`, `category` |
-| `ReportUpdatePayload` | Reports | `processing_started_at`, `processing_completed_at`, `file_type` |
+Curriculum has no update door. The content-vault sync is the one writer of Ku, PathStep,
+LearningPath, Exercise and the six Activity Templates
+([ADR-091](../decisions/ADR-091-one-door-for-curriculum.md)), so no update value
+describes them.
 
-All five extend `BaseUpdatePayload` (`title`, `description`, `status`, `updated_at`).
+### Filters → `FilterParams`
 
-### Filter Specification TypedDicts
+A filter is `FilterParams` (`core/models/type_hints.py`): a `dict` whose values are
+scalars or lists of scalars. The reads that take one read its keys differently:
 
-TypedDicts for query filtering:
+| Read | How a key is read |
+|------|-------------------|
+| `find_by(**filters)`, `count(**filters)` | A field of the model, with an optional operator suffix (`due_date__gte`). A key the model lacks is skipped with a warning. |
+| `get_user_entities(filters=...)` | A property matched by equality. No operator suffix. |
 
-| TypedDict | Purpose | Key Fields |
-|-----------|---------|------------|
-| `BaseFilterSpec` | Common filter fields | `status`, `user_uid`, `sort_by`, `limit`, `offset` |
-| `ActivityFilterSpec` | Activity domain filters | Extends `BaseFilterSpec` + `category`, `priority`, `due_date` |
-| `CurriculumFilterSpec` | Curriculum domain filters | Extends `BaseFilterSpec` + `complexity`, `domain`, `prerequisite_uid`, `learning_path_uid`, `is_completed`, `mastery_level` |
-| `PrinciplesFilterSpec` | Principles-specific | Extends `BaseFilterSpec` + `strength`, `is_active` |
-| `PropertyFilterSpec` | Operator-based filters | `strength__gte`, `confidence__gte`, `score__lte`, etc. |
+The operators are listed in [Query Architecture](query_architecture.md).
+
+No TypedDict spells an update or a filter: one is assignable to neither `dict[str, Any]`
+nor `FilterParams`, so no signature could take it
+(`tests/unit/test_ports_declare_no_patch_or_filter_typeddict.py`).
 
 ### Usage Pattern
 
@@ -719,24 +720,25 @@ At the HTTP edge, the `*UpdateRequest` builds the intent via `to_intent()` (only
 fields the client actually sent become non-`UNSET`); the generic `CRUDRouteFactory` does
 this for every activity domain (`schema.to_intent()` when the schema is `SupportsToIntent`).
 
-**Non-activity domain — a `RawChanges` patch (or the TypedDict that types it):**
+**A door with no intent — a `RawChanges` patch** (`CRUDRouteFactory`'s fallback):
 
 ```python
 from core.models.update_contracts import RawChanges
-from core.ports.query_types import PsUpdatePayload
 
-async def mark_step_complete(self, uid: str) -> Result[PathStep]:
-    updates: PsUpdatePayload = {"is_completed": True, "completed_at": "2026-06-05T10:00:00Z"}
-    return await self.update(uid, RawChanges(updates))
+raw = schema.model_dump(exclude_unset=True)
+updates = RawChanges({k: get_enum_value(v) for k, v in raw.items()})
 ```
 
-**Filter operations — type-safe filter construction:**
+**A filter — `FilterParams`, keyed by the model's fields:**
 
 ```python
-from core.ports.query_types import ActivityFilterSpec
+from core.models.type_hints import FilterParams
 
-# MyPy rejects a key the spec does not declare, and a value of the wrong type.
-filters: ActivityFilterSpec = {"status": "active", "sort_by": "created_at"}
+filters: FilterParams = {
+    "user_uid": user_uid,
+    "event_date__gte": today_in(current_zone()).isoformat(),
+}
+result = await self.backend.find_by(**filters)
 ```
 
 ### Why intents, not TypedDicts, for activity updates
@@ -747,27 +749,6 @@ left the update contract invisible in the method signature. The frozen `*UpdateI
 fixes all three: `UNSET` vs `None` is explicit, the dataclass is the contract a reader
 sees, and `to_changes()` is the single materialization point. See
 [ADR-066](../decisions/ADR-066-typed-update-intents.md).
-
-### Inheritance Pattern (non-activity payloads)
-
-The remaining update-payload TypedDicts inherit from `BaseUpdatePayload`:
-
-```python
-class BaseUpdatePayload(TypedDict, total=False):
-    """Base fields available on all update payloads."""
-    title: str
-    description: str
-    status: str
-    updated_at: str
-
-class LpUpdatePayload(BaseUpdatePayload, total=False):
-    """LearningPath-specific fields in addition to base fields."""
-    goal: str
-    progress: float
-    is_completed: bool
-```
-
-The `total=False` makes all fields optional, matching the partial update semantics.
 
 ## Key Files
 
