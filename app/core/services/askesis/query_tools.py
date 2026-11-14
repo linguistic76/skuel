@@ -48,6 +48,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.zone_context import today_in_current_zone
 
 if TYPE_CHECKING:
+    from core.models.type_hints import UserUID
     from core.ports.query_types import GoalsAchievedCount
 
 logger = get_logger("skuel.services.askesis.query_tools")
@@ -215,7 +216,7 @@ class GoalsAchievedCounter(Protocol):
     async def count_goals_achieved(
         self,
         *,
-        user_uid: str,
+        user_uid: UserUID,
         since: date | None = None,
         until: date | None = None,
     ) -> Result[GoalsAchievedCount]:
@@ -304,7 +305,7 @@ def build_aggregation_catalog(
     """
 
     async def _count_goals_achieved(
-        *, user_uid: str, period: AggregationPeriod
+        *, user_uid: UserUID, period: AggregationPeriod
     ) -> Result[AggregationCount]:
         since, until = resolve_period(period, today())
         result = await goals_service.count_goals_achieved(
@@ -362,7 +363,7 @@ async def run_tool(
     selection: ToolSelection,
     catalog: Mapping[str, QueryTool],
     *,
-    user_uid: str,
+    user_uid: UserUID,
 ) -> Result[AggregationAnswered | AggregationDeclined]:
     """Validate a model's selection and execute it for the AUTHENTICATED user.
 
@@ -407,7 +408,7 @@ async def select_and_run(  # skuel-lint: disable=SKUEL005 -- deterministic total
     catalog: Mapping[str, QueryTool],
     llm_service: ToolSelector,
     *,
-    user_uid: str,
+    user_uid: UserUID,
 ) -> AggregationOutcome:
     """Selection → validation → execution, folded into one deterministic outcome.
 

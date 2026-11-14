@@ -202,7 +202,6 @@ class KuInteractionOperations(Protocol):
 
 
 @runtime_checkable
-@runtime_checkable
 class KnowledgeContextOperations(Protocol):
     """PS-oriented knowledge-context reads over a set of source UIDs.
 

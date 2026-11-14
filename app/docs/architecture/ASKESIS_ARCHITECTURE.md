@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-13
+updated: 2026-11-14
 ---
 
 # Askesis Architecture - Cross-Cutting Intelligence System
@@ -52,23 +52,28 @@ Askesis uses a **pure facade pattern** with zero business logic in the main serv
 ```python
 @dataclass(frozen=True)
 class AskesisDeps:
-    """Typed dependency container — all deps required (March 2026 streamlining)."""
+    """Typed dependency container — each field names the class the composition root hands over."""
     intelligence_factory: UserContextIntelligenceFactory
-    graph_intel: Any
-    user_service: Any
-    llm_service: Any
-    embeddings_service: Any
-    knowledge_service: Any
-    tasks_service: Any
-    goals_service: Any
-    habits_service: Any
-    events_service: Any
+    graph_intel: GraphIntelligenceService
+    user_service: UserService
+    askesis_core_service: AskesisCoreOperations
+    llm_service: LLMService               # FULL tier: the hub refuses to build Askesis without it
+    embeddings_service: EmbeddingsService # FULL tier: the hub refuses to build Askesis without it
+    knowledge_service: PsService
+    tasks_service: TasksService
+    goals_service: GoalsService
+    habits_service: HabitsService
+    events_service: EventsService
     zpd_service: ZPDOperations            # Required for guided pipeline (LP gate ensures curriculum exists)
-    citation_service: Any | None = None   # Wired in bootstrap via PathStep backend
+    ps_engagement_service: PsEngagementService
+    citation_service: AskesisCitationService | None = None
+    canon_service: CanonRetrievalService | None = None
     # PS bundle dependencies for ContextRetriever
-    ku_service: Any | None = None         # For PS bundle KU fetching
-    lp_service: Any | None = None         # For PS bundle LP fetching
-    principles_service: Any | None = None # For PS bundle principle fetching
+    ku_service: KuService | None = None
+    lp_service: LpService | None = None
+    principles_service: PrinciplesService | None = None
+    ku_backend: KuOperations | None = None
+    ps_backend: KnowledgeContextOperations | None = None  # the PathStep backend, from the composition root
 
 
 class AskesisService:
@@ -204,12 +209,22 @@ if tier.ai_enabled:
         # ... all activity + curriculum domains
     )
 
+    # The FULL-tier services Askesis needs are refused as None here, beside the
+    # vector_search_service and zpd_service checks, so the factory takes them non-None
+    if llm_service is None:
+        raise RuntimeError("Askesis (FULL tier) requires LLMService ...")
+    embeddings_service = learning_services["embeddings_service"]
+    if embeddings_service is None:
+        raise RuntimeError("Askesis (FULL tier) requires EmbeddingsService ...")
+
     # Then: Create Askesis via factory function (handles AskesisDeps construction)
     services.askesis = create_askesis_service(
         intelligence_factory=context_intelligence_factory,
         learning_services=learning_services,  # LearningServices — a typed set
         graph_intelligence=graph_intelligence,
-        llm_service=llm_service,
+        llm_service=llm_service,              # LLMService, narrowed above
+        embeddings_service=embeddings_service,  # EmbeddingsService, narrowed above
+        ps_backend=ps_backend,                # backends["ps_backend"], passed in by compose
         activity_services=activity_services,  # ActivityServices — a typed set
         user_service=user_service,
         # ... askesis_core_service, zpd_service, ps_engagement_service,

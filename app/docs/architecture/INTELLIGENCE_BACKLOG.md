@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-13
+updated: 2026-11-14
 ---
 
 # Intelligence Backlog
@@ -59,8 +59,8 @@ since Askesis creation moved out of that function in January 2026. There is no u
 left to remove.
 
 **If the settled direction does need services threaded through the composition root**, the shape to
-copy is `create_askesis_service()` (`services_bootstrap/_intelligence_hub.py:216`), which passes
-`activity_services` through to `core/services/askesis_factory.py:72–75` as required,
+copy is `create_askesis_service()` (`services_bootstrap/_intelligence_hub.py:239`), which passes
+`activity_services` through to `core/services/askesis_factory.py:81–84` as required,
 non-underscore `AskesisDeps` fields.
 
 **Prerequisite:** Item 2B (`create_tasks_from_learning_path`) must be implemented first.

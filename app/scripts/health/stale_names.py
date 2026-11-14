@@ -654,9 +654,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (139, "from ui.daisy_components import"): Allow(_trouble),
     },
     "docs/architecture/ASKESIS_ARCHITECTURE.md": {
-        (447, "activity_rich"): Allow(_askesis_arch),
-        (448, "ActivityDataReader"): Allow(_askesis_arch),
-        (449, "ActivityReviewService"): Allow(_askesis_arch),
+        (462, "activity_rich"): Allow(_askesis_arch),
+        (463, "ActivityDataReader"): Allow(_askesis_arch),
+        (464, "ActivityReviewService"): Allow(_askesis_arch),
     },
     "docs/architecture/ENTITY_TYPE_ARCHITECTURE.md": {
         (408, "ProcessorType"): Allow(_entity_arch),

@@ -70,6 +70,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import RichPathStepItem
     from core.ports.search_protocols import ScopedChunkRetrievalOperations
     from core.services.ps_engagement.engagement import Engagement
+    from core.services.ps_engagement.ps_engagement_service import PsEngagementService
     from core.services.user import UserContext
 
 
@@ -174,7 +175,7 @@ class ContextRetriever:
         self,
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
         ps_service: EntityLookup[PathStep] | None = None,
-        ku_service: KuLookup[Ku] | None = None,
+        ku_service: KuLookup[Ku | None] | None = None,
         # Activity handles are the audience-aware slice: OWNER_ONLY domains
         # must be read through get_visible_to_user (ADR-085 G1), never bare get.
         habits_service: VisibleEntityLookup[Habit] | None = None,
@@ -188,7 +189,7 @@ class ContextRetriever:
         # Engagement service — None falls back to legacy (unengaged) selection.
         # Always wired in production (FULL tier); optional only for unit-test
         # construction without a full engagement-service mock.
-        ps_engagement_service: Any | None = None,  # boundary: PsEngagementService
+        ps_engagement_service: PsEngagementService | None = None,
         # Aggregation tool selection.
         # Both wired in production (FULL tier); optional only for unit-test
         # construction — an AGGREGATION verdict with either missing yields a
@@ -213,7 +214,8 @@ class ContextRetriever:
             principles_service: For fetching full Principle objects from graph_context (PS bundle)
             lp_service: For fetching full LearningPath from graph_context (PS bundle)
             ku_backend: KuBackend for prerequisite/dependency queries
-            ps_backend: PsBackend for learning context and resource queries
+            ps_backend: The PathStep backend's knowledge-context reads (cited
+                resources, Ku lateral edges)
         """
         # SearchRouter — THE single path for external chunk (RAG) retrieval.
         # Post-wired in compose after the router is built (it is constructed

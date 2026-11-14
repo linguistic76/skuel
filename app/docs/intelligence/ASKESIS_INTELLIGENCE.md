@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-09
+updated: 2026-11-14
 ---
 
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
@@ -319,9 +319,9 @@ Both methods run the same PS-first pipeline: enrollment gate (an active PathStep
 - `_fetch_path_steps()`, `_fetch_kus()`, `_fetch_entities_by_uid()` - Parallel entity fetching via `asyncio.gather()`
 - `_fetch_cited_resources()` - Resources via `PsBackend.get_cited_resources()`
 
-**PS bundle deps** use the `EntityLookup[T]` protocol (async `get(uid) -> Result[T]`, `core/services/askesis/types.py`): ps_service, habits_service, tasks_service, events_service, principles_service, lp_service — plus `ku_service`, which needs `KuLookup[T]` because `KuService` names its getter `get_ku`. **Parameterize at every site** (`EntityLookup[Task]`, not bare): `Result` is invariant, so the type parameter is the only way the model survives the round trip, and an unparameterized handle makes `.value.title` unchecked again. These are *lookup slices*, never a domain's `*Operations` port — those are backend protocols no facade satisfies.
+**PS bundle deps** are lookup slices (`core/services/askesis/types.py`). The curriculum handles ps_service and lp_service use `EntityLookup[T]` (async `get(uid) -> Result[T]`, a miss an error); the four activity handles habits_service, tasks_service, events_service and principles_service use `VisibleEntityLookup[T]` (`get_visible_to_user`, ADR-085); `ku_service` takes `KuLookup[Ku | None]`, because `KuService` names its getter `get_ku` and answers a miss with `ok(None)`. **Parameterize at every site** (`EntityLookup[Task]`, not bare): `Result` is invariant, so the type parameter is the only way the model survives the round trip, and an unparameterized handle makes `.value.title` unchecked again. These are *lookup slices*, never a domain's `*Operations` port — those are backend protocols no facade satisfies.
 
-**Backend deps** for graph queries: `ku_backend` (KuBackend), `ps_backend` (PsBackend).
+**Backend deps** for graph queries: `ku_backend` (`KuOperations`, the Ku facade's backend) and `ps_backend` (`KnowledgeContextOperations`, the PathStep backend's two knowledge-context reads, handed over by the composition root).
 
 **Search dep:** `search_router` is post-wired in compose (typed against the `ScopedChunkRetrievalOperations` ISP slice), never a constructor param — ContextRetriever does not hold `Neo4jVectorSearchService` itself.
 

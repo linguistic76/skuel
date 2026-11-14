@@ -13,9 +13,11 @@ from core.services.askesis_service import AskesisDeps, AskesisService
 
 if TYPE_CHECKING:
     from core.ports.askesis_protocols import AskesisCoreOperations
+    from core.ports.curriculum_protocols import KnowledgeContextOperations
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.activity_services import ActivityServices
     from core.services.canon import CanonRetrievalService
+    from core.services.embeddings_service import EmbeddingsService
     from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
     from core.services.learning_services import LearningServices
     from core.services.llm_service import LLMService
@@ -29,7 +31,9 @@ def create_askesis_service(
     intelligence_factory: UserContextIntelligenceFactory,
     learning_services: LearningServices,
     graph_intelligence: GraphIntelligenceService,
-    llm_service: LLMService | None,
+    llm_service: LLMService,
+    embeddings_service: EmbeddingsService,
+    ps_backend: KnowledgeContextOperations,
     activity_services: ActivityServices,
     user_service: UserService,
     askesis_core_service: AskesisCoreOperations,
@@ -40,14 +44,19 @@ def create_askesis_service(
 ) -> AskesisService:
     """Build AskesisService from the composition root's services.
 
-    Askesis is created in the FULL intelligence tier only.
+    Askesis is created in the FULL intelligence tier only; the composition root
+    hands over the services that tier builds, never ``None``.
 
     Args:
         intelligence_factory: UserContextIntelligenceFactory (required).
-        learning_services: The curriculum services — the embeddings service, the three
-            curriculum facades and the Ku and PathStep backends they hold are read.
+        learning_services: The curriculum services — the three curriculum facades and
+            the Ku backend the Ku facade holds are read.
         graph_intelligence: GraphIntelligenceService.
         llm_service: LLMService — built in the FULL tier, where Askesis is created.
+        embeddings_service: EmbeddingsService — built in the FULL tier; intent
+            classification embeds the query.
+        ps_backend: The PathStep backend's knowledge-context reads (cited resources,
+            Ku lateral edges) for the retriever.
         activity_services: The six Activity facades — tasks, goals, habits, events and
             principles are read.
         user_service: UserOperations instance.
@@ -67,7 +76,7 @@ def create_askesis_service(
         user_service=user_service,
         askesis_core_service=askesis_core_service,
         llm_service=llm_service,
-        embeddings_service=learning_services["embeddings_service"],
+        embeddings_service=embeddings_service,
         knowledge_service=learning_services["ps"],
         tasks_service=activity_services["tasks"],
         goals_service=activity_services["goals"],
@@ -81,8 +90,8 @@ def create_askesis_service(
         ku_service=learning_services["atomic_ku_service"],
         lp_service=learning_services["learning_paths"],
         principles_service=activity_services["principles"],
-        # Backends for ContextRetriever graph queries (migrated from inline Cypher)
+        # Backends for ContextRetriever graph queries
         ku_backend=learning_services["atomic_ku_service"].backend,
-        ps_backend=learning_services["ps"].repo,
+        ps_backend=ps_backend,
     )
     return AskesisService(deps)

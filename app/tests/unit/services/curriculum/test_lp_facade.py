@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.services.lp_service import LpService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -88,3 +88,41 @@ class TestLpServicePsServiceGuard:
 # ---------------------------------------------------------------------------
 # TestLpServiceCreate
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# TestLpServiceGet — a miss is not found, as on the CRUD ``get``
+# ---------------------------------------------------------------------------
+
+
+class TestLpServiceGet:
+    @pytest.mark.asyncio
+    async def test_a_uid_that_names_no_learning_path_is_not_found(
+        self, lp_service: LpService
+    ) -> None:
+        lp_service.core.get_learning_path = AsyncMock(return_value=Result.ok(None))
+
+        result = await lp_service.get("lp.missing")
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_a_found_learning_path_is_returned(self, lp_service: LpService) -> None:
+        path = Mock()
+        lp_service.core.get_learning_path = AsyncMock(return_value=Result.ok(path))
+
+        result = await lp_service.get("lp.found")
+
+        assert result.is_ok
+        assert result.value is path
+
+    @pytest.mark.asyncio
+    async def test_a_read_failure_propagates(self, lp_service: LpService) -> None:
+        failure: Result[None] = Result.fail(Errors.database("get_path_with_steps", "db down"))
+        lp_service.core.get_learning_path = AsyncMock(return_value=failure)
+
+        result = await lp_service.get("lp.any")
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.DATABASE
