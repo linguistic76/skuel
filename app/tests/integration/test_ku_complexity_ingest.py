@@ -81,8 +81,8 @@ async def test_an_absent_complexity_stores_nothing_and_reads_none(
 async def test_a_complexity_outside_the_vocabulary_is_refused(
     clean_neo4j, neo4j_driver, ingestion_service, tmp_path: Path
 ) -> None:
-    """Pins the ingestion vocabulary gate for a Ku: it already refused this before
-    the model carried the field, and must keep refusing it."""
+    """The ingestion vocabulary gate refuses a Ku complexity outside the vocabulary
+    before anything is written."""
     path = _ku_file(tmp_path, "cx-bogus", "complexity: bogus\n")
 
     result = await ingestion_service.ingest_file(path)
