@@ -93,7 +93,7 @@ only prunable telemetry — neither reports total graph counts against the 200k/
 
 ## Alert Categories
 
-SKUEL has **16 alerting rules** across 5 categories (plus one commented-out SLO rule,
+SKUEL has **17 alerting rules** across 5 categories (plus one commented-out SLO rule,
 `ErrorBudgetDepleted`, staged in `alerts.yml`):
 
 ### 1. HTTP / API Health (2 alerts)
@@ -166,7 +166,7 @@ histogram_quantile(0.95,
 
 ---
 
-### 4. Graph Health (6 alerts)
+### 4. Graph Health (7 alerts)
 
 | Alert | Severity | Threshold | Duration | Trigger Condition |
 |-------|----------|-----------|----------|-------------------|
@@ -175,7 +175,8 @@ histogram_quantile(0.95,
 | **AuraRelationshipCapApproaching** | critical | >320,000 | 10m | Graph exceeds 80% of AuraDB Free 400k relationship cap |
 | **UidOutsideGrammar** | warning | >0 | 10m | A node uid is outside the uid grammar (a shape an exemption names included) |
 | **UidHeldByTwoNodes** | warning | >0 | 10m | A uid is held by more than one node |
-| **GraphHealthPollerStale** | warning | >900s | 5m | Graph-health poller hasn't succeeded in 15 min (3 missed cycles) — the 18 relationship/knowledge/uid gauges are frozen |
+| **StoredValueUnreadable** | warning | >0 | 10m | A stored value its field's type cannot read — every read of its node fails |
+| **GraphHealthPollerStale** | warning | >900s | 5m | Graph-health poller hasn't succeeded in 15 min (3 missed cycles) — the 19 relationship/knowledge/uid/stored-value gauges are frozen |
 
 **Example PromQL**:
 ```promql
@@ -199,12 +200,21 @@ Alerts Actually Evaluate.
 `check_uid_grammar` (`core/infrastructure/monitoring/uid_grammar_check.py`): an ERROR log
 every cycle while either gauge is above zero, with a few of the uids.
 
+**Stored-value context**: the same poller reads the stored-value census
+(`StoredValueCensusBackend.read_summary`): every property of every node a backend reads,
+read as its field's type by the mapper's own rule. A value it cannot read fails every read
+of its node (`UnreadableStoredValueError`). Production's evaluator is `check_stored_values`
+(`core/infrastructure/monitoring/stored_value_check.py`): an ERROR log every cycle while one
+is stored, naming a few; `./dev stored-value-census` names them all.
+
 **Runbook**:
 - **HighOrphanedEntityCount**: Review entity creation logic, check relationship service
 - **AuraNodeCapApproaching / AuraRelationshipCapApproaching**: Run `./dev telemetry-retention`,
   review growth with `./dev knowledge-health`, consider the invite gate / paid tier
 - **UidOutsideGrammar / UidHeldByTwoNodes**: Run `./dev uid-census` to name each uid, its
   labels and the writer that minted it; fix the writer, then move the uids
+- **StoredValueUnreadable**: Run `./dev stored-value-census` to name each node, field and
+  value; fix the writer that stored it, then migrate the values
 - **GraphHealthPollerStale**: Check app logs for graph-health errors
   (`docker logs skuel-app | grep -i 'graph health'`), verify Neo4j via `/health/ready`
 
