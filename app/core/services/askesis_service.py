@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from core.models.search_request import SearchRequest
     from core.ports.askesis_protocols import AskesisCoreOperations
     from core.ports.curriculum_protocols import KnowledgeContextOperations, KuOperations
+    from core.ports.query_types import RelevantKnowledgeResult
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.askesis.types import (
         AskesisAnalysis,
@@ -794,7 +795,7 @@ class AskesisService:
         upcoming_events: list[str] | None = None,
         max_results: int = 10,
         min_relevance_score: float = 0.5,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[RelevantKnowledgeResult]:
         """Find knowledge relevant to current activities. Delegated to relevance_engine."""
         return await self.relevance_engine.find_relevant_for_context(
             active_goals=active_goals,
@@ -812,7 +813,7 @@ class AskesisService:
         user_context: UserContext,
         max_results: int = 10,
         min_relevance_score: float = 0.5,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[RelevantKnowledgeResult]:
         """Find relevant knowledge from UserContext. Delegated to relevance_engine."""
         return await self.relevance_engine.find_relevant_from_user_context(
             user_context, max_results=max_results, min_relevance_score=min_relevance_score

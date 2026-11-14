@@ -25,7 +25,7 @@ Module Organization:
 - learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, SubstanceBand, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
 - notification_enums: NotificationType
-- askesis_enums: QueryComplexity, IntegrationSuccess, AggregationPeriod
+- askesis_enums: QueryComplexity, IntegrationSuccess, AggregationPeriod, RelevanceRing
 - intelligence_enums: HubQuestion
 - transcription_enums: TranscriptionStatus
 - interaction_enums: InteractionType, InteractionResult
@@ -52,7 +52,7 @@ from .activity_enums import (
     ProductivityLevel,
     ProgressLevel,
 )
-from .askesis_enums import AggregationPeriod, IntegrationSuccess, QueryComplexity
+from .askesis_enums import AggregationPeriod, IntegrationSuccess, QueryComplexity, RelevanceRing
 
 # Choice enums
 from .choice_enums import ChoiceType
@@ -259,6 +259,7 @@ __all__ = [
     "ProficiencyLevel",
     "TriggerType",
     "QueryComplexity",
+    "RelevanceRing",
     "ProductivityLevel",
     "ParseDoor",
     "ProgressDepth",

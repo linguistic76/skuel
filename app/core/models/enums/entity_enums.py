@@ -1095,6 +1095,16 @@ class Domain(StrEnum):
             if any(synonym in text_lower for synonym in domain.get_search_synonyms())
         ]
 
+    def is_subject_area(self) -> bool:
+        """True for a knowledge-categorization domain (tech, health, spiritual, ...).
+
+        A subject area is what a piece of curriculum is ABOUT, authored as
+        ``domain:`` on a Ku or PathStep. The system domains (knowledge, tasks,
+        goals, ...) name a kind of entity instead, and ``knowledge`` is the
+        ``Entity`` model's default when no subject was authored.
+        """
+        return self in _SUBJECT_AREA_DOMAINS
+
     @classmethod
     def from_string(cls, value: str) -> Domain | None:
         """Parse a string to Domain, case-insensitive. Returns None on unknown.
@@ -1108,6 +1118,24 @@ class Domain(StrEnum):
             return cls(normalized)
         except ValueError:
             return None
+
+
+# The knowledge-categorization half of ``Domain`` — read by ``Domain.is_subject_area``.
+_SUBJECT_AREA_DOMAINS: frozenset[Domain] = frozenset(
+    {
+        Domain.TECH,
+        Domain.BUSINESS,
+        Domain.PERSONAL,
+        Domain.HEALTH,
+        Domain.EDUCATION,
+        Domain.CREATIVE,
+        Domain.RESEARCH,
+        Domain.SOCIAL,
+        Domain.SPIRITUAL,
+        Domain.META,
+        Domain.CROSS_DOMAIN,
+    }
+)
 
 
 class NonKuDomain(StrEnum):

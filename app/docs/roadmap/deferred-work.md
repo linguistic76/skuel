@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-08
+updated: 2026-11-14
 ---
 
 # Deferred Work
@@ -258,6 +258,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## LP Mastery and Next Step
 
 [LP Mastery and Next Step](lp-mastery-and-next-step.md) — two capabilities `LpOperations` declared and nothing implemented, kept by ruling when the false declarations were deleted; they wait on a learning-path surface that wants them.
+
+## Relevance Engine Scoring
+
+[Relevance Engine Scoring](relevance-engine-scoring.md) — the Askesis relevance engine reads the knowledge around a learner's activities in two rings and ranks it with a provisional formula (one link is under the default threshold); weighting by ring, complexity and the threshold wait on the first caller.
 
 ## Review Schedule
 
