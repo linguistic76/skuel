@@ -109,7 +109,7 @@ await ps_service.semantic.get_semantic_neighborhood(ps_uid)
 - **Lightweight** — extends Entity directly, not Curriculum.
 - **Composed into PathSteps** — `(PathStep)-[:USES_KU]->(Ku)` relationship.
 - **Trained by PathSteps** — `(PathStep)-[:TRAINS_KU]->(Ku)` relationship.
-- **Aliases + NOUS topics** — `aliases` (alternative names), `nous` (NOUS topic membership — the category vocabulary), `sel_category` (SELCategory enum). The former `namespace`/`ku_category`/`source` fields were retired 2026-07-06.
+- **Aliases + NOUS topics** — `aliases` (alternative names), `nous` (NOUS topic membership — the category vocabulary), `sel_category` (SELCategory enum), `complexity` (`KuComplexity | None` — `None` when the file authors none). The former `namespace`/`ku_category`/`source` fields were retired 2026-07-06.
 - **SEL organization** — `sel_category` (SELCategory enum) classifies Kus by SEL competency. It is a search filter (`sel_category` on `/search/results`), not a page; `/library/ku` lists the learner's bookmarked Ku.
 - **Reference node** — ontology/reference, not a unit for learning.
 

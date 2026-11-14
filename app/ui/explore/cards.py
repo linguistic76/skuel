@@ -99,8 +99,8 @@ def render_explore_card(
     if len(full_desc) > 120:
         desc += "..."
 
-    # Metadata badges — Ku is a lightweight reference node (no display metadata);
-    # PathStep carries complexity / time / level.
+    # Metadata badges — PathStep shows complexity / time / level. A Ku shows none:
+    # it has no time or level, and its optional complexity is not displayed.
     meta_parts: list[Any] = []
     if not is_ku:
         if item.get("complexity"):

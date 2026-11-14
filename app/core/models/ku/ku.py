@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 from core.models.entity import Entity
 from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.learning_enums import SELCategory
+from core.models.enums.learning_enums import KuComplexity, SELCategory
 
 
 @dataclass(frozen=True)
@@ -43,9 +43,10 @@ class Ku(Entity):
     a principle (truth_oriented_collaboration), a practice (meditation).
 
     Unlike PathSteps (which are units for learning with composed content),
-    Kus are lightweight ontology/reference nodes. They don't carry
-    full learning metadata (complexity, substance scores), but they
-    do carry sel_category for SEL competency organization.
+    Kus are lightweight ontology/reference nodes. They don't carry the
+    Curriculum learning metadata (learning level, substance scores, quality),
+    but they do carry sel_category for SEL competency organization and the
+    complexity their file authored.
 
     PathSteps USES_KU to compose atoms into narrative.
     Learning Steps TRAINS_KU to declare learning objectives.
@@ -60,6 +61,9 @@ class Ku(Entity):
     # =========================================================================
     aliases: tuple[str, ...] = field(default_factory=tuple)  # alternative names
     sel_category: SELCategory | None = None  # SEL competency this Ku belongs to
+    # How demanding the concept is, as its curriculum file authored it. ``None`` =
+    # not authored — never a stand-in level, unlike Curriculum's MEDIUM default.
+    complexity: KuComplexity | None = None
     # Ku is NOT a Curriculum subclass, so this is declared here rather than
     # inherited — but Ku IS publication-controlled everywhere else: the PUBLIC
     # search gate applies to it and the health gauge counts it in

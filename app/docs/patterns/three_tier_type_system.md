@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-11-08
+updated: 2026-11-14
 category: patterns
 related_skills:
 - python
@@ -695,7 +695,7 @@ TypedDicts for query filtering:
 |-----------|---------|------------|
 | `BaseFilterSpec` | Common filter fields | `status`, `user_uid`, `sort_by`, `limit`, `offset` |
 | `ActivityFilterSpec` | Activity domain filters | Extends `BaseFilterSpec` + `category`, `priority`, `due_date` |
-| `CurriculumFilterSpec` | Curriculum domain filters | Extends `BaseFilterSpec` + `domain`, `difficulty` |
+| `CurriculumFilterSpec` | Curriculum domain filters | Extends `BaseFilterSpec` + `complexity`, `domain`, `prerequisite_uid`, `learning_path_uid`, `is_completed`, `mastery_level` |
 | `PrinciplesFilterSpec` | Principles-specific | Extends `BaseFilterSpec` + `strength`, `is_active` |
 | `PropertyFilterSpec` | Operator-based filters | `strength__gte`, `confidence__gte`, `score__lte`, etc. |
 
