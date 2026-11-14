@@ -41,9 +41,8 @@ linked by two activities.
 - **Weight by ring** — a `DIRECT` reason counts the same as an `ADJACENT` one today. The ring is
   on every reason so the weighting can be added without another read.
 - **Complexity** — `KuComplexity.sort_order()` could break ties in `recommended_order` among units
-  equally ready, foundations first. No Ku authors a complexity yet, and the `Ku` model has no
-  `complexity` field (an authored `complexity:` is stored on the node, and only raw-property reads
-  such as this engine's see it).
+  equally ready, foundations first. No Ku authors a complexity yet; an authored one reaches both
+  this engine's raw-property read and the `Ku` model (`KuComplexity | None`).
 - **Calibrate the threshold** against what the first surface shows a learner.
 
 None of this is worth deciding before a caller exists: there is nothing to tune it against.

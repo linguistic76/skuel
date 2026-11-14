@@ -211,7 +211,7 @@ class CurriculumFilterSpec(BaseFilterSpec, total=False):
     filtered by various curriculum-specific attributes.
 
     Complexity Filtering:
-        complexity: Single or list (e.g., "beginner", ["intermediate", "advanced"])
+        complexity: Single or list of ``KuComplexity`` values (e.g., "basic", ["medium", "advanced"])
 
     Domain Filtering:
         domain: Subject domain for curriculum content
@@ -226,8 +226,8 @@ class CurriculumFilterSpec(BaseFilterSpec, total=False):
 
     Usage:
         filters: CurriculumFilterSpec = {
-            "domain": "TECH",
-            "complexity": "intermediate",
+            "domain": "tech",
+            "complexity": "medium",
             "limit": 100,
         }
         result = await ku_service.list(filters=filters)
@@ -280,7 +280,7 @@ class KuUpdatePayload(BaseUpdatePayload, total=False):
     Update payload for KnowledgeUnit entities.
 
     KU-Specific Fields:
-        complexity: Difficulty level (beginner, intermediate, advanced)
+        complexity: ``KuComplexity`` value (basic, medium, advanced)
         domain: Subject domain
         source_path: Path to source markdown file
 
@@ -290,7 +290,7 @@ class KuUpdatePayload(BaseUpdatePayload, total=False):
 
     Usage:
         updates: KuUpdatePayload = {
-            "complexity": "intermediate",
+            "complexity": "medium",
             "tags": ["python", "async"],
         }
         result = await ku_service.update(uid, updates)

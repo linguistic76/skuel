@@ -3,13 +3,13 @@ KuDTO - Atomic Knowledge Unit DTO (Tier 2 - Transfer)
 =====================================================
 
 Mutable DTO for atomic knowledge unit entities (EntityType.KU).
-Extends EntityDTO (NOT CurriculumDTO) with 4 Ku-specific fields.
+Extends EntityDTO (NOT CurriculumDTO) with 6 Ku-specific fields.
 
-Ku is lightweight — no learning metadata, no substance scores.
+Ku is lightweight — no learning level, no substance scores.
 
 Hierarchy:
     EntityDTO (~18 common fields)
-    └── KuDTO(EntityDTO) +4 Ku-specific fields
+    └── KuDTO(EntityDTO) +6 Ku-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -23,15 +23,18 @@ from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.learning_enums import KuComplexity
 
 
 @dataclass
 class KuDTO(EntityDTO):
     """Mutable DTO for atomic knowledge unit entities (EntityType.KU).
 
-    Extends EntityDTO with 4 Ku-specific fields:
+    Extends EntityDTO with 6 Ku-specific fields:
       - aliases: alternative names
       - sel_category: SEL competency (self_awareness, self_management, etc.)
+      - complexity: basic / medium / advanced as authored; None when not authored
+      - publication_state: published or draft
       - nous: NOUS topic membership (stories, body, self-awareness, ...)
       - nous_subtopic: NOUS sub-topic membership (2nd level — nervous-system, ...)
     """
@@ -41,6 +44,7 @@ class KuDTO(EntityDTO):
 
     aliases: list[str] | None = None
     sel_category: str | None = None
+    complexity: KuComplexity | None = None
     publication_state: PublicationState = PublicationState.PUBLISHED
     # NOUS topic membership (stories, body, self-awareness, ...) — multi-topic;
     # empty = deliberately unassigned (rawness principle)
@@ -55,7 +59,14 @@ class KuDTO(EntityDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "sel_category", "publication_state"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "sel_category",
+                "complexity",
+                "publication_state",
+            ],
             datetime_fields=["created_at", "updated_at"],
         )
 
@@ -68,7 +79,7 @@ class KuDTO(EntityDTO):
             cls,
             data,
             enum_fields=enum_fields_for(
-                "entity_type", "status", "domain", "sel_category", "publication_state"
+                "entity_type", "status", "domain", "sel_category", "complexity", "publication_state"
             ),
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags", "aliases", "nous", "nous_subtopic"],
@@ -96,12 +107,13 @@ class KuDTO(EntityDTO):
                 # Ku-specific fields
                 "aliases",
                 "sel_category",
+                "complexity",
                 "publication_state",
                 "nous",
                 "nous_subtopic",
             },
             enum_mappings=enum_fields_for(
-                "entity_type", "status", "domain", "sel_category", "publication_state"
+                "entity_type", "status", "domain", "sel_category", "complexity", "publication_state"
             ),
         )
 
