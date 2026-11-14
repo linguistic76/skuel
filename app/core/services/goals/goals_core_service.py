@@ -188,7 +188,7 @@ def _with_reopen_progress_reset(
     # of an active goal) records nothing.
     now = datetime.now()
     # boundary: pre-serialization patch — the history entries are JSON-serialized at
-    # the write (``to_neo4j_node``), so this patch carries a nested list the
+    # the write (``to_neo4j_patch``), so this patch carries a nested list the
     # ``Neo4jProperties`` alias does not name, as every progress writer's does.
     reset: dict[str, Any] = {
         **patch,

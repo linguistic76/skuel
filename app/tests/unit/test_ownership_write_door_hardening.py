@@ -35,6 +35,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from core.models.task.task import Task
 from core.utils.result_simplified import Result
 from tests.helpers.production_backends import build_production_backends
 
@@ -184,6 +185,7 @@ class TestBulkOwnerPreflight:
                 base_label="Entity",
                 entities=[{"uid": "task_0", "user_uid": "user_ghost"}],
                 relationship_config={},
+                entity_class=Task,
             )
         finally:
             mod.CypherExecutor = original  # type: ignore[misc]

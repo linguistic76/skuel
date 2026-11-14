@@ -381,7 +381,7 @@ WHERE task IS NOT NULL
 
 **The Standard Path (UniversalNeo4jBackend)**:
 ```python
-# WRITE: Both create() and update() auto-serialize via to_neo4j_node()
+# WRITE: create() serializes via to_neo4j_node(), update() via to_neo4j_patch()
 # Services pass native Python types — NO json.dumps() needed
 await self.backend.update(uid, {
     "metadata": {"key": "val"},        # dict → json.dumps() by mapper
@@ -569,7 +569,7 @@ the same instant differing only in storage type and asserts the bounded `find_by
 5. **UNWIND** for batch operations — one query for N entities
 6. **No APOC in domain services** (SKUEL001) — pure Cypher only
 7. **No Cypher in `core/`** (SKUEL021) — domain-specific Cypher belongs in domain backends (`adapters/persistence/neo4j/backends/`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`. Cross-domain Cypher is no exception: the MEGA-QUERY statements live in `adapters/persistence/neo4j/user_context_queries.py` (`RICH_CONTEXT_STATEMENTS`) and `CrossDomainQueryService` takes a `CrossDomainBackendOperations` backend.
-8. **No json.dumps() in services** — `backend.update()` and `backend.create()` auto-serialize complex types via `to_neo4j_node()`. For custom Cypher reads, use `parse_neo4j_json()` / `deserialize_json_fields()`.
+8. **No json.dumps() in services** — `backend.update()` and `backend.create()` auto-serialize complex types via `to_neo4j_patch()` / `to_neo4j_node()`, which also refuse a value no read of the node could read back. For custom Cypher reads, use `parse_neo4j_json()` / `deserialize_json_fields()`.
 9. **Validate interpolated identifiers** — Neo4j Cypher cannot parameterize relationship types, labels or property names, so f-string interpolation is unavoidable for those. The query builder modules (`crud_queries.py`, `domain_queries.py`, `semantic_queries.py`) — and `neo4j_schema_manager.py`'s DDL — import `validate_label()` and `validate_identifier()` from `_helpers.py`, one definition for both halves of the layer. A *property name* takes a stronger guarantee where the builder has a model: `crud_queries` checks it against `fields(entity_class)`, raising for a name in a WHERE-clause pattern and warning-and-dropping a sort key. Backend mixins additionally use `_validate_rel_name()` from `_backend_helpers.py`; where a backend lets its caller choose the sort property, the parameter is an enum (`ActivitySortKey`) rather than a string checked at runtime. **A guard is not automatic — assume one exists only where you can name it:** a handful of backend methods still interpolate a caller's property name unchecked, ruled and inventoried in `/docs/roadmap/field-name-guarding-in-cypher.md`, which also records why no HTTP route publishes a sort key. Never accept raw user strings for these positions.
 10. **Parameterize `entity_type` filters via the enum** — `entity_type` is a node *property*, so it CAN (and must) be a `$param`. Bind `EntityType.USER_ENTRY.value` (etc.) instead of inlining `'user_entry'`. Inline literals violate SKUEL014 and silently rot if an enum value ever changes. Pattern: `MATCH (u:Entity {entity_type: $entry_type})` + `params={"entry_type": EntityType.USER_ENTRY.value}`.
 11. **Bound traversal queries with `LIMIT $limit`** — any query that returns a per-user collection (submissions for a PathStep, reports for a submission, etc.) must accept a `limit` parameter and apply `LIMIT $limit`. Default to a `QueryLimit.*` constant. Unbounded `MATCH ... RETURN ... ORDER BY ...` is a latent DoS as user data grows.

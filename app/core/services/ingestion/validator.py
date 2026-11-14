@@ -12,7 +12,7 @@ Extracted from unified_ingestion_service.py for separation of concerns.
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -191,10 +191,10 @@ def validate_entity_data(
     persisted, it hides from every exact-match filter until a data migration
     (the 2026-08 event_type cleanup). The 2026-07-23 severity ruling already
     classifies it as a content fault (reported ignored-with-reason by the
-    vault-sync doors, never a sync error). A stray that reaches the graph some
-    other way fails every read of its node (``UnreadableStoredValueError``) and is
-    named by ``./dev stored-value-census``; this door keeps vault content from
-    storing one. USER_ENTRY files are
+    vault-sync doors, never a sync error). Every other value a node's read would
+    refuse — an unparseable ``created_at`` or ``due_date``, a ``tags`` that is not a
+    list — is refused at the write, by the read's own rule (``to_neo4j_patch``), and
+    reported against its file the same way. USER_ENTRY files are
     exempt from the gate: their ADR-054 door owns their frontmatter with
     alias-aware parsers ("in process" → active) and fails loudly on genuine
     garbage — a literal gate here would reject on the batch path what
@@ -284,43 +284,6 @@ def validate_entity_data(
                     user_message=(
                         f"File {file_path.name} ({entity_type.value}): {detail}. "
                         "Edit the file to use a status this entity type has."
-                    ),
-                )
-            )
-
-    # Authored-timestamp gate. ``created_at`` is the ONE timestamp a vault file
-    # may author (every other is stamped by the writer), so it is the one that
-    # can arrive malformed. It is gated for the same reason as the enum
-    # vocabulary above, and the failure is worse: the read boundary
-    # (``Neo4jGenericMapper._convert_value``) parses it with
-    # ``datetime.fromisoformat`` and RAISES on failure, so an unparseable value
-    # does not merely break ``datetime(n.created_at)`` in analytics — it makes
-    # the entity unloadable, and the write that stored it reported success.
-    #
-    # Mirrors that reader's tolerance exactly (the #1003 rule — a write gate
-    # must mirror the READ boundary's full tolerance stack): a YAML-parsed
-    # ``datetime``/``date``, or a string ``fromisoformat`` accepts. PyYAML
-    # already turns a bare ISO timestamp into a datetime, so the string branch
-    # only sees quoted values.
-    authored_created_at = entity_data.get("created_at")
-    if authored_created_at is not None and not isinstance(authored_created_at, (datetime, date)):
-        parseable = False
-        if isinstance(authored_created_at, str):
-            try:
-                datetime.fromisoformat(authored_created_at)
-                parseable = True
-            except ValueError:
-                parseable = False
-        if not parseable:
-            return Result.fail(
-                Errors.validation(
-                    f"Unparseable 'created_at': {authored_created_at!r}",
-                    field="created_at",
-                    user_message=(
-                        f"File {file_path.name} ({entity_type.value}): 'created_at' must be an "
-                        f"ISO-8601 timestamp (e.g. 2026-03-29T00:00:00Z); got "
-                        f"{authored_created_at!r}. Fix or remove the line — omitting it lets "
-                        "the graph stamp the creation time itself."
                     ),
                 )
             )

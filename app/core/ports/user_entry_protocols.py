@@ -37,6 +37,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.query_types import (
@@ -360,7 +361,7 @@ class UserEntryAssessmentOperations(Protocol):
         self,
         report_uid: str,
         now: str,
-        status: str,
+        status: EntityStatus,
         allowed_from_statuses: list[str],
         teacher_uid: str,
     ) -> Result[list[Neo4jProperties]]:

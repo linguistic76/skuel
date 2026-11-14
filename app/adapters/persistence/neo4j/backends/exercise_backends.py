@@ -704,6 +704,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         """
         return await self.execute_query(query, params)
 
+    @safe_backend_operation("create_report_and_revised_exercise")
     async def create_report_and_revised_exercise(
         self, params: dict[str, Any], re_entity: RevisedExercise
     ) -> Result[list[Neo4jProperties]]:

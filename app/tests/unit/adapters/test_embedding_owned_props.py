@@ -20,7 +20,6 @@ nulls every owned key, so the re-sync removes a stored vector (canon P3).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import Mock
 
@@ -33,6 +32,7 @@ from adapters.persistence.neo4j.neo4j_mapper import (
     without_embedding_props,
 )
 from core.models.enums.pipeline import Pipeline
+from core.models.ku.ku import Ku
 from core.models.user_entry.user_entry import UserEntry
 from tests.helpers.production_backends import build_production_backends
 
@@ -158,21 +158,11 @@ class TestUserEntryUpsertCaller:
             ), payload
 
 
-@dataclass(frozen=True)
-class _DataclassEntity:
-    """A dataclass entity with the embedding triple, as a model would carry it."""
-
-    uid: str
-    title: str
-    embedding: tuple[float, ...] | None = None
-    embedding_model: str | None = None
-    embedding_updated_at: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
 class TestPrepareBatchItemsCaller:
-    def test_dataclass_entity_carries_no_owned_key(self) -> None:
-        [item] = prepare_batch_items([_DataclassEntity(uid="ku.x", title="t")], rel_config=None)
+    def test_an_entity_naming_every_owned_key_carries_none(self) -> None:
+        entity = {"uid": "ku.x", "title": "t", **dict.fromkeys(_OWNED)}
+        [item], refused = prepare_batch_items([entity], Ku, rel_config=None)
+        assert refused == []
         assert not _OWNED & set(item)
         assert item["uid"] == "ku.x"
 
@@ -184,10 +174,12 @@ class TestPrepareBatchItemsCaller:
                 "direction": "incoming",
             }
         }
-        [item] = prepare_batch_items(
+        [item], refused = prepare_batch_items(
             [{"uid": "ku.x", "title": "t", "embedding": None, "embedding_version": "v3"}],
+            Ku,
             rel_config=rel_config,
         )
+        assert refused == []
         assert not _OWNED & set(item)
         assert not _OWNED & set(item["_node_props"])
         assert item["_node_props"]["title"] == "t"

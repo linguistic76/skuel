@@ -231,7 +231,7 @@ class _UserEntryAssessmentMixin:
         self,
         report_uid: str,
         now: str,
-        status: str,
+        status: EntityStatus,
         allowed_from_statuses: list[str],
         teacher_uid: str,
     ) -> Result[list[Neo4jProperties]]:
@@ -265,7 +265,7 @@ class _UserEntryAssessmentMixin:
             {
                 "report_uid": report_uid,
                 "now": now,
-                "status": status,
+                "status": status.value,
                 "allowed_from_statuses": allowed_from_statuses,
                 "teacher_uid": teacher_uid,
                 "pipeline": Pipeline.TEACHER_REVIEW.value,

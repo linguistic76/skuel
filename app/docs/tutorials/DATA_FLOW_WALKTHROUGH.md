@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-08
+updated: 2026-11-14
 ---
 
 # Data Flow Walkthrough: One Task, Created and Read Back
@@ -54,7 +54,7 @@ Smaller helpers run between these stops. The table names the ones that decide so
 | 10 | `TasksCoreService._create_with_links` | `/core/services/tasks/tasks_core_service.py` | The one create path: persist, write every edge, then announce |
 | 11 | `Task.with_creation_due_date` | `/core/models/task/task.py` | A task with no date becomes due today |
 | 12 | `_CrudMixin.create` | `/adapters/persistence/neo4j/_crud_mixin.py` | Writes the node and its `OWNS` edge in one statement, and fails if the owner does not exist |
-| 13 | `to_neo4j_node` | `/adapters/persistence/neo4j/neo4j_mapper.py` | `Task` to properties: enums to values, dates to ISO strings, dicts to JSON |
+| 13 | `to_neo4j_node` | `/adapters/persistence/neo4j/neo4j_mapper.py` | `Task` to properties: enums to values, dates to ISO strings, dicts to JSON; a value no read could read back refuses the write |
 | 14 | `from_neo4j_node` | `/adapters/persistence/neo4j/neo4j_mapper.py` | Stored properties back to the `Task` the request answers with |
 | 15 | `TasksCoreService._write_link_edges` | `/core/services/tasks/tasks_core_service.py` | Gathers the edges the request and the entity ask for |
 | 16 | `keep_permitted_link_edges` | `/core/services/mixins/link_edge_guard.py` | Keeps the edges this owner may write |

@@ -1,6 +1,6 @@
 ---
 title: "ADR-087: Status-Guarded Conditional Writes"
-updated: 2026-11-12
+updated: 2026-11-14
 status: accepted
 category: decisions
 tags: [adr, decisions, concurrency, status, completion-stamp, neo4j, write-path]
@@ -141,7 +141,7 @@ an `EntityStatus` member is added. Guard the precondition, not the enumeration.
 
 `updated_at` is stamped Python-side into `$updates`, so it rides the same conditional merge
 and a guarded-out write leaves the node byte-identical. All three payloads pass through
-`to_neo4j_node`, so storage shapes match every other write (dates and datetimes persist as
+`to_neo4j_patch`, so storage shapes match every other write (dates and datetimes persist as
 ISO strings — **the writer decides the storage type**, and computing a stamp in Cypher would
 quietly change it) and a `None` survives to `SET n += {field: null}`, which REMOVES the
 property. That null-merge *is* the reopen clear.

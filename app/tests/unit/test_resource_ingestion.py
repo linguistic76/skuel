@@ -23,6 +23,8 @@ from pathlib import Path
 import pytest
 
 from core.models.enums.entity_enums import EntityType
+from core.models.ku.ku import Ku
+from core.models.pathways.path_step import PathStep
 from core.services.ingestion.config import ENTITY_CONFIGS
 from core.services.ingestion.detector import detect_entity_type
 from core.services.ingestion.preparer import prepare_entity_data
@@ -187,7 +189,8 @@ def test_batch_items_keep_resource_uids_dropped_by_mapper() -> None:
         "resource_uids": ["resource.transcend"],  # in the mapper's skip set
         "uses_kus": ["ku.test.one"],  # NOT in the skip set (control)
     }
-    item = prepare_batch_items([entity], rel_config=rel_config)[0]
+    [item], refused = prepare_batch_items([entity], PathStep, rel_config=rel_config)
+    assert refused == []
 
     assert item["resource_uids"] == ["resource.transcend"]
     assert item["uses_kus"] == ["ku.test.one"]
@@ -242,7 +245,8 @@ def test_ku_batch_items_keep_resource_uids() -> None:
         "title": "Test Concept",
         "resource_uids": ["resource.atlas-of-the-heart"],
     }
-    item = prepare_batch_items([entity], rel_config=rel_config)[0]
+    [item], refused = prepare_batch_items([entity], Ku, rel_config=rel_config)
+    assert refused == []
 
     assert item["resource_uids"] == ["resource.atlas-of-the-heart"]
     assert "resource_uids" not in item["_node_props"]

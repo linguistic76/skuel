@@ -117,8 +117,15 @@ read answers it as a failed `Result` — every one that builds a model is guarde
 builder's `execute` alone raising by contract
 (`tests/unit/adapters/test_mapper_readers_answer_a_result.py`); one bad node fails a list
 whole. `./dev stored-value-census` names every such value in the graph, and the
-graph-health poller logs ERROR while one is stored (`check_stored_values`). A primitive
-field is handed over as stored.
+graph-health poller logs ERROR while one is stored (`check_stored_values`). A node missing a
+field that requires a value refuses the read the same way. A primitive field is handed over
+as stored.
+
+**The mapper's writers never store one:** `to_neo4j_node` (a model) and `to_neo4j_patch` (a
+patch, given the class the node is read as) read each property they serialize for a field of
+the class by the same rule, and raise `UnstorableValueError` before any statement runs; an
+enum field is stored as its member's value. The vault door refuses the file that holds one,
+against its field (`/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`).
 
 ### When to Use Each Tier
 

@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_patch
 from core.events.task_events import TaskCompleted
 from core.models.enums import EntityStatus, EntityType, Priority
 from core.models.relationship_names import RelationshipName
@@ -99,7 +99,7 @@ class _FakeTaskGraph:
         prior = prior_status_of(node)
         applied = prior not in guard.refuse_if_prior_in
         if applied:
-            merged = to_neo4j_node(resolve_merged_patch(prior, updates, guard))
+            merged = to_neo4j_patch(resolve_merged_patch(prior, updates, guard), Task, uid=uid)
             self.writes.append((uid, dict(merged)))
             for key, value in merged.items():
                 if value is None:

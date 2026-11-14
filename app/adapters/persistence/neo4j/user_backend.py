@@ -36,7 +36,11 @@ from neo4j.exceptions import ConstraintError
 
 from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_checkin
 from adapters.persistence.neo4j._learning_state_mixin import to_mastered_write_rows
-from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import (
+    from_neo4j_node,
+    to_neo4j_node,
+    to_neo4j_patch,
+)
 from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.enums.curriculum_enums import EnrollmentStatus
@@ -270,7 +274,7 @@ class UserBackend(Neo4jSessionRunner):
         field another writer changed meanwhile (the password hash, the role,
         ``is_active``, the display name) keeps the value that writer gave it.
 
-        Both are serialized by ``to_neo4j_node``, the mapper ``create_user`` stores
+        Both are serialized by ``to_neo4j_patch``, the rule ``create_user`` stores
         them through, so a rewrite stores the shape every reader already parses. An
         exception raised by ``plan`` rolls the transaction back, sentinel included.
 
@@ -304,8 +308,10 @@ class UserBackend(Neo4jSessionRunner):
                 await tx.rollback()
                 return Result.ok(None)
             current = from_neo4j_node(dict(locked["u"]), User)
-            updates = to_neo4j_node(
-                {"preferences": plan(current.preferences), "last_active_at": active_at}
+            updates = to_neo4j_patch(
+                {"preferences": plan(current.preferences), "last_active_at": active_at},
+                User,
+                uid=user_uid,
             )
             written = await (
                 await tx.run(write_query, {"uid": user_uid, "updates": updates})

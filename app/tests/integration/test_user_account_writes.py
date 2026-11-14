@@ -81,9 +81,10 @@ def _changed(before: dict[str, object], after: dict[str, object]) -> set[str]:
 
 async def _reset_preferences(neo4j_driver) -> None:
     """Store default preferences through the same serializer the backend uses."""
-    from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
+    from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_patch
+    from core.models.user.user import User
 
-    stored = to_neo4j_node({"preferences": UserPreferences()})["preferences"]
+    stored = to_neo4j_patch({"preferences": UserPreferences()}, User)["preferences"]
     async with neo4j_driver.session() as session:
         await session.run("MATCH (u:User {uid: $uid}) SET u.preferences = $p", uid=_USER, p=stored)
 

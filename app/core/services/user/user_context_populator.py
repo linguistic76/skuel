@@ -529,7 +529,7 @@ class UserContextPopulator:
         Populate user preference fields from the parsed ``User.preferences`` model.
 
         The :User node stores preferences as a JSON-string blob (the
-        ``preferences`` property, written by ``to_neo4j_node``), and
+        ``preferences`` property, written by ``to_neo4j_node`` and ``to_neo4j_patch``), and
         ``from_neo4j_node`` is the ONE parser of that blob — so the builder
         hands the already-parsed ``UserPreferences`` here. This replaced flat
         node-property reads (``available_minutes``, ``energy_level``, ...)

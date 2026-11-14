@@ -83,7 +83,7 @@ def askesis_update_request_to_dto(
 
 
 # boundary: a pre-serialization patch of the DTO's mixed field types (str, float, int,
-# list[str], datetime), serialized at the write (``to_neo4j_node``).
+# list[str], datetime), serialized at the write (``to_neo4j_patch``).
 def askesis_update_changes(update_dto: AskesisUpdateDTO) -> dict[str, Any]:
     """The partial patch an update DTO asks for: every field it sets, nothing else.
 

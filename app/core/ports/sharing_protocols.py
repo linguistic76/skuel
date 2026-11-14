@@ -83,7 +83,7 @@ class SharingBackendOperations(Protocol):
         self,
         entity_uid: EntityUID,
         owner_uid: str,
-        visibility: str,
+        visibility: Visibility,
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def query_ownership_and_status(

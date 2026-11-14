@@ -97,6 +97,7 @@ from .config import (
     DEFAULT_MAX_FILE_SIZE_BYTES,
     ENTITY_CONFIGS,
     SyncAllowlist,
+    ingested_model_class,
     is_ingestible_path,
     je_pro_skip_reason,
     resolve_chunking_params,
@@ -140,6 +141,7 @@ from .vault_policy import (
     personal_file_uid,
     read_tracked_identities,
     uid_in_use_reason,
+    unstorable_value_reason,
     vault_refusal,
 )
 
@@ -1401,6 +1403,7 @@ class UnifiedIngestionService:
             base_label=config.base_label,
             entities=[entity_data],
             relationship_config=rel_config,
+            entity_class=ingested_model_class(entity_type),
         )
 
         if result.is_error:
@@ -1412,6 +1415,17 @@ class UnifiedIngestionService:
         if str(entity_data["uid"]) in stats.refused_uids:
             return Result.fail(
                 Errors.validation(uid_in_use_reason(str(entity_data["uid"])), field="uid")
+            )
+        # A value no read of the node could read back took no write either.
+        unstorable = stats.unstorable_by_uid.get(str(entity_data["uid"]))
+        if unstorable is not None:
+            reason = unstorable_value_reason(unstorable)
+            return Result.fail(
+                Errors.validation(
+                    reason,
+                    field=unstorable.field,
+                    user_message=f"File {file_path.name} ({entity_type.value}): {reason}",
+                )
             )
         self.logger.info(f"Ingested {entity_type.value}: {entity_data['uid']}")
         # Before any step below can return early: the links exist now, and a re-ingest

@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from core.ingestion.ingestion_types import RelationshipConfig
+from core.models.pathways.learning_path import LearningPath
 from tests.helpers.production_backends import build_production_backends
 
 if TYPE_CHECKING:
@@ -57,6 +58,7 @@ async def test_a_pass_that_fails_part_way_reports_its_committed_creations(
         [{"uid": FIRST, FIELD: [STEP]}, {"uid": SECOND, FIELD: 5}],
         CONFIG,
         batch_size=1,
+        entity_class=LearningPath,
     )
 
     assert result.is_ok, result
@@ -89,10 +91,20 @@ async def test_a_pass_that_succeeds_reports_no_errors(
     backend = build_production_backends(neo4j_driver)["bulk_upsert_backend"]
 
     first = await backend.create_relationships(
-        "LearningPath", "Entity", [{"uid": FIRST, FIELD: [STEP]}], CONFIG, batch_size=1
+        "LearningPath",
+        "Entity",
+        [{"uid": FIRST, FIELD: [STEP]}],
+        CONFIG,
+        batch_size=1,
+        entity_class=LearningPath,
     )
     again = await backend.create_relationships(
-        "LearningPath", "Entity", [{"uid": FIRST, FIELD: [STEP]}], CONFIG, batch_size=1
+        "LearningPath",
+        "Entity",
+        [{"uid": FIRST, FIELD: [STEP]}],
+        CONFIG,
+        batch_size=1,
+        entity_class=LearningPath,
     )
 
     assert first.is_ok and again.is_ok

@@ -121,8 +121,7 @@ def canonicalize_template_offsets(
 
     An UNAUTHORABLE value (an int, a list, a mapping with a mistyped key) is
     left verbatim on purpose — ``validate_entity_data`` owns the rejection so
-    the author gets one actionable per-file message, the same division of labour
-    the ``created_at`` gate uses.
+    the author gets one actionable per-file message.
     """
     if not isinstance(entity_type, EntityType):
         return
@@ -203,8 +202,8 @@ def _canonical_created_at(value: object) -> str | None:
     string ``fromisoformat`` parses. An offset-less value is the author's wall
     clock, read in the current zone — the vault owner's under the sync's zone
     scope, ``SKUEL_TIMEZONE`` for the content vault — and a bare day is that
-    day's first instant there. Anything else yields ``None`` so
-    ``validate_entity_data`` owns the one actionable rejection message.
+    day's first instant there. Anything else yields ``None``: the value is kept as
+    authored, and the write refuses its file with the read's own reason.
     """
     zone = current_zone()
     if isinstance(value, datetime):
@@ -422,8 +421,8 @@ def prepare_entity_data(
     #    the ON CREATE stamp (``toString(datetime())``, UTC) also emits, so
     #    every ingested created_at has one spelling.
     #
-    # An unparseable value is left verbatim on purpose — ``validate_entity_data``
-    # owns the rejection so the author gets one actionable per-file message.
+    # An unparseable value is left verbatim on purpose: the write reads it by the
+    # read's own rule and refuses the file, against this field.
     if "created_at" in entity_data:
         if entity_data["created_at"] is None:
             del entity_data["created_at"]

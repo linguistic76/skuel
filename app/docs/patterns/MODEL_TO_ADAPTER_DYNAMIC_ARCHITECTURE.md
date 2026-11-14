@@ -563,22 +563,20 @@ These violated fail-fast philosophy - driver is REQUIRED at bootstrap.
 
 **The Flow:**
 ```
-create: Task (add field) → to_neo4j_node() → Neo4j
-update: dict of changes  → to_neo4j_node() → Neo4j  (March 2026)
+create: Task (add field) → to_neo4j_node()  → Neo4j
+update: dict of changes  → to_neo4j_patch() → Neo4j
 read:                      ← from_neo4j_node() ← Neo4j
 ```
 
-Both `create()` and `update()` in `_CrudMixin` route through `to_neo4j_node()`, so services pass native Python types (dicts, enums, dates) and the mapper handles all Neo4j serialization (dicts → JSON strings, enums → values, dates → ISO strings). Services never call `json.dumps()` before `backend.update()`.
+`create()` serializes a model through `to_neo4j_node()`; `update()`, the status-guarded write and the vault's bulk upsert serialize a patch through `to_neo4j_patch(changes, entity_class)`. Services pass native Python types (dicts, enums, dates) and the mapper handles all Neo4j serialization (dicts → JSON strings, enums → values, dates → ISO strings). Services never call `json.dumps()` before `backend.update()`.
 
 **How it works:**
 ```python
 # In adapters/persistence/neo4j/neo4j_mapper.py
 
-def to_neo4j_node(entity: Any) -> dict:
-    """Uses Python introspection to serialize ANY dataclass or dict."""
-    # For dataclasses: iterates fields(entity)
-    # For dicts: iterates key/value pairs (used by update())
-    # Both paths apply the same serialization rules:
+def to_neo4j_node(entity: object) -> dict:  # a dataclass instance
+def to_neo4j_patch(changes: Mapping, entity_class: type, *, uid=None) -> dict:
+    # Both apply the same serialization rules:
     if isinstance(value, Enum):
         node_data[field.name] = value.value  # ← Auto-handles enums
     elif isinstance(value, date):
@@ -655,6 +653,19 @@ class Task:
 A stored value its field's type cannot read — `status: 'bogus'`, an unparseable date —
 raises `UnreadableStoredValueError` and the read fails; nothing reads it as the raw
 value or a default (`/docs/patterns/three_tier_type_system.md`).
+
+The write holds the same rule from the other side. `to_neo4j_node` and `to_neo4j_patch`
+read every property they serialize for a field of the class by the read's own rule
+(`unreadable_fields`), and raise `UnstorableValueError` before any statement runs:
+neither stores a value every later read of its node would refuse. A null on a field that
+requires a value and has no default is refused too; a key that names no field passes
+(the read never reads it). An enum field read from a tolerated spelling (`BASIC`, an
+alias) is stored as its member's value, so a Cypher filter comparing it finds it. A
+backend write answers the refusal as a failed `Result` (SYSTEM, naming class, uid,
+field and reason, through `safe_backend_operation`); the vault door refuses the one file
+that holds it, against its field, and writes the rest of the batch
+(`IngestionResult.unstorable_by_uid`). Raw-Cypher writers that SET a property from a
+parameter are outside the gate; each takes a typed value.
 
 ### 4. **Complex Types** (100% Dynamic)
 

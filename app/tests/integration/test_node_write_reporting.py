@@ -31,6 +31,7 @@ import pytest_asyncio
 from neo4j import AsyncDriver
 
 from core.models.enums.entity_enums import EntityType
+from core.models.task.task import Task
 from core.services.ingestion.config import ENTITY_CONFIGS
 from core.services.ingestion.types import IncrementalStats
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
@@ -168,6 +169,7 @@ async def test_upsert_counts_each_node_it_wrote_once(ensure_test_users, neo4j_dr
             base_label=config.base_label,
             entities=entities,
             relationship_config=config.relationship_config or {},
+            entity_class=Task,
         )
         assert result.is_ok, result
         return result.value

@@ -51,6 +51,7 @@ from .config import (
     SyncAllowlist,
     collect_files,
     collect_files_detailed,
+    ingested_model_class,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .exercise_teacher import refuse_unqualified_teachers
@@ -79,6 +80,7 @@ from .vault_policy import (
     personal_file_uid,
     read_tracked_identities,
     uid_in_use_reason,
+    unstorable_value_reason,
     vault_refusal,
 )
 
@@ -1485,6 +1487,7 @@ async def ingest_directory(
             entities=entities,
             relationship_config=rel_config,
             batch_size=batch_size,
+            entity_class=ingested_model_class(entity_type),
         )
 
         if result.is_ok:
@@ -1508,6 +1511,22 @@ async def ingest_directory(
                         ).to_dict()
                     )
                     file_entity_map.pop(refused_path, None)
+            # A file holding a value no read of its node could read back was not
+            # written either: reported against its field, left unstamped, dropped.
+            for uid, unstorable in sorted(stats.unstorable_by_uid.items()):
+                for refused_path in source_paths.get(uid, [f"<batch:{entity_type.value}>"]):
+                    errors.append(
+                        create_error(
+                            file_path=Path(refused_path),
+                            error=unstorable_value_reason(unstorable),
+                            stage="validation",
+                            error_type="validation",
+                            entity_type=entity_type.value,
+                            field=unstorable.field,
+                        ).to_dict()
+                    )
+                    file_entity_map.pop(refused_path, None)
+            refused |= set(stats.unstorable_by_uid)
             entities = [entity for entity in entities if str(entity["uid"]) not in refused]
             chunk_sources = {
                 uid: source for uid, source in chunk_sources.items() if uid not in refused
@@ -1603,6 +1622,7 @@ async def ingest_directory(
             entities=entities,
             relationship_config=rel_config,
             batch_size=batch_size,
+            entity_class=ingested_model_class(entity_type),
         )
         if rel_result.is_error:
             rel_error = IngestionError(

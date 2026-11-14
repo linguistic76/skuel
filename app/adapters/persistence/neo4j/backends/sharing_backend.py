@@ -11,6 +11,7 @@ from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.metadata_enums import Visibility
 from core.models.enums.user_enums import UserRole
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
@@ -246,7 +247,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         self,
         entity_uid: EntityUID,
         owner_uid: str,
-        visibility: str,
+        visibility: Visibility,
     ) -> Result[list[Neo4jProperties]]:
         """Set visibility property on an owned entity."""
         result = await self.execute_query(
@@ -260,7 +261,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {
                 "entity_uid": entity_uid,
                 "owner_uid": owner_uid,
-                "visibility": visibility,
+                "visibility": visibility.value,
             },
         )
         if result.is_error:
