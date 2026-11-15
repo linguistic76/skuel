@@ -552,6 +552,7 @@ skills:
       - ADR-021  # User Context Intelligence Modularization
       - ADR-030-dual-track-assessment-pattern.md  # Dual-track assessment pattern (duplicate number — full filename required)
       - ADR-059  # Engagement-Aware Daily Plan in Askesis
+      - ADR-091  # One door for curriculum — why the assigned-exercise read is empty
     patterns:
       - /docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md
     keywords: [UserContext, intelligence, planning, alignment, recommendations]
