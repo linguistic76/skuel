@@ -242,7 +242,7 @@ past `context.available_minutes_daily`.
 | 1 At-risk habits | `habits.get_at_risk_habits_for_user(context)` | first 3 | 15 | no |
 | 2 Today's events | `events.get_upcoming_events_for_user(context)` | all returned (`limit` defaults to 5) | 30 | no |
 | 2.3 Pending revisions | `exercises.get_pending_revisions_for_user(context)` | all returned (the service's `limit` defaults to 3) | `est_time_minutes` | yes |
-| 2.5 Unsubmitted exercises | `exercises.get_actionable_exercises_for_user(context)` | all returned (same default) | `est_time_minutes` | yes |
+| 2.5 Unsubmitted exercises | `exercises.get_actionable_exercises_for_user(context)` — empty since ADR-091 (`/docs/roadmap/assigned-exercises-after-adr-091.md`) | all returned (same default) | `est_time_minutes` | yes |
 | 2.7 Entries awaiting a report | `report.get_pending_submissions(user_uid, pipelines=Pipeline.awaiting_report())` → `awaiting_report` | all returned | 0 (out of the user's hands) | no |
 | 3 Tasks | `tasks.get_actionable_tasks_for_user(context, limit=5)` | 2 overdue + 3 others | 30 | yes |
 | 4 Daily habits | `context.daily_habits` not already in slot 1 | first 3 | 15 | yes |

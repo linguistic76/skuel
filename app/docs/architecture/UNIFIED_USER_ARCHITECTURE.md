@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-11-12
+updated: 2026-11-15
 status: current
 category: architecture
 tags:
@@ -386,12 +386,12 @@ Both CONSOLIDATED_QUERY (standard) and MEGA-QUERY (rich) fetch the latest `Activ
 | `feedback_received_count` | Total feedback responses received |
 | `feedback_in_window` | Feedback received within activity window |
 | `pending_feedback_count` | Submissions still awaiting feedback |
-| `assigned_exercise_count` | Exercises assigned via Group membership |
-| `completed_exercise_count` | Assigned exercises with submissions |
-| `unsubmitted_exercises` | Up to 5 pending exercises (uid, title, due_date), due_date ASC |
+| `assigned_exercise_count` | Exercises assigned via Group membership — always 0: it matches a scope ADR-091 retired ([case file](../roadmap/assigned-exercises-after-adr-091.md)) |
+| `completed_exercise_count` | Assigned exercises with submissions — always 0, as above |
+| `unsubmitted_exercises` | Up to 5 pending exercises (uid, title, due_date), due_date ASC — always empty, as above |
 | `pending_revised_exercises` | Up to 5 pending revisions (uid, title, instructions, revision_number, ...), created_at DESC. A revision is pending until one of the student's turn-ins reaches it — by `FULFILLS_REVISED_EXERCISE` (the writer's shape, beside a `FULFILLS_EXERCISE` on the root exercise), or by `FULFILLS_EXERCISE` on a revision whose original is gone |
 
-These fields are separate from `entities_rich` — they are scalar/list fields on `UserContext`, similar to `latest_activity_report_*` fields. `DailyPlanningMixin` reads `context.pending_revised_exercises` at Priority 2.3 (teacher revision feedback to address) and `context.unsubmitted_exercises` at Priority 2.5 (assigned exercises).
+These fields are separate from `entities_rich` — they are scalar/list fields on `UserContext`, similar to `latest_activity_report_*` fields. `DailyPlanningMixin` reads `context.pending_revised_exercises` at Priority 2.3 (teacher revision feedback to address) and `context.unsubmitted_exercises` at Priority 2.5 (assigned exercises — empty since ADR-091, so the slot fills nothing; `/docs/roadmap/assigned-exercises-after-adr-091.md`).
 
 ### Caching
 
