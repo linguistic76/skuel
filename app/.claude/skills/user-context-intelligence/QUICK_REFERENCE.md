@@ -407,7 +407,8 @@ test needs the fields listed against the mixin it exercises.
 | `user_uid` | `UserUID` | daily plan, learning, schedule, perception |
 | `zpd_assessment` | `ZPDAssessment` or `None` | daily plan |
 
-Read through a service, for the daily plan: `unsubmitted_exercises` and
+Read through a service, for the daily plan: `unsubmitted_exercises` (always empty: it
+matches a scope ADR-091 retired, `/docs/roadmap/assigned-exercises-after-adr-091.md`) and
 `pending_revised_exercises` (`ExerciseService`). The daily plan also reads the length of
 `pending_revised_exercises` directly.
 

@@ -94,6 +94,7 @@ async def test_a_complexity_outside_the_vocabulary_is_refused(
     assert await _stored(neo4j_driver, "ku.test.cx-bogus") is None
 
 
+@pytest.mark.stores_unreadable_value("the stray the read refuses")
 async def test_a_stray_value_in_the_graph_refuses_the_read(clean_neo4j, neo4j_driver) -> None:
     """A value no ``KuComplexity`` names, stored around the ingestion gate, fails the
     read as an error naming the node — it never reads as absent or as the raw value."""

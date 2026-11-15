@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-11-14
+updated: 2026-11-15
 category: patterns
 related_skills:
 - python
@@ -116,8 +116,9 @@ It never hands a model the raw value, a default, or `None` for a required field.
 read answers it as a failed `Result` — every one that builds a model is guarded, the query
 builder's `execute` alone raising by contract
 (`tests/unit/adapters/test_mapper_readers_answer_a_result.py`); one bad node fails a list
-whole. `./dev stored-value-census` names every such value in the graph, and the
-graph-health poller logs ERROR while one is stored (`check_stored_values`). A node missing a
+whole. `./dev stored-value-census` names every such value in the graph, the graph-health
+poller logs ERROR while one is stored (`check_stored_values`), and the integration suite
+fails the test that writes one (`tests/integration/_graph_census.py`). A node missing a
 field that requires a value refuses the read the same way. A primitive field is handed over
 as stored.
 

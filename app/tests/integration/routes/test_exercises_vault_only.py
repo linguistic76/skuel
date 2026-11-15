@@ -44,6 +44,9 @@ pytestmark = [
         IntelligenceTier.from_env().ai_enabled and not get_credential("OPENAI_API_KEY"),
         reason="FULL tier cannot bootstrap without OPENAI_API_KEY — run with INTELLIGENCE_TIER=core",
     ),
+    pytest.mark.stores_unreadable_value(
+        "seeds exercises as the retired create door wrote them, with the scopes it wrote"
+    ),
 ]
 
 MARK = "zzzexvaultonly"

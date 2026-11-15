@@ -30,7 +30,7 @@ from adapters.persistence.neo4j.graph_driver import (
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
-from tests.integration import _uid_census
+from tests.integration import _graph_census
 from tests.integration._container_lifecycle import bounded_neo4j_container
 from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION, running_kernel_version
 
@@ -46,15 +46,16 @@ from tests.integration._vault_rig import rig  # noqa: F401
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_setup(item: pytest.Item) -> Generator[None, object, object]:
-    """The uid census reads what the test starts on (``_uid_census.py``)."""
-    _uid_census.read_before_setup()
+    """The graph census reads what the test starts on (``_graph_census.py``)."""
+    _graph_census.read_before_setup()
     return (yield)
 
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_call(item: pytest.Item) -> Generator[None, object, object]:
-    """The uid census fails a test on a uid it wrote outside the grammar (``_uid_census.py``)."""
-    return (yield from _uid_census.census_call(item))
+    """The graph census fails a test on what it wrote that the graph's invariants refuse:
+    a uid outside the grammar, or a stored value no read can read (``_graph_census.py``)."""
+    return (yield from _graph_census.census_call(item))
 
 
 @pytest.fixture(scope="session")

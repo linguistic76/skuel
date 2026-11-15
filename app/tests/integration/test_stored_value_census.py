@@ -31,6 +31,7 @@ def _ours(refusals: list) -> set[tuple[str, object, str]]:
     }
 
 
+@pytest.mark.stores_unreadable_value("the strays the census names")
 async def test_the_census_names_each_unreadable_value_and_nothing_else(
     clean_neo4j, neo4j_driver
 ) -> None:

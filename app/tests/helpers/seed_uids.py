@@ -2,7 +2,7 @@
 
 A user uid is generated — ``user_{16 hex}`` (``core/utils/uid_grammar.py``); the
 username is only its ``title`` — and the integration census fails a test that
-writes a uid outside the grammar (``tests/integration/_uid_census.py``). A test
+writes a uid outside the grammar (``tests/integration/_graph_census.py``). A test
 names its user and seeds ``seed_user_uid(name)``, the hash of that name: the same
 uid every run, so a fixture and the test that reads it agree by name.
 

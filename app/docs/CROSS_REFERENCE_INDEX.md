@@ -481,6 +481,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-021](decisions/ADR-021-user-context-intelligence-modularization.md)
 - [ADR-030](decisions/ADR-030-dual-track-assessment-pattern.md)
 - [ADR-059](decisions/ADR-059-askesis-engagement-alignment.md)
+- [ADR-091](decisions/ADR-091-one-door-for-curriculum.md)
 
 ### @vis-network
 
@@ -626,7 +627,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-088](decisions/ADR-088-submit-and-share.md) → @journals, @learning-loop, @security, @skuel-search-architecture
 - [ADR-089](decisions/ADR-089-instants-utc-days-in-a-zone.md) → @neo4j-cypher-patterns
 - [ADR-090](decisions/ADR-090-one-link-per-fact-a-view-per-domain.md) → @activity-domains, @skuel-ui
-- [ADR-091](decisions/ADR-091-one-door-for-curriculum.md) → @curriculum-domains, @learning-loop, @security
+- [ADR-091](decisions/ADR-091-one-door-for-curriculum.md) → @curriculum-domains, @learning-loop, @security, @user-context-intelligence
 
 ---
 

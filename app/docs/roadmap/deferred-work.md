@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # Deferred Work
@@ -262,6 +262,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Relevance Engine Scoring
 
 [Relevance Engine Scoring](relevance-engine-scoring.md) — the Askesis relevance engine reads the knowledge around a learner's activities in two rings and ranks it with a provisional formula (one link is under the default threshold); weighting by ring, complexity and the threshold wait on the first caller.
+
+## Assigned Exercises After ADR-091
+
+[Assigned Exercises After ADR-091](assigned-exercises-after-adr-091.md) — the submission-stats read counts exercises in a scope ADR-091 retired, so the daily plan suggests none; what an exercise waiting for a learner means now waits on a design ruling.
 
 ## Review Schedule
 

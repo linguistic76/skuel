@@ -104,6 +104,9 @@ class TestDefaultGroup:
 
 
 class TestSimilaritySourceContents:
+    @pytest.mark.stores_unreadable_value(
+        "an entry whose metadata is not JSON is read past, not crashed on"
+    )
     async def test_each_live_user_entry_reads_with_its_period(
         self, neo4j_driver: AsyncDriver, clean_neo4j: None
     ) -> None:

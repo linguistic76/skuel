@@ -539,7 +539,7 @@ skills:
 
   - name: user-context-intelligence
     description: UserContextIntelligence - central cross-domain intelligence hub
-    last_reviewed: "2026-11-14"
+    last_reviewed: "2026-11-15"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
     library_package: null  # SKUEL pattern, not external library
@@ -552,6 +552,7 @@ skills:
       - ADR-021  # User Context Intelligence Modularization
       - ADR-030-dual-track-assessment-pattern.md  # Dual-track assessment pattern (duplicate number — full filename required)
       - ADR-059  # Engagement-Aware Daily Plan in Askesis
+      - ADR-091  # One door for curriculum — why the assigned-exercise read is empty
     patterns:
       - /docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md
     keywords: [UserContext, intelligence, planning, alignment, recommendations]
@@ -627,7 +628,7 @@ skills:
 
   - name: pytest
     description: SKUEL testing patterns - fixtures, async testing, mocking with Result[T]
-    last_reviewed: "2026-10-16"
+    last_reviewed: "2026-11-15"
     foundation: [python, result-pattern]
     dependencies: [python, result-pattern]
     library_package: pytest

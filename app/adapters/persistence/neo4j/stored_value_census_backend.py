@@ -57,6 +57,10 @@ def _reader_order(reader: MapperReader) -> tuple[str, str]:
     return reader[0].value, reader[1].__name__
 
 
+def _census_order(refusal: UnreadableStoredValueError) -> tuple[str, str, str]:
+    return refusal.entity_class, str(refusal.uid), refusal.field
+
+
 class StoredValueCensusBackend:
     """Read every converted property of every node a backend reads, as its field's type."""
 
@@ -68,22 +72,33 @@ class StoredValueCensusBackend:
         self.readers = readers
 
     async def read_unreadable(self) -> Result[list[UnreadableStoredValueError]]:
-        """Each stored value a read would refuse, once per node and field."""
-        found: dict[tuple[object, str], UnreadableStoredValueError] = {}
+        """Each stored value a read would refuse, once per node and field.
+
+        One statement reads every node carrying a label some backend reads, and each
+        node is read as every class its labels name. One statement, not one per label:
+        each is a round trip, and the integration suite reads this around every test.
+        """
+        classes_by_label: dict[str, list[type]] = {}
         for label, entity_class in self.readers:
-            # Every property, with the vector overridden so it is not shipped: a
-            # thousand floats a node on every poll, written only by the embedding
-            # writer. Naming each converted field instead would draw a server
-            # warning for every one the graph has never stored.
-            result = await self._executor.execute_query(
-                f"MATCH (n:`{label.value}`) RETURN n {{.*, embedding: null}} AS n"
-            )
-            if result.is_error:
-                return Result.fail(result)
-            for row in result.value:
-                for refusal in unreadable_fields(row["n"], entity_class):
-                    found.setdefault((refusal.uid, refusal.field), refusal)
-        return Result.ok(list(found.values()))
+            classes_by_label.setdefault(label.value, []).append(entity_class)
+        # Every property, with the vector overridden so it is not shipped: a thousand
+        # floats a node on every poll, written only by the embedding writer. Naming
+        # each converted field instead would draw a server warning for every one the
+        # graph has never stored.
+        result = await self._executor.execute_query(
+            "MATCH (n) WHERE any(label IN labels(n) WHERE label IN $labels) "
+            "RETURN labels(n) AS labels, n {.*, embedding: null} AS n",
+            {"labels": sorted(classes_by_label)},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        found: dict[tuple[object, str], UnreadableStoredValueError] = {}
+        for row in result.value:
+            for label in row["labels"]:
+                for entity_class in classes_by_label.get(label, ()):
+                    for refusal in unreadable_fields(row["n"], entity_class):
+                        found.setdefault((refusal.uid, refusal.field), refusal)
+        return Result.ok(sorted(found.values(), key=_census_order))
 
     async def read_summary(self, sample: int) -> Result[UnreadableStoredValues]:
         """How many stored values a read would refuse, ``sample`` of them named."""
