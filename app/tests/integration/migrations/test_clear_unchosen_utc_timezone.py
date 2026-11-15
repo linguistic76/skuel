@@ -148,6 +148,7 @@ async def test_one_of_the_six_not_on_utc_stops_the_census(graph, neo4j_driver, u
     assert census.stops == [f'of the six, not holding "UTC": {moved}=Asia/Bangkok']
 
 
+@pytest.mark.stores_unreadable_value("a preferences blob that is not JSON stops the census")
 async def test_unreadable_preferences_stop_the_census(graph, neo4j_driver) -> None:
     await _unreadable_user(neo4j_driver)
     census = await migration.run_census(neo4j_driver, SIX)
@@ -176,6 +177,7 @@ async def test_a_row_changed_since_the_census_rolls_the_whole_write_back(
         assert (await _stored(neo4j_driver, uid))["timezone"] == "UTC", "nothing was written"
 
 
+@pytest.mark.stores_unreadable_value("an unreadable preferences row still stops the census")
 async def test_a_census_that_finds_the_six_cleared_still_stops_on_an_unreadable_row(
     graph, neo4j_driver
 ) -> None:
@@ -259,6 +261,7 @@ async def test_the_command_line_refuses_a_stopped_census(graph, neo4j_driver, cl
     assert await _zones(neo4j_driver) == {"UTC"}
 
 
+@pytest.mark.stores_unreadable_value("an unreadable preferences row keeps the command from done")
 async def test_the_command_line_never_reports_done_over_an_unreadable_row(
     graph, neo4j_driver, cli
 ) -> None:

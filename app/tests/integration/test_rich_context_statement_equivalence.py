@@ -56,7 +56,7 @@ _SEEDED_AT = datetime.combine(RUN_TODAY - timedelta(days=1), time(12, 0))
 _SEED = """
 MATCH (u:User {uid: $user_uid})
 // knowledge
-CREATE (ku_a:Entity:Ku {uid: 'ku.eq.a', entity_type: 'ku', title: 'Ku A', domain: 'sel'})
+CREATE (ku_a:Entity:Ku {uid: 'ku.eq.a', entity_type: 'ku', title: 'Ku A', domain: 'learning'})
 CREATE (ku_b:Entity:Ku {uid: 'ku.eq.b', entity_type: 'ku', title: 'Ku B'})
 CREATE (ku_c:Entity:Ku {uid: 'ku.eq.c', entity_type: 'ku', title: 'Ku C'})
 CREATE (ku_pre:Entity:Ku {uid: 'ku.eq.pre', entity_type: 'ku', title: 'Ku Pre'})

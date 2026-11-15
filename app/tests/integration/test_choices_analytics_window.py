@@ -157,6 +157,9 @@ class TestChoicesAnalyticsWindow:
 
 
 @pytest.mark.asyncio
+@pytest.mark.stores_unreadable_value(
+    "a choice stores a domain no Domain names; each read refuses it"
+)
 class TestDomainPatternsRefuseAnUnknownDomain:
     """A stored ``domain`` outside the ``Domain`` enum fails the report as a ``Result``.
 

@@ -81,7 +81,7 @@ async def lateral_neighbourhood(neo4j_driver):
             CREATE (f:Entity:Goal {uid: $foreign, title: 'Someone elses goal',
                                    entity_type: 'goal', user_uid: $other})
             CREATE (x:Entity:Exercise {uid: $foreign_exercise, title: 'Someone elses exercise',
-                                       entity_type: 'exercise', scope: 'personal',
+                                       entity_type: 'exercise', scope: 'curriculum',
                                        owner_uid: $other})
             CREATE (o)-[:OWNS]->(x)
             CREATE (k:Entity {uid: $curriculum, title: 'Shared concept',

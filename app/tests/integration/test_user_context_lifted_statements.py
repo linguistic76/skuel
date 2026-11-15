@@ -22,6 +22,13 @@ from tests.helpers.seed_uids import seed_user_uid
 
 _USER_UID = seed_user_uid("test")
 
+#: The fixture seeds group-assigned exercises in the scope ADR-091 retired: the only shape
+#: the submission-stats statement's assigned-exercise section matches, and one no read of an
+#: exercise can read (docs/roadmap/assigned-exercises-after-adr-091.md).
+_SEEDS_THE_RETIRED_SCOPE = pytest.mark.stores_unreadable_value(
+    "group-assigned exercises in the retired scope the assigned-exercise section reads"
+)
+
 
 @pytest.fixture
 async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[str, str]:
@@ -52,9 +59,9 @@ async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[st
             """
             MATCH (u:User {uid: $user_uid})
             CREATE (u)-[:OWNS]->(recent:Entity:UserEntry {uid: $entry_recent, entity_type: 'user_entry',
-                                                          pipeline: 'je_pro', created_at: $recent})
+                                                          pipeline: 'teacher_review', created_at: $recent})
             CREATE (u)-[:OWNS]->(stale:Entity:UserEntry {uid: $entry_stale, entity_type: 'user_entry',
-                                                         pipeline: 'je_pro', created_at: $stale})
+                                                         pipeline: 'teacher_review', created_at: $stale})
             CREATE (fb:Entity:EntryReport {uid: $feedback, entity_type: 'entry_report', created_at: $recent})
             CREATE (fb)-[:REPORT_FOR]->(recent)
             CREATE (g:Group {uid: $group, name: 'Lifted'})
@@ -66,7 +73,7 @@ async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[st
             CREATE (done)-[:SHARED_WITH_GROUP]->(g)
             CREATE (open)-[:SHARED_WITH_GROUP]->(g)
             CREATE (:Entity:UserEntry {uid: $fulfilment, entity_type: 'user_entry', user_uid: $user_uid,
-                                       pipeline: 'je_pro', created_at: $recent})-[:FULFILLS_EXERCISE]->(done)
+                                       pipeline: 'teacher_review', created_at: $recent})-[:FULFILLS_EXERCISE]->(done)
             CREATE (:RevisedExercise {uid: $revision, student_uid: $user_uid, title: 'Try again',
                                       revision_number: 2, created_at: $recent})
             // Answered, the writer's shape: FULFILLS_EXERCISE anchors on the root
@@ -75,7 +82,7 @@ async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[st
                                               title: 'Answered', revision_number: 2, created_at: $recent})
             CREATE (answered)-[:REVISES_EXERCISE]->(done)
             CREATE (answer:Entity:UserEntry {uid: $answer, entity_type: 'user_entry', user_uid: $user_uid,
-                                             pipeline: 'je_pro', created_at: $recent})
+                                             pipeline: 'teacher_review', created_at: $recent})
             CREATE (answer)-[:FULFILLS_EXERCISE {revision: 2}]->(done)
             CREATE (answer)-[:FULFILLS_REVISED_EXERCISE {revision: 2}]->(answered)
             // Answered with no original left: the writer puts only
@@ -83,7 +90,7 @@ async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[st
             CREATE (orphan:RevisedExercise {uid: $revision_orphan_answered, student_uid: $user_uid,
                                             title: 'Orphan answered', revision_number: 2, created_at: $recent})
             CREATE (:Entity:UserEntry {uid: $orphan_answer, entity_type: 'user_entry', user_uid: $user_uid,
-                                       pipeline: 'je_pro', created_at: $recent})
+                                       pipeline: 'teacher_review', created_at: $recent})
                   -[:FULFILLS_EXERCISE {revision: 2}]->(orphan)
             CREATE (kc:Entity:Ku {uid: $ku_confident, entity_type: 'ku', title: 'Confident'})
             CREATE (kd:Entity:Ku {uid: $ku_doubtful, entity_type: 'ku', title: 'Doubtful'})
@@ -103,6 +110,7 @@ async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[st
 
 
 @pytest.mark.asyncio
+@_SEEDS_THE_RETIRED_SCOPE
 async def test_submission_stats_statement_counts_the_learning_loop(
     neo4j_driver: AsyncDriver, learning_loop_graph: dict[str, str]
 ) -> None:
@@ -163,6 +171,7 @@ async def test_submission_stats_statement_is_empty_for_an_unknown_user(
 
 
 @pytest.mark.asyncio
+@_SEEDS_THE_RETIRED_SCOPE
 async def test_entry_knowledge_statement_applies_the_floor_and_the_rollup(
     neo4j_driver: AsyncDriver, learning_loop_graph: dict[str, str]
 ) -> None:
@@ -181,6 +190,7 @@ async def test_entry_knowledge_statement_applies_the_floor_and_the_rollup(
 
 
 @pytest.mark.asyncio
+@_SEEDS_THE_RETIRED_SCOPE
 async def test_rich_build_carries_both_lifted_reads(
     neo4j_driver: AsyncDriver, learning_loop_graph: dict[str, str]
 ) -> None:

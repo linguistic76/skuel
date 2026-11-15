@@ -1,6 +1,6 @@
 """No integration test writes a uid literal outside the uid grammar.
 
-After each integration test the runtime census (``tests/integration/_uid_census.py``)
+After each integration test the runtime census (``tests/integration/_graph_census.py``)
 reads its graph against the uid grammar (``core/utils/uid_grammar.py``). It sees every
 uid a test leaves at a read, computed or literal, but not one a test creates and
 deletes inside its body, nor one written to a scratch container of its own. This

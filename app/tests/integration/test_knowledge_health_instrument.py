@@ -342,7 +342,7 @@ async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo
         await s.run(
             "CREATE (:Entity:UserEntry {uid:$u1, entity_type:'user_entry', pipeline:'knowledge'}),"
             " (:Entity:UserEntry {uid:$u2, entity_type:'user_entry', pipeline:'knowledge', private:true}),"
-            " (:Entity:UserEntry {uid:$u3, entity_type:'user_entry', pipeline:'exercise'}),"
+            " (:Entity:UserEntry {uid:$u3, entity_type:'user_entry', pipeline:'teacher_review'}),"
             " (:Entity:UserEntry {uid:$u4, entity_type:'user_entry',"
             "  pipeline:'extract_activities'}),"
             " (:Entity:UserEntry {uid:$u5, entity_type:'user_entry',"
