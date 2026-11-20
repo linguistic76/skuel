@@ -435,7 +435,6 @@ class Session:
     ip_address: str
     user_agent: str
     is_valid: bool
-    user_is_active: bool        # A snapshot at the mint; validation reads the live User
     token_hash: str             # SHA-256 hash stored in Neo4j
 
 

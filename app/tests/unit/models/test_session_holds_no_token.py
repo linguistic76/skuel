@@ -27,7 +27,6 @@ def _as_stored(session: Session) -> dict[str, Any]:  # boundary: node properties
         "ip_address": session.ip_address,
         "user_agent": session.user_agent,
         "is_valid": session.is_valid,
-        "user_is_active": True,
         "seen_day": session.created_at.date().isoformat(),
     }
 

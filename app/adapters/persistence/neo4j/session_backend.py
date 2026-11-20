@@ -152,9 +152,8 @@ class SessionBackend(Neo4jSessionRunner):
         ~100ms verifying the password, and a deactivation landing in that
         window must not mint a session at all (validate_session_token also
         checks the live User on every request, so such a session would be
-        dead on arrival — this guard keeps it from existing). The stored
-        ``user_is_active`` is an informational snapshot; validation never
-        trusts it. ``coalesce(_, true)`` mirrors the User model's
+        dead on arrival — this guard keeps it from existing).
+        ``coalesce(_, true)`` mirrors the User model's
         ``is_active`` default for nodes that predate the property.
 
         Args:
@@ -178,7 +177,6 @@ class SessionBackend(Neo4jSessionRunner):
             ip_address: $ip_address,
             user_agent: $user_agent,
             is_valid: $is_valid,
-            user_is_active: true,
             seen_day: $day
         }})
         CREATE (u)-[:HAS_SESSION]->(s)
@@ -280,13 +278,11 @@ class SessionBackend(Neo4jSessionRunner):
         round trips for all signed-in traffic. The WHERE clause is the
         session-validity contract: not revoked, not expired, and the LIVE
         User node still active. Anchoring on the User (one hop from the
-        indexed Session) rather than the session's cached ``user_is_active``
-        snapshot means every account-death path fails validation immediately:
-        soft delete (``is_active=false``), hard delete (no User node / no
-        HAS_SESSION edge left), and deactivation — regardless of what the
-        session cached at creation. The FOREACH bumps ``last_active_at`` only
-        when it is older than the batch interval, so most validations stay
-        read-only.
+        indexed Session) means every account-death path fails validation
+        immediately: soft delete (``is_active=false``), hard delete (no User
+        node / no HAS_SESSION edge left), and deactivation. The FOREACH bumps
+        ``last_active_at`` only when it is older than the batch interval, so
+        most validations stay read-only.
 
         A session seen on a UTC day it has not been seen on before marks its
         user active that day on the presence edge to the day's month
@@ -498,12 +494,12 @@ class SessionBackend(Neo4jSessionRunner):
     async def deactivate_user_and_revoke_sessions(self, user_uid: UserUID) -> Result[int]:
         """Atomically set the user inactive AND revoke every live session.
 
-        One statement (= one transaction) on purpose: persisting
-        ``is_active=false`` first and revoking after leaves a failure mode
-        where the account LOOKS deactivated but its live sessions — cached
-        ``user_is_active=true`` — keep validating, and nothing prompts the
-        admin to retry an operation that already appears applied. Committing
-        both writes together removes that state entirely. The write lock on
+        One statement (= one transaction) on purpose. Validation reads the
+        live User, so an inactive user's sessions refuse either way; what the
+        one commit prevents is a flag persisted with the revoke failed after
+        it: the sessions stay ``is_valid``, the account looks deactivated so
+        nothing prompts the admin to retry, and reactivating the account
+        (which revokes nothing) brings every one of them back. The write lock on
         the User node also serializes against create_session's active-user
         guard: a concurrent sign-in either lands first (and is swept here)
         or matches an inactive user (and is refused).
