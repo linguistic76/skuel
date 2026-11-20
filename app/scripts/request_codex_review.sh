@@ -134,19 +134,28 @@ acquire_token() {
   return 1
 }
 
+# A call's stdout is its answer and its stderr only diagnosis: gh writes notices
+# to stderr (a polling hint on pull-request reads, for one), so a merged stream
+# turns every count into a non-number and every head sha into prose.
 gh_retry() {
-  local out
+  local out err errf
+  errf=$(mktemp) || return 1
   for _ in 1 2 3; do
-    out=$(GH_TOKEN="$TOK" gh "$@" 2>&1) && { printf '%s' "$out"; return 0; }
-    if [[ "$out" == *"401"* || "$out" == *"Requires authentication"* ]]; then
+    if out=$(GH_TOKEN="$TOK" gh "$@" 2>"$errf"); then
+      rm -f "$errf"
+      printf '%s' "$out"
+      return 0
+    fi
+    err=$(<"$errf")
+    if [[ "$out$err" == *"401"* || "$out$err" == *"Requires authentication"* ]]; then
       sleep 5
       acquire_token || true
       continue
     fi
-    printf '%s' "$out" >&2
-    return 1
+    break
   done
-  printf '%s' "$out" >&2
+  rm -f "$errf"
+  printf '%s\n%s\n' "$out" "$err" >&2
   return 1
 }
 
