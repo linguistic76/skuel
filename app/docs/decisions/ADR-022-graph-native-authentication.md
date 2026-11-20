@@ -241,9 +241,9 @@ result = await graph_auth.reset_password_with_token(
 
 1. **Password Hashing:** Bcrypt with automatic salt generation
 2. **Rate Limiting:** 5 failed attempts triggers 15-minute lockout
-3. **No Session Binding:** a session records the IP and user agent it was minted from; nothing compares a request to them
+3. **No Session Binding (ruled 2026-11-20):** a session records the IP and user agent it was minted from, and nothing compares a request to them, by design: a phone's IP changes constantly, so binding to it would sign mobile users out, and the user agent alone adds little. Revocation is the defense — a password change or reset, a role change, deactivation and soft deletion revoke every live session, and hard deletion deletes them, each in the same transaction as its write
 4. **Audit Logging:** All auth events stored as graph nodes
-5. **Token Expiry:** Sessions expire 30 days after sign-in (`SESSION_EXPIRY_DAYS`); use does not extend them
+5. **Token Expiry (ruled 2026-11-20):** a session ends 30 days after sign-in (`SESSION_EXPIRY_DAYS`), a fixed lifetime: use does not extend it
 6. **Reset Tokens:** Expire after 15 minutes (`RESET_TOKEN_EXPIRY_MINUTES`) and are single-use — the redeeming write claims the token under its write-lock, sets the hash and revokes sessions in one transaction (`SessionBackend.reset_password_and_revoke_sessions`)
 
 ### Testing Strategy
