@@ -431,7 +431,7 @@ class Session:
     user_uid: UserUID               # "user_5f2c8e1a9b3d7046"
     created_at: datetime        # UTC-aware
     expires_at: datetime        # UTC-aware
-    last_active_at: datetime    # UTC-aware (sliding expiration)
+    last_active_at: datetime    # UTC-aware; the last request seen (expiry is fixed at the mint)
     ip_address: str
     user_agent: str
     is_valid: bool
@@ -675,9 +675,9 @@ The per-IP query reuses the existing `AuthEvent.ip_address` field — no schema 
 | **Session Tokens** | 256-bit `secrets.token_urlsafe`; only the SHA-256 **hash** is stored in Neo4j |
 | **HTTP-Only Cookies** | Prevents XSS access to tokens |
 | **Secure Flag** | Cookies only sent over HTTPS |
-| **Session Binding** | Optional IP/UA binding |
-| **Token Expiry** | 30 days default, configurable |
-| **Reset Token Expiry** | 24 hours |
+| **Session Binding** | None: the IP and user agent a session was minted from are stored with it and compared to nothing |
+| **Token Expiry** | 30 days from sign-in (`SESSION_EXPIRY_DAYS`); use does not extend it |
+| **Reset Token Expiry** | 15 minutes (`RESET_TOKEN_EXPIRY_MINUTES`), single-use |
 | **Audit Logging** | All auth events stored as graph nodes (`AuthEvent` — also the substrate for the per-IP throttle above) |
 
 ---

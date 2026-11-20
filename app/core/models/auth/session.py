@@ -8,7 +8,7 @@ Design:
 - Session token stored in HTTP-only cookie
 - Session data (user, expiry, metadata) stored in Neo4j
 - Validates on each request by querying Neo4j
-- Sliding expiration: last_active_at updated on use
+- Expires a fixed SESSION_EXPIRY_DAYS after the mint; use does not extend it
 
 Neo4j Schema:
     (:Session {
@@ -38,7 +38,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from core.models.type_hints import UserUID
-from core.utils.timestamp_helpers import as_utc, now_utc
 from core.utils.uid_generator import UIDGenerator
 
 # Session configuration
@@ -73,7 +72,7 @@ class Session:
         user_uid: Reference to owning user
         created_at: When session was created
         expires_at: When session expires (hard limit)
-        last_active_at: Last activity timestamp (for sliding expiration)
+        last_active_at: The last request seen on it, touched at most once per batch interval
         ip_address: Client IP address (for audit)
         user_agent: Client user agent (for audit)
         is_valid: Whether session is valid (can be invalidated on logout)
@@ -89,26 +88,6 @@ class Session:
     user_agent: str
     is_valid: bool = True
     token_hash: str = ""  # SHA-256 hash of the session's token, stored in Neo4j
-
-    def is_expired(self) -> bool:
-        """Check if session has expired."""
-        return now_utc() > as_utc(self.expires_at)
-
-    def is_active(self) -> bool:
-        """Check if session is valid and not expired."""
-        return self.is_valid and not self.is_expired()
-
-    def time_until_expiry(self) -> timedelta:
-        """Get time remaining until expiry."""
-        return as_utc(self.expires_at) - now_utc()
-
-    def should_refresh(self, threshold_days: int = 7) -> bool:
-        """
-        Check if session should be refreshed.
-
-        Returns True if less than threshold_days remain.
-        """
-        return self.time_until_expiry() < timedelta(days=threshold_days)
 
 
 @dataclass(frozen=True)

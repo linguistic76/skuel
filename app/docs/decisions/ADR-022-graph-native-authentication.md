@@ -1,6 +1,6 @@
 ---
 title: "ADR-022: Graph-Native Authentication"
-updated: 2026-11-13
+updated: 2026-11-20
 status: current
 category: decisions
 tags: [adr, decisions, authentication, security, neo4j]
@@ -219,7 +219,7 @@ result = await graph_auth.reset_password_with_token(
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Session token theft | Low | High | HTTP-only cookies, secure flag, session binding to IP/UA |
+| Session token theft | Low | High | HTTP-only cookies, secure flag, only the token's hash stored, every session revoked on a password or role change |
 | Brute force attack | Medium | Medium | Rate limiting (5 failures = 15-minute lockout) |
 | Password hash compromise | Low | High | Bcrypt with cost factor, unique salts |
 | Admin account compromise | Low | High | Multiple admin accounts, audit logging |
@@ -241,9 +241,9 @@ result = await graph_auth.reset_password_with_token(
 
 1. **Password Hashing:** Bcrypt with automatic salt generation
 2. **Rate Limiting:** 5 failed attempts triggers 15-minute lockout
-3. **Session Binding:** Sessions optionally bound to IP and user agent
+3. **No Session Binding:** a session records the IP and user agent it was minted from; nothing compares a request to them
 4. **Audit Logging:** All auth events stored as graph nodes
-5. **Token Expiry:** Sessions expire after configurable duration (default 30 days)
+5. **Token Expiry:** Sessions expire 30 days after sign-in (`SESSION_EXPIRY_DAYS`); use does not extend them
 6. **Reset Tokens:** Expire after 15 minutes (`RESET_TOKEN_EXPIRY_MINUTES`) and are single-use — the redeeming write claims the token under its write-lock, sets the hash and revokes sessions in one transaction (`SessionBackend.reset_password_and_revoke_sessions`)
 
 ### Testing Strategy
