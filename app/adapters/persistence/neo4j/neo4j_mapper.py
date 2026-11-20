@@ -43,10 +43,10 @@ logger = get_logger(__name__)
 
 
 class UnreadableStoredValueError(UnreadableValueError):
-    """A stored property its field's declared type cannot read.
+    """A stored property its field's declared type cannot read, or a required one the node lacks.
 
     ``from_neo4j_node`` raises it rather than build a model that holds a value of
-    another type: a read meeting one fails, and no reader is handed the raw value,
+    another type or misses a field: a read meeting one fails, and no reader is handed the raw value,
     a default, or ``None`` for a field that requires a value. A backend read answers
     it as a failed ``Result``. The stored-value census (``./dev stored-value-census``)
     names every one the graph holds. ``from_neo4j_node`` logs each at ERROR.
@@ -413,27 +413,13 @@ class Neo4jGenericMapper:
             Instance of entity_class with data populated
 
         Raises:
-            UnreadableStoredValueError: a stored value its field's type cannot read.
+            UnreadableStoredValueError: a stored value its field's type cannot read, or a
+                field the class requires that the node does not hold.
         """
-        kwargs: dict[str, Any] = {}  # boundary: one value per field, each its own type
-        for spec in _field_specs(entity_class):
-            name = spec.field.name
-            # Neo4j stores no null: a null field reads as an absent one does.
-            if name not in data or _null_takes_the_default(data, spec):
-                if spec.field.default is not MISSING:
-                    kwargs[name] = spec.field.default
-                elif spec.field.default_factory is not MISSING:
-                    kwargs[name] = spec.field.default_factory()
-                else:
-                    raise UnreadableStoredValueError(
-                        entity_class,
-                        data.get("uid"),
-                        name,
-                        None,
-                        "is absent, and the field requires a value",
-                    )
-                continue
-            kwargs[name] = _read_field(data, entity_class, spec)
+        kwargs: dict[str, Any] = {  # boundary: one value per field, each its own type
+            spec.field.name: _read_node_field(data, entity_class, spec)
+            for spec in _field_specs(entity_class)
+        }
         return entity_class(**kwargs)
 
     @staticmethod
@@ -684,6 +670,28 @@ def _resolve_field_specs(entity_class: type) -> tuple[_FieldSpec, ...]:
     return tuple(specs)
 
 
+def _read_node_field(
+    data: Mapping[str, Any], entity_class: type, spec: _FieldSpec
+) -> Any:  # boundary: node properties in, the field's value out
+    """One field of a node as every read takes it; ``UnreadableStoredValueError`` when it cannot.
+
+    An absent field reads as its default, and is refused where it has none: the node
+    lacks a property its class requires. Neo4j stores no null, so a null on a field
+    with a default reads as the key's absence. Any other value is read as its type.
+    ``from_neo4j_node`` and the stored-value census both read through here.
+    """
+    name = spec.field.name
+    if name not in data or _null_takes_the_default(data, spec):
+        if spec.field.default is not MISSING:
+            return spec.field.default
+        if spec.field.default_factory is not MISSING:
+            return spec.field.default_factory()
+        raise UnreadableStoredValueError(
+            entity_class, data.get("uid"), name, None, "is absent, and the field requires a value"
+        )
+    return _read_field(data, entity_class, spec)
+
+
 def _read_field(
     data: Mapping[str, Any], entity_class: type, spec: _FieldSpec
 ) -> Any:  # boundary: node properties in, the field's value out
@@ -770,16 +778,16 @@ def unreadable_fields(
 ) -> list[UnreadableStoredValueError]:  # boundary: node properties
     """Every field of ``data`` that ``from_neo4j_node`` would refuse, read without raising.
 
-    The stored-value census reads each node through this: the same field reads
-    as a model build, collected rather than stopped at the first.
+    A stored value its field's type cannot read, and a field the class requires that
+    the node does not hold. The stored-value census reads each node through this: the
+    same field reads as a model build, collected rather than stopped at the first.
     """
     refusals = []
     for spec in _field_specs(entity_class):
-        if spec.field.name in data and not _null_takes_the_default(data, spec):
-            try:
-                _read_field(data, entity_class, spec)
-            except UnreadableStoredValueError as refusal:
-                refusals.append(refusal)
+        try:
+            _read_node_field(data, entity_class, spec)
+        except UnreadableStoredValueError as refusal:
+            refusals.append(refusal)
     return refusals
 
 
@@ -883,7 +891,8 @@ def from_neo4j_node[T](data: Neo4jProperties, entity_class: type[T]) -> T:
     does with it.
 
     Raises:
-        UnreadableStoredValueError: a stored value its field's type cannot read.
+        UnreadableStoredValueError: a stored value its field's type cannot read, or a
+            field the class requires that the node does not hold.
     """
     try:
         return _mapper.from_node(data, entity_class)

@@ -278,13 +278,14 @@ class GraphAuthService:
                     )
                 )
 
-            # Create session with cached user data (avoid DB lookup on validation)
-            session = create_session(
+            # The token goes to the cookie; the graph stores only its hash.
+            issued = create_session(
                 user_uid=user.uid,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 user_is_active=user.is_active,
             )
+            session = issued.session
 
             session_result = await self.session_backend.create_session(session)
             if session_result.is_error:
@@ -306,7 +307,7 @@ class GraphAuthService:
             signin: SignInResult = {
                 "user_uid": user.uid,
                 "email": user.email,
-                "session_token": session.session_token,
+                "session_token": issued.token,
                 "session_uid": session.uid,
                 "expires_at": session.expires_at.isoformat(),
                 "user": user,

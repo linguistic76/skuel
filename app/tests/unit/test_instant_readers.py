@@ -406,7 +406,6 @@ class TestMoreModelReaders:
     def test_a_session_expiry_read_back_naive_is_an_instant(self, vancouver_process: None) -> None:
         session = Session(
             uid="s",
-            session_token="t",
             user_uid="u",
             created_at=_naive(_ago(days=1)),
             expires_at=_naive(_ago(hours=-2)),

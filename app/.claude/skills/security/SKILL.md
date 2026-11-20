@@ -157,7 +157,7 @@ A credential that reaches a model must not survive `repr()`. Two mechanisms, cho
 | Model kind | Mechanism | Sites |
 |---|---|---|
 | Pydantic | `pydantic.SecretStr` — `repr` and `model_dump()` render `**********` | `RegistrationRequest` / `LoginRequest` / `ResetPasswordRequest` passwords, `confirm_password`, reset `token` |
-| Dataclass | `field(repr=False)` | `Session.session_token`, `PasswordResetToken.token`, `User.password_hash`, `DatabaseConfig.neo4j_password`, `CacheConfig.redis_password`, `MessageQueueConfig.password` |
+| Dataclass | `field(repr=False)` | `IssuedSession.token`, `PasswordResetToken.token`, `User.password_hash`, `DatabaseConfig.neo4j_password`, `CacheConfig.redis_password`, `MessageQueueConfig.password` |
 
 Wrap at the boundary, read at the point of use:
 

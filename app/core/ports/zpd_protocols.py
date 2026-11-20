@@ -232,7 +232,8 @@ class ZPDSnapshotOperations(Protocol):
         — no full assessment serialization. The trigger event label
         identifies what fired the snapshot.
 
-        Returns Result.ok(None) on success; Result.fail(Errors.database(...))
-        on Neo4j failure.
+        The user is matched, never created. Returns Result.ok(None) on success;
+        Result.fail(Errors.not_found(...)) when no user holds ``user_uid``, with
+        nothing written; Result.fail(Errors.database(...)) on Neo4j failure.
         """
         ...

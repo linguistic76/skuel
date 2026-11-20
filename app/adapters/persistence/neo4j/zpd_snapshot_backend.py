@@ -29,7 +29,7 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 _SAVE_SNAPSHOT_QUERY = """
-MERGE (u:User {uid: $user_uid})
+MATCH (u:User {uid: $user_uid})
 MERGE (u)-[:HAS_ZPD_HISTORY]->(h:ZPDHistory {user_uid: $user_uid})
 SET h.latest_assessed_at = datetime(),
     h.latest_current_zone_count = $current_zone_count,
@@ -40,6 +40,7 @@ SET h.latest_assessed_at = datetime(),
     h.latest_trigger_event = $trigger_event,
     h.snapshot_count = coalesce(h.snapshot_count, 0) + 1,
     h.updated_at = datetime()
+RETURN h.user_uid AS user_uid
 """
 
 _GET_LATEST_SNAPSHOT_QUERY = """
@@ -76,10 +77,14 @@ class ZPDSnapshotBackend:
     async def save_snapshot(
         self, user_uid: UserUID, assessment: ZPDAssessment, trigger_event: str
     ) -> Result[None]:
-        """MERGE ZPDHistory node, update latest fields + increment snapshot_count."""
+        """Refresh the user's one ZPDHistory with ``assessment``, counting the snapshot.
+
+        The user is matched, never created: for a uid no ``:User`` holds, nothing is
+        written and the answer is not-found.
+        """
         confirmed_count = len(assessment.confirmed_zone_uids())
         try:
-            await self._driver.execute_query(
+            records, _, _ = await self._driver.execute_query(
                 _SAVE_SNAPSHOT_QUERY,
                 {
                     "user_uid": user_uid,
@@ -91,6 +96,12 @@ class ZPDSnapshotBackend:
                     "trigger_event": trigger_event,
                 },
             )
+            if not records:
+                return Result.fail(
+                    Errors.not_found(
+                        "User", user_uid, reason="no user holds this uid; no snapshot written"
+                    )
+                )
             return Result.ok(None)
         except NEO4J_EXCEPTIONS as exc:
             self._logger.error("ZPD snapshot save failed for %s: %s", user_uid, exc)

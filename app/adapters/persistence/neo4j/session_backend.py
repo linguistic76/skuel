@@ -942,14 +942,13 @@ class SessionBackend(Neo4jSessionRunner):
 
     @staticmethod
     def _node_to_session(node: dict[str, Any]) -> Session:
-        """Convert Neo4j node to Session domain model via the shared mapper.
+        """A stored Session node as a ``Session``, read by the shared mapper.
 
-        The raw session token is never stored in Neo4j (only token_hash), so
-        the required ``session_token`` field is supplied as "" before handing
-        the node to ``from_neo4j_node`` — which owns all Neo4j-temporal /
+        The node holds the token's hash, never the token, and so does the model:
+        it is read as it is stored. ``from_neo4j_node`` owns all Neo4j-temporal /
         ISO-string datetime conversion.
         """
-        return from_neo4j_node({"session_token": "", **node}, Session)
+        return from_neo4j_node(node, Session)
 
 
 __all__ = [

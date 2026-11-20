@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Read every stored value as its field's declared type — read-only.
+"""Read every stored node as its class — read-only.
 
 For every label a backend reads through ``from_neo4j_node``, reads each node's
-converted properties (enum, temporal, collection, mapping and nested dataclass
-fields) by the mapper's own rule, and lists every value a read would refuse:
+fields by the mapper's own rule, and lists every field a read would refuse: a
+stored value its type cannot read (enum, temporal, collection, mapping and nested
+dataclass fields), or a field the class requires that the node does not hold —
 the node's class, uid and field, the stored value and why it cannot be read.
-Every read of such a node fails (``UnreadableStoredValueError``) until the value
+Every read of such a node fails (``UnreadableStoredValueError``) until the node
 is migrated and the writer that stored it is fixed. Nothing is written.
 
-Exits 1 when any value is unreadable. The graph-health poller reads the same
+Exits 1 when any field is unreadable. The graph-health poller reads the same
 census every five minutes (``check_stored_values``).
 
 Usage:
@@ -51,9 +52,9 @@ async def run() -> int:
             f"{refusal.value!r:.80} — {refusal.reason}"
         )
     print(
-        f"\nVerdict: {len(read.value)} unreadable stored value(s)"
+        f"\nVerdict: {len(read.value)} unreadable stored field(s)"
         if read.value
-        else "\nVerdict: every stored value reads as its field's type"
+        else "\nVerdict: every stored node reads as its class"
     )
     return 1 if read.value else 0
 

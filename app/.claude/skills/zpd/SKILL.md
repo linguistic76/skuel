@@ -268,7 +268,7 @@ if neither:           behavioral = ZPDWeights.BEHAVIORAL_NEUTRAL_DEFAULT  # 0.5,
 **Snapshot Backend:** `adapters/persistence/neo4j/zpd_snapshot_backend.py`
 - Single `:ZPDHistory` node per user (MVP — no history array)
 - Fields: `latest_assessed_at`, zone counts, behavioral readiness, life path alignment, trigger event, snapshot count
-- MERGE on `(User)-[:HAS_ZPD_HISTORY]->(ZPDHistory)`
+- MERGE on `(User)-[:HAS_ZPD_HISTORY]->(ZPDHistory)` — the User is matched, never created: a uid no user holds answers not-found and writes nothing
 
 ---
 

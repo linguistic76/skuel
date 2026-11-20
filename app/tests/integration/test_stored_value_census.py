@@ -1,10 +1,10 @@
-"""The stored-value census names every stored value a read would refuse, and only those.
+"""The stored-value census names every field a read would refuse, and only those.
 
 Over the testcontainer: a task whose ``status`` no ``EntityStatus`` names, a Ku whose
 ``complexity`` no ``KuComplexity`` names, a user whose ``preferences`` blob is not
-JSON, and a clean task beside them. The census reads each through the mapper's own
-rule, so it names the three — each read through its backend fails the same way —
-and not the clean one. Strays are stored by raw Cypher, as a migration, a retired enum
+JSON, a task holding no ``title`` (which a Task requires), and a clean task beside
+them. The census reads each through the mapper's own rule, so it names the four —
+each read through its backend fails the same way — and not the clean one. Strays are stored by raw Cypher, as a migration, a retired enum
 member or an unchecked property patch would leave them.
 """
 
@@ -20,6 +20,7 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 OWNER = seed_user_uid("zzzstoredvalue")
 STRAY_TASK = "task_5f0e1d2c3b4a6978"
 CLEAN_TASK = "task_6a7b8c9d0e1f2a3b"
+UNTITLED_TASK = "task_7c8d9e0f1a2b3c4d"
 STRAY_KU = "ku.test.stored-value-stray"
 
 
@@ -27,7 +28,7 @@ def _ours(refusals: list) -> set[tuple[str, object, str]]:
     return {
         (refusal.entity_class, refusal.uid, refusal.field)
         for refusal in refusals
-        if refusal.uid in {STRAY_TASK, CLEAN_TASK, STRAY_KU, OWNER}
+        if refusal.uid in {STRAY_TASK, CLEAN_TASK, UNTITLED_TASK, STRAY_KU, OWNER}
     }
 
 
@@ -50,12 +51,15 @@ async def test_the_census_names_each_unreadable_value_and_nothing_else(
                                   user_uid: $owner, status: 'no-such-status'})
             CREATE (:Entity:Task {uid: $clean, title: 'Clean', entity_type: 'task',
                                   user_uid: $owner, status: 'active'})
+            CREATE (:Entity:Task {uid: $untitled, entity_type: 'task', user_uid: $owner,
+                                  status: 'active'})
             CREATE (:Entity:Ku {uid: $ku, title: 'Stray', entity_type: 'ku',
                                 complexity: 'no-such-complexity'})
             """,
             owner=OWNER,
             stray=STRAY_TASK,
             clean=CLEAN_TASK,
+            untitled=UNTITLED_TASK,
             ku=STRAY_KU,
         )
     try:
@@ -63,12 +67,14 @@ async def test_the_census_names_each_unreadable_value_and_nothing_else(
         assert after.is_ok, after
         assert _ours(after.value) == {
             ("Task", STRAY_TASK, "status"),
+            ("Task", UNTITLED_TASK, "title"),
             ("Ku", STRAY_KU, "complexity"),
             ("User", OWNER, "preferences"),
         }
 
         # Each one the census names, its backend's read refuses; the clean one reads.
         assert (await backends["tasks_backend"].get(STRAY_TASK)).is_error
+        assert (await backends["tasks_backend"].get(UNTITLED_TASK)).is_error
         assert (await backends["ku_backend"].get(STRAY_KU)).is_error
         assert (await backends["users_backend"].get_user_by_uid(OWNER)).is_error
         clean = await backends["tasks_backend"].get(CLEAN_TASK)

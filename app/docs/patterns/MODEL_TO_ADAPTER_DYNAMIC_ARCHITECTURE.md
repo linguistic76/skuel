@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-11-14
+updated: 2026-11-20
 category: patterns
 related_skills: []
 related_docs:
@@ -652,11 +652,13 @@ class Task:
 
 A stored value its field's type cannot read — `status: 'bogus'`, an unparseable date —
 raises `UnreadableStoredValueError` and the read fails; nothing reads it as the raw
-value or a default (`/docs/patterns/three_tier_type_system.md`).
+value or a default (`/docs/patterns/three_tier_type_system.md`). So does a field the
+class requires that the node does not hold. The stored-value census (`unreadable_fields`)
+reads each node by the same per-field rule, so it names exactly what a read refuses.
 
 The write holds the same rule from the other side. `to_neo4j_node` and `to_neo4j_patch`
-read every property they serialize for a field of the class by the read's own rule
-(`unreadable_fields`), and raise `UnstorableValueError` before any statement runs:
+read every property they serialize for a field of the class by the read's own rule,
+and raise `UnstorableValueError` before any statement runs:
 neither stores a value every later read of its node would refuse. A null on a field that
 requires a value and has no default is refused too; a key that names no field passes
 (the read never reads it). An enum field read from a tolerated spelling (`BASIC`, an

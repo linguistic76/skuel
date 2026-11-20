@@ -20,11 +20,15 @@ Neo4j Schema:
         last_active_at: datetime(),
         ip_address: "192.168.1.1",
         user_agent: "Mozilla/5.0...",
-        is_valid: true
+        is_valid: true,
+        user_is_active: true,
+        seen_day: "{YYYY-MM-DD}"
     })
 
-    Raw session_token lives only in the HTTP-only cookie.
-    Neo4j stores token_hash (SHA-256) — raw tokens are never persisted.
+    The raw token lives only in the HTTP-only cookie: ``create_session`` hands it
+    out beside the session it mints (``IssuedSession``), and the session holds
+    only its hash. Neo4j stores token_hash (SHA-256) — raw tokens are never
+    persisted.
 
     (user:User)-[:HAS_SESSION]->(session:Session)
 """
@@ -67,7 +71,6 @@ class Session:
 
     Attributes:
         uid: Unique session identifier (e.g., "session_abc123...")
-        session_token: Secure token stored in HTTP-only cookie (excluded from repr)
         user_uid: Reference to owning user
         created_at: When session was created
         expires_at: When session expires (hard limit)
@@ -75,13 +78,11 @@ class Session:
         ip_address: Client IP address (for audit)
         user_agent: Client user agent (for audit)
         is_valid: Whether session is valid (can be invalidated on logout)
+        user_is_active: The user's active status when the session was minted
+        token_hash: SHA-256 hash of the session's token, the property it is found by
     """
 
     uid: str
-    # repr=False: the raw token authenticates the bearer. Keeping it out of
-    # repr() keeps it out of log lines, tracebacks and debugger frames that
-    # render the dataclass.
-    session_token: str = field(repr=False)
     user_uid: UserUID
     created_at: datetime
     expires_at: datetime
@@ -89,9 +90,9 @@ class Session:
     ip_address: str
     user_agent: str
     is_valid: bool = True
-    # Cached user data (avoid DB lookup on every validation)
-    user_is_active: bool = True  # Cached at session creation
-    token_hash: str = ""  # SHA-256 hash of session_token, stored in Neo4j
+    # A snapshot at the mint; validation reads the live User, never this.
+    user_is_active: bool = True
+    token_hash: str = ""  # SHA-256 hash of the session's token, stored in Neo4j
 
     def is_expired(self) -> bool:
         """Check if session has expired."""
@@ -113,47 +114,20 @@ class Session:
         """
         return self.time_until_expiry() < timedelta(days=threshold_days)
 
-    def with_updated_activity(self) -> Session:
-        """
-        Create new session with updated last_active_at.
 
-        Since Session is frozen, this returns a new instance.
-        Used for sliding expiration updates.
-        """
-        # Note: We don't extend expires_at to maintain hard limit
-        return Session(
-            uid=self.uid,
-            session_token=self.session_token,
-            user_uid=self.user_uid,
-            created_at=self.created_at,
-            expires_at=self.expires_at,
-            last_active_at=datetime.now(UTC),
-            ip_address=self.ip_address,
-            user_agent=self.user_agent,
-            is_valid=self.is_valid,
-            user_is_active=self.user_is_active,
-            token_hash=self.token_hash,
-        )
+@dataclass(frozen=True)
+class IssuedSession:
+    """A session just minted, and the raw token its cookie carries.
 
-    def invalidate(self) -> Session:
-        """
-        Create invalidated version of this session.
+    The graph stores only the token's hash, so the token exists here alone,
+    between the mint and the cookie.
+    """
 
-        Used for logout - keeps audit trail but marks as invalid.
-        """
-        return Session(
-            uid=self.uid,
-            session_token=self.session_token,
-            user_uid=self.user_uid,
-            created_at=self.created_at,
-            expires_at=self.expires_at,
-            last_active_at=self.last_active_at,
-            ip_address=self.ip_address,
-            user_agent=self.user_agent,
-            is_valid=False,
-            user_is_active=self.user_is_active,
-            token_hash=self.token_hash,
-        )
+    session: Session
+    # repr=False: the raw token authenticates the bearer. Keeping it out of
+    # repr() keeps it out of log lines, tracebacks and debugger frames that
+    # render the dataclass.
+    token: str = field(repr=False)
 
 
 def create_session(
@@ -162,25 +136,24 @@ def create_session(
     user_agent: str,
     expiry_days: int = SESSION_EXPIRY_DAYS,
     user_is_active: bool = True,
-) -> Session:
+) -> IssuedSession:
     """
-    Factory function to create a new session.
+    Mint a new session and the token that authenticates it.
 
     Args:
         user_uid: The user this session belongs to
         ip_address: Client IP address
         user_agent: Client user agent string
         expiry_days: Days until session expires (default: 30)
-        user_is_active: Cached user active status (avoid DB lookup on validation)
+        user_is_active: The user's active status at the mint (a snapshot only)
 
     Returns:
-        New Session instance with secure token
+        The session, holding the token's hash, and the token for the cookie
     """
     now = datetime.now(UTC)
     token = generate_session_token()
-    return Session(
+    session = Session(
         uid=generate_session_uid(),
-        session_token=token,
         user_uid=user_uid,
         created_at=now,
         expires_at=now + timedelta(days=expiry_days),
@@ -191,11 +164,13 @@ def create_session(
         user_is_active=user_is_active,
         token_hash=hash_session_token(token),
     )
+    return IssuedSession(session=session, token=token)
 
 
 __all__ = [
     "SESSION_EXPIRY_DAYS",
     "SESSION_TOKEN_BYTES",
+    "IssuedSession",
     "Session",
     "create_session",
     "generate_session_token",

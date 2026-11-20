@@ -316,7 +316,7 @@ skills:
 
   - name: prometheus-grafana
     description: Prometheus metrics and Grafana dashboards in SKUEL
-    last_reviewed: "2026-11-14"
+    last_reviewed: "2026-11-20"
     foundation: []
     dependencies: []
     library_package: prometheus-client
@@ -373,7 +373,7 @@ skills:
 
   - name: security
     description: Security posture, route checklist, and code review security checks
-    last_reviewed: "2026-10-18"
+    last_reviewed: "2026-11-20"
     foundation: []
     dependencies: [python]
     library_package: null  # Cross-cutting concern, not a single library
@@ -588,7 +588,7 @@ skills:
 
   - name: zpd
     description: SKUEL's Zone of Proximal Development — readiness scoring, blocking gaps, compound evidence, recommended actions, ZPD snapshots (the pedagogical gravity well)
-    last_reviewed: "2026-10-11"
+    last_reviewed: "2026-11-20"
     foundation: [user-context-intelligence, curriculum-domains]
     dependencies: [user-context-intelligence, curriculum-domains]
     library_package: null  # SKUEL pattern, not external library
@@ -628,7 +628,7 @@ skills:
 
   - name: pytest
     description: SKUEL testing patterns - fixtures, async testing, mocking with Result[T]
-    last_reviewed: "2026-11-15"
+    last_reviewed: "2026-11-20"
     foundation: [python, result-pattern]
     dependencies: [python, result-pattern]
     library_package: pytest
