@@ -94,7 +94,11 @@ async def service(neo4j_driver: AsyncDriver) -> AsyncIterator[UnifiedIngestionSe
             (_SECOND_TEACHER, "admin"),
             (_MEMBER, "member"),
         ):
-            await session.run("MERGE (u:User {uid: $uid}) SET u.role = $role", uid=uid, role=role)
+            await session.run(
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid SET u.role = $role",
+                uid=uid,
+                role=role,
+            )
     yield build_ingestion_service(
         driver=neo4j_driver,
         ingestion_backend=build_production_backends(neo4j_driver)["ingestion_backend"],

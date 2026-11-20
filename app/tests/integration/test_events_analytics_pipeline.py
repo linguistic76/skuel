@@ -101,9 +101,12 @@ async def _seed_event_graph(neo4j_driver) -> None:
             (EV_HABIT, "Habit", "habit"),
         ]:
             await s.run(
-                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
+                o=None
+                if label in ("PathStep", "Ku", "LearningPath")
+                else seed_user_uid("evctx_user"),
                 t=etype,
             )
         await s.run(
@@ -174,9 +177,10 @@ async def test_event_performance_empty_when_no_edges(neo4j_driver, rel_backend, 
     """Negative control: an edge-less event yields an OK empty context, NOT a failure."""
     async with neo4j_driver.session() as s:
         await s.run(
-            "CREATE (:Entity:Event {uid:$u, entity_type:'event', title:$u, "
+            "CREATE (:Entity:Event {uid:$u, entity_type:'event', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=EV_EVENT_BARE,
+            o=seed_user_uid("evctx_user"),
         )
     svc = _harness(rel_backend, EV_EVENT_BARE, quality=None)
 
@@ -237,14 +241,16 @@ async def test_event_performance_dedupes_multipath_goal_at_depth2(
     async with neo4j_driver.session() as s:
         for uid in (dup_event, dup_mid):
             await s.run(
-                "CREATE (:Entity:Event {uid:$u, entity_type:'event', title:$u, "
+                "CREATE (:Entity:Event {uid:$u, entity_type:'event', title:$u, user_uid:$o, "
                 "status:'active', created_at:datetime()})",
                 u=uid,
+                o=seed_user_uid("evctx_user"),
             )
         await s.run(
-            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=dup_goal,
+            o=seed_user_uid("evctx_user"),
         )
         for a, rel, b in [
             (dup_event, "CONTRIBUTES_TO_GOAL", dup_goal),

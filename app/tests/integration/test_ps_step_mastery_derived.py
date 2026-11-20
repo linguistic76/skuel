@@ -49,7 +49,7 @@ async def backend(neo4j_driver, clean_neo4j) -> PsBackend:
     edge, which the edge writer permits, must not hold the parent back (a step's
     mastery is never a KnowledgeMastered); and only a published step is derived."""
     async with neo4j_driver.session() as session:
-        await session.run("MERGE (u:User {uid: $u})", u=USER)
+        await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=USER)
         await session.run(
             """
             MATCH (u:User {uid: $u})

@@ -691,6 +691,7 @@ async def test_user_entry_backend_reads_organized_children(
             MATCH (living:Entity:UserEntry {uid: $living_uid})
             MERGE (t:Entity:Task {uid: 'tk.moc-child', entity_type: 'task',
                                   title: 'Child task'})
+              ON CREATE SET t.user_uid = living.user_uid
             MERGE (ex:Entity {uid: $exercise_uid})
             MERGE (living)-[:ORGANIZES {order: 1}]->(t)
             MERGE (living)-[:ORGANIZES {order: 0}]->(ex)

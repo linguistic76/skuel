@@ -40,14 +40,15 @@ class TestPrincipleCascadeReadsRoundTrip:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MERGE (p:Entity:Principle {uid: $p}) SET p.entity_type='principle', p.title='P'
-                MERGE (g:Entity:Goal {uid: $g}) SET g.entity_type='goal', g.title='G'
-                MERGE (h:Entity:Habit {uid: $h}) SET h.entity_type='habit', h.title='H'
+                MERGE (p:Entity:Principle {uid: $p}) SET p.entity_type='principle', p.user_uid=$owner, p.title='P'
+                MERGE (g:Entity:Goal {uid: $g}) SET g.entity_type='goal', g.user_uid=$owner, g.title='G'
+                MERGE (h:Entity:Habit {uid: $h}) SET h.entity_type='habit', h.user_uid=$owner, h.title='H'
                 MERGE (p)-[:SUPPORTS_GOAL]->(g)
                 MERGE (p)-[:INSPIRES_HABIT]->(h)
                 """,
                 p=principle,
                 g=goal,
+                owner=seed_user_uid("cascade"),
                 h=habit,
             )
 
@@ -93,12 +94,13 @@ class TestPrincipleCascadeReadsRoundTrip:
             await session.run(
                 """
                 MATCH (p:Entity {uid: $p})
-                MERGE (g:Entity:Goal {uid: 'goal.cascade-2'}) SET g.entity_type='goal', g.title='G'
-                MERGE (h:Entity:Habit {uid: 'habit.cascade-2'}) SET h.entity_type='habit', h.title='H'
+                MERGE (g:Entity:Goal {uid: 'goal.cascade-2'}) SET g.entity_type='goal', g.user_uid=$owner, g.title='G'
+                MERGE (h:Entity:Habit {uid: 'habit.cascade-2'}) SET h.entity_type='habit', h.user_uid=$owner, h.title='H'
                 MERGE (p)-[:SUPPORTS_GOAL]->(g)
                 MERGE (p)-[:INSPIRES_HABIT]->(h)
                 """,
                 p=principle.uid,
+                owner=seed_user_uid("cascade"),
             )
 
         event = PrincipleStrengthChanged(

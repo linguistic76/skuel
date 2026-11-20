@@ -147,7 +147,12 @@ async def store(neo4j_driver, clean_neo4j) -> InsightStore:
     async with neo4j_driver.session() as session:
         # MERGE: clean_neo4j keeps User nodes, and a second learner node would fan
         # every HAS_INSIGHT edge out twice.
-        await session.run("MERGE (:User {uid: $a}) MERGE (:User {uid: $b})", a=USER, b=OTHER)
+        await session.run(
+            "MERGE (a:User {uid: $a}) ON CREATE SET a.title = $a "
+            "MERGE (b:User {uid: $b}) ON CREATE SET b.title = $b",
+            a=USER,
+            b=OTHER,
+        )
     store = InsightStore(build_production_backends(neo4j_driver)["insight_backend"])
 
     # Written last-first, so a read that leaves ties to storage order is not in uid order.

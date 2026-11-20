@@ -81,7 +81,7 @@ async def _seed_foreign_principle(driver: AsyncDriver) -> None:
     async with driver.session() as session:
         await session.run(
             """
-            MERGE (o:User {uid: $other})
+            MERGE (o:User {uid: $other}) ON CREATE SET o.title = $other
             MERGE (p:Entity:Principle {uid: $principle})
             SET p.title = $principle, p.entity_type = 'principle', p.status = 'active',
                 p.user_uid = $other, p.strength = 'core'

@@ -29,6 +29,9 @@ from core.models.graph_context import GraphContext, GraphNode
 from core.models.relationship_registry import TASKS_CONFIG
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.seed_uids import seed_user_uid
+
+OWNER = seed_user_uid("dab_owner")  # owns every seeded activity
 
 P = "dab."  # uid prefix for this module's fixture graph
 
@@ -71,9 +74,10 @@ async def test_direction_aware_bucketing_2hop_dedup_and_properties(
             (NOISE, "Task", "task"),
         ]:
             await s.run(
-                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
+                o=None if label in ("PathStep", "Ku", "LearningPath") else OWNER,
                 t=etype,
             )
         await s.run(
@@ -149,9 +153,10 @@ async def test_edge_less_node_yields_empty_not_notfound(neo4j_driver, graph_inte
     """
     async with neo4j_driver.session() as s:
         await s.run(
-            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=P + "lonely",
+            o=OWNER,
         )
 
     res = await graph_intel.query_with_intent(

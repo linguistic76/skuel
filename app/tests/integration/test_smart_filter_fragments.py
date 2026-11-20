@@ -58,75 +58,75 @@ async def seeded_graph(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (u:User {uid: $user})
-            MERGE (o:User {uid: $other})
+            MERGE (u:User {uid: $user}) ON CREATE SET u.title = $user
+            MERGE (o:User {uid: $other}) ON CREATE SET o.title = $other
 
             // ready_to_learn: entity with one prereq the user mastered
-            MERGE (rtl:Entity:Ku {uid: $p + '.rtl'})
-            MERGE (rtl_pre:Entity:Ku {uid: $p + '.rtl-pre'})
+            MERGE (rtl:Entity:Ku {uid: $p + '.rtl'}) ON CREATE SET rtl.title = $p + '.rtl'
+            MERGE (rtl_pre:Entity:Ku {uid: $p + '.rtl-pre'}) ON CREATE SET rtl_pre.title = $p + '.rtl-pre'
             MERGE (rtl)-[:REQUIRES_KNOWLEDGE]->(rtl_pre)
             MERGE (u)-[:MASTERED]->(rtl_pre)
 
             // builds_on_mastered: mastered neighbor RELATED_TO entity
-            MERGE (bom:Entity:Ku {uid: $p + '.bom'})
-            MERGE (bom_m:Entity:Ku {uid: $p + '.bom-m'})
+            MERGE (bom:Entity:Ku {uid: $p + '.bom'}) ON CREATE SET bom.title = $p + '.bom'
+            MERGE (bom_m:Entity:Ku {uid: $p + '.bom-m'}) ON CREATE SET bom_m.title = $p + '.bom-m'
             MERGE (u)-[:MASTERED]->(bom_m)
             MERGE (bom_m)-[:RELATED_TO]->(bom)
 
             // in_active_path: enrollment (no status) -> lp -> step -> USES_KU
-            MERGE (iap:Entity:Ku {uid: $p + '.iap'})
-            MERGE (iap_lp:Entity:LearningPath {uid: $p + '.iap-lp'})
-            MERGE (iap_ps:Entity:PathStep {uid: $p + '.iap-ps'})
+            MERGE (iap:Entity:Ku {uid: $p + '.iap'}) ON CREATE SET iap.title = $p + '.iap'
+            MERGE (iap_lp:Entity:LearningPath {uid: $p + '.iap-lp'}) ON CREATE SET iap_lp.title = $p + '.iap-lp'
+            MERGE (iap_ps:Entity:PathStep {uid: $p + '.iap-ps'}) ON CREATE SET iap_ps.title = $p + '.iap-ps'
             MERGE (u)-[:ENROLLED_IN]->(iap_lp)
             MERGE (iap_lp)-[:HAS_STEP]->(iap_ps)
             MERGE (iap_ps)-[:USES_KU]->(iap)
 
             // in_active_path variant: CONTAINS_KNOWLEDGE hop also matches
-            MERGE (iap2:Entity:Ku {uid: $p + '.iap2'})
+            MERGE (iap2:Entity:Ku {uid: $p + '.iap2'}) ON CREATE SET iap2.title = $p + '.iap2'
             MERGE (iap_ps)-[:CONTAINS_KNOWLEDGE]->(iap2)
 
             // supports_goals: OWNS active goal REQUIRES_KNOWLEDGE entity
-            MERGE (sg:Entity:Ku {uid: $p + '.sg'})
-            MERGE (sg_goal:Entity:Goal {uid: $p + '.sg-goal'})
+            MERGE (sg:Entity:Ku {uid: $p + '.sg'}) ON CREATE SET sg.title = $p + '.sg'
+            MERGE (sg_goal:Entity:Goal {uid: $p + '.sg-goal'}) ON CREATE SET sg_goal.user_uid = u.uid ON CREATE SET sg_goal.title = $p + '.sg-goal'
             SET sg_goal.status = 'active'
             MERGE (u)-[:OWNS]->(sg_goal)
             MERGE (sg_goal)-[:REQUIRES_KNOWLEDGE]->(sg)
 
             // builds_on_habits: OWNS active habit REINFORCES_KNOWLEDGE entity
-            MERGE (bh:Entity:Ku {uid: $p + '.bh'})
-            MERGE (bh_habit:Entity:Habit {uid: $p + '.bh-habit'})
+            MERGE (bh:Entity:Ku {uid: $p + '.bh'}) ON CREATE SET bh.title = $p + '.bh'
+            MERGE (bh_habit:Entity:Habit {uid: $p + '.bh-habit'}) ON CREATE SET bh_habit.user_uid = u.uid ON CREATE SET bh_habit.title = $p + '.bh-habit'
             SET bh_habit.status = 'active'
             MERGE (u)-[:OWNS]->(bh_habit)
             MERGE (bh_habit)-[:REINFORCES_KNOWLEDGE]->(bh)
 
             // applied_in_tasks: recent task with STRING updated_at (DTO shape)
-            MERGE (at:Entity:Ku {uid: $p + '.at'})
-            MERGE (at_task:Entity:Task {uid: $p + '.at-task'})
+            MERGE (at:Entity:Ku {uid: $p + '.at'}) ON CREATE SET at.title = $p + '.at'
+            MERGE (at_task:Entity:Task {uid: $p + '.at-task'}) ON CREATE SET at_task.user_uid = u.uid ON CREATE SET at_task.title = $p + '.at-task'
             SET at_task.status = 'completed', at_task.updated_at = $now_iso
             MERGE (u)-[:OWNS]->(at_task)
             MERGE (at_task)-[:APPLIES_KNOWLEDGE]->(at)
 
             // aligned_with_principles: OWNS active principle GROUNDED_IN_KNOWLEDGE
-            MERGE (ap:Entity:Ku {uid: $p + '.ap'})
-            MERGE (ap_pr:Entity:Principle {uid: $p + '.ap-pr'})
+            MERGE (ap:Entity:Ku {uid: $p + '.ap'}) ON CREATE SET ap.title = $p + '.ap'
+            MERGE (ap_pr:Entity:Principle {uid: $p + '.ap-pr'}) ON CREATE SET ap_pr.user_uid = u.uid ON CREATE SET ap_pr.title = $p + '.ap-pr'
             SET ap_pr.status = 'active'
             MERGE (u)-[:OWNS]->(ap_pr)
             MERGE (ap_pr)-[:GROUNDED_IN_KNOWLEDGE]->(ap)
 
             // next_logical_step: mastered ENABLES_KNOWLEDGE entity, no prereqs
-            MERGE (nls:Entity:Ku {uid: $p + '.nls'})
-            MERGE (nls_m:Entity:Ku {uid: $p + '.nls-m'})
+            MERGE (nls:Entity:Ku {uid: $p + '.nls'}) ON CREATE SET nls.title = $p + '.nls'
+            MERGE (nls_m:Entity:Ku {uid: $p + '.nls-m'}) ON CREATE SET nls_m.title = $p + '.nls-m'
             MERGE (u)-[:MASTERED]->(nls_m)
             MERGE (nls_m)-[:ENABLES_KNOWLEDGE]->(nls)
 
             // viewed_not_mastered / not_yet_viewed
-            MERGE (vnm:Entity:Ku {uid: $p + '.vnm'})
+            MERGE (vnm:Entity:Ku {uid: $p + '.vnm'}) ON CREATE SET vnm.title = $p + '.vnm'
             MERGE (u)-[:VIEWED]->(vnm)
-            MERGE (nyv:Entity:Ku {uid: $p + '.nyv'})
+            MERGE (nyv:Entity:Ku {uid: $p + '.nyv'}) ON CREATE SET nyv.title = $p + '.nyv'
 
             // ready_to_review: mastered 60 days ago (native datetime — the
             // writer is Cypher datetime($now) in mark_mastered)
-            MERGE (rtr:Entity:Ku {uid: $p + '.rtr'})
+            MERGE (rtr:Entity:Ku {uid: $p + '.rtr'}) ON CREATE SET rtr.title = $p + '.rtr'
             MERGE (u)-[m:MASTERED]->(rtr)
             SET m.mastered_at = datetime() - duration({days: 60})
             """,

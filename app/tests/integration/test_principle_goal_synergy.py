@@ -65,7 +65,7 @@ async def _seed_foreign_goal(driver: Any) -> None:  # boundary: neo4j AsyncDrive
     async with driver.session() as session:
         await session.run(
             """
-            MERGE (o:User {uid: $other})
+            MERGE (o:User {uid: $other}) ON CREATE SET o.title = $other
             MERGE (g:Entity:Goal {uid: $goal})
             SET g.title = $goal, g.entity_type = 'goal', g.status = 'active',
                 g.user_uid = $other, g.goal_type = 'learning'

@@ -70,7 +70,7 @@ async def graph(neo4j_driver, clean_neo4j):
     async with neo4j_driver.session() as s:
         # -- User --
         await s.run(
-            "MERGE (u:User {uid: $uid}) SET u.created_at = datetime($ts)",
+            "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid SET u.created_at = datetime($ts)",
             uid=USER_UID,
             ts=now,
         )
@@ -266,7 +266,8 @@ async def graph(neo4j_driver, clean_neo4j):
             MATCH (u:User {uid: $uid})
             UNWIND range(1, 24) AS n
             CREATE (u)-[:OWNS]->(:HabitCompletion {
-                uid: 'hc.xdq-' + toString(n), habit_uid: 'habit.reading-xdq',
+                uid: 'hc.xdq-' + toString(n), habit_uid: 'habit.reading-xdq', user_uid: u.uid,
+                created_at: datetime(), updated_at: datetime(),
                 completed_at: toString(localdatetime({
                     date: date() - duration({days: n}), hour: 12
                 }))

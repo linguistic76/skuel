@@ -14,6 +14,7 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -48,14 +49,15 @@ async def lateral_edge_graph(neo4j_driver):
             CREATE (other_b:Entity:Ku {uid: 'ku.test.other-b', title: 'Other B',
                                        entity_type: 'ku'})
             CREATE (task:Entity:Task {uid: 'task.test-lateral', title: 'A Task',
-                                      entity_type: 'task'})
+                                      entity_type: 'task', user_uid: $seed_owner})
             CREATE (anchor)-[:RELATED_TO {evidence: 'The breath is the most common anchor.',
                                           confidence: 0.9, source: 'teacher'}]->(breath)
             CREATE (breath)-[:PREREQUISITE_FOR]->(other_a)
             CREATE (breath)-[:ENABLES {evidence: 'Breath skill enables other-b.'}]->(other_b)
             CREATE (other_a)-[:RELATED_TO {evidence: 'noise'}]->(other_b)
             CREATE (breath)-[:RELATED_TO {evidence: 'wrong endpoint type'}]->(task)
-            """
+            """,
+            seed_owner=seed_user_uid("lateral_owner"),
         )
     yield
     async with neo4j_driver.session() as session:

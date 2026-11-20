@@ -45,7 +45,7 @@ class TestDateRangeStringCoercion:
     async def _user(self, neo4j_driver, uid: str) -> str:
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()",
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
                 uid=uid,
             )
         return uid
@@ -105,7 +105,7 @@ class TestDateRangeStringCoercion:
             await session.run(
                 """
                 CREATE (n:Entity:Task {uid: 't.overdue', user_uid: $u,
-                                       entity_type: 'task', status: 'active', due_date: $d})
+                                       entity_type: 'task', status: 'active', due_date: $d, title: 't.overdue'})
                 """,
                 u=user,
                 d=yesterday,
@@ -163,7 +163,7 @@ class TestDateRangeStringCoercion:
                 """
                 CREATE (n:Entity:Task {uid: 't.dt-due', user_uid: $u,
                                        entity_type: 'task', status: 'active',
-                                       due_date: $d, created_at: datetime()})
+                                       due_date: $d, created_at: datetime(), title: 't.dt-due'})
                 """,
                 u=user,
                 d=f"{in_range}T09:00:00.000000",
@@ -190,7 +190,7 @@ class TestDateRangeStringCoercion:
                 CREATE (e:Entity:Event {uid: 'e.dt-date', user_uid: $u,
                                         entity_type: 'event', status: 'scheduled',
                                         event_date: $d, start_time: '09:00:00',
-                                        end_time: '10:00:00', created_at: datetime()})
+                                        end_time: '10:00:00', created_at: datetime(), title: 'e.dt-date'})
                 """,
                 u=user,
                 d=f"{in_range}T09:00:00.000000",

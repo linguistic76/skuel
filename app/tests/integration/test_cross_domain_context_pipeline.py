@@ -69,6 +69,7 @@ def rel_backend(neo4j_driver):
 
 # uid prefix for the depth-2 / direction-aware regression graph (the canonical
 # INSPIRES_HABIT <-> EMBODIES_PRINCIPLE reciprocal pair — the natural 2-cycle).
+OWNER = seed_user_uid("xdctx_user")  # owns every seeded activity
 R = "xdctx.recip-"
 R_PRINCIPLE = R + "principle"
 R_HABIT = R + "habit"
@@ -94,9 +95,10 @@ async def _seed_reciprocal_pair(session: AsyncSession) -> None:
     ]:
         await session.run(
             f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
-            f"status:'active', created_at:datetime()}})",
+            f"status:'active', user_uid:$o, created_at:datetime()}})",
             u=uid,
             t=etype,
+            o=None if label == "PathStep" else OWNER,
         )
     for a, rel, b in [
         (R_PRINCIPLE, "INSPIRES_HABIT", R_HABIT),
@@ -236,9 +238,10 @@ async def test_incoming_buckets_route_by_specific_label(neo4j_driver, rel_backen
         ]:
             await s.run(
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
-                f"status:'active', created_at:datetime()}})",
+                f"status:'active', user_uid:$o, created_at:datetime()}})",
                 u=uid,
                 t=etype,
+                o=None if label == "PathStep" else OWNER,
             )
         # All three reinforce S_HABIT (incoming REINFORCES_HABIT edges).
         for src in (S_TASK, S_EVENT, S_OTHER_HABIT):
@@ -298,9 +301,10 @@ async def test_depth_surfaces_transitive_node_correctly_attributed(
         ]:
             await s.run(
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
-                f"status:'active', created_at:datetime()}})",
+                f"status:'active', user_uid:$o, created_at:datetime()}})",
                 u=uid,
                 t=etype,
+                o=None if label == "PathStep" else OWNER,
             )
         for a, rel, b in [
             (T_HABIT, "SUPPORTS_GOAL", T_NEAR_GOAL),
@@ -386,9 +390,10 @@ async def _seed_choice_graph(neo4j_driver) -> None:
         ]:
             await s.run(
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
-                f"status:'active', created_at:datetime()}})",
+                f"status:'active', user_uid:$o, created_at:datetime()}})",
                 u=uid,
                 t=etype,
+                o=None if label == "PathStep" else OWNER,
             )
         await s.run(
             "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=FB_KU
@@ -410,7 +415,7 @@ async def _seed_choice_graph(neo4j_driver) -> None:
 
 
 def _harness(neo4j_driver, rel_backend, choice_uid: str) -> _ChoiceIntelHarness:
-    choice = Choice(uid=choice_uid, title="Decide", user_uid=seed_user_uid("xdctx_user"))
+    choice = Choice(uid=choice_uid, title="Decide", user_uid=OWNER)
     rels: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=rel_backend, config=CHOICES_CONFIG, graph_intel=None
     )
@@ -459,8 +464,9 @@ async def test_choice_intelligence_empty_when_no_edges(neo4j_driver, rel_backend
     async with neo4j_driver.session() as s:
         await s.run(
             "CREATE (:Entity:Choice {uid:$u, entity_type:'choice', title:$u, "
-            "status:'active', created_at:datetime()})",
+            "status:'active', user_uid:$o, created_at:datetime()})",
             u=FB_CHOICE_BARE,
+            o=OWNER,
         )
     svc = _harness(neo4j_driver, rel_backend, FB_CHOICE_BARE)
 
@@ -503,9 +509,10 @@ async def test_choice_impact_dedupes_multipath_goals_at_depth2(
             etype = "goal" if uid == FB_DUP_GOAL else "choice"
             await s.run(
                 f"CREATE (:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
-                f"status:'active', created_at:datetime()}})",
+                f"status:'active', user_uid:$o, created_at:datetime()}})",
                 u=uid,
                 t=etype,
+                o=None if label == "PathStep" else OWNER,
             )
         for a, rel, b in [
             (FB_DUP_CHOICE, "AFFECTS_GOAL", FB_DUP_GOAL),  # 1-hop

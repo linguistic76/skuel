@@ -17,6 +17,9 @@ import pytest
 
 from core.services.analytics.knowledge_health_service import KnowledgeHealthService
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.seed_uids import seed_user_uid
+
+OWNER = seed_user_uid("khtest_owner")  # owns every seeded activity
 
 P = "khtest."  # uid prefix for this module's fixture graph
 
@@ -66,9 +69,10 @@ async def _build_graph(neo4j_driver) -> None:
     async with neo4j_driver.session() as s:
         for uid, label, etype in nodes:
             await s.run(
-                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
+                o=None if label in ("PathStep", "Ku", "LearningPath") else OWNER,
                 t=etype,
             )
         # ex1 is curriculum, as the content-vault sync writes every exercise.
@@ -210,9 +214,10 @@ async def test_learner_telemetry_excluded_from_degree(neo4j_driver, clean_neo4j)
                 u=uid,
             )
         await s.run(
-            "CREATE (u:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+            "CREATE (u:Entity:Task {uid:$u, entity_type:'task', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=P + "t-user",
+            o=OWNER,
         )
         # Telemetry-only edge on t_iso (type-filtered out regardless of endpoints).
         await s.run(
@@ -340,14 +345,15 @@ async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo
         )
         # UserEntry scope: only the non-private knowledge and activity entries count.
         await s.run(
-            "CREATE (:Entity:UserEntry {uid:$u1, entity_type:'user_entry', pipeline:'knowledge'}),"
-            " (:Entity:UserEntry {uid:$u2, entity_type:'user_entry', pipeline:'knowledge', private:true}),"
-            " (:Entity:UserEntry {uid:$u3, entity_type:'user_entry', pipeline:'teacher_review'}),"
+            "CREATE (:Entity:UserEntry {uid:$u1, entity_type:'user_entry', pipeline:'knowledge', title: $u1, user_uid:$owner}),"
+            " (:Entity:UserEntry {uid:$u2, entity_type:'user_entry', pipeline:'knowledge', private:true, title: $u2, user_uid:$owner}),"
+            " (:Entity:UserEntry {uid:$u3, entity_type:'user_entry', pipeline:'teacher_review', title: $u3, user_uid:$owner}),"
             " (:Entity:UserEntry {uid:$u4, entity_type:'user_entry',"
-            "  pipeline:'extract_activities'}),"
+            "  pipeline:'extract_activities', title: $u4, user_uid:$owner}),"
             " (:Entity:UserEntry {uid:$u5, entity_type:'user_entry',"
-            "  pipeline:'extract_activities', private:true}),"
-            " (:Entity:UserEntry {uid:$u6, entity_type:'user_entry', pipeline:'none'})",
+            "  pipeline:'extract_activities', private:true, title: $u5, user_uid:$owner}),"
+            " (:Entity:UserEntry {uid:$u6, entity_type:'user_entry', pipeline:'none', title: $u6, user_uid:$owner})",
+            owner=OWNER,
             u1=P + "ec-ue1",
             u2=P + "ec-ue2",
             u3=P + "ec-ue3",

@@ -49,8 +49,8 @@ async def seeded(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (a:Entity:Ku {uid: $a}) CREATE (b:Entity:Ku {uid: $b})
-            CREATE (c:Entity:Ku {uid: $c}) CREATE (d:Entity:Ku {uid: $d})
+            CREATE (a:Entity:Ku {uid: $a, title: $a}) CREATE (b:Entity:Ku {uid: $b, title: $b})
+            CREATE (c:Entity:Ku {uid: $c, title: $c}) CREATE (d:Entity:Ku {uid: $d, title: $d})
             CREATE (a)-[:BLOCKS {created_at: $literal, reason: 'keep me'}]->(b)
             CREATE (b)-[:BLOCKED_BY {created_at: $literal}]->(a)
             CREATE (c)-[:ALTERNATIVE_TO {created_at: $good}]->(d)

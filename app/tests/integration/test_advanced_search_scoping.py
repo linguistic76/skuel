@@ -57,13 +57,13 @@ async def _seed_users_and_group(neo4j_driver) -> None:
         await session.run(
             """
             UNWIND $uids AS uid
-            MERGE (u:User {uid: uid})
+            MERGE (u:User {uid: uid}) ON CREATE SET u.title = uid
             """,
             uids=[OWNER, STRANGER, TEACHER],
         )
         await session.run(
             """
-            MERGE (g:Group {uid: $group_uid})
+            MERGE (g:Group {uid: $group_uid}) ON CREATE SET g.name = $group_uid
             WITH g
             MATCH (member:User {uid: $member})
             MERGE (member)-[:MEMBER_OF]->(g)
@@ -100,12 +100,13 @@ async def _seed_tasks(neo4j_driver, tasks_service) -> dict[str, str]:
         await session.run(
             """
             MERGE (g:Entity:Goal {uid: $goal_uid})
-            ON CREATE SET g.entity_type = 'goal', g.title = 'Scope goal'
+            ON CREATE SET g.entity_type = 'goal', g.title = 'Scope goal', g.user_uid = $owner
             WITH g
             MATCH (t:Task) WHERE t.uid IN $task_uids
             MERGE (t)-[:CONTRIBUTES_TO_GOAL]->(g)
             """,
             goal_uid="goal.scope-hub",
+            owner=OWNER,
             task_uids=list(created.values()),
         )
     created["goal"] = "goal.scope-hub"

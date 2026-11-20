@@ -160,7 +160,7 @@ DRAFT_UIDS: every OTHER surface must still withhold them, and a blanket
 exclusion would silently stop checking that."""
 
 SEED = """
-CREATE (u:User {uid: $user, username: 'gate-probe'})
+CREATE (u:User {uid: $user, username: 'gate-probe', title: $user})
 CREATE (g:Goal:Entity {uid: $goal, entity_type: 'goal', title: 'Gate probe goal',
                        user_uid: $user})
 

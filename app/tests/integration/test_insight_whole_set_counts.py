@@ -67,7 +67,7 @@ INACTIVE = {
 async def store(neo4j_driver, clean_neo4j) -> InsightStore:
     async with neo4j_driver.session() as session:
         # User nodes survive `clean_neo4j`; MERGE keeps the learner single.
-        await session.run("MERGE (:User {uid: $uid})", uid=USER)
+        await session.run("MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid", uid=USER)
     store = InsightStore(build_production_backends(neo4j_driver)["insight_backend"])
 
     seeds = [_insight(f"insight.whole-set.{n}", n) for n in range(ACTIVE_COUNT)]

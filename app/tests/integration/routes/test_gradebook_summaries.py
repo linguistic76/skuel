@@ -37,6 +37,7 @@ from tests.helpers.seed_uids import seed_user_uid
 
 STUDENT = seed_user_uid("sum_student")
 OTHER = seed_user_uid("sum_other")
+TEACHER = seed_user_uid("sum_teacher")  # wrote the revision
 
 EX_A = "ex.sum-a"  # one waiting turn-in
 EX_B = "ex.sum-b"  # feedback received (+ excluded outcome-less reflection)
@@ -70,8 +71,8 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (s:User {uid: $student})
-            MERGE (o:User {uid: $other})
+            MERGE (s:User {uid: $student}) ON CREATE SET s.title = $student
+            MERGE (o:User {uid: $other}) ON CREATE SET o.title = $other
             CREATE (exa:Entity:Exercise {uid: $ex_a, entity_type: 'exercise',
                 title: 'Alpha', status: 'active', created_at: datetime()})
             CREATE (exb:Entity:Exercise {uid: $ex_b, entity_type: 'exercise',
@@ -85,7 +86,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (a1:Entity:UserEntry {uid: 'ue.sum-a1', entity_type: 'user_entry',
                 title: 'A turn-in', status: 'submitted',
                 turn_in_exercise_uid: $ex_a, turn_in_exercise_title: 'Alpha',
-                created_at: '2026-08-01T04:00:00.000000'})
+                created_at: '2026-08-01T04:00:00.000000', user_uid: s.uid})
             MERGE (s)-[:OWNS]->(a1)
             MERGE (a1)-[:FULFILLS_EXERCISE {revision: 1}]->(exa)
 
@@ -95,15 +96,15 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (b1:Entity:UserEntry {uid: 'ue.sum-b1', entity_type: 'user_entry',
                 title: 'B turn-in', status: 'completed',
                 turn_in_exercise_uid: $ex_b, turn_in_exercise_title: 'Bravo (as submitted)',
-                created_at: '2026-08-01T01:00:00.000000'})
+                created_at: '2026-08-01T01:00:00.000000', user_uid: s.uid})
             CREATE (rb:Entity:EntryReport {uid: 'er.sum-rb', entity_type: 'entry_report',
                 title: 'B feedback', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'approved',
-                created_at: datetime('2026-08-01T02:00:00Z')})
+                created_at: datetime('2026-08-01T02:00:00Z'), user_uid: s.uid})
             CREATE (rbp:Entity:EntryReport {uid: 'er.sum-rbp', entity_type: 'entry_report',
                 title: 'B private reflection', status: 'completed', visibility: 'public',
                 processor_type: 'llm',
-                created_at: datetime('2026-08-01T02:30:00Z')})
+                created_at: datetime('2026-08-01T02:30:00Z'), user_uid: s.uid})
             MERGE (s)-[:OWNS]->(b1)
             MERGE (s)-[:OWNS]->(rb)
             MERGE (s)-[:OWNS]->(rbp)
@@ -115,11 +116,11 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (c1:Entity:UserEntry {uid: 'ue.sum-c1', entity_type: 'user_entry',
                 title: 'C turn-in', status: 'revision_requested',
                 turn_in_exercise_uid: $ex_c, turn_in_exercise_title: 'Charlie',
-                created_at: '2026-08-01T05:00:00.000000'})
+                created_at: '2026-08-01T05:00:00.000000', user_uid: s.uid})
             CREATE (rc:Entity:EntryReport {uid: 'er.sum-rc', entity_type: 'entry_report',
                 title: 'C revision request', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'needs_revision',
-                created_at: datetime('2026-08-01T05:30:00Z')})
+                created_at: datetime('2026-08-01T05:30:00Z'), user_uid: s.uid})
             MERGE (s)-[:OWNS]->(c1)
             MERGE (s)-[:OWNS]->(rc)
             MERGE (c1)-[:FULFILLS_EXERCISE {revision: 1}]->(exc)
@@ -133,10 +134,11 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (rd:Entity:EntryReport {uid: 'er.sum-rd', entity_type: 'entry_report',
                 title: 'D revision request', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'needs_revision',
-                created_at: datetime('2026-08-01T00:30:00Z')})
+                created_at: datetime('2026-08-01T00:30:00Z'), user_uid: s.uid})
             CREATE (red:Entity:RevisedExercise {uid: 're.sum-red',
                 entity_type: 'revised_exercise', title: 'D try again', status: 'active',
-                revision_number: 2, created_at: datetime('2026-08-01T00:45:00Z')})
+                revision_number: 2, created_at: datetime('2026-08-01T00:45:00Z'),
+                user_uid: $teacher})
             CREATE (d2:Entity:UserEntry {uid: 'ue.sum-d2', entity_type: 'user_entry',
                 title: 'D resubmit', status: 'submitted', user_uid: $student,
                 turn_in_exercise_uid: $ex_d, turn_in_exercise_title: 'Delta',
@@ -156,11 +158,11 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (g1:Entity:UserEntry {uid: 'ue.sum-g1', entity_type: 'user_entry',
                 title: 'Gone turn-in', status: 'completed',
                 turn_in_exercise_uid: $ex_gone, turn_in_exercise_title: 'Golf',
-                created_at: '2026-07-31T00:00:00.000000'})
+                created_at: '2026-07-31T00:00:00.000000', user_uid: s.uid})
             CREATE (rg:Entity:EntryReport {uid: 'er.sum-rg', entity_type: 'entry_report',
                 title: 'Gone feedback', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'approved',
-                created_at: datetime('2026-07-31T01:00:00Z')})
+                created_at: datetime('2026-07-31T01:00:00Z'), user_uid: s.uid})
             MERGE (s)-[:OWNS]->(g1)
             MERGE (s)-[:OWNS]->(rg)
             MERGE (rg)-[:REPORT_FOR]->(g1)
@@ -168,19 +170,19 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             // Received feedback OUTSIDE any exchange
             CREATE (pe:Entity:UserEntry {uid: 'ue.sum-plain', entity_type: 'user_entry',
                 title: 'Plain journal entry', status: 'completed',
-                created_at: '2026-07-30T10:00:00.000000'})
+                created_at: '2026-07-30T10:00:00.000000', user_uid: s.uid})
             CREATE (rp:Entity:EntryReport {uid: 'er.sum-plain', entity_type: 'entry_report',
                 title: 'Journal response', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'approved',
-                created_at: datetime('2026-07-30T12:00:00Z')})
+                created_at: datetime('2026-07-30T12:00:00Z'), user_uid: s.uid})
             CREATE (rpp:Entity:EntryReport {uid: 'er.sum-plain-priv',
                 entity_type: 'entry_report', title: 'Private journal note',
                 status: 'completed', visibility: 'private', processor_type: 'llm',
-                created_at: datetime('2026-07-30T13:00:00Z')})
+                created_at: datetime('2026-07-30T13:00:00Z'), user_uid: s.uid})
             CREATE (rfree:Entity:EntryReport {uid: 'er.sum-free', entity_type: 'entry_report',
                 title: 'Detached report', status: 'completed', visibility: 'private',
                 processor_type: 'llm', assessment_outcome: 'ai_evaluated',
-                created_at: datetime('2026-07-31T12:00:00Z')})
+                created_at: datetime('2026-07-31T12:00:00Z'), user_uid: s.uid})
             MERGE (s)-[:OWNS]->(pe)
             MERGE (s)-[:OWNS]->(rp)
             MERGE (s)-[:OWNS]->(rpp)
@@ -199,7 +201,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (re1:Entity:EntryReport {uid: 'er.sum-re', entity_type: 'entry_report',
                 title: 'E revision request', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'needs_revision',
-                created_at: datetime('2026-07-29T01:00:00Z')})
+                created_at: datetime('2026-07-29T01:00:00Z'), user_uid: s.uid})
             CREATE (e2:Entity:UserEntry {uid: 'ue.sum-e2', entity_type: 'user_entry',
                 title: 'E resubmit', status: 'submitted', user_uid: $student,
                 turn_in_exercise_uid: $ex_e, turn_in_exercise_title: 'Echo',
@@ -224,7 +226,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (rf:Entity:EntryReport {uid: 'er.sum-rf', entity_type: 'entry_report',
                 title: 'F late report', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'approved',
-                created_at: datetime('2026-07-28T02:00:00Z')})
+                created_at: datetime('2026-07-28T02:00:00Z'), user_uid: s.uid})
             MERGE (s)-[:OWNS]->(f1) MERGE (s)-[:OWNS]->(f2) MERGE (s)-[:OWNS]->(rf)
             MERGE (f1)-[:FULFILLS_EXERCISE {revision: 1}]->(exf)
             MERGE (f2)-[:FULFILLS_EXERCISE {revision: 2}]->(exf)
@@ -234,17 +236,18 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (o1:Entity:UserEntry {uid: 'ue.sum-o1', entity_type: 'user_entry',
                 title: 'Other turn-in', status: 'completed',
                 turn_in_exercise_uid: $ex_a, turn_in_exercise_title: 'Alpha',
-                created_at: '2026-08-01T06:00:00.000000'})
+                created_at: '2026-08-01T06:00:00.000000', user_uid: o.uid})
             CREATE (ro:Entity:EntryReport {uid: 'er.sum-ro', entity_type: 'entry_report',
                 title: 'Other feedback', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'approved',
-                created_at: datetime('2026-08-01T06:30:00Z')})
+                created_at: datetime('2026-08-01T06:30:00Z'), user_uid: o.uid})
             MERGE (o)-[:OWNS]->(o1)
             MERGE (o)-[:OWNS]->(ro)
             MERGE (o1)-[:FULFILLS_EXERCISE {revision: 1}]->(exa)
             MERGE (ro)-[:REPORT_FOR]->(o1)
             """,
             student=STUDENT,
+            teacher=TEACHER,
             other=OTHER,
             ex_a=EX_A,
             ex_b=EX_B,

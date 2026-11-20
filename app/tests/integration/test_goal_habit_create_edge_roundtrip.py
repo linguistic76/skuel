@@ -57,6 +57,7 @@ from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 VICTIM = seed_user_uid("test_victim")
+OWNER = seed_user_uid("test_create_edges")  # owns every minimal activity node
 
 
 @pytest_asyncio.fixture
@@ -83,7 +84,8 @@ async def test_user_uid(neo4j_driver, clean_neo4j):
     uid = seed_user_uid("test_create_edges")
     async with neo4j_driver.session() as session:
         await session.run(
-            "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()", uid=uid
+            "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
+            uid=uid,
         )
     return uid
 
@@ -106,10 +108,14 @@ async def _create_node(neo4j_driver, uid: str, labels: str, entity_type: str, ti
     async with neo4j_driver.session() as session:
         await session.run(
             f"MERGE (n:{labels} {{uid: $uid}}) "
-            "ON CREATE SET n.entity_type = $entity_type, n.title = $title",
+            "ON CREATE SET n.entity_type = $entity_type, n.title = $title, n.user_uid = $owner",
             uid=uid,
             entity_type=entity_type,
             title=title,
+            # an activity has its owner; curriculum has none
+            owner=None
+            if entity_type in ("ku", "path_step", "learning_path", "exercise")
+            else OWNER,
         )
 
 
@@ -202,7 +208,7 @@ class TestGoalHierarchyEdgeRoundTrip:
         """
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: $victim}) ON CREATE SET u.created_at = datetime()",
+                "MERGE (u:User {uid: $victim}) ON CREATE SET u.title = $victim ON CREATE SET u.created_at = datetime()",
                 victim=VICTIM,
             )
         victim = await goals_service.create_goal(
@@ -342,7 +348,7 @@ class TestGoalHierarchyEdgeRoundTrip:
         """
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: $victim}) ON CREATE SET u.created_at = datetime()",
+                "MERGE (u:User {uid: $victim}) ON CREATE SET u.title = $victim ON CREATE SET u.created_at = datetime()",
                 victim=VICTIM,
             )
             await session.run(

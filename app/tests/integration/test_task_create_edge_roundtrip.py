@@ -70,7 +70,8 @@ async def test_user_uid(neo4j_driver, clean_neo4j):
     uid = seed_user_uid("test_task_create_edges")
     async with neo4j_driver.session() as session:
         await session.run(
-            "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()", uid=uid
+            "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
+            uid=uid,
         )
     return uid
 
@@ -262,7 +263,7 @@ class TestSubtaskEdgeRoundTrip:
         """
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()",
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
                 uid=OTHER_USER,
             )
         await _create_node(
@@ -354,7 +355,7 @@ class TestHabitEdgeRoundTrip:
         an admission guard. ``create_task`` wrote this edge straight from the request."""
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()",
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
                 uid=OTHER_USER,
             )
         await _create_node(
@@ -564,7 +565,7 @@ class TestGoalEdgeRoundTrip:
         victim's goal page. That edge is refused; the caller's own goal beside it lands."""
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()",
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
                 uid=OTHER_USER,
             )
         await _create_node(

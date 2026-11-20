@@ -185,8 +185,9 @@ class TestEntryKnowledgeCreditedOnce:
             async with neo4j_driver.session() as session:
                 await session.run(
                     "CREATE (:Entity:UserEntry {uid: $uid, entity_type: 'user_entry', "
-                    "pipeline: 'extract_activities', title: 'race'})",
+                    "pipeline: 'extract_activities', title: 'race', user_uid: $seed_owner})",
                     uid=entry_uid,
+                    seed_owner=seed_user_uid("credit_owner"),
                 )
 
             explicit, inferred = await asyncio.gather(

@@ -66,7 +66,7 @@ async def seed_user(neo4j_driver) -> Callable[..., Awaitable[str]]:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MERGE (u:User {uid: $uid})
+                MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid
                 ON CREATE SET u.name = $name,
                               u.created_at = datetime()
                 SET u.name = coalesce(u.name, $name)

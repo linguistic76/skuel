@@ -41,7 +41,7 @@ class TestTimestampFieldCoercionResidual:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MERGE (u:User {uid: $user_insight})
+                MERGE (u:User {uid: $user_insight}) ON CREATE SET u.title = $user_insight
                 CREATE (u)-[:HAS_INSIGHT]->(:Insight {
                     insight_id: 'ins_active', user_uid: $user_insight,
                     dismissed: false, actioned: false,
@@ -78,15 +78,16 @@ class TestTimestampFieldCoercionResidual:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MERGE (u:User {uid: $user_habits})
+                MERGE (u:User {uid: $user_habits}) ON CREATE SET u.title = $user_habits
                 CREATE (u)-[:OWNS]->(:Habit {uid: 'h.at-risk', status: 'active',
-                    current_streak: 1, last_completed: $lapsed, created_at: $done_today})
+                    current_streak: 1, last_completed: $lapsed, created_at: $done_today, title: 'h.at-risk', user_uid: $seed_owner})
                 CREATE (u)-[:OWNS]->(:Habit {uid: 'h.safe', status: 'active',
-                    current_streak: 10, last_completed: $done_today, created_at: $done_today})
+                    current_streak: 10, last_completed: $done_today, created_at: $done_today, title: 'h.safe', user_uid: $seed_owner})
                 """,
                 lapsed=lapsed,
                 done_today=done_today,
                 user_habits=seed_user_uid("habits"),
+                seed_owner=seed_user_uid("insight"),
             )
         backend = build_production_backends(neo4j_driver)["habits_backend"]
 

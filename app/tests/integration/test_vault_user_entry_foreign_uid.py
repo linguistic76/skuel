@@ -23,7 +23,7 @@ OTHER = seed_user_uid("nb2c_entry_other")
 async def test_a_note_naming_another_users_entry_is_ignored_with_reason(rig: Rig) -> None:
     async with rig.driver.session() as session:
         await session.run(
-            "MERGE (u:User {uid: $other}) "
+            "MERGE (u:User {uid: $other}) ON CREATE SET u.title = $other "
             "CREATE (u)-[:OWNS]->(:Entity:UserEntry {uid: 'ue.taken', user_uid: $other, "
             "title: 'Not yours', entity_type: 'user_entry', pipeline: 'knowledge', "
             "status: 'active'})",

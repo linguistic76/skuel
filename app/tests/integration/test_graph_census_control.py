@@ -21,6 +21,7 @@ from neo4j import AsyncDriver
 from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.seed_uids import seed_user_uid
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -28,6 +29,7 @@ _MARK = "zzzgraphcensuscontrol"
 _OUTSIDE = f"task_{_MARK}"  # an underscore: neither shape of the grammar
 _SHARED = f"task.{_MARK}"  # fits — but two nodes hold it
 _STRAY = f"task.{_MARK}-stray"  # fits, and holds a status no EntityStatus names
+_OWNER = seed_user_uid("graph_census_control")  # owns every control task
 
 _NEEDS_THE_APP = pytest.mark.skipif(
     IntelligenceTier.from_env().ai_enabled and not get_credential("OPENAI_API_KEY"),
@@ -37,14 +39,14 @@ _NEEDS_THE_APP = pytest.mark.skipif(
 
 async def _write(driver: AsyncDriver, query: str) -> None:
     async with driver.session() as session:
-        await session.run(query, outside=_OUTSIDE, shared=_SHARED, stray=_STRAY)
+        await session.run(query, outside=_OUTSIDE, shared=_SHARED, stray=_STRAY, owner=_OWNER)
 
 
 async def _write_a_stray(driver: AsyncDriver) -> None:
     await _write(
         driver,
         "CREATE (:Entity:Task {uid: $stray, title: 'Stray', entity_type: 'task', "
-        "status: 'no-such-status'})",
+        "user_uid: $owner, status: 'no-such-status'})",
     )
 
 
@@ -68,13 +70,16 @@ async def app_graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
 
 @pytest.mark.outside_uid_grammar("the census's control: a uid outside the grammar")
 async def test_the_census_reads_a_uid_outside_the_grammar(shared_graph: AsyncDriver) -> None:
-    await _write(shared_graph, "CREATE (:Entity:Task {uid: $outside})")
+    await _write(
+        shared_graph, "CREATE (:Entity:Task {uid: $outside, title: $outside, user_uid: $owner})"
+    )
 
 
 @pytest.mark.outside_uid_grammar("the census's control: one uid two nodes hold")
 async def test_the_census_reads_a_uid_two_nodes_hold(shared_graph: AsyncDriver) -> None:
     await _write(
-        shared_graph, "CREATE (:Entity:Task {uid: $shared}), (:Entity:Task {uid: $shared})"
+        shared_graph,
+        "CREATE (:Entity:Task {uid: $shared, title: $shared, user_uid: $owner}), (:Entity:Task {uid: $shared, title: $shared, user_uid: $owner})",
     )
 
 
@@ -83,7 +88,9 @@ async def test_the_census_reads_a_uid_two_nodes_hold(shared_graph: AsyncDriver) 
     "the census's control: a uid outside the grammar, in the app's graph"
 )
 async def test_the_census_reads_the_apps_graph(app_graph: AsyncDriver) -> None:
-    await _write(app_graph, "CREATE (:Entity:Task {uid: $outside})")
+    await _write(
+        app_graph, "CREATE (:Entity:Task {uid: $outside, title: $outside, user_uid: $owner})"
+    )
 
 
 @pytest.mark.xfail(
@@ -95,7 +102,10 @@ async def test_the_census_reads_the_apps_graph(app_graph: AsyncDriver) -> None:
 async def test_a_static_only_marker_does_not_excuse_a_breach_the_census_sees(
     shared_graph: AsyncDriver,
 ) -> None:
-    await _write(shared_graph, "CREATE (:Entity:Task {uid: 'task_zzzgraphcensuscontrol'})")
+    await _write(
+        shared_graph,
+        "CREATE (:Entity:Task {uid: 'task_zzzgraphcensuscontrol', title: 'Control', user_uid: $owner})",
+    )
 
 
 @pytest.mark.stores_unreadable_value("the census's control: a value no read can read")
@@ -121,7 +131,10 @@ async def test_an_unmarked_stray_fails_its_test(shared_graph: AsyncDriver) -> No
 @pytest.mark.xfail(strict=True, reason="a marked test that stores no stray fails as stale")
 @pytest.mark.stores_unreadable_value("the census's control: a marker with nothing to excuse")
 async def test_a_marker_on_a_test_that_stores_none_is_stale(shared_graph: AsyncDriver) -> None:
-    await _write(shared_graph, "CREATE (:Entity:Task {uid: $shared, status: 'active'})")
+    await _write(
+        shared_graph,
+        "CREATE (:Entity:Task {uid: $shared, status: 'active', title: $shared, user_uid: $owner})",
+    )
 
 
 @pytest.mark.stores_unreadable_value("the census's control: a class marker covers its tests")
@@ -130,14 +143,23 @@ class TestAClassMarkerCoversEveryTestInIt:
         await _write_a_stray(shared_graph)
 
     async def test_another_stores_none(self, shared_graph: AsyncDriver) -> None:
-        await _write(shared_graph, "CREATE (:Entity:Task {uid: $shared, status: 'active'})")
+        await _write(
+            shared_graph,
+            "CREATE (:Entity:Task {uid: $shared, status: 'active', title: $shared, user_uid: $owner})",
+        )
 
 
 @pytest.mark.stores_unreadable_value("the census's control: a class marker none of its tests earns")
 class TestAClassMarkerNoTestEarnsIsStaleAtItsLastTest:
     async def test_the_first_stores_none(self, shared_graph: AsyncDriver) -> None:
-        await _write(shared_graph, "CREATE (:Entity:Task {uid: $shared, status: 'active'})")
+        await _write(
+            shared_graph,
+            "CREATE (:Entity:Task {uid: $shared, status: 'active', title: $shared, user_uid: $owner})",
+        )
 
     @pytest.mark.xfail(strict=True, reason="the class's last test: none in it stored a stray")
     async def test_the_last_stores_none_either(self, shared_graph: AsyncDriver) -> None:
-        await _write(shared_graph, "CREATE (:Entity:Task {uid: $shared, status: 'active'})")
+        await _write(
+            shared_graph,
+            "CREATE (:Entity:Task {uid: $shared, status: 'active', title: $shared, user_uid: $owner})",
+        )

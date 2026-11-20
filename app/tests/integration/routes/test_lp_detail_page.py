@@ -70,7 +70,10 @@ async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
     await _wipe(driver)
     async with driver.session() as session:
         for uid in USERS:
-            await session.run("MERGE (u:User {uid: $uid}) SET u.username = $uid", uid=uid)
+            await session.run(
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid SET u.username = $uid",
+                uid=uid,
+            )
         await session.run(
             """
             MERGE (p:Entity:LearningPath {uid: $path})

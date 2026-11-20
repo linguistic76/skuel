@@ -93,7 +93,9 @@ async def _stored(neo4j_driver, uid: str) -> dict[str, Any]:
 async def _unreadable_user(neo4j_driver) -> None:
     # No writer produces this: the census must stop on it, not skip it.
     async with neo4j_driver.session() as session:
-        await session.run("CREATE (:User {uid: $uid, preferences: 'not json'})", uid=STRAY)
+        await session.run(
+            "CREATE (:User {uid: $uid, preferences: 'not json', title: $uid})", uid=STRAY
+        )
 
 
 @pytest.fixture

@@ -38,7 +38,10 @@ _BY = "2026-12-31"
 async def choices(neo4j_driver, clean_neo4j) -> ChoicesBackend:
     """One choice per (status, decided or not) for the owner, plus a stranger's open one."""
     async with neo4j_driver.session() as session:
-        await session.run("UNWIND $uids AS uid MERGE (:User {uid: uid})", uids=[_OWNER, _STRANGER])
+        await session.run(
+            "UNWIND $uids AS uid MERGE (u:User {uid: uid}) ON CREATE SET u.title = uid",
+            uids=[_OWNER, _STRANGER],
+        )
     backend = build_production_backends(neo4j_driver)["choices_backend"]
     seeds = [
         Choice(

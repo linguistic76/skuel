@@ -640,7 +640,7 @@ async def synced_then_set_back(
     the task takes the column, and the row's key the old key, as the graph held them
     before the re-type.
     """
-    await _run(neo4j_driver, "MERGE (u:User {uid: $uid})", uid=USER)
+    await _run(neo4j_driver, "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid", uid=USER)
     _write_vault(tmp_path)
     await sync_vault(neo4j_driver, tmp_path)
     stored = await _authored(neo4j_driver)

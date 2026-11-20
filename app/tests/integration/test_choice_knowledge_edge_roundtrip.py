@@ -56,7 +56,7 @@ class TestChoiceKnowledgeEdgeRoundTrip:
         uid = seed_user_uid("test_choice_knowledge")
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()",
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
                 uid=uid,
             )
         return uid

@@ -79,7 +79,7 @@ async def zpd_graph(neo4j_driver, clean_neo4j):
             """
             MATCH (u:User {uid: $user_uid})
             MATCH (k:Ku {uid: $ku_uid})
-            MERGE (t:Entity:Task {uid: $task_uid})
+            MERGE (t:Entity:Task {uid: $task_uid}) ON CREATE SET t.user_uid = u.uid
             SET t.entity_type = 'task', t.title = 'ZPD probe task', t.status = 'active'
             MERGE (u)-[:OWNS]->(t)
             MERGE (t)-[:APPLIES_KNOWLEDGE]->(k)
@@ -122,7 +122,7 @@ async def zpd_graph(neo4j_driver, clean_neo4j):
             """
             MATCH (u:User {uid: $user_uid})
             MATCH (p:PathStep {uid: $ps_uid})
-            MERGE (t:Entity:Task {uid: $task_uid})
+            MERGE (t:Entity:Task {uid: $task_uid}) ON CREATE SET t.user_uid = u.uid
             SET t.entity_type = 'task', t.title = 'ZPD PS probe task', t.status = 'active'
             MERGE (u)-[:OWNS]->(t)
             MERGE (t)-[:APPLIES_KNOWLEDGE]->(p)

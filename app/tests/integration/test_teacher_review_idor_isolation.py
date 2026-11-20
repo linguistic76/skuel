@@ -55,10 +55,10 @@ async def two_classroom_fixture(neo4j_driver):
 
     await neo4j_driver.execute_query(
         """
-        MERGE (ta:User {uid: $teacher_a}) SET ta.name = 'Teacher A', ta.status = 'active'
-        MERGE (tb:User {uid: $teacher_b}) SET tb.name = 'Teacher B', tb.status = 'active'
-        MERGE (s1:User {uid: $student_1}) SET s1.name = 'Student 1', s1.status = 'active'
-        MERGE (s2:User {uid: $student_2}) SET s2.name = 'Student 2', s2.status = 'active'
+        MERGE (ta:User {uid: $teacher_a}) ON CREATE SET ta.title = $teacher_a SET ta.name = 'Teacher A', ta.status = 'active'
+        MERGE (tb:User {uid: $teacher_b}) ON CREATE SET tb.title = $teacher_b SET tb.name = 'Teacher B', tb.status = 'active'
+        MERGE (s1:User {uid: $student_1}) ON CREATE SET s1.title = $student_1 SET s1.name = 'Student 1', s1.status = 'active'
+        MERGE (s2:User {uid: $student_2}) ON CREATE SET s2.title = $student_2 SET s2.name = 'Student 2', s2.status = 'active'
 
         MERGE (gx:Group {uid: $group_x})
           SET gx.name = 'Group X', gx.is_active = true
@@ -237,7 +237,7 @@ class TestDashboardStatsIsolation:
         try:
             await neo4j_driver.execute_query(
                 """
-                MERGE (t:User {uid: $t}) SET t.status = 'active', t.name = 'Empty'
+                MERGE (t:User {uid: $t}) ON CREATE SET t.title = $t SET t.status = 'active', t.name = 'Empty'
                 MERGE (g:Group {uid: $g}) SET g.is_active = true, g.name = 'Empty'
                 MERGE (t)-[:OWNS]->(g)
                 """,

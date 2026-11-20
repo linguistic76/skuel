@@ -112,18 +112,22 @@ def _harness(rel_backend, task_uid: str) -> _TaskIntelHarness:
 async def _seed_task_graph(neo4j_driver) -> None:
     async with neo4j_driver.session() as s:
         await s.run(
-            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=TK_TASK,
+            o=seed_user_uid("tkctx_user"),
         )
         for uid, label, etype in [
             (TK_GOAL_CONTRIB, "Goal", "goal"),
             (TK_GOAL_SECOND, "Goal", "goal"),
         ]:
             await s.run(
-                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
+                o=None
+                if label in ("PathStep", "Ku", "LearningPath")
+                else seed_user_uid("tkctx_user"),
                 t=etype,
             )
         for uid in (TK_KU_REQ, TK_KU_APP):
@@ -200,9 +204,10 @@ async def test_task_insights_empty_when_no_edges(neo4j_driver, rel_backend, clea
     block AND an OK empty cross-domain block — NOT a 500/failure."""
     async with neo4j_driver.session() as s:
         await s.run(
-            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=TK_TASK_BARE,
+            o=seed_user_uid("tkctx_user"),
         )
     svc = _harness(rel_backend, TK_TASK_BARE)
 
@@ -266,14 +271,16 @@ async def test_task_insights_dedupes_multipath_goal_at_depth2(
     async with neo4j_driver.session() as s:
         for uid in (dup_task, dup_mid):
             await s.run(
-                "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+                "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, user_uid:$o, "
                 "status:'active', created_at:datetime()})",
                 u=uid,
+                o=seed_user_uid("tkctx_user"),
             )
         await s.run(
-            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=dup_goal,
+            o=seed_user_uid("tkctx_user"),
         )
         for a, rel, b in [
             (dup_task, "CONTRIBUTES_TO_GOAL", dup_goal),

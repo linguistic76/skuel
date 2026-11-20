@@ -43,9 +43,9 @@ async def test_a_pass_that_fails_part_way_reports_its_committed_creations(
         await session.run(
             """
             UNWIND $paths AS uid
-            CREATE (:Entity:LearningPath {uid: uid, entity_type: 'learning_path'})
+            CREATE (:Entity:LearningPath {uid: uid, entity_type: 'learning_path', title: uid})
             WITH count(*) AS made
-            CREATE (:Entity:PathStep {uid: $step, entity_type: 'path_step'})
+            CREATE (:Entity:PathStep {uid: $step, entity_type: 'path_step', title: $step})
             """,
             paths=[FIRST, SECOND],
             step=STEP,
@@ -82,8 +82,8 @@ async def test_a_pass_that_succeeds_reports_no_errors(
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (:Entity:LearningPath {uid: $path, entity_type: 'learning_path'})
-            CREATE (:Entity:PathStep {uid: $step, entity_type: 'path_step'})
+            CREATE (:Entity:LearningPath {uid: $path, entity_type: 'learning_path', title: $path})
+            CREATE (:Entity:PathStep {uid: $step, entity_type: 'path_step', title: $step})
             """,
             path=FIRST,
             step=STEP,

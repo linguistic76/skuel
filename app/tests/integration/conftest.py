@@ -587,7 +587,7 @@ async def create_moc_test_user(neo4j_driver):
     async with neo4j_driver.session() as session:
         result = await session.run(
             """
-            MERGE (u:User {uid: $user_uid})
+            MERGE (u:User {uid: $user_uid}) ON CREATE SET u.title = $user_uid
             ON CREATE SET u.created_at = datetime($created_at)
             RETURN u
             """,
@@ -857,20 +857,40 @@ async def create_relationship(neo4j_driver):
                 props_clause = " {" + ", ".join(props_parts) + "}"
 
             # Create query with MERGE for nodes and CREATE for relationship
+            # Each end takes the properties its class requires: a title, and an owner
+            # when it is a user's activity (curriculum has none).
             query = f"""
                 MERGE (a:{from_label} {{uid: $from_uid}})
+                  ON CREATE SET a.title = $from_uid, a.user_uid = $from_owner
                 MERGE (b:{to_label} {{uid: $to_uid}})
+                  ON CREATE SET b.title = $to_uid, b.user_uid = $to_owner
                 CREATE (a)-[r:{rel_type}{props_clause}]->(b)
                 RETURN r
             """
 
-            params = {"from_uid": from_uid, "to_uid": to_uid}
+            params = {
+                "from_uid": from_uid,
+                "to_uid": to_uid,
+                "from_owner": _seed_owner(from_label),
+                "to_owner": _seed_owner(to_label),
+            }
             if properties:
                 params.update(properties)
 
             await session.run(query, params)
 
     yield _create_relationship
+
+
+#: The labels whose nodes are a user's own; every other seeded node is shared.
+_USER_OWNED_LABELS = frozenset({"Task", "Goal", "Habit", "Event", "Choice", "Principle"})
+
+
+def _seed_owner(labels: str) -> str | None:
+    """The owner a relationship fixture's node takes: a seeded user for a user's activity."""
+    return (
+        seed_user_uid("relationship_seed") if labels.split(":")[-1] in _USER_OWNED_LABELS else None
+    )
 
 
 @pytest_asyncio.fixture

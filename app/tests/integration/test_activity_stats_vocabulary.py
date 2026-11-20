@@ -236,7 +236,10 @@ async def test_each_count_is_the_models_predicate(neo4j_driver, clean_neo4j, dom
         neo4j_driver, spec.label, spec.model_class, base_label=NeoLabel.ENTITY
     )
     async with neo4j_driver.session() as session:
-        await session.run("UNWIND $uids AS uid MERGE (:User {uid: uid})", uids=[_OWNER, _STRANGER])
+        await session.run(
+            "UNWIND $uids AS uid MERGE (u:User {uid: uid}) ON CREATE SET u.title = uid",
+            uids=[_OWNER, _STRANGER],
+        )
     for seed in seeds():
         created = await backend.create(seed)
         assert created.is_ok, created.expect_error()

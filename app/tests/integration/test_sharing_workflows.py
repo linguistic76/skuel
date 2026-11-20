@@ -43,7 +43,7 @@ async def test_report(neo4j_driver):
 
     # Create owner User + Entity nodes
     query = """
-    MERGE (u:User {uid: $user_uid})
+    MERGE (u:User {uid: $user_uid}) ON CREATE SET u.title = $user_uid
     SET u.name = 'Test Owner'
     CREATE (a:Entity {
         uid: $uid,

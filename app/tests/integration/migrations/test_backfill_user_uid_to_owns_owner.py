@@ -63,14 +63,14 @@ async def _seed(neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (owner:User {uid: $user_owns_mig})
+            CREATE (owner:User {uid: $user_owns_mig, title: $user_owns_mig})
             // Diverging: owned by user_owns_mig but property says user_system
             CREATE (t:Entity:Task {
                 uid: 'owns.mig.diverging',
                 entity_type: 'task',
                 user_uid: 'user_system',
                 status: 'pending',
-                created_at: datetime()
+                created_at: datetime(), title: 'owns.mig.diverging'
             })
             // Null property: owned by user_owns_mig but user_uid is missing
             CREATE (n:Entity:Event {
@@ -78,7 +78,7 @@ async def _seed(neo4j_driver) -> None:
                 entity_type: 'event',
                 user_uid: null,
                 status: 'scheduled',
-                created_at: datetime()
+                created_at: datetime(), title: 'owns.mig.nullprop'
             })
             // Consistent: owned by user_owns_mig and property agrees
             CREATE (g:Entity:Goal {
@@ -86,7 +86,7 @@ async def _seed(neo4j_driver) -> None:
                 entity_type: 'goal',
                 user_uid: $user_owns_mig,
                 status: 'active',
-                created_at: datetime()
+                created_at: datetime(), title: 'owns.mig.consistent'
             })
             // Ownerless system catalog node — no :OWNS edge, must stay untouched
             CREATE (c:Entity:Habit {
@@ -94,7 +94,7 @@ async def _seed(neo4j_driver) -> None:
                 entity_type: 'habit',
                 user_uid: 'user_system',
                 status: 'active',
-                created_at: datetime()
+                created_at: datetime(), title: 'owns.mig.catalog'
             })
             CREATE (owner)-[:OWNS]->(t)
             CREATE (owner)-[:OWNS]->(n)

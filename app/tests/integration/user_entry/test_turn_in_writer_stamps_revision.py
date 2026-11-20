@@ -25,6 +25,7 @@ from tests.helpers.seed_uids import seed_user_uid
 
 _STUDENT = seed_user_uid("writer_student")
 _OTHER_STUDENT = seed_user_uid("writer_other_student")
+_TEACHER = seed_user_uid("writer_teacher")  # wrote the revisions
 _ROOT = "ex.writer.root"
 _REVISION = "re.writer-revision"
 
@@ -34,16 +35,17 @@ async def root_and_revision(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
     async with neo4j_driver.session() as session:
         result = await session.run(
             """
-            MERGE (student:User {uid: $student})
-            MERGE (other:User {uid: $other})
+            MERGE (student:User {uid: $student}) ON CREATE SET student.title = $student
+            MERGE (other:User {uid: $other}) ON CREATE SET other.title = $other
             CREATE (root:Entity:Exercise {uid: $root, entity_type: 'exercise', title: 'Root'})
             CREATE (re:Entity:RevisedExercise {uid: $revision, entity_type: 'revised_exercise',
                                                title: 'Revision 1', student_uid: $student,
-                                               original_exercise_uid: $root})
+                                               original_exercise_uid: $root, user_uid: $teacher})
             CREATE (re)-[:REVISES_EXERCISE]->(root)
             RETURN count(root) AS seeded
             """,
             student=_STUDENT,
+            teacher=_TEACHER,
             other=_OTHER_STUDENT,
             root=_ROOT,
             revision=_REVISION,

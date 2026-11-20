@@ -74,7 +74,7 @@ class TestHabitAchievementsFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MERGE (u:User {uid: $user_uid})
+                MERGE (u:User {uid: $user_uid}) ON CREATE SET u.title = $user_uid
                 ON CREATE SET
                     u.username = $username,
                     u.email = $email,

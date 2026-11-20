@@ -48,7 +48,10 @@ SEARCH_FIELDS = ("title", "description")
 
 async def _seed_users(driver) -> None:
     async with driver.session() as session:
-        await session.run("UNWIND $uids AS uid MERGE (u:User {uid: uid})", uids=[OWNER, STRANGER])
+        await session.run(
+            "UNWIND $uids AS uid MERGE (u:User {uid: uid}) ON CREATE SET u.title = uid",
+            uids=[OWNER, STRANGER],
+        )
         # The ghost must NOT exist — a previous run may have created it.
         await session.run("MATCH (u:User {uid: $uid}) DETACH DELETE u", uid=GHOST)
 

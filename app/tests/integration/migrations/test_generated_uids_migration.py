@@ -91,31 +91,34 @@ async def _run(
 
 
 _SEED = """
-MERGE (o:User {uid: $owner})
-MERGE (t:User {uid: $teacher})
-CREATE (o)-[:OWNS]->(task:Entity:Task {uid: $task, user_uid: $owner, embedding: $vector})
-CREATE (o)-[:OWNS]->(:Entity:Task {uid: $fitting, user_uid: $owner})
-CREATE (o)-[:OWNS]->(:Entity:Choice {uid: $choice, user_uid: $owner})
-CREATE (o)-[:OWNS]->(note:Entity:UserEntry {uid: $note, user_uid: $owner, metadata: '{}'})
+MERGE (o:User {uid: $owner}) ON CREATE SET o.title = 'Seed user'
+MERGE (t:User {uid: $teacher}) ON CREATE SET t.title = 'Seed user'
+CREATE (o)-[:OWNS]->(task:Entity:Task {uid: $task, user_uid: $owner, embedding: $vector, title: 'Seed'})
+CREATE (o)-[:OWNS]->(:Entity:Task {uid: $fitting, user_uid: $owner, title: 'Seed'})
+CREATE (o)-[:OWNS]->(:Entity:Choice {uid: $choice, user_uid: $owner, title: 'Seed'})
+CREATE (o)-[:OWNS]->(note:Entity:UserEntry {uid: $note, user_uid: $owner, metadata: '{}', title: 'Seed'})
 CREATE (note)-[:HAS_CONTENT]->(nc:Content)
 CREATE (nc)-[:HAS_CHUNK {sequence: 0}]->(:ContentChunk {uid: $note_chunk0, start_index: 0,
                                                           embedding: $vector})
 CREATE (nc)-[:HAS_CHUNK {sequence: 1}]->(:ContentChunk {uid: $note_chunk1, start_index: 1})
 CREATE (:IngestionMetadata {file_path: $vault_file, entity_uid: $note})
-CREATE (o)-[:OWNS]->(:Entity:UserEntry {uid: $listing, user_uid: $owner, metadata: $listing_md})
-CREATE (o)-[:HAS_SESSION]->(:Session {uid: $session, user_uid: $owner})
+CREATE (o)-[:OWNS]->(:Entity:UserEntry {uid: $listing, user_uid: $owner, metadata: $listing_md, title: 'Seed'})
+CREATE (o)-[:HAS_SESSION]->(:Session {uid: $session, user_uid: $owner, created_at: datetime(),
+                                      expires_at: datetime() + duration('P1D'), last_active_at: datetime(),
+                                      ip_address: '127.0.0.1', user_agent: 'test'})
 CREATE (:AuthEvent {uid: $auth, user_uid: $owner, session_uid: $session})
-CREATE (o)-[:OWNS]->(habit:Entity:Habit {uid: $habit, user_uid: $owner})
-CREATE (:HabitCompletion {uid: $completion, user_uid: $owner, habit_uid: $habit})
+CREATE (o)-[:OWNS]->(habit:Entity:Habit {uid: $habit, user_uid: $owner, title: 'Seed'})
+CREATE (:HabitCompletion {uid: $completion, user_uid: $owner, habit_uid: $habit, completed_at: datetime(),
+                          created_at: datetime(), updated_at: datetime()})
 CREATE (o)-[:HAS_INSIGHT]->(insight:Insight {uid: $insight, user_uid: $owner, entity_uid: $task})
 CREATE (insight)-[:ABOUT_ENTITY]->(task)
 CREATE (o)-[:OWNS]->(:Entity:ActivityReport {uid: $report, user_uid: $owner,
-                                             insights_referenced: [$insight]})
+                                             insights_referenced: [$insight], title: 'Seed'})
 CREATE (:SearchEvent {uid: $search, user_uid: $owner})
 CREATE (o)-[:HAS_MESSAGE]->(:ConversationMessage {uid: $message, content: $prose})
 CREATE (t)-[:OWNS]->(g:Group {uid: $old_group, name: 'Default Group', is_active: true})
 CREATE (o)-[:MEMBER_OF]->(g)
-CREATE (ku:Entity:Ku {uid: $ku})-[:HAS_CONTENT]->(kc:Content)
+CREATE (ku:Entity:Ku {uid: $ku, title: 'Seed'})-[:HAS_CONTENT]->(kc:Content)
 CREATE (kc)-[:HAS_CHUNK {sequence: 0}]->(:ContentChunk {uid: $ku_chunk, start_index: 0})
 """
 
@@ -345,7 +348,7 @@ _STOPS: dict[str, tuple[str, dict[str, Any], str]] = {  # boundary: cypher param
         "owned by",
     ),
     "is_default off a default group": (
-        "MATCH (t:User {uid: $teacher}) CREATE (t)-[:OWNS]->(:Group {uid: 'group_0123456789abcdef', is_default: true})",
+        "MATCH (t:User {uid: $teacher}) CREATE (t)-[:OWNS]->(:Group {uid: 'group_0123456789abcdef', is_default: true, name: 'Seed group'})",
         {},
         "is_default on a group that is no teacher's default",
     ),
@@ -378,8 +381,8 @@ _STOPS: dict[str, tuple[str, dict[str, Any], str]] = {  # boundary: cypher param
         f"{TASK} is already held by 2 nodes",
     ),
     "a new uid already held": (
-        "CREATE (:Entity:Task {uid: $taken})",
-        {"taken": TASK_NEW},
+        "CREATE (:Entity:Task {uid: $taken, title: 'Seed', user_uid: $holder})",
+        {"taken": TASK_NEW, "holder": OWNER},
         f"{TASK_NEW} (for {TASK}) is already held by a node",
     ),
     "a renamed node holding reference chunks": (
@@ -416,7 +419,7 @@ async def test_an_instruction_set_lands_on_the_hash_of_its_slug(
     await _run(
         neo4j_driver,
         "CREATE (:Entity:Exercise {uid: 'instructions:default-report-formatting', "
-        "entity_type: 'exercise', name: 'Default Report Formatting'})",
+        "entity_type: 'exercise', name: 'Default Report Formatting', title: 'Default Report Formatting'})",
     )
 
     plan = await migration.census(neo4j_driver)
@@ -431,7 +434,7 @@ async def test_an_instruction_set_lands_on_the_hash_of_its_slug(
 @pytest.mark.usefixtures("old_graph")
 async def test_a_user_uid_in_no_shape_is_reported_and_left(neo4j_driver: AsyncDriver) -> None:
     """User uids are unruled: the run renames none and reports one that fits no shape."""
-    await _run(neo4j_driver, "CREATE (:User {uid: 'zzzgumig-admin'})")
+    await _run(neo4j_driver, "CREATE (:User {uid: 'zzzgumig-admin', title: 'Seed admin'})")
     try:
         plan = await migration.census(neo4j_driver)
 

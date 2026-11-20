@@ -92,7 +92,8 @@ async def test_user_uid(neo4j_driver, clean_neo4j):
     uid = seed_user_uid("test_event_create_edges")
     async with neo4j_driver.session() as session:
         await session.run(
-            "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()", uid=uid
+            "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
+            uid=uid,
         )
     return uid
 
@@ -251,7 +252,7 @@ class TestHabitEdgeRoundTrip:
         vacuously: that door wrote no edge at all."""
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()",
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
                 uid=OTHER_USER,
             )
         await _create_node(
@@ -333,7 +334,7 @@ class TestCelebratedGoalEdgeRoundTrip:
         exactly this edge."""
         async with neo4j_driver.session() as session:
             await session.run(
-                "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()",
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
                 uid=OTHER_USER,
             )
         await _create_node(

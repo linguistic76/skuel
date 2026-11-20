@@ -621,7 +621,8 @@ class TestUserContextBuilder:
                 MATCH (u:User {uid: $user_uid})
                 UNWIND $stamps AS stamp
                 CREATE (hc:HabitCompletion {uid: 'hc.builder.' + left(stamp, 10), habit_uid: $habit_uid,
-                                            user_uid: $user_uid, completed_at: stamp})
+                                            user_uid: $user_uid, completed_at: stamp,
+                                            created_at: stamp, updated_at: stamp})
                 CREATE (u)-[:OWNS]->(hc)
                 """,
                 user_uid=test_user_uid,

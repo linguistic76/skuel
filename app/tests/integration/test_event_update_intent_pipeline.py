@@ -219,14 +219,15 @@ class TestEventUpdateIntentPipeline:
             await session.run(
                 """
                 MERGE (g_old:Entity:Goal {uid: 'goal.edge-old'})
-                  ON CREATE SET g_old.entity_type = 'goal', g_old.title = 'Old goal'
+                  ON CREATE SET g_old.entity_type = 'goal', g_old.title = 'Old goal', g_old.user_uid = $owner
                 MERGE (g_new:Entity:Goal {uid: 'goal.edge-new'})
-                  ON CREATE SET g_new.entity_type = 'goal', g_new.title = 'New goal'
+                  ON CREATE SET g_new.entity_type = 'goal', g_new.title = 'New goal', g_new.user_uid = $owner
                 MERGE (h_old:Entity:Habit {uid: 'habit.edge-old'})
-                  ON CREATE SET h_old.entity_type = 'habit', h_old.title = 'Old habit'
+                  ON CREATE SET h_old.entity_type = 'habit', h_old.title = 'Old habit', h_old.user_uid = $owner
                 MERGE (h_new:Entity:Habit {uid: 'habit.edge-new'})
-                  ON CREATE SET h_new.entity_type = 'habit', h_new.title = 'New habit'
-                """
+                  ON CREATE SET h_new.entity_type = 'habit', h_new.title = 'New habit', h_new.user_uid = $owner
+                """,
+                owner=seed_user_uid("intent_pipeline"),
             )
 
         # Establish the initial edges to the "old" targets.
@@ -310,10 +311,11 @@ class TestEventUpdateIntentPipeline:
             await session.run(
                 """
                 MERGE (g:Entity:Goal {uid: 'goal.to-clear'})
-                  ON CREATE SET g.entity_type = 'goal', g.title = 'Goal to clear'
+                  ON CREATE SET g.entity_type = 'goal', g.title = 'Goal to clear', g.user_uid = $owner
                 MERGE (h:Entity:Habit {uid: 'habit.keep'})
-                  ON CREATE SET h.entity_type = 'habit', h.title = 'Habit to keep'
-                """
+                  ON CREATE SET h.entity_type = 'habit', h.title = 'Habit to keep', h.user_uid = $owner
+                """,
+                owner=seed_user_uid("intent_pipeline"),
             )
 
         # Seed both edges; only the goal edge will be cleared.

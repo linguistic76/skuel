@@ -54,8 +54,8 @@ async def seeded_submission(neo4j_driver, clean_neo4j):
         await (
             await session.run(
                 """
-                MERGE (student:User {uid: $student_uid})
-                MERGE (author:User {uid: $author_uid})
+                MERGE (student:User {uid: $student_uid}) ON CREATE SET student.title = $student_uid
+                MERGE (author:User {uid: $author_uid}) ON CREATE SET author.title = $author_uid
                 CREATE (submission:Entity:UserEntry {
                     uid: $submission_uid,
                     title: 'Integration Submission',

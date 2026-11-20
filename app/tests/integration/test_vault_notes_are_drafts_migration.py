@@ -44,18 +44,18 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (o:User {uid: $owner})
-            MERGE (r:User {uid: $reader})
-            MERGE (g:Group {uid: $group}) SET g.is_active = true
-            CREATE (ex:Entity:Exercise {uid: 'ex.drafts-migration', entity_type: 'exercise'})
+            MERGE (o:User {uid: $owner}) ON CREATE SET o.title = $owner
+            MERGE (r:User {uid: $reader}) ON CREATE SET r.title = $reader
+            MERGE (g:Group {uid: $group}) ON CREATE SET g.name = $group SET g.is_active = true
+            CREATE (ex:Entity:Exercise {uid: 'ex.drafts-migration', entity_type: 'exercise', title: 'ex.drafts-migration'})
             CREATE (living:Entity:UserEntry {uid: 'ue.living', entity_type: 'user_entry',
-                pipeline: 'knowledge', metadata: $living_meta})
+                pipeline: 'knowledge', metadata: $living_meta, title: 'ue.living', user_uid: o.uid})
             CREATE (turn_in:Entity:UserEntry {uid: 'ue.vault-turn-in', entity_type: 'user_entry',
-                pipeline: 'llm_summary', metadata: $turn_in_meta})
+                pipeline: 'llm_summary', metadata: $turn_in_meta, title: 'ue.vault-turn-in', user_uid: o.uid})
             CREATE (review:Entity:UserEntry {uid: 'ue.vault-review', entity_type: 'user_entry',
-                pipeline: 'teacher_review', metadata: $review_meta})
+                pipeline: 'teacher_review', metadata: $review_meta, title: 'ue.vault-review', user_uid: o.uid})
             CREATE (copy:Entity:UserEntry {uid: 'ue.old-copy', entity_type: 'user_entry',
-                pipeline: 'teacher_review', metadata: $copy_meta})
+                pipeline: 'teacher_review', metadata: $copy_meta, title: 'ue.old-copy', user_uid: o.uid})
             MERGE (o)-[:OWNS]->(living)
             MERGE (o)-[:OWNS]->(turn_in)
             MERGE (o)-[:OWNS]->(review)
