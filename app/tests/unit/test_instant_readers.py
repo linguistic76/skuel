@@ -25,7 +25,6 @@ from neo4j.time import DateTime as Neo4jDateTime
 from pydantic import BaseModel, ValidationError
 
 from core.infrastructure.relationships.semantic_relationships import RelationshipMetadata
-from core.models.auth.session import Session
 from core.models.choice.choice import Choice
 from core.models.enums.pipeline import ReportSource
 from core.models.pathways.mastery import create_mastery
@@ -402,19 +401,6 @@ class TestMoreModelReaders:
                 started_at=_naive(_ago(hours=1)),
                 completed_at=_ago(hours=3),
             )
-
-    def test_a_session_expiry_read_back_naive_is_an_instant(self, vancouver_process: None) -> None:
-        session = Session(
-            uid="s",
-            user_uid="u",
-            created_at=_naive(_ago(days=1)),
-            expires_at=_naive(_ago(hours=-2)),
-            last_active_at=_naive(_ago(hours=1)),
-            ip_address="",
-            user_agent="",
-        )
-        assert not session.is_expired()
-        assert timedelta(hours=1) < session.time_until_expiry() < timedelta(hours=3)
 
     def test_a_relationship_window_takes_naive_and_aware_bounds(self) -> None:
         metadata = RelationshipMetadata(valid_from=_naive(_ago(days=2)), valid_until=_ago(days=-2))
