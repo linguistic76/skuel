@@ -327,31 +327,6 @@ class TestSubmitReport:
         assert event.teacher_uid == TEACHER_UID
         assert event.student_uid == STUDENT_UID
 
-    @pytest.mark.asyncio
-    async def test_null_student_uid_defaults_to_empty(self):
-        backend = _make_user_entry_backend()
-        report_backend = _make_report_backend()
-        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
-        report_backend.create_report_node.return_value = Result.ok(
-            [
-                {
-                    "uid": SUBMISSION_UID,
-                    "status": "completed",
-                    "student_uid": None,
-                    "report_entity_uid": REPORT_UID,
-                }
-            ]
-        )
-        event_bus = _make_event_bus()
-        service = _make_service(
-            user_entry_backend=backend, report_backend=report_backend, event_bus=event_bus
-        )
-
-        await service.submit_report(SUBMISSION_UID, TEACHER_UID, "feedback")
-
-        event = event_bus.publish_async.call_args[0][0]
-        assert event.student_uid == ""
-
 
 # ========================================================================
 # TestRequestRevision

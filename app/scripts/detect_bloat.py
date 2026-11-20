@@ -1206,6 +1206,16 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         "or the prerequisite-checker surface when per-Ku readiness is needed",
         since=date(2026, 6, 17),
     ),
+    "adapters/persistence/neo4j/zpd_snapshot_backend.py::get_latest_snapshot": PlannedEntry(
+        Readiness.DELAYED,
+        "the read of a user's one ZPD history (the latest snapshot's summary, which "
+        "the event handler's save_snapshot keeps) — wire it with the first page that "
+        "shows ZPD over time; it is on no port (ZPDSnapshotOperations declares only "
+        "the write) and returns the raw row with driver temporals, so its consumer "
+        "gets a port member and a typed row",
+        since=date(2026, 11, 20),
+        blocked_by="ZPD Snapshot History & Trend Analysis",
+    ),
     # NOT registrable: core/services/askesis_service.py::analyze_user_state has
     # zero external callers (hand-verified 2026-07-10, PR 5 discovery-analytics
     # arc) but shares its name with the LIVE UserStateAnalyzer.analyze_user_state

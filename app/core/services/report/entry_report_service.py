@@ -605,7 +605,7 @@ class EntryReportService:
             self.logger.info(f"ENTRY_REPORT entity created: {report_entity_uid}")
 
             record = query_result.value[0]
-            student_uid: UserUID = UserUID(str(record.get("student_uid") or user_uid))
+            student_uid = UserUID(str(record["student_uid"]))
             feedback_entity = EntryReport(
                 uid=report_entity_uid,
                 entity_type=EntityType.ENTRY_REPORT,

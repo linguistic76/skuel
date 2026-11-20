@@ -626,8 +626,9 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
                 superseded for that teacher (``SUPERSEDED_COPY``) — decided by the
                 write, so a newer copy filed after any earlier read still wins.
 
-        Returns empty results when a guard is present and rejects the write
-        (caller already verified existence).
+        Returns no row, and writes nothing, when a guard refuses: the status
+        guard, a superseded copy, or a submission no student owns (the caller
+        already verified existence).
         """
         params = {
             "reviewing_teacher_uid": None,
@@ -638,7 +639,9 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         MATCH (submission:Entity {{uid: $report_uid}})
         WHERE $allowed_from_statuses IS NULL
            OR submission.status IN $allowed_from_statuses
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
+        // The report is addressed to the student whose submission it answers:
+        // a submission no student owns gets no row, and nothing below is written.
+        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
         OPTIONAL MATCH (teacher:User {{uid: $reviewing_teacher_uid}})
         WITH submission, student, teacher, {superseded_copy_bindings("submission")}
         WHERE teacher IS NULL OR NOT {SUPERSEDED_COPY}
@@ -673,7 +676,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
                         ELSE $title_prefix + " '" + subject_title + "'"
                    END,
             entity_type: $entity_type,
-            user_uid: CASE WHEN student IS NOT NULL THEN student.uid ELSE $author_uid END,
+            user_uid: student.uid,
             author_uid: $author_uid,
             status: $completed_status,
             visibility: 'private',
@@ -686,14 +689,8 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             updated_at: datetime($now)
         }})
 
-        // Owner = the submission's student when present, else the author.
-        // OPTIONAL author MATCH so LLM journal responses can pass author_uid=null
-        // (no human author) without dropping the row — the entry owner still owns it.
-        WITH submission, student, fb
-        OPTIONAL MATCH (author:User {{uid: $author_uid}})
-        WITH submission, student, fb, COALESCE(student, author) AS owner
-        WHERE owner IS NOT NULL
-        CREATE (owner)-[:{RelationshipName.OWNS.value}]->(fb)
+        // The student owns the report; an LLM report has no author (author_uid null).
+        CREATE (student)-[:{RelationshipName.OWNS.value}]->(fb)
         CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
         RETURN submission.uid as uid,
@@ -731,9 +728,10 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
 
         The statement decides who may write: the submission must
         ``FULFILLS_EXERCISE`` ``original_exercise_uid``, and that exercise must
-        name ``author_uid`` its teacher (``REVIEWED_BY``, ADR-091 N7, N8). Any
-        guard failing (status, supersession, exercise, teacher) returns no
-        row and writes nothing.
+        name ``author_uid`` its teacher (``REVIEWED_BY``, ADR-091 N7, N8), and a
+        student must own the submission — the report is theirs, the revision is
+        shared with them. Any guard failing (status, supersession, exercise,
+        teacher, student) returns no row and writes nothing.
         """
         params = {
             **params,
@@ -752,15 +750,17 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         // exercise names the author its teacher (ADR-091 N7, N8).
         MATCH (submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->
               (orig_exercise:Entity {{uid: $original_exercise_uid, entity_type: $exercise_entity_type}})
-              -[:{RelationshipName.REVIEWED_BY.value}]->(:User {{uid: $author_uid}})
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
-        WITH submission, student, teacher, orig_exercise, {superseded_copy_bindings("submission")}
+              -[:{RelationshipName.REVIEWED_BY.value}]->(author:User {{uid: $author_uid}})
+        // The report and the revision are addressed to the submission's student:
+        // a submission no student owns gets no row, and nothing below is written.
+        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
+        WITH submission, student, teacher, author, orig_exercise, {superseded_copy_bindings("submission")}
         WHERE NOT {SUPERSEDED_COPY}
 
         // Title subject: fulfilled exercise's title, else the turn-in
         // snapshot's, else the submission's own title (same composition rule
         // as create_report_node — C3).
-        WITH submission, student, orig_exercise,
+        WITH submission, student, author, orig_exercise,
              coalesce(
                  head([(submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(subject_ex:Entity)
                        WHERE subject_ex.title IS NOT NULL AND subject_ex.title <> ''
@@ -779,7 +779,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
                         ELSE $title_prefix + " '" + subject_title + "'"
                    END,
             entity_type: $entity_type,
-            user_uid: CASE WHEN student IS NOT NULL THEN student.uid ELSE $author_uid END,
+            user_uid: student.uid,
             author_uid: $author_uid,
             status: $completed_status,
             visibility: 'private',
@@ -791,12 +791,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             created_at: datetime($now),
             updated_at: datetime($now)
         }})
-
-        WITH submission, student, orig_exercise, fb
-        MATCH (author:User {{uid: $author_uid}})
-        WITH submission, student, orig_exercise, fb, author,
-             CASE WHEN student IS NOT NULL THEN student ELSE author END AS owner
-        CREATE (owner)-[:{RelationshipName.OWNS.value}]->(fb)
+        CREATE (student)-[:{RelationshipName.OWNS.value}]->(fb)
         CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
         // Phase 2: Next per-(exercise, student) ordinal — max+1, so deleted or
@@ -813,7 +808,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         SET re.uid = $re_uid,
             re.revision_number = revision_number,
             re.submission_uid = submission.uid,
-            re.student_uid = CASE WHEN student IS NOT NULL THEN student.uid ELSE null END,
+            re.student_uid = student.uid,
             re.title = 'Revision ' + toString(revision_number),
             re.expected_modality = orig_exercise.expected_modality,
             re.created_at = datetime($now),
@@ -826,19 +821,16 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
 
         // Auto-share RevisedExercise with student — the one SHARES_WITH the
         // learning loop writes (the student is not its owner; the teacher is).
-        // re is freshly CREATEd in this tx, so no prior share can exist — CREATE
-        // with inline props puts shared_at on the relationship; ON CREATE SET
-        // inside FOREACH can't bind the rel var.
+        // re is freshly CREATEd in this tx, so no prior share can exist: CREATE,
+        // not MERGE.
         WITH submission, student, fb, re, revision_number
-        FOREACH (_ IN CASE WHEN student IS NOT NULL THEN [1] ELSE [] END |
-            CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{
-                shared_at: datetime($now), role: 'student'
-            }}]->(re)
-        )
+        CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{
+            shared_at: datetime($now), role: 'student'
+        }}]->(re)
 
         RETURN submission.uid AS uid,
                submission.status AS status,
-               CASE WHEN student IS NOT NULL THEN student.uid ELSE null END AS student_uid,
+               student.uid AS student_uid,
                fb.uid AS report_entity_uid,
                re.uid AS revised_exercise_uid,
                revision_number
