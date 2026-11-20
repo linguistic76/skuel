@@ -249,7 +249,7 @@ class TeacherReviewService:
                 )
             )
 
-        student_uid = str(records[0]["student_uid"] or "")
+        student_uid = str(records[0]["student_uid"])
         logger.info(
             f"Teacher {teacher_uid} submitted report {report_entity_uid} for submission {report_uid}"
         )
@@ -394,7 +394,7 @@ class TeacherReviewService:
             )
 
         record = records[0]
-        student_uid = str(record["student_uid"] or "")
+        student_uid = str(record["student_uid"])
         revision_number = coerce_int(record["revision_number"])
 
         logger.info(

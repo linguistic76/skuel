@@ -1,6 +1,6 @@
 ---
 title: "ZPD Snapshot History & Trend Analysis"
-updated: 2026-09-05
+updated: 2026-11-20
 status: "deferred"
 registered: 2026-08-07
 trigger: "a ZPD-over-time consumer exists (progress trends, teacher dashboards)"
@@ -20,3 +20,7 @@ keeping the timeline and reading trends from it.
 
 **Enable when**: a consumer wants ZPD-over-time (student progress trends, teacher dashboards) —
 and enough snapshot-writing events have accrued for a timeline to say anything.
+
+The history's one read, `ZPDSnapshotBackend.get_latest_snapshot`, is registered staged for that
+consumer (`PLANNED_METHODS` in `scripts/detect_bloat.py`, `blocked_by` this entry). It is on no
+port and returns the raw row, so wiring it adds a `ZPDSnapshotOperations` member and a typed row.
