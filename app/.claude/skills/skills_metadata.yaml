@@ -588,7 +588,7 @@ skills:
 
   - name: zpd
     description: SKUEL's Zone of Proximal Development — readiness scoring, blocking gaps, compound evidence, recommended actions, ZPD snapshots (the pedagogical gravity well)
-    last_reviewed: "2026-10-11"
+    last_reviewed: "2026-11-20"
     foundation: [user-context-intelligence, curriculum-domains]
     dependencies: [user-context-intelligence, curriculum-domains]
     library_package: null  # SKUEL pattern, not external library
