@@ -1,6 +1,6 @@
 ---
 title: Security Hardening — Deferred Items
-updated: 2026-09-23
+updated: 2026-11-20
 category: roadmap
 tags: [roadmap, security, hardening]
 ---
@@ -169,7 +169,7 @@ Sharpened by the droplet prep: admin role promotion IS the AI-access grant
    `session_token` once per authenticated request — ONE indexed round trip
    (`SessionBackend.validate_session_token`: session not revoked, not expired, and the
    LIVE User still active, with the 5-min-batched last-active touch folded into the same
-   statement; anchoring on the live User instead of the session's cached snapshot makes
+   statement; anchoring on the live User, not on anything the session holds, makes
    soft/hard account deletion an immediate kill switch too, and both deletion paths sweep
    their Session nodes in the same transaction) — and clears the cookie session
    when the graph says revoked/expired — forced re-login on the very next request. Anonymous

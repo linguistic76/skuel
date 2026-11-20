@@ -21,7 +21,6 @@ Neo4j Schema:
         ip_address: "192.168.1.1",
         user_agent: "Mozilla/5.0...",
         is_valid: true,
-        user_is_active: true,
         seen_day: "{YYYY-MM-DD}"
     })
 
@@ -78,7 +77,6 @@ class Session:
         ip_address: Client IP address (for audit)
         user_agent: Client user agent (for audit)
         is_valid: Whether session is valid (can be invalidated on logout)
-        user_is_active: The user's active status when the session was minted
         token_hash: SHA-256 hash of the session's token, the property it is found by
     """
 
@@ -90,8 +88,6 @@ class Session:
     ip_address: str
     user_agent: str
     is_valid: bool = True
-    # A snapshot at the mint; validation reads the live User, never this.
-    user_is_active: bool = True
     token_hash: str = ""  # SHA-256 hash of the session's token, stored in Neo4j
 
     def is_expired(self) -> bool:
@@ -135,7 +131,6 @@ def create_session(
     ip_address: str,
     user_agent: str,
     expiry_days: int = SESSION_EXPIRY_DAYS,
-    user_is_active: bool = True,
 ) -> IssuedSession:
     """
     Mint a new session and the token that authenticates it.
@@ -145,7 +140,6 @@ def create_session(
         ip_address: Client IP address
         user_agent: Client user agent string
         expiry_days: Days until session expires (default: 30)
-        user_is_active: The user's active status at the mint (a snapshot only)
 
     Returns:
         The session, holding the token's hash, and the token for the cookie
@@ -161,7 +155,6 @@ def create_session(
         ip_address=ip_address,
         user_agent=user_agent,
         is_valid=True,
-        user_is_active=user_is_active,
         token_hash=hash_session_token(token),
     )
     return IssuedSession(session=session, token=token)

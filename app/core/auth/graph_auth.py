@@ -283,7 +283,6 @@ class GraphAuthService:
                 user_uid=user.uid,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                user_is_active=user.is_active,
             )
             session = issued.session
 

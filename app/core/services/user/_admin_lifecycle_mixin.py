@@ -271,12 +271,9 @@ class _AdminLifecycleMixin:
                 )
             )
 
-        # Deactivation and session revocation commit in ONE transaction.
-        # Session nodes cache user_is_active at creation, and a two-step
-        # sequence (persist is_active=false, then revoke) has a failure mode
-        # where the account LOOKS deactivated but its live sessions keep
-        # validating — and nothing prompts the admin to retry an operation
-        # that already appears applied.
+        # Deactivation and session revocation commit in ONE transaction: a
+        # flag persisted with its revoke failed leaves the sessions valid,
+        # and a later reactivation (which revokes nothing) brings them back.
         atomic = await self.session_invalidator.deactivate_user_and_revoke_sessions(target_user_uid)
         if atomic.is_error:
             return Result.fail(atomic)

@@ -167,6 +167,47 @@ async def test_signup_then_signin_email_roundtrip(neo4j_driver, auth_env):
     assert await _count_sessions(neo4j_driver, user_uid) == 1
 
 
+# What a sign-in stores on its Session: the ``Session`` fields, and ``seen_day``
+# (the day the presence mark last counted, read by Cypher alone). A property is
+# added here with the reason it is stored.
+_SESSION_PROPERTIES = {
+    "uid",
+    "token_hash",
+    "user_uid",
+    "created_at",
+    "expires_at",
+    "last_active_at",
+    "ip_address",
+    "user_agent",
+    "is_valid",
+    "seen_day",
+}
+
+
+async def test_signin_stores_its_session_as_the_class_reads_it(neo4j_driver, auth_env):
+    """A Session node holds the properties named above, and the model reads all but one."""
+    from dataclasses import fields
+
+    from core.models.auth.session import Session
+
+    auth, track = auth_env
+    username, email = track(*_credentials("stored"))
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (:User {uid: $uid})-[:HAS_SESSION]->(s:Session) RETURN keys(s) AS k",
+            uid=signup.value["user_uid"],
+        )
+        stored = set((await result.single())["k"])
+    assert stored == _SESSION_PROPERTIES
+    assert {field.name for field in fields(Session)} == _SESSION_PROPERTIES - {"seen_day"}
+
+
 async def test_signin_via_username_lookup(neo4j_driver, auth_env):
     """Pin the username login path: login_submit resolves username→email via
     user_service.get_user_by_username (adapters/inbound/auth_ui.py) and then
@@ -261,9 +302,9 @@ async def test_deactivation_atomically_revokes_live_sessions(neo4j_driver, auth_
     """Pin the one-transaction deactivate+revoke (Codex P1 on #798 round 2).
 
     A two-step sequence (persist is_active=false, then revoke) could leave
-    the account looking deactivated while its live sessions — cached
-    user_is_active=true — kept validating. The atomic backend op must flip
-    the flag AND kill the token in one commit.
+    the flag set and the sessions valid, to come back when the account is
+    reactivated. The atomic backend op must flip the flag AND kill the token
+    in one commit.
     """
     auth, track = auth_env
     username, email = track(*_credentials("atomic"))
@@ -301,9 +342,8 @@ async def test_deactivated_user_cannot_mint_session(neo4j_driver, auth_env):
     """Pin create_session's atomic active-user guard (Codex P1 on #798).
 
     sign_in checks ``user.is_active`` early, then spends ~100ms hashing the
-    password — a deactivation landing in that window must not mint a live
-    session (its cached ``user_is_active`` would be stale-True and
-    validate_session_identity trusts it). The direct backend call below bypasses
+    password — a deactivation landing in that window must not mint a
+    session at all. The direct backend call below bypasses
     sign_in's early check, exactly like a sign-in that loaded the user before
     the deactivation committed.
     """
@@ -335,7 +375,7 @@ async def test_soft_deleted_user_sessions_stop_validating(neo4j_driver, auth_env
 
     Soft delete flips is_active and PII-scrubs but keeps the graph — its
     sessions must die in the same commit, and validation must anchor on the
-    LIVE User (not the session's cached user_is_active snapshot).
+    LIVE User.
     """
     auth, track = auth_env
     username, email = track(*_credentials("softdel"))
