@@ -14,6 +14,7 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.seed_uids import seed_user_uid
 
 ENTRY = "ue.grounding-publication"
 KU_PUBLISHED = "ku.grounding.published"
@@ -27,7 +28,7 @@ async def backend(neo4j_driver, clean_neo4j) -> EntryGroundingBackend:
         await session.run(
             """
             CREATE (:Entity:UserEntry {uid: $entry, entity_type: 'user_entry',
-                                       pipeline: 'knowledge', title: 'entry'})
+                                       pipeline: 'knowledge', title: 'entry', user_uid: $seed_owner})
             CREATE (:Entity:Ku {uid: $published, entity_type: 'ku', title: 'published',
                                 publication_state: 'published'})
             CREATE (:Entity:Ku {uid: $legacy, entity_type: 'ku', title: 'legacy'})
@@ -38,6 +39,7 @@ async def backend(neo4j_driver, clean_neo4j) -> EntryGroundingBackend:
             published=KU_PUBLISHED,
             legacy=KU_LEGACY,
             draft=KU_DRAFT,
+            seed_owner=seed_user_uid("grounding_owner"),
         )
     return build_production_backends(neo4j_driver)["entry_grounding_backend"]
 

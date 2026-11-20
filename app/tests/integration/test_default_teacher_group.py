@@ -126,7 +126,7 @@ async def default_group_graph(neo4j_driver):
         )
         await session.run(
             """
-            MERGE (g:Group {uid: $group_uid})
+            MERGE (g:Group {uid: $group_uid}) ON CREATE SET g.name = $group_uid
             SET g.title = 'Default group (DTG test)', g.is_default = true
             WITH g
             MATCH (u:User {uid: $user_uid})
@@ -140,14 +140,16 @@ async def default_group_graph(neo4j_driver):
         await session.run(
             """
             MATCH (curriculum:Entity:Exercise {uid: $curriculum_uid})
-            MERGE (rc:Entity:RevisedExercise {uid: $curriculum_revision_uid})
-            SET rc.entity_type = 'revised_exercise', rc.student_uid = $student_uid
+            MERGE (rc:Entity:RevisedExercise {uid: $curriculum_revision_uid}) ON CREATE SET rc.title = $curriculum_revision_uid
+            SET rc.entity_type = 'revised_exercise', rc.student_uid = $student_uid,
+                rc.user_uid = $teacher_uid
             MERGE (rc)-[:REVISES_EXERCISE]->(curriculum)
-            MERGE (ro:Entity:RevisedExercise {uid: $orphan_revision_uid})
-            SET ro.entity_type = 'revised_exercise'
+            MERGE (ro:Entity:RevisedExercise {uid: $orphan_revision_uid}) ON CREATE SET ro.title = $orphan_revision_uid
+            SET ro.entity_type = 'revised_exercise', ro.user_uid = $teacher_uid
             """,
             curriculum_uid=_CURRICULUM_EX_UID,
             student_uid=_STUDENT_UID,
+            teacher_uid=_NAMED_TEACHER_UID,
             curriculum_revision_uid=_CURRICULUM_REVISION_UID,
             orphan_revision_uid=_ORPHAN_REVISION_UID,
         )

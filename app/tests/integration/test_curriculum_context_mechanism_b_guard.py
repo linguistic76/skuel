@@ -46,7 +46,9 @@ from tests.helpers.production_backends import build_production_backends
 
 P = "ctxguard."
 PS = P + "ps"  # center PathStep
-TASK = P + "task"  # (PS)-[:ASSIGNS_TASK]->(Task)   registry edge → must surface
+TEMPLATE = (
+    P + "task-template"
+)  # (PS)-[:HAS_TASK_TEMPLATE]->(TaskTemplate)  registry edge → must surface
 NOISE = P + "noise"  # (PS)-[:NOISE_LINK]->(noise)     non-registry → must NOT surface
 
 
@@ -117,7 +119,7 @@ def ps_intel(neo4j_driver):
 async def test_path_step_context_route_serves_mechanism_b(neo4j_driver, ps_intel, clean_neo4j):
     """The reader bound to ``/api/path-steps/context`` returns mechanism-B output.
 
-    Registry edge (ASSIGNS_TASK) surfaces; a non-registry edge (NOISE_LINK) does not.
+    Registry edge (HAS_TASK_TEMPLATE) surfaces; a non-registry edge (NOISE_LINK) does not.
     Proves the route is unaffected by deleting the bespoke ``.core`` reader.
     """
     async with neo4j_driver.session() as s:
@@ -127,19 +129,21 @@ async def test_path_step_context_route_serves_mechanism_b(neo4j_driver, ps_intel
             u=PS,
         )
         await s.run(
-            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+            "CREATE (:Entity:TaskTemplate {uid:$u, entity_type:'task_template', title:$u, "
             "status:'active', created_at:datetime()})",
-            u=TASK,
+            u=TEMPLATE,
         )
         await s.run(
-            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+            "CREATE (:Entity:TaskTemplate {uid:$u, entity_type:'task_template', title:$u, "
             "status:'active', created_at:datetime()})",
             u=NOISE,
         )
-        await s.run("MATCH (p{uid:$p}),(t{uid:$t}) CREATE (p)-[:ASSIGNS_TASK]->(t)", p=PS, t=TASK)
+        await s.run(
+            "MATCH (p{uid:$p}),(t{uid:$t}) CREATE (p)-[:HAS_TASK_TEMPLATE]->(t)", p=PS, t=TEMPLATE
+        )
         await s.run("MATCH (p{uid:$p}),(n{uid:$n}) CREATE (p)-[:NOISE_LINK]->(n)", p=PS, n=NOISE)
 
-    assert "ASSIGNS_TASK" in PS_CONFIG.cross_domain_relationship_types
+    assert "HAS_TASK_TEMPLATE" in PS_CONFIG.cross_domain_relationship_types
     assert "NOISE_LINK" not in PS_CONFIG.cross_domain_relationship_types
 
     res = await ps_intel.get_with_context(PS, depth=1)
@@ -155,6 +159,6 @@ async def test_path_step_context_route_serves_mechanism_b(neo4j_driver, ps_intel
     )
 
     uids = {n.uid for n in ctx.all_nodes}
-    assert TASK in uids, "registry edge (ASSIGNS_TASK) must surface through mechanism B"
+    assert TEMPLATE in uids, "registry edge (HAS_TASK_TEMPLATE) must surface through mechanism B"
     assert NOISE not in uids, "non-registry edge (NOISE_LINK) must be filtered (negative control)"
     assert PS not in uids, "origin must not leak into its own context"

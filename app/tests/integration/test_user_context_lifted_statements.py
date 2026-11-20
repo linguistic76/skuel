@@ -21,6 +21,7 @@ from core.services.user.user_context_builder import UserContextBuilder
 from tests.helpers.seed_uids import seed_user_uid
 
 _USER_UID = seed_user_uid("test")
+_TEACHER_UID = seed_user_uid("lifted_teacher")  # wrote the revisions
 
 #: The fixture seeds group-assigned exercises in the scope ADR-091 retired: the only shape
 #: the submission-stats statement's assigned-exercise section matches, and one no read of an
@@ -59,10 +60,13 @@ async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[st
             """
             MATCH (u:User {uid: $user_uid})
             CREATE (u)-[:OWNS]->(recent:Entity:UserEntry {uid: $entry_recent, entity_type: 'user_entry',
-                                                          pipeline: 'teacher_review', created_at: $recent})
+                                                          pipeline: 'teacher_review', created_at: $recent, title: $entry_recent,
+                                                          user_uid: $user_uid})
             CREATE (u)-[:OWNS]->(stale:Entity:UserEntry {uid: $entry_stale, entity_type: 'user_entry',
-                                                         pipeline: 'teacher_review', created_at: $stale})
-            CREATE (fb:Entity:EntryReport {uid: $feedback, entity_type: 'entry_report', created_at: $recent})
+                                                         pipeline: 'teacher_review', created_at: $stale, title: $entry_stale,
+                                                         user_uid: $user_uid})
+            CREATE (fb:Entity:EntryReport {uid: $feedback, entity_type: 'entry_report', created_at: $recent, title: $feedback,
+                                           user_uid: $user_uid})
             CREATE (fb)-[:REPORT_FOR]->(recent)
             CREATE (g:Group {uid: $group, name: 'Lifted'})
             CREATE (u)-[:MEMBER_OF]->(g)
@@ -73,24 +77,26 @@ async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[st
             CREATE (done)-[:SHARED_WITH_GROUP]->(g)
             CREATE (open)-[:SHARED_WITH_GROUP]->(g)
             CREATE (:Entity:UserEntry {uid: $fulfilment, entity_type: 'user_entry', user_uid: $user_uid,
-                                       pipeline: 'teacher_review', created_at: $recent})-[:FULFILLS_EXERCISE]->(done)
+                                       pipeline: 'teacher_review', created_at: $recent, title: $fulfilment})-[:FULFILLS_EXERCISE]->(done)
             CREATE (:RevisedExercise {uid: $revision, student_uid: $user_uid, title: 'Try again',
-                                      revision_number: 2, created_at: $recent})
+                                      revision_number: 2, created_at: $recent, user_uid: $teacher})
             // Answered, the writer's shape: FULFILLS_EXERCISE anchors on the root
             // exercise and FULFILLS_REVISED_EXERCISE names the revision.
             CREATE (answered:RevisedExercise {uid: $revision_answered, student_uid: $user_uid,
-                                              title: 'Answered', revision_number: 2, created_at: $recent})
+                                              title: 'Answered', revision_number: 2, created_at: $recent,
+                                              user_uid: $teacher})
             CREATE (answered)-[:REVISES_EXERCISE]->(done)
             CREATE (answer:Entity:UserEntry {uid: $answer, entity_type: 'user_entry', user_uid: $user_uid,
-                                             pipeline: 'teacher_review', created_at: $recent})
+                                             pipeline: 'teacher_review', created_at: $recent, title: $answer})
             CREATE (answer)-[:FULFILLS_EXERCISE {revision: 2}]->(done)
             CREATE (answer)-[:FULFILLS_REVISED_EXERCISE {revision: 2}]->(answered)
             // Answered with no original left: the writer puts only
             // FULFILLS_EXERCISE on a revision with no REVISES_EXERCISE edge.
             CREATE (orphan:RevisedExercise {uid: $revision_orphan_answered, student_uid: $user_uid,
-                                            title: 'Orphan answered', revision_number: 2, created_at: $recent})
+                                            title: 'Orphan answered', revision_number: 2, created_at: $recent,
+                                            user_uid: $teacher})
             CREATE (:Entity:UserEntry {uid: $orphan_answer, entity_type: 'user_entry', user_uid: $user_uid,
-                                       pipeline: 'teacher_review', created_at: $recent})
+                                       pipeline: 'teacher_review', created_at: $recent, title: $orphan_answer})
                   -[:FULFILLS_EXERCISE {revision: 2}]->(orphan)
             CREATE (kc:Entity:Ku {uid: $ku_confident, entity_type: 'ku', title: 'Confident'})
             CREATE (kd:Entity:Ku {uid: $ku_doubtful, entity_type: 'ku', title: 'Doubtful'})
@@ -102,6 +108,7 @@ async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[st
             CREATE (stale)-[:APPLIES_KNOWLEDGE]->(ps)
             """,
             user_uid=_USER_UID,
+            teacher=_TEACHER_UID,
             recent=recent,
             stale=stale,
             **uids,

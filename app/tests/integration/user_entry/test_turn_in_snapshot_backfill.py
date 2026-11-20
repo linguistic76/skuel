@@ -51,6 +51,7 @@ def _load_migration():
 migration = _load_migration()
 
 STUDENT = seed_user_uid("bf_student")
+TEACHER = seed_user_uid("bf_teacher")  # wrote the revisions
 EX_LIVE = "ex.bf-live"
 EX_ROOT_OF_RE = "ex.bf-root-of-re"
 EX_GONE_ORIG = "ex.bf-gone-original"  # named by a revision's property, no node
@@ -71,15 +72,15 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (s:User {uid: $student})
+            MERGE (s:User {uid: $student}) ON CREATE SET s.title = $student
             CREATE (exl:Entity:Exercise {uid: $ex_live, entity_type: 'exercise', title: 'Live'})
             CREATE (exr:Entity:Exercise {uid: $ex_root, entity_type: 'exercise', title: 'Root'})
             CREATE (reo:Entity:RevisedExercise {uid: $re_orphan, entity_type: 'revised_exercise',
-                title: 'Orphan revision', original_exercise_uid: $ex_gone_orig})
+                title: 'Orphan revision', original_exercise_uid: $ex_gone_orig, user_uid: $teacher})
             CREATE (rel:Entity:RevisedExercise {uid: $re_live, entity_type: 'revised_exercise',
-                title: 'Live revision', original_exercise_uid: $ex_root})
+                title: 'Live revision', original_exercise_uid: $ex_root, user_uid: $teacher})
             CREATE (rep:Entity:RevisedExercise {uid: $re_by_prop, entity_type: 'revised_exercise',
-                title: 'Named revision', original_exercise_uid: $ex_gone_orig})
+                title: 'Named revision', original_exercise_uid: $ex_gone_orig, user_uid: $teacher})
             MERGE (rel)-[:REVISES_EXERCISE]->(exr)
 
             CREATE (d:Entity:UserEntry {uid: $e_direct, entity_type: 'user_entry',
@@ -108,12 +109,13 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (dr)-[:FULFILLS_EXERCISE {revision: 1}]->(reo)
             MERGE (ro)-[:FULFILLS_REVISED_EXERCISE {revision: 1}]->(rel)
             // The turn-in trace: an Interaction records a frozen copy, never a living note
-            CREATE (i1:Entity:Interaction {uid: 'int.bf-1', entity_type: 'interaction'})
-            CREATE (i2:Entity:Interaction {uid: 'int.bf-2', entity_type: 'interaction'})
+            CREATE (i1:Entity:Interaction {uid: 'int.bf-1', entity_type: 'interaction', title: 'int.bf-1', user_uid: $student})
+            CREATE (i2:Entity:Interaction {uid: 'int.bf-2', entity_type: 'interaction', title: 'int.bf-2', user_uid: $student})
             MERGE (i1)-[:RECORDS]->(pr)
             MERGE (i2)-[:RECORDS]->(pg)
             """,
             student=STUDENT,
+            teacher=TEACHER,
             ex_live=EX_LIVE,
             ex_root=EX_ROOT_OF_RE,
             ex_gone_orig=EX_GONE_ORIG,

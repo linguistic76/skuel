@@ -59,7 +59,7 @@ class TestChoicesAnalyticsWindow:
         """Seed the three choices and return a ChoicesIntelligenceService over them."""
         now = datetime.now(UTC)
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=USER)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=USER)
             # Majority shape: created_at as an ISO string, inside a 30-day window.
             await session.run(
                 """
@@ -181,7 +181,9 @@ class TestDomainPatternsRefuseAnUnknownDomain:
         """One choice with an unknown domain, one with a valid one, both in window."""
         now = datetime.now(UTC)
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=USER_UNKNOWN_DOMAIN)
+            await session.run(
+                "MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=USER_UNKNOWN_DOMAIN
+            )
             await session.run(
                 """
                 CREATE (n:Entity:Choice {uid: $uid, user_uid: $u, entity_type: 'choice',

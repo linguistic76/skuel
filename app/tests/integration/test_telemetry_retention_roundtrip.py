@@ -75,19 +75,21 @@ async def seeded(neo4j_driver):
             CREATE (:SearchEvent {uid:'ret.se-old', created_at: datetime($old), test_tag:$tag})
             CREATE (:SearchEvent {uid:'ret.se-new', created_at: datetime($recent), test_tag:$tag})
             // Interaction.created_at is a STRING (universal-backend writer) — NOT datetime()
-            CREATE (:Entity:Interaction {uid:'ret.int-old', created_at: $old, test_tag:$tag})
-            CREATE (:Entity:Interaction {uid:'ret.int-new', created_at: $recent, test_tag:$tag})
-            CREATE (u:User {uid:$user_ret_user, test_tag:$tag})
-            CREATE (ko:Ku {uid:'ret.ku-old', test_tag:$tag})
-            CREATE (kn:Ku {uid:'ret.ku-new', test_tag:$tag})
+            CREATE (:Entity:Interaction {uid:'ret.int-old', created_at: $old, test_tag:$tag, title: 'ret.int-old', user_uid: $user_ret_user})
+            CREATE (:Entity:Interaction {uid:'ret.int-new', created_at: $recent, test_tag:$tag, title: 'ret.int-new', user_uid: $user_ret_user})
+            CREATE (u:User {uid:$user_ret_user, test_tag:$tag, title: $user_ret_user})
+            CREATE (ko:Ku {uid:'ret.ku-old', test_tag:$tag, title: 'ret.ku-old'})
+            CREATE (kn:Ku {uid:'ret.ku-new', test_tag:$tag, title: 'ret.ku-new'})
             CREATE (u)-[:VIEWED {last_viewed_at: datetime($old)}]->(ko)
             CREATE (u)-[:VIEWED {last_viewed_at: datetime($recent)}]->(kn)
             CREATE (so:ConversationSession {session_id:'ret_cs_old', last_activity: datetime($old), test_tag:$tag})
             CREATE (sn:ConversationSession {session_id:'ret_cs_new', last_activity: datetime($recent), test_tag:$tag})
             CREATE (so)-[:HAS_TURN]->(:ConversationTurn {turn_id:'ret_ct_old', test_tag:$tag})
             CREATE (sn)-[:HAS_TURN]->(:ConversationTurn {turn_id:'ret_ct_new', test_tag:$tag})
-            CREATE (:Session {uid:'ret.sess-expired', expires_at: datetime($old), test_tag:$tag})
-            CREATE (:Session {uid:'ret.sess-valid', expires_at: datetime($future), test_tag:$tag})
+            CREATE (:Session {uid:'ret.sess-expired', expires_at: datetime($old), test_tag:$tag,
+                              user_uid: $user_ret_user, created_at: datetime($old), last_active_at: datetime($old), ip_address: '127.0.0.1', user_agent: 'test'})
+            CREATE (:Session {uid:'ret.sess-valid', expires_at: datetime($future), test_tag:$tag,
+                              user_uid: $user_ret_user, created_at: datetime($old), last_active_at: datetime($old), ip_address: '127.0.0.1', user_agent: 'test'})
             """,
             old=old,
             recent=recent,

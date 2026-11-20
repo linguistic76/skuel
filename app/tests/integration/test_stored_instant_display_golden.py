@@ -97,8 +97,8 @@ async def _seed_classroom(driver: Any) -> None:
     async with driver.session() as session:
         await session.run(
             """
-            MERGE (t:User {uid: $teacher}) SET t.display_name = 'Ms Rivera', t.role = 'teacher'
-            MERGE (s:User {uid: $student}) SET s.display_name = 'Sam Student'
+            MERGE (t:User {uid: $teacher}) ON CREATE SET t.title = $teacher SET t.display_name = 'Ms Rivera', t.role = 'teacher'
+            MERGE (s:User {uid: $student}) ON CREATE SET s.title = $student SET s.display_name = 'Sam Student'
             MERGE (g:Group {uid: $group}) SET g.name = 'Essay class', g.is_active = true
             MERGE (t)-[:OWNS]->(g)
             MERGE (s)-[:MEMBER_OF]->(g)

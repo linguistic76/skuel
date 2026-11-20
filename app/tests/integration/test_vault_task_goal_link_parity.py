@@ -85,7 +85,8 @@ async def parity_service(neo4j_driver):
     executor = Neo4jQueryExecutor(neo4j_driver)
     async with neo4j_driver.session() as session:
         await session.run(
-            "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()", {"uid": _USER}
+            "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
+            {"uid": _USER},
         )
     service = build_ingestion_service(
         driver=neo4j_driver,

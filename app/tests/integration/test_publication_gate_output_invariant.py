@@ -160,7 +160,7 @@ DRAFT_UIDS: every OTHER surface must still withhold them, and a blanket
 exclusion would silently stop checking that."""
 
 SEED = """
-CREATE (u:User {uid: $user, username: 'gate-probe'})
+CREATE (u:User {uid: $user, username: 'gate-probe', title: $user})
 CREATE (g:Goal:Entity {uid: $goal, entity_type: 'goal', title: 'Gate probe goal',
                        user_uid: $user})
 
@@ -732,10 +732,14 @@ UNMEASURABLE: dict[tuple[str, str], str] = {
         "the same measurement in test_ps_step_mastery_derived.py"
     ),
     ("adapters.persistence.neo4j.cross_domain_backend", "<module>:_ADHERENCE_PRINCIPLE_WALL"): (
-        "the far node is a principle and this corpus seeds curriculum only. Measured "
-        "in test_principle_choice_link.py: a draft shared principle informing the "
-        "caller's choice is withheld while a published one on the same choice is "
-        "kept, and another user's principle is withheld beside the caller's own"
+        "the far node is a principle and this corpus seeds curriculum only. A "
+        "principle is always someone's own (its model requires user_uid, and every "
+        "door that writes one stamps it, a vault file included), so the wall admits "
+        "one by its owner, never by publication state: the shared arm, where the "
+        "draft rule lives, meets no principle. The owner half is measured in "
+        "test_principle_choice_link.py (another user's principle is withheld beside "
+        "the caller's own); the shared arm is the far-node wall every link reader "
+        "shares, measured on a draft Ku by test_link_reader_far_nodes.py"
     ),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "_nous_subtopic_pairs_query"): (
         "returns facet vocabulary (nous/subtopic strings), not entity "

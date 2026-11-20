@@ -47,8 +47,8 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (o:User {uid: $owner})
-            MERGE (x:User {uid: $other})
+            MERGE (o:User {uid: $owner}) ON CREATE SET o.title = $owner
+            MERGE (x:User {uid: $other}) ON CREATE SET x.title = $other
 
             // the main exchange: e1 (reviewed) → e2 (revised) → e3 (native stamp, reviewed twice)
             CREATE (e1:Entity:UserEntry {uid: 'ue.rsr-e1', entity_type: 'user_entry',
@@ -57,7 +57,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: '2026-08-01T00:00:00.000000'})
             CREATE (r1:Entity:EntryReport {uid: 'er.rsr-r1', entity_type: 'entry_report',
                 title: 'r1', status: 'completed', processor_type: 'human',
-                assessment_outcome: 'needs_revision', created_at: datetime('2026-08-01T01:00:00Z')})
+                assessment_outcome: 'needs_revision', created_at: datetime('2026-08-01T01:00:00Z'), user_uid: o.uid})
             CREATE (e2:Entity:UserEntry {uid: 'ue.rsr-e2', entity_type: 'user_entry',
                 title: 'second', status: 'submitted', user_uid: $owner,
                 turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Main',
@@ -68,10 +68,10 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: datetime('2026-08-01T03:00:00Z')})
             CREATE (r3h:Entity:EntryReport {uid: 'er.rsr-r3h', entity_type: 'entry_report',
                 title: 'r3 human', status: 'completed', processor_type: 'human',
-                assessment_outcome: 'approved', created_at: datetime('2026-08-01T03:30:00Z')})
+                assessment_outcome: 'approved', created_at: datetime('2026-08-01T03:30:00Z'), user_uid: o.uid})
             CREATE (r3a:Entity:EntryReport {uid: 'er.rsr-r3a', entity_type: 'entry_report',
                 title: 'r3 ai', status: 'completed', processor_type: 'llm',
-                assessment_outcome: 'ai_evaluated', created_at: datetime('2026-08-01T04:00:00Z')})
+                assessment_outcome: 'ai_evaluated', created_at: datetime('2026-08-01T04:00:00Z'), user_uid: o.uid})
             MERGE (o)-[:OWNS]->(e1) MERGE (o)-[:OWNS]->(e2) MERGE (o)-[:OWNS]->(e3)
             MERGE (o)-[:OWNS]->(r1) MERGE (o)-[:OWNS]->(r3h) MERGE (o)-[:OWNS]->(r3a)
             MERGE (r1)-[:REPORT_FOR]->(e1)
@@ -89,7 +89,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: '2026-08-02T01:00:00.000000'})
             CREATE (rt:Entity:EntryReport {uid: 'er.rsr-rt', entity_type: 'entry_report',
                 title: 'late report on t1', status: 'completed', processor_type: 'human',
-                assessment_outcome: 'approved', created_at: datetime('2026-08-02T02:00:00Z')})
+                assessment_outcome: 'approved', created_at: datetime('2026-08-02T02:00:00Z'), user_uid: o.uid})
             MERGE (o)-[:OWNS]->(t1) MERGE (o)-[:OWNS]->(t2) MERGE (o)-[:OWNS]->(rt)
             MERGE (rt)-[:REPORT_FOR]->(t1)
 
@@ -99,7 +99,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: '2026-08-03T00:00:00.000000'})
             CREATE (rj:Entity:EntryReport {uid: 'er.rsr-rj', entity_type: 'entry_report',
                 title: 'reflection', status: 'completed', processor_type: 'llm',
-                created_at: datetime('2026-08-03T01:00:00Z')})
+                created_at: datetime('2026-08-03T01:00:00Z'), user_uid: o.uid})
             MERGE (o)-[:OWNS]->(j1) MERGE (o)-[:OWNS]->(rj)
             MERGE (rj)-[:REPORT_FOR]->(j1)
 
@@ -110,7 +110,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: '2026-08-04T00:00:00.000000'})
             CREATE (rx:Entity:EntryReport {uid: 'er.rsr-rx', entity_type: 'entry_report',
                 title: 'other report', status: 'completed', processor_type: 'human',
-                assessment_outcome: 'approved', created_at: datetime('2026-08-04T01:00:00Z')})
+                assessment_outcome: 'approved', created_at: datetime('2026-08-04T01:00:00Z'), user_uid: x.uid})
             CREATE (x1:Entity:UserEntry {uid: 'ue.rsr-x1', entity_type: 'user_entry',
                 title: 'mine later', status: 'submitted', user_uid: $owner,
                 turn_in_exercise_uid: $ex_cross, turn_in_exercise_title: 'Cross',
@@ -124,7 +124,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: '2026-08-05T00:00:00.000000'})
             CREATE (rp:Entity:EntryReport {uid: 'er.rsr-rp', entity_type: 'entry_report',
                 title: 'plain report', status: 'completed', processor_type: 'human',
-                assessment_outcome: 'approved', created_at: datetime('2026-08-05T01:00:00Z')})
+                assessment_outcome: 'approved', created_at: datetime('2026-08-05T01:00:00Z'), user_uid: o.uid})
             MERGE (o)-[:OWNS]->(p1) MERGE (o)-[:OWNS]->(rp)
             MERGE (rp)-[:REPORT_FOR]->(p1)
             """,

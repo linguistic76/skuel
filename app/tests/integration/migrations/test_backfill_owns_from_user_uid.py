@@ -71,16 +71,16 @@ async def _seed(neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (owner:User {uid: $user_owns_bf})
-            CREATE (walker:User {uid: $user_owns_bf_walker})
-            CREATE (sys:User {uid: 'user_system'})
+            CREATE (owner:User {uid: $user_owns_bf, title: $user_owns_bf})
+            CREATE (walker:User {uid: $user_owns_bf_walker, title: $user_owns_bf_walker})
+            CREATE (sys:User {uid: 'user_system', title: 'user_system'})
             // Property-only: user_uid set, owner exists, edge missing (the bug)
             CREATE (t:Entity:Task {
                 uid: 'ownsbf.property-only',
                 entity_type: 'task',
                 user_uid: $user_owns_bf,
                 status: 'pending',
-                created_at: datetime()
+                created_at: datetime(), title: 'ownsbf.property-only'
             })
             // Consistent: property and edge already agree
             CREATE (g:Entity:Goal {
@@ -88,7 +88,7 @@ async def _seed(neo4j_driver) -> None:
                 entity_type: 'goal',
                 user_uid: $user_owns_bf,
                 status: 'active',
-                created_at: datetime()
+                created_at: datetime(), title: 'ownsbf.consistent'
             })
             // Dangling owner: user_uid names a User that does not exist
             CREATE (e:Entity:Event {
@@ -96,7 +96,7 @@ async def _seed(neo4j_driver) -> None:
                 entity_type: 'event',
                 user_uid: $user_never_registered,
                 status: 'scheduled',
-                created_at: datetime()
+                created_at: datetime(), title: 'ownsbf.dangling'
             })
             // System catalog: excluded even though a user_system User exists
             CREATE (h:Entity:Habit {
@@ -104,7 +104,7 @@ async def _seed(neo4j_driver) -> None:
                 entity_type: 'habit',
                 user_uid: 'user_system',
                 status: 'active',
-                created_at: datetime()
+                created_at: datetime(), title: 'ownsbf.catalog'
             })
             // Dual-owned: property says owner, but a bare out-of-band edge
             // from another user exists (the PR-3-walk-era shape)
@@ -113,7 +113,7 @@ async def _seed(neo4j_driver) -> None:
                 entity_type: 'principle',
                 user_uid: $user_owns_bf,
                 status: 'active',
-                created_at: datetime()
+                created_at: datetime(), title: 'ownsbf.dual-owned'
             })
             CREATE (owner)-[:OWNS {access_count: 7, is_active: true}]->(g)
             CREATE (walker)-[:OWNS]->(p)

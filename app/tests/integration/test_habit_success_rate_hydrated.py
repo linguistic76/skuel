@@ -176,7 +176,7 @@ async def services(skuel_app: FastHTMLApp) -> AsyncIterator[_Composed]:
     await _sweep(driver)
     async with driver.session() as session:
         await session.run(
-            "MERGE (u:User {uid: $uid}) SET u.username = $uid, u.email = $email",
+            "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid SET u.username = $uid, u.email = $email",
             uid=_USER,
             email=f"{_USER}@example.test",
         )

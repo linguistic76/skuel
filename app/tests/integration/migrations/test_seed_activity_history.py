@@ -21,6 +21,7 @@ import pytest
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.principle.principle import _to_alignment_assessment
 from core.services.report.progress_report_generator import _alignment_history, _progress_history
+from tests.helpers.seed_uids import seed_user_uid
 
 MIGRATION_PATH = (
     Path(__file__).resolve().parents[3]
@@ -32,9 +33,7 @@ MIGRATION_PATH = (
 
 def _load_statements() -> list[str]:
     raw = MIGRATION_PATH.read_text()
-    no_comments = "\n".join(
-        line for line in raw.splitlines() if not line.lstrip().startswith("//")
-    )
+    no_comments = "\n".join(line for line in raw.splitlines() if not line.lstrip().startswith("//"))
     chunks = [c.strip() for c in no_comments.split(";")]
     return [c for c in chunks if c and not re.fullmatch(r"\s*", c)]
 
@@ -53,38 +52,38 @@ async def _seed(neo4j_driver) -> None:
             // Goal: stamped, no history at all
             CREATE (:Entity:Goal {uid: 'goal.seed.stamped', entity_type: 'goal',
                                   last_progress_update: '2026-08-20T09:00:00',
-                                  progress_percentage: 40.0})
+                                  progress_percentage: 40.0, title: 'goal.seed.stamped', user_uid: $seed_owner})
             // Goal: stamped, the mapper's empty native list
             CREATE (:Entity:Goal {uid: 'goal.seed.empty', entity_type: 'goal',
                                   last_progress_update: '2026-08-21T09:00:00',
-                                  progress_percentage: 55, progress_history: []})
+                                  progress_percentage: 55, progress_history: [], title: 'goal.seed.empty', user_uid: $seed_owner})
             // Goal: stamped AND already holding history — untouched
             CREATE (:Entity:Goal {uid: 'goal.seed.has', entity_type: 'goal',
                                   last_progress_update: '2026-08-22T09:00:00',
                                   progress_percentage: 70.0,
-                                  progress_history: '[{"date": "2026-08-01T09:00:00", "progress_percentage": 10.0}]'})
+                                  progress_history: '[{"date": "2026-08-01T09:00:00", "progress_percentage": 10.0}]',
+                                  title: 'goal.seed.has', user_uid: $seed_owner})
             // Goal: no stamp — untouched
             CREATE (:Entity:Goal {uid: 'goal.seed.none', entity_type: 'goal',
-                                  progress_percentage: 0.0})
+                                  progress_percentage: 0.0, title: 'goal.seed.none', user_uid: $seed_owner})
             // Principle: stamped (a date string, as the live graph stores it), no history
             CREATE (:Entity:Principle {uid: 'principle.seed.stamped', entity_type: 'principle',
                                        last_review_date: '2026-03-29',
-                                       current_alignment: 'mostly_aligned'})
+                                       current_alignment: 'mostly_aligned', title: 'principle.seed.stamped', user_uid: $seed_owner})
             // Principle: stamped, empty native list, no current level
             CREATE (:Entity:Principle {uid: 'principle.seed.empty', entity_type: 'principle',
-                                       last_review_date: '2026-05-05', alignment_history: []})
+                                       last_review_date: '2026-05-05', alignment_history: [], title: 'principle.seed.empty', user_uid: $seed_owner})
             // Principle: no stamp — untouched
             CREATE (:Entity:Principle {uid: 'principle.seed.none', entity_type: 'principle',
-                                       alignment_history: []})
-            """
+                                       alignment_history: [], title: 'principle.seed.none', user_uid: $seed_owner})
+            """,
+            seed_owner=seed_user_uid("seed_history_owner"),
         )
 
 
 async def _prop(neo4j_driver, label: str, uid: str, prop: str):
     async with neo4j_driver.session() as session:
-        result = await session.run(
-            f"MATCH (n:{label} {{uid: $uid}}) RETURN n.{prop} AS v", uid=uid
-        )
+        result = await session.run(f"MATCH (n:{label} {{uid: $uid}}) RETURN n.{prop} AS v", uid=uid)
         record = await result.single()
         return record["v"]
 
@@ -117,7 +116,9 @@ class TestSeedActivityHistory:
         has = await _prop(neo4j_driver, "Goal", "goal.seed.has", "progress_history")
         assert json.loads(has) == [{"date": "2026-08-01T09:00:00", "progress_percentage": 10.0}]
         assert await _prop(neo4j_driver, "Goal", "goal.seed.none", "progress_history") is None
-        assert await _prop(neo4j_driver, "Principle", "principle.seed.none", "alignment_history") == []
+        assert (
+            await _prop(neo4j_driver, "Principle", "principle.seed.none", "alignment_history") == []
+        )
 
     async def test_stamped_principles_get_a_seeded_review_the_model_reads_back(
         self, neo4j_driver, clean_neo4j
@@ -142,8 +143,12 @@ class TestSeedActivityHistory:
     async def test_running_twice_seeds_nothing_more(self, neo4j_driver, clean_neo4j) -> None:
         await _seed(neo4j_driver)
         await _run_migration(neo4j_driver)
-        first = await _prop(neo4j_driver, "Principle", "principle.seed.stamped", "alignment_history")
+        first = await _prop(
+            neo4j_driver, "Principle", "principle.seed.stamped", "alignment_history"
+        )
         await _run_migration(neo4j_driver)
-        second = await _prop(neo4j_driver, "Principle", "principle.seed.stamped", "alignment_history")
+        second = await _prop(
+            neo4j_driver, "Principle", "principle.seed.stamped", "alignment_history"
+        )
         assert first == second
         assert len(_alignment_history(second)) == 1

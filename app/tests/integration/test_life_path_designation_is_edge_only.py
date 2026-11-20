@@ -64,7 +64,7 @@ async def graph(neo4j_driver, clean_neo4j):
     """Two undesignated LearningPaths and two users."""
     async with neo4j_driver.session() as session:
         for uid in (USER, OTHER_USER):
-            await session.run("MERGE (u:User {uid: $u})", u=uid)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=uid)
         for lp_uid, title in ((LP, TITLE), (LP_SECOND, TITLE_SECOND)):
             await session.run(
                 """
@@ -295,7 +295,7 @@ class TestAVaultResyncDoesNotUndesignate:
         async with graph.session() as session:
             await session.run(
                 """
-                MERGE (n:Entity:LearningPath {uid: $uid})
+                MERGE (n:Entity:LearningPath {uid: $uid}) ON CREATE SET n.title = $uid
                   ON MATCH SET n += {entity_type: 'learning_path', title: $title,
                                      status: 'active'}
                 """,

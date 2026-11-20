@@ -83,7 +83,7 @@ class TestChoicesAlignmentMetrics:
         out_window = (now - timedelta(days=200)).isoformat()
 
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=USER)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=USER)
             await session.run(
                 """
                 UNWIND $choices AS c
@@ -105,21 +105,23 @@ class TestChoicesAlignmentMetrics:
             await session.run(
                 """
                 UNWIND $principles AS p
-                CREATE (n:Entity:Principle {uid: p, user_uid: $u, entity_type: 'principle'})
+                CREATE (n:Entity:Principle {uid: p, user_uid: $u, entity_type: 'principle', title: p})
                 """,
                 u=USER,
                 principles=[P1, P2, P3],
             )
-            await session.run("CREATE (n:Entity:Goal {uid: $g, user_uid: $u})", g=G1, u=USER)
             await session.run(
-                "CREATE (n:Entity:Habit {uid: $h, user_uid: $u, entity_type: 'habit'})",
+                "CREATE (n:Entity:Goal {uid: $g, user_uid: $u, title: $g})", g=G1, u=USER
+            )
+            await session.run(
+                "CREATE (n:Entity:Habit {uid: $h, user_uid: $u, entity_type: 'habit', title: $h})",
                 h=HABIT,
                 u=USER,
             )
             await session.run(
                 """
                 CREATE (n:Entity:PathStep {uid: $s, entity_type: 'path_step',
-                                           publication_state: 'published'})
+                                           publication_state: 'published', title: $s})
                 """,
                 s=PATH_STEP,
             )
@@ -271,7 +273,7 @@ class TestChoicesAlignmentMetrics:
         """A choice with no edges reports 0.0 — the fix must not manufacture alignment."""
         other = seed_user_uid("choice_alignment_empty")
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=other)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=other)
             await session.run(
                 """
                 CREATE (n:Entity:Choice {uid: 'align.c-lonely', user_uid: $u,

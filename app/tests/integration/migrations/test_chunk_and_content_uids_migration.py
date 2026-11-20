@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from core.models.ps_content.content_chunks import ChunkStore, chunk_uid
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -54,6 +55,7 @@ migration = _load()
 
 STEP = "ps.zzzchunkmig.step"
 ENTRY = "ue_zzzchunkmig1"
+ENTRY_OWNER = seed_user_uid("zzzchunkmig")  # owns the seeded entities
 BOOK = "resource.zzzchunkmig-book"
 FRESH = "ps.zzzchunkmig.fresh"
 PARENTS = [STEP, ENTRY, BOOK, FRESH]
@@ -90,13 +92,14 @@ async def old_graph(neo4j_driver: AsyncDriver, clean_neo4j: None) -> AsyncIterat
     await _run(
         neo4j_driver,
         """
-        CREATE (:Entity:PathStep {uid: $step, entity_type: 'path_step'})
-        CREATE (:Entity:UserEntry {uid: $entry, entity_type: 'user_entry'})
-        CREATE (:Entity:Resource {uid: $book, entity_type: 'resource'})
-        CREATE (:Entity:PathStep {uid: $fresh, entity_type: 'path_step'})
+        CREATE (:Entity:PathStep {uid: $step, entity_type: 'path_step', title: $step})
+        CREATE (:Entity:UserEntry {uid: $entry, entity_type: 'user_entry', title: $entry, user_uid: $owner})
+        CREATE (:Entity:Resource {uid: $book, entity_type: 'resource', title: $book})
+        CREATE (:Entity:PathStep {uid: $fresh, entity_type: 'path_step', title: $fresh})
         """,
         step=STEP,
         entry=ENTRY,
+        owner=ENTRY_OWNER,
         book=BOOK,
         fresh=FRESH,
     )

@@ -59,23 +59,23 @@ REPORT = f"er.{MARK}-report"
 
 SEED = """
 MATCH (u:User {uid: $user})
-MERGE (o:User {uid: $other})
+MERGE (o:User {uid: $other}) ON CREATE SET o.title = $other
 CREATE (u)-[:OWNS]->(:Entity:UserEntry {uid: $ue_new, entity_type: 'user_entry', user_uid: $user,
-        pipeline: 'teacher_review', status: 'submitted', created_at: '2026-10-02T10:00:00+00:00'})
+        pipeline: 'teacher_review', status: 'submitted', created_at: '2026-10-02T10:00:00+00:00', title: $ue_new})
 CREATE (u)-[:OWNS]->(:Entity:UserEntry {uid: $ue_old, entity_type: 'user_entry', user_uid: $user,
-        pipeline: 'teacher_review', status: 'submitted', created_at: '2026-10-01T10:00:00+00:00'})
+        pipeline: 'teacher_review', status: 'submitted', created_at: '2026-10-01T10:00:00+00:00', title: $ue_old})
 CREATE (u)-[:OWNS]->(reported:Entity:UserEntry {uid: $ue_reported, entity_type: 'user_entry',
         user_uid: $user, pipeline: 'teacher_review', status: 'completed',
-        created_at: '2026-10-03T10:00:00+00:00'})
+        created_at: '2026-10-03T10:00:00+00:00', title: $ue_reported})
 CREATE (u)-[:OWNS]->(report:Entity:EntryReport {uid: $report, entity_type: 'entry_report',
-        user_uid: $user, created_at: '2026-10-04T10:00:00+00:00'})
+        user_uid: $user, created_at: '2026-10-04T10:00:00+00:00', title: $report})
 CREATE (report)-[:REPORT_FOR]->(reported)
 CREATE (u)-[:OWNS]->(:Entity:UserEntry {uid: $ue_journal, entity_type: 'user_entry', user_uid: $user,
-        pipeline: 'extract_activities', status: 'completed', created_at: '2026-10-05T10:00:00+00:00'})
+        pipeline: 'extract_activities', status: 'completed', created_at: '2026-10-05T10:00:00+00:00', title: $ue_journal})
 CREATE (u)-[:OWNS]->(:Entity:UserEntry {uid: $ue_plain, entity_type: 'user_entry', user_uid: $user,
-        pipeline: 'none', status: 'completed', created_at: '2026-10-06T10:00:00+00:00'})
+        pipeline: 'none', status: 'completed', created_at: '2026-10-06T10:00:00+00:00', title: $ue_plain})
 CREATE (o)-[:OWNS]->(:Entity:UserEntry {uid: $ue_foreign, entity_type: 'user_entry', user_uid: $other,
-        pipeline: 'teacher_review', status: 'submitted', created_at: '2026-10-07T10:00:00+00:00'})
+        pipeline: 'teacher_review', status: 'submitted', created_at: '2026-10-07T10:00:00+00:00', title: $ue_foreign})
 """
 
 

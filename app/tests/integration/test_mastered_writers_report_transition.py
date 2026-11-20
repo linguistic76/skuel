@@ -34,7 +34,7 @@ KU_DRAFT = "ku.flag.draft"
 @pytest_asyncio.fixture
 async def graph(neo4j_driver, clean_neo4j) -> None:
     async with neo4j_driver.session() as session:
-        await session.run("MERGE (u:User {uid: $u})", u=USER)
+        await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=USER)
         await session.run(
             """
             CREATE (:Entity:Ku {uid: $a, entity_type: 'ku', title: 'A'})

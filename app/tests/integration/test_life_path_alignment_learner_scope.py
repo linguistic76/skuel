@@ -192,7 +192,7 @@ class TestLifePathAlignmentLearnerScope:
 
         async with neo4j_driver.session() as session:
             for user in (USER, OTHER_USER):
-                await session.run("MERGE (u:User {uid: $u})", u=user)
+                await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=user)
 
             # Two learning paths. Designation promotes exactly one of them, so
             # OTHER_PATH is the control on "the path read is keyed on the
@@ -588,7 +588,7 @@ class TestLifePathAlignmentLearnerScope:
         """
         bare_user = seed_user_uid("life_path_no_activity")
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=bare_user)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=bare_user)
             await session.run(
                 """
                 CREATE (p:Entity:LearningPath {uid: 'lp.bare', entity_type: 'learning_path',
@@ -679,7 +679,7 @@ class TestLifePathAlignmentLearnerScope:
         """
         empty_user = seed_user_uid("life_path_empty")
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=empty_user)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=empty_user)
             await session.run(
                 """
                 CREATE (p:Entity:LearningPath {uid: 'lp.stepless',

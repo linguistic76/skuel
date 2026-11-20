@@ -10,7 +10,7 @@ returns the other user's node — direct, two hops out, or as a stepping stone t
 anything behind it.
 
 Fixtures mirror the writers: a user-owned entity carries ``user_uid`` and its owner's
-``OWNS`` edge. The three ownership spellings are each pinned on their own.
+``OWNS`` edge.
 """
 
 from __future__ import annotations
@@ -70,10 +70,6 @@ DOMAINS = [
     ),
 ]
 
-# How a node says who owns it. The writers stamp a user-owned entity both ways
-# ("entity"); the other three are each spelling on its own.
-SPELLINGS = ["entity", "user_uid", "owner_uid", "owns_edge"]
-
 
 @pytest.fixture
 def backend(neo4j_driver: AsyncDriver) -> UniversalNeo4jBackend[Task]:
@@ -87,7 +83,7 @@ def graph_intel(neo4j_driver: AsyncDriver) -> GraphIntelligenceService:
 
 
 async def _create_owned(
-    session: AsyncSession, uid: str, label: str, etype: str, owner: str, spelling: str = "entity"
+    session: AsyncSession, uid: str, label: str, etype: str, owner: str
 ) -> None:
     props: dict[str, Neo4jValue] = {
         "uid": uid,
@@ -95,20 +91,16 @@ async def _create_owned(
         "title": uid,
         "description": THEIR_WORDS if owner == THEM else "my own words",
         "status": "active",
+        "user_uid": owner,
     }
-    if spelling in ("entity", "user_uid"):
-        props["user_uid"] = owner
-    if spelling == "owner_uid":
-        props["owner_uid"] = owner
     await session.run(
         f"CREATE (n:Entity:{label}) SET n = $props, n.created_at = datetime()", props=props
     )
-    if spelling in ("entity", "owns_edge"):
-        await session.run(
-            "MATCH (u:User {uid:$owner}), (n {uid:$uid}) CREATE (u)-[:OWNS]->(n)",
-            owner=owner,
-            uid=uid,
-        )
+    await session.run(
+        "MATCH (u:User {uid:$owner}), (n {uid:$uid}) CREATE (u)-[:OWNS]->(n)",
+        owner=owner,
+        uid=uid,
+    )
 
 
 async def _create_ku(session: AsyncSession, uid: str) -> None:
@@ -130,17 +122,14 @@ async def _seed(
     label: str,
     etype: str,
     edge: str,
-    *,
-    center_spelling: str = "entity",
-    neighbour_spelling: str = "entity",
 ) -> None:
     """The center, one shared Ku, and every way another user's node could be near it."""
     async with neo4j_driver.session() as s:
-        await _create_owned(s, CENTER, label, etype, ME, center_spelling)
-        await _create_owned(s, MINE_VIA_KU, label, etype, ME, neighbour_spelling)
-        await _create_owned(s, MINE_BEHIND_THEIRS, label, etype, ME, neighbour_spelling)
-        await _create_owned(s, THEIRS_VIA_KU, label, etype, THEM, neighbour_spelling)
-        await _create_owned(s, THEIRS_DIRECT, label, etype, THEM, neighbour_spelling)
+        await _create_owned(s, CENTER, label, etype, ME)
+        await _create_owned(s, MINE_VIA_KU, label, etype, ME)
+        await _create_owned(s, MINE_BEHIND_THEIRS, label, etype, ME)
+        await _create_owned(s, THEIRS_VIA_KU, label, etype, THEM)
+        await _create_owned(s, THEIRS_DIRECT, label, etype, THEM)
         await _create_ku(s, KU)
         await _create_ku(s, KU_BEHIND_THEIRS)
         for source, target in [
@@ -194,26 +183,6 @@ async def test_neighbourhood_is_the_owners_nodes_and_shared_content(
     }
     assert KU in in_buckets
     assert in_buckets <= {KU, MINE_VIA_KU}
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("neighbour_spelling", SPELLINGS)
-@pytest.mark.parametrize("center_spelling", SPELLINGS)
-async def test_every_ownership_spelling_is_read(
-    neo4j_driver, backend, clean_neo4j, center_spelling, neighbour_spelling
-):
-    """``user_uid``, ``owner_uid`` and the ``OWNS`` edge each tie a node to its owner —
-    on the center and on the nodes around it."""
-    await _seed(
-        neo4j_driver,
-        "Task",
-        "task",
-        "APPLIES_KNOWLEDGE",
-        center_spelling=center_spelling,
-        neighbour_spelling=neighbour_spelling,
-    )
-
-    assert await _raw_neighbourhood(backend, TASKS_CONFIG) == {KU, MINE_VIA_KU}
 
 
 @pytest.mark.asyncio

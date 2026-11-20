@@ -41,8 +41,8 @@ async def curriculum_group_fixture(neo4j_driver):
     # Create users, group, and curriculum entities authored by the teacher
     await neo4j_driver.execute_query(
         """
-        MERGE (t:User {uid: $teacher_uid}) SET t.name = 'Teacher'
-        MERGE (s:User {uid: $student_uid}) SET s.name = 'Student'
+        MERGE (t:User {uid: $teacher_uid}) ON CREATE SET t.title = $teacher_uid SET t.name = 'Teacher'
+        MERGE (s:User {uid: $student_uid}) ON CREATE SET s.title = $student_uid SET s.name = 'Student'
         MERGE (g:Group {uid: $group_uid})
           SET g.name = 'Unified Sharing Test',
               g.owner_uid = $teacher_uid,
@@ -214,7 +214,7 @@ async def test_share_with_group_rejects_non_member_non_owner(
     stranger_entity_uid = "ue.stranger-attempt"
     await neo4j_driver.execute_query(
         """
-        MERGE (u:User {uid: $user_uid})
+        MERGE (u:User {uid: $user_uid}) ON CREATE SET u.title = $user_uid
         MERGE (e:Entity {uid: $entity_uid})
           SET e.entity_type = 'user_entry',
               e.status = 'completed',

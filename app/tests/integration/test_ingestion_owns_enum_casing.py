@@ -44,7 +44,8 @@ async def exercise_teacher(neo4j_driver):
     """The teacher the exercise files name — minted here, so removed here."""
     async with neo4j_driver.session() as session:
         await session.run(
-            "MERGE (u:User {uid: $uid}) SET u.role = 'teacher'", uid=EXERCISE_TEACHER_UID
+            "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid SET u.role = 'teacher'",
+            uid=EXERCISE_TEACHER_UID,
         )
     yield EXERCISE_TEACHER_UID
     async with neo4j_driver.session() as session:

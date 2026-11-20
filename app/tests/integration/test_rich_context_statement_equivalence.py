@@ -184,16 +184,16 @@ CREATE (u)-[:OWNS]->(moc)
 CREATE (moc)-[:ORGANIZES {order: 1}]->(ku_a)
 CREATE (moc)-[:ORGANIZES {order: 2}]->(ku_b)
 CREATE (ar_old:Entity:ActivityReport {uid: 'ar.eq.old', entity_type: 'activity_report', time_period: '2026-08',
-                                      period_end: '2026-08-31', processed_content: 'Older'})
+                                      period_end: '2026-08-31', processed_content: 'Older', title: 'ar.eq.old', user_uid: u.uid})
 CREATE (ar_new:Entity:ActivityReport {uid: 'ar.eq.new', entity_type: 'activity_report', time_period: '2026-W36',
                                       period_end: '2026-09-07', processed_content: 'Latest',
-                                      user_annotation: 'note'})
+                                      user_annotation: 'note', title: 'ar.eq.new', user_uid: u.uid})
 // An admin's report about the user is the user's own (Submit & Share arc R11) and the
 // newest by period — and never the latest report for intelligence: it is a
 // review, not the user's generation.
 CREATE (ar_admin:Entity:ActivityReport {uid: 'ar.eq.admin', entity_type: 'activity_report', time_period: '2026-W38',
                                         period_end: '2026-09-21', processed_content: 'Admin review',
-                                        processor_type: 'human', created_by: $admin})
+                                        processor_type: 'human', created_by: $admin, title: 'ar.eq.admin', user_uid: u.uid})
 CREATE (u)-[:OWNS]->(ar_old) CREATE (u)-[:OWNS]->(ar_new) CREATE (u)-[:OWNS]->(ar_admin)
 CREATE (i_live:Insight {uid: 'ins.eq.active', insight_type: 'cross_domain', title: 'Live insight', impact: 'high',
                         confidence: 0.9, dismissed: false, actioned: false})
@@ -238,7 +238,8 @@ _SEED_COMPLETIONS = """
 MATCH (u:User {uid: $user_uid})
 UNWIND $stamps AS stamp
 CREATE (hc:HabitCompletion {uid: 'hc.eq.' + left(stamp, 10), habit_uid: 'habit.eq.active',
-                            user_uid: $user_uid, completed_at: stamp})
+                            user_uid: $user_uid, completed_at: stamp,
+                            created_at: stamp, updated_at: stamp})
 CREATE (u)-[:OWNS]->(hc)
 """
 

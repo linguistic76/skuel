@@ -112,7 +112,7 @@ async def graph(neo4j_driver, clean_neo4j):
 
     async with neo4j_driver.session() as session:
         for uid in (*DESIGNATED, USER_OTHER):
-            await session.run("MERGE (u:User {uid: $u})", u=uid)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=uid)
 
         await session.run(
             """

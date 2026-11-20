@@ -85,7 +85,7 @@ class TestDefaultGroup:
     async def test_the_merge_lands_on_the_derived_uid_flagged_and_once(
         self, neo4j_driver: AsyncDriver, clean_neo4j: None
     ) -> None:
-        await _rows(neo4j_driver, "MERGE (:User {uid: $t})", t=TEACHER)
+        await _rows(neo4j_driver, "MERGE (u:User {uid: $t}) ON CREATE SET u.title = $t", t=TEACHER)
         groups = build_production_backends(neo4j_driver)["group_backend"]
         try:
             first = await groups.get_or_create_default_group(TEACHER, "2026-10-23T12:00:00+00:00")
@@ -113,16 +113,20 @@ class TestSimilaritySourceContents:
         await _rows(
             neo4j_driver,
             """
-            CREATE (:Entity:UserEntry {uid: $minted, content: 'a body', metadata: '{}'})
-            CREATE (:Entity:UserEntry {uid: $periodic, content: 'a day', metadata: $periodic_md})
-            CREATE (:Entity:UserEntry {uid: $broken, content: 'a body', metadata: '{not json'})
-            CREATE (:Entity:Task {uid: $task, content: 'a body'})
+            CREATE (:Entity:UserEntry {uid: $minted, content: 'a body', metadata: '{}', title: 'Minted',
+                                       user_uid: $owner})
+            CREATE (:Entity:UserEntry {uid: $periodic, content: 'a day', metadata: $periodic_md,
+                                       title: 'Daily', user_uid: $owner})
+            CREATE (:Entity:UserEntry {uid: $broken, content: 'a body', metadata: '{not json',
+                                       title: 'Broken', user_uid: $owner})
+            CREATE (:Entity:Task {uid: $task, content: 'a body', title: 'Task', user_uid: $owner})
             """,
             minted=MINTED,
             periodic=PERIODIC,
             periodic_md=json.dumps({"entry_kind": "daily", "period_key": "2026-10-23"}),
             broken=BROKEN,
             task=TASK,
+            owner=TEACHER,
         )
         backend = build_production_backends(neo4j_driver)["ingestion_backend"]
 

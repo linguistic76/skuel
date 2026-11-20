@@ -26,6 +26,9 @@ import pytest
 from core.models.relationship_registry import EVENTS_CONFIG, TASKS_CONFIG
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
+
+OWNER = seed_user_uid("intsrc_owner")  # owns every seeded activity
 
 P = "intsrc."  # uid prefix for this module's fixture graph
 
@@ -70,9 +73,10 @@ async def test_tasks_registry_sourced_traversal(neo4j_driver, graph_intel, clean
             (NOISE, "Task", "task"),
         ]:
             await s.run(
-                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
+                o=seed_owner(label, OWNER),
                 t=etype,
             )
         await s.run(
@@ -140,9 +144,10 @@ async def test_events_registry_sourced_traversal(neo4j_driver, graph_intel, clea
             (EVT_HABIT, "Habit", "habit"),
         ]:
             await s.run(
-                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
+                o=seed_owner(label, OWNER),
                 t=etype,
             )
         await s.run(
@@ -211,9 +216,10 @@ async def test_registry_sourced_excludes_non_registry_tail_at_depth_2(
             (D2_NOISE, "Task", "task"),
         ]:
             await s.run(
-                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
+                o=seed_owner(label, OWNER),
                 t=etype,
             )
         await s.run(
@@ -260,9 +266,10 @@ async def test_registry_sourced_no_edges_yields_empty_context(
     bare = P + "isolated-task"
     async with neo4j_driver.session() as s:
         await s.run(
-            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=bare,
+            o=OWNER,
         )
 
     res = await graph_intel.query_with_intent(

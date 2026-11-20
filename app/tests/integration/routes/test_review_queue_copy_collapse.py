@@ -120,13 +120,13 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (t:User {uid: $teacher})
-            MERGE (ot:User {uid: $other_teacher})
-            MERGE (s1:User {uid: $student_1})
-            MERGE (s2:User {uid: $student_2})
-            MERGE (g:Group {uid: $group}) SET g.is_active = true
-            MERGE (g2:Group {uid: $other_group}) SET g2.is_active = true
-            MERGE (g3:Group {uid: $inactive_group}) SET g3.is_active = false
+            MERGE (t:User {uid: $teacher}) ON CREATE SET t.title = $teacher
+            MERGE (ot:User {uid: $other_teacher}) ON CREATE SET ot.title = $other_teacher
+            MERGE (s1:User {uid: $student_1}) ON CREATE SET s1.title = $student_1
+            MERGE (s2:User {uid: $student_2}) ON CREATE SET s2.title = $student_2
+            MERGE (g:Group {uid: $group}) ON CREATE SET g.name = $group SET g.is_active = true
+            MERGE (g2:Group {uid: $other_group}) ON CREATE SET g2.name = $other_group SET g2.is_active = true
+            MERGE (g3:Group {uid: $inactive_group}) ON CREATE SET g3.name = $inactive_group SET g3.is_active = false
             MERGE (t)-[:OWNS]->(g)
             MERGE (ot)-[:OWNS]->(g2)
             MERGE (t)-[:OWNS]->(g3)
@@ -149,78 +149,78 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 uid: $s1_rev1, entity_type: 'user_entry', title: 'S1 turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_1, turn_in_exercise_title: 'Exercise one',
-                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (a2:Entity:UserEntry {
                 uid: $s1_rev2, entity_type: 'user_entry', title: 'S1 turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_1, turn_in_exercise_title: 'Exercise one',
-                created_at: datetime() - duration('PT1H'), updated_at: datetime()
+                created_at: datetime() - duration('PT1H'), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (ai:Entity:UserEntry {
                 uid: $s1_ai, entity_type: 'user_entry', title: 'S1 AI feedback run',
                 status: 'active', pipeline: 'llm_summary',
                 turn_in_exercise_uid: $ex_1, turn_in_exercise_title: 'Exercise one',
-                created_at: datetime(), updated_at: datetime()
+                created_at: datetime(), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (lone:Entity:UserEntry {
                 uid: $s1_lone, entity_type: 'user_entry', title: 'S1 standalone',
                 status: 'submitted', pipeline: 'teacher_review',
-                created_at: datetime(), updated_at: datetime()
+                created_at: datetime(), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (b1:Entity:UserEntry {
                 uid: $s2_ex1, entity_type: 'user_entry', title: 'S2 turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_1, turn_in_exercise_title: 'Exercise one',
-                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime(), user_uid: s2.uid
             })
             CREATE (b2:Entity:UserEntry {
                 uid: $s2_ex1_other, entity_type: 'user_entry', title: 'S2 turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_1, turn_in_exercise_title: 'Exercise one',
-                created_at: datetime() - duration('PT1H'), updated_at: datetime()
+                created_at: datetime() - duration('PT1H'), updated_at: datetime(), user_uid: s2.uid
             })
             CREATE (c1:Entity:UserEntry {
                 uid: $s2_ex2_rev1, entity_type: 'user_entry', title: 'S2 second exercise',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_2, turn_in_exercise_title: 'Exercise two',
-                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime(), user_uid: s2.uid
             })
             CREATE (c2:Entity:UserEntry {
                 uid: $s2_ex2_rev2, entity_type: 'user_entry', title: 'S2 second exercise',
                 status: 'completed', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_2, turn_in_exercise_title: 'Exercise two',
-                created_at: datetime() - duration('PT1H'), updated_at: datetime()
+                created_at: datetime() - duration('PT1H'), updated_at: datetime(), user_uid: s2.uid
             })
             CREATE (d1:Entity:UserEntry {
                 uid: $s1_ex2_rev1, entity_type: 'user_entry', title: 'S1 second exercise',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_2, turn_in_exercise_title: 'Exercise two',
-                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (d2:Entity:UserEntry {
                 uid: $s1_ex2_rev2, entity_type: 'user_entry', title: 'S1 second exercise',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_2, turn_in_exercise_title: 'Exercise two',
-                created_at: datetime() - duration('PT1H'), updated_at: datetime()
+                created_at: datetime() - duration('PT1H'), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (w1:Entity:UserEntry {
                 uid: $s1_ex3_wait, entity_type: 'user_entry', title: 'S1 third exercise',
                 status: 'revision_requested', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_3, turn_in_exercise_title: 'Exercise three',
-                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (w2:Entity:UserEntry {
                 uid: $s2_ex3_rev1, entity_type: 'user_entry', title: 'S2 third exercise',
                 status: 'revision_requested', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_3, turn_in_exercise_title: 'Exercise three',
-                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime(), user_uid: s2.uid
             })
             CREATE (w3:Entity:UserEntry {
                 uid: $s2_ex3_rev2, entity_type: 'user_entry', title: 'S2 third exercise',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex_3, turn_in_exercise_title: 'Exercise three',
-                created_at: datetime() - duration('PT1H'), updated_at: datetime()
+                created_at: datetime() - duration('PT1H'), updated_at: datetime(), user_uid: s2.uid
             })
             MERGE (s1)-[:OWNS]->(a1)
             MERGE (s1)-[:OWNS]->(a2)
@@ -561,27 +561,27 @@ async def seeded_notes(seeded, neo4j_driver) -> None:
             CREATE (a1:Entity:UserEntry {
                 uid: $s1_a_v1, entity_type: 'user_entry', title: 'Note A',
                 status: 'submitted', pipeline: 'teacher_review', submitted_from_uid: $note_a,
-                created_at: datetime() - duration('PT3H'), updated_at: datetime()
+                created_at: datetime() - duration('PT3H'), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (a2:Entity:UserEntry {
                 uid: $s1_a_v2, entity_type: 'user_entry', title: 'Note A',
                 status: 'submitted', pipeline: 'teacher_review', submitted_from_uid: $note_a,
-                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (a3:Entity:UserEntry {
                 uid: $s1_a_share, entity_type: 'user_entry', title: 'Note A',
                 status: 'submitted', pipeline: 'none', submitted_from_uid: $note_a,
-                created_at: datetime() - duration('PT1H'), updated_at: datetime()
+                created_at: datetime() - duration('PT1H'), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (b1:Entity:UserEntry {
                 uid: $s1_b, entity_type: 'user_entry', title: 'Note B',
                 status: 'submitted', pipeline: 'teacher_review', submitted_from_uid: $note_b,
-                created_at: datetime() - duration('PT4H'), updated_at: datetime()
+                created_at: datetime() - duration('PT4H'), updated_at: datetime(), user_uid: s1.uid
             })
             CREATE (c1:Entity:UserEntry {
                 uid: $s2_a, entity_type: 'user_entry', title: 'Note A',
                 status: 'submitted', pipeline: 'teacher_review', submitted_from_uid: $note_a,
-                created_at: datetime() - duration('PT5H'), updated_at: datetime()
+                created_at: datetime() - duration('PT5H'), updated_at: datetime(), user_uid: s2.uid
             })
             MERGE (s1)-[:OWNS]->(a1)
             MERGE (s1)-[:OWNS]->(a2)
@@ -679,7 +679,7 @@ async def seeded_second_class(seeded, neo4j_driver) -> None:
         await session.run(
             """
             MATCH (t:User {uid: $teacher}), (s1:User {uid: $student_1})
-            MERGE (g:Group {uid: $second}) SET g.is_active = true
+            MERGE (g:Group {uid: $second}) ON CREATE SET g.name = $second SET g.is_active = true
             MERGE (t)-[:OWNS]->(g)
             MERGE (s1)-[:MEMBER_OF]->(g)
             WITH g, s1

@@ -58,12 +58,12 @@ FS_SHARED_INACTIVE = f"fs.{PREFIX}-shared-inactive"
 FS_STANDALONE = f"fs.{PREFIX}-standalone"
 
 _SEED = """
-CREATE (ta:User {uid: $ta}), (tb:User {uid: $tb}), (tc:User {uid: $tc}),
-       (s1:User {uid: $s1}),
-       (gx:Group {uid: $gx, is_active: true}),
-       (gy:Group {uid: $gy, is_active: true}),
-       (gz:Group {uid: $gz, is_active: true}),
-       (gi:Group {uid: $gi, is_active: false}),
+CREATE (ta:User {uid: $ta, title: $ta}), (tb:User {uid: $tb, title: $tb}), (tc:User {uid: $tc, title: $tc}),
+       (s1:User {uid: $s1, title: $s1}),
+       (gx:Group {uid: $gx, is_active: true, name: $gx}),
+       (gy:Group {uid: $gy, is_active: true, name: $gy}),
+       (gz:Group {uid: $gz, is_active: true, name: $gz}),
+       (gi:Group {uid: $gi, is_active: false, name: $gi}),
        (ft:Entity {uid: $ft, entity_type: 'form_template'}),
        (fs1:Entity {uid: $fs1, entity_type: 'form_submission', created_at: '2026-01-01'}),
        (fs2:Entity {uid: $fs2, entity_type: 'form_submission', created_at: '2026-01-02'}),
@@ -759,7 +759,7 @@ class TestShareWithDefaultAudience:
         inventing one would expose answers to a classroom they are not in."""
         await gate_backend.execute_query(
             """
-            CREATE (u:User {uid: $u})
+            CREATE (u:User {uid: $u, title: $u})
             CREATE (fs:Entity {uid: $fs, entity_type: 'form_submission'})
             CREATE (u)-[:OWNS]->(fs)
             """,

@@ -77,16 +77,16 @@ async def old_graph(neo4j_driver: AsyncDriver, clean_neo4j: None) -> AsyncIterat
     await _run(
         neo4j_driver,
         """
-        MERGE (u:User {uid: $owner})
+        MERGE (u:User {uid: $owner}) ON CREATE SET u.title = 'Seed user'
         CREATE (u)-[:OWNS]->(daily:Entity:UserEntry {
             uid: $daily, user_uid: $owner, entity_type: 'user_entry',
-            pipeline: 'extract_activities', metadata: $daily_md, embedding: $vector})
+            pipeline: 'extract_activities', metadata: $daily_md, embedding: $vector, title: 'Seed'})
         CREATE (u)-[:OWNS]->(:Entity:UserEntry {
             uid: $weekly, user_uid: $owner, entity_type: 'user_entry',
-            pipeline: 'none', metadata: $weekly_md})
+            pipeline: 'none', metadata: $weekly_md, title: 'Seed'})
         CREATE (u)-[:OWNS]->(:Entity:UserEntry {
-            uid: $plain, user_uid: $owner, entity_type: 'user_entry', metadata: '{}'})
-        CREATE (u)-[:OWNS]->(:Entity:Task {uid: $task, user_uid: $owner})
+            uid: $plain, user_uid: $owner, entity_type: 'user_entry', metadata: '{}', title: 'Seed'})
+        CREATE (u)-[:OWNS]->(:Entity:Task {uid: $task, user_uid: $owner, title: 'Seed'})
                -[:EXTRACTED_FROM {vault_id: 'sk_abc123'}]->(daily)
         CREATE (:IngestionMetadata {file_path: $vault_file, entity_uid: $daily})
         CREATE (:IngestionMetadata {file_path: '/vault/knowledge/plain.md', entity_uid: $plain})
@@ -188,7 +188,7 @@ class TestTheRename:
             """
             MATCH (u:User {uid: $owner})
             CREATE (u)-[:OWNS]->(:Entity:UserEntry {
-                uid: $new, user_uid: $owner, entity_type: 'user_entry', metadata: $md})
+                uid: $new, user_uid: $owner, entity_type: 'user_entry', metadata: $md, title: 'Seed'})
             """,
             owner=OWNER,
             new=DAILY_NEW,
@@ -214,7 +214,7 @@ class TestTheRename:
             MATCH (u:User {uid: $owner})
             CREATE (u)-[:OWNS]->(:Entity:UserEntry {
                 uid: 'ue_bb22cc33', user_uid: $owner, entity_type: 'user_entry',
-                submitted_from_uid: $daily})
+                submitted_from_uid: $daily, title: 'Seed'})
             """,
             owner=OWNER,
             daily=DAILY_OLD,

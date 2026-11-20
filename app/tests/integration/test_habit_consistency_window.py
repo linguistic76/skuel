@@ -87,7 +87,7 @@ async def _seed_completion(
     user_uid: str,
     completion_uid: str,
     *,
-    completed_at: str | None,
+    completed_at: str,
     temporal_stamp: bool = False,
 ) -> None:
     """Own a HabitCompletion off the user — the shape every figure counts (ADR-086).
@@ -97,13 +97,11 @@ async def _seed_completion(
     ``completed_at`` as a native Neo4j ``datetime()`` instead of the ISO string,
     to prove the reader survives a writer that changes its mind.
     """
-    stamp_clause = ""
-    if completed_at is not None:
-        stamp_clause = (
-            "SET hc.completed_at = datetime($completed_at)"
-            if temporal_stamp
-            else "SET hc.completed_at = $completed_at"
-        )
+    stamp_clause = (
+        "SET hc.completed_at = datetime($completed_at)"
+        if temporal_stamp
+        else "SET hc.completed_at = $completed_at"
+    )
 
     async with neo4j_driver.session() as session:
         result = await session.run(
@@ -111,7 +109,9 @@ async def _seed_completion(
             MATCH (u:User {{uid: $user_uid}})
             MERGE (hc:HabitCompletion {{uid: $completion_uid}})
             SET hc.user_uid = $user_uid,
-                hc.habit_uid = 'habit.exercise'
+                hc.habit_uid = 'habit.exercise',
+                hc.created_at = datetime(),
+                hc.updated_at = datetime()
             {stamp_clause}
             MERGE (u)-[:OWNS]->(hc)
             """,
@@ -166,8 +166,6 @@ class TestHabitConsistencyWindow:
         await _seed_completion(
             neo4j_driver, WINDOW, "hc.out-ancient", completed_at=_at(TODAY - timedelta(days=200))
         )
-        # A record with no timestamp at all — excluded, not assumed recent.
-        await _seed_completion(neo4j_driver, WINDOW, "hc.out-unstamped", completed_at=None)
         # Stamped in the future — outside a *trailing* window until its day comes.
         await _seed_completion(
             neo4j_driver, WINDOW, "hc.out-future", completed_at=_at(TODAY + timedelta(days=1))
@@ -204,8 +202,8 @@ class TestHabitConsistencyWindow:
     # ====================================================================
 
     async def test_only_completions_inside_the_window_are_counted(self, seeded):
-        """Four of the user's eight records fall inside; four are excluded, each
-        for its own reason (too old, exactly DAYS old, unstamped, future)."""
+        """Four of the user's seven records fall inside; three are excluded, each
+        for its own reason (too old, exactly DAYS old, future)."""
         row = await self._read(seeded, WINDOW)
 
         assert row["completions_in_window"] == 4
@@ -323,13 +321,13 @@ class TestHabitConsistencyWindow:
         BULK owns six completions inside the same window as WINDOW's four, and
         STALE's oldest is older than any of WINDOW's. Each user must see only
         their own — a label-scoped read would report ten in the window and
-        seventeen in total for all three, and one shared first moment.
+        sixteen in total for all three, and one shared first moment.
         """
         window = await self._read(seeded, WINDOW)
         bulk = await self._read(seeded, BULK)
         stale = await self._read(seeded, STALE)
 
-        assert (window["completions_in_window"], window["total_completions"]) == (4, 8)
+        assert (window["completions_in_window"], window["total_completions"]) == (4, 7)
         assert (bulk["completions_in_window"], bulk["total_completions"]) == (6, 6)
         assert (stale["completions_in_window"], stale["total_completions"]) == (0, 3)
         assert window["first_completed_at"] == _moment(TODAY - timedelta(days=200))
@@ -342,17 +340,15 @@ class TestHabitConsistencyWindow:
     async def test_the_total_counts_every_record_and_the_moments_span_the_stamped_past(
         self, seeded
     ):
-        """WINDOW's eight records all count; the moments run from 200 days ago to today.
+        """WINDOW's seven records all count; the moments run from 200 days ago to today.
 
-        The unstamped record is a completion with no moment, so it is in the
-        total and names neither end; tomorrow's record is in the total too, and
-        has not happened yet. The latest moment is the native-typed row at 10:00
+        Tomorrow's record is in the total too, and has not happened yet. The latest moment is the native-typed row at 10:00
         today — later than the 09:00 string row — so the ordering compares
         instants across both storage shapes rather than the strings' digits.
         """
         row = await self._read(seeded, WINDOW)
 
-        assert row["total_completions"] == 8
+        assert row["total_completions"] == 7
         assert row["first_completed_at"] == _moment(TODAY - timedelta(days=200))
         assert row["last_completed_at"] == _moment(TODAY, hour=10)
 
@@ -406,7 +402,7 @@ class TestHabitConsistencyWindow:
         assert result.is_ok
         assert result.value["consistency_score"] == pytest.approx(_score_for(4))
         assert result.value["completions_in_window"] == 4
-        assert result.value["total_completions"] == 8
+        assert result.value["total_completions"] == 7
         assert result.value["consistency_window_days"] == HabitConsistencyWindow.DAYS
 
     async def test_a_habit_that_stopped_reports_zero(self, service, seeded):

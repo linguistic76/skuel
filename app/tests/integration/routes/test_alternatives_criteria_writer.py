@@ -117,15 +117,16 @@ async def two_goals(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (:Entity:Goal {uid: $source, title: 'Row the Atlantic',
+            CREATE (:Entity:Goal {uid: $source, title: 'Row the Atlantic', user_uid: $owner,
                                   entity_type: 'goal', status: 'active',
                                   priority: 'high', description: 'By boat'})
-            CREATE (:Entity:Goal {uid: $target, title: 'Cycle the Andes',
+            CREATE (:Entity:Goal {uid: $target, title: 'Cycle the Andes', user_uid: $owner,
                                   entity_type: 'goal', status: 'active',
                                   priority: 'medium', description: 'By bike'})
             """,
             source=SOURCE_UID,
             target=TARGET_UID,
+            owner=OWNER,
         )
     yield
     async with neo4j_driver.session() as session:

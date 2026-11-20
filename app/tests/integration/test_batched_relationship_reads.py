@@ -68,7 +68,7 @@ async def _seed_owned(
     await _run(
         neo4j_driver,
         f"""
-        MERGE (u:User {{uid: $owner}})
+        MERGE (u:User {{uid: $owner}}) ON CREATE SET u.title = $owner
         WITH u
         UNWIND range($first, $last) AS i
         CREATE (n:Entity:{label} {{

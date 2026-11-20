@@ -97,7 +97,7 @@ class TestEventKuPracticeFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MERGE (u:User {uid: $user_uid})
+                MERGE (u:User {uid: $user_uid}) ON CREATE SET u.title = $user_uid
                 ON CREATE SET u.created_at = datetime()
                 RETURN u
                 """,
@@ -555,9 +555,9 @@ class TestIncrementSubstanceGrain:
             await session.run(
                 """
                 CREATE (:Entity:Task {uid: 'task.test-someones', entity_type: 'task',
-                                      user_uid: $someone})
+                                      user_uid: $someone, title: 'task.test-someones'})
                 CREATE (:Entity:Exercise {uid: 'ex.test-someones', entity_type: 'exercise',
-                                          owner_uid: $someone})
+                                          owner_uid: $someone, title: 'ex.test-someones'})
                 """,
                 someone=seed_user_uid("someone"),
             )

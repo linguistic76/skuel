@@ -206,7 +206,7 @@ async def test_a_note_shared_with_the_viewer_is_still_not_grounded(neo4j_driver,
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (bob:User {uid: $bob})
+            MERGE (bob:User {uid: $bob}) ON CREATE SET bob.title = $bob
             WITH bob
             MATCH (note:Entity {uid: $note})
             MERGE (bob)-[:SHARES_WITH {shared_at: datetime(), role: 'viewer'}]->(note)

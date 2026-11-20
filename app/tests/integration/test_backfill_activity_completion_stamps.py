@@ -35,6 +35,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
 import backfill_activity_completion_stamps as migration  # type: ignore[import-not-found]
 
+from tests.helpers.seed_uids import seed_user_uid
+
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 STAMPED = "2026-04-02"
@@ -58,19 +60,19 @@ async def seeded(neo4j_driver):
         await session.run(
             """
             CREATE (:Entity:Task {uid: $t_unstamped, entity_type: 'task',
-                status: 'completed', updated_at: $unstamped_at})
+                status: 'completed', updated_at: $unstamped_at, title: $t_unstamped, user_uid: $seed_owner})
             CREATE (:Entity:Task {uid: $t_native, entity_type: 'task',
-                status: 'completed', updated_at: datetime($unstamped_at)})
+                status: 'completed', updated_at: datetime($unstamped_at), title: $t_native, user_uid: $seed_owner})
             CREATE (:Entity:Task {uid: $t_stamped, entity_type: 'task',
-                status: 'completed', completion_date: $stamped, updated_at: $edited_at})
+                status: 'completed', completion_date: $stamped, updated_at: $edited_at, title: $t_stamped, user_uid: $seed_owner})
             CREATE (:Entity:Task {uid: $t_active, entity_type: 'task',
-                status: 'active', updated_at: $edited_at})
+                status: 'active', updated_at: $edited_at, title: $t_active, user_uid: $seed_owner})
             CREATE (:Entity:Goal {uid: $g_unstamped, entity_type: 'goal',
-                status: 'completed', updated_at: $unstamped_at})
+                status: 'completed', updated_at: $unstamped_at, title: $g_unstamped, user_uid: $seed_owner})
             CREATE (:Entity:Choice {uid: $c_unstamped, entity_type: 'choice',
-                status: 'completed', updated_at: $unstamped_at})
+                status: 'completed', updated_at: $unstamped_at, title: $c_unstamped, user_uid: $seed_owner})
             CREATE (:Entity:Principle {uid: $p_illegal, entity_type: 'principle',
-                status: 'completed', updated_at: $unstamped_at})
+                status: 'completed', updated_at: $unstamped_at, title: $p_illegal, user_uid: $seed_owner})
             """,
             t_unstamped=_UIDS[0],
             t_native=_UIDS[1],
@@ -82,6 +84,7 @@ async def seeded(neo4j_driver):
             stamped=STAMPED,
             edited_at=EDITED_AT,
             unstamped_at=UNSTAMPED_AT,
+            seed_owner=seed_user_uid("bf_stamps_owner"),
         )
     yield
     async with neo4j_driver.session() as session:

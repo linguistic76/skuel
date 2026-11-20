@@ -34,6 +34,9 @@ from core.models.relationship_registry import GOALS_CONFIG
 from core.services.mixins.link_edge_guard import HABIT_FAR_END
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from tests.helpers.production_backends import build_production_backends
+from tests.helpers.seed_uids import seed_user_uid
+
+OWNER = seed_user_uid("esstest_owner")  # owns every seeded activity
 
 P = "esstest."
 GOAL = P + "goal"
@@ -60,15 +63,17 @@ def goal_rel(rel_backend):
 
 async def _seed_goal_and_habits(session, goal_uid: str, habit_uids: list[str]) -> None:
     await session.run(
-        "CREATE (n:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+        "CREATE (n:Entity:Goal {uid:$u, entity_type:'goal', title:$u, user_uid:$o, "
         "status:'active', created_at:datetime()})",
         u=goal_uid,
+        o=OWNER,
     )
     for uid in habit_uids:
         await session.run(
-            "CREATE (n:Entity:Habit {uid:$u, entity_type:'habit', title:$u, "
+            "CREATE (n:Entity:Habit {uid:$u, entity_type:'habit', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=uid,
+            o=OWNER,
         )
 
 

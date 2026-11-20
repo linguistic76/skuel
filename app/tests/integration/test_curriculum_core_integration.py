@@ -998,12 +998,12 @@ class TestPrerequisiteChainWithDistance:
         async with neo4j_driver.session() as session:
             await session.run(
                 f"""
-                CREATE (a:Entity:PathStep {{uid: 'ps.reach-a', entity_type: 'path_step'}})
+                CREATE (a:Entity:PathStep {{uid: 'ps.reach-a', entity_type: 'path_step', title: 'ps.reach-a'}})
                 CREATE (d:Entity:PathStep {{uid: 'ps.reach-draft', entity_type: 'path_step',
-                                            publication_state: 'draft'}})
-                CREATE (p:Entity:PathStep {{uid: 'ps.reach-p', entity_type: 'path_step'}})
-                CREATE (q:Entity:PathStep {{uid: 'ps.reach-q', entity_type: 'path_step'}})
-                CREATE (x:Entity:PathStep {{uid: 'ps.reach-x', entity_type: 'path_step'}})
+                                            publication_state: 'draft', title: 'ps.reach-draft'}})
+                CREATE (p:Entity:PathStep {{uid: 'ps.reach-p', entity_type: 'path_step', title: 'ps.reach-p'}})
+                CREATE (q:Entity:PathStep {{uid: 'ps.reach-q', entity_type: 'path_step', title: 'ps.reach-q'}})
+                CREATE (x:Entity:PathStep {{uid: 'ps.reach-x', entity_type: 'path_step', title: 'ps.reach-x'}})
                 CREATE (a)-[:{know_rel.value}]->(d)-[:{know_rel.value}]->(x)
                 CREATE (a)-[:{know_rel.value}]->(p)-[:{know_rel.value}]->(q)
                 CREATE (q)-[:{know_rel.value}]->(x)

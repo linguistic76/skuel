@@ -29,7 +29,7 @@ from adapters.persistence.neo4j.graph_driver import (
 )
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 from tests.helpers.production_backends import build_ingestion_service, build_production_backends
-from tests.helpers.seed_uids import seed_user_uid
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
 from tests.integration import _graph_census
 from tests.integration._container_lifecycle import bounded_neo4j_container
 from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION, running_kernel_version
@@ -587,7 +587,7 @@ async def create_moc_test_user(neo4j_driver):
     async with neo4j_driver.session() as session:
         result = await session.run(
             """
-            MERGE (u:User {uid: $user_uid})
+            MERGE (u:User {uid: $user_uid}) ON CREATE SET u.title = $user_uid
             ON CREATE SET u.created_at = datetime($created_at)
             RETURN u
             """,
@@ -857,14 +857,23 @@ async def create_relationship(neo4j_driver):
                 props_clause = " {" + ", ".join(props_parts) + "}"
 
             # Create query with MERGE for nodes and CREATE for relationship
+            # Each end takes the properties its class requires: a title, and an owner
+            # when it is a user's activity (curriculum has none).
             query = f"""
                 MERGE (a:{from_label} {{uid: $from_uid}})
+                  ON CREATE SET a.title = $from_uid, a.user_uid = $from_owner
                 MERGE (b:{to_label} {{uid: $to_uid}})
+                  ON CREATE SET b.title = $to_uid, b.user_uid = $to_owner
                 CREATE (a)-[r:{rel_type}{props_clause}]->(b)
                 RETURN r
             """
 
-            params = {"from_uid": from_uid, "to_uid": to_uid}
+            params = {
+                "from_uid": from_uid,
+                "to_uid": to_uid,
+                "from_owner": seed_owner(from_label, seed_user_uid("relationship_seed")),
+                "to_owner": seed_owner(to_label, seed_user_uid("relationship_seed")),
+            }
             if properties:
                 params.update(properties)
 

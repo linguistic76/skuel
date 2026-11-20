@@ -51,7 +51,7 @@ BOB = seed_user_uid(f"{MARK}_bob")
 
 GOAL = f"goal.{MARK}-alice"
 GOAL_TWO = f"goal.{MARK}-alice-two"
-GOAL_SHARED_SOURCE = f"goal.{MARK}-nobodys"  # a goal nobody owns
+KU_ANCHOR = f"ku.{MARK}-anchor"  # published curriculum: an anchor nobody owns
 HABIT = f"habit.{MARK}-alice"
 HABIT_TWO = f"habit.{MARK}-alice-two"
 HABIT_BOB = f"habit.{MARK}-bob"
@@ -117,7 +117,8 @@ async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
     await _run(
         driver,
         """
-        CREATE (:Entity:Goal {uid: $nobodys, title: $nobodys, entity_type: 'goal'})
+        CREATE (:Entity:Ku {uid: $anchor, title: $anchor, entity_type: 'ku',
+                            publication_state: 'published'})
         CREATE (:Entity:Ku {uid: $ku, title: $ku, entity_type: 'ku',
                             publication_state: 'published'})
         CREATE (:Entity:Ku {uid: $draft, title: $draft, entity_type: 'ku',
@@ -125,12 +126,16 @@ async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
         CREATE (:Entity:Ku {uid: $ku_two, title: $ku_two, entity_type: 'ku'})
         WITH 1 AS one
         MATCH (alice:User {uid: $alice})
-        CREATE (g:Group {uid: $group, title: $group, owner_uid: $alice})
+        CREATE (g:Group {uid: $group, title: $group, owner_uid: $alice, name: $group})
         CREATE (alice)-[:OWNS]->(g)
-        CREATE (:Session {uid: $session, user_uid: $alice})
-        CREATE (alice)-[:OWNS]->(:HabitCompletion {uid: $completion, user_uid: $alice})
+        CREATE (:Session {uid: $session, user_uid: $alice, created_at: datetime(),
+                          expires_at: datetime() + duration('P1D'), last_active_at: datetime(),
+                          ip_address: '127.0.0.1', user_agent: 'test'})
+        CREATE (alice)-[:OWNS]->(:HabitCompletion {uid: $completion, user_uid: $alice,
+                                                   habit_uid: $completion, completed_at: datetime(),
+                                                   created_at: datetime(), updated_at: datetime()})
         """,
-        nobodys=GOAL_SHARED_SOURCE,
+        anchor=KU_ANCHOR,
         ku=KU,
         draft=KU_DRAFT,
         ku_two=KU_TWO,
@@ -246,15 +251,15 @@ class TestTheWriteReassertsTheRule:
         await _clear_links(graph)
 
         refused = await backend.write_guarded_links(
-            GOAL_SHARED_SOURCE, [_habits(HABIT)], anchor_owners=NOBODY
+            KU_ANCHOR, [_habits(HABIT)], anchor_owners=NOBODY
         )
         linked = await backend.write_guarded_links(
-            GOAL_SHARED_SOURCE, [_knowledge(KU)], anchor_owners=NOBODY
+            KU_ANCHOR, [_knowledge(KU)], anchor_owners=NOBODY
         )
 
         assert refused.value.refused_uid == HABIT
         assert linked.value.refused_uid is None
-        assert await _links(graph, GOAL_SHARED_SOURCE) == {(REQUIRES_KNOWLEDGE.value, KU)}
+        assert await _links(graph, KU_ANCHOR) == {(REQUIRES_KNOWLEDGE.value, KU)}
 
     async def test_an_anchor_that_names_nothing_is_refused(
         self, backend: UniversalNeo4jBackend[Entity]

@@ -67,6 +67,7 @@ async def _seed_legacy(neo4j_driver) -> None:
                                         entity_type: 'exercise', status: 'active'})
             CREATE (s1:Entity:ExerciseSubmission {
                 uid: 'legacy.es.1',
+                title: 'Legacy es.1',
                 entity_type: 'exercise_submission',
                 user_uid: $user_mig_student,
                 status: 'submitted',
@@ -75,6 +76,7 @@ async def _seed_legacy(neo4j_driver) -> None:
             })
             CREATE (s2:Entity:ExerciseSubmission {
                 uid: 'legacy.es.2',
+                title: 'Legacy es.2',
                 entity_type: 'exercise_submission',
                 user_uid: $user_mig_student,
                 status: 'submitted',
@@ -82,6 +84,7 @@ async def _seed_legacy(neo4j_driver) -> None:
             })
             CREATE (j1:Entity:JeInput {
                 uid: 'legacy.ji.audio',
+                title: 'Legacy ji.audio',
                 entity_type: 'je_input',
                 user_uid: $user_mig_student,
                 status: 'active',
@@ -90,6 +93,7 @@ async def _seed_legacy(neo4j_driver) -> None:
             })
             CREATE (j2:Entity:JeInput {
                 uid: 'legacy.ji.text',
+                title: 'Legacy ji.text',
                 entity_type: 'je_input',
                 user_uid: $user_mig_student,
                 status: 'active',
@@ -98,6 +102,7 @@ async def _seed_legacy(neo4j_driver) -> None:
             })
             CREATE (o1:Entity:JeOutput {
                 uid: 'legacy.jo.1',
+                title: 'Legacy jo.1',
                 entity_type: 'je_output',
                 user_uid: $user_mig_student,
                 status: 'active',

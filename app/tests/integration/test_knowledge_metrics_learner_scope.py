@@ -166,8 +166,8 @@ class TestKnowledgeMetricsLearnerScope:
         stale = (now - timedelta(days=200)).isoformat()
 
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=USER)
-            await session.run("MERGE (u:User {uid: $u})", u=OTHER_USER)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=USER)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=OTHER_USER)
 
             # Every step carries a fresh updated_at so a reader that windows on
             # the NODE cannot distinguish them — only the edges differ.
@@ -466,7 +466,7 @@ class TestKnowledgeMetricsLearnerScope:
         """
         cn_user = seed_user_uid("contains_knowledge")
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=cn_user)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=cn_user)
             await session.run(
                 """
                 CREATE (p:Entity:PathStep {uid: 'ps.contains', entity_type: 'path_step',
@@ -525,7 +525,7 @@ class TestKnowledgeMetricsLearnerScope:
         """
         lone_user = seed_user_uid("step_without_kus")
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=lone_user)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=lone_user)
             await session.run(
                 """
                 CREATE (n:Entity:PathStep {uid: 'ps.teaches-nothing',
@@ -704,7 +704,7 @@ class TestKnowledgeMetricsLearnerScope:
         """
         writer_user = seed_user_uid("writer_paths")
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=writer_user)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=writer_user)
             for uid in ("ps.w-learning-state", "ps.w-mastered", "ps.w-read"):
                 await session.run(
                     """
@@ -751,7 +751,7 @@ class TestKnowledgeMetricsLearnerScope:
         """
         ku_user = seed_user_uid("ku_mastery")
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $u})", u=ku_user)
+            await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=ku_user)
             await session.run(
                 """
                 CREATE (k:Entity:Ku {uid: 'ku.mastered-via-report', entity_type: 'ku',

@@ -66,7 +66,8 @@ async def users(neo4j_driver, clean_neo4j):
     async with neo4j_driver.session() as session:
         for uid in (USER, OTHER_USER):
             await session.run(
-                "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()", uid=uid
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid ON CREATE SET u.created_at = datetime()",
+                uid=uid,
             )
 
 

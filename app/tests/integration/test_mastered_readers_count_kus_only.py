@@ -32,7 +32,7 @@ STEP = "ps.readers.the-step"
 async def graph(neo4j_driver, clean_neo4j) -> None:
     """One Ku and one step, both mastered through the one real writer."""
     async with neo4j_driver.session() as session:
-        await session.run("MERGE (u:User {uid: $u})", u=USER)
+        await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=USER)
         await session.run(
             """
             CREATE (ps:Entity:PathStep {uid: $step, entity_type: 'path_step',

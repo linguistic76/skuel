@@ -133,13 +133,13 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (sa:User {uid: $student_a})
-            MERGE (sb:User {uid: $student_b})
-            MERGE (inT:User {uid: $in_teacher})
-            MERGE (outT:User {uid: $out_teacher})
-            MERGE (loneT:User {uid: $lone_teacher})
-            MERGE (ga:Group {uid: $group_a}) SET ga.is_active = true
-            MERGE (gb:Group {uid: $group_b}) SET gb.is_active = true
+            MERGE (sa:User {uid: $student_a}) ON CREATE SET sa.title = $student_a
+            MERGE (sb:User {uid: $student_b}) ON CREATE SET sb.title = $student_b
+            MERGE (inT:User {uid: $in_teacher}) ON CREATE SET inT.title = $in_teacher
+            MERGE (outT:User {uid: $out_teacher}) ON CREATE SET outT.title = $out_teacher
+            MERGE (loneT:User {uid: $lone_teacher}) ON CREATE SET loneT.title = $lone_teacher
+            MERGE (ga:Group {uid: $group_a}) ON CREATE SET ga.name = $group_a SET ga.is_active = true
+            MERGE (gb:Group {uid: $group_b}) ON CREATE SET gb.name = $group_b SET gb.is_active = true
             MERGE (inT)-[:OWNS]->(ga)
             MERGE (outT)-[:OWNS]->(gb)
             MERGE (sa)-[:MEMBER_OF]->(ga)
@@ -172,12 +172,12 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (subB:Entity:UserEntry {
                 uid: $sub_b, entity_type: 'user_entry', title: 'B submission',
                 status: 'submitted', pipeline: 'teacher_review',
-                created_at: datetime(), updated_at: datetime()
+                created_at: datetime(), updated_at: datetime(), user_uid: sb.uid
             })
             CREATE (subB2:Entity:UserEntry {
                 uid: $sub_b2, entity_type: 'user_entry', title: 'B submission 2',
                 status: 'submitted', pipeline: 'teacher_review',
-                created_at: datetime(), updated_at: datetime()
+                created_at: datetime(), updated_at: datetime(), user_uid: sb.uid
             })
             MERGE (sb)-[:OWNS]->(subB)
             MERGE (sb)-[:OWNS]->(subB2)

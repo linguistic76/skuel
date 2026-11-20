@@ -119,7 +119,9 @@ async def learner(skuel_app: FastHTMLApp) -> AsyncIterator[httpx.AsyncClient]:
         for step in (STEP_A1, STEP_B1):
             await _master(driver, LEARNER, step)
         async with driver.session() as session:
-            await session.run("MERGE (u:User {uid: $uid})", uid=OTHER_LEARNER)
+            await session.run(
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid", uid=OTHER_LEARNER
+            )
         await _master(driver, OTHER_LEARNER, STEP_A2)
         yield client
 

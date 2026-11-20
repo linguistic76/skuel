@@ -94,7 +94,7 @@ async def _seed(neo4j_driver) -> None:
     backend = backends["goals_backend"]
 
     async with neo4j_driver.session() as session:
-        await session.run("MERGE (u:User {uid: $u})", u=USER)
+        await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=USER)
 
     for uid, title, updated_at in (
         (CRUD_STRING, "In window (CRUD string)", now),
@@ -257,7 +257,10 @@ class TestGoalsPerformanceAnalyticsWindow:
         """
         other_backend = build_production_backends(neo4j_driver)["goals_backend"]
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $uid})", uid=seed_user_uid("goal_window_other"))
+            await session.run(
+                "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid",
+                uid=seed_user_uid("goal_window_other"),
+            )
         intruder = Goal(
             uid="goal.win-other-user",
             user_uid=seed_user_uid("goal_window_other"),

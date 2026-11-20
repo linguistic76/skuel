@@ -189,8 +189,8 @@ async def seeded(neo4j_driver, clean_neo4j):
     """SEEDED nodes of each Activity kind for USER, STRANGER_ROWS for STRANGER."""
     now = datetime.now(UTC)
     async with neo4j_driver.session() as session:
-        await session.run("MERGE (:User {uid: $u})", u=USER)
-        await session.run("MERGE (:User {uid: $u})", u=STRANGER)
+        await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=USER)
+        await session.run("MERGE (u:User {uid: $u}) ON CREATE SET u.title = $u", u=STRANGER)
         for spec in ACTIVITY_DOMAINS.values():
             for owner, count in ((USER, SEEDED), (STRANGER, STRANGER_ROWS)):
                 await session.run(
@@ -717,7 +717,7 @@ async def _seed_due_habits(neo4j_driver: AsyncDriver) -> None:
         for owner, count in ((USER, LARGE_SET), (STRANGER, STRANGER_ROWS)):
             await session.run(
                 """
-                MERGE (u:User {uid: $owner})
+                MERGE (u:User {uid: $owner}) ON CREATE SET u.title = $owner
                 WITH u
                 UNWIND range(1, $count) AS i
                 CREATE (h:Entity:Habit {

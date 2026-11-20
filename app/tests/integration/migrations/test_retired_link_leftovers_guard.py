@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from adapters.persistence.neo4j import neo4j_connection
+from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
@@ -56,6 +57,7 @@ EVENT = f"event.{MARK}.event"
 HABIT = f"habit.{MARK}.habit"
 PRINCIPLE = f"principle.{MARK}.principle"
 TASK = f"task.{MARK}.task"
+OWNER = seed_user_uid("zzzretiredguard")  # owns the seeded entities
 
 
 # One driver record, keyed by RETURN alias; the values are heterogeneous Neo4j scalars.
@@ -76,13 +78,15 @@ async def _seed_nodes(driver: AsyncDriver) -> None:
     for label, uid in (("Event", EVENT), ("Habit", HABIT), ("Principle", PRINCIPLE)):
         await _run(
             driver,
-            f"CREATE (:Entity:{label} {{uid: $uid, title: $uid, status: 'active'}})",
+            f"CREATE (:Entity:{label} {{uid: $uid, title: $uid, user_uid: $owner, status: 'active'}})",
             uid=uid,
+            owner=OWNER,
         )
     await _run(
         driver,
-        "CREATE (:Entity:Task {uid: $uid, title: $uid, status: 'active'})",
+        "CREATE (:Entity:Task {uid: $uid, title: $uid, user_uid: $owner, status: 'active'})",
         uid=TASK,
+        owner=OWNER,
     )
 
 

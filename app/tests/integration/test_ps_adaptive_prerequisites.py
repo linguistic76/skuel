@@ -23,10 +23,10 @@ async def backend(neo4j_driver) -> PsBackend:
         await session.run("MATCH (n:Entity) WHERE n.uid STARTS WITH 'ps.prereq-' DETACH DELETE n")
         await session.run(
             """
-            CREATE (root:Entity:PathStep {uid: 'ps.prereq-root', entity_type: 'path_step'})
-            CREATE (a:Entity:PathStep {uid: 'ps.prereq-a', entity_type: 'path_step'})
-            CREATE (b:Entity:PathStep {uid: 'ps.prereq-b', entity_type: 'path_step'})
-            CREATE (leaf:Entity:PathStep {uid: 'ps.prereq-leaf', entity_type: 'path_step'})
+            CREATE (root:Entity:PathStep {uid: 'ps.prereq-root', entity_type: 'path_step', title: 'ps.prereq-root'})
+            CREATE (a:Entity:PathStep {uid: 'ps.prereq-a', entity_type: 'path_step', title: 'ps.prereq-a'})
+            CREATE (b:Entity:PathStep {uid: 'ps.prereq-b', entity_type: 'path_step', title: 'ps.prereq-b'})
+            CREATE (leaf:Entity:PathStep {uid: 'ps.prereq-leaf', entity_type: 'path_step', title: 'ps.prereq-leaf'})
             CREATE (leaf)-[:REQUIRES_KNOWLEDGE]->(a)
             CREATE (leaf)-[:REQUIRES_KNOWLEDGE]->(b)
             CREATE (a)-[:REQUIRES_KNOWLEDGE]->(root)

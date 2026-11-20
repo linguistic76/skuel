@@ -118,14 +118,14 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (t:User {uid: $teacher})
-            MERGE (st:User {uid: $second_teacher})
-            MERGE (ot:User {uid: $other_teacher})
-            MERGE (s:User {uid: $student}) SET s.display_name = 'Sam Student'
-            MERGE (os:User {uid: $other_student})
-            MERGE (g:Group {uid: $group}) SET g.is_active = true
-            MERGE (sg:Group {uid: $second_group}) SET sg.is_active = true
-            MERGE (g2:Group {uid: $other_group}) SET g2.is_active = true
+            MERGE (t:User {uid: $teacher}) ON CREATE SET t.title = $teacher
+            MERGE (st:User {uid: $second_teacher}) ON CREATE SET st.title = $second_teacher
+            MERGE (ot:User {uid: $other_teacher}) ON CREATE SET ot.title = $other_teacher
+            MERGE (s:User {uid: $student}) ON CREATE SET s.title = $student SET s.display_name = 'Sam Student'
+            MERGE (os:User {uid: $other_student}) ON CREATE SET os.title = $other_student
+            MERGE (g:Group {uid: $group}) ON CREATE SET g.name = $group SET g.is_active = true
+            MERGE (sg:Group {uid: $second_group}) ON CREATE SET sg.name = $second_group SET sg.is_active = true
+            MERGE (g2:Group {uid: $other_group}) ON CREATE SET g2.name = $other_group SET g2.is_active = true
             MERGE (t)-[:OWNS]->(g)
             MERGE (st)-[:OWNS]->(sg)
             MERGE (ot)-[:OWNS]->(g2)
@@ -140,59 +140,59 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 uid: $e1, entity_type: 'user_entry', title: 'Turn-in rev 1',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Root exercise',
-                created_at: datetime() - duration('PT4H'), updated_at: datetime()
+                created_at: datetime() - duration('PT4H'), updated_at: datetime(), user_uid: s.uid
             })
             CREATE (e2:Entity:UserEntry {
                 uid: $e2, entity_type: 'user_entry', title: 'Turn-in rev 2',
                 status: 'completed', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Root exercise',
-                created_at: datetime() - duration('PT3H'), updated_at: datetime()
+                created_at: datetime() - duration('PT3H'), updated_at: datetime(), user_uid: s.uid
             })
             CREATE (r1:Entity:EntryReport {
                 uid: $r_shared, entity_type: 'entry_report', title: 'Feedback',
                 status: 'completed', visibility: 'private', assessment_outcome: 'needs_revision',
                 processed_content: 'Good work',
-                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime(), user_uid: s.uid
             })
             CREATE (rp:Entity:EntryReport {
                 uid: $r_private, entity_type: 'entry_report', title: 'Reflection',
                 status: 'completed', visibility: 'public',
                 content: 'My own notes',
-                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime(), user_uid: s.uid
             })
             CREATE (re:Entity:RevisedExercise {
                 uid: $revised, entity_type: 'revised_exercise', title: 'Try again',
                 status: 'active', revision_number: 2, instructions: 'Tighten it',
-                created_at: datetime() - duration('PT1H'), updated_at: datetime()
+                created_at: datetime() - duration('PT1H'), updated_at: datetime(), user_uid: t.uid
             })
             CREATE (e3:Entity:UserEntry {
                 uid: $e3, entity_type: 'user_entry', title: 'Turn-in after revision',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Root exercise',
-                created_at: datetime() - duration('PT30M'), updated_at: datetime()
+                created_at: datetime() - duration('PT30M'), updated_at: datetime(), user_uid: s.uid
             })
             CREATE (esc:Entity:UserEntry {
                 uid: $e_second, entity_type: 'user_entry', title: 'Second-class turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Root exercise',
-                created_at: datetime() - duration('PT20M'), updated_at: datetime()
+                created_at: datetime() - duration('PT20M'), updated_at: datetime(), user_uid: s.uid
             })
             CREATE (oe:Entity:UserEntry {
                 uid: $o_entry, entity_type: 'user_entry', title: 'Other student turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
                 turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Root exercise',
-                created_at: datetime() - duration('PT4H'), updated_at: datetime()
+                created_at: datetime() - duration('PT4H'), updated_at: datetime(), user_uid: os.uid
             })
             CREATE (orep:Entity:EntryReport {
                 uid: $o_report, entity_type: 'entry_report', title: 'Other feedback',
                 status: 'completed', visibility: 'private', assessment_outcome: 'approved',
                 processed_content: 'Different classroom',
-                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime(), user_uid: os.uid
             })
             CREATE (ore:Entity:RevisedExercise {
                 uid: $o_revised, entity_type: 'revised_exercise', title: 'Other revision',
                 status: 'active', revision_number: 2,
-                created_at: datetime() - duration('PT1H'), updated_at: datetime()
+                created_at: datetime() - duration('PT1H'), updated_at: datetime(), user_uid: ot.uid
             })
             MERGE (s)-[:OWNS]->(e1)
             MERGE (s)-[:OWNS]->(e2)

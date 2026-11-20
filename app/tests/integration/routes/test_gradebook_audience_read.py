@@ -69,14 +69,14 @@ DOWNLOAD_PATH = "/gradebook/{uid}/download"
 
 
 _SEED = """
-MERGE (alice:User {uid: $alice}) SET alice.is_active = true
-MERGE (bob:User {uid: $bob}) SET bob.is_active = true
-MERGE (carol:User {uid: $carol}) SET carol.is_active = true
-MERGE (teacher:User {uid: $teacher}) SET teacher.is_active = true
-MERGE (dan:User {uid: $dan}) SET dan.is_active = true
-MERGE (eve:User {uid: $eve}) SET eve.is_active = true
-MERGE (frank:User {uid: $frank}) SET frank.is_active = true
-MERGE (stranger:User {uid: $stranger}) SET stranger.is_active = true
+MERGE (alice:User {uid: $alice}) ON CREATE SET alice.title = $alice SET alice.is_active = true
+MERGE (bob:User {uid: $bob}) ON CREATE SET bob.title = $bob SET bob.is_active = true
+MERGE (carol:User {uid: $carol}) ON CREATE SET carol.title = $carol SET carol.is_active = true
+MERGE (teacher:User {uid: $teacher}) ON CREATE SET teacher.title = $teacher SET teacher.is_active = true
+MERGE (dan:User {uid: $dan}) ON CREATE SET dan.title = $dan SET dan.is_active = true
+MERGE (eve:User {uid: $eve}) ON CREATE SET eve.title = $eve SET eve.is_active = true
+MERGE (frank:User {uid: $frank}) ON CREATE SET frank.title = $frank SET frank.is_active = true
+MERGE (stranger:User {uid: $stranger}) ON CREATE SET stranger.title = $stranger SET stranger.is_active = true
 CREATE (g:Group {uid: $group, name: 'Class', is_active: true}),
        (gi:Group {uid: $inactive, name: 'Old class', is_active: false})
 CREATE (teacher)-[:OWNS]->(g), (teacher)-[:OWNS]->(gi)

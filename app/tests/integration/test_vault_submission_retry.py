@@ -47,8 +47,8 @@ async def _seed_class(rig: Rig) -> None:
     async with rig.driver.session() as session:
         await session.run(
             """
-            MERGE (t:User {uid: $teacher})
-            MERGE (s:User {uid: $student})
+            MERGE (t:User {uid: $teacher}) ON CREATE SET t.title = $teacher
+            MERGE (s:User {uid: $student}) ON CREATE SET s.title = $student
             MERGE (g:Group {uid: $group}) SET g.is_active = true, g.name = 'Retry class'
             MERGE (t)-[:OWNS]->(g)
             MERGE (s)-[:MEMBER_OF]->(g)

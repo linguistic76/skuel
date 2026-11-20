@@ -450,6 +450,7 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
             CREATE (n:{entity["label"]} {{
                 uid: $uid,
                 title: $title,
+                user_uid: $user_uid,
                 description: $description,
                 embedding: $embedding,
                 embedding_model: 'text-embedding-3-small',
@@ -462,6 +463,7 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
                 "title": entity["title"],
                 "description": entity.get("description", ""),
                 "embedding": embedding,
+                "user_uid": seed_user_uid("test"),
             }
 
         async with neo4j_driver.session() as session:

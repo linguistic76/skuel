@@ -98,7 +98,7 @@ async def services(skuel_app: FastHTMLApp) -> AsyncIterator[_Composed]:
     driver = services.neo4j_driver
     async with driver.session() as session:
         await session.run(
-            "MERGE (u:User {uid: $uid}) SET u.username = $uid, u.email = $email",
+            "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid SET u.username = $uid, u.email = $email",
             uid=_USER_UID,
             email=f"{_USER_UID}@example.test",
         )

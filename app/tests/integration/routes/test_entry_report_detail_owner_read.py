@@ -98,13 +98,13 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (s:User {uid: $student})
-            MERGE (t:User {uid: $teacher})
-            MERGE (x:User {uid: $stranger})
+            MERGE (s:User {uid: $student}) ON CREATE SET s.title = $student
+            MERGE (t:User {uid: $teacher}) ON CREATE SET t.title = $teacher
+            MERGE (x:User {uid: $stranger}) ON CREATE SET x.title = $stranger
             CREATE (e:Entity:UserEntry {
                 uid: $entry, entity_type: 'user_entry', title: 'Turn-in',
                 status: 'completed', pipeline: 'teacher_review',
-                created_at: '2026-09-01T10:00:00.000000'
+                created_at: '2026-09-01T10:00:00.000000', user_uid: s.uid
             })
             CREATE (r:Entity:EntryReport {
                 uid: $report, entity_type: 'entry_report', title: 'Feedback on Turn-in',

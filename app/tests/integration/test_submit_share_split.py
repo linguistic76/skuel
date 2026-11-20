@@ -40,10 +40,10 @@ ENTRY_SUBMITTED = f"ue.{PREFIX}-submitted"
 ENTRY_SHARED = f"ue.{PREFIX}-shared"
 
 _SEED = """
-CREATE (t:User {uid: $teacher, is_active: true}),
-       (s1:User {uid: $s1, is_active: true}),
-       (s2:User {uid: $s2, is_active: true}),
-       (o:User {uid: $outsider, is_active: true}),
+CREATE (t:User {uid: $teacher, is_active: true, title: $teacher}),
+       (s1:User {uid: $s1, is_active: true, title: $s1}),
+       (s2:User {uid: $s2, is_active: true, title: $s2}),
+       (o:User {uid: $outsider, is_active: true, title: $outsider}),
        (g:Group {uid: $group, name: 'Class', is_active: true}),
        (gi:Group {uid: $inactive, name: 'Old class', is_active: false})
 CREATE (t)-[:OWNS]->(g), (t)-[:OWNS]->(gi)

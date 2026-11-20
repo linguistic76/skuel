@@ -32,6 +32,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
 import backfill_task_creation_due_dates as migration  # type: ignore[import-not-found]
 
+from tests.helpers.seed_uids import seed_user_uid
+
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 CREATED_AT = "2026-09-09T19:02:55.625354"
@@ -57,19 +59,19 @@ async def seeded(neo4j_driver):
         await session.run(
             """
             CREATE (:Entity:Task {uid: $undated, entity_type: 'task',
-                status: 'draft', created_at: $created_at})
+                status: 'draft', created_at: $created_at, title: $undated, user_uid: $seed_owner})
             CREATE (:Entity:Task {uid: $native, entity_type: 'task',
-                status: 'draft', created_at: datetime($created_at)})
+                status: 'draft', created_at: datetime($created_at), title: $native, user_uid: $seed_owner})
             CREATE (:Entity:Task {uid: $earlier, entity_type: 'task',
-                status: 'completed', created_at: $created_at, completion_date: $earlier_done})
+                status: 'completed', created_at: $created_at, completion_date: $earlier_done, title: $earlier, user_uid: $seed_owner})
             CREATE (:Entity:Task {uid: $later, entity_type: 'task',
-                status: 'completed', created_at: $created_at, completion_date: $later_done})
+                status: 'completed', created_at: $created_at, completion_date: $later_done, title: $later, user_uid: $seed_owner})
             CREATE (:Entity:Task {uid: $has_due, entity_type: 'task',
-                status: 'draft', created_at: $created_at, due_date: $due})
+                status: 'draft', created_at: $created_at, due_date: $due, title: $has_due, user_uid: $seed_owner})
             CREATE (:Entity:Task {uid: $has_sched, entity_type: 'task',
-                status: 'draft', created_at: $created_at, scheduled_date: $scheduled})
+                status: 'draft', created_at: $created_at, scheduled_date: $scheduled, title: $has_sched, user_uid: $seed_owner})
             CREATE (:Entity:Task {uid: $open_stale, entity_type: 'task',
-                status: 'active', created_at: $created_at, completion_date: $earlier_done})
+                status: 'active', created_at: $created_at, completion_date: $earlier_done, title: $open_stale, user_uid: $seed_owner})
             """,
             undated=_UIDS[0],
             native=_UIDS[1],
@@ -83,6 +85,7 @@ async def seeded(neo4j_driver):
             later_done=LATER_DONE,
             due=DUE,
             scheduled=SCHEDULED,
+            seed_owner=seed_user_uid("bf_due_owner"),
         )
     yield
     async with neo4j_driver.session() as session:

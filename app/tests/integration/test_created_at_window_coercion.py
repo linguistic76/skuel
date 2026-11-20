@@ -44,7 +44,9 @@ class TestCreatedAtWindowCoercion:
         old_iso = (now - timedelta(hours=5)).isoformat()  # string, out of window
 
         async with neo4j_driver.session() as session:
-            await session.run("MERGE (u:User {uid: $user})", user=_COOLDOWN)
+            await session.run(
+                "MERGE (u:User {uid: $user}) ON CREATE SET u.title = $user", user=_COOLDOWN
+            )
             # Majority shape: created_at as an ISO string, recent.
             await session.run(
                 """

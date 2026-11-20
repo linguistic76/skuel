@@ -42,7 +42,7 @@ from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
 from tests.helpers.production_backends import build_production_backends
-from tests.helpers.seed_uids import seed_user_uid
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
 
 HB = "hbctx."  # uid prefix for this module's fixture graph
 HB_HABIT = HB + "habit"
@@ -157,9 +157,10 @@ async def _seed_habit_graph(neo4j_driver) -> None:
             (HB_PREREQ, "Habit", "habit"),
         ]:
             await s.run(
-                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
+                o=seed_owner(label, seed_user_uid("hbctx_user")),
                 t=etype,
             )
         await s.run(
@@ -253,9 +254,10 @@ async def test_habit_intelligence_empty_when_no_edges(neo4j_driver, rel_backend,
     """Negative control: an edge-less habit yields an OK empty context, NOT a failure."""
     async with neo4j_driver.session() as s:
         await s.run(
-            "CREATE (:Entity:Habit {uid:$u, entity_type:'habit', title:$u, "
+            "CREATE (:Entity:Habit {uid:$u, entity_type:'habit', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=HB_HABIT_BARE,
+            o=seed_user_uid("hbctx_user"),
         )
     svc = _harness(rel_backend, HB_HABIT_BARE)
 
@@ -323,14 +325,16 @@ async def test_habit_goal_support_dedupes_multipath_goals_at_depth2(
     async with neo4j_driver.session() as s:
         for uid in (dup_habit, dup_mid):
             await s.run(
-                "CREATE (:Entity:Habit {uid:$u, entity_type:'habit', title:$u, "
+                "CREATE (:Entity:Habit {uid:$u, entity_type:'habit', title:$u, user_uid:$o, "
                 "status:'active', created_at:datetime()})",
                 u=uid,
+                o=seed_user_uid("hbctx_user"),
             )
         await s.run(
-            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, user_uid:$o, "
             "status:'active', created_at:datetime()})",
             u=dup_goal,
+            o=seed_user_uid("hbctx_user"),
         )
         for a, rel, b in [
             (dup_habit, "SUPPORTS_GOAL", dup_goal),

@@ -180,11 +180,11 @@ async def seeded(clean_neo4j, neo4j_driver, report_file) -> str:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (student:User {uid: $student}) SET student.display_name = $student_name
-            MERGE (inT:User {uid: $in_teacher})
-            MERGE (outT:User {uid: $out_teacher})
-            MERGE (g:Group {uid: $group}) SET g.is_active = true
-            MERGE (g2:Group {uid: $other_group}) SET g2.is_active = true
+            MERGE (student:User {uid: $student}) ON CREATE SET student.title = $student SET student.display_name = $student_name
+            MERGE (inT:User {uid: $in_teacher}) ON CREATE SET inT.title = $in_teacher
+            MERGE (outT:User {uid: $out_teacher}) ON CREATE SET outT.title = $out_teacher
+            MERGE (g:Group {uid: $group}) ON CREATE SET g.name = $group SET g.is_active = true
+            MERGE (g2:Group {uid: $other_group}) ON CREATE SET g2.name = $other_group SET g2.is_active = true
             MERGE (inT)-[:OWNS]->(g)
             MERGE (outT)-[:OWNS]->(g2)
             MERGE (student)-[:MEMBER_OF]->(g)
@@ -193,7 +193,7 @@ async def seeded(clean_neo4j, neo4j_driver, report_file) -> str:
                 content: $work, processed_content: '', status: 'submitted',
                 pipeline: 'teacher_review', turn_in_exercise_uid: 'ex.trs-snapshot',
                 turn_in_exercise_title: $snapshot_title, turn_in_revision: 3,
-                created_at: datetime(), updated_at: datetime()
+                created_at: datetime(), updated_at: datetime(), user_uid: student.uid
             })
             MERGE (student)-[:OWNS]->(sub)
             MERGE (sub)-[:SUBMITTED_TO_GROUP]->(g)
@@ -314,7 +314,7 @@ async def seeded_newer_copy(seeded, neo4j_driver) -> None:
                 content: 'the newer words', status: 'submitted',
                 pipeline: 'teacher_review', turn_in_exercise_uid: 'ex.trs-snapshot',
                 turn_in_exercise_title: $snapshot_title, turn_in_revision: 4,
-                created_at: datetime() + duration('PT5S'), updated_at: datetime()
+                created_at: datetime() + duration('PT5S'), updated_at: datetime(), user_uid: student.uid
             })
             MERGE (student)-[:OWNS]->(newer)
             MERGE (newer)-[:SUBMITTED_TO_GROUP]->(g)
