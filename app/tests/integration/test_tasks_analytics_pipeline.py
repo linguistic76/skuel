@@ -48,7 +48,7 @@ from core.services.relationships.unified_relationship_service import UnifiedRela
 from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
 from core.utils.result_simplified import Result
 from tests.helpers.production_backends import build_production_backends
-from tests.helpers.seed_uids import seed_user_uid
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
 
 TK = "tkctx."  # uid prefix for this module's fixture graph
 TK_TASK = TK + "task"
@@ -125,9 +125,7 @@ async def _seed_task_graph(neo4j_driver) -> None:
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
-                o=None
-                if label in ("PathStep", "Ku", "LearningPath")
-                else seed_user_uid("tkctx_user"),
+                o=seed_owner(label, seed_user_uid("tkctx_user")),
                 t=etype,
             )
         for uid in (TK_KU_REQ, TK_KU_APP):

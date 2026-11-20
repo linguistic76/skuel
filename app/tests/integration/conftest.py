@@ -29,7 +29,7 @@ from adapters.persistence.neo4j.graph_driver import (
 )
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 from tests.helpers.production_backends import build_ingestion_service, build_production_backends
-from tests.helpers.seed_uids import seed_user_uid
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
 from tests.integration import _graph_census
 from tests.integration._container_lifecycle import bounded_neo4j_container
 from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION, running_kernel_version
@@ -871,8 +871,8 @@ async def create_relationship(neo4j_driver):
             params = {
                 "from_uid": from_uid,
                 "to_uid": to_uid,
-                "from_owner": _seed_owner(from_label),
-                "to_owner": _seed_owner(to_label),
+                "from_owner": seed_owner(from_label, seed_user_uid("relationship_seed")),
+                "to_owner": seed_owner(to_label, seed_user_uid("relationship_seed")),
             }
             if properties:
                 params.update(properties)
@@ -880,17 +880,6 @@ async def create_relationship(neo4j_driver):
             await session.run(query, params)
 
     yield _create_relationship
-
-
-#: The labels whose nodes are a user's own; every other seeded node is shared.
-_USER_OWNED_LABELS = frozenset({"Task", "Goal", "Habit", "Event", "Choice", "Principle"})
-
-
-def _seed_owner(labels: str) -> str | None:
-    """The owner a relationship fixture's node takes: a seeded user for a user's activity."""
-    return (
-        seed_user_uid("relationship_seed") if labels.split(":")[-1] in _USER_OWNED_LABELS else None
-    )
 
 
 @pytest_asyncio.fixture

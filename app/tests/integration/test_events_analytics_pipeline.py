@@ -39,7 +39,7 @@ from core.services.events._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
 from tests.helpers.production_backends import build_production_backends
-from tests.helpers.seed_uids import seed_user_uid
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
 
 EV = "evctx."  # uid prefix for this module's fixture graph
 EV_EVENT = EV + "event"
@@ -104,9 +104,7 @@ async def _seed_event_graph(neo4j_driver) -> None:
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
-                o=None
-                if label in ("PathStep", "Ku", "LearningPath")
-                else seed_user_uid("evctx_user"),
+                o=seed_owner(label, seed_user_uid("evctx_user")),
                 t=etype,
             )
         await s.run(

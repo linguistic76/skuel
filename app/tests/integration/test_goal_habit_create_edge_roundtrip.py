@@ -54,7 +54,7 @@ from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.habits.habits_core_service import HabitsCoreService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from tests.helpers.production_backends import build_production_backends
-from tests.helpers.seed_uids import seed_user_uid
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
 
 VICTIM = seed_user_uid("test_victim")
 OWNER = seed_user_uid("test_create_edges")  # owns every minimal activity node
@@ -112,10 +112,7 @@ async def _create_node(neo4j_driver, uid: str, labels: str, entity_type: str, ti
             uid=uid,
             entity_type=entity_type,
             title=title,
-            # an activity has its owner; curriculum has none
-            owner=None
-            if entity_type in ("ku", "path_step", "learning_path", "exercise")
-            else OWNER,
+            owner=seed_owner(labels, OWNER),
         )
 
 

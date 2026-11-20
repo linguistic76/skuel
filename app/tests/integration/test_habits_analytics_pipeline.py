@@ -42,7 +42,7 @@ from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
 from tests.helpers.production_backends import build_production_backends
-from tests.helpers.seed_uids import seed_user_uid
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
 
 HB = "hbctx."  # uid prefix for this module's fixture graph
 HB_HABIT = HB + "habit"
@@ -160,9 +160,7 @@ async def _seed_habit_graph(neo4j_driver) -> None:
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
-                o=None
-                if label in ("PathStep", "Ku", "LearningPath")
-                else seed_user_uid("hbctx_user"),
+                o=seed_owner(label, seed_user_uid("hbctx_user")),
                 t=etype,
             )
         await s.run(

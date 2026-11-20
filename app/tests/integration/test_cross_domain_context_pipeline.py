@@ -40,7 +40,7 @@ from core.services.infrastructure.graph_intelligence_service import GraphIntelli
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
 from tests.helpers.production_backends import build_production_backends
-from tests.helpers.seed_uids import seed_user_uid
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
 
 if TYPE_CHECKING:
     from neo4j import AsyncSession
@@ -98,7 +98,7 @@ async def _seed_reciprocal_pair(session: AsyncSession) -> None:
             f"status:'active', user_uid:$o, created_at:datetime()}})",
             u=uid,
             t=etype,
-            o=None if label == "PathStep" else OWNER,
+            o=seed_owner(label, OWNER),
         )
     for a, rel, b in [
         (R_PRINCIPLE, "INSPIRES_HABIT", R_HABIT),
@@ -241,7 +241,7 @@ async def test_incoming_buckets_route_by_specific_label(neo4j_driver, rel_backen
                 f"status:'active', user_uid:$o, created_at:datetime()}})",
                 u=uid,
                 t=etype,
-                o=None if label == "PathStep" else OWNER,
+                o=seed_owner(label, OWNER),
             )
         # All three reinforce S_HABIT (incoming REINFORCES_HABIT edges).
         for src in (S_TASK, S_EVENT, S_OTHER_HABIT):
@@ -304,7 +304,7 @@ async def test_depth_surfaces_transitive_node_correctly_attributed(
                 f"status:'active', user_uid:$o, created_at:datetime()}})",
                 u=uid,
                 t=etype,
-                o=None if label == "PathStep" else OWNER,
+                o=seed_owner(label, OWNER),
             )
         for a, rel, b in [
             (T_HABIT, "SUPPORTS_GOAL", T_NEAR_GOAL),
@@ -393,7 +393,7 @@ async def _seed_choice_graph(neo4j_driver) -> None:
                 f"status:'active', user_uid:$o, created_at:datetime()}})",
                 u=uid,
                 t=etype,
-                o=None if label == "PathStep" else OWNER,
+                o=seed_owner(label, OWNER),
             )
         await s.run(
             "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=FB_KU
@@ -512,7 +512,7 @@ async def test_choice_impact_dedupes_multipath_goals_at_depth2(
                 f"status:'active', user_uid:$o, created_at:datetime()}})",
                 u=uid,
                 t=etype,
-                o=None if label == "PathStep" else OWNER,
+                o=seed_owner(label, OWNER),
             )
         for a, rel, b in [
             (FB_DUP_CHOICE, "AFFECTS_GOAL", FB_DUP_GOAL),  # 1-hop

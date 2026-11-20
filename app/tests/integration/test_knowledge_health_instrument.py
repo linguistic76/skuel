@@ -17,7 +17,7 @@ import pytest
 
 from core.services.analytics.knowledge_health_service import KnowledgeHealthService
 from tests.helpers.production_backends import build_production_backends
-from tests.helpers.seed_uids import seed_user_uid
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
 
 OWNER = seed_user_uid("khtest_owner")  # owns every seeded activity
 
@@ -72,7 +72,7 @@ async def _build_graph(neo4j_driver) -> None:
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, user_uid:$o, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
-                o=None if label in ("PathStep", "Ku", "LearningPath") else OWNER,
+                o=seed_owner(label, OWNER),
                 t=etype,
             )
         # ex1 is curriculum, as the content-vault sync writes every exercise.
