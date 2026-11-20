@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
+from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.principle_enums import AlignmentLevel, TriggerType
 from core.models.type_hints import UserUID
 from core.utils.timestamp_helpers import today_in
@@ -153,7 +154,9 @@ class PrincipleReflectionDTO:
         """Update fields from dictionary."""
         from core.models.dto_helpers import update_from_dict
 
-        update_from_dict(self, updates)
+        update_from_dict(
+            self, updates, enum_mappings=enum_fields_for("alignment_level", "trigger_type")
+        )
         # Recalculate quality score after updates
         self.reflection_quality_score = self._calculate_quality_score()
 
@@ -168,48 +171,17 @@ class PrincipleReflectionDTO:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PrincipleReflectionDTO:
-        """Create DTO from dictionary (e.g., from database)."""
-        from core.models.dto_helpers import (
-            ensure_dict_field,
-            parse_date_field,
-            parse_datetime_fields,
+        """Create DTO from dictionary (e.g., from database); the input is not modified."""
+        from core.models.dto_helpers import dto_from_dict
+
+        return dto_from_dict(
+            cls,
+            dict(data),
+            enum_fields=enum_fields_for("alignment_level", "trigger_type"),
+            date_fields=["reflection_date"],
+            datetime_fields=["created_at", "updated_at"],
+            dict_fields=["metadata"],
         )
-
-        # Make a copy to avoid modifying input
-        data = dict(data)
-
-        # Parse alignment_level from string
-        if isinstance(data.get("alignment_level"), str):
-            data["alignment_level"] = AlignmentLevel(data["alignment_level"])
-
-        parse_date_field(data, "reflection_date")
-
-        # Parse timestamps
-        parse_datetime_fields(data, ["created_at", "updated_at"])
-
-        # Ensure metadata dict
-        ensure_dict_field(data, "metadata")
-
-        # Filter to only known fields
-        known_fields = {
-            "uid",
-            "principle_uid",
-            "user_uid",
-            "reflection_date",
-            "alignment_level",
-            "evidence",
-            "reflection_notes",
-            "reflection_quality_score",
-            "trigger_type",
-            "trigger_uid",
-            "trigger_context",
-            "created_at",
-            "updated_at",
-            "metadata",
-        }
-        filtered_data = {k: v for k, v in data.items() if k in known_fields}
-
-        return cls(**filtered_data)
 
     # ========================================================================
     # HELPER METHODS

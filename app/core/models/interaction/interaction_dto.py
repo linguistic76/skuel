@@ -69,6 +69,7 @@ class InteractionDTO(UserOwnedDTO):
             enum_fields=[
                 "entity_type",
                 "status",
+                "domain",
                 "visibility",
                 "interaction_type",
                 "result_status",
@@ -87,6 +88,7 @@ class InteractionDTO(UserOwnedDTO):
             enum_fields=enum_fields_for(
                 "entity_type",
                 "status",
+                "domain",
                 "visibility",
                 "interaction_type",
                 "result_status",

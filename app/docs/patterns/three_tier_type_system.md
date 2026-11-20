@@ -240,11 +240,12 @@ EntityDTO (~18 fields)
 ├── UserOwnedDTO → ActivityReportDTO              (activity feedback — no file fields)
 ├── UserOwnedDTO -> UserEntryDTO
 ├── UserOwnedDTO -> EntryReportDTO
+├── KuDTO(EntityDTO)                           (a Ku is an Entity, not Curriculum)
 ├── CurriculumDTO(EntityDTO) → PathStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
 
-**KuDTO deleted** (February 2026). All services now use per-domain DTOs exclusively. Cross-domain services (SearchRouter, MEGA-QUERY, analytics) use `ENTITY_TYPE_CLASS_MAP` for generic entity deserialization across all 25 EntityType domains.
+Every domain has its own DTO. `Entity.from_dto` resolves a DTO to its leaf model class through `ENTITY_TYPE_CLASS_MAP` (`core/models/entity_types.py`). A DTO's `from_dict` reads each field it types as an enum as that enum, through the slice of `ENUM_FIELD_TYPES` it names; `tests/unit/models/test_enum_named_fields.py` holds that for every DTO.
 
 ## Tier 1: Pydantic Request Models (External)
 
