@@ -244,7 +244,8 @@ class RelationshipMetrics:
         # (core/infrastructure/monitoring/stored_value_check.py).
         self.stored_values_unreadable = Gauge(
             "skuel_stored_values_unreadable_count",
-            "Stored values their field's declared type cannot read (each fails its node's reads)",
+            "Stored fields a read refuses: a value its type cannot read, or a required one "
+            "absent (each fails its node's reads)",
         )
 
         # Poller self-observability — all gauges above freeze at their last

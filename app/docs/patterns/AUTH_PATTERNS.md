@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-11-13'
+updated: '2026-11-20'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -428,7 +428,6 @@ SKUEL uses **graph-native authentication** where all auth data lives in Neo4j:
 @dataclass(frozen=True)
 class Session:
     uid: str                    # "session_{hex}"
-    session_token: str = field(repr=False)  # Raw token: cookie only, never in Neo4j or repr()
     user_uid: UserUID               # "user_5f2c8e1a9b3d7046"
     created_at: datetime        # UTC-aware
     expires_at: datetime        # UTC-aware
@@ -436,9 +435,19 @@ class Session:
     ip_address: str
     user_agent: str
     is_valid: bool
-    user_is_active: bool        # Cached at session creation
+    user_is_active: bool        # A snapshot at the mint; validation reads the live User
     token_hash: str             # SHA-256 hash stored in Neo4j
+
+
+@dataclass(frozen=True)
+class IssuedSession:            # what create_session() returns
+    session: Session
+    token: str = field(repr=False)  # Raw token: cookie only, never in Neo4j or repr()
 ```
+
+A Session holds the token's hash, never the token, and is read from its node as it is
+stored. `create_session()` hands the raw token out beside the session it mints; sign-in
+puts it in the cookie (`SignInResult["session_token"]`).
 
 ### Sign In Flow
 
@@ -578,7 +587,7 @@ traceback frame or debugger view can disclose it:
 | Field | Mechanism |
 |-------|-----------|
 | `RegistrationRequest` / `LoginRequest` / `ResetPasswordRequest` passwords + reset token | `pydantic.SecretStr` — `repr` and `model_dump()` render `**********` |
-| `Session.session_token` | `field(repr=False)` |
+| `IssuedSession.token` — the raw session token `create_session` hands out (a `Session` holds only its hash) | `field(repr=False)` |
 | `PasswordResetToken.token` | `field(repr=False)` |
 | `User.password_hash` | `field(repr=False)` — a bcrypt digest is offline-crackable |
 | `DatabaseConfig.neo4j_password`, `CacheConfig.redis_password`, `MessageQueueConfig.password` | `field(repr=False)` |

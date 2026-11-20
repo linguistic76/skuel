@@ -1,7 +1,8 @@
 """In-app stored-value check — the stored-value census, read by the graph-health poller.
 
-A stored value its field's declared type cannot read fails every backend read of
-its node (``UnreadableStoredValueError``, ``adapters/persistence/neo4j/neo4j_mapper.py``).
+A stored value its field's declared type cannot read, or a field its class requires
+that the node does not hold, fails every backend read of its node
+(``UnreadableStoredValueError``, ``adapters/persistence/neo4j/neo4j_mapper.py``).
 The stored-value census (``./dev stored-value-census``,
 ``scripts/stored_value_census.py``) names each one; this is the same verdict read
 where it binds, by the running app. The 5-min graph-health poller
@@ -24,7 +25,7 @@ logger = get_logger("skuel.monitoring.stored_values")
 STORED_VALUE_SAMPLE: Final = 5
 
 _REMEDIATION = (
-    "every read of each node fails until its value is migrated — "
+    "every read of each node fails until it is migrated — "
     "run ./dev stored-value-census to name each one"
 )
 

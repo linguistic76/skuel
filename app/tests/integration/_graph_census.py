@@ -6,11 +6,12 @@ read for two kinds of finding, each through the read the graph-health poller mak
 
 - **a uid outside the uid grammar, or one uid two nodes hold** (``core/utils/uid_grammar.py``;
   ``UidCensusBackend.read_breaches``);
-- **a stored value no read of its node can read** — a value its field's type refuses
+- **a node no read can read** — a stored value its field's type refuses, or a property
+  its class requires that the node does not hold
   (``adapters/persistence/neo4j/neo4j_mapper.py``; ``StoredValueCensusBackend.read_unreadable``,
-  the read ``./dev stored-value-census`` makes). The mapper's writers refuse one before it
-  is stored, so what this finds was written by raw Cypher: a backend's, a script's, a
-  fixture's.
+  the read ``./dev stored-value-census`` makes). The mapper's writers leave no required field
+  out and refuse a value before it is stored, so what this finds was written by raw Cypher: a
+  backend's, a script's, a fixture's.
 
 The test fails on a finding it wrote. Two graphs are read, each when a test reaches it:
 the shared container's (``neo4j_driver``) and the bootstrapped app's (``skuel_app``). A
@@ -124,13 +125,14 @@ _KINDS = (
         marker="stores_unreadable_value",
         read=_unreadable_values,
         wrote=(
-            "the test wrote stored values no read of their node can read "
+            "the test wrote nodes no read can read — a stored value its field's type "
+            "refuses, or a property its class requires left out "
             "(adapters/persistence/neo4j/neo4j_mapper.py):"
         ),
         remedy=(
-            "Seed each field a value of its type (the enum's own values, an ISO date, a "
-            "list, a JSON object); a test that writes one on purpose carries "
-            "@pytest.mark.stores_unreadable_value(reason)."
+            "Seed every property the node's class requires, each a value of its type (the "
+            "enum's own values, an ISO date, a list, a JSON object); a test that writes one "
+            "on purpose carries @pytest.mark.stores_unreadable_value(reason)."
         ),
         finding="a value a read refuses",
         none_found="no value a read refuses",

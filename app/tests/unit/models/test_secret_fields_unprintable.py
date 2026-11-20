@@ -35,7 +35,7 @@ from core.models.auth import (
     ResetPasswordRequest,
 )
 from core.models.auth.password_reset_token import PasswordResetToken
-from core.models.auth.session import Session
+from core.models.auth.session import IssuedSession, Session
 from core.models.user.user import User
 
 # Deliberately self-describing: long enough to be a plausible credential, and
@@ -228,42 +228,26 @@ class TestSecretStrDoesNotBreakValidation:
 
 
 class TestAuthModelSecretsAreNotInRepr:
-    def test_session_token_is_absent_from_repr_but_readable(self) -> None:
+    def test_an_issued_session_token_is_absent_from_repr_but_readable(self) -> None:
         now = _now()
-        session = Session(
-            uid="session_abc",
-            session_token=SENTINEL,
-            user_uid="user_abc",
-            created_at=now,
-            expires_at=now + timedelta(days=1),
-            last_active_at=now,
-            ip_address="203.0.113.1",
-            user_agent="pytest",
+        issued = IssuedSession(
+            session=Session(
+                uid="session_abc",
+                user_uid="user_abc",
+                created_at=now,
+                expires_at=now + timedelta(days=1),
+                last_active_at=now,
+                ip_address="203.0.113.1",
+                user_agent="pytest",
+            ),
+            token=SENTINEL,
         )
 
-        rendered = repr(session)
+        rendered = repr(issued)
 
         assert SENTINEL not in rendered
-        assert session.session_token == SENTINEL
+        assert issued.token == SENTINEL
         assert "session_abc" in rendered
-
-    def test_session_token_survives_the_derivation_helpers(self) -> None:
-        """with_updated_activity/invalidate rebuild the dataclass field by field."""
-        now = _now()
-        session = Session(
-            uid="session_abc",
-            session_token=SENTINEL,
-            user_uid="user_abc",
-            created_at=now,
-            expires_at=now + timedelta(days=1),
-            last_active_at=now,
-            ip_address="203.0.113.1",
-            user_agent="pytest",
-        )
-
-        for derived in (session.with_updated_activity(), session.invalidate()):
-            assert derived.session_token == SENTINEL
-            assert SENTINEL not in repr(derived)
 
     def test_reset_token_is_absent_from_repr_but_readable(self) -> None:
         now = _now()
@@ -301,7 +285,7 @@ SECRET_DATACLASS_FIELDS = [
     (DatabaseConfig, "neo4j_password"),
     (CacheConfig, "redis_password"),
     (MessageQueueConfig, "password"),
-    (Session, "session_token"),
+    (IssuedSession, "token"),
     (PasswordResetToken, "token"),
     (User, "password_hash"),
 ]

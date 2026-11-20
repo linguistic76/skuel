@@ -119,10 +119,10 @@ async def _scalar(neo4j_driver, query: str, **params: object) -> int:
 
 async def _sign_in(backends, user_uid: str) -> str:
     """Mint a session through the sign-in statement; the raw token it validates by."""
-    session = create_session(user_uid=user_uid, ip_address="test", user_agent=_BROWSER)
-    created = await backends["session_backend"].create_session(session)
+    issued = create_session(user_uid=user_uid, ip_address="test", user_agent=_BROWSER)
+    created = await backends["session_backend"].create_session(issued.session)
     assert created.is_ok, f"create_session failed: {created.error}"
-    return session.session_token
+    return issued.token
 
 
 # ----------------------------------------------------------------------------
@@ -192,7 +192,7 @@ async def test_a_deactivated_users_sign_in_writes_nothing(neo4j_driver, presence
     user = await seed("inactive", active=False)
 
     with _at("2090-06-01T08:00:00"):
-        session = create_session(user_uid=user, ip_address="test", user_agent=_BROWSER)
+        session = create_session(user_uid=user, ip_address="test", user_agent=_BROWSER).session
         created = await backends["session_backend"].create_session(session)
 
     assert created.is_error
@@ -331,7 +331,7 @@ async def test_sign_ins_and_first_requests_of_a_day_do_not_deadlock(neo4j_driver
                 for user in users
                 for _ in range(3)
             ]
-            created = await asyncio.gather(*(sessions.create_session(s) for s in minted))
+            created = await asyncio.gather(*(sessions.create_session(s.session) for s in minted))
         assert not [r.error for r in created if r.is_error]
 
         month = f"2095-{round_:02d}"
@@ -342,8 +342,8 @@ async def test_sign_ins_and_first_requests_of_a_day_do_not_deadlock(neo4j_driver
                 for _ in range(2)
             ]
             results = await asyncio.gather(
-                *(sessions.validate_session_token(s.session_token) for s in minted for _ in (1, 2)),
-                *(sessions.create_session(s) for s in more),
+                *(sessions.validate_session_token(s.token) for s in minted for _ in (1, 2)),
+                *(sessions.create_session(s.session) for s in more),
             )
         assert not [r.error for r in results if r.is_error]
         assert all(r.value is not None for r in results)
@@ -364,11 +364,11 @@ async def test_sign_ins_and_first_requests_of_a_day_do_not_deadlock(neo4j_driver
             ]
             results = await asyncio.gather(
                 *(
-                    sessions.validate_session_token(s.session_token)
+                    sessions.validate_session_token(s.token)
                     for s in (*minted, *more)
                     for _ in (1, 2)
                 ),
-                *(sessions.create_session(s) for s in again),
+                *(sessions.create_session(s.session) for s in again),
             )
         assert not [r.error for r in results if r.is_error]
         assert all(r.value is not None for r in results)

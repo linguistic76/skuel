@@ -3,9 +3,10 @@ Stored-Value Census Backend — every stored value read as its field's type
 =========================================================================
 
 Read-only. For every label a backend reads through ``from_neo4j_node``, reads each
-node's properties (the embedding vector left out) and reads every one as its
-field's type through the mapper's own rule (``unreadable_fields``), so the census
-refuses exactly what a read refuses.
+node's properties (the embedding vector left out) and reads every field of the
+node's class through the mapper's own rule (``unreadable_fields``) — each stored
+value as its type, each required field as present — so the census refuses exactly
+what a read refuses.
 ``scripts/stored_value_census.py`` (``./dev stored-value-census``) lists them; the
 graph-health poller counts them. Nothing is written.
 
@@ -72,7 +73,10 @@ class StoredValueCensusBackend:
         self.readers = readers
 
     async def read_unreadable(self) -> Result[list[UnreadableStoredValueError]]:
-        """Each stored value a read would refuse, once per node and field.
+        """Each field a read would refuse, once per node and field.
+
+        A stored value its type cannot read, or a field the class requires that the
+        node does not hold.
 
         One statement reads every node carrying a label some backend reads, and each
         node is read as every class its labels name. One statement, not one per label:
@@ -101,7 +105,7 @@ class StoredValueCensusBackend:
         return Result.ok(sorted(found.values(), key=_census_order))
 
     async def read_summary(self, sample: int) -> Result[UnreadableStoredValues]:
-        """How many stored values a read would refuse, ``sample`` of them named."""
+        """How many fields a read would refuse, ``sample`` of them named."""
         found = await self.read_unreadable()
         if found.is_error:
             return Result.fail(found)

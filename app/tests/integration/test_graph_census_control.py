@@ -3,8 +3,8 @@ The graph census's own controls: each of its findings, on each graph it reads, u
 each scope a marker can take.
 
 Every marked test here writes what the census refuses — a uid outside the grammar, one
-uid two nodes hold, or a stored value no read of its node can read — and carries that
-finding's marker. A marked test that wrote no such finding fails as a stale marker
+uid two nodes hold, a stored value no read of its node can read, or a node without a
+property its class requires — and carries that finding's marker. A marked test that wrote no such finding fails as a stale marker
 (``_graph_census.py``), so each of these fails the day the census stops reading its graph
 or stops recognising the finding. A class marker covers every test in it and is stale only
 when none of them wrote one. The nodes are deleted after the census has read them. The
@@ -29,6 +29,7 @@ _MARK = "zzzgraphcensuscontrol"
 _OUTSIDE = f"task_{_MARK}"  # an underscore: neither shape of the grammar
 _SHARED = f"task.{_MARK}"  # fits — but two nodes hold it
 _STRAY = f"task.{_MARK}-stray"  # fits, and holds a status no EntityStatus names
+_UNTITLED = f"task.{_MARK}-untitled"  # fits, and holds no title, which a Task requires
 _OWNER = seed_user_uid("graph_census_control")  # owns every control task
 
 _NEEDS_THE_APP = pytest.mark.skipif(
@@ -39,7 +40,14 @@ _NEEDS_THE_APP = pytest.mark.skipif(
 
 async def _write(driver: AsyncDriver, query: str) -> None:
     async with driver.session() as session:
-        await session.run(query, outside=_OUTSIDE, shared=_SHARED, stray=_STRAY, owner=_OWNER)
+        await session.run(
+            query,
+            outside=_OUTSIDE,
+            shared=_SHARED,
+            stray=_STRAY,
+            untitled=_UNTITLED,
+            owner=_OWNER,
+        )
 
 
 async def _write_a_stray(driver: AsyncDriver) -> None:
@@ -47,6 +55,13 @@ async def _write_a_stray(driver: AsyncDriver) -> None:
         driver,
         "CREATE (:Entity:Task {uid: $stray, title: 'Stray', entity_type: 'task', "
         "user_uid: $owner, status: 'no-such-status'})",
+    )
+
+
+async def _write_an_untitled_task(driver: AsyncDriver) -> None:
+    await _write(
+        driver,
+        "CREATE (:Entity:Task {uid: $untitled, entity_type: 'task', user_uid: $owner})",
     )
 
 
@@ -126,6 +141,30 @@ async def test_the_census_reads_an_unreadable_value_in_the_apps_graph(
 @pytest.mark.xfail(strict=True, reason="an unmarked test that stores a stray fails")
 async def test_an_unmarked_stray_fails_its_test(shared_graph: AsyncDriver) -> None:
     await _write_a_stray(shared_graph)
+
+
+@pytest.mark.stores_unreadable_value("the census's control: a node without a required property")
+async def test_the_census_reads_a_required_property_the_node_lacks(
+    shared_graph: AsyncDriver,
+) -> None:
+    await _write_an_untitled_task(shared_graph)
+
+
+@_NEEDS_THE_APP
+@pytest.mark.stores_unreadable_value(
+    "the census's control: a node without a required property, in the app's graph"
+)
+async def test_the_census_reads_a_required_property_a_node_lacks_in_the_apps_graph(
+    app_graph: AsyncDriver,
+) -> None:
+    await _write_an_untitled_task(app_graph)
+
+
+@pytest.mark.xfail(strict=True, reason="an unmarked test that leaves a required property out fails")
+async def test_an_unmarked_node_without_a_required_property_fails_its_test(
+    shared_graph: AsyncDriver,
+) -> None:
+    await _write_an_untitled_task(shared_graph)
 
 
 @pytest.mark.xfail(strict=True, reason="a marked test that stores no stray fails as stale")

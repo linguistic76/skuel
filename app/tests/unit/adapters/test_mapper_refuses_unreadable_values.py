@@ -268,3 +268,51 @@ class TestANullReadsAsAnAbsentKey:
 
         assert user.preferences.preferred_time_of_day is TimeOfDay.ANYTIME
         assert user.preferences.available_minutes_daily == 90
+
+
+def _read(node: dict[str, Any], entity_class: type) -> bool:  # boundary: node properties
+    try:
+        from_neo4j_node(node, entity_class)
+    except UnreadableStoredValueError:
+        return False
+    return True
+
+
+class TestTheCensusRefusesWhatTheReadRefuses:
+    """``unreadable_fields`` is the read, collected: a node it names nothing on reads, and
+    a node the read refuses has every refusing field named — a required property the node
+    does not hold among them."""
+
+    def test_a_required_field_the_node_does_not_hold_is_named(self) -> None:
+        untitled = {"uid": _UID, "entity_type": "task", "user_uid": "user_x"}
+
+        assert [(r.field, r.value, r.reason) for r in unreadable_fields(untitled, Task)] == [
+            ("title", None, "is absent, and the field requires a value")
+        ]
+
+    def test_an_absent_field_with_a_default_or_allowing_none_is_not(self) -> None:
+        assert unreadable_fields({"uid": "x", "status": "active"}, _Required) == []
+
+    @pytest.mark.parametrize(
+        ("node", "entity_class"),
+        [
+            pytest.param(_task(), Task, id="complete"),
+            pytest.param(
+                {"uid": _UID, "entity_type": "task", "user_uid": "u"}, Task, id="no-title"
+            ),
+            pytest.param({"uid": _UID, "title": "t", "entity_type": "task"}, Task, id="no-owner"),
+            pytest.param(_task(status="bogus"), Task, id="unreadable-value"),
+            pytest.param({"uid": "x", "status": "active"}, _Required, id="defaults-absent"),
+            pytest.param({"uid": "x"}, _Required, id="required-enum-absent"),
+            pytest.param({"uid": "x", "status": None}, _Required, id="required-enum-null"),
+            pytest.param(
+                {"uid": "x", "status": "active", "tags": None}, _Required, id="null-default"
+            ),
+        ],
+    )
+    def test_the_census_names_nothing_exactly_when_the_node_reads(
+        self,
+        node: dict[str, Any],  # boundary: node properties
+        entity_class: type,
+    ) -> None:
+        assert (unreadable_fields(node, entity_class) == []) is _read(node, entity_class)

@@ -201,9 +201,9 @@ Alerts Actually Evaluate.
 every cycle while either gauge is above zero, with a few of the uids.
 
 **Stored-value context**: the same poller reads the stored-value census
-(`StoredValueCensusBackend.read_summary`): every property of every node a backend reads,
-read as its field's type by the mapper's own rule. A value it cannot read fails every read
-of its node (`UnreadableStoredValueError`). Production's evaluator is `check_stored_values`
+(`StoredValueCensusBackend.read_summary`): every field of every node a backend reads, by
+the mapper's own rule — each stored value as its type, each required field as present. A
+field it cannot read fails every read of its node (`UnreadableStoredValueError`). Production's evaluator is `check_stored_values`
 (`core/infrastructure/monitoring/stored_value_check.py`): an ERROR log every cycle while one
 is stored, naming a few; `./dev stored-value-census` names them all.
 

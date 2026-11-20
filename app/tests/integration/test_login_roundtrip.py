@@ -319,7 +319,7 @@ async def test_deactivated_user_cannot_mint_session(neo4j_driver, auth_env):
     async with neo4j_driver.session() as session:
         await session.run("MATCH (u:User {uid: $uid}) SET u.is_active = false", uid=user_uid)
 
-    stale_session = create_session(user_uid=user_uid, ip_address="test", user_agent="test")
+    stale_session = create_session(user_uid=user_uid, ip_address="test", user_agent="test").session
     created = await auth.session_backend.create_session(stale_session)
     assert created.is_error, "Session creation must refuse a deactivated user"
     assert await _count_sessions(neo4j_driver, user_uid) == 0
