@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-11-06
+updated: 2026-11-20
 status: current
 category: architecture
 related:
@@ -443,7 +443,8 @@ or `AI_EVALUATED` (LLM feedback, mastery 0.6, awaiting teacher review).
 **Structural position:** Leaf domain. Reads flow through `EntryReportBackend`
 (typed `get` + `list_for_submission` — `subject_uid` is projected from the
 `REPORT_FOR` edge, not stored as a node property). Writes flow through
-`UserEntryBackend.create_report_node`. Both are reached via `EntryReportService`,
+`EntryReportBackend.create_report_node` (and `create_report_and_revised_exercise` for a
+revision request), which write only for a submission its student owns. Both are reached via `EntryReportService`,
 the single service entry point (`EntryReportOperations` / `EntryReportBackendOperations`
 protocols in `core/ports/report_protocols.py`).
 

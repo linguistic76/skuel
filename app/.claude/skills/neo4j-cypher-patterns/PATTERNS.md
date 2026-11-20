@@ -54,7 +54,7 @@ RETURN r, r.created_at AS created_at
 // TeacherReviewService → EntryReportBackend.create_report_node()
 MATCH (submission:Entity {uid: $submission_uid})
 WHERE submission.status IN $allowed_from_statuses   // Cypher-level guard
-OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
+MATCH (student:User)-[:OWNS]->(submission)           // a guard too: no owner, no row
 SET submission.status = $submission_status, ...
 CREATE (fb:Entity { ... })
 ...
@@ -62,6 +62,11 @@ RETURN submission.uid as uid, submission.status as status, ...
 
 // If WHERE filters out the node → no rows returned → service returns validation error
 ```
+
+**Every guard before the first write.** A `WHERE` (or a `MATCH` that finds nothing) placed
+after a `SET`/`CREATE` drops the row but not the writes already made: the caller reads "refused"
+while the graph holds them. Put every row-dropping clause above the first write; a lookup that
+only feeds an edge is bound in the guard block too, not beside the edge.
 
 **Python (service passes allowed source statuses)**:
 ```python
