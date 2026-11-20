@@ -280,6 +280,7 @@ class HabitDTO(UserOwnedDTO):
                 "polarity",
                 "habit_category",
                 "habit_difficulty",
+                "recurrence_pattern",
                 "preferred_time",
                 "engagement_state",
             ),

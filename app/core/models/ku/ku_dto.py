@@ -23,7 +23,7 @@ from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.learning_enums import KuComplexity
+from core.models.enums.learning_enums import KuComplexity, SELCategory
 
 
 @dataclass
@@ -43,7 +43,7 @@ class KuDTO(EntityDTO):
     entity_type: EntityType = field(default=EntityType.KU, kw_only=True)
 
     aliases: list[str] | None = None
-    sel_category: str | None = None
+    sel_category: SELCategory | None = None
     complexity: KuComplexity | None = None
     publication_state: PublicationState = PublicationState.PUBLISHED
     # NOUS topic membership (stories, body, self-awareness, ...) — multi-topic;

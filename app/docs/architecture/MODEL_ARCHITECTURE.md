@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-08
+updated: 2026-11-20
 ---
 
 # Model Architecture
@@ -103,12 +103,13 @@ EntityDTO (~18 fields)
 │   ├── ActivityReportDTO                      (no file fields — activity patterns)
 │   ├── UserEntryDTO
 │   └── LifePathDTO
+├── KuDTO (+sel_category, complexity, nous, ...)
 ├── CurriculumDTO (+complexity, learning_level, ...)
-│   ├── KuDTO, PathStepDTO, LearningPathDTO, ExerciseDTO
+│   ├── PathStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO (+source_url, author, ...)
 ```
 
-Conversion: `to_dict()` calls `.value` on enums. `from_dict()` uses `dto_from_dict()` with enum class mappings.
+Conversion: `to_dict()` calls `.value` on enums. `from_dict()` uses `dto_from_dict()` with enum class mappings sliced from `ENUM_FIELD_TYPES` (`enum_fields_for`), and `update_from()` passes the same slice as `enum_mappings`. Each list is written by hand, so every field a DTO types as an enum must be in it: `tests/unit/models/test_enum_named_fields.py` reads each DTO from member values and fails on a field left as text, and fails on a field the registry names that a model or DTO types as anything but its enum, apart from the fields it lists as still typed `str`.
 
 ---
 

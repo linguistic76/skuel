@@ -248,6 +248,7 @@ class EventDTO(UserOwnedDTO):
                 "status",
                 "domain",
                 "visibility",
+                "recurrence_pattern",
                 "engagement_state",
             ),
         )

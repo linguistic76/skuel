@@ -8,10 +8,8 @@ globally consistent across entity types (``status`` is always ``EntityStatus``,
 ``sel_category`` is always ``SELCategory``, ...), so one flat map serves every
 consumer:
 
-- DTO ``from_neo4j_data`` methods slice their per-class maps via
-  ``enum_fields_for(...)`` instead of each repeating the field→enum
-  association inline (``sel_category → SELCategory`` used to be spelled out
-  in five separate DTO modules).
+- A DTO's ``from_dict`` and ``update_from`` slice their per-class maps from here
+  via ``enum_fields_for(...)``; no DTO spells a field→enum association of its own.
 - Ingestion canonicalizes authored enum values against the full registry
   (``canonicalize_enum_values`` in ``core/services/ingestion/preparer.py``)
   so vault authors can type ``learning_level: BEGINNER``, a documented alias
@@ -19,8 +17,11 @@ consumer:
   stores the canonical member value (or drops the property); what remains
   non-member is rejected by the ingestion validator's vocabulary gate.
 
-Adding a NEW enum-valued field: register it here, then slice it into the
-owning DTO's ``enum_fields_for(...)`` call. A field name may appear only once
+Adding a NEW enum-valued field: register it here, type it as its enum on the
+model and the DTO, then slice it into the owning DTO's ``from_dict`` call and,
+when its ``update_from`` accepts the field, that call too;
+``tests/unit/models/test_enum_named_fields.py`` fails on a step left undone. A
+field name may appear only once
 — if two entity types ever need the same field name with different enums,
 that is a naming-convention violation to fix, not a registry limitation.
 
@@ -48,6 +49,7 @@ from core.models.enums.principle_enums import (
     PrincipleCategory,
     PrincipleSource,
     PrincipleStrength,
+    TriggerType,
 )
 from core.models.enums.scheduling_enums import RecurrencePattern, TimeOfDay
 from core.models.enums.user_entry_enums import ExerciseScope, SubmissionModality
@@ -101,6 +103,8 @@ ENUM_FIELD_TYPES: dict[str, type[Enum]] = {
     "principle_source": PrincipleSource,
     "strength": PrincipleStrength,
     "current_alignment": AlignmentLevel,
+    # PrincipleReflection fields
+    "trigger_type": TriggerType,
     # LifePath fields
     "alignment_level": AlignmentLevel,
     # Report fields

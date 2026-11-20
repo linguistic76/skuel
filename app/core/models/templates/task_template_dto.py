@@ -141,7 +141,7 @@ class TaskTemplateDTO(EntityDTO):
                 "habit_streak_maintainer",
                 "completion_updates_goal",
             },
-            enum_mappings=enum_fields_for("entity_type", "status", "domain"),
+            enum_mappings=enum_fields_for("entity_type", "status", "domain", "recurrence_pattern"),
         )
 
     def __eq__(self, other: object) -> bool:
