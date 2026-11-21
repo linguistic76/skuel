@@ -171,10 +171,10 @@ async def test_askesis_skips_a_step_the_learner_has_mastered() -> None:
     context.active_path_steps_rich = [_ps_item("ps.readers.done"), _ps_item("ps.readers.next")]
     context.mastered_ps_uids = {"ps.readers.done"}
 
-    chosen, _ = await ContextRetriever()._find_active_ps(_USER, context)
+    chosen = (await ContextRetriever().choose_path_step(_USER, context)).chosen
 
     assert chosen is not None
-    assert chosen["step"]["uid"] == "ps.readers.next"
+    assert chosen.path_step.uid == "ps.readers.next"
 
 
 @pytest.mark.anyio
@@ -183,10 +183,10 @@ async def test_askesis_chooses_a_step_the_learner_has_not_mastered() -> None:
     context = UserContext(user_uid=_USER)
     context.active_path_steps_rich = [_ps_item("ps.readers.done")]
 
-    chosen, _ = await ContextRetriever()._find_active_ps(_USER, context)
+    chosen = (await ContextRetriever().choose_path_step(_USER, context)).chosen
 
     assert chosen is not None
-    assert chosen["step"]["uid"] == "ps.readers.done"
+    assert chosen.path_step.uid == "ps.readers.done"
 
 
 # ---------------------------------------------------------------------------

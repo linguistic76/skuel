@@ -4,7 +4,8 @@ The step arrives as the MEGA-QUERY's ``properties(ps)``, each Resource as
 ``get_cited_resources``' ``r {.*}``: enum fields hold their stored values, ``created_at`` an
 ISO string, ``updated_at`` (and a step's ``last_applied_date``) the driver's ``DateTime``,
 beside keys no field holds (the embedding, stray frontmatter). The bundle holds enum members
-and ``datetime``s, refuses a stored value its field cannot read, and says why at ERROR.
+and ``datetime``s; a stored value its field cannot read refuses the step (no candidate for
+guidance) or the Resource (left out), and says why at ERROR.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from neo4j.time import DateTime as DriverDateTime
 from structlog.testing import capture_logs
 from structlog.typing import EventDict
 
+from core.models.askesis.ps_bundle import PsBundle
 from core.models.enums import Domain, GuidanceMode, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -107,12 +109,17 @@ def _errors(logs: list[EventDict]) -> list[EventDict]:
     return [entry for entry in logs if entry["log_level"] == "error"]
 
 
+async def _bundle(retriever: ContextRetriever, context: UserContext) -> PsBundle:
+    """The bundle around the step the retriever chooses — the guided pipeline's two calls."""
+    chosen = (await retriever.choose_path_step(_USER, context)).chosen
+    assert chosen is not None
+    return await retriever.load_ps_bundle(_USER, chosen)
+
+
 @pytest.mark.anyio
 async def test_the_bundle_step_holds_enum_members_and_datetimes() -> None:
-    result = await _retriever().load_ps_bundle(_USER, _context(_stored_step()))
+    step = (await _bundle(_retriever(), _context(_stored_step()))).path_step
 
-    assert result.is_ok, result
-    step = result.value.path_step
     assert step.entity_type is EntityType.PATH_STEP
     assert step.status is EntityStatus.ACTIVE
     assert step.learning_level is LearningLevel.BEGINNER
@@ -131,10 +138,7 @@ async def test_the_bundle_step_holds_enum_members_and_datetimes() -> None:
 async def test_each_cited_resource_holds_enum_members_and_datetimes() -> None:
     retriever = _retriever([_stored_resource("resource.shape-book")])
 
-    result = await retriever.load_ps_bundle(_USER, _context(_stored_step()))
-
-    assert result.is_ok, result
-    (resource,) = result.value.resources
+    (resource,) = (await _bundle(retriever, _context(_stored_step()))).resources
     assert resource.entity_type is EntityType.RESOURCE
     assert resource.domain is Domain.KNOWLEDGE
     assert resource.created_at == datetime(2026, 11, 21, 3, 4, 53, 688000, tzinfo=UTC)
@@ -145,20 +149,22 @@ async def test_each_cited_resource_holds_enum_members_and_datetimes() -> None:
 
 @pytest.mark.anyio
 async def test_a_step_holding_a_value_its_field_cannot_read_is_refused_and_says_why() -> None:
-    with capture_logs() as logs:
-        result = await _retriever().load_ps_bundle(
-            _USER, _context(_stored_step(learning_level="wizard"))
-        )
+    retriever = _retriever()
+    stored = _stored_step(learning_level="wizard")
 
-    assert result.is_error
-    assert result.expect_error().category is ErrorCategory.SYSTEM
+    with capture_logs() as logs:
+        choice = await retriever.choose_path_step(_USER, _context(stored))
+
+    assert choice.chosen is None
+    assert choice.unopened_titles == ("Stored Shape",)
+    assert retriever._build_path_step(stored).expect_error().category is ErrorCategory.SYSTEM
     (logged,) = _errors(logs)
     assert _STEP_UID in logged["event"]
     assert "'wizard' is not a LearningLevel value" in logged["event"]
 
 
 @pytest.mark.anyio
-async def test_a_refused_step_leaves_the_answer_unguided() -> None:
+async def test_a_refused_step_alone_leaves_the_answer_unguided_and_says_so() -> None:
     canon_service = MagicMock()
     canon_service.retrieve = AsyncMock()
     intent_classifier = MagicMock()
@@ -182,13 +188,17 @@ async def test_a_refused_step_leaves_the_answer_unguided() -> None:
         canon_service=canon_service,
     )
 
-    prompt, mode, ps_bundle, canon_context = await processor._run_guided_pipeline(
+    prompt, mode, ps_bundle, canon_context, notice = await processor._run_guided_pipeline(
         _USER, "What is this step about?", _context(_stored_step(learning_level="wizard"))
     )
 
     assert (prompt, mode, ps_bundle) == (None, None, None)
     assert not canon_context.has_passages
     canon_service.retrieve.assert_not_awaited()
+    assert notice == (
+        "I couldn't open your step \"Stored Shape\" just now, so this answer isn't drawn from "
+        "its material."
+    )
 
 
 @pytest.mark.anyio
@@ -201,10 +211,9 @@ async def test_a_resource_holding_a_value_its_field_cannot_read_is_left_out_alon
     )
 
     with capture_logs() as logs:
-        result = await retriever.load_ps_bundle(_USER, _context(_stored_step()))
+        bundle = await _bundle(retriever, _context(_stored_step()))
 
-    assert result.is_ok, result
-    assert [resource.uid for resource in result.value.resources] == ["resource.good-book"]
+    assert [resource.uid for resource in bundle.resources] == ["resource.good-book"]
     (logged,) = _errors(logs)
     assert "resource.bad-domain" in logged["event"]
     assert "'bogus' is not a Domain value" in logged["event"]
@@ -219,33 +228,41 @@ async def test_an_unexpected_failure_building_the_step_is_logged_with_its_traceb
 
     monkeypatch.setattr(PathStep, "from_dto", classmethod(_broken))
 
-    with capture_logs() as logs:
-        result = await _retriever().load_ps_bundle(_USER, _context(_stored_step()))
+    retriever = _retriever()
 
-    assert result.is_error
-    assert result.expect_error().category is ErrorCategory.SYSTEM
+    with capture_logs() as logs:
+        choice = await retriever.choose_path_step(_USER, _context(_stored_step()))
+
+    assert choice.chosen is None
+    assert choice.unopened_titles == ("Stored Shape",)
     (logged,) = _errors(logs)
     assert _STEP_UID in logged["event"]
     assert logged.get("exc_info") is True
+    assert retriever._build_path_step(_stored_step()).expect_error().category is (
+        ErrorCategory.SYSTEM
+    )
 
 
 @pytest.mark.anyio
 async def test_a_step_with_no_uid_is_refused_and_says_why() -> None:
-    with capture_logs() as logs:
-        result = await _retriever().load_ps_bundle(_USER, _context(_stored_step(uid="")))
+    retriever = _retriever()
 
-    assert result.is_error
-    assert result.expect_error().category is ErrorCategory.SYSTEM
+    with capture_logs() as logs:
+        choice = await retriever.choose_path_step(_USER, _context(_stored_step(uid="")))
+
+    assert choice.chosen is None
+    assert choice.unopened_titles == ("Stored Shape",)
     (logged,) = _errors(logs)
     assert "no uid" in logged["event"]
+    assert retriever._build_path_step(_stored_step(uid="")).expect_error().category is (
+        ErrorCategory.SYSTEM
+    )
 
 
 @pytest.mark.anyio
-async def test_no_step_in_progress_is_not_found_and_names_why() -> None:
-    result = await _retriever().load_ps_bundle(_USER, _context())
+async def test_no_step_in_progress_chooses_nothing_and_says_nothing() -> None:
+    choice = await _retriever().choose_path_step(_USER, _context())
 
-    assert result.is_error
-    error = result.expect_error()
-    assert error.category is ErrorCategory.NOT_FOUND
-    assert error.details["identifier"] == _USER
-    assert error.details["reason"] == "no step in progress the learner has not mastered"
+    assert choice.chosen is None
+    assert choice.unopened_titles == ()
+    assert choice.unopened_notice() == ""

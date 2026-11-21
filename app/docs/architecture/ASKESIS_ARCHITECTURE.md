@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-14
+updated: 2026-11-21
 ---
 
 # Askesis Architecture - Cross-Cutting Intelligence System
@@ -142,7 +142,8 @@ AskesisService (Facade)
 │   └── extract_from_bundle()         ← PS-scoped extraction
 ├── ContextRetriever
 │   ├── retrieve_relevant_context()   ← graph + semantic retrieval
-│   ├── load_ps_bundle()              ← loads PsBundle from UserContext
+│   ├── choose_path_step()            ← the step in progress to guide on (one that reads)
+│   ├── load_ps_bundle()              ← loads PsBundle around the chosen step
 │   ├── get_learning_context()
 │   └── analyze_knowledge_gaps()
 ```

@@ -1,6 +1,6 @@
 ---
 title: "ContextRetriever's Three Write-Only Fields"
-updated: 2026-11-14
+updated: 2026-11-21
 status: "open — events/principles half"
 registered: 2026-08-20
 ruled: 2026-08-21
@@ -183,7 +183,7 @@ exercised. The table above becomes `BUILDS_HABIT` **1**; every other channel is 
 ⚠️ **Exactly what is proven, and what is not** — stated in the discipline this document's
 governing caveat demands. **Proven by direct observation:** the edge exists, and the MEGA-QUERY's
 own `practice_habits` pattern returns it. **Not run:** a live Askesis session.
-`load_ps_bundle` is user-scoped (it walks `active_path_steps_rich`), so observing it in the tutor
+The bundle is user-scoped (`choose_path_step` walks `active_path_steps_rich`), so observing it in the tutor
 requires that PathStep to be active for a user. That is user state; no part of the plumbing
 remains in doubt.
 

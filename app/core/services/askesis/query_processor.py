@@ -73,6 +73,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
+    from core.models.askesis.ps_bundle import PsBundle
     from core.models.search_request import SearchRequest
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.askesis.context_retriever import ContextRetriever
@@ -111,6 +112,11 @@ def _passes_enrollment_gate(user_context: UserContext) -> bool:
     Learning Path unlocks Askesis. Both fields are populated at standard AND rich
     context depth."""
     return bool(user_context.current_ps_uids or user_context.enrolled_path_uids)
+
+
+def _with_notice(answer: str, notice: str) -> str:
+    """The answer with the notice as its closing paragraph; unchanged when there is none."""
+    return f"{answer}\n\n{notice}" if notice else answer
 
 
 class QueryProcessor:
@@ -341,11 +347,12 @@ class QueryProcessor:
         # preserved — the guided prompt and its builders are untouched; count
         # questions simply are not Socratic turns).
         if aggregation is not None or (scope is not None and scope.to_property_filters()):
-            guided_system_prompt, guidance_mode, ps_bundle, canon_context = (
+            guided_system_prompt, guidance_mode, ps_bundle, canon_context, unopened_notice = (
                 None,
                 None,
                 None,
                 CanonContext.empty(),
+                "",
             )
         else:
             (
@@ -353,6 +360,7 @@ class QueryProcessor:
                 guidance_mode,
                 ps_bundle,
                 canon_context,
+                unopened_notice,
             ) = await self._run_guided_pipeline(user_uid, question, user_context, preferred_mode)
 
         # Step 8: Generate answer (aggregation-deterministic, guided, or context-aware)
@@ -419,6 +427,7 @@ class QueryProcessor:
             session_id=session_id,
             canon_sources=canon_context.sources(),
             mode_override="aggregation" if aggregation is not None else None,
+            unopened_notice=unopened_notice,
         )
 
         logger.info(
@@ -557,6 +566,7 @@ class QueryProcessor:
             guidance_mode,
             ps_bundle,
             _canon_context,
+            unopened_notice,
         ) = await self._run_guided_pipeline(user_uid, query_message, user_context)
 
         # Step 5: Generate response (guided or context-aware)
@@ -584,7 +594,7 @@ class QueryProcessor:
             query_message, context_data, intent
         )
         result_dict = self._build_query_response_result(
-            response,
+            _with_notice(response, unopened_notice),
             current_knowledge,
             active_learning,
             active_tasks,
@@ -623,24 +633,29 @@ class QueryProcessor:
         question: str,
         user_context: Any,
         preferred_mode: GuidanceMode | None = None,
-    ) -> tuple[str | None, str | None, Any, CanonContext]:
+    ) -> tuple[str | None, str | None, PsBundle | None, CanonContext, str]:
         """
-        Load PS bundle and compute guided system prompt + guidance mode.
+        Choose the step to guide on, load its PS bundle, and compute the guided
+        system prompt + guidance mode.
 
         If preferred_mode is provided, it overrides the ZPD-determined mode while
         preserving the pedagogical intent and zone evidence for system prompt building.
 
         Returns:
-            (guided_system_prompt, guidance_mode, ps_bundle, canon_context) — the
-            first three None if no bundle available; canon_context is always a
-            CanonContext (empty when no canon service, no cited Resources, or
-            no resonant passage — fail-soft, ADR-077).
+            (guided_system_prompt, guidance_mode, ps_bundle, canon_context,
+            unopened_notice) — the first three None if no step in progress reads
+            (or none is in progress);
+            canon_context is always a CanonContext (empty when no canon service,
+            no cited Resources, or no resonant passage — fail-soft, ADR-077);
+            unopened_notice names each step the choice passed over because it did
+            not read, "" when none was.
         """
-        bundle_result = await self.context_retriever.load_ps_bundle(user_uid, user_context)
-        if bundle_result.is_error:
-            return None, None, None, CanonContext.empty()
+        choice = await self.context_retriever.choose_path_step(user_uid, user_context)
+        notice = choice.unopened_notice()
+        if choice.chosen is None:
+            return None, None, None, CanonContext.empty(), notice
 
-        ps_bundle = bundle_result.value
+        ps_bundle = await self.context_retriever.load_ps_bundle(user_uid, choice.chosen)
 
         # PS-scoped canon readings (FULL-tier, fail-soft). Scope = the PS's cited
         # Resources (focus PS + its Kus + related steps, already loaded on the
@@ -681,7 +696,7 @@ class QueryProcessor:
         guided_system_prompt = self.response_generator.build_guided_system_prompt(
             guidance, ps_bundle, user_context, canon_context=canon_context
         )
-        return guided_system_prompt, guidance.mode.value, ps_bundle, canon_context
+        return guided_system_prompt, guidance.mode.value, ps_bundle, canon_context, notice
 
     async def _generate_guided_answer(
         self,
@@ -735,14 +750,16 @@ class QueryProcessor:
         session_id: str | None,
         canon_sources: tuple[CanonSource, ...] = (),
         mode_override: str | None = None,
+        unopened_notice: str = "",
     ) -> dict[str, Any]:
         """Build the response dict for answer_user_question.
 
         ``mode_override`` labels the deterministic aggregation branch
         ("aggregation") — neither guided nor llm_generated describes an answer
-        no LLM produced.
+        no LLM produced. ``unopened_notice`` follows the answer, before any
+        citations: the learner is told which step could not be opened.
         """
-        final_answer = answer + citations_text if citations_text else answer
+        final_answer = _with_notice(answer, unopened_notice) + citations_text
         confidence = QueryProcessorConfidence.calculate(
             has_context=bool(relevant_context),
             has_citations=bool(citations_text),

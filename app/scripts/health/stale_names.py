@@ -674,9 +674,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (139, "from ui.daisy_components import"): Allow(_trouble),
     },
     "docs/architecture/ASKESIS_ARCHITECTURE.md": {
-        (462, "activity_rich"): Allow(_askesis_arch),
-        (463, "ActivityDataReader"): Allow(_askesis_arch),
-        (464, "ActivityReviewService"): Allow(_askesis_arch),
+        (463, "activity_rich"): Allow(_askesis_arch),
+        (464, "ActivityDataReader"): Allow(_askesis_arch),
+        (465, "ActivityReviewService"): Allow(_askesis_arch),
     },
     "docs/architecture/ENTITY_TYPE_ARCHITECTURE.md": {
         (409, "ProcessorType"): Allow(_entity_arch),
@@ -866,7 +866,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (125, "Pipeline.JOURNAL"): Allow(_adr073),
     },
     "docs/intelligence/ASKESIS_INTELLIGENCE.md": {
-        (360, "ActivityReviewService"): Allow(_askesis_intel),
+        (361, "ActivityReviewService"): Allow(_askesis_intel),
     },
     "docs/intelligence/MOC_INTELLIGENCE.md": {
         (17, "KuOrganizationService"): Allow(_moc_intel),

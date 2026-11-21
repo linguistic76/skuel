@@ -1,6 +1,6 @@
 ---
 title: "ADR-059: Engagement-Aware Daily Plan in Askesis"
-updated: 2026-11-14
+updated: 2026-11-21
 status: current
 category: decisions
 tags: [adr, decisions, askesis, engagement, daily-plan]
@@ -244,6 +244,20 @@ The dataflow as shipped:
 - [ ] **Manual:** exercise `/askesis/api/submit` with a fixture user
   holding one engaged PS and one published-but-not-engaged PS; confirm the
   two surfaces render differently.
+
+---
+
+## Amendment (2026-11-21): a step that does not read is no candidate
+
+**Ruled by Mike, 2026-11-21.** The selection rule `ContextRetriever._find_active_ps` held (see
+§ Context) is now `ContextRetriever.choose_path_step`, and it ranks only steps that read: a step
+in progress whose stored properties do not read as a PathStep (a value its field refuses, no
+uid, or a defect in the build) is no candidate, so Askesis guides on the next engaged step, else
+the first readable step the learner has not engaged with. Leading a learner to a step they have
+not committed to is wanted, not a fallback to apologise for. The learner is told: the answer
+closes by naming each step passed over ahead of the choice and the step Askesis works from
+instead. Which of two engaged steps comes first is still the order the context lists them in,
+which the curriculum read does not define.
 
 ---
 
