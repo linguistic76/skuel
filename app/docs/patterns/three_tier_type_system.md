@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-11-20
+updated: 2026-11-21
 category: patterns
 related_skills:
 - python
@@ -135,7 +135,7 @@ against its field (`/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`).
 - API response serialization (consistent JSON format)
 
 **Always use Tier 2 (DTO)**:
-- Service layer operations (mutable for status updates)
+- Building a new entity field by field before its create (mutable)
 - Database serialization (to_dict / from_dict)
 
 **Tier 3 (Domain) is optional**:
@@ -809,19 +809,19 @@ sees, and `to_changes()` is the single materialization point. See
 
 ### Tier 2 (DTO) - Flexibility in Services
 
-**Problem solved**: Service operations need to modify data (status updates, computed fields) but domain models should be immutable.
+**Problem solved**: A stored node and a domain model are not the same shape (enum member values, ISO temporals, JSON-encoded offsets), and a service sometimes assembles a new entity field by field before it exists.
 
-**Solution**: Mutable DTOs allow service-layer modifications without violating immutability principles.
+**Solution**: The mutable DTO is the persistence shape. `from_dict` reads stored properties into typed fields, `to_dict` writes them back, and a service may set a field while building a new entity before handing it to the create door.
 
-> **Exception — Intelligence services do NOT mutate DTOs.** See [Intelligence is the exception](#intelligence-is-the-exception-no-dto-mutation) below. The CRUD/persistence story is mutable-DTO; the intelligence story is functional-return-value.
+> **An update never mutates a DTO.** An update is a patch of the fields it changes: a `*UpdateIntent` or `RawChanges` through the service contract, materialized once at `backend.update` (see [the typed write boundary](#the-typed-write-boundary--update-intents-and-raw-patches-adr-066) below), and a status change goes through `update_with_status_guard` (ADR-087). Intelligence services do not mutate DTOs either: see [Intelligence is the exception](#intelligence-is-the-exception-no-dto-mutation).
 
 **Benefits**:
-- Update fields without creating new instances
 - Clean database serialization (to_dict / from_dict)
+- A new entity can be assembled before it is frozen
 - Separation from business logic
 - Graph-native design (relationships separate from properties)
 
-**Example**: Task completion requires updating 4 fields (status, completion_date, actual_minutes, updated_at). With DTOs, this is simple field assignment. With frozen domain models, you'd need to create a new instance with all fields.
+**Example**: Completing a task writes a patch, `status` plus its `completion_date` stamp, through `update_with_status_guard`; the write decides the stamp from the status the node holds under its lock. No DTO is read, changed and written back whole.
 
 ### Tier 3 (Domain) - Business Logic Safety
 
@@ -841,7 +841,7 @@ sees, and `to_changes()` is the single materialization point. See
 
 **Core Principle:** "Intelligence services compute, callers apply."
 
-The mutable-DTO story above describes CRUD/persistence flows. An intelligence service that computes
+The mutable DTO above is the persistence shape. An intelligence service that computes
 entity fields does NOT mutate a DTO: it returns a typed frozen result carrying only the fields it
 produces, and the caller applies it with `dataclasses.replace()` on the frozen domain model. This
 closes the risk ADR-035 flagged when it kept Tier 3 frozen models for complex domains: "Intelligence

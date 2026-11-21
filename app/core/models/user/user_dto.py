@@ -135,14 +135,6 @@ class UserDTO:
             preferences=UserPreferencesDTO(learning_level=learning_level),
         )
 
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update fields from dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        # Note: UserDTO uses last_active_at instead of updated_at
-        update_from_dict(self, updates)
-        self.last_active_at = datetime.now()
-
     def add_active_entity(self, entity_uid: EntityUID) -> bool:
         """Add an entity to active set"""
         if entity_uid not in self.active_entity_uids:

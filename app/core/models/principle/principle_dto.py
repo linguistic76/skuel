@@ -202,69 +202,6 @@ class PrincipleDTO(UserOwnedDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                # EntityDTO fields
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # UserOwnedDTO fields
-                "priority",
-                "visibility",
-                # Principle-specific fields
-                "statement",
-                "principle_category",
-                "principle_source",
-                "strength",
-                "tradition",
-                "original_source",
-                "personal_interpretation",
-                "expressions",
-                "key_behaviors",
-                "current_alignment",
-                "alignment_history",
-                "dual_track_checkins",
-                "last_review_date",
-                "potential_conflicts",
-                "conflicting_principles",
-                "resolution_strategies",
-                "why_important",
-                "origin_story",
-                "evolution_notes",
-                "is_active",
-                "adopted_date",
-                "source_path_step_uid",
-                "engagement_state",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "visibility",
-                "principle_category",
-                "principle_source",
-                "strength",
-                "current_alignment",
-                "engagement_state",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, PrincipleDTO):

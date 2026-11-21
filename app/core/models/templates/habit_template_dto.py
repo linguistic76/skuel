@@ -107,62 +107,6 @@ class HabitTemplateDTO(EntityDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        from core.models.dto_helpers import update_from_dict
-
-        coerced: dict[str, Any] = dict(updates)
-        for name in _OFFSET_FIELDS:
-            if name in coerced and not isinstance(coerced[name], RelativeOffset):
-                coerced[name] = jsonable_to_offset(coerced[name])
-
-        update_from_dict(
-            self,
-            coerced,
-            allowed_fields={
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # HabitTemplate-specific
-                "polarity",
-                "habit_category",
-                "habit_difficulty",
-                "cue",
-                "routine",
-                "reward",
-                "reinforces_identity",
-                "is_identity_habit",
-                "target_identity",
-                "identity_evidence_required",
-                "duration_minutes",
-                "recurrence_pattern",
-                "recurrence_end_offset",
-                "target_days_per_week",
-                "preferred_time",
-                "reminder_time",
-                "reminder_days",
-                "reminder_enabled",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "polarity",
-                "habit_category",
-                "habit_difficulty",
-                "preferred_time",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, HabitTemplateDTO):
             return False

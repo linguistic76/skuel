@@ -104,50 +104,6 @@ class EntryReportDTO(UserOwnedDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                # EntityDTO fields
-                "title",
-                "content",
-                "processed_content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # UserOwnedDTO fields
-                "priority",
-                "visibility",
-                # Report-specific fields
-                "report_generated_at",
-                "subject_uid",
-                "processor_type",
-                "assessment_outcome",
-                "report_file_path",
-                "assessment_score",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "visibility",
-                "processor_type",
-                "assessment_outcome",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, EntryReportDTO):

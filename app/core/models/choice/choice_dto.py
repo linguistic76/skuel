@@ -175,62 +175,6 @@ class ChoiceDTO(UserOwnedDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                # EntityDTO fields
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # UserOwnedDTO fields
-                "priority",
-                "visibility",
-                # Choice-specific fields
-                "choice_type",
-                "options",
-                "selected_option_uid",
-                "decision_context",
-                "decision_rationale",
-                "decision_confidence",
-                "decision_criteria",
-                "constraints",
-                "stakeholders",
-                "decision_deadline",
-                "decided_at",
-                "completed_at",
-                "satisfaction_score",
-                "actual_outcome",
-                "lessons_learned",
-                "inspiration_type",
-                "expands_possibilities",
-                "source_path_step_uid",
-                "engagement_state",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "visibility",
-                "choice_type",
-                "engagement_state",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, ChoiceDTO):

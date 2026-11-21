@@ -173,62 +173,6 @@ class TaskDTO(UserOwnedDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                # EntityDTO fields
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # UserOwnedDTO fields
-                "priority",
-                "visibility",
-                # Task-specific fields
-                "due_date",
-                "scheduled_date",
-                "completion_date",
-                "duration_minutes",
-                "actual_minutes",
-                "recurrence_pattern",
-                "recurrence_end_date",
-                "recurrence_parent_uid",
-                "scheduled_event_uid",
-                "parent_uid",
-                "project",
-                "assignee",
-                "source_path_step_uid",
-                "goal_progress_contribution",
-                "knowledge_mastery_check",
-                "habit_streak_maintainer",
-                "completion_updates_goal",
-                "curriculum_practice_type",
-                "engagement_state",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "visibility",
-                "recurrence_pattern",
-                "engagement_state",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, TaskDTO):

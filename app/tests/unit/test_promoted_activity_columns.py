@@ -85,13 +85,6 @@ class TestPrincipleWhyImportantIsARealColumn:
             == "Plans built on shallow understanding do not stick."
         )
 
-    def test_dto_update_from_accepts_it(self) -> None:
-        """It is on the DTO's allowed_fields, so an update patch is not silently dropped."""
-        dto = PrincipleDTO.create_principle(user_uid="u", title="Observe first")
-        dto.update_from({"why_important": "Because the plans keep failing"})
-
-        assert dto.why_important == "Because the plans keep failing"
-
 
 class TestChoiceDecisionContextIsARealColumn:
     def test_it_is_distinct_from_decision_rationale(self) -> None:
@@ -139,9 +132,3 @@ class TestChoiceDecisionContextIsARealColumn:
         assert dto.decision_context == "The sandbox instance keeps pausing."
         assert dto.to_dict()["decision_context"] == "The sandbox instance keeps pausing."
         assert Choice.from_dto(dto).decision_context == "The sandbox instance keeps pausing."
-
-    def test_dto_update_from_accepts_it(self) -> None:
-        dto = ChoiceDTO.create_choice(user_uid="u", title="Pick a graph host")
-        dto.update_from({"decision_context": "The sandbox keeps pausing"})
-
-        assert dto.decision_context == "The sandbox keeps pausing"

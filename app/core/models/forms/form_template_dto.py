@@ -70,40 +70,6 @@ class FormTemplateDTO(EntityDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # FormTemplate-specific
-                "form_schema",
-                "instructions",
-            },
-            enum_mappings=enum_fields_for("entity_type", "status", "domain"),
-        )
-        # Handle form_schema JSON string
-        if "form_schema" in updates and isinstance(updates["form_schema"], str):
-            import contextlib
-
-            with contextlib.suppress(json.JSONDecodeError, TypeError):
-                self.form_schema = json.loads(updates["form_schema"])
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, FormTemplateDTO):

@@ -82,45 +82,6 @@ class ChoiceTemplateDTO(EntityDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        from core.models.dto_helpers import update_from_dict
-
-        coerced: dict[str, Any] = dict(updates)
-        for name in _OFFSET_FIELDS:
-            if name in coerced and not isinstance(coerced[name], RelativeOffset):
-                coerced[name] = jsonable_to_offset(coerced[name])
-
-        update_from_dict(
-            self,
-            coerced,
-            allowed_fields={
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # ChoiceTemplate-specific
-                "choice_type",
-                "options",
-                "decision_rationale",
-                "decision_criteria",
-                "constraints",
-                "stakeholders",
-                "decision_deadline_offset",
-                "inspiration_type",
-                "expands_possibilities",
-            },
-            enum_mappings=enum_fields_for("entity_type", "status", "domain", "choice_type"),
-        )
-
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ChoiceTemplateDTO):
             return False

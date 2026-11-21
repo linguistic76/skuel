@@ -87,40 +87,6 @@ class ResourceDTO(EntityDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                # EntityDTO fields
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # Resource-specific fields
-                "source_url",
-                "author",
-                "publisher",
-                "publication_year",
-                "isbn",
-                "media_type",
-                "resource_duration_minutes",
-            },
-            enum_mappings=enum_fields_for("entity_type", "status", "domain"),
-        )
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, ResourceDTO):

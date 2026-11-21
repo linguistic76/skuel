@@ -111,55 +111,6 @@ class LifePathDTO(UserOwnedDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                # EntityDTO fields
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # UserOwnedDTO fields
-                "priority",
-                "visibility",
-                # LifePath-specific fields
-                "life_path_uid",
-                "designated_at",
-                "alignment_score",
-                "word_action_gap",
-                "alignment_level",
-                "knowledge_alignment",
-                "activity_alignment",
-                "goal_alignment",
-                "principle_alignment",
-                "momentum",
-                "vision_statement",
-                "vision_themes",
-                "vision_captured_at",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "visibility",
-                "alignment_level",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, LifePathDTO):

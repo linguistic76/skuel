@@ -76,32 +76,3 @@ class UserOwnedDTO(EntityDTO):
             list_fields=["tags"],
             dict_fields=["metadata"],
         )
-
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                # EntityDTO fields
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # UserOwnedDTO fields
-                "priority",
-                "visibility",
-            },
-            enum_mappings=enum_fields_for("status", "domain", "visibility"),
-        )

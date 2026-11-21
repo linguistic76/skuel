@@ -7,9 +7,8 @@ Two promises, held for every class at once:
   through its own ``from_dict``, except the fields in ``_STILL_TYPED_STR``. That set
   only shrinks: a field in it that is typed as its enum fails here too.
 - A DTO's ``from_dict`` turns a stored member value into the member for every field
-  its annotation types as an enum, and its ``update_from`` does the same for every such
-  field it accepts. A field left out of a DTO's hand-written conversion lists would
-  hold the raw ``str`` under an enum annotation.
+  its annotation types as an enum. A field left out of a DTO's hand-written conversion
+  list would hold the raw ``str`` under an enum annotation.
 
 The classes are found by importing every module under ``core.models``, so a new DTO or
 model is held without being listed here.
@@ -38,12 +37,10 @@ from core.models.enum_field_registry import ENUM_FIELD_TYPES
 
 
 class _ConvertingDTO(Protocol):
-    """What a DTO in ``core.models`` offers to read stored properties and apply updates."""
+    """What a DTO in ``core.models`` offers to read stored properties."""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self: ...  # boundary: stored node properties
-
-    def update_from(self, updates: dict[str, Any]) -> None: ...  # boundary: field updates
 
 
 # Enum-named fields still annotated ``str`` — (class name, field name).
@@ -195,7 +192,6 @@ def _expected_members(cls: type) -> dict[str, Enum]:
 
 _ENUM_NAMED = _own_enum_named_fields()
 _DTOS = _dto_classes()
-_DTOS_WITH_UPDATE = [cls for cls in _DTOS if "update_from" in cls.__dict__]
 
 
 class TestTheWalkReachesEveryClass:
@@ -252,18 +248,3 @@ def test_from_dict_reads_each_enum_field_as_its_member(cls: type[_ConvertingDTO]
         name for name, member in expected.items() if getattr(dto, name) is not member
     )
     assert not left_as_str, f"{cls.__name__}.from_dict leaves {left_as_str} unread as their enum"
-
-
-@pytest.mark.parametrize(
-    "cls", _DTOS_WITH_UPDATE, ids=[_class_id(cls) for cls in _DTOS_WITH_UPDATE]
-)
-def test_update_from_reads_each_enum_field_it_accepts_as_its_member(
-    cls: type[_ConvertingDTO],
-) -> None:
-    dto = cls.from_dict(_required_properties(cls))
-    expected = _expected_members(cls)
-
-    dto.update_from({name: member.value for name, member in expected.items()})
-
-    left_as_str = sorted(name for name in expected if type(getattr(dto, name)) is str)
-    assert not left_as_str, f"{cls.__name__}.update_from accepts {left_as_str} as raw text"

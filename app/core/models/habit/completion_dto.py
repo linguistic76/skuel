@@ -21,7 +21,6 @@ class HabitCompletionDTO:
 
     Used by services to:
     - Create new habit completions
-    - Update existing habit completions
     - Transfer data between layers
     """
 
@@ -63,12 +62,6 @@ class HabitCompletionDTO:
             quality=quality,
             duration_actual=duration_actual,
         )
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update fields from dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(self, updates)
 
     def validate_quality(self) -> None:
         """Validate quality rating if provided."""
