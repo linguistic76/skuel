@@ -26,7 +26,6 @@ class PrincipleReflectionDTO:
 
     Used by services to:
     - Create new principle reflections
-    - Update existing reflections
     - Transfer data between layers
     """
 
@@ -149,16 +148,6 @@ class PrincipleReflectionDTO:
             score += 0.1
 
         return min(1.0, score)
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update fields from dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self, updates, enum_mappings=enum_fields_for("alignment_level", "trigger_type")
-        )
-        # Recalculate quality score after updates
-        self.reflection_quality_score = self._calculate_quality_score()
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary using generic helper."""

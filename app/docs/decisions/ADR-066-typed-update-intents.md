@@ -1,10 +1,10 @@
 ---
 title: "ADR-066: Typed Update Intents (frozen `*UpdateIntent`, one update path)"
-updated: 2026-09-15
+updated: 2026-11-21
 status: current
 category: decisions
 tags: [adr, decisions, architecture, dto, immutability, typing, hexagonal, activity-domains]
-related: [ADR-065, ADR-044, ADR-043, ADR-035]
+related: [ADR-065, ADR-044, ADR-043, ADR-035, ADR-087]
 related_skills: [activity-domains, domain-route-config, pydantic, pytest, python]
 ---
 
@@ -109,7 +109,8 @@ class TaskUpdateIntent:
 This is the only path permitted for partial / user-facing updates.
 
 **3. Reserve `backend.update(dict)` for deliberate raw writes** — #3 full-DTO persistence and #4
-system field bumps — each annotated `# raw-write: <why the lifecycle is bypassed>`. Partial updates
+system field bumps — each annotated `# raw-write: <why the lifecycle is bypassed>`. (#3 is
+withdrawn: see § Amendment (2026-11-21).) Partial updates
 calling the backend directly (#2) are migrated onto the service contract.
 
 **4. One flow, Pydantic at the edge.** `*UpdateRequest` (Pydantic, adapter boundary) gains
@@ -159,10 +160,19 @@ This propagates Tasks-first (the ADR-065 lead domain) to all six Activity Domain
 - **Do nothing.** Rejected: the docstring advertises a pattern that does not type-check, and the
   #1/#2 split keeps letting updates skip validation and events by accident.
 
+## Amendment (2026-11-21): no full-DTO raw write
+
+**Ruled by Mike, 2026-11-21.** Decision 3's path #3 has no instance and is not a sanctioned raw
+write: a raw write is always a patch of the fields it sets. Reading an entity and writing it back
+whole overwrites a concurrent change, the shape ADR-087 forbids. The in-place DTO update that
+fed it (`update_from`, `update_from_dict`) is deleted; an update is a `*UpdateIntent` or a
+`RawChanges` patch, and the write gate holds each field it writes to the field's type.
+
 ## References
 - ADR-065 — Functional Inference Contract (`*InferenceResult` + `dataclasses.replace`)
 - `docs/roadmap/functional-direction.md` — doctrine owner; "update intents" extension
 - `docs/roadmap/done/update-intents.md` — phased migration
+- ADR-087 — Status-Guarded Conditional Writes (no read-then-write-whole)
 - `docs/patterns/three_tier_type_system.md` — Pydantic-edge / frozen-core boundary
 - Reference implementation (after Phase 1): `core/models/task/task_update_intent.py`,
   `core/services/tasks/tasks_core_service.py`

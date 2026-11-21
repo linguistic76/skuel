@@ -113,61 +113,6 @@ class GoalTemplateDTO(EntityDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        from core.models.dto_helpers import update_from_dict
-
-        coerced: dict[str, Any] = dict(updates)
-        for name in _OFFSET_FIELDS:
-            if name in coerced and not isinstance(coerced[name], RelativeOffset):
-                coerced[name] = jsonable_to_offset(coerced[name])
-
-        update_from_dict(
-            self,
-            coerced,
-            allowed_fields={
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # GoalTemplate-specific
-                "goal_type",
-                "timeframe",
-                "measurement_type",
-                "target_value",
-                "unit_of_measurement",
-                "start_offset",
-                "target_offset",
-                "milestones",
-                "vision_statement",
-                "why_important",
-                "success_criteria",
-                "potential_obstacles",
-                "strategies",
-                "fulfills_goal_template_uid",
-                "inspired_by_choice_template_uid",
-                "selected_choice_option_template_uid",
-                "target_identity",
-                "identity_evidence_required",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "goal_type",
-                "timeframe",
-                "measurement_type",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, GoalTemplateDTO):
             return False

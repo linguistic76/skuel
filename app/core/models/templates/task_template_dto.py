@@ -98,52 +98,6 @@ class TaskTemplateDTO(EntityDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        from core.models.dto_helpers import update_from_dict
-
-        # Coerce any RelativeOffset payloads coming in as dicts/JSON before
-        # the generic updater applies them.
-        coerced: dict[str, Any] = dict(updates)
-        for name in _OFFSET_FIELDS:
-            if name in coerced and not isinstance(coerced[name], RelativeOffset):
-                coerced[name] = jsonable_to_offset(coerced[name])
-
-        update_from_dict(
-            self,
-            coerced,
-            allowed_fields={
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # TaskTemplate-specific
-                "due_offset",
-                "scheduled_offset",
-                "duration_minutes",
-                "recurrence_pattern",
-                "recurrence_end_offset",
-                "parent_template_uid",
-                "project",
-                "contributes_to_goal_template_uid",
-                "reinforces_habit_template_uid",
-                "scheduled_event_template_uid",
-                "goal_progress_contribution",
-                "knowledge_mastery_check",
-                "habit_streak_maintainer",
-                "completion_updates_goal",
-            },
-            enum_mappings=enum_fields_for("entity_type", "status", "domain", "recurrence_pattern"),
-        )
-
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, TaskTemplateDTO):
             return False

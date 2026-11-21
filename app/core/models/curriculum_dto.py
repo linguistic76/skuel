@@ -151,64 +151,6 @@ class CurriculumDTO(EntityDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                # EntityDTO fields
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # Curriculum-specific fields
-                "confidence",
-                "complexity",
-                "learning_level",
-                "sel_category",
-                "publication_state",
-                "quality_score",
-                "estimated_time_minutes",
-                "difficulty_rating",
-                "semantic_links",
-                "target_age_range",
-                "learning_objectives",
-                "structured_learning_objectives",
-                "times_applied_in_tasks",
-                "times_practiced_in_events",
-                "times_built_into_habits",
-                "times_reflected_in_entries",
-                "choices_informed_count",
-                "last_applied_date",
-                "last_practiced_date",
-                "last_built_into_habit_date",
-                "last_reflected_date",
-                "last_choice_informed_date",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "confidence",
-                "complexity",
-                "learning_level",
-                "sel_category",
-                "publication_state",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, CurriculumDTO):

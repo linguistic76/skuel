@@ -137,57 +137,6 @@ class UserEntryDTO(UserOwnedDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                # EntityDTO fields
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # UserOwnedDTO fields
-                "priority",
-                "visibility",
-                # UserEntry-specific fields
-                "original_filename",
-                "file_path",
-                "file_size",
-                "file_type",
-                "pipeline",
-                "processing_started_at",
-                "processing_completed_at",
-                "processing_error",
-                "processed_content",
-                "processed_file_path",
-                "instructions",
-                "journal_mode",
-                "max_retention",
-                "modality",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "visibility",
-                "pipeline",
-                "modality",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, UserEntryDTO):

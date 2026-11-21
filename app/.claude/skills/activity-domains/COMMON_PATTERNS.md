@@ -102,10 +102,11 @@ How it flows:
   field patches); no Activity sub-service does, because their writes carry `status` and go
   through the guard below. The typed `*UpdateIntent` is the contract for the **public**
   facade/route update, not every call in the domain.
-- **`backend.update(uid, dict)` directly** is the persistence seam (always a dict) and is
-  allowed only for full-DTO replaces and timestamp/system bumps that carry **no `status`** —
-  each marked `# raw-write:`. A partial field update that bypasses *both* the intent and the
-  `RawChanges` service contract (i.e. straight to `backend.update`) is a defect.
+- **`backend.update(uid, dict)` directly** is the persistence seam (always a dict patch) and
+  is allowed only for system bumps that carry **no `status`** — each marked `# raw-write:`.
+  An entity read and written back whole is never one (ADR-087). A partial field update that
+  bypasses *both* the intent and the `RawChanges` service contract (i.e. straight to
+  `backend.update`) is a defect.
 - **A write that carries `status` goes through `backend.update_with_status_guard(uid,
   changes, guard)`, never `super().update` or `backend.update`** (ADR-087). Build the guard
   with `status_transition_guard(EntityType.X, changes, zone=current_zone())` (a Task or Goal

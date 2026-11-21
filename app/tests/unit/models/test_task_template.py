@@ -170,26 +170,6 @@ class TestTaskTemplateDTOSerialization:
         assert dto.due_offset is None
 
 
-class TestTaskTemplateDTOUpdate:
-    def test_update_from_with_offset_dict(self):
-        dto = TaskTemplateDTO(uid="ttpl_up", title="t")
-        dto.update_from(
-            {
-                "title": "renamed",
-                "due_offset": {"days": 5, "hours": 0, "minutes": 0},
-                "knowledge_mastery_check": True,
-            }
-        )
-        assert dto.title == "renamed"
-        assert dto.due_offset == RelativeOffset(days=5)
-        assert dto.knowledge_mastery_check is True
-
-    def test_update_from_passes_relative_offset_through(self):
-        dto = TaskTemplateDTO(uid="ttpl_up2", title="t")
-        dto.update_from({"due_offset": RelativeOffset(days=2)})
-        assert dto.due_offset == RelativeOffset(days=2)
-
-
 class TestTaskTemplateEntityTypeTraits:
     """EntityType-level traits for TASK_TEMPLATE (Phase 1 wiring)."""
 

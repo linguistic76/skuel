@@ -504,6 +504,9 @@ DELETED: dict[str, str] = {
     "CurriculumFilterSpec": "deleted — a filter is FilterParams; curriculum's edge filters are the SearchRequest relationship flags",
     "PrinciplesFilterSpec": "deleted — a filter is FilterParams (core/models/type_hints.py), keyed by the model's fields",
     "PropertyFilterSpec": "deleted — find_by takes the operator suffix on a model field (strength__gte=0.8)",
+    # A DTO is read and written whole; an update is a patch of the fields it changes.
+    # Matches update_from_dict too: the boundary admits an underscore neighbour.
+    "update_from": "deleted, with update_from_dict — a DTO has no in-place update: an update is a *UpdateIntent or a RawChanges patch (ADR-066)",
 }
 
 
@@ -608,6 +611,7 @@ _ux_arc2 = "feedback-loop UX arc 2 record (done/) naming the action-form status 
 _review_sync = "SYNC_UNIFICATION_REVIEW finding A3 (2026-07-01) names the bundle route it reviewed -- a dated review record of commit 638d2fa, superseded by ADR-070 Decision 9's 2026-09-22 amendment"
 _adr014 = "ADR-014 changelog row recording the bundle mechanism and /api/ingest/* doors deleted for one ingestion system -- the record names what it retired"
 _adr070 = "ADR-070 Decision 9 amendments (2026-09-21, 2026-09-22) + changelog rows recording the raw ingest doors, the dry-run mode, the bundle mechanism, the HTTP path allowlist and the nous generator pair deleted with them -- the decision names what it retired"
+_adr066 = "ADR-066's 2026-11-21 amendment withdrawing path #3 names the in-place DTO update deleted with it -- the decision names what it retired"
 _adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL deletion -- the decision names what it retired"
 _defiction = "the docs de-fiction arc's record names every route, symbol and decorator its sweeps retired -- a finding list is unreadable without the name it found"
 _symbol_queue = "the symbol-claim queue's verdict table teaches 'fictional namespace, real members' by naming its two worked instances -- the verdict is unintelligible without them"
@@ -816,6 +820,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/decisions/ADR-060-userctx-single-source-of-truth.md": {
         (68, "get_actionable_for_user"): Allow(_adr060),
         (71, "get_goal_aligned_for_user"): Allow(_adr060),
+    },
+    "docs/decisions/ADR-066-typed-update-intents.md": {
+        (168, "update_from"): Allow(_adr066, hits=2),
     },
     "docs/decisions/ADR-070-bidirectional-vault-bridge.md": {
         # Decision 9's two amendment paragraphs (L304, L306) and their changelog rows

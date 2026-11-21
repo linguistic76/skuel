@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-10-06
+updated: 2026-11-21
 category: patterns
 related_skills:
 - python
@@ -614,8 +614,9 @@ core/models/{domain}/
 
 No live domain uses Pattern B (see § Current Implementations), so there is no file to read
 alongside this section. The shape is the file structure above: a mutable DTO with
-`from_dict` / `to_dict` and the service calling `backend.create(dto.to_dict())` /
-`backend.update(uid, dto.to_dict())` directly — no domain-model conversion in between.
+`from_dict` / `to_dict`, the service calling `backend.create(dto.to_dict())` directly — no
+domain-model conversion in between — and an update written as a patch of the changed
+fields (`backend.update(uid, changes)`), never the DTO written back whole (ADR-066, ADR-087).
 
 ### Pros & Cons
 

@@ -95,52 +95,6 @@ class PrincipleTemplateDTO(EntityDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # PrincipleTemplate-specific
-                "statement",
-                "principle_category",
-                "principle_source",
-                "strength",
-                "tradition",
-                "original_source",
-                "personal_interpretation",
-                "expressions",
-                "key_behaviors",
-                "potential_conflicts",
-                "conflicting_principles",
-                "resolution_strategies",
-                "origin_story",
-                "evolution_notes",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "principle_category",
-                "principle_source",
-                "strength",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PrincipleTemplateDTO):
             return False

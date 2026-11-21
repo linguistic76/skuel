@@ -71,41 +71,6 @@ class FormSubmissionDTO(UserOwnedDTO):
             dict_fields=["metadata", "form_data"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                "title",
-                "content",
-                "summary",
-                "description",
-                "status",
-                "tags",
-                "metadata",
-                "priority",
-                "visibility",
-                # FormSubmission-specific
-                "form_data",
-                "processed_content",
-                "template_schema_hash",
-            },
-            enum_mappings=enum_fields_for("status", "domain", "visibility"),
-        )
-        # Handle form_data JSON string
-        if "form_data" in updates and isinstance(updates["form_data"], str):
-            import contextlib
-
-            with contextlib.suppress(json.JSONDecodeError, TypeError):
-                self.form_data = json.loads(updates["form_data"])
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, FormSubmissionDTO):

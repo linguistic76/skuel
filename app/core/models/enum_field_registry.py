@@ -8,8 +8,8 @@ globally consistent across entity types (``status`` is always ``EntityStatus``,
 ``sel_category`` is always ``SELCategory``, ...), so one flat map serves every
 consumer:
 
-- A DTO's ``from_dict`` and ``update_from`` slice their per-class maps from here
-  via ``enum_fields_for(...)``; no DTO spells a field→enum association of its own.
+- A DTO's ``from_dict`` slices its per-class map from here via
+  ``enum_fields_for(...)``; no DTO spells a field→enum association of its own.
 - Ingestion canonicalizes authored enum values against the full registry
   (``canonicalize_enum_values`` in ``core/services/ingestion/preparer.py``)
   so vault authors can type ``learning_level: BEGINNER``, a documented alias
@@ -18,8 +18,7 @@ consumer:
   non-member is rejected by the ingestion validator's vocabulary gate.
 
 Adding a NEW enum-valued field: register it here, type it as its enum on the
-model and the DTO, then slice it into the owning DTO's ``from_dict`` call and,
-when its ``update_from`` accepts the field, that call too;
+model and the DTO, then slice it into the owning DTO's ``from_dict`` call;
 ``tests/unit/models/test_enum_named_fields.py`` fails on a step left undone. A
 field name may appear only once
 — if two entity types ever need the same field name with different enums,

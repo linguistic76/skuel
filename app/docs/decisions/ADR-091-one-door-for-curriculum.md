@@ -1,11 +1,11 @@
 ---
 title: "ADR-091: One Door for Curriculum"
-updated: 2026-10-16
+updated: 2026-11-21
 status: implemented
 category: decisions
 tags: [adr, decisions, curriculum, content-vault, ingestion, exercises, teacher-review, ownership, publication]
 related: [ADR-018, ADR-040, ADR-053, ADR-054, ADR-070, ADR-085, ADR-086, ADR-088]
-related_skills: [learning-loop, curriculum-domains, security]
+related_skills: [learning-loop, curriculum-domains, security, user-context-intelligence]
 ---
 
 # ADR-091: One Door for Curriculum

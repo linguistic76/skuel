@@ -191,68 +191,6 @@ class EventDTO(UserOwnedDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        """Update DTO fields from a dictionary."""
-        from core.models.dto_helpers import update_from_dict
-
-        update_from_dict(
-            self,
-            updates,
-            allowed_fields={
-                # EntityDTO fields
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # UserOwnedDTO fields
-                "priority",
-                "visibility",
-                # Event-specific fields
-                "event_date",
-                "start_time",
-                "end_time",
-                "duration_minutes",
-                "event_type",
-                "location",
-                "is_online",
-                "meeting_url",
-                "completed_at",
-                "recurrence_pattern",
-                "recurrence_end_date",
-                "recurrence_parent_uid",
-                "reminder_minutes",
-                "reminder_sent",
-                "attendee_emails",
-                "max_attendees",
-                "source_path_step_uid",
-                "is_milestone_event",
-                "milestone_type",
-                "curriculum_week",
-                "habit_completion_quality",
-                "knowledge_retention_check",
-                "recurrence_maintains_habit",
-                "skip_breaks_habit_streak",
-                "engagement_state",
-            },
-            enum_mappings=enum_fields_for(
-                "entity_type",
-                "status",
-                "domain",
-                "visibility",
-                "recurrence_pattern",
-                "engagement_state",
-            ),
-        )
-
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
         if not isinstance(other, EventDTO):

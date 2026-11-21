@@ -102,56 +102,6 @@ class EventTemplateDTO(EntityDTO):
             dict_fields=["metadata"],
         )
 
-    # =========================================================================
-    # UPDATE
-    # =========================================================================
-
-    def update_from(self, updates: dict[str, Any]) -> None:
-        from core.models.dto_helpers import update_from_dict
-
-        coerced: dict[str, Any] = dict(updates)
-        for name in _OFFSET_FIELDS:
-            if name in coerced and not isinstance(coerced[name], RelativeOffset):
-                coerced[name] = jsonable_to_offset(coerced[name])
-
-        update_from_dict(
-            self,
-            coerced,
-            allowed_fields={
-                "title",
-                "content",
-                "summary",
-                "description",
-                "word_count",
-                "domain",
-                "status",
-                "tags",
-                "metadata",
-                # EventTemplate-specific
-                "event_offset",
-                "start_time",
-                "end_time",
-                "duration_minutes",
-                "event_type",
-                "location",
-                "is_online",
-                "meeting_url",
-                "recurrence_pattern",
-                "recurrence_end_offset",
-                "reminder_minutes",
-                "max_attendees",
-                "reinforces_habit_template_uid",
-                "milestone_celebration_for_goal_template_uid",
-                "is_milestone_event",
-                "milestone_type",
-                "curriculum_week",
-                "knowledge_retention_check",
-                "recurrence_maintains_habit",
-                "skip_breaks_habit_streak",
-            },
-            enum_mappings=enum_fields_for("entity_type", "status", "domain"),
-        )
-
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, EventTemplateDTO):
             return False

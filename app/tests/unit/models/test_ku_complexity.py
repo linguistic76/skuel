@@ -68,10 +68,3 @@ class TestDtoPath:
 
         back = Ku.from_dto(KuDTO.from_dict(as_dict))
         assert getattr(back, "complexity", _ABSENT) is KuComplexity.MEDIUM
-
-    def test_update_from_parses_complexity(self) -> None:
-        dto = KuDTO.from_dict(_node())
-
-        dto.update_from({"complexity": "basic"})
-
-        assert getattr(dto, "complexity", _ABSENT) is KuComplexity.BASIC
