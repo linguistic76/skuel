@@ -10,8 +10,9 @@ the driver's ``DateTime``.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -226,3 +227,31 @@ async def test_a_step_that_does_not_read_ranked_behind_the_choice_is_not_mention
 
     assert _guided_on(response_generator) == _GOOD
     assert response["answer"] == "Guided answer."
+
+
+@pytest.mark.anyio
+async def test_the_conversation_remembers_the_notice_the_learner_read() -> None:
+    """The session window and the stored turn hold the answer as the learner saw it, so a
+    follow-up about the step that could not be opened reaches the model with the sentence."""
+    processor, _ = _processor(
+        _context(_unreadable(_BAD, "Noticing"), _stored(_GOOD, "Naming")), _engagements(_BAD)
+    )
+
+    result = await processor.answer_user_question(
+        _USER, "What is this step about?", session_id="session-unopened"
+    )
+    await asyncio.gather(*processor._background_tasks)
+
+    assert result.is_ok, result
+    answered = result.value["answer"]
+    assert answered.endswith('so I\'m working from "Naming".')
+    session = processor.conversation_context.get_or_create_session("session-unopened", _USER)
+    assert session.to_llm_messages(max_tokens=2000)[-1] == {
+        "role": "assistant",
+        "content": answered,
+    }
+    stored = cast("AsyncMock", processor.user_service.add_conversation_message).await_args_list
+    assert [call.args[1:] for call in stored] == [
+        ("user", "What is this step about?"),
+        ("assistant", answered),
+    ]

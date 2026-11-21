@@ -393,6 +393,10 @@ class QueryProcessor:
                 model=resolved_model,
             )
 
+        # The learner reads which step could not be opened as part of the answer, so the
+        # conversation records it too: a follow-up about it reaches the model with it.
+        answer = _with_notice(answer, unopened_notice)
+
         # Step 9: Record conversation turns — in-memory context window + durable Neo4j history.
         # Neo4j writes are fire-and-forget so persistence latency can't trigger the 30s timeout.
         if session:
@@ -427,7 +431,6 @@ class QueryProcessor:
             session_id=session_id,
             canon_sources=canon_context.sources(),
             mode_override="aggregation" if aggregation is not None else None,
-            unopened_notice=unopened_notice,
         )
 
         logger.info(
@@ -750,16 +753,14 @@ class QueryProcessor:
         session_id: str | None,
         canon_sources: tuple[CanonSource, ...] = (),
         mode_override: str | None = None,
-        unopened_notice: str = "",
     ) -> dict[str, Any]:
         """Build the response dict for answer_user_question.
 
         ``mode_override`` labels the deterministic aggregation branch
         ("aggregation") — neither guided nor llm_generated describes an answer
-        no LLM produced. ``unopened_notice`` follows the answer, before any
-        citations: the learner is told which step could not be opened.
+        no LLM produced.
         """
-        final_answer = _with_notice(answer, unopened_notice) + citations_text
+        final_answer = answer + citations_text if citations_text else answer
         confidence = QueryProcessorConfidence.calculate(
             has_context=bool(relevant_context),
             has_citations=bool(citations_text),
