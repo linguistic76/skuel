@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -23,6 +22,7 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.lp_position import LpPosition
 from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
+from core.ports.query_types import RichPathStepItem
 from core.services.askesis.context_retriever import ContextRetriever
 from core.services.base_ai_service import AIPromptId
 from core.services.goals.goals_learning_service import GoalsLearningService
@@ -158,9 +158,9 @@ async def test_principle_learning_development_reads_the_paths_steps() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _ps_item(uid: str) -> dict[str, Any]:
+def _ps_item(uid: str) -> RichPathStepItem:
     return {
-        "entity": {"uid": uid, "title": f"Step {uid}", "mastery_threshold": 0.7},
+        "step": {"uid": uid, "title": f"Step {uid}", "mastery_threshold": 0.7},
         "graph_context": {},
     }
 
@@ -168,25 +168,25 @@ def _ps_item(uid: str) -> dict[str, Any]:
 @pytest.mark.anyio
 async def test_askesis_skips_a_step_the_learner_has_mastered() -> None:
     context = UserContext(user_uid=_USER)
-    context.active_path_steps_rich = [_ps_item("ps.readers.done"), _ps_item("ps.readers.next")]  # type: ignore[list-item]
+    context.active_path_steps_rich = [_ps_item("ps.readers.done"), _ps_item("ps.readers.next")]
     context.mastered_ps_uids = {"ps.readers.done"}
 
     chosen, _ = await ContextRetriever()._find_active_ps(_USER, context)
 
     assert chosen is not None
-    assert chosen["entity"]["uid"] == "ps.readers.next"  # type: ignore[typeddict-item]
+    assert chosen["step"]["uid"] == "ps.readers.next"
 
 
 @pytest.mark.anyio
 async def test_askesis_chooses_a_step_the_learner_has_not_mastered() -> None:
     """Control: the same step, with no MASTERED edge from this learner, is chosen."""
     context = UserContext(user_uid=_USER)
-    context.active_path_steps_rich = [_ps_item("ps.readers.done")]  # type: ignore[list-item]
+    context.active_path_steps_rich = [_ps_item("ps.readers.done")]
 
     chosen, _ = await ContextRetriever()._find_active_ps(_USER, context)
 
     assert chosen is not None
-    assert chosen["entity"]["uid"] == "ps.readers.done"  # type: ignore[typeddict-item]
+    assert chosen["step"]["uid"] == "ps.readers.done"
 
 
 # ---------------------------------------------------------------------------

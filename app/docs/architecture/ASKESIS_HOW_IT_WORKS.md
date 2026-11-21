@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-01
+updated: 2026-11-21
 ---
 
 # How Askesis Works
@@ -148,11 +148,11 @@ The bundle is the **scope window**. Every pedagogical decision operates within i
 
 **Resource integration (March 2026):** After the PathStep and KUs are fetched, ContextRetriever traverses `(PathStep/Ku)-[:CITES_RESOURCE]->(Resource)` to load cited reference material. Resources appear in `curriculum_context_text` as compact summaries and are referenced in guided prompts (SCAFFOLD, REDIRECT_TO_CURRICULUM, ENCOURAGING modes). This gives Askesis access to the full intellectual context — not just the teaching narrative, but the sources it draws from. Resources are also included in semantic search (embedding similarity).
 
-**Partial failure tolerance:** All 7 entity services (path steps, KUs, habits, tasks, events, principles, LP) are required at construction — missing services cause a clear construction-time error rather than silent empty bundles at query time. At runtime, the bundle fetches entities in parallel via `asyncio.gather(return_exceptions=True)`. If any individual fetch fails (e.g., a network timeout), that collection defaults to empty — the bundle is built from whatever succeeds. Resource fetching also degrades gracefully — a graph query failure yields an empty resource list. A minimal bundle (just the PathStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
+**Partial failure tolerance:** All 7 entity services (path steps, KUs, habits, tasks, events, principles, LP) are required at construction — missing services cause a clear construction-time error rather than silent empty bundles at query time. At runtime, the bundle fetches entities in parallel via `asyncio.gather(return_exceptions=True)`. If any individual fetch fails (e.g., a network timeout), that collection defaults to empty — the bundle is built from whatever succeeds. Resource fetching also degrades gracefully — a graph query failure yields an empty resource list, and a Resource whose stored properties hold a value its field cannot read is left out alone. A minimal bundle (just the PathStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
 
 **Token truncation:** `curriculum_context_text` (concatenated PathStep content + Resource references) is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens) to prevent exceeding LLM context windows when bundles are large.
 
-If no bundle is available (no active PS), Askesis falls back to context-aware LLM generation without the Socratic layer.
+If no bundle is available (no active PS, or the PS's stored properties do not read as a PathStep), Askesis falls back to context-aware LLM generation without the Socratic layer.
 
 ### Step 7: Determine GuidanceMode
 
@@ -343,6 +343,8 @@ On timeout: `Result.fail()` with user message *"Your question is taking too long
 | **PS bundle fetch** | One of 7 entity fetches times out | That collection defaults to empty; bundle built from what succeeds |
 | **PS bundle fetch** | All fetches fail | Minimal bundle (just the PathStep) — still enables GuidanceMode |
 | **PS bundle fetch** | No active Path Step | Falls back to context-aware generation without Socratic layer |
+| **PS bundle build** | The PS's stored properties hold a value its field cannot read | Logged at ERROR naming the step and the refused value; no bundle, so context-aware generation without Socratic layer |
+| **PS bundle build** | A cited Resource holds a value its field cannot read | That Resource is left out, logged at ERROR; the bundle keeps the rest |
 | **ZPD assessment** | ZPD service fails | Continues with empty evidence — GuidanceMode still determined (less informed) |
 | **Citation formatting** | Citation service `None` or graph query fails | Citations omitted — answer still returned without source references |
 | **LLM generation** | LLM API error or timeout | `Result.fail()` — no fallback (this is the terminal step) |

@@ -204,7 +204,11 @@ async def test_pipeline_bundle_error_returns_empty_canon_context() -> None:
     canon_service.retrieve = AsyncMock()
     processor, _ = _make_processor(
         canon_service=canon_service,
-        bundle_result=Result.fail(Errors.not_found("path_step", "no_active_ps")),
+        bundle_result=Result.fail(
+            Errors.not_found(
+                "PathStep", "user_test", reason="no step in progress the learner has not mastered"
+            )
+        ),
     )
 
     prompt, mode, ps_bundle, canon_context = await processor._run_guided_pipeline(

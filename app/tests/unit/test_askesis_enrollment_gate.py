@@ -54,7 +54,11 @@ def _make_processor(user_context: MagicMock) -> tuple[QueryProcessor, MagicMock]
     context_retriever = MagicMock()
     context_retriever.retrieve_relevant_context = AsyncMock(return_value={})
     context_retriever.load_ps_bundle = AsyncMock(
-        return_value=Result.fail(Errors.not_found("path_step", "no_active_ps"))
+        return_value=Result.fail(
+            Errors.not_found(
+                "PathStep", "user_1", reason="no step in progress the learner has not mastered"
+            )
+        )
     )
     context_retriever.get_learning_context = AsyncMock(
         return_value=Result.ok(

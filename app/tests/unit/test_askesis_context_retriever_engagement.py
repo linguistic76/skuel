@@ -18,15 +18,16 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.ports.query_types import RichPathStepItem
 from core.services.askesis.context_retriever import ContextRetriever
 from core.services.ps_engagement.engagement import Engagement
 from core.services.user import UserContext
 from core.utils.result_simplified import Result
 
 
-def _ps_item(uid: str) -> dict[str, Any]:
+def _ps_item(uid: str) -> RichPathStepItem:
     return {
-        "entity": {
+        "step": {
             "uid": uid,
             "title": f"Step {uid}",
             "mastery_threshold": 0.7,
@@ -37,10 +38,10 @@ def _ps_item(uid: str) -> dict[str, Any]:
     }
 
 
-def _user_context(items: list[dict[str, Any]], mastered: tuple[str, ...] = ()) -> UserContext:
+def _user_context(items: list[RichPathStepItem], mastered: tuple[str, ...] = ()) -> UserContext:
     """A real context: the learner's mastered steps are their MASTERED edges."""
     ctx = UserContext(user_uid="user_1")
-    ctx.active_path_steps_rich = items  # type: ignore[assignment]
+    ctx.active_path_steps_rich = items
     ctx.mastered_ps_uids = set(mastered)
     return ctx
 
@@ -83,7 +84,7 @@ async def test_engaged_candidate_preferred_over_unengaged() -> None:
     ps_rich, engagement = await retriever._find_active_ps("user_1", ctx)
 
     assert ps_rich is not None
-    assert ps_rich["entity"]["uid"] == "ps:second"
+    assert ps_rich["step"]["uid"] == "ps:second"
     assert engagement is not None
     assert engagement.state == "engaged"
     assert engagement.ps_uid == "ps:second"
@@ -100,7 +101,7 @@ async def test_first_engaged_wins_when_multiple_engaged() -> None:
     ps_rich, engagement = await retriever._find_active_ps("user_1", ctx)
 
     assert ps_rich is not None
-    assert ps_rich["entity"]["uid"] == "ps:a"
+    assert ps_rich["step"]["uid"] == "ps:a"
     assert engagement is not None
     assert engagement.ps_uid == "ps:a"
 
@@ -116,7 +117,7 @@ async def test_unengaged_fallback_when_no_engagements() -> None:
     ps_rich, engagement = await retriever._find_active_ps("user_1", ctx)
 
     assert ps_rich is not None
-    assert ps_rich["entity"]["uid"] == "ps:first"
+    assert ps_rich["step"]["uid"] == "ps:first"
     assert engagement is None
 
 
@@ -133,7 +134,7 @@ async def test_completed_engagement_is_not_engaged() -> None:
     # ps:second has an engagement edge (completed), so it is neither engaged
     # nor unengaged for our purposes. ps:first has no edge → unengaged_match.
     assert ps_rich is not None
-    assert ps_rich["entity"]["uid"] == "ps:first"
+    assert ps_rich["step"]["uid"] == "ps:first"
     assert engagement is None
 
 
@@ -152,7 +153,7 @@ async def test_mastered_candidates_are_skipped() -> None:
     ps_rich, engagement = await retriever._find_active_ps("user_1", ctx)
 
     assert ps_rich is not None
-    assert ps_rich["entity"]["uid"] == "ps:active"
+    assert ps_rich["step"]["uid"] == "ps:active"
     assert engagement is None  # ps:active has no engagement
 
 
@@ -194,7 +195,7 @@ async def test_legacy_path_without_engagement_service() -> None:
     ps_rich, engagement = await retriever._find_active_ps("user_1", ctx)
 
     assert ps_rich is not None
-    assert ps_rich["entity"]["uid"] == "ps:first"
+    assert ps_rich["step"]["uid"] == "ps:first"
     assert engagement is None
 
 
@@ -216,6 +217,6 @@ async def test_engagement_lookup_failure_does_not_break_selection() -> None:
     ps_rich, engagement = await retriever._find_active_ps("user_1", ctx)
 
     assert ps_rich is not None
-    assert ps_rich["entity"]["uid"] == "ps:ok"
+    assert ps_rich["step"]["uid"] == "ps:ok"
     assert engagement is not None
     assert engagement.ps_uid == "ps:ok"

@@ -32,6 +32,7 @@ Architecture:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
@@ -75,8 +76,6 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
-
-_SENTINEL = object()
 
 
 # Intent → preferred ContentChunk types. The chunker classifies passages into
@@ -519,15 +518,20 @@ class ContextRetriever:
         # Step 1: Find active PathStep from rich context (engagement-aware)
         ps_rich, engagement = await self._find_active_ps(user_uid, user_context)
         if ps_rich is None:
-            return Result.fail(Errors.not_found("path_step", "no_active_ps"))
+            return Result.fail(
+                Errors.not_found(
+                    "PathStep", user_uid, reason="no step in progress the learner has not mastered"
+                )
+            )
 
-        step_data: dict[str, Any] = dict(ps_rich.get("step") or ps_rich.get("entity", {}))  # type: ignore[call-overload]
+        step_data = dict(ps_rich.get("step") or {})
         graph_context: dict[str, Any] = dict(ps_rich.get("graph_context", {}))
 
-        # Step 2: Build the PathStep domain model
-        path_step = self._build_path_step(step_data)
-        if path_step is None:
-            return Result.fail(Errors.not_found("path_step", "malformed_ps_data"))
+        # Step 2: Read the step's stored properties as a PathStep
+        built = self._build_path_step(step_data)
+        if built.is_error:
+            return Result.fail(built)
+        path_step = built.value
 
         # Step 3: Fetch full entities in parallel (partial failure tolerant)
         #
@@ -649,7 +653,7 @@ class ContextRetriever:
         """
         candidates: list[tuple[RichPathStepItem, dict[str, Any]]] = []
         for ps_item in user_context.active_path_steps_rich:
-            step_data: dict[str, Any] = dict(ps_item.get("step") or ps_item.get("entity", {}))  # type: ignore[call-overload]
+            step_data = dict(ps_item.get("step") or {})
             if not step_data:
                 continue
             if step_data.get("uid") in user_context.mastered_ps_uids:
@@ -695,27 +699,35 @@ class ContextRetriever:
             return engaged_match[0], engaged_match[1]
         return unengaged_match, None
 
-    def _build_path_step(self, step_data: dict[str, Any]) -> PathStep | None:
-        """Build a PathStep from MEGA-QUERY properties dict."""
+    def _build_path_step(self, step_data: Mapping[str, object]) -> Result[PathStep]:
+        """Read the stored step properties as a PathStep, through ``PathStepDTO.from_dict``.
+
+        An enum field is read as its member by ``read_enum_value`` (the backend
+        mapper's rule), a temporal as a ``datetime`` (an ISO string or the driver's
+        ``DateTime``), and a key the DTO has no field for is left out. A stored value
+        its field cannot read refuses the step, logged at ERROR with the refusal's own
+        words, and no bundle is built: the answer goes on without guidance.
+        """
         from core.models.pathways.path_step import PathStep
         from core.models.pathways.path_step_dto import PathStepDTO
 
         uid = step_data.get("uid")
         if not uid:
-            return None
+            logger.error("A PathStep in progress has no uid (stored keys: %s)", sorted(step_data))
+            return Result.fail(Errors.system("A PathStep in progress has no uid"))
 
         try:
-            dto = PathStepDTO()
-            for key, value in step_data.items():
-                if getattr(dto, key, _SENTINEL) is not _SENTINEL:
-                    setattr(dto, key, value)
-            return PathStep.from_dto(dto)
-        except DATA_CONVERSION_EXCEPTIONS:
-            logger.warning("Failed to build PathStep from data: %s", uid)
-            return None
-        except Exception:  # safety-net: catch unexpected errors
-            logger.warning("Failed to build PathStep from data (unexpected): %s", uid)
-            return None
+            return Result.ok(PathStep.from_dto(PathStepDTO.from_dict(dict(step_data))))
+        except DATA_CONVERSION_EXCEPTIONS as e:
+            logger.error("PathStep %s does not read as its class: %s", uid, e)
+            return Result.fail(
+                Errors.system(f"PathStep {uid} does not read as its class: {e}", exception=e)
+            )
+        except Exception as e:  # safety-net: a build defect answers unguided, traceback logged
+            logger.exception("Unexpected failure building PathStep %s", uid)
+            return Result.fail(
+                Errors.system(f"Unexpected failure building PathStep {uid}", exception=e)
+            )
 
     async def _fetch_related_path_steps(
         self, path_step: PathStep, graph_context: dict[str, Any]
@@ -851,7 +863,10 @@ class ContextRetriever:
         """Fetch Resources cited by PathSteps/KUs via CITES_RESOURCE relationships.
 
         Traverses (PathStep/Ku)-[:CITES_RESOURCE]->(Resource) for the given
-        source UIDs and builds Resource domain models from the results.
+        source UIDs and reads each Resource's stored properties through
+        ``ResourceDTO.from_dict`` (enum fields as members, temporals as ``datetime``).
+        A Resource holding a value its field cannot read is left out, logged at ERROR
+        with the refusal's own words; the others stay.
 
         Args:
             source_uids: UIDs of PathSteps/KUs to traverse from.
@@ -875,17 +890,9 @@ class ContextRetriever:
             if not props or not isinstance(props, dict) or not props.get("uid"):
                 continue
             try:
-                dto = ResourceDTO()
-                for key, value in props.items():
-                    if getattr(dto, key, _SENTINEL) is not _SENTINEL:
-                        setattr(dto, key, value)
-                resources.append(Resource.from_dto(dto))
-            except DATA_CONVERSION_EXCEPTIONS:
-                logger.debug("Could not build Resource from graph data: %s", props.get("uid"))
-            except Exception:  # safety-net: catch unexpected errors
-                logger.debug(
-                    "Could not build Resource from graph data (unexpected): %s", props.get("uid")
-                )
+                resources.append(Resource.from_dto(ResourceDTO.from_dict(dict(props))))
+            except DATA_CONVERSION_EXCEPTIONS as e:
+                logger.error("Resource %s does not read as its class: %s", props.get("uid"), e)
 
         return resources
 
