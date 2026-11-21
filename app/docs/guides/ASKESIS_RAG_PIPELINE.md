@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-11-21
 ---
 
 # Askesis RAG Pipeline — Developer Guide
@@ -385,11 +385,11 @@ All three paths return the same top-level shape:
 
 ```python
 {
-    "answer": str,                    # Natural language response
+    "answer": str,                    # Natural language response; closes with a sentence naming any step in progress Askesis could not open
     "context_used": dict[str, Any],  # Entities that informed the response
     "suggested_actions": list[dict],  # Prioritized next steps
     "confidence": float,              # 0.0-1.0
-    "mode": str,                      # "guided" | "llm_generated" | "enrollment_gate"
+    "mode": str,                      # "guided" | "llm_generated" | "enrollment_gate" | "aggregation"
     "has_citations": bool,
     # Optional — present only when mode == "guided":
     "guidance_mode": str,             # "socratic" | "direct" | "exploratory" | "encouraging"
@@ -399,8 +399,9 @@ All three paths return the same top-level shape:
 
 **Mode values:**
 - `"guided"` — PS bundle loaded; ZPD evidence + GuidanceMode used to build a template-driven system prompt
-- `"llm_generated"` — enrolled user, no active PS bundle; context-aware LLM call with UserContext
-- `"enrollment_gate"` — user has no enrolled Learning Path; short-circuit response, no LLM call
+- `"llm_generated"` — enrolled user, no step in progress that reads (so no PS bundle); context-aware LLM call with UserContext
+- `"enrollment_gate"` — user has neither a step in progress nor an enrolled Learning Path; short-circuit response, no LLM call
+- `"aggregation"` — a count question, answered, declined or reported unavailable in code by the aggregation tool; no LLM call (`answer_user_question` only)
 
 **Confidence calculation** (`QueryProcessorConfidence` in `core/constants.py`):
 - Base: 0.70
@@ -439,7 +440,7 @@ AskesisService (Facade — zero business logic)
 
 ### One Pipeline — LP-Scoped, GuidanceMode-Aware
 
-Both `answer_user_question()` and `process_query_with_context()` run the same LP-scoped, ZPD-informed, GuidanceMode-aware pipeline. When an PS bundle is available, the pipeline loads ZPD evidence for target KUs, determines the GuidanceMode via `IntentClassifier.determine_guidance_mode()`, and builds a guided system prompt via `ResponseGenerator.build_guided_system_prompt()`. The guided pipeline activates even when no specific KUs are extracted from the question — `classify_pedagogical_intent()` handles this (returning OUT_OF_SCOPE or ENCOURAGE_PRACTICE). When no PS bundle is available (no active path step), both methods fall back to standard global RAG.
+Both `answer_user_question()` and `process_query_with_context()` run the same LP-scoped, ZPD-informed, GuidanceMode-aware pipeline. When an PS bundle is available, the pipeline loads ZPD evidence for target KUs, determines the GuidanceMode via `IntentClassifier.determine_guidance_mode()`, and builds a guided system prompt via `ResponseGenerator.build_guided_system_prompt()`. The guided pipeline activates even when no specific KUs are extracted from the question — `classify_pedagogical_intent()` handles this (returning OUT_OF_SCOPE or ENCOURAGE_PRACTICE). The step guided on is the first step in progress that reads as a PathStep, engaged before not engaged (ADR-059); a step that does not read is passed over, and the answer closes by naming it. When no PS bundle is available (no step in progress, or none that reads), both methods fall back to standard global RAG.
 
 **Scope override (Scoped Ask):** when the caller passes an explicit facet `scope` (e.g. a `nous` topic from the Askesis composer), the guided pipeline is bypassed for that turn — the answer comes from the context-aware branch over the facet-scoped `:ContentChunk` passages, with no PS-bundle context. An explicit topic selection is treated as clear user intent that overrides auto-guidance.
 
