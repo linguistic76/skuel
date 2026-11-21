@@ -22,7 +22,7 @@ def _make_user_context(
     ctx.mastered_ps_uids = set()
     if active_ls_data is None:
         active_ls_data = {
-            "entity": {
+            "step": {
                 "uid": "ps:test_1",
                 "title": "Test Step",
                 "mastery_threshold": 0.7,

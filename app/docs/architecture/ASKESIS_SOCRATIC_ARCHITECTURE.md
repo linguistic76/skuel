@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-24
+updated: 2026-11-21
 ---
 
 # Askesis Guided Pipeline — PS-Scoped, ZPD-Centered, GuidanceMode-Aware
@@ -118,7 +118,7 @@ The PsBundle is a frozen dataclass containing the complete context for a Path St
 
 **Immutability:** Built once per question, passed through the pipeline, never mutated.
 
-**Construction:** `ContextRetriever.load_ps_bundle()` builds the bundle from `UserContext.active_path_steps_rich` (already loaded by the MEGA-QUERY) plus full entity fetches for content fields. Entity fetches run in parallel with `return_exceptions=True` — individual failures produce empty defaults, so a partial bundle (just the PS) is always built.
+**Construction:** `ContextRetriever.load_ps_bundle()` builds the bundle from `UserContext.active_path_steps_rich` (already loaded by the MEGA-QUERY) plus full entity fetches for content fields. Entity fetches run in parallel with `return_exceptions=True` — individual failures produce empty defaults, so a partial bundle (just the PS) is built whenever the PS reads. The PS and each cited Resource are read from their stored properties through their DTO's `from_dict` (enum fields as members, temporals as `datetime`): a PS holding a value its field cannot read builds no bundle, and a Resource holding one is left out alone, each logged at ERROR.
 
 **Token truncation:** `curriculum_context_text` is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` to prevent exceeding LLM context windows.
 
