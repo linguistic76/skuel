@@ -4,7 +4,7 @@ updated: 2026-11-21
 
 # Askesis Guided Pipeline — PS-Scoped, ZPD-Centered, GuidanceMode-Aware
 
-**Last Updated:** March 12, 2026
+**Last Updated:** November 21, 2026
 
 ---
 
@@ -32,7 +32,11 @@ EntityExtractor.extract_entities_from_query(question, user_context)
         |
 ContextRetriever.retrieve_relevant_context(user_context, question, intent)
         |
-ContextRetriever.load_ps_bundle(user_uid, user_context)
+ContextRetriever.choose_path_step(user_uid, user_context)
+        |
+StepChoice (the step that reads, ranked first; the steps passed over)
+        |
+ContextRetriever.load_ps_bundle(user_uid, choice.chosen)
         |
 PsBundle (frozen, scoped to 1 Path Step) — or None
         |
@@ -118,7 +122,7 @@ The PsBundle is a frozen dataclass containing the complete context for a Path St
 
 **Immutability:** Built once per question, passed through the pipeline, never mutated.
 
-**Construction:** `ContextRetriever.load_ps_bundle()` builds the bundle from `UserContext.active_path_steps_rich` (already loaded by the MEGA-QUERY) plus full entity fetches for content fields. Entity fetches run in parallel with `return_exceptions=True` — individual failures produce empty defaults, so a partial bundle (just the PS) is built whenever the PS reads. The PS and each cited Resource are read from their stored properties through their DTO's `from_dict` (enum fields as members, temporals as `datetime`): a PS holding a value its field cannot read builds no bundle, and a Resource holding one is left out alone, each logged at ERROR.
+**Construction:** `ContextRetriever.choose_path_step()` reads every step in progress in `UserContext.active_path_steps_rich` (already loaded by the MEGA-QUERY) as a PathStep through `PathStepDTO.from_dict` (enum fields as members, temporals as `datetime`), ranks them by the ADR-059 rule (engaged first, then not engaged) and chooses the first that reads. A step holding a value its field cannot read, or no uid, is no candidate, logged at ERROR; the ones ranked ahead of the choice are named on the `StepChoice`, and the answer closes by telling the learner (`StepChoice.unopened_notice()`). `ContextRetriever.load_ps_bundle()` then builds the bundle around the chosen step with full entity fetches for content fields. Entity fetches run in parallel with `return_exceptions=True` — individual failures produce empty defaults, so a bundle always holds at least the PS. Each cited Resource is read through `ResourceDTO.from_dict` the same way; one holding a value its field cannot read is left out alone, logged at ERROR.
 
 **Token truncation:** `curriculum_context_text` is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` to prevent exceeding LLM context windows.
 
@@ -196,7 +200,8 @@ Resources are wired into the Askesis pipeline via `CITES_RESOURCE` relationships
 | `core/services/askesis/query_processor.py` | `answer_user_question()` — LP-scoped pipeline orchestration |
 | `core/services/askesis/intent_classifier.py` | `classify_pedagogical_intent()` + `determine_guidance_mode()` |
 | `core/services/askesis/entity_extractor.py` | `extract_from_bundle()` — scoped entity matching |
-| `core/services/askesis/context_retriever.py` | `load_ps_bundle()` — PS bundle loading |
+| `core/services/askesis/context_retriever.py` | `choose_path_step()` — the step to guide on; `load_ps_bundle()` — PS bundle loading |
+| `core/models/askesis/step_choice.py` | `StepChoice` — the chosen step, the steps passed over, the learner's notice |
 | `core/services/askesis/response_generator.py` | `build_guided_system_prompt()` — 4 mode builders |
 | `core/services/zpd/zpd_service.py` | `assess_ku_readiness()` — targeted ZPD |
 | `adapters/persistence/neo4j/zpd_backend.py` | `get_targeted_ku_engagement()` — Cypher query |

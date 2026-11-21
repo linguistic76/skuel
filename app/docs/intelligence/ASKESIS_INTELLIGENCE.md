@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-14
+updated: 2026-11-21
 ---
 
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
@@ -308,7 +308,8 @@ Both methods run the same PS-first pipeline: enrollment gate (an active PathStep
 - `get_learning_context()` - Learning-focused context
 - `analyze_knowledge_gaps()` - Gap identification with prerequisite analysis
 - `retrieve_relevant_context()` - Multi-domain context
-- `load_ps_bundle()` - Load complete PS bundle from UserContext + service lookups (absorbed from LSContextLoader, March 2026)
+- `choose_path_step()` - Choose the step in progress to guide on: engaged first, then not engaged, the first that reads as a PathStep (ADR-059); names the steps passed over
+- `load_ps_bundle()` - Load the complete PS bundle around the chosen step + service lookups (absorbed from LSContextLoader, March 2026)
 
 **Internal Methods:**
 - `_find_similar_chunks()` - Chunk-level vector search routed through `SearchRouter.retrieve_scoped_chunks()` (THE single path for external chunk retrieval), which calls `Neo4jVectorSearchService.find_similar_chunks_by_text` (cosine ≥0.6, intent-aware `chunk_types` filter, optional facet `scope`); returns chunk text + owning PathStep for citation

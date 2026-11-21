@@ -12,13 +12,14 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
+from core.models.askesis.step_choice import StepChoice
 from core.models.query_types import QueryIntent
 from core.services.askesis.query_processor import (
     _ENROLLMENT_GATE_RESPONSE,
     QueryProcessor,
     _passes_enrollment_gate,
 )
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 
 def _make_user_context(
@@ -36,7 +37,7 @@ def _make_processor(user_context: MagicMock) -> tuple[QueryProcessor, MagicMock]
     """Build a QueryProcessor with mocked sub-services; returns (processor, llm mock).
 
     Pipelines past the gate are stubbed to complete without a real LLM:
-    the PS bundle load fails (no guided prompt) so the context-aware path runs.
+    no step in progress is chosen (no guided prompt) so the context-aware path runs.
     """
     intent_classifier = MagicMock()
     intent_classifier.classify_intent = AsyncMock(return_value=Result.ok(QueryIntent.EXPLORATORY))
@@ -53,13 +54,7 @@ def _make_processor(user_context: MagicMock) -> tuple[QueryProcessor, MagicMock]
 
     context_retriever = MagicMock()
     context_retriever.retrieve_relevant_context = AsyncMock(return_value={})
-    context_retriever.load_ps_bundle = AsyncMock(
-        return_value=Result.fail(
-            Errors.not_found(
-                "PathStep", "user_1", reason="no step in progress the learner has not mastered"
-            )
-        )
-    )
+    context_retriever.choose_path_step = AsyncMock(return_value=StepChoice())
     context_retriever.get_learning_context = AsyncMock(
         return_value=Result.ok(
             {"knowledge_units": [], "learning_paths": [], "related_tasks": [], "related_goals": []}

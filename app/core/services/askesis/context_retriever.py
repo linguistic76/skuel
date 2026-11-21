@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.models.askesis.ps_bundle import PsBundle
+from core.models.askesis.step_choice import ChosenStep, StepChoice
 from core.models.enums.entity_enums import EntityType
 from core.models.ps_content.content_chunks import ContentChunkType
 from core.models.query_types import QueryIntent
@@ -76,6 +77,11 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
+
+# A step in progress as ``choose_path_step`` weighs it: its rich-context item, its stored
+# properties, and its read as a PathStep; ranked, it also carries its active engagement.
+type _Candidate = tuple[RichPathStepItem, Mapping[str, object], Result[PathStep]]
+type _Ranked = tuple[RichPathStepItem, Mapping[str, object], Result[PathStep], Engagement | None]
 
 
 # Intent → preferred ContentChunk types. The chunker classifies passages into
@@ -494,46 +500,31 @@ class ContextRetriever:
     # PUBLIC API - PS BUNDLE LOADING
     # ========================================================================
 
-    async def load_ps_bundle(
-        self, user_uid: UserUID, user_context: UserContext
-    ) -> Result[PsBundle]:
-        """Load the complete PS bundle from UserContext + service lookups.
+    async def load_ps_bundle(  # skuel-lint: disable=SKUEL005 -- never fails: every fetch is fail-soft, so the bundle always holds the chosen step
+        self, user_uid: UserUID, chosen: ChosenStep
+    ) -> PsBundle:
+        """Load the complete PS bundle around the chosen step.
 
         Steps:
-        1. Find the active PS from user_context.active_path_steps_rich
-        2. Extract graph_context (habits, tasks, knowledge UIDs)
-        3. Fetch full PathStep content for primary + supporting knowledge UIDs
-        4. Fetch full Ku objects composed by the PS (knowledge edges)
-        5. Fetch full activity entities from graph_context UIDs, cited
+        1. Take the chosen PathStep and its graph_context (habits, tasks, knowledge UIDs)
+        2. Fetch full PathStep content for primary + supporting knowledge UIDs
+        3. Fetch full Ku objects composed by the PS (knowledge edges)
+        4. Fetch full activity entities from graph_context UIDs, cited
            Resources, and Ku↔Ku lateral edges (with authored evidence)
-        6. Assemble into frozen PsBundle
+        5. Assemble into frozen PsBundle
+
+        Every fetch is fail-soft: one that fails leaves its collection empty, so the
+        bundle always holds at least the step.
 
         Args:
             user_uid: User's unique identifier
-            user_context: Rich UserContext (must be build_rich() output)
-
-        Returns:
-            Result[PsBundle] — the complete bundle, or not_found error
+            chosen: The step ``choose_path_step`` chose, read as a PathStep
         """
-        # Step 1: Find active PathStep from rich context (engagement-aware)
-        ps_rich, engagement = await self._find_active_ps(user_uid, user_context)
-        if ps_rich is None:
-            return Result.fail(
-                Errors.not_found(
-                    "PathStep", user_uid, reason="no step in progress the learner has not mastered"
-                )
-            )
+        path_step = chosen.path_step
+        engagement = chosen.engagement
+        graph_context = dict(chosen.item.get("graph_context", {}))
 
-        step_data = dict(ps_rich.get("step") or {})
-        graph_context: dict[str, Any] = dict(ps_rich.get("graph_context", {}))
-
-        # Step 2: Read the step's stored properties as a PathStep
-        built = self._build_path_step(step_data)
-        if built.is_error:
-            return Result.fail(built)
-        path_step = built.value
-
-        # Step 3: Fetch full entities in parallel (partial failure tolerant)
+        # Step 2: Fetch full entities in parallel (partial failure tolerant)
         #
         # Each fetch can fail independently (network errors, malformed data).
         # We use return_exceptions=True so a single failure doesn't cancel
@@ -573,7 +564,7 @@ class ContextRetriever:
         events: list[Any] = []  # Event templates not yet in graph_context
         principles: list[Any] = []  # Principles not yet in graph_context
 
-        # Step 3b: Fetch Ring 2 context — Resources cited by bundle PathSteps/KUs
+        # Step 2b: Fetch Ring 2 context — Resources cited by bundle PathSteps/KUs
         # and real Ku↔Ku lateral edges touching the bundle's KUs. Done after
         # path_steps/kus resolve so we know which UIDs to traverse from.
         # The anchor PS leads the resource list — its own citations are the most
@@ -597,7 +588,7 @@ class ContextRetriever:
                 ring2_resolved.append(raw)
         resources, edges = ring2_resolved
 
-        # Step 4: Collect learning objectives from related path steps
+        # Step 3: Collect learning objectives from related path steps
         learning_objectives: list[str] = []
         for ps in related_ps:
             if ps.learning_objectives:
@@ -623,63 +614,74 @@ class ContextRetriever:
             user_uid,
             bundle,
         )
-        return Result.ok(bundle)
+        return bundle
 
     # ========================================================================
     # PRIVATE - PS BUNDLE HELPERS
     # ========================================================================
 
-    async def _find_active_ps(
+    async def choose_path_step(  # skuel-lint: disable=SKUEL005 -- never fails: a step that does not read is a typed outcome (StepChoice.unopened_titles), not an error
         self, user_uid: UserUID, user_context: UserContext
-    ) -> tuple[RichPathStepItem | None, Engagement | None]:
-        """Find the active (non-mastered) PathStep, preferring engaged candidates.
+    ) -> StepChoice:
+        """Choose the step in progress Askesis guides on, among the steps that read (ADR-059).
 
-        UserContext.active_path_steps_rich contains PathStep items with:
-        - entity/step: Full PathStep properties
-        - graph_context: {prerequisite_steps, practice_habits, practice_tasks,
-                          knowledge_relationships, learning_path}
+        ``active_path_steps_rich`` holds the learner's steps in progress, each item's
+        ``step`` its stored properties and ``graph_context`` its neighbourhood. Every
+        step not mastered (no ``MASTERED`` edge, ``mastered_ps_uids``) is read as a
+        PathStep before anything is chosen, then ranked: the steps with an
+        ``ENGAGED_WITH`` edge in state ``engaged`` first, then the steps with none, each
+        in the context's order. Askesis guides on the first that reads. A step that
+        does not read is no candidate (its refusal logged at ERROR); each one ranked
+        ahead of the choice is named on the choice, so the learner is told.
 
-        Selection rule (ADR-059):
-        1. Walk the non-mastered candidates in order — a step is mastered when
-           the learner holds a ``MASTERED`` edge to it (``mastered_ps_uids``).
-        2. If `ps_engagement_service` is available, prefer the first whose
-           ``ENGAGED_WITH`` edge has ``state == "engaged"``.
-        3. Fall back to the first non-mastered candidate without an engagement
-           (published-but-not-engaged) so Askesis still works pre-engagement.
-
-        Returns:
-            (ps_item, engagement) — engagement is None when the chosen PS has
-            no active engagement edge.
+        Without ``ps_engagement_service`` every step ranks as not engaged. A lookup
+        that raises leaves its step out, logged at WARNING.
         """
-        candidates: list[tuple[RichPathStepItem, dict[str, Any]]] = []
+        candidates: list[_Candidate] = []
         for ps_item in user_context.active_path_steps_rich:
             step_data = dict(ps_item.get("step") or {})
             if not step_data:
                 continue
             if step_data.get("uid") in user_context.mastered_ps_uids:
                 continue
-            candidates.append((ps_item, step_data))
+            candidates.append((ps_item, step_data, self._build_path_step(step_data)))
 
-        if not candidates:
-            return None, None
+        unopened: list[str | None] = []
+        for ranked_item, stored, built, engagement in await self._rank_by_engagement(
+            user_uid, candidates
+        ):
+            if built.is_error:
+                title = stored.get("title")
+                unopened.append(title if isinstance(title, str) and title else None)
+                continue
+            return StepChoice(
+                chosen=ChosenStep(item=ranked_item, path_step=built.value, engagement=engagement),
+                unopened_titles=tuple(unopened),
+            )
+        return StepChoice(unopened_titles=tuple(unopened))
 
-        # Legacy path (unit tests construct without engagement service)
+    async def _rank_by_engagement(
+        self,
+        user_uid: UserUID,
+        candidates: list[_Candidate],
+    ) -> list[_Ranked]:
+        """The candidates in the order the ADR-059 rule prefers them, each with its engagement.
+
+        Engaged first, then not engaged, each in candidate order. A step whose edge is
+        in another state is neither, so it is left out.
+        """
         if self.ps_engagement_service is None:
-            return candidates[0][0], None
+            return [(item, data, built, None) for item, data, built in candidates]
 
-        # Look up engagement for each candidate in parallel — single edge
-        # lookup per candidate, indexed on (user_uid, ps_uid).
+        # One edge lookup per candidate, indexed on (user_uid, ps_uid), in parallel.
         results = await asyncio.gather(
-            *[
-                self.ps_engagement_service.find_active(user_uid, step_data["uid"])
-                for _, step_data in candidates
-            ],
+            *[self._active_engagement(user_uid, data.get("uid")) for _, data, _ in candidates],
             return_exceptions=True,
         )
 
-        engaged_match: tuple[RichPathStepItem, Engagement] | None = None
-        unengaged_match: RichPathStepItem | None = None
-        for (ps_item, step_data), res in zip(candidates, results, strict=True):
+        engaged: list[_Ranked] = []
+        unengaged: list[_Ranked] = []
+        for (ps_item, step_data, built), res in zip(candidates, results, strict=True):
             if isinstance(res, BaseException):
                 logger.warning(
                     "Engagement lookup failed for ps=%s user=%s: %s",
@@ -689,15 +691,19 @@ class ContextRetriever:
                 )
                 continue
             engagement = res.value if not res.is_error else None
-            if engagement is not None and engagement.state == "engaged":
-                if engaged_match is None:
-                    engaged_match = (ps_item, engagement)
-            elif engagement is None and unengaged_match is None:
-                unengaged_match = ps_item
+            if engagement is None:
+                unengaged.append((ps_item, step_data, built, None))
+            elif engagement.state == "engaged":
+                engaged.append((ps_item, step_data, built, engagement))
+        return [*engaged, *unengaged]
 
-        if engaged_match is not None:
-            return engaged_match[0], engaged_match[1]
-        return unengaged_match, None
+    async def _active_engagement(
+        self, user_uid: UserUID, ps_uid: object
+    ) -> Result[Engagement | None]:
+        """The learner's active engagement with a step; none for a step with no uid."""
+        if self.ps_engagement_service is None or not isinstance(ps_uid, str) or not ps_uid:
+            return Result.ok(None)
+        return await self.ps_engagement_service.find_active(user_uid, ps_uid)
 
     def _build_path_step(self, step_data: Mapping[str, object]) -> Result[PathStep]:
         """Read the stored step properties as a PathStep, through ``PathStepDTO.from_dict``.
@@ -706,7 +712,7 @@ class ContextRetriever:
         mapper's rule), a temporal as a ``datetime`` (an ISO string or the driver's
         ``DateTime``), and a key the DTO has no field for is left out. A stored value
         its field cannot read refuses the step, logged at ERROR with the refusal's own
-        words, and no bundle is built: the answer goes on without guidance.
+        words, so the step is no candidate for guidance.
         """
         from core.models.pathways.path_step import PathStep
         from core.models.pathways.path_step_dto import PathStepDTO
@@ -723,7 +729,7 @@ class ContextRetriever:
             return Result.fail(
                 Errors.system(f"PathStep {uid} does not read as its class: {e}", exception=e)
             )
-        except Exception as e:  # safety-net: a build defect answers unguided, traceback logged
+        except Exception as e:  # safety-net: a build defect is no candidate, traceback logged
             logger.exception("Unexpected failure building PathStep %s", uid)
             return Result.fail(
                 Errors.system(f"Unexpected failure building PathStep {uid}", exception=e)

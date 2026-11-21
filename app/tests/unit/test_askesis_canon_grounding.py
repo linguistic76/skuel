@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fasthtml.common import to_xml
 
+from core.models.askesis.step_choice import ChosenStep, StepChoice
 from core.models.enums import GuidanceMode
 from core.models.query_types import QueryIntent
 from core.services.askesis.query_processor import QueryProcessor
@@ -70,9 +71,12 @@ def _make_user_context() -> MagicMock:
 def _make_processor(
     *,
     canon_service: MagicMock | None,
-    bundle_result: Result[Any],
+    bundle: MagicMock | None,
 ) -> tuple[QueryProcessor, dict[str, MagicMock]]:
-    """QueryProcessor with mocked sub-services and a controllable PS bundle."""
+    """QueryProcessor with mocked sub-services and a controllable PS bundle.
+
+    ``bundle`` None: no step in progress is chosen, so no bundle is loaded.
+    """
     intent_classifier = MagicMock()
     intent_classifier.classify_intent = AsyncMock(return_value=Result.ok(QueryIntent.EXPLORATORY))
     guidance = MagicMock()
@@ -93,7 +97,14 @@ def _make_processor(
 
     context_retriever = MagicMock()
     context_retriever.retrieve_relevant_context = AsyncMock(return_value={})
-    context_retriever.load_ps_bundle = AsyncMock(return_value=bundle_result)
+    context_retriever.choose_path_step = AsyncMock(
+        return_value=StepChoice(
+            chosen=None
+            if bundle is None
+            else ChosenStep(item={"step": {}, "graph_context": {}}, path_step=MagicMock())
+        )
+    )
+    context_retriever.load_ps_bundle = AsyncMock(return_value=bundle)
     context_retriever.get_learning_context = AsyncMock(
         return_value=Result.ok(
             {"knowledge_units": [], "learning_paths": [], "related_tasks": [], "related_goals": []}
@@ -135,9 +146,9 @@ async def test_pipeline_retrieves_canon_scoped_to_bundle_resources() -> None:
     canon_service = MagicMock()
     canon_service.retrieve = AsyncMock(return_value=Result.ok(_canon_context()))
     bundle = _make_bundle((_make_resource("resource.hypermedia-systems"),))
-    processor, mocks = _make_processor(canon_service=canon_service, bundle_result=Result.ok(bundle))
+    processor, mocks = _make_processor(canon_service=canon_service, bundle=bundle)
 
-    prompt, _mode, ps_bundle, canon_context = await processor._run_guided_pipeline(
+    prompt, _mode, ps_bundle, canon_context, _notice = await processor._run_guided_pipeline(
         "user_test", "What is hypermedia?", _make_user_context()
     )
 
@@ -156,11 +167,9 @@ async def test_pipeline_skips_retrieval_when_no_cited_resources() -> None:
     """A PS citing nothing shelved → no retrieval call, empty canon context."""
     canon_service = MagicMock()
     canon_service.retrieve = AsyncMock()
-    processor, _ = _make_processor(
-        canon_service=canon_service, bundle_result=Result.ok(_make_bundle(()))
-    )
+    processor, _ = _make_processor(canon_service=canon_service, bundle=_make_bundle(()))
 
-    _, _, _, canon_context = await processor._run_guided_pipeline(
+    _, _, _, canon_context, _ = await processor._run_guided_pipeline(
         "user_test", "What is hypermedia?", _make_user_context()
     )
 
@@ -171,9 +180,9 @@ async def test_pipeline_skips_retrieval_when_no_cited_resources() -> None:
 async def test_pipeline_without_canon_service_degrades_canon_free() -> None:
     """CORE tier (canon_service=None) → empty context, no crash."""
     bundle = _make_bundle((_make_resource("resource.hypermedia-systems"),))
-    processor, _ = _make_processor(canon_service=None, bundle_result=Result.ok(bundle))
+    processor, _ = _make_processor(canon_service=None, bundle=bundle)
 
-    prompt, _, _, canon_context = await processor._run_guided_pipeline(
+    prompt, _, _, canon_context, _ = await processor._run_guided_pipeline(
         "user_test", "What is hypermedia?", _make_user_context()
     )
 
@@ -188,9 +197,9 @@ async def test_pipeline_fails_soft_on_retrieval_error() -> None:
         return_value=Result.fail(Errors.system(message="embedding down", operation="retrieve"))
     )
     bundle = _make_bundle((_make_resource("resource.hypermedia-systems"),))
-    processor, _ = _make_processor(canon_service=canon_service, bundle_result=Result.ok(bundle))
+    processor, _ = _make_processor(canon_service=canon_service, bundle=bundle)
 
-    prompt, _, _, canon_context = await processor._run_guided_pipeline(
+    prompt, _, _, canon_context, _ = await processor._run_guided_pipeline(
         "user_test", "What is hypermedia?", _make_user_context()
     )
 
@@ -198,24 +207,20 @@ async def test_pipeline_fails_soft_on_retrieval_error() -> None:
     assert not canon_context.has_passages
 
 
-async def test_pipeline_bundle_error_returns_empty_canon_context() -> None:
-    """No bundle → the 4-tuple degrades whole: (None, None, None, empty)."""
+async def test_pipeline_with_no_step_chosen_returns_empty_canon_context() -> None:
+    """No step chosen → the tuple degrades whole: (None, None, None, empty, no notice)."""
     canon_service = MagicMock()
     canon_service.retrieve = AsyncMock()
     processor, _ = _make_processor(
         canon_service=canon_service,
-        bundle_result=Result.fail(
-            Errors.not_found(
-                "PathStep", "user_test", reason="no step in progress the learner has not mastered"
-            )
-        ),
+        bundle=None,
     )
 
-    prompt, mode, ps_bundle, canon_context = await processor._run_guided_pipeline(
+    prompt, mode, ps_bundle, canon_context, notice = await processor._run_guided_pipeline(
         "user_test", "What is hypermedia?", _make_user_context()
     )
 
-    assert (prompt, mode, ps_bundle) == (None, None, None)
+    assert (prompt, mode, ps_bundle, notice) == (None, None, None, "")
     assert not canon_context.has_passages
     canon_service.retrieve.assert_not_awaited()
 
@@ -319,7 +324,7 @@ async def test_answer_response_carries_canon_sources() -> None:
     canon_service = MagicMock()
     canon_service.retrieve = AsyncMock(return_value=Result.ok(_canon_context()))
     bundle = _make_bundle((_make_resource("resource.hypermedia-systems"),))
-    processor, _ = _make_processor(canon_service=canon_service, bundle_result=Result.ok(bundle))
+    processor, _ = _make_processor(canon_service=canon_service, bundle=bundle)
 
     result = await processor.answer_user_question("user_test", "What is hypermedia?")
 
@@ -332,7 +337,7 @@ async def test_answer_response_carries_canon_sources() -> None:
 
 async def test_answer_response_canon_sources_empty_when_no_draw() -> None:
     """No cited Resources → canon_sources is [] (key present, silent degrade)."""
-    processor, _ = _make_processor(canon_service=None, bundle_result=Result.ok(_make_bundle(())))
+    processor, _ = _make_processor(canon_service=None, bundle=_make_bundle(()))
 
     result = await processor.answer_user_question("user_test", "What is hypermedia?")
 
@@ -345,7 +350,7 @@ async def test_process_query_response_has_no_canon_sources_key() -> None:
     canon_service = MagicMock()
     canon_service.retrieve = AsyncMock(return_value=Result.ok(_canon_context()))
     bundle = _make_bundle((_make_resource("resource.hypermedia-systems"),))
-    processor, _ = _make_processor(canon_service=canon_service, bundle_result=Result.ok(bundle))
+    processor, _ = _make_processor(canon_service=canon_service, bundle=bundle)
 
     result = await processor.process_query_with_context("user_test", "What is hypermedia?")
 

@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.askesis.ps_bundle import PsBundle
 from core.models.ps_content.content_chunks import ContentChunkType
 from core.services.askesis.context_retriever import ContextRetriever
 from core.utils.result_simplified import Errors, Result
@@ -83,6 +84,13 @@ def _not_found_service() -> MagicMock:
     return svc
 
 
+async def _load(retriever: ContextRetriever, ctx: MagicMock) -> PsBundle:
+    """The bundle around the step the retriever chooses — the guided pipeline's two calls."""
+    chosen = (await retriever.choose_path_step("user_1", ctx)).chosen
+    assert chosen is not None
+    return await retriever.load_ps_bundle("user_1", chosen)
+
+
 class TestLoadLsBundlePartialFailure:
     """PS bundle loading should survive individual fetch failures."""
 
@@ -105,10 +113,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ps_bundle("user_1", ctx)
-
-        assert result.is_ok
-        bundle = result.value
+        bundle = await _load(retriever, ctx)
         assert bundle.path_step.uid == "ps:test_1"
         assert len(bundle.related_steps) == 1
         assert bundle.learning_path is not None
@@ -133,10 +138,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ps_bundle("user_1", ctx)
-
-        assert result.is_ok
-        bundle = result.value
+        bundle = await _load(retriever, ctx)
         assert bundle.path_step.uid == "ps:test_1"
         assert len(bundle.related_steps) == 0  # Failed fetch → empty
         assert bundle.learning_path is not None  # LP succeeded
@@ -160,10 +162,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ps_bundle("user_1", ctx)
-
-        assert result.is_ok
-        bundle = result.value
+        bundle = await _load(retriever, ctx)
         assert bundle.learning_path is None  # Failed → default
         assert len(bundle.related_steps) == 1
         assert len(bundle.habits) == 1
@@ -182,10 +181,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ps_bundle("user_1", ctx)
-
-        assert result.is_ok
-        bundle = result.value
+        bundle = await _load(retriever, ctx)
         assert bundle.path_step.uid == "ps:test_1"
         assert len(bundle.related_steps) == 0
         assert len(bundle.kus) == 0
@@ -194,8 +190,8 @@ class TestLoadLsBundlePartialFailure:
         assert len(bundle.tasks) == 0
 
     @pytest.mark.anyio
-    async def test_no_active_ls_returns_not_found(self) -> None:
-        """No active PS in context → Result.fail(not_found)."""
+    async def test_no_step_in_progress_chooses_nothing(self) -> None:
+        """No step in progress in context → nothing is chosen, so no bundle is loaded."""
         retriever = ContextRetriever(
             ps_service=MagicMock(),
             ku_service=MagicMock(),
@@ -209,8 +205,7 @@ class TestLoadLsBundlePartialFailure:
         ctx = MagicMock()
         ctx.active_path_steps_rich = []
 
-        result = await retriever.load_ps_bundle("user_1", ctx)
-        assert result.is_error
+        assert (await retriever.choose_path_step("user_1", ctx)).chosen is None
 
     @pytest.mark.anyio
     async def test_habits_fetch_raises_tasks_still_succeed(self) -> None:
@@ -230,10 +225,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ps_bundle("user_1", ctx)
-
-        assert result.is_ok
-        bundle = result.value
+        bundle = await _load(retriever, ctx)
         assert len(bundle.habits) == 0  # Failed
         assert len(bundle.tasks) == 1  # Succeeded independently
         assert len(bundle.related_steps) == 1
@@ -269,10 +261,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ps_bundle("user_1", ctx)
-
-        assert result.is_ok
-        bundle = result.value
+        bundle = await _load(retriever, ctx)
         assert len(bundle.resources) == 1
         assert bundle.resources[0].uid == "resource_book_1"
         assert bundle.resources[0].author == "Cal Newport"
@@ -295,10 +284,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ps_bundle("user_1", ctx)
-
-        assert result.is_ok
-        bundle = result.value
+        bundle = await _load(retriever, ctx)
         assert len(bundle.resources) == 0  # Graceful degradation
         assert len(bundle.related_steps) == 1  # Other fetches unaffected
 
@@ -332,9 +318,8 @@ class TestBundleActivityAudience:
             lp_service=_ok_service(lp),
         )
 
-        result = await retriever.load_ps_bundle("user_1", _make_user_context())
+        await _load(retriever, _make_user_context())
 
-        assert result.is_ok
         habits_service.get_visible_to_user.assert_awaited_once_with("habit_1", "user_1")
         tasks_service.get_visible_to_user.assert_awaited_once_with("task_1", "user_1")
         # The unscoped door is NOT used for activity handles.
@@ -362,10 +347,7 @@ class TestBundleActivityAudience:
             lp_service=_ok_service(lp),
         )
 
-        result = await retriever.load_ps_bundle("user_1", _make_user_context())
-
-        assert result.is_ok
-        bundle = result.value
+        bundle = await _load(retriever, _make_user_context())
         assert len(bundle.habits) == 0  # withheld — not the requester's
         assert len(bundle.tasks) == 1  # own task still present
 

@@ -1093,7 +1093,7 @@ async def enrolled_user_with_lp(skuel_app: FastHTMLApp):
             ts=created_at,
         )
 
-        # PathStep — non-mastered so _find_active_ps includes it.
+        # PathStep — non-mastered and readable, so choose_path_step chooses it.
         # Kus are resolved via edges/entity_type (context_retriever), not uid shape.
         await session.run(
             """

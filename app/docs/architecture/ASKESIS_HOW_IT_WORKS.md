@@ -4,7 +4,7 @@ updated: 2026-11-21
 
 # How Askesis Works
 
-**Last Updated:** August 31, 2026 (intent activation — PR-2)
+**Last Updated:** November 21, 2026 (the step choice passes over a step that does not read)
 
 **Audience:** Anyone trying to understand what Askesis is, how its parts connect, and why it works the way it does. No code required — this is the plain-English explanation.
 
@@ -128,7 +128,7 @@ That fail-soft default is indistinguishable from a genuine low-confidence verdic
 
 ### Step 6: Load the PS Bundle
 
-This is where the Socratic pipeline begins. `ContextRetriever.load_ps_bundle()` loads the user's **active Path Step** — the first non-mastered step in their enrolled Learning Path — along with everything connected to it:
+This is where the Socratic pipeline begins. `ContextRetriever.choose_path_step()` picks the step to guide on from the learner's **steps in progress** (their `IN_PROGRESS` steps not yet mastered): each is read as a PathStep first, then a step they are engaged with (`ENGAGED_WITH`, state `engaged`) comes before one they are not, and Askesis guides on the first that reads (ADR-059). A Learning Path's own step order is not read. A step whose stored properties do not read is passed over, so the choice can be a step the learner has started but not engaged with — Askesis leading them to what they have not committed to yet. `ContextRetriever.load_ps_bundle()` then loads the chosen step with everything connected to it:
 
 ```
 PsBundle (frozen, loaded once per question)
@@ -342,8 +342,9 @@ On timeout: `Result.fail()` with user message *"Your question is taking too long
 | **Entity extraction** | Domain service unavailable | Continues with empty matches — LLM still answers using other context |
 | **PS bundle fetch** | One of 7 entity fetches times out | That collection defaults to empty; bundle built from what succeeds |
 | **PS bundle fetch** | All fetches fail | Minimal bundle (just the PathStep) — still enables GuidanceMode |
-| **PS bundle fetch** | No active Path Step | Falls back to context-aware generation without Socratic layer |
-| **PS bundle build** | The PS's stored properties hold a value its field cannot read | Logged at ERROR naming the step and the refused value; no bundle, so context-aware generation without Socratic layer |
+| **PS bundle fetch** | No step in progress | Falls back to context-aware generation without Socratic layer |
+| **Step choice** | A step in progress holds a value its field cannot read (or no uid) | Logged at ERROR naming the step and the refused value; the step is no candidate, so Askesis guides on the next step in progress that reads. The answer closes by naming each step passed over ahead of the choice and the step it works from instead |
+| **Step choice** | No step in progress reads | Each refusal logged at ERROR; context-aware generation without Socratic layer, the answer closing with the steps it could not open |
 | **PS bundle build** | A cited Resource holds a value its field cannot read | That Resource is left out, logged at ERROR; the bundle keeps the rest |
 | **ZPD assessment** | ZPD service fails | Continues with empty evidence — GuidanceMode still determined (less informed) |
 | **Citation formatting** | Citation service `None` or graph query fails | Citations omitted — answer still returned without source references |
@@ -358,7 +359,7 @@ The pipeline degrades in stages, not all-or-nothing:
 2. **Partial bundle** — some entity fetches failed → guided response with narrower scope
 3. **No ZPD evidence** — ZPD service failed → GuidanceMode defaults to EXPLORATORY (scaffold)
 4. **No entity matches** — extraction failed → LLM answers from UserContext summary alone
-5. **No bundle** — no active PS or bundle load failed → context-aware answer without Socratic layer
+5. **No bundle** — no step in progress, or none that reads → context-aware answer without Socratic layer (a step that does not read is named in the answer)
 6. **No enrollment** — user has no Learning Path → immediate redirect (no computation wasted)
 7. **Pipeline timeout** — 30s exceeded → clean failure with retry message
 

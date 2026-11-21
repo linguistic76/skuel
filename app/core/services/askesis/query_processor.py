@@ -73,6 +73,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
+    from core.models.askesis.ps_bundle import PsBundle
     from core.models.search_request import SearchRequest
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.askesis.context_retriever import ContextRetriever
@@ -111,6 +112,11 @@ def _passes_enrollment_gate(user_context: UserContext) -> bool:
     Learning Path unlocks Askesis. Both fields are populated at standard AND rich
     context depth."""
     return bool(user_context.current_ps_uids or user_context.enrolled_path_uids)
+
+
+def _with_notice(answer: str, notice: str) -> str:
+    """The answer with the notice as its closing paragraph; unchanged when there is none."""
+    return f"{answer}\n\n{notice}" if notice else answer
 
 
 class QueryProcessor:
@@ -341,11 +347,12 @@ class QueryProcessor:
         # preserved — the guided prompt and its builders are untouched; count
         # questions simply are not Socratic turns).
         if aggregation is not None or (scope is not None and scope.to_property_filters()):
-            guided_system_prompt, guidance_mode, ps_bundle, canon_context = (
+            guided_system_prompt, guidance_mode, ps_bundle, canon_context, unopened_notice = (
                 None,
                 None,
                 None,
                 CanonContext.empty(),
+                "",
             )
         else:
             (
@@ -353,6 +360,7 @@ class QueryProcessor:
                 guidance_mode,
                 ps_bundle,
                 canon_context,
+                unopened_notice,
             ) = await self._run_guided_pipeline(user_uid, question, user_context, preferred_mode)
 
         # Step 8: Generate answer (aggregation-deterministic, guided, or context-aware)
@@ -384,6 +392,10 @@ class QueryProcessor:
                 conversation_history=conversation_history,
                 model=resolved_model,
             )
+
+        # The learner reads which step could not be opened as part of the answer, so the
+        # conversation records it too: a follow-up about it reaches the model with it.
+        answer = _with_notice(answer, unopened_notice)
 
         # Step 9: Record conversation turns — in-memory context window + durable Neo4j history.
         # Neo4j writes are fire-and-forget so persistence latency can't trigger the 30s timeout.
@@ -557,6 +569,7 @@ class QueryProcessor:
             guidance_mode,
             ps_bundle,
             _canon_context,
+            unopened_notice,
         ) = await self._run_guided_pipeline(user_uid, query_message, user_context)
 
         # Step 5: Generate response (guided or context-aware)
@@ -584,7 +597,7 @@ class QueryProcessor:
             query_message, context_data, intent
         )
         result_dict = self._build_query_response_result(
-            response,
+            _with_notice(response, unopened_notice),
             current_knowledge,
             active_learning,
             active_tasks,
@@ -623,24 +636,29 @@ class QueryProcessor:
         question: str,
         user_context: Any,
         preferred_mode: GuidanceMode | None = None,
-    ) -> tuple[str | None, str | None, Any, CanonContext]:
+    ) -> tuple[str | None, str | None, PsBundle | None, CanonContext, str]:
         """
-        Load PS bundle and compute guided system prompt + guidance mode.
+        Choose the step to guide on, load its PS bundle, and compute the guided
+        system prompt + guidance mode.
 
         If preferred_mode is provided, it overrides the ZPD-determined mode while
         preserving the pedagogical intent and zone evidence for system prompt building.
 
         Returns:
-            (guided_system_prompt, guidance_mode, ps_bundle, canon_context) — the
-            first three None if no bundle available; canon_context is always a
-            CanonContext (empty when no canon service, no cited Resources, or
-            no resonant passage — fail-soft, ADR-077).
+            (guided_system_prompt, guidance_mode, ps_bundle, canon_context,
+            unopened_notice) — the first three None if no step in progress reads
+            (or none is in progress);
+            canon_context is always a CanonContext (empty when no canon service,
+            no cited Resources, or no resonant passage — fail-soft, ADR-077);
+            unopened_notice names each step the choice passed over because it did
+            not read, "" when none was.
         """
-        bundle_result = await self.context_retriever.load_ps_bundle(user_uid, user_context)
-        if bundle_result.is_error:
-            return None, None, None, CanonContext.empty()
+        choice = await self.context_retriever.choose_path_step(user_uid, user_context)
+        notice = choice.unopened_notice()
+        if choice.chosen is None:
+            return None, None, None, CanonContext.empty(), notice
 
-        ps_bundle = bundle_result.value
+        ps_bundle = await self.context_retriever.load_ps_bundle(user_uid, choice.chosen)
 
         # PS-scoped canon readings (FULL-tier, fail-soft). Scope = the PS's cited
         # Resources (focus PS + its Kus + related steps, already loaded on the
@@ -681,7 +699,7 @@ class QueryProcessor:
         guided_system_prompt = self.response_generator.build_guided_system_prompt(
             guidance, ps_bundle, user_context, canon_context=canon_context
         )
-        return guided_system_prompt, guidance.mode.value, ps_bundle, canon_context
+        return guided_system_prompt, guidance.mode.value, ps_bundle, canon_context, notice
 
     async def _generate_guided_answer(
         self,
