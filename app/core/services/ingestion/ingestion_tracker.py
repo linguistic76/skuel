@@ -659,9 +659,8 @@ class IngestionTracker:
 
         all_tracked = tracked_result.value or []
         if projection is not None:
-            all_tracked = [
-                row for row in all_tracked if str(row["file_path"]) not in projection.rewritten_from
-            ] + [
+            replaced = projection.rewritten_from | {path for path, _ in projection.new_rows}
+            all_tracked = [row for row in all_tracked if str(row["file_path"]) not in replaced] + [
                 {"file_path": new_path, "entity_uid": identity}
                 for new_path, identity in projection.new_rows
             ]

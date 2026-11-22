@@ -599,14 +599,15 @@ class VaultReconciler:
             moves = move_result.value.moves
 
             # The tracker as the sync will have it after its move pre-pass and
-            # ingest: each planned move's row at its new path, and a row for each
-            # other new file — under the identity it names by itself, or none
-            # when the sync mints its uid.
-            new_identities: dict[str, str | None] = {
-                str(d.file_path.resolve()): verdicts.value.identities.get(d.file_path)
-                for d in would_ingest
-                if d.reason == "new"
-            }
+            # ingest: each planned move's row at its new path, and the row each
+            # other accepted file's ingest writes — under the identity the file
+            # names by itself; a new file whose uid the sync mints gets a row
+            # that claims nothing, a changed one keeps the row it has.
+            new_identities: dict[str, str | None] = {}
+            for d in would_ingest:
+                identity = verdicts.value.identities.get(d.file_path)
+                if identity is not None or d.reason == "new":
+                    new_identities[str(d.file_path.resolve())] = identity
             new_identities.update({move.new_path: move.entity_uid for move in moves})
             projection = TrackerProjection(
                 rewritten_from=frozenset(move.old_path for move in moves),

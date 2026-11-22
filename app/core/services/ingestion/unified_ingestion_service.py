@@ -1754,14 +1754,24 @@ class UnifiedIngestionService:
         prepared uid (authored, or derived from the file), an Edge file's
         ``edge_identity``, a UserEntry's authored or periodic uid
         (``own_entry_uid``, over the frontmatter its own door reads). A personal
-        vault's uid-less files are parsed as first seen: the uid a file takes
-        changes no verdict.
+        vault's uid-less files are parsed under the identity their tracker row
+        holds, as the sync parses them (``read_tracked_identities``).
         """
         owner = self._resolve_owner(root, user_uid)
         vault_kind = self._resolve_vault_kind(root)
-        identities: dict[str, TrackedIdentity] | None = (
-            {} if vault_kind is VaultKind.PERSONAL else None
-        )
+        # A personal vault's uid-less files take the identity their tracker row
+        # holds, read as the sync reads it — so a changed file is parsed under the
+        # uid its ingest keeps, a new one under the uid derived from its path.
+        identities: dict[str, TrackedIdentity] | None = None
+        if vault_kind is VaultKind.PERSONAL:
+            identities = {}
+            if self.ingestion_backend is not None:
+                identities_result = await read_tracked_identities(
+                    IngestionTracker(self.ingestion_backend), self._write_backend, files
+                )
+                if identities_result.is_error:
+                    return Result.fail(identities_result)
+                identities = identities_result.value
         semaphore = asyncio.Semaphore(DEFAULT_MAX_CONCURRENT_PARSING)
         parsed = await asyncio.gather(
             *(

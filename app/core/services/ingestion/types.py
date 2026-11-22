@@ -332,10 +332,10 @@ class TrackerProjection:
     A dry run has no rows for the files the sync's ingest has yet to write, and
     still has the rows the move pre-pass would rewrite. ``rewritten_from``: the
     old paths of the planned moves (their rows move to the new path).
-    ``new_rows``: ``(canonical path, identity)`` for each file the ingest will
-    write a row for — the identity the file names by itself, or a planned
-    move's uid; ``None`` when the sync mints it, so the row counts and claims
-    nothing.
+    ``new_rows``: ``(canonical path, identity)`` for each row the ingest will
+    write, replacing any row at that path — the identity the file names by
+    itself, or a planned move's uid; ``None`` when the sync mints it, so the
+    row counts and claims nothing.
     """
 
     rewritten_from: frozenset[str] = frozenset()

@@ -420,3 +420,18 @@ async def test_a_renamed_note_the_sync_refuses_is_previewed_as_a_deletion_and_an
     assert run.untracked == set()
     assert run.moves == []
     assert run.preview.would_move_examples == ()
+
+
+def _rename_onto_a_tracked_path(root: Path) -> None:
+    (root / "b.md").write_text((root / "a.md").read_text())
+    (root / "a.md").unlink()
+
+
+async def test_a_file_renamed_onto_a_tracked_path_is_previewed_as_the_sync_reports_it(
+    vaults: Vaults,
+) -> None:
+    run = await _preview_then_sync(vaults, VaultKind.CONTENT, _kus(), _rename_onto_a_tracked_path)
+
+    assert run.would_delete == run.deleted == set()
+    assert run.moves == ["a.md → b.md"]
+    assert list(run.preview.would_move_examples) == run.moves
