@@ -25,6 +25,7 @@ from fasthtml.common import to_xml
 from adapters.inbound.vault_routes import create_vault_routes
 from core.services.ingestion.config import SyncAllowlist
 from core.services.ingestion.ingestion_tracker import IngestionTracker
+from core.services.ingestion.types import ParseVerdicts
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind
 from core.services.vault.vault_reconciler import (
     VaultDescription,
@@ -169,7 +170,7 @@ def _preview_harness(tmp_path, *, consented: bool = True):
     ingestion.ingestion_backend = backend
     # The parse stage accepts every file here; the refusal path is driven through
     # the real ingestion service in the integration tier.
-    ingestion.parse_refusals = AsyncMock(return_value=Result.ok({}))
+    ingestion.parse_verdicts = AsyncMock(return_value=Result.ok(ParseVerdicts()))
 
     user = SimpleNamespace(preferences=SimpleNamespace(vault_write_consent=consented))
     user_service = MagicMock()
@@ -194,6 +195,46 @@ def _walk_strings(value) -> list[str]:
 
 
 class TestVaultPreview:
+    @pytest.mark.asyncio
+    async def test_a_new_file_claiming_a_gone_row_identity_is_a_move_not_a_deletion(
+        self, tmp_path
+    ) -> None:
+        reconciler, backend, notes = _preview_harness(tmp_path)
+        (notes / "kept.md").write_text("---\ntype: task\n---\nkept")
+        renamed = notes / "renamed.md"
+        renamed.write_text("---\ntype: task\n---\nedited body")
+        backend.get_tracked_files_under = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "file_path": str((notes / "old.md").resolve()),
+                        "entity_uid": "task.owned-name",
+                        "content_hash": "a-hash-no-file-has",
+                    },
+                    {
+                        "file_path": str((notes / "kept.md").resolve()),
+                        "entity_uid": "task_0a0a0a0a0a0a0a0a",
+                        "content_hash": "h",
+                    },
+                ]
+            )
+        )
+        backend.get_entity_owner_uids = AsyncMock(
+            return_value=Result.ok([{"uid": "task.owned-name", "user_uid": "user_owner"}])
+        )
+        reconciler._ingestion.parse_verdicts = AsyncMock(
+            return_value=Result.ok(ParseVerdicts(identities={renamed: "task.owned-name"}))
+        )
+
+        result = await reconciler.preview(VaultKind.PERSONAL, "user_owner")
+
+        assert result.is_ok
+        assert result.value.would_delete_entities == 0
+        assert result.value.would_move_examples == (
+            "periodic_notes/old.md → periodic_notes/renamed.md",
+        )
+        assert result.value.stale_cleanup_count == 1
+
     @pytest.mark.asyncio
     async def test_preview_refuses_conflicting_nested_roots(self, tmp_path) -> None:
         """Kody #527: sync() gets the single-vault guard from ingest_directory;
@@ -280,17 +321,23 @@ class TestVaultPreview:
         refused.write_text("---\ntype: user_entry\npipeline: knowledge\n---\nbody")
         unreadable = notes / "unreadable.md"
         unreadable.write_text("---\ntype: user_entry\npipeline: knowledge\n---\nbody")
-        reconciler._ingestion.parse_refusals = AsyncMock(
+        reconciler._ingestion.parse_verdicts = AsyncMock(
             return_value=Result.ok(
-                {
-                    refused: {
-                        "file": str(refused),
-                        "error": "'status' must be one of: active; got 'banana'",
-                        "stage": "validation",
-                        "entity_type": "user_entry",
-                    },
-                    unreadable: {"file": str(unreadable), "error": "denied", "stage": "file_io"},
-                }
+                ParseVerdicts(
+                    refusals={
+                        refused: {
+                            "file": str(refused),
+                            "error": "'status' must be one of: active; got 'banana'",
+                            "stage": "validation",
+                            "entity_type": "user_entry",
+                        },
+                        unreadable: {
+                            "file": str(unreadable),
+                            "error": "denied",
+                            "stage": "file_io",
+                        },
+                    }
+                )
             )
         )
 
@@ -326,7 +373,10 @@ class TestVaultPreview:
         assert preview.would_delete_entities == 1
         assert preview.would_delete_entity_examples == ("periodic_notes/gone.md",)
         # The owner scope of a governed sync applies to the plan too.
-        backend.get_entity_owner_uids.assert_awaited_once_with(["ku.gone"])
+        assert backend.get_entity_owner_uids.await_args_list
+        assert all(
+            call.args == (["ku.gone"],) for call in backend.get_entity_owner_uids.await_args_list
+        )
         _assert_no_deletes(backend)
 
     @pytest.mark.asyncio
@@ -375,6 +425,39 @@ class TestVaultPreview:
         assert result.is_ok
         for text in _walk_strings(list(asdict(result.value).values())):
             assert str(tmp_path) not in text
+
+
+class TestPreviewFragmentMoves:
+    """Every rendering state of the would-move count."""
+
+    @pytest.mark.parametrize(
+        ("preview", "present", "absent"),
+        [
+            pytest.param(
+                VaultSyncPreview(would_move_count=1, would_move_examples=("old.md → new.md",)),
+                ("This sync would:", "keep ", "renamed notes", "old.md → new.md"),
+                ("already in sync",),
+                id="a move is pending work, listed by its sync line",
+            ),
+            pytest.param(
+                VaultSyncPreview(),
+                ("already in sync",),
+                ("renamed notes",),
+                id="no move: no '0 renamed notes' row",
+            ),
+        ],
+    )
+    def test_move_count_per_rendering_state(
+        self,
+        preview: VaultSyncPreview,
+        present: tuple[str, ...],
+        absent: tuple[str, ...],
+    ) -> None:
+        html = to_xml(preview_fragment(preview))
+        for text in present:
+            assert text in html, f"expected {text!r}"
+        for text in absent:
+            assert text not in html, f"unexpected {text!r}"
 
 
 class TestPreviewFragmentSetAside:

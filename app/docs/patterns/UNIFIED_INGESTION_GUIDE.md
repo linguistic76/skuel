@@ -356,14 +356,22 @@ the uid the row holds — a first sync's minted uid is never lost to a retry.
 The real hash keeps a rename before the retry recognisable as a move. A
 pending row that cannot be written is itself a sync error (stage `tracking`).
 
-**Renames preserve identity too (content-based move detection).** A
-rename/move of a uid-less note is recognized by the move-detection pre-pass
-(`IngestionTracker.detect_and_apply_moves`, run at the start of every tracked
-directory sync), two strategies in sequence. **Exact hash** (pure rename): the
-gone path's tracker row and the new file share a SHA-256, so the row is
-rewritten (old path → new path, SAME uid) and the resolution above reuses the
-uid — node, grounding edges, MOC/manual links, and `created_at` all survive;
-the sync reports it as `moves_detected`, not a delete + a create. **Lexical
+**Renames preserve identity too.** A file whose uid is in the authored shape
+— its `uid:` line, or (content vault) its file name — names its identity by
+itself: a renamed file with the same `uid:` claims it, the moved/stale split
+keeps the entity and cleans the old row, and the sync reports the rename in
+`moves`; a file named-by-its-file renamed is a new uid, so the old node is
+deleted. A rename/move of a uid-less note (a generated uid) is recognized by
+the move-detection pre-pass (`IngestionTracker.detect_and_apply_moves`, run at
+the start of every tracked directory sync; `plan_moves` is its read-only half),
+two strategies in sequence, and only a generated-shape uid is ever a source —
+bridging an authored-shape one would put the old uid on a row the ingest then
+overwrites with the file's own, stranding the old node. **Exact hash** (pure
+rename): the gone path's tracker row and the new file share a SHA-256, so the
+row is rewritten (old path → new path, SAME uid) and the resolution above
+reuses the uid — node, grounding edges, MOC/manual links, and `created_at` all
+survive; the sync reports it in `moves` / `moves_detected`, not a delete + a
+create. **Lexical
 similarity** (rename + edit *in the same sync*): over the exact pass's
 residual, the gone node's last-ingested body (`Entity.content`) is compared
 against each new markdown file's resolved content (frontmatter `content:`
@@ -371,7 +379,7 @@ wins, else the body — the same resolution ingestion applies) with word-shingle
 Jaccard; only a MUTUAL best match at or above `SIMILARITY_MOVE_THRESHOLD`
 moves, and the sync annotates it with its score. Similarity candidacy is gated
 to the uid-less UserEntry world on both sides: sources must carry a minted
-`ue_<8hex>` uid, destinations must be `type: user_entry` markdown files with
+`ue_<16 hex>` uid, destinations must be `type: user_entry` markdown files with
 no authored `uid:` and no periodic `entry_kind` — a file that would not honor
 the rewritten uid must never be bridged (it would fuse identities or orphan
 the gone node).
@@ -1108,7 +1116,7 @@ The service detects entity type from:
 
 Vault-sync doors (`VaultReconciler` → `VaultSyncStats`) classify per-file ingestion failures by the stage the engine tagged (`IngestionError.stage`):
 
-- **Content-fault stages** (`parsing`, `type_detection`, `validation`, `preparation`) → the file is **ignored** and reported in `VaultSyncStats.ignored` as a vault-relative `path — reason` line (`files_ignored` counts them). These are the file's own frontmatter: no/empty `type:`, empty `uid:`, an invalid enum value, broken YAML. USER_ENTRY pipeline failures classify as content only when a *frontmatter field* failed validation (`classify_user_entry_failure` — fields `pipeline`/`status`/`je_use`/`private`/`audience`/`metadata`); validation errors that encode pipeline state (an unreachable reviewer on a turn-in, a TEACHER_REVIEW request with no resolvable audience) stay errors.
+- **Content-fault stages** (`parsing`, `type_detection`, `validation`, `preparation`) → the file is **ignored** and reported in `VaultSyncStats.ignored` as a vault-relative `path — reason` line (`files_ignored` counts them). These are the file's own frontmatter: no/empty `type:`, empty `uid:`, an invalid enum value, broken YAML, bytes that are not UTF-8 text. USER_ENTRY pipeline failures classify as content only when a *frontmatter field* failed validation (`classify_user_entry_failure` — fields `pipeline`/`status`/`je_use`/`private`/`audience`/`metadata`); validation errors that encode pipeline state (an unreachable reviewer on a turn-in, a TEACHER_REVIEW request with no resolvable audience) stay errors.
 - **Everything else** (`ingestion` = DB write, `edge_ingestion`, `relationships`, `moc_edge_pass`, `file_io`, `user_entry_pipeline`, `unknown`, stage-less reconciliation dicts) → `errors` + `files_failed`. `errors` is **reserved for system faults** (IO, Neo4j, real bugs). Parser-internal IO failures (unreadable/unstat-able file) are re-tagged `file_io` before the `parsing` stage is assigned — an unreadable file is never "ignored".
 
 A sync whose only findings are ignored files **is clean** ("Sync complete" + the ignored list). The reason text keeps three flavors distinct: a file with no `type:` at all (likely a deliberate non-entity note); a file that *declared* a type but has a malformed field — rendered as `path — declared 'type: X' but not ingested: reason`, easy to spot for fixing; and a file whose frontmatter fence does not parse at all, which can declare nothing and reports as `Invalid YAML frontmatter at line N, column M` (the line is the author's file line, not YAML's offset inside the fence). The default-deny gate is unchanged — nothing is inferred or ingested; only severity and reporting changed.
@@ -1347,14 +1355,25 @@ All POSTs are CSRF-protected — a scripted caller needs an authenticated sessio
 `scripts/vault_bridge_sync.py --vault content` (both run `VaultReconciler.sync` in `smart`
 mode). Personal vaults sync via `POST /api/vault/sync`. **Dry run:** `--preview` on the script
 (either vault) and, for personal vaults, the "Preview sync" button / `POST /api/vault/preview`
-run `VaultReconciler.preview` — would-ingest / would-delete / stale rows / ownership mismatches /
-mass-deletion refusal, nothing written. The would-ingest figures apply the ingest gate's own
+run `VaultReconciler.preview` — would-ingest / would-move / would-delete / stale rows / ownership
+mismatches / mass-deletion refusal, nothing written. Its would-delete set is the sync's deleted
+set and its would-move lines are the sync's `moves` lines: it plans the sync's move pre-pass
+without its row rewrites (`plan_moves`) and runs `plan_deletions` over the tracker as the sync
+will have it after that pass and its ingest (`TrackerProjection` — each moved row at its new
+path, a row for each new file under the identity it names by itself), so a renamed file is a
+move, never a deletion, and both mass-deletion valves count what the sync's reconciliation
+counts. A file its door refuses writes no row in the projection either; a refusal only the write
+can decide (graph state — an owner gate, a uid another type holds, a teacher's qualification, a
+frontmatter target, the UserEntry create checks) is not foreseen. The would-ingest figures apply the ingest gate's own
 no-type verdict (`is_non_entity_note`, `detector.py` — the same predicate `detect_entity_type`
 raises on), so a vault of loose untyped notes reports one `non_entity_notes` count instead of
 hundreds of phantom "new" files. Each remaining file then runs the sync's own parse stage
-(`UnifiedIngestionService.parse_refusals`, nothing written), so a file the sync would refuse for
+(`UnifiedIngestionService.parse_verdicts`, nothing written), so a file the sync would refuse for
 its content — a declared-but-unknown `type:`, a field outside the criteria above — is listed as
-would-ignore with the reason the sync will give.
+would-ignore with the reason the sync will give — a UserEntry also through its door's own request
+check (`build_user_entry_request`: a `pipeline:` outside the vocabulary, say); the same stage
+names each accepted file's identity (its prepared uid, an Edge file's identity, a UserEntry's
+authored or periodic uid).
 
 **Remote vaults ride a staging mirror (ADR-075, `VAULT_TRANSPORT=local_agent`):** when a
 personal vault lives on the user's machine, `VaultReconciler.sync` runs a mirror-refresh
@@ -1398,7 +1417,8 @@ personal vault never authors shared content (ADR-070 Decision 11); a row whose n
 Reconciliation is split plan/execute: `IngestionTracker.plan_deletions` performs the full
 classification read-only (it backs the vault sync preview — `VaultReconciler.preview` /
 `POST /api/vault/preview`), and `reconcile_deletions` executes the resulting `DeletionPlan`.
-Response fields: `entities_deleted`, `edges_deleted`, `stale_metadata_removed`.
+Response fields: `entities_deleted`, `edges_deleted`, `stale_metadata_removed`; a stale row
+whose identity exactly one collected file claims is a rename, and joins the sync's `moves`.
 User-facing warning/error strings render paths **vault-relative** — the vault root's
 absolute host path never reaches stats (`core/utils/path_display.py`, vault security
 arc PR 5); full absolute detail stays in logs.
@@ -1478,8 +1498,9 @@ Returned for `ingestion_mode="incremental"` and `"smart"`. Everything above,
 plus the incremental-only signals: the skip breakdown (`files_skipped`,
 `skipped_unchanged`, `skipped_hash_match`),
 standalone-edge writes (`edges_created`, `edges_updated`), deletion propagation
-(`entities_deleted`, `edges_deleted`, `stale_metadata_removed`), and move
-detection (`moves_detected`, `moves`).
+(`entities_deleted`, `edges_deleted`, `stale_metadata_removed`), and every
+rename that kept its entity (`moves_detected`, `moves`: the move pre-pass's
+matches and the renames the moved/stale split kept).
 
 `edges_created` / `edges_updated` split on `MERGE`'s own flag rather than summing
 to one "written" total, so a new Edge YAML that reports *updated* tells the author

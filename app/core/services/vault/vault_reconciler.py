@@ -54,7 +54,7 @@ from core.ports.vault_bridge_protocol import (
 from core.services.ingestion.config import collect_files
 from core.services.ingestion.detector import is_non_entity_note
 from core.services.ingestion.ingestion_tracker import IngestionDecision, IngestionTracker
-from core.services.ingestion.types import IncrementalStats, IngestionStats
+from core.services.ingestion.types import IncrementalStats, IngestionStats, TrackerProjection
 from core.services.ingestion.vault_policy import file_vault_refusal
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
@@ -142,6 +142,11 @@ class VaultSyncPreview:
     # lines — and leaves them out of every would_ingest_* figure.
     would_ignore_count: int = 0
     would_ignore_examples: tuple[str, ...] = ()
+    # Renamed files whose entity a sync keeps, as the sync's ``moves`` lines
+    # (``old → new``): the move pre-pass's matches, and the renames whose new
+    # file claims the old uid. Their old paths are in no would-delete figure.
+    would_move_count: int = 0
+    would_move_examples: tuple[str, ...] = ()
     would_delete_entities: int = 0
     would_delete_entity_examples: tuple[str, ...] = ()
     would_delete_edges: int = 0
@@ -457,12 +462,20 @@ class VaultReconciler:
         (``is_non_entity_note``), so loose untyped notes are set aside and
         counted, not listed as pending ingests; and the sync's own parse stage
         per remaining file (``parse_refusals``), so a file it would refuse for
-        its content is listed as ignored with the sync's reason. Deletion
-        half: ``IngestionTracker.plan_deletions`` with the descriptor's
-        allowlist + owner (the same scope ``sync``'s ingest passes when the
-        registry governs the root). Neither the graph nor the vault is
-        touched; outbound preview (would-inject 🆔 IDs / would-mark-done) is
-        deferred.
+        its content is listed as ignored with the sync's reason. Moves and
+        deletions: the sync's move pre-pass, planned without its row rewrites
+        (``IngestionTracker.plan_moves``), then
+        ``IngestionTracker.plan_deletions`` with the descriptor's allowlist +
+        owner (the same scope ``sync``'s ingest passes when the registry
+        governs the root), over the tracker as the sync will have it after
+        its move pre-pass and ingest (``TrackerProjection``: each moved row at
+        its new path, a row for each new file under the identity it names by
+        itself — ``parse_verdicts``). So the moved/stale split and both
+        mass-deletion valves see what the sync's reconciliation sees: a
+        renamed file is reported as a move, as the sync reports it, never as
+        a deletion. Neither the graph nor the vault
+        is touched; outbound preview (would-inject 🆔 IDs / would-mark-done)
+        is deferred.
 
         A preview never dials the agent (ADR-075 Decision 4): for a
         ``local_agent``-transport vault it reports the MIRROR's state as of
@@ -547,17 +560,17 @@ class VaultReconciler:
             # A file the sync's own parse stage refuses for its content (a
             # broken field, a value the vault may not hold) is reported as the
             # sync reports it, ignored with the same reason, by running that
-            # stage here (``parse_refusals``) rather than restating its rules.
-            refusals = await self._ingestion.parse_refusals(
+            # stage here (``parse_verdicts``) rather than restating its rules.
+            verdicts = await self._ingestion.parse_verdicts(
                 [d.file_path for d in would_ingest],
                 root=descriptor.root,
                 user_uid=descriptor.owner_uid,
             )
-            if refusals.is_error:
-                return Result.fail(refusals)
+            if verdicts.is_error:
+                return Result.fail(verdicts)
             accepted: list[IngestionDecision] = []
             for decision in would_ingest:
-                error = refusals.value.get(decision.file_path)
+                error = verdicts.value.refusals.get(decision.file_path)
                 if error is not None and error.get("stage") in _CONTENT_FAULT_STAGES:
                     would_ignore.append(_format_ignored_file(error, descriptor.root))
                 else:
@@ -570,6 +583,41 @@ class VaultReconciler:
                 for d in would_ingest
             )[:PREVIEW_EXAMPLE_LIMIT]
 
+            # Moves: the sync's move pre-pass over the files it would process,
+            # planned without its row rewrites.
+            owner_only = descriptor.kind is VaultKind.PERSONAL
+            move_result = await tracker.plan_moves(
+                descriptor.root,
+                [d.file_path for d in decisions if d.needs_ingestion],
+                "*",
+                allowlist=descriptor.allowlist,
+                owner_uid=descriptor.owner_uid,
+                owner_only=owner_only,
+            )
+            if move_result.is_error:
+                return Result.fail(move_result)
+            moves = move_result.value.moves
+
+            # The tracker as the sync will have it after its move pre-pass and
+            # ingest: each planned move's row at its new path, and the row each
+            # other accepted file's ingest writes — under the identity the file
+            # names by itself; a new file whose uid the sync mints gets a row
+            # that claims nothing, a changed one keeps the row it has.
+            # A file the sync's door will refuse writes none; a refusal decided
+            # only by the write (graph state) is not foreseen.
+            new_identities: dict[str, str | None] = {}
+            for d in would_ingest:
+                if d.file_path in verdicts.value.unwritten:
+                    continue
+                identity = verdicts.value.identities.get(d.file_path)
+                if identity is not None or d.reason == "new":
+                    new_identities[str(d.file_path.resolve())] = identity
+            new_identities.update({move.new_path: move.entity_uid for move in moves})
+            projection = TrackerProjection(
+                rewritten_from=frozenset(move.old_path for move in moves),
+                new_rows=tuple(new_identities.items()),
+            )
+
             # Deletions: the read-only planning half of reconciliation, with
             # the same owner scope a descriptor-governed sync applies.
             plan_result = await tracker.plan_deletions(
@@ -577,11 +625,13 @@ class VaultReconciler:
                 "*",
                 allowlist=descriptor.allowlist,
                 owner_uid=descriptor.owner_uid,
-                owner_only=descriptor.kind is VaultKind.PERSONAL,
+                owner_only=owner_only,
+                projection=projection,
             )
             if plan_result.is_error:
                 return Result.fail(plan_result)
             plan = plan_result.value
+            move_lines = [move.line for move in moves] + [rename.line for rename in plan.renames]
 
             return Result.ok(
                 VaultSyncPreview(
@@ -592,6 +642,8 @@ class VaultReconciler:
                     non_entity_notes=non_entity_notes,
                     would_ignore_count=len(would_ignore),
                     would_ignore_examples=tuple(would_ignore[:PREVIEW_EXAMPLE_LIMIT]),
+                    would_move_count=len(move_lines),
+                    would_move_examples=tuple(move_lines[:PREVIEW_EXAMPLE_LIMIT]),
                     would_delete_entities=len(plan.entity_deletions),
                     would_delete_entity_examples=tuple(
                         planned.display_path for planned in plan.entity_deletions

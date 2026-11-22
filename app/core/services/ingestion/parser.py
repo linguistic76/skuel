@@ -19,7 +19,7 @@ from core.utils.frontmatter import (
     split_frontmatter,
     yaml_error_location,
 )
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorContext, Errors, Result
 
 from .config import DEFAULT_MAX_FILE_SIZE_BYTES
 
@@ -77,6 +77,15 @@ def check_file_size(
         )
 
 
+def _not_utf8(file_path: Path) -> ErrorContext:
+    """A file whose bytes are not UTF-8 text: the file's own content, not a read failure."""
+    return Errors.validation(
+        f"{file_path.name} is not UTF-8 text",
+        field="encoding",
+        user_message=f"File {file_path.name} is not UTF-8 text — save it as UTF-8",
+    )
+
+
 def parse_markdown(
     file_path: Path,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
@@ -103,7 +112,10 @@ def parse_markdown(
         if size_check.is_error:
             return Result.fail(size_check)
 
-        content = file_path.read_text(encoding="utf-8")
+        try:
+            content = file_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            return Result.fail(_not_utf8(file_path))
 
         raw_yaml, body = split_frontmatter(content)
         if raw_yaml is not None:
@@ -164,7 +176,10 @@ def parse_yaml(
         if size_check.is_error:
             return Result.fail(size_check)
 
-        content = file_path.read_text(encoding="utf-8")
+        try:
+            content = file_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            return Result.fail(_not_utf8(file_path))
         data = yaml.safe_load(content)
 
         if not data:

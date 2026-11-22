@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from core.services.ingestion.detector import is_non_entity_note
+from core.services.ingestion.detector import is_non_entity_note, read_document
 from core.services.ingestion.parser import parse_markdown, parse_yaml
 from core.utils.result_simplified import ErrorCategory
 
@@ -101,3 +101,22 @@ class TestBrokenFenceIsAnError:
         md_error = parse_markdown(md).expect_error()
         yml_error = parse_yaml(yml).expect_error()
         assert md_error.category is yml_error.category is ErrorCategory.VALIDATION
+
+
+@pytest.mark.parametrize("name", ["note.md", "edge.yaml"])
+def test_a_file_that_is_not_utf8_is_a_content_refusal_not_a_crash(
+    tmp_path: Path, name: str
+) -> None:
+    path = tmp_path / name
+    path.write_bytes(
+        b"type: ku\ntitle: \xff\xfe\n" if name.endswith(".yaml") else b"---\ntitle: \xff\n---\n"
+    )
+
+    result = parse_markdown(path) if name.endswith(".md") else parse_yaml(path)
+
+    assert result.is_error
+    error = result.expect_error()
+    assert error.category is ErrorCategory.VALIDATION
+    assert error.details.get("field") == "encoding"
+    assert read_document(path) is None
+    assert is_non_entity_note(path) is False

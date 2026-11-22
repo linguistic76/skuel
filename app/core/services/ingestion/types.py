@@ -9,6 +9,7 @@ Extracted from unified_ingestion_service.py for separation of concerns.
 """
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from core.models.relationship_names import RelationshipName
@@ -158,8 +159,9 @@ class IncrementalStats:
     entities_deleted: int = 0
     edges_deleted: int = 0  # deleted Edge YAMLs: relationship removed
     stale_metadata_removed: int = 0  # moved/renamed files: old tracking row only
-    # Content-hash move detection: uid-less renames recognized as moves
-    # (tracker row rewritten, identity preserved) instead of delete+create.
+    # Every rename that kept its entity: the move pre-pass's matches (tracker
+    # row rewritten, uid-less identity preserved) and the renames the
+    # moved/stale split kept (the new file claims the old uid).
     moves_detected: int = 0
     moves: list[str] = field(default_factory=list)  # vault-relative "old → new" lines
     # Skip-reason bookkeeping (G10): files the scan saw but did not process —
@@ -197,6 +199,8 @@ class DeletionReconciliation:
     entities_deleted: int = 0
     edges_deleted: int = 0
     stale_metadata_removed: int = 0
+    # Renames the moved/stale split kept, as ``old → new`` lines (vault-relative).
+    renames: list[str] = field(default_factory=list)
     # Safety valves: every tracked file under the directory vanished at once
     # (unmounted vault, sync wipe), OR a majority of tracked files would be
     # deleted in one sync (threshold valve). Deletion is refused; counts stay
@@ -268,6 +272,8 @@ class DeletionPlan:
     edge_deletions: tuple[PlannedEdgeDeletion, ...] = ()
     # Moved/renamed files: only the stale tracking row goes (absolute paths).
     stale_file_paths: tuple[str, ...] = ()
+    # The stale rows whose identity exactly one collected file claims, and that file.
+    renames: tuple[FileRename, ...] = ()
     # Unparseable edge identities: tracking row cleaned, graph untouched.
     unparseable_edge_file_paths: tuple[str, ...] = ()
     ownership_mismatches: tuple[str, ...] = ()
@@ -275,18 +281,27 @@ class DeletionPlan:
     refusal_warning: str | None = None
 
 
+def move_line(display_old: str, display_new: str, similarity: float | None = None) -> str:
+    """How a sync report and its preview name one rename: ``old → new`` (vault-relative)."""
+    line = f"{display_old} → {display_new}"
+    return line if similarity is None else f"{line} (similarity {similarity:.2f})"
+
+
 @dataclass(frozen=True)
-class AppliedMove:
-    """One tracker-row rewrite applied by the move-detection pre-pass.
+class FileMove:
+    """One rename the move-detection pre-pass matched, keeping the entity's uid.
 
     A gone tracked path and a new untracked file matched — an exact content
     hash 1:1 (pure rename) or a mutual-best lexical similarity (rename +
-    edit in one sync) — so the row moved ``old_path → new_path`` under the
-    SAME ``entity_uid``: the node, its edges, and ``created_at`` all survive
-    the rename. Absolute paths key the tracker; ``display_*`` are the
-    vault-relative renderings (#525) for user-facing surfaces.
-    ``similarity`` is the Jaccard score for a similarity match, ``None`` for
-    an exact-hash match — the two are surfaced distinctly.
+    edit in one sync) — so the tracker row moves ``old_path → new_path``
+    under the SAME ``entity_uid``: the node, its edges, and ``created_at``
+    all survive the rename. ``IngestionTracker.plan_moves`` finds it without
+    writing; ``detect_and_apply_moves`` rewrites the row. Absolute paths key
+    the tracker; ``display_*`` are the vault-relative renderings (#525) for
+    user-facing surfaces. ``content_hash`` is the new file's SHA-256 and
+    ``authored_edges`` the old row's edge fingerprint — both carried onto the
+    rewritten row. ``similarity`` is the Jaccard score for a similarity
+    match, ``None`` for an exact-hash match.
     """
 
     old_path: str
@@ -294,14 +309,79 @@ class AppliedMove:
     entity_uid: str
     display_old: str
     display_new: str
+    content_hash: str = ""
+    authored_edges: tuple[str, ...] = ()
     similarity: float | None = None
+
+    @property
+    def line(self) -> str:
+        return move_line(self.display_old, self.display_new, self.similarity)
 
 
 @dataclass(frozen=True)
 class MovePlan:
-    """Outcome of ``IngestionTracker.detect_and_apply_moves`` (exact hash + similarity)."""
+    """The renames the move-detection pre-pass matched (exact hash + similarity)."""
 
-    applied: tuple[AppliedMove, ...] = ()
+    moves: tuple[FileMove, ...] = ()
+
+
+@dataclass(frozen=True)
+class TrackerProjection:
+    """The tracker as a sync will have it after its move pre-pass and ingest.
+
+    A dry run has no rows for the files the sync's ingest has yet to write, and
+    still has the rows the move pre-pass would rewrite. ``rewritten_from``: the
+    old paths of the planned moves (their rows move to the new path).
+    ``new_rows``: ``(canonical path, identity)`` for each row the ingest will
+    write, replacing any row at that path — the identity the file names by
+    itself, or a planned move's uid; ``None`` when the sync mints it, so the
+    row counts and claims nothing.
+    """
+
+    rewritten_from: frozenset[str] = frozenset()
+    new_rows: tuple[tuple[str, str | None], ...] = ()
+
+
+@dataclass(frozen=True)
+class FileRename:
+    """A gone tracked path whose identity one collected file claims: a rename.
+
+    The uid-based moved/stale split keeps the entity (only the old row is
+    cleaned); this names where it went. Absolute ``old_path``/``new_path``;
+    ``display_*`` vault-relative.
+    """
+
+    old_path: str
+    new_path: str
+    display_old: str
+    display_new: str
+
+    @property
+    def line(self) -> str:
+        return move_line(self.display_old, self.display_new)
+
+
+@dataclass(frozen=True)
+class ParseVerdicts:
+    """What a directory sync's parse stage says of each file, before any write.
+
+    ``refusals`` maps a refused file to its ``IngestionError`` dict.
+    ``identities`` maps an accepted file to the identity its ingest writes to
+    its tracker row — an entity's uid, an Edge file's ``edge_identity`` —
+    when the file names it by itself; a UserEntry with no authored or periodic
+    uid names none (its uid is the tracker's or a fresh mint). ``unwritten``:
+    every file whose ingest writes no tracker row — each refused file, whatever
+    the cause, and a UserEntry its door refuses for a reason that is not its
+    content (a sync error, not an ignore). A
+    refusal that depends on graph state (an owner gate, a uid another type
+    holds, a teacher's qualification, a frontmatter target, the UserEntry
+    create checks) is decided only by the write, so it is in none of these.
+    """
+
+    # boundary: IngestionError.to_dict rows
+    refusals: dict[Path, dict[str, Any]] = field(default_factory=dict)
+    identities: dict[Path, str] = field(default_factory=dict)
+    unwritten: set[Path] = field(default_factory=set)
 
 
 @dataclass
@@ -354,9 +434,12 @@ class IngestionError:
 
 
 __all__ = [
-    "AppliedMove",
     "DeletionPlan",
+    "FileMove",
+    "FileRename",
     "MovePlan",
+    "ParseVerdicts",
+    "TrackerProjection",
     "DeletionReconciliation",
     "DirectoryValidationResult",
     "IngestionError",
@@ -366,4 +449,5 @@ __all__ = [
     "RelationshipValidationResult",
     "IncrementalStats",
     "ValidationResult",
+    "move_line",
 ]

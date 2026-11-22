@@ -392,6 +392,17 @@ def preview_fragment(preview: VaultSyncPreview) -> FT:
             _example_list(preview.would_delete_entity_examples, preview.would_delete_entities),
         ),
     ]
+    if preview.would_move_count:
+        # Before the delete line: a renamed note's old path is no deletion.
+        items.insert(
+            1,
+            Li(
+                "keep ",
+                Span(f"{preview.would_move_count}", cls="font-semibold"),
+                " renamed notes under their new names",
+                _example_list(preview.would_move_examples, preview.would_move_count),
+            ),
+        )
     if preview.non_entity_notes:
         # One number, right under the ingest line: these files are not
         # pending work, they are notes the ingest gate sets aside (no type:).
@@ -451,6 +462,7 @@ def preview_fragment(preview: VaultSyncPreview) -> FT:
     nothing_to_do = (
         not preview.would_ingest_count
         and not preview.would_ignore_count
+        and not preview.would_move_count
         and not preview.would_delete_entities
         and not preview.would_delete_edges
         and not preview.stale_cleanup_count

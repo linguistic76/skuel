@@ -246,8 +246,8 @@ class VaultSyncStats:
     edges_updated: int = 0
     entities_deleted: int = 0
     edges_deleted: int = 0
-    # Content-hash move detection: uid-less renames whose identity survived
-    # (tracker row rewritten in place — not a delete + a create).
+    # Every rename whose entity survived (not a delete + a create): the move
+    # pre-pass's matches and the renames whose new file claims the old uid.
     moves_detected: int = 0
     moves: list[str] = field(default_factory=list)  # vault-relative "old → new" lines
     # Content-caused non-ingestion: files skipped over their own frontmatter

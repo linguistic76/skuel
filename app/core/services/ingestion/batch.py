@@ -849,6 +849,7 @@ async def ingest_directory(
         entities_deleted = 0
         edges_deleted = 0
         stale_metadata_removed = 0
+        empty_renames: list[str] = []
         mass_deletion_refused = False
         if ingestion_backend is not None:
             empty_tracker = IngestionTracker(ingestion_backend)
@@ -863,6 +864,7 @@ async def ingest_directory(
                 entities_deleted = reconcile_result.value.entities_deleted
                 edges_deleted = reconcile_result.value.edges_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+                empty_renames = reconcile_result.value.renames
                 await _announce_goals(
                     goal_contributions_fn, reconcile_result.value.goals_losing_contributions
                 )
@@ -887,6 +889,8 @@ async def ingest_directory(
                 entities_deleted=entities_deleted,
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_metadata_removed,
+                moves_detected=len(empty_renames),
+                moves=empty_renames,
                 files_walled=collection_skips.walled,
                 files_unsupported=collection_skips.unsupported,
                 mass_deletion_refused=mass_deletion_refused,
@@ -950,6 +954,7 @@ async def ingest_directory(
         entities_deleted = 0
         edges_deleted = 0
         stale_metadata_removed = 0
+        renames: list[str] = []
         mass_deletion_refused = False
         reconcile_errors: list[dict[str, Any]] = []
         reconcile_warnings: list[str] = list(collection_skips.warnings)
@@ -965,6 +970,7 @@ async def ingest_directory(
                 entities_deleted = reconcile_result.value.entities_deleted
                 edges_deleted = reconcile_result.value.edges_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+                renames = reconcile_result.value.renames
                 await _announce_goals(
                     goal_contributions_fn, reconcile_result.value.goals_losing_contributions
                 )
@@ -999,6 +1005,8 @@ async def ingest_directory(
                 entities_deleted=entities_deleted,
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_metadata_removed,
+                moves_detected=len(renames),
+                moves=renames,
                 files_walled=collection_skips.walled,
                 files_unsupported=collection_skips.unsupported,
                 mass_deletion_refused=mass_deletion_refused,
@@ -1028,12 +1036,8 @@ async def ingest_directory(
             owner_only=vault_kind is VaultKind.PERSONAL,
         )
         if move_result.is_ok:
-            moves_detected = len(move_result.value.applied)
-            applied_moves = [
-                f"{move.display_old} → {move.display_new}"
-                + (f" (similarity {move.similarity:.2f})" if move.similarity is not None else "")
-                for move in move_result.value.applied
-            ]
+            moves_detected = len(move_result.value.moves)
+            applied_moves = [move.line for move in move_result.value.moves]
             if moves_detected:
                 logger.info(
                     f"Move detection: {moves_detected} renamed file(s) preserved "
@@ -1801,6 +1805,7 @@ async def ingest_directory(
             entities_deleted = reconcile_result.value.entities_deleted
             edges_deleted = reconcile_result.value.edges_deleted
             stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+            applied_moves.extend(reconcile_result.value.renames)
             touched_goal_uids.update(reconcile_result.value.goals_losing_contributions)
             touched_habit_goal_uids.update(reconcile_result.value.goals_losing_habits)
             validation_warnings.extend(reconcile_result.value.ownership_mismatches)
@@ -1900,7 +1905,7 @@ async def ingest_directory(
                 entities_deleted=entities_deleted,
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_metadata_removed,
-                moves_detected=moves_detected,
+                moves_detected=len(applied_moves),
                 moves=applied_moves,
                 files_walled=collection_skips.walled,
                 files_unsupported=collection_skips.unsupported,
