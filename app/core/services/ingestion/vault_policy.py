@@ -159,8 +159,11 @@ def unstorable_value_reason(value: UnstorableValue) -> str:
     """The refusal for a file holding a value its field's type cannot read.
 
     Nothing of the file was written: stored, the value would fail every read of
-    its node, and every list that holds it.
+    its node, and every list that holds it — or, for a key that names no field, it
+    would be a property nothing reads.
     """
+    if value.names_no_field:
+        return f"{value.reason} — rename or remove each such line"
     return (
         f"'{value.field}' holds {value.value!r:.80}, which that field cannot read "
         f"({value.reason}) — fix or remove the line"

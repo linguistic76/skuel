@@ -255,6 +255,14 @@ class TasksOperations(
         """Update learning state properties on User node."""
         ...
 
+    async def set_predicted_duration(self, task_uid: str, minutes: int) -> Result[bool]:
+        """Store a task's calibrated duration, learning state the ``Task`` model does not declare.
+
+        ``predicted_duration_minutes`` is ADR-048 learning state on the task's node: no
+        read of the task reads it, so it is written outside the model's write.
+        """
+        ...
+
     # ========================================================================
     # HIERARCHY EXTENSIONS (Task-specific, beyond generic HierarchyOperations)
     # ========================================================================

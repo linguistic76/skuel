@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-05
+updated: 2026-11-22
 ---
 
 # YAML to Graph — A Creator's Guide to SKUEL Content
@@ -258,7 +258,7 @@ event_uids:
 
 mastery_threshold: 0.7
 estimated_hours: 0.5
-difficulty: easy
+step_difficulty: easy
 ```
 
 This single YAML file produces one node and up to 10 edges. That's the power of the PathStep — it's the hub where knowledge, practice, and intention converge.
@@ -275,12 +275,12 @@ type: LearningPath
 
 uid: lp.mindfulness-101
 name: Mindfulness 101 — Light & Conversational
-goal: >-
+summary: >-
   Build a gentle daily starter practice with breath
   awareness and meta-cognition
 
 path_type: structured
-difficulty: beginner
+learning_level: beginner
 
 connections:
   contains_steps:

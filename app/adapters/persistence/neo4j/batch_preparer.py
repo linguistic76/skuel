@@ -6,8 +6,9 @@ Extracted from CypherExecutor to separate data transformation from database exec
 
 CONNECTION DATA FLOW:
     1. YAML frontmatter → the ingestion preparer flattens ``connections`` to dotted
-       keys on the entity dict (``connections.requires``; Neo4j stores no maps)
-    2. HERE: the relationship keys are kept on the item and filtered off ``_node_props``
+       keys on the entity dict (``connections.enables``; Neo4j stores no maps)
+    2. HERE: the relationship keys are set aside, the rest is checked against the
+       node's class and serialized as ``_node_props``, and the keys ride on the item
     3. BulkUpsertBackend: writes the node from ``_node_props``
     4. Cypher template: creates the graph edges via FOREACH + MERGE
     5. Result: edges exist in the graph; the keys are not node properties
@@ -33,59 +34,47 @@ def prepare_batch_items(
     Full pipeline: convert entities to Neo4j-ready dicts with connection handling.
 
     Steps:
-        1. Serialize each entity with ``to_neo4j_patch`` against ``entity_class``, the
-           class its node is read as. An entity holding a value that read
-           would refuse is left out and returned among the refusals.
-        2. If rel_config provided, create _node_props with connection keys filtered out
+        1. Drop the embedding writer's properties: they never ride in an entity payload.
+        2. Set the relationship-config keys aside (the edge sources the Cypher template
+           consumes), and serialize the rest with ``to_neo4j_patch`` against
+           ``entity_class``, the class its node is read as. An entity holding a key
+           that names no field of the class, or a value that read would refuse, is
+           left out and returned among the refusals.
+        3. Put the relationship keys back on the item; with ``rel_config``, each item
+           also gets ``_node_props``, the item without them, for node storage.
 
-    A file's connections arrive as dotted keys (``connections.requires``) already:
+    A file's connections arrive as dotted keys (``connections.enables``) already:
     the ingestion preparer flattens them (``core/services/ingestion/preparer.py``).
 
     Args:
         entities: Prepared entity dicts, one per file
         entity_class: The model class the entities' nodes are read as
         rel_config: Relationship configuration dict. Keys are connection field names
-            (e.g. "connections.requires"). When provided, each item gets a _node_props
-            dict with connection keys removed for clean node storage.
+            (e.g. "connections.enables"), each an edge source, never a node property.
 
     Returns:
         The items ready for CypherExecutor.execute_batch(), and one refusal for each
         entity left out
     """
+    connection_keys = set(rel_config or ())
     items = []
     refusals: list[UnstorableValueError] = []
     for entity in entities:
         # The bulk template is ``MERGE … ON MATCH SET n += props``: the embedding
         # writer's properties must never ride in an entity payload (a null under
         # ``+=`` removes the stored vector).
+        authored = without_embedding_props(entity)
+        edge_sources = {k: v for k, v in authored.items() if k in connection_keys}
+        node_part = {k: v for k, v in authored.items() if k not in connection_keys}
         try:
-            item = without_embedding_props(
-                to_neo4j_patch(entity, entity_class, uid=entity.get("uid"))
-            )
+            item = to_neo4j_patch(node_part, entity_class, uid=entity.get("uid"))
         except UnstorableValueError as refusal:
             refusals.append(refusal)
             continue
-        # to_neo4j_patch drops RELATIONSHIP_SKIP_FIELDS (graph-native: edges, not
-        # node properties) — but the registry's yaml_field_path keys in rel_config
-        # are exactly the edge SOURCES the Cypher template consumes. Restore any
-        # the mapper stripped (e.g. exercise_uids, learning_path_uids) so edges
-        # get created; the _node_props filter below still keeps them off the node.
-        if rel_config is not None:
-            for key in rel_config:
-                if key not in item and entity.get(key):
-                    item[key] = entity[key]
-        items.append(item)
-
-    if rel_config is not None:
-        connection_keys = set(rel_config.keys())
-        filtered_items = []
-        for item_dict in items:
-            props = {k: v for k, v in item_dict.items() if k not in connection_keys}
-            filtered_item = {
-                **item_dict,  # Keep connections for FOREACH clauses
-                "_node_props": props,  # Filtered properties for node storage
-            }
-            filtered_items.append(filtered_item)
-        return filtered_items, refusals
-
+        if rel_config is None:
+            items.append(item)
+            continue
+        # The template reads each edge source as ``coalesce(item.`key`, [])``; the node
+        # is written from ``_node_props`` alone, so no edge source becomes a property.
+        items.append({**item, **edge_sources, "_node_props": item})
     return items, refusals

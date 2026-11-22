@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-11-08
+updated: 2026-11-22
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -348,8 +348,8 @@ frontmatter of ANY ingestible vault file turns the file's body links
 resolve to ingested entities (order = document position; edits re-draw on
 next sync). The identity rule generalizes beyond Ku: any Entity with
 outgoing ORGANIZES edges is a MOC — e.g. a personal-vault UserEntry
-knowledge map. Identity stays emergent; the `moc` field itself is inert
-(nothing queries it). Dangling links are plans (skipped silently) in
+knowledge map. Identity stays emergent; the `moc` switch itself is stored
+on no node. Dangling links are plans (skipped silently) in
 personal vaults; the content vault keeps strict warnings.
 **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` § MOC files.
 

@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-11-20
+updated: 2026-11-22
 category: patterns
 related_skills: []
 related_docs:
@@ -660,13 +660,15 @@ The write holds the same rule from the other side. `to_neo4j_node` and `to_neo4j
 read every property they serialize for a field of the class by the read's own rule,
 and raise `UnstorableValueError` before any statement runs:
 neither stores a value every later read of its node would refuse. A null on a field that
-requires a value and has no default is refused too; a key that names no field passes
-(the read never reads it). An enum field read from a tolerated spelling (`BASIC`, an
+requires a value and has no default is refused too, and so is a patch key that names no
+field of the class (`UnknownFieldError`, naming every such key and the field each most
+likely meant): stored, it would be a property no read reads. An enum field read from a tolerated spelling (`BASIC`, an
 alias) is stored as its member's value, so a Cypher filter comparing it finds it. A
 backend write answers the refusal as a failed `Result` (SYSTEM, naming class, uid,
 field and reason, through `safe_backend_operation`); the vault door refuses the one file
 that holds it, against its field, and writes the rest of the batch
-(`IngestionResult.unstorable_by_uid`). Raw-Cypher writers that SET a property from a
+(`IngestionResult.unstorable_by_uid`); a file's relationship-config keys are edge sources,
+set aside before the check, and the embedding writer's properties are dropped first. Raw-Cypher writers that SET a property from a
 parameter are outside the gate; each takes a typed value.
 
 ### 4. **Complex Types** (100% Dynamic)

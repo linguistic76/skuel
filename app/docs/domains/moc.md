@@ -1,7 +1,7 @@
 ---
 title: MOC (Map of Content) - Emergent Organization via ORGANIZES
 created: 2025-12-04
-updated: 2026-10-16
+updated: 2026-11-22
 status: current
 category: domains
 tags:
@@ -166,7 +166,7 @@ state = await ps_service.mastery.get_learning_state(user_uid, "ps.core.python-ba
 
 ## Authoring a MOC from the vault
 
-`moc: true` in the frontmatter of ANY ingestible file turns the file's body links (wiki + markdown) into `ORGANIZES {order}` edges to the link targets that resolve to ingested entities — `order` is document position, and edits re-draw the edges on the next sync. Dangling links are skipped silently in personal vaults and warned about in the content vault. The `moc` field itself is inert; nothing queries it — identity stays emergent.
+`moc: true` in the frontmatter of ANY ingestible file turns the file's body links (wiki + markdown) into `ORGANIZES {order}` edges to the link targets that resolve to ingested entities — `order` is document position, and edits re-draw the edges on the next sync. Dangling links are skipped silently in personal vaults and warned about in the content vault. The `moc` switch itself is stored on no node — identity stays emergent.
 
 **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` § MOC files.
 

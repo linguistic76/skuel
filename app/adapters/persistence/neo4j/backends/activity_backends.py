@@ -1292,6 +1292,25 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
         return Result.ok(True)
 
+    async def set_predicted_duration(self, task_uid: str, minutes: int) -> Result[bool]:
+        """Store a task's calibrated duration as ``predicted_duration_minutes``.
+
+        ADR-048 learning state, which the ``Task`` model does not declare: written by
+        this statement alone, never through the model's write (which refuses a key that
+        names no field).
+        """
+        query = f"""
+        MATCH (t:{NeoLabel.ENTITY.value}:{NeoLabel.TASK.value} {{uid: $task_uid}})
+        SET t.predicted_duration_minutes = $minutes
+        RETURN t.uid
+        """
+        result = await self.execute_query(query, {"task_uid": task_uid, "minutes": int(minutes)})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
+        return Result.ok(True)
+
     # ========================================================================
     # HIERARCHY EXTENSIONS (Task-specific)
     # ========================================================================

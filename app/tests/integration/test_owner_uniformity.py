@@ -57,7 +57,7 @@ def _task_file(path: Path, title: str) -> None:
 
 def _ku_file(path: Path, title: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"---\ntype: ku\ntitle: {title}\nnamespace: test\n---\n\nAtomic fact.\n")
+    path.write_text(f"---\ntype: ku\ntitle: {title}\n---\n\nAtomic fact.\n")
 
 
 @pytest_asyncio.fixture

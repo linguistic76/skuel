@@ -137,7 +137,7 @@ class PrincipleUpdateRequest(UpdateRequestBase):
         string value to match the persistence boundary.
 
         One request field is deliberately **not** carried: ``decision_criteria`` is absent
-        from ``Principle`` / ``PrincipleDTO``, so writing it would be a junk node property.
+        from ``Principle`` / ``PrincipleDTO``, so the write would refuse it.
         """
         set_fields = self.model_fields_set
 

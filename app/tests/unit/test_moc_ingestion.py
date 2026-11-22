@@ -123,8 +123,8 @@ class TestPreparerMocHook:
             EntityType.KU, data, body, Path("test.md"), INGESTION_TEST_OWNER
         )
         assert entity["_moc_links"] == ["/first.md", "/second.md"]
-        # The plain flag flows through as an inert property.
-        assert entity["moc"] is True
+        # The switch is read and goes no further: it names no field of any node.
+        assert "moc" not in entity
 
     def test_moc_true_with_empty_body_stashes_empty_list(self):
         data = {"type": "ku", "uid": "ku.test", "title": "T", "moc": True}

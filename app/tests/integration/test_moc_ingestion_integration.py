@@ -108,11 +108,13 @@ class TestMocEdgePass:
         ]
         assert stats.warnings == []
 
-        # The moc flag flowed onto the node as an inert property.
+        # The moc switch is read by the preparer and stored on no node.
         async with neo4j_driver.session() as session:
-            res = await session.run("MATCH (n:Entity {uid: $uid}) RETURN n.moc", {"uid": moc_uid})
+            res = await session.run(
+                "MATCH (n:Entity {uid: $uid}) RETURN keys(n) AS keys", {"uid": moc_uid}
+            )
             record = await res.single()
-            assert record["n.moc"] is True
+            assert "moc" not in record["keys"]
 
         # --- Sync 2: unchanged — no-op ---------------------------------------
         result2 = await moc_ingestion_service.ingest_directory(vault, ingestion_mode="smart")

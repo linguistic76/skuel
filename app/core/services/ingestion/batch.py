@@ -1357,7 +1357,7 @@ async def ingest_directory(
                     # MOC user_entry (e.g. a knowledge-pipeline map):
                     # collect against the REAL service uid; the edge
                     # pass runs end-of-sync (ingest_file deferred it).
-                    if ue_entity.get("moc") is True:
+                    if "_moc_links" in ue_entity:
                         moc_items.append(
                             (
                                 str(result_data["uid"]),

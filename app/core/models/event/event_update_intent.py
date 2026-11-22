@@ -16,18 +16,17 @@ Like Tasks (and unlike Goals), Events carry **edge fields on the update path**:
 ``reinforces_habit_uid`` → ``(Event)-[:REINFORCES_HABIT]->(Habit)``. These are graph
 edges, never node columns — ``EventsService.update_event`` splits them out (resetting them
 to ``UNSET`` on the property sub-intent) before writing properties, then replaces the
-edges. They live on this intent only so the facade can carry them; ``to_changes()`` would
-write them as junk node properties if they ever reached the backend, which is exactly the
-split the ADR-035/ADR-065 graph-native migration enforces.
+edges. They live on this intent only so the facade can carry them; the write refuses a
+key naming no Event field, so they never reach it — the split the ADR-035/ADR-065
+graph-native migration enforces.
 
 Beyond the request-settable columns, this intent also models ``metadata`` for callers
 that construct the intent directly with merged metadata updates.
 
 Deliberately **absent**: ``practices_knowledge_uids`` / ``executes_tasks`` (on
 ``EventUpdateRequest`` but neither node columns nor handled edges on the update path — the
-create path drops them too) and ``notes`` / ``quality_score`` (not Event columns).
-Carrying them would write junk node properties. ``completed_at`` IS here — the canonical
-Event completion stamp (completion-stamping arc, 2026-08-22), a real column on
+create path drops them too); the write would refuse them.
+``completed_at`` IS here — the canonical Event completion stamp, a real column on
 ``Event``/``EventDTO``.
 
 See: ADR-066 (Typed Update Intents) — the write-path sibling of ADR-065's
