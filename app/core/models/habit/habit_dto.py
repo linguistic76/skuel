@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.activity_enums import EngagementState
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.scheduling_enums import RecurrencePattern, TimeOfDay
@@ -141,7 +141,6 @@ class HabitDTO(UserOwnedDTO):
         if not uid:
             uid = UIDGenerator.generate_random_uid("habit")
 
-        kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PRIVATE)
 
         return cls(

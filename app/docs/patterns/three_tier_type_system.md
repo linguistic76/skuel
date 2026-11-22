@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-11-21
+updated: 2026-11-22
 category: patterns
 related_skills:
 - python
@@ -444,6 +444,12 @@ The ignore is there because the annotation says `EntityStatus` and the default i
 MyPy cannot see that `__post_init__` replaces it before anyone reads it. Reach for this
 shape only when the default depends on another field or on the subclass — anything else is
 a plain default or a `default_factory`, with no ignore.
+
+`EntityDTO` takes `status` the same way (a plain assignment — a DTO is not frozen), so a
+DTO's default is its type's `default_status()` too: a node stored without a `status` reads
+one status through the mapper and through `from_dict` → `from_dto`, and a DTO create
+factory starts its entity there. No leaf DTO re-declares `status`;
+`tests/unit/models/test_dto_status_default.py` holds every leaf DTO to its model.
 
 ## DomainModelProtocol
 

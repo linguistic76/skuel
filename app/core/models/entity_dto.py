@@ -63,7 +63,8 @@ class EntityDTO:
     # =========================================================================
     # STATUS
     # =========================================================================
-    status: EntityStatus = EntityStatus.DRAFT
+    # None → the type's default (EntityType.default_status()), as on Entity.
+    status: EntityStatus = None  # type: ignore[assignment]  # set in __post_init__
 
     # =========================================================================
     # META
@@ -100,6 +101,13 @@ class EntityDTO:
             list_fields=["tags"],
             dict_fields=["metadata"],
         )
+
+    def __post_init__(self) -> None:
+        """Take the entity type's default status when none is given — the rule
+        ``Entity`` follows, so a node stored without one reads the same status
+        through the mapper and through ``from_dict``."""
+        if self.status is None:
+            self.status = self.entity_type.default_status()
 
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""

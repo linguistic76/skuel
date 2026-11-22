@@ -270,3 +270,47 @@ class TestRequestDoorGoalAdmission:
         assert await _goal_edges(neo4j_driver, event.value.uid) == {own}, (
             "a cross-user CONTRIBUTES_TO_GOAL edge reached the graph"
         )
+
+
+async def _stored_statuses(neo4j_driver, event_uids: list[str]) -> set[str | None]:
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (e:Event) WHERE e.uid IN $uids RETURN e.status AS status", uids=event_uids
+        )
+        return {record["status"] async for record in result}
+
+
+@pytest.mark.asyncio
+class TestScheduledEventsAreStoredScheduled:
+    """The scheduler's events take Event's default status — DRAFT is no Event status."""
+
+    async def test_a_habits_scheduled_events_are_stored_scheduled(
+        self, users, goals_service, habits_service, scheduler, neo4j_driver
+    ) -> None:
+        habit_uid = await _habit_supporting(habits_service, [await _goal(goals_service, "Fluency")])
+
+        result = await scheduler.schedule_events_for_habit(
+            habit_uid, UserContext(user_uid=USER), auto_create=True
+        )
+
+        assert result.is_ok, f"schedule failed: {result.error}"
+        assert result.value, "the scheduler created no events"
+        assert await _stored_statuses(neo4j_driver, [dto.uid for dto in result.value]) == {
+            "scheduled"
+        }
+
+    async def test_streak_maintenance_events_are_stored_scheduled(
+        self, users, goals_service, habits_service, scheduler, neo4j_driver
+    ) -> None:
+        habit_uid = await _habit_supporting(habits_service, [await _goal(goals_service, "Fluency")])
+        context = UserContext(
+            user_uid=USER, habit_streaks={habit_uid: 5}, at_risk_habits=[habit_uid]
+        )
+
+        result = await scheduler.schedule_streak_maintenance(context, auto_create=True)
+
+        assert result.is_ok, f"maintenance failed: {result.error}"
+        assert result.value, "no maintenance event was created"
+        assert await _stored_statuses(neo4j_driver, [dto.uid for dto in result.value]) == {
+            "scheduled"
+        }

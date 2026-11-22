@@ -224,7 +224,6 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
                 end_time=end_time,
                 event_type=EventType.PERSONAL,
                 recurrence_pattern=pattern,
-                status=EntityStatus.DRAFT,
                 # The habit link rides on the entity: the create door admits it and
                 # writes REINFORCES_HABIT before it announces the event.
                 reinforces_habit_uid=reinforces_habit_uid,

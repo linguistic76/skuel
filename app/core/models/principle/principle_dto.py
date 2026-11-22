@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.activity_enums import EngagementState
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.principle_enums import (
     AlignmentLevel,
@@ -133,7 +133,6 @@ class PrincipleDTO(UserOwnedDTO):
         if not uid:
             uid = UIDGenerator.generate_random_uid("principle")
 
-        kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PRIVATE)
 
         return cls(
