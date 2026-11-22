@@ -54,7 +54,7 @@ from core.ports.vault_bridge_protocol import (
 from core.services.ingestion.config import collect_files
 from core.services.ingestion.detector import is_non_entity_note
 from core.services.ingestion.ingestion_tracker import IngestionDecision, IngestionTracker
-from core.services.ingestion.types import IncrementalStats, IngestionStats
+from core.services.ingestion.types import IncrementalStats, IngestionStats, TrackerProjection
 from core.services.ingestion.vault_policy import file_vault_refusal
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
@@ -467,10 +467,13 @@ class VaultReconciler:
         (``IngestionTracker.plan_moves``), then
         ``IngestionTracker.plan_deletions`` with the descriptor's allowlist +
         owner (the same scope ``sync``'s ingest passes when the registry
-        governs the root), told what the sync's ingest will claim: the
-        identity each new file names by itself (``parse_verdicts``) and each
-        planned move's uid — so a renamed file is reported as a move, as the
-        sync reports it, never as a deletion. Neither the graph nor the vault
+        governs the root), over the tracker as the sync will have it after
+        its move pre-pass and ingest (``TrackerProjection``: each moved row at
+        its new path, a row for each new file under the identity it names by
+        itself — ``parse_verdicts``). So the moved/stale split and both
+        mass-deletion valves see what the sync's reconciliation sees: a
+        renamed file is reported as a move, as the sync reports it, never as
+        a deletion. Neither the graph nor the vault
         is touched; outbound preview (would-inject 🆔 IDs / would-mark-done)
         is deferred.
 
@@ -595,15 +598,20 @@ class VaultReconciler:
                 return Result.fail(move_result)
             moves = move_result.value.moves
 
-            # What the sync's ingest will claim that no tracker row holds yet:
-            # each new file's own identity, and each moved row's uid at its new path.
-            claims = [
-                (identity, str(d.file_path.resolve()))
+            # The tracker as the sync will have it after its move pre-pass and
+            # ingest: each planned move's row at its new path, and a row for each
+            # other new file — under the identity it names by itself, or none
+            # when the sync mints its uid.
+            new_identities: dict[str, str | None] = {
+                str(d.file_path.resolve()): verdicts.value.identities.get(d.file_path)
                 for d in would_ingest
                 if d.reason == "new"
-                and (identity := verdicts.value.identities.get(d.file_path)) is not None
-            ]
-            claims.extend((move.entity_uid, move.new_path) for move in moves)
+            }
+            new_identities.update({move.new_path: move.entity_uid for move in moves})
+            projection = TrackerProjection(
+                rewritten_from=frozenset(move.old_path for move in moves),
+                new_rows=tuple(new_identities.items()),
+            )
 
             # Deletions: the read-only planning half of reconciliation, with
             # the same owner scope a descriptor-governed sync applies.
@@ -613,20 +621,12 @@ class VaultReconciler:
                 allowlist=descriptor.allowlist,
                 owner_uid=descriptor.owner_uid,
                 owner_only=owner_only,
-                claims=claims,
+                projection=projection,
             )
             if plan_result.is_error:
                 return Result.fail(plan_result)
             plan = plan_result.value
-            # A moved row is rewritten by the sync, not cleaned as stale: it is
-            # one move line, counted once, and no stale row.
-            moved_old_paths = {move.old_path for move in moves}
-            move_lines = [move.line for move in moves] + [
-                rename.line for rename in plan.renames if rename.old_path not in moved_old_paths
-            ]
-            stale_count = sum(
-                1 for path in plan.stale_file_paths if path not in moved_old_paths
-            ) + len(plan.unparseable_edge_file_paths)
+            move_lines = [move.line for move in moves] + [rename.line for rename in plan.renames]
 
             return Result.ok(
                 VaultSyncPreview(
@@ -647,7 +647,8 @@ class VaultReconciler:
                     would_delete_edge_examples=tuple(
                         planned.display_path for planned in plan.edge_deletions
                     )[:PREVIEW_EXAMPLE_LIMIT],
-                    stale_cleanup_count=stale_count,
+                    stale_cleanup_count=len(plan.stale_file_paths)
+                    + len(plan.unparseable_edge_file_paths),
                     ownership_mismatches=plan.ownership_mismatches,
                     refusal_warning=plan.refusal_warning,
                 )

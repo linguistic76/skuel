@@ -326,6 +326,23 @@ class MovePlan:
 
 
 @dataclass(frozen=True)
+class TrackerProjection:
+    """The tracker as a sync will have it after its move pre-pass and ingest.
+
+    A dry run has no rows for the files the sync's ingest has yet to write, and
+    still has the rows the move pre-pass would rewrite. ``rewritten_from``: the
+    old paths of the planned moves (their rows move to the new path).
+    ``new_rows``: ``(canonical path, identity)`` for each file the ingest will
+    write a row for — the identity the file names by itself, or a planned
+    move's uid; ``None`` when the sync mints it, so the row counts and claims
+    nothing.
+    """
+
+    rewritten_from: frozenset[str] = frozenset()
+    new_rows: tuple[tuple[str, str | None], ...] = ()
+
+
+@dataclass(frozen=True)
 class FileRename:
     """A gone tracked path whose identity one collected file claims: a rename.
 
@@ -415,6 +432,7 @@ __all__ = [
     "FileRename",
     "MovePlan",
     "ParseVerdicts",
+    "TrackerProjection",
     "DeletionReconciliation",
     "DirectoryValidationResult",
     "IngestionError",

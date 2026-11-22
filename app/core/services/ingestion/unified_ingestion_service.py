@@ -1180,21 +1180,11 @@ class UnifiedIngestionService:
                 )
             )
 
-        # Detect format
         file_format = detect_format(file_path)
-
-        # Parse file
-        if file_format == "markdown":
-            parse_result = parse_markdown(file_path, self.max_file_size_bytes)
-            if parse_result.is_error:
-                return Result.fail(parse_result)
-            data, body = parse_result.value
-        else:  # yaml
-            yaml_result = parse_yaml(file_path, self.max_file_size_bytes)
-            if yaml_result.is_error:
-                return Result.fail(yaml_result)
-            data = yaml_result.value
-            body = None
+        read_result = self._read_file(file_path)
+        if read_result.is_error:
+            return Result.fail(read_result)
+        data, body = read_result.value
 
         # What this file's vault may hold (ADR-070 Decision 11) — the same verdict the
         # directory door's parse stage gives, so both doors refuse alike.
@@ -1795,6 +1785,21 @@ class UnifiedIngestionService:
                 verdicts.identities[file_path] = identity
         return Result.ok(verdicts)
 
+    def _read_file(
+        self, file_path: Path
+    ) -> Result[tuple[dict[str, Any], str | None]]:  # boundary: parsed YAML data
+        """A file's data and markdown body, parsed by its format (a YAML file has no body)."""
+        if detect_format(file_path) == "markdown":
+            parsed = parse_markdown(file_path, self.max_file_size_bytes)
+            if parsed.is_error:
+                return Result.fail(parsed)
+            data, body = parsed.value
+            return Result.ok((data, body))
+        yaml_result = parse_yaml(file_path, self.max_file_size_bytes)
+        if yaml_result.is_error:
+            return Result.fail(yaml_result)
+        return Result.ok((yaml_result.value, None))
+
     def _claimed_identity(
         self,
         file_path: Path,
@@ -1810,13 +1815,14 @@ class UnifiedIngestionService:
             return edge_identity(str(data["from_uid"]), str(rel_type), str(data["to_uid"]))
         if entity_type is EntityType.USER_ENTRY:
             # The prepared uid of a user_entry is never written: its door reads
-            # the frontmatter itself (``ingest_file`` → ``build_user_entry_request``).
-            frontmatter = parse_markdown(file_path, self.max_file_size_bytes)
-            if frontmatter.is_error or not isinstance(frontmatter.value[0], dict):
-                # No claim: the preview then names the file's old row a deletion,
-                # the report that errs toward caution.
+            # the file's own data itself, by the file's format (``ingest_file`` →
+            # ``build_user_entry_request``).
+            read_result = self._read_file(file_path)
+            if read_result.is_error or not isinstance(read_result.value[0], dict):
+                # No data, no claim: the preview then names the file's old row a
+                # deletion, the report that errs toward caution.
                 return None
-            return own_entry_uid(frontmatter.value[0], owner)
+            return own_entry_uid(read_result.value[0], owner)
         uid = data.get("uid")
         return None if uid is None else str(uid)
 

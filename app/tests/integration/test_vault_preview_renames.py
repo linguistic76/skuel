@@ -58,6 +58,10 @@ DAILY = (
     "---\ntype: user_entry\npipeline: extract_activities\nmetadata:\n  entry_kind: daily\n"
     "date: 2026-08-23\n---\nA day.\n"
 )
+YAML_NOTE = (
+    f"type: user_entry\nuid: ue.{MARK}.yaml-note\npipeline: knowledge\ntitle: A YAML note\n"
+    "content: The note's own words.\n"
+)
 EDGE = f"type: Edge\nfrom: ku.{MARK}.a\nto: ku.{MARK}.b\nrelationship: RELATED_TO\n"
 
 
@@ -289,6 +293,12 @@ RENAMES: list[ParameterSet] = [
     ),
     pytest.param(
         VaultKind.CONTENT,
+        {**_kus(), "note.yaml": YAML_NOTE},
+        _rename("note.yaml", "note2.yaml", edit="tags: [moved]\n"),
+        id="yaml-user-entry-edited",
+    ),
+    pytest.param(
+        VaultKind.CONTENT,
         {**_kus(), "edge.yaml": EDGE},
         _rename("edge.yaml", "edge2.yaml"),
         id="edge",
@@ -365,3 +375,24 @@ async def test_a_deletion_the_sync_makes_is_previewed_as_a_deletion(
     assert run.untracked == set()
     assert run.moves == []
     assert run.preview.would_move_examples == ()
+
+
+def _reorganise(root: Path) -> None:
+    """Every tracked file leaves its path: two move into a folder, one is deleted."""
+    (root / "moved").mkdir()
+    for slug in ("a", "b"):
+        (root / "moved" / f"{slug}.md").write_text((root / f"{slug}.md").read_text())
+        (root / f"{slug}.md").unlink()
+    (root / "c.md").unlink()
+
+
+async def test_a_reorganisation_that_empties_every_tracked_path_is_previewed_as_the_sync_runs(
+    vaults: Vaults,
+) -> None:
+    run = await _preview_then_sync(vaults, VaultKind.CONTENT, _kus(), _reorganise)
+
+    assert run.would_delete == run.deleted == {"c.md"}
+    assert run.preview.refusal_warning is None
+    assert run.untracked == set()
+    assert sorted(run.moves) == ["a.md → moved/a.md", "b.md → moved/b.md"]
+    assert sorted(run.preview.would_move_examples) == sorted(run.moves)

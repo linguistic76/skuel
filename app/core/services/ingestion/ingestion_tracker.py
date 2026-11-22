@@ -53,6 +53,7 @@ from core.services.ingestion.types import (
     MovePlan,
     PlannedEdgeDeletion,
     PlannedEntityDeletion,
+    TrackerProjection,
 )
 from core.utils.logging import get_logger
 from core.utils.path_display import display_path
@@ -60,7 +61,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_grammar import GENERATED_UID
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Sequence
 
     from core.ports.ingestion_protocols import IngestionBackendOperations
     from core.services.ingestion.config import SyncAllowlist
@@ -617,7 +618,7 @@ class IngestionTracker:
         allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
         owner_only: bool = False,
-        claims: Iterable[tuple[str, str]] = (),
+        projection: TrackerProjection | None = None,
     ) -> Result[_GoneRowClassification | None]:
         """Shared gone-row classification — the valve-free half of ``plan_deletions``.
 
@@ -633,10 +634,11 @@ class IngestionTracker:
         node is already gone still clears. Returns ``None`` when nothing is
         tracked in scope or nothing is gone.
 
-        ``claims`` are ``(identity, canonical path)`` pairs for files that hold
-        no tracker row yet — what a dry run knows a sync's ingest will claim:
-        each counts in the moved/stale split as a collectible row would. A
-        stale row whose identity exactly one collectible file claims is a
+        ``projection`` (a dry run's): the tracker as the sync will have it after
+        its move pre-pass and ingest — the rewritten rows leave, the new rows
+        arrive — so the moved/stale split, and the valves ``plan_deletions``
+        applies over ``all_tracked``, see what the sync's reconciliation sees.
+        A stale row whose identity exactly one collectible file claims is a
         rename, reported in ``renames``.
 
         Deliberately does NOT apply the mass-deletion valves: those protect
@@ -656,6 +658,13 @@ class IngestionTracker:
             return Result.fail(tracked_result)
 
         all_tracked = tracked_result.value or []
+        if projection is not None:
+            all_tracked = [
+                row for row in all_tracked if str(row["file_path"]) not in projection.rewritten_from
+            ] + [
+                {"file_path": new_path, "entity_uid": identity}
+                for new_path, identity in projection.new_rows
+            ]
         tracked = [row for row in all_tracked if _matches_pattern(str(row["file_path"]), pattern)]
         if not tracked:
             return Result.ok(None)
@@ -678,10 +687,9 @@ class IngestionTracker:
         # an identity owned by an out-of-scope allowed file must survive.
         claimants: dict[str, set[str]] = {}
         for row in all_tracked:
-            if str(row["file_path"]) in collectible_paths:
+            # A projected row whose uid the sync mints claims nothing.
+            if str(row["file_path"]) in collectible_paths and row["entity_uid"] is not None:
                 claimants.setdefault(str(row["entity_uid"]), set()).add(str(row["file_path"]))
-        for identity, claim_path in claims:
-            claimants.setdefault(identity, set()).add(claim_path)
         stale_rows = [row for row in gone if str(row["entity_uid"]) in claimants]
         delete_rows = [row for row in gone if str(row["entity_uid"]) not in claimants]
         renames: list[FileRename] = []
@@ -775,7 +783,7 @@ class IngestionTracker:
         allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
         owner_only: bool = False,
-        claims: Iterable[tuple[str, str]] = (),
+        projection: TrackerProjection | None = None,
     ) -> Result[DeletionPlan]:
         """
         Classify what deletion reconciliation WOULD do — read-only.
@@ -825,8 +833,8 @@ class IngestionTracker:
           with ``owner_only`` (a personal vault) a live ownerless node is kept
           as well (``_classify_gone_rows``).
 
-        ``claims`` (a dry run's): identities files with no tracker row yet will
-        claim — see ``_classify_gone_rows``.
+        ``projection`` (a dry run's): the tracker as the sync will have it after
+        its move pre-pass and ingest — see ``_classify_gone_rows``.
 
         Backend (reads only): IngestionBackend.get_tracked_files_under /
         get_entity_owner_uids.
@@ -837,7 +845,7 @@ class IngestionTracker:
             allowlist=allowlist,
             owner_uid=owner_uid,
             owner_only=owner_only,
-            claims=claims,
+            projection=projection,
         )
         if classification_result.is_error:
             return Result.fail(classification_result)
