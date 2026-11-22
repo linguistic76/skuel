@@ -474,6 +474,16 @@ def _wipe_and_add(name: str, content: bytes, *, readable: bool = True) -> Change
         ),
         pytest.param(
             _wipe_and_add(
+                "long.md",
+                b"---\ntype: user_entry\npipeline: knowledge\ntitle: "
+                + b"t" * 201
+                + b"\n---\nHi.\n",
+            ),
+            True,
+            id="a-note-whose-title-the-request-refuses",
+        ),
+        pytest.param(
+            _wipe_and_add(
                 "locked.md", b"---\ntype: ku\ntitle: Locked\n---\nbody\n", readable=False
             ),
             True,

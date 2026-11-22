@@ -81,7 +81,7 @@ from core.models.type_hints import EntityUID, UserUID
 from core.services.completion_stamp import COMPLETION_FIELDS
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import NEO4J_EXCEPTIONS
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -1851,7 +1851,12 @@ class UnifiedIngestionService:
         if read_result.is_error or not isinstance(read_result.value[0], dict):
             return None, None, False
         data, body = read_result.value
-        request = build_user_entry_request(data, file_path, owner, body)
+        try:
+            request = build_user_entry_request(data, file_path, owner, body)
+        except DATA_CONVERSION_EXCEPTIONS:
+            # The request model refused a value (a title over its cap, say): the
+            # sync's door raises too, and its error handling makes it a sync error.
+            return None, None, False
         if request.is_error:
             failure = request.expect_error()
             stage, error_type = classify_user_entry_failure(failure)
