@@ -442,23 +442,50 @@ async def test_a_file_renamed_onto_a_tracked_path_is_previewed_as_the_sync_repor
     assert list(run.preview.would_move_examples) == run.moves
 
 
-def _wipe_and_add_a_note_for_another_owner(root: Path) -> None:
-    for slug in ("a", "b", "c"):
-        (root / f"{slug}.md").unlink()
-    (root / "foreign.md").write_text(
-        "---\ntype: user_entry\npipeline: knowledge\nownership: user_0f0f0f0f0f0f0f0f\n---\nHi.\n"
-    )
+def _wipe_and_add(name: str, content: bytes, *, readable: bool = True) -> Change:
+    """Every tracked file deleted, and one new file the sync does not write."""
+
+    def change(root: Path) -> None:
+        for slug in ("a", "b", "c"):
+            (root / f"{slug}.md").unlink()
+        (root / name).write_bytes(content)
+        if not readable:
+            (root / name).chmod(0)
+
+    return change
 
 
-async def test_a_new_file_the_sync_fails_to_write_does_not_count_as_a_tracked_file(
-    vaults: Vaults,
+@pytest.mark.parametrize(
+    ("change", "sync_fails"),
+    [
+        pytest.param(
+            _wipe_and_add(
+                "foreign.md",
+                b"---\ntype: user_entry\npipeline: knowledge\n"
+                b"ownership: user_0f0f0f0f0f0f0f0f\n---\nHi.\n",
+            ),
+            True,
+            id="a-note-for-another-owner",
+        ),
+        pytest.param(
+            _wipe_and_add("broken.md", b"---\ntype: ku\ntitle: \xff\xfe\n---\nbody\n"),
+            False,
+            id="a-file-that-is-not-utf-8",
+        ),
+        pytest.param(
+            _wipe_and_add(
+                "locked.md", b"---\ntype: ku\ntitle: Locked\n---\nbody\n", readable=False
+            ),
+            True,
+            id="a-file-that-cannot-be-read",
+        ),
+    ],
+)
+async def test_a_new_file_the_sync_does_not_write_does_not_count_as_a_tracked_file(
+    vaults: Vaults, change: Change, sync_fails: bool
 ) -> None:
     run = await _preview_then_sync(
-        vaults,
-        VaultKind.CONTENT,
-        _kus(),
-        _wipe_and_add_a_note_for_another_owner,
-        sync_fails_a_file=True,
+        vaults, VaultKind.CONTENT, _kus(), change, sync_fails_a_file=sync_fails
     )
 
     assert run.would_delete == run.deleted == set()

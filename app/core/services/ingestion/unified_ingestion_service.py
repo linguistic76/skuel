@@ -1798,6 +1798,7 @@ class UnifiedIngestionService:
                 identity = self._claimed_identity(data or {})
             if error is not None:
                 verdicts.refusals[file_path] = error
+                verdicts.unwritten.add(file_path)
                 continue
             if identity is not None:
                 verdicts.identities[file_path] = identity

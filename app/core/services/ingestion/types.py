@@ -370,8 +370,9 @@ class ParseVerdicts:
     its tracker row — an entity's uid, an Edge file's ``edge_identity`` —
     when the file names it by itself; a UserEntry with no authored or periodic
     uid names none (its uid is the tracker's or a fresh mint). ``unwritten``:
-    accepted by the parse stage, refused by the file's door for a reason that
-    is not its content — a sync error, not an ignore, and no tracker row. A
+    every file whose ingest writes no tracker row — each refused file, whatever
+    the cause, and a UserEntry its door refuses for a reason that is not its
+    content (a sync error, not an ignore). A
     refusal that depends on graph state (an owner gate, a uid another type
     holds, a teacher's qualification, a frontmatter target, the UserEntry
     create checks) is decided only by the write, so it is in none of these.
