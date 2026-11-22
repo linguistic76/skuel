@@ -69,8 +69,8 @@ class TestThePatchRefusesAKeyNamingNoField:
         )
 
     def test_a_key_the_mapper_would_drop_as_a_relationship_is_refused_too(self) -> None:
-        # ``prerequisites`` is on the mapper's relationship skip list: before the gate
-        # read the patch's own keys, a learning path authoring it lost it silently.
+        # ``prerequisites`` is on the mapper's relationship skip list; the gate reads the
+        # patch's own keys before that list is applied, so the key is refused, not dropped.
         assert _unknown({"prerequisites": ["lp.a"]}, LearningPath).field == "prerequisites"
 
     def test_the_refusal_is_a_write_refusal(self) -> None:

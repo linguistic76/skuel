@@ -94,7 +94,7 @@ async def test_the_directory_door_refuses_the_file_naming_the_field_it_meant(
     assert good is not None and good["habit_category"] == "mindfulness"
 
 
-async def test_the_single_file_door_refuses_a_key_the_mapper_used_to_drop(
+async def test_the_single_file_door_refuses_a_key_on_the_relationship_skip_list(
     clean_neo4j, ensure_test_users, neo4j_driver, ingestion_service, tmp_path: Path
 ) -> None:
     path = _file(
