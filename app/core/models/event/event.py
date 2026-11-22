@@ -4,10 +4,10 @@ Event - Event Domain Model
 
 Frozen dataclass for event entities (EntityType.EVENT).
 
-Inherits common fields from UserOwnedEntity. Adds 27 event-specific fields:
+Inherits common fields from UserOwnedEntity. Adds event-specific fields:
 - Scheduling (4): event_date, start_time, end_time, duration_minutes
 - Event Logistics (4): event_type, location, is_online, meeting_url
-- Lifecycle (1): completed_at
+- Lifecycle (3): completed_at, rescheduled_at, notes
 - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
 - Reminders (2): reminder_minutes, reminder_sent
 - Attendees (2): attendee_emails, max_attendees
@@ -48,7 +48,7 @@ class Event(UserOwnedEntity):
     Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
-    Adds 27 event-specific fields for scheduling, logistics, lifecycle,
+    Adds event-specific fields for scheduling, logistics, lifecycle,
     attendees, recurrence, reminders, cross-domain links, milestones, and
     quality tracking.
     """
@@ -90,6 +90,11 @@ class Event(UserOwnedEntity):
     # canonical Event completion field — recent-activity/analytics readers
     # consult it instead of the mutable updated_at.
     completed_at: datetime | None = None
+    # When an update last moved the event's date: an aware UTC instant, the record
+    # the reschedule count reads (``EventsBackend.count_recent_reschedules``).
+    rescheduled_at: datetime | None = None
+    # A note on what became of the event; a missed habit event records why.
+    notes: str | None = None
 
     # =========================================================================
     # RECURRENCE

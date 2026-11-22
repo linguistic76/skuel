@@ -14,8 +14,10 @@ Key Features:
 - Type-safe reconstruction using annotations
 """
 
+import difflib
 import inspect
 import json
+import re
 import sys
 import types
 from collections.abc import Mapping
@@ -76,6 +78,65 @@ class UnstorableValueError(UnreadableValueError):
             f"{self.entity_class} {self.uid!r}: {self.field}={self.value!r:.80} "
             f"cannot be stored: its type cannot read it ({self.reason})"
         )
+
+
+class UnknownFieldError(UnstorableValueError):
+    """A patch whose keys name no field of the class its node is read as.
+
+    ``to_neo4j_patch`` refuses the whole patch before anything is written, as it refuses
+    a value its field cannot read: stored, such a key is a property no read of the node
+    reads. ``field`` and ``value`` are the first such key and its value; ``unknown``
+    holds every one, and ``suggestions`` each one's nearest field names, for the
+    author's message.
+    """
+
+    def __init__(
+        self,
+        entity_class: type,
+        uid: object,
+        unknown: Mapping[str, Any],  # boundary: the patch's own values, of any type
+    ) -> None:
+        self.unknown = dict(unknown)
+        self.suggestions = {key: nearest_field_names(key, entity_class) for key in self.unknown}
+        first = next(iter(self.unknown))
+        named = ", ".join(_unknown_key_phrase(key, self.suggestions[key]) for key in self.unknown)
+        super().__init__(
+            entity_class,
+            uid,
+            first,
+            self.unknown[first],
+            f"{entity_class.__name__} has no field {named}",
+        )
+
+    def describe(self) -> str:
+        return f"{self.entity_class} {self.uid!r}: cannot be stored: {self.reason}"
+
+
+def _unknown_key_phrase(key: str, suggestions: tuple[str, ...]) -> str:
+    if not suggestions:
+        return f"'{key}'"
+    return f"'{key}' (did you mean " + " or ".join(f"'{name}'" for name in suggestions) + "?)"
+
+
+def nearest_field_names(key: str, entity_class: type) -> tuple[str, ...]:
+    """The fields of ``entity_class`` an author most likely meant by ``key``, nearest first.
+
+    A field that ends in ``_{key}`` comes first (``category`` → ``habit_category``),
+    one whose leading word is a word of the class's name ahead of the rest
+    (``source`` on a Principle → ``principle_source`` before ``original_source``); at
+    most two. With none, the one field spelled closest (``titel`` → ``title``), or
+    nothing.
+    """
+    names = [spec.field.name for spec in _field_specs(entity_class)]
+    class_words = {word.lower() for word in re.findall(r"[A-Z][a-z]*", entity_class.__name__)}
+
+    def own_word_first(name: str) -> tuple[bool, str]:
+        return (name.split("_", 1)[0] not in class_words, name)
+
+    suffixed = sorted((name for name in names if name.endswith(f"_{key}")), key=own_word_first)
+    if suffixed:
+        return tuple(suffixed[:2])
+    return tuple(difflib.get_close_matches(key, names, n=1, cutoff=0.8))
 
 
 # ============================================================================
@@ -839,7 +900,8 @@ def to_neo4j_patch(
     ``UnstorableValueError`` and nothing is written. A ``None`` stays an explicit
     null (under ``SET n += $props`` it removes the property) where the field may
     be absent; on a field that requires a value and has no default it is refused.
-    A key that names no field passes as it is: the read never reads it.
+    A key that names no field of ``entity_class`` refuses the patch
+    (``UnknownFieldError``): stored, it would be a property no read reads.
 
     Args:
         changes: The patch, in model types (enums, dates, collections, mappings).
@@ -847,8 +909,13 @@ def to_neo4j_patch(
         uid: The node's uid, for the refusal's message.
 
     Raises:
+        UnknownFieldError: a key that names no field of ``entity_class``.
         UnstorableValueError: a value its field's type cannot read.
     """
+    field_names = {spec.field.name for spec in _field_specs(entity_class)}
+    unknown = {key: value for key, value in changes.items() if key not in field_names}
+    if unknown:
+        raise UnknownFieldError(entity_class, uid, unknown)
     return _stored_form(Neo4jGenericMapper._dict_to_node(dict(changes)), entity_class, uid)
 
 

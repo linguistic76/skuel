@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-11-20
+updated: 2026-11-22
 category: patterns
 related_skills: []
 related_docs:
@@ -544,9 +544,9 @@ orthogonal to `type:`, pipeline, and vault. Its one effect: after the entity
 persists, the file's body links become
 `(entity)-[:ORGANIZES {order}]->(target)` edges to each link target that
 resolves to an already-ingested entity (order = document position, 0-based).
-MOC identity stays **emergent**: the `moc` field flows onto the node as an
-inert, human-visible property that nothing queries — a node is a MOC because
-it has ORGANIZES edges (the "ORGANIZES Path" to knowledge).
+MOC identity stays **emergent**: the preparer reads the `moc` switch and
+stores it on no node (a UserEntry keeps a `metadata.moc` marker) — a node is a
+MOC because it has ORGANIZES edges (the "ORGANIZES Path" to knowledge).
 
 - **Link forms:** wiki-links (`[[target]]`, `|alias`, `#heading`) and
   markdown links (`[label](<target>.md)`, URL-encoded paths decoded). External
@@ -902,7 +902,10 @@ facet) stay sound.
 **Every other value a node's read would refuse is refused at the write.** The bulk
 upsert serializes each file by the read's own rule for its type's model class
 (`to_neo4j_patch`, `ingested_model_class`): a `due_date: soon`, a bare `tags: work`, an
-unparseable `created_at`, a `start_time: 9am` is not written. The file is reported
+unparseable `created_at`, a `start_time: 9am` is not written, and neither is a key that
+names no field of the model and no relationship of the type (`category:` on a habit, whose
+field is `habit_category`; `prerequisites:` on a learning path, which draws no edge) — its
+report names the field the author most likely meant. The file is reported
 against that field (validation, ignored-with-reason) and left unstamped, and the rest of
 its batch is written — stored, the value would fail every read of its node and every list
 read of its owner. The dry-run validator (`validate_file`) does not see these refusals.

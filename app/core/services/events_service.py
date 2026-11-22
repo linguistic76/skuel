@@ -369,8 +369,8 @@ class EventsService(
         """Override the inherited CRUD update (generated JSON route, no ownership check).
 
         Routes the typed intent through the one update path (``update_event``), which fires
-        events and splits edges — the inherited base ``update`` would write edge fields as
-        junk node properties and skip the edge replacement."""
+        events and splits edges — the inherited base ``update`` would hand edge fields to the
+        write, which refuses a key naming no Event field, and skip the edge replacement."""
         return await self.update_event(uid, updates)
 
     async def update_for_user(

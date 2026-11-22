@@ -1,6 +1,6 @@
 ---
 title: Voice Journaling and Obsidian Guide
-updated: 2026-09-26
+updated: 2026-11-22
 status: current
 category: guides
 tags: [obsidian, journaling, voice, vaultbridge, activity-domains, daily-workflow, user-guide]
@@ -404,8 +404,8 @@ type: Habit
 uid: habit.morning-meditation
 title: Morning Meditation (20 min)
 polarity: build
-category: mindfulness
-difficulty: easy
+habit_category: mindfulness
+habit_difficulty: easy
 recurrence_pattern: daily
 status: active
 ```
@@ -432,7 +432,7 @@ status: active
 type: Principle
 uid: principle.small-steps
 title: Small Steps Beat Big Bursts
-category: personal
+principle_category: personal
 strength: core
 status: active
 ```
@@ -446,7 +446,7 @@ type: Habit
 uid: habit.morning-meditation
 title: Morning Meditation (20 min)
 polarity: build
-category: mindfulness
+habit_category: mindfulness
 status: active
 connections:
   reinforces_knowledge:

@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-14
+updated: 2026-11-22
 ---
 
 # Enum Architecture
@@ -632,12 +632,12 @@ uid: habit.daily-2min-breath
 title: Daily 2-Minute Breath
 priority: medium               # ← Priority.MEDIUM
 polarity: build                # ← HabitPolarity.BUILD
-category: mindfulness          # ← HabitCategory.MINDFULNESS
-difficulty: easy               # ← HabitDifficulty.EASY
+habit_category: mindfulness    # ← HabitCategory.MINDFULNESS
+habit_difficulty: easy         # ← HabitDifficulty.EASY
 recurrence_pattern: daily      # ← RecurrencePattern.DAILY
 connections:
   reinforces_knowledge:
-    - l:mindfulness:breath-awareness-basics
+    - ps.mindfulness.breath-awareness-basics
 ```
 
 Every value after the colon is validated against the corresponding enum. A typo like `polarity: built` produces a clear Pydantic validation error at ingestion time — not a silent bad value in Neo4j.

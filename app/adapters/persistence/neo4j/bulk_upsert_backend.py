@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.batch_preparer import prepare_batch_items
 from adapters.persistence.neo4j.cypher_executor import CypherExecutor, CypherTemplate
-from adapters.persistence.neo4j.neo4j_mapper import UnstorableValueError
+from adapters.persistence.neo4j.neo4j_mapper import UnknownFieldError, UnstorableValueError
 from adapters.persistence.neo4j.timed_driver import neo4j_query_timeout
 from core.ingestion.ingestion_types import IngestionResult, RelationshipConfig, UnstorableValue
 from core.models.enums.neo_labels import NeoLabel
@@ -107,7 +107,12 @@ def _refused_uids(
 def _unstorable_by_uid(refusals: list[UnstorableValueError]) -> dict[str, UnstorableValue]:
     """Each refused entity's uid and the value that refused it (``prepare_batch_items``)."""
     return {
-        str(refusal.uid): UnstorableValue(refusal.field, refusal.value, refusal.reason)
+        str(refusal.uid): UnstorableValue(
+            refusal.field,
+            refusal.value,
+            refusal.reason,
+            names_no_field=isinstance(refusal, UnknownFieldError),
+        )
         for refusal in refusals
     }
 

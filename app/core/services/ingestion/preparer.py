@@ -311,11 +311,12 @@ def prepare_entity_data(
         entity_data["content"] = body
 
     # MOC edge pass (parse half): ``moc: true`` on ANY ingestible file turns
-    # its body links into ordered ORGANIZES edges post-persist. The extracted
-    # suffixes ride the transient ``_moc_links`` key — both ingest doors pop it
-    # before node persistence (it must never become a node property; the plain
-    # ``moc`` field itself flows through as an inert, human-visible property).
+    # its body links into ordered ORGANIZES edges post-persist. The switch is read
+    # here and goes no further (it names no field of any node); the extracted
+    # suffixes ride the transient ``_moc_links`` key, which both ingest doors pop
+    # before node persistence, and whose presence marks a MOC file downstream.
     # An empty body yields [] so an emptied MOC still drops its stale edges.
+    entity_data.pop("moc", None)
     if data.get("moc") is True:
         entity_data["_moc_links"] = extract_moc_link_suffixes(body)
 
@@ -366,10 +367,8 @@ def prepare_entity_data(
         # the owner, whatever ``owner_uid:`` the file names — the same rule that
         # keeps a file from claiming ``user_uid:``. Ungoverned: the file's own.
         authored_owner = entity_data.pop("owner_uid", None)
-        if owner_is_authoritative:
-            owner_uid = entity_data.pop("user_uid", None)
-        else:
-            owner_uid = authored_owner or entity_data.pop("user_uid", None)
+        stamped_owner = entity_data.pop("user_uid", None)
+        owner_uid = stamped_owner if owner_is_authoritative else authored_owner or stamped_owner
         if owner_uid:
             entity_data["owner_uid"] = owner_uid
 

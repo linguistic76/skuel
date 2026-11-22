@@ -450,7 +450,12 @@ class TaskEventHandlerService:
 
         # 6. Write predicted duration back to the completed task
         predicted = round(estimated * new_ratio)
-        await self.backend.update(event.task_uid, {"predicted_duration_minutes": predicted})
+        written = await self.backend.set_predicted_duration(event.task_uid, predicted)
+        if written.is_error:
+            self.logger.warning(
+                f"Failed to store predicted duration for {event.task_uid}: "
+                f"{written.expect_error().message}"
+            )
 
         self.logger.info(
             f"Task duration learning: ratio={ratio:.2f} -> EMA={new_ratio:.4f} "

@@ -58,6 +58,7 @@ from core.services.mixins.link_edge_guard import (
     HABIT_FAR_END,
     KNOWLEDGE_FAR_END,
     PRINCIPLE_FAR_END,
+    TASK_FAR_END,
     LinkEdge,
     LinkFarEnd,
     partition_link_edges,
@@ -106,6 +107,8 @@ class TaskEdgeIntent:
 
     habit_uid: str | Unset | None = UNSET
     applies_knowledge_uids: list[str] | Unset | None = UNSET
+    prerequisite_knowledge_uids: list[str] | Unset | None = UNSET
+    prerequisite_task_uids: list[str] | Unset | None = UNSET
     contributes_to_goal_uids: list[str] | Unset | None = UNSET
     aligned_principle_uids: list[str] | Unset | None = UNSET
 
@@ -116,6 +119,8 @@ class TaskEdgeIntent:
             for value in (
                 self.habit_uid,
                 self.applies_knowledge_uids,
+                self.prerequisite_knowledge_uids,
+                self.prerequisite_task_uids,
                 self.contributes_to_goal_uids,
                 self.aligned_principle_uids,
             )
@@ -475,12 +480,16 @@ class TasksService(
             intent,
             reinforces_habit_uid=UNSET,
             applies_knowledge_uids=UNSET,
+            prerequisite_knowledge_uids=UNSET,
+            prerequisite_task_uids=UNSET,
             contributes_to_goal_uids=UNSET,
             aligned_principle_uids=UNSET,
         )
         edges = TaskEdgeIntent(
             habit_uid=intent.reinforces_habit_uid,
             applies_knowledge_uids=intent.applies_knowledge_uids,
+            prerequisite_knowledge_uids=intent.prerequisite_knowledge_uids,
+            prerequisite_task_uids=intent.prerequisite_task_uids,
             contributes_to_goal_uids=intent.contributes_to_goal_uids,
             aligned_principle_uids=intent.aligned_principle_uids,
         )
@@ -489,11 +498,12 @@ class TasksService(
     async def _sync_relationship_edges(
         self, task_uid: str, *, owner_uid: str, edges: TaskEdgeIntent
     ) -> Result[EdgeSync]:
-        """Replace the task's habit, knowledge, goal and principle edges from the intent values.
+        """Replace the task's habit, knowledge, prerequisite, goal and principle edges from the intent values.
 
         ``UNSET`` means "not in this update" (edges of that kind untouched); a value means
         "replace" — clearing every edge of that kind when the value is empty (``None`` for
-        the habit, ``[]`` for the knowledge, goal and principle sets).
+        the habit, ``[]`` for each set). The prerequisite sets are the create door's two:
+        ``REQUIRES_KNOWLEDGE`` to a Ku, ``BLOCKED_BY`` to the owner's own Task.
 
         New edges are admitted through ``partition_link_edges`` — the far end must
         EXIST, be OWNED by ``owner_uid`` or by nobody, and be the KIND the field names —
@@ -517,8 +527,9 @@ class TasksService(
         inferred that the update names, is not new.
         """
         # (Task)-[:REINFORCES_HABIT]->(Habit) is single-valued; the edge SETS —
-        # APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL and ALIGNED_WITH_PRINCIPLE — take a list
-        # that replaces the full set (an empty list clears it).
+        # APPLIES_KNOWLEDGE, REQUIRES_KNOWLEDGE, BLOCKED_BY, CONTRIBUTES_TO_GOAL and
+        # ALIGNED_WITH_PRINCIPLE — take a list that replaces the full set (an empty list
+        # clears it).
         habit_uids: list[str] | Unset = (
             UNSET if edges.habit_uid is UNSET else [edges.habit_uid] if edges.habit_uid else []
         )
@@ -529,6 +540,18 @@ class TasksService(
                 edges.applies_knowledge_uids,
                 RelationshipName.APPLIES_KNOWLEDGE,
                 KNOWLEDGE_FAR_END,
+            ),
+            (
+                "prerequisite_knowledge",
+                edges.prerequisite_knowledge_uids,
+                RelationshipName.REQUIRES_KNOWLEDGE,
+                KNOWLEDGE_FAR_END,
+            ),
+            (
+                "blocked_by",
+                edges.prerequisite_task_uids,
+                RelationshipName.BLOCKED_BY,
+                TASK_FAR_END,
             ),
             (
                 "contributes_to_goal",
@@ -674,8 +697,8 @@ class TasksService(
         """Override the inherited CRUD update (generated JSON route, no ownership check).
 
         Routes the typed intent through the one update path (`update_task`), which fires
-        events and syncs edges — the inherited base `update` would write edge fields as
-        junk node properties and skip the edge sync."""
+        events and syncs edges — the inherited base `update` would hand edge fields to the
+        write, which refuses a key naming no Task field, and skip the edge sync."""
         return await self.update_task(uid, updates)
 
     async def update_for_user(

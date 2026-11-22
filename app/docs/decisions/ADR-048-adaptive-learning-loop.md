@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-12
+updated: 2026-11-22
 ---
 
 # ADR-048: Adaptive Learning Loop Architecture
@@ -70,7 +70,7 @@ Next recommendation query reads updated weights
 1. **Learning state lives in Neo4j** — as properties on existing nodes and relationships, not as separate frozen dataclasses. Examples:
    - `(user)-[:HAS_MASTERY {weight, success_count, last_updated}]->(ku)` — existing relationship, new properties
    - `(:User {preferred_task_time, avg_completion_rate})` — existing node, new properties
-   - `(:Task {predicted_duration_minutes})` — calibrated over time from actuals
+   - `(:Task {predicted_duration_minutes})` — calibrated over time from actuals, written by `TasksBackend.set_predicted_duration`, never through the `Task` model (which declares none of it, so its write would refuse the key)
 
    A habit's learning state (`completion_hours_json`, `learned_preferred_hour`, `learned_on_time_rate`, `learned_completion_count`, `learned_difficulty_level` — `core/models/habit/learning_state.py`) is stored on the habit's node and read raw (`HabitsBackend.get_habit_learning_states`, written under the node's lock by `update_habit_learning_state`), never through the `Habit` model, which declares none of it.
 

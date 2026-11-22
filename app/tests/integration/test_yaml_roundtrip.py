@@ -142,9 +142,9 @@ content: Main knowledge content
 domain: tech
 quality_score: 0.9
 complexity: medium
+prerequisite_step_uids:
+  - ps.prereq
 connections:
-  requires:
-    - ps.prereq
   enables:
     - l.advanced-topic
   related:
@@ -246,7 +246,7 @@ Content for testing full round-trip.
         Test round-trip with all 5 relationship types.
 
         Relationship types:
-        - requires (prerequisites)
+        - prerequisite_step_uids (prerequisites)
         - enables (what this enables)
         - related (related topics)
         - used_in_steps (path steps)
@@ -265,10 +265,10 @@ complexity: advanced
 tags:
   - comprehensive
   - all-types
+prerequisite_step_uids:
+  - ps.prereq-1
+  - ps.prereq-2
 connections:
-  requires:
-    - ps.prereq-1
-    - ps.prereq-2
   enables:
     - l.enabled-1
     - l.enabled-2

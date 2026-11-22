@@ -31,6 +31,7 @@ class SampleKu:
     created_at: str = "2026-01-01T00:00:00"
     description: str | None = None
     user_uid: str | None = None
+    updated_at: str | None = None
 
 
 def _mock_driver() -> tuple[Mock, AsyncMock]:

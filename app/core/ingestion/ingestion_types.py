@@ -78,13 +78,17 @@ class UnstorableValue(NamedTuple):
     """A file's value its field's type cannot read, refused before anything is written.
 
     The write refuses what every later read of the node would refuse, so a file that
-    authors one (``due_date: soon``, a bare ``tags: work``) is reported against its
-    field and left for its author to fix, and the rest of its batch is written.
+    authors one (``due_date: soon``, a bare ``tags: work``) or a key no field reads
+    (``category:`` on a habit, whose field is ``habit_category``) is reported against
+    its field and left for its author to fix, and the rest of its batch is written.
     """
 
     field: str
     value: object  # boundary: the value as authored, of whatever type it was
     reason: str
+    #: The file authored a key that names no field of its type (``field`` is the
+    #: first; ``reason`` names every one, each with the field it most likely meant).
+    names_no_field: bool = False
 
 
 @dataclass

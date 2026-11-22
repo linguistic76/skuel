@@ -381,9 +381,10 @@ writes it to edges.
 - **Write:** both create AND update must route `applies_knowledge_uids` to edge mutation.
   `TasksService.update_task` splits the edge-typed fields off the `TaskUpdateIntent`
   (`_split_relationship_intent` resets them to `UNSET` on the property sub-intent) and
-  re-syncs edges (symmetric to `reinforces_habit_uid`) — leaving them on the property
-  intent would write junk node properties and silently skip the edge, because the backend
-  does `SET n += $changes`.
+  re-syncs edges (symmetric to `reinforces_habit_uid`; the prerequisites
+  `prerequisite_task_uids` / `prerequisite_knowledge_uids` split the same way, to
+  `BLOCKED_BY` / `REQUIRES_KNOWLEDGE`) — left on the property intent, the write would be
+  refused (`UnknownFieldError`: the key names no `Task` field) and no edge written.
 - **Read:** `TaskRelationships.fetch(uid, service.relationships)` or
   `get_related_uids("knowledge", uid)` — never a node attribute.
 

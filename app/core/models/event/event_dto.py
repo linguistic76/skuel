@@ -37,10 +37,10 @@ class EventDTO(UserOwnedDTO):
     """
     Mutable DTO for events (EntityType.EVENT).
 
-    Extends UserOwnedDTO with 27 event-specific fields:
+    Extends UserOwnedDTO with event-specific fields:
     - Scheduling (4): event_date, start_time, end_time, duration_minutes
     - Logistics (4): event_type, location, is_online, meeting_url
-    - Lifecycle (1): completed_at
+    - Lifecycle (3): completed_at, rescheduled_at, notes
     - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
     - Reminders (2): reminder_minutes, reminder_sent
     - Attendees (2): attendee_emails, max_attendees
@@ -73,6 +73,9 @@ class EventDTO(UserOwnedDTO):
     # =========================================================================
     # When the event transitioned into COMPLETED; cleared on reopen.
     completed_at: datetime | None = None
+    # When an update last moved the event's date (an aware UTC instant).
+    rescheduled_at: datetime | None = None
+    notes: str | None = None
 
     # =========================================================================
     # RECURRENCE
@@ -163,7 +166,7 @@ class EventDTO(UserOwnedDTO):
                 "recurrence_pattern",
             ],
             date_fields=["event_date", "recurrence_end_date"],
-            datetime_fields=["created_at", "updated_at", "completed_at"],
+            datetime_fields=["created_at", "updated_at", "completed_at", "rescheduled_at"],
             time_fields=["start_time", "end_time"],
         )
 
@@ -184,7 +187,7 @@ class EventDTO(UserOwnedDTO):
                 "engagement_state",
             ),
             date_fields=["event_date", "recurrence_end_date"],
-            datetime_fields=["created_at", "updated_at", "completed_at"],
+            datetime_fields=["created_at", "updated_at", "completed_at", "rescheduled_at"],
             time_fields=["start_time", "end_time"],
             list_fields=["tags", "attendee_emails"],
             dict_fields=["metadata"],

@@ -4,8 +4,9 @@
 property they serialize for a field of the class by the read's own rule, and refuse
 the write (``UnstorableValueError``) before anything is stored — so no write leaves a
 node that every later read refuses (``UnreadableStoredValueError``). An enum field is
-stored as its member's value; a key that names no field passes. The vault door refuses
-one file, not its batch (``prepare_batch_items``).
+stored as its member's value; a key that names no field is refused too
+(``test_patch_gate_unknown_keys.py``). The vault door refuses one file, not its batch
+(``prepare_batch_items``).
 """
 
 from __future__ import annotations
@@ -88,7 +89,6 @@ def test_a_value_its_type_cannot_read_refuses_the_patch(
         pytest.param({"tags": None}, {"tags": None}, id="a-null-on-a-field-with-a-default"),
         pytest.param({"tags": ["work"]}, {"tags": ["work"]}, id="a-list"),
         pytest.param({"metadata": {"k": 1}}, {"metadata": '{"k": 1}'}, id="a-mapping"),
-        pytest.param({"rescheduled_at": "x"}, {"rescheduled_at": "x"}, id="a-key-naming-no-field"),
     ],
 )
 def test_a_value_its_type_reads_is_stored_as_serialized(

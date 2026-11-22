@@ -124,8 +124,9 @@ read's own per-field rule; the graph-health poller logs ERROR while one is store
 
 **The mapper's writers never store one:** `to_neo4j_node` (a model) and `to_neo4j_patch` (a
 patch, given the class the node is read as) read each property they serialize for a field of
-the class by the same rule, and raise `UnstorableValueError` before any statement runs; an
-enum field is stored as its member's value. The vault door refuses the file that holds one,
+the class by the same rule, and raise `UnstorableValueError` before any statement runs (a
+patch key that names no field, `UnknownFieldError`, included); an enum field is stored as
+its member's value. The vault door refuses the file that holds one,
 against its field (`/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`).
 
 ### When to Use Each Tier

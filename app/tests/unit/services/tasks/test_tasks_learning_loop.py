@@ -51,6 +51,7 @@ def _make_backend():
     backend.find_by = AsyncMock(return_value=Result.ok([]))
     backend.get_user_learning_state = AsyncMock(return_value=Result.ok({}))
     backend.update_user_learning_state = AsyncMock(return_value=Result.ok(True))
+    backend.set_predicted_duration = AsyncMock(return_value=Result.ok(True))
     return backend
 
 
@@ -180,7 +181,7 @@ class TestLearnFromCompletion:
 
     @pytest.mark.asyncio
     async def test_writes_predicted_duration_to_task(self):
-        """Predicted duration is written back to the task node."""
+        """Predicted duration is written back to the task node, outside the model's write."""
         backend = _make_backend()
         task = _make_task(duration_minutes=30, actual_minutes=45)
         backend.get.return_value = Result.ok(task)
@@ -190,10 +191,11 @@ class TestLearnFromCompletion:
         await handler.handle_task_completed(_make_event())
 
         # predicted = round(30 * 1.15) = 34 or 35
-        task_update_call = backend.update.call_args
-        assert task_update_call[0][0] == "task_test_abc"
-        predicted = task_update_call[0][1]["predicted_duration_minutes"]
+        (task_uid, predicted), _ = backend.set_predicted_duration.call_args
+        assert task_uid == "task_test_abc"
         assert 34 <= predicted <= 35
+        # Learning state the Task model does not declare: the model's write would refuse it.
+        backend.update.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_error_is_swallowed(self):

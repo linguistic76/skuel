@@ -366,7 +366,7 @@ class EventsHabitIntegrationService:
         # validated/event-firing contract (EventUpdateIntent → update_event) on purpose —
         # this path publishes its OWN CalendarEventUpdated below with the miss provenance
         # (status=cancelled + notes). Routing through the contract would double-fire
-        # CalendarEventUpdated, and `notes` is not an Event column the intent carries.
+        # CalendarEventUpdated, and the intent does not carry `notes`.
         #
         # Status-guarded even so (ADR-087): marking an already-COMPLETED event missed
         # would otherwise write ``status=cancelled`` over a live ``completed_at``,

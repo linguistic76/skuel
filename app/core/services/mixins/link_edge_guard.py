@@ -153,6 +153,7 @@ GOAL_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.GOAL.value}), "Goal")
 HABIT_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.HABIT.value}), "Habit")
 PRINCIPLE_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.PRINCIPLE.value}), "Principle")
 CHOICE_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.CHOICE.value}), "Choice")
+TASK_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.TASK.value}), "Task")
 # An entry's PathStep context (``about_path_step_uid`` → its Interaction's
 # INTERACTION_DURING edge), admitted by AudienceResolver before the entry is written.
 PATH_STEP_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.PATH_STEP.value}), "PathStep")
