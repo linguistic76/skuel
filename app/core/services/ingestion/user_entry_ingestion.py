@@ -255,6 +255,27 @@ def _period_key(entry_kind: object, data: dict[str, Any]) -> str | None:
     return key if key.strip() else None
 
 
+def own_entry_uid(
+    data: dict[str, Any],  # boundary: raw YAML frontmatter
+    user_uid: UserUID,
+) -> str | None:
+    """The uid a vault note names by itself: its authored ``uid:``, else its period's.
+
+    ``None`` for a note with neither — its uid is the tracker's prior one or
+    a fresh mint (``build_user_entry_request``). ``data`` is the raw
+    frontmatter; a non-mapping ``metadata`` names no period.
+    """
+    raw_uid = data.get("uid")
+    if raw_uid:
+        return str(raw_uid)
+    metadata = data.get("metadata") or {}
+    if not isinstance(metadata, dict):
+        return None
+    entry_kind = metadata.get("entry_kind")
+    period_key = _period_key(entry_kind, data)
+    return None if period_key is None else periodic_note_uid(str(entry_kind), user_uid, period_key)
+
+
 def build_user_entry_request(
     data: dict[str, Any],
     file_path: Path,
@@ -359,14 +380,10 @@ def build_user_entry_request(
     # (``validate_uid_format``) — the note takes the derived uid
     # (``periodic_note_uid``) the calendar routes use, so the SKUEL journal page
     # shows the Obsidian content rather than a blank placeholder.
-    raw_uid = data.get("uid")
-    uid_override: str | None = str(raw_uid) if raw_uid else None
-    entry_kind = metadata.get("entry_kind")
-    period_key = _period_key(entry_kind, data)
+    period_key = _period_key(metadata.get("entry_kind"), data)
     if period_key is not None:
         ingestion_metadata["period_key"] = period_key
-        if not uid_override:
-            uid_override = periodic_note_uid(str(entry_kind), user_uid, period_key)
+    uid_override = own_entry_uid(data, user_uid)
 
     # Path-keyed identity for uid-less vault notes (contract:
     # docs/roadmap/done/uidless-vault-entry-identity-upsert.md). When the file

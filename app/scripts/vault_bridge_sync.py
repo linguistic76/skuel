@@ -278,6 +278,8 @@ async def run_preview(vault: str, user_uid: str) -> int:
         print(f"  would ignore (refused, with the sync's reason): {preview.would_ignore_count}")
         _print_examples(preview.would_ignore_examples, preview.would_ignore_count)
         print(f"  set aside (no 'type:' field — not ingestible): {preview.non_entity_notes}")
+        print(f"  would move (renamed, entity kept): {preview.would_move_count}")
+        _print_examples(preview.would_move_examples, preview.would_move_count)
         print(f"  would delete entities: {preview.would_delete_entities}")
         _print_examples(preview.would_delete_entity_examples, preview.would_delete_entities)
         print(f"  would delete relationships (edge files): {preview.would_delete_edges}")

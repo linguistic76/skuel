@@ -104,7 +104,7 @@ from .config import (
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .exercise_teacher import refuse_unqualified_teachers
-from .ingestion_tracker import IngestionTracker
+from .ingestion_tracker import IngestionTracker, edge_identity
 from .moc_links import extract_moc_link_suffixes, frontmatter_organizes_targets
 from .parser import parse_markdown, parse_yaml
 from .preparer import (
@@ -123,9 +123,10 @@ from .types import (
     DirectoryValidationResult,
     IncrementalStats,
     IngestionStats,
+    ParseVerdicts,
     ValidationResult,
 )
-from .user_entry_ingestion import ingest_user_entry
+from .user_entry_ingestion import ingest_user_entry, own_entry_uid
 from .validator import (
     validate_directory,
     validate_edge_data,
@@ -1747,18 +1748,22 @@ class UnifiedIngestionService:
     # VALIDATION - Delegate to validator module
     # ========================================================================
 
-    async def parse_refusals(
+    async def parse_verdicts(
         self, files: Sequence[Path], *, root: Path, user_uid: UserUID | None
-    ) -> Result[dict[Path, dict[str, Any]]]:  # boundary: IngestionError.to_dict rows
-        """The parse-stage refusal a directory sync would give each file, by path.
+    ) -> Result[ParseVerdicts]:
+        """What a directory sync's parse stage would say of each file, by path.
 
         Runs the stage ``ingest_directory`` runs before any write (parse, detect,
         prepare, validate), with the owner, vault kind and size cap that door
-        resolves for ``root``. Nothing is written. A file the stage accepts is
-        absent; a refused one maps to its ``IngestionError`` dict, whose
-        ``stage`` says whether the file's content or the system caused it. A
-        personal vault's uid-less files are parsed as first seen: the uid a file
-        takes changes no verdict.
+        resolves for ``root``. Nothing is written. A refused file maps to its
+        ``IngestionError`` dict, whose ``stage`` says whether the file's content
+        or the system caused it. An accepted file maps to the identity its
+        ingest writes to its tracker row, when the file names it by itself: the
+        prepared uid (authored, or derived from the file), an Edge file's
+        ``edge_identity``, a UserEntry's authored or periodic uid
+        (``own_entry_uid``, over the frontmatter its own door reads). A personal
+        vault's uid-less files are parsed as first seen: the uid a file takes
+        changes no verdict.
         """
         owner = self._resolve_owner(root, user_uid)
         vault_kind = self._resolve_vault_kind(root)
@@ -1780,13 +1785,40 @@ class UnifiedIngestionService:
                 for file_path in files
             )
         )
-        return Result.ok(
-            {
-                file_path: error
-                for file_path, (_type, _data, error) in zip(files, parsed, strict=True)
-                if error is not None
-            }
-        )
+        verdicts = ParseVerdicts()
+        for file_path, (entity_type, data, error) in zip(files, parsed, strict=True):
+            if error is not None:
+                verdicts.refusals[file_path] = error
+                continue
+            identity = self._claimed_identity(file_path, entity_type, data or {}, owner)
+            if identity is not None:
+                verdicts.identities[file_path] = identity
+        return Result.ok(verdicts)
+
+    def _claimed_identity(
+        self,
+        file_path: Path,
+        entity_type: EntityType | NonKuDomain | None,
+        data: dict[str, Any],  # boundary: prepared entity / edge data
+        owner: UserUID,
+    ) -> str | None:
+        """The identity a parsed file's ingest writes to its tracker row, if the file names it."""
+        if data.get("_is_edge"):
+            rel_type = RelationshipName.from_string(str(data["relationship"]))
+            if rel_type is None:
+                return None  # the edge ingest refuses an unknown relationship
+            return edge_identity(str(data["from_uid"]), str(rel_type), str(data["to_uid"]))
+        if entity_type is EntityType.USER_ENTRY:
+            # The prepared uid of a user_entry is never written: its door reads
+            # the frontmatter itself (``ingest_file`` → ``build_user_entry_request``).
+            frontmatter = parse_markdown(file_path, self.max_file_size_bytes)
+            if frontmatter.is_error or not isinstance(frontmatter.value[0], dict):
+                # No claim: the preview then names the file's old row a deletion,
+                # the report that errs toward caution.
+                return None
+            return own_entry_uid(frontmatter.value[0], owner)
+        uid = data.get("uid")
+        return None if uid is None else str(uid)
 
     async def validate_file(self, file_path: Path) -> Result[ValidationResult]:
         """

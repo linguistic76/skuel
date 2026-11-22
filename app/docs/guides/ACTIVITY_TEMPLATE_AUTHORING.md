@@ -1,7 +1,7 @@
 ---
 title: Activity Template Authoring
 created: 2026-09-06
-updated: 2026-11-08
+updated: 2026-11-22
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, curriculum, activity-templates, pathstep, engagement]
@@ -199,9 +199,9 @@ tags:
 
 **`uid:`** — always author it. Its prefix is validated, and a file with no `uid:` derives one
 from the filename stem — which leaks the stem into the UID and makes identity depend on the
-filename. The sync's move pre-pass recovers a pure rename by content hash, but a rename plus an
-edit in the same sync is a new node; templates carry no body for the similarity fallback to
-compare, so hash matching is the only net. Dot form only (`tt.{grouping}.{slug}`); the colon
+filename: renaming such a file deletes its node and creates a new one under the new name, and
+the sync's preview names the old file as a deletion. An authored `uid:` survives any rename —
+the new file claims it. Dot form only (`tt.{grouping}.{slug}`); the colon
 spelling was retired 2026-08-14 and fails validation.
 
 **`title:`** — the only required field on all six. Everything else is optional.

@@ -22,7 +22,7 @@ from core.services.ingestion.authored_edges import (
 )
 from core.services.ingestion.config import ENTITY_CONFIGS
 from core.services.ingestion.ingestion_tracker import IngestionTracker
-from core.services.ingestion.move_detection import MoveCandidate, NewFileCandidate
+from core.services.ingestion.types import FileMove
 from core.utils.result_simplified import Result
 
 _CONFIG: dict[str, RelationshipConfig] = {
@@ -311,15 +311,17 @@ class TestTrackerFingerprintPlumbing:
     ) -> None:
         backend = _backend_with_rows([])
         tracker = IngestionTracker(backend)
-        row = MoveCandidate(
-            file_path=str(tmp_path / "old.md"),
+        move = FileMove(
+            old_path=str(tmp_path / "old.md"),
+            new_path=str(tmp_path / "new.md"),
             entity_uid="ps.t.x",
+            display_old="old.md",
+            display_new="new.md",
             content_hash="h1",
             authored_edges=("USES_KU|outgoing|ku.t.a", "USES_KU|outgoing|ku.t.b"),
         )
-        new_file = NewFileCandidate(file_path=str(tmp_path / "new.md"), content_hash="h1")
 
-        result = await tracker._rewrite_move_row(row, new_file, tmp_path, similarity=None)
+        result = await tracker._rewrite_move_row(move)
 
         assert result.is_ok
         payload = backend.update_ingestion_metadata.await_args.args[0]

@@ -540,9 +540,9 @@ relationship: RELATED_TO
 async def test_renamed_file_keeps_entity_and_repoints_tracking(
     ingestion_service, valid_ku_directory, neo4j_driver
 ):
-    """A rename is detected as a move (#617): the entity survives, the tracking
-    row is re-pointed to the new path, and the old path's row is deleted by the
-    move handler itself — so it never shows up as stale metadata."""
+    """A renamed authored-uid file is a move: the new file claims the uid, so the
+    entity survives, the old path's row is cleaned as stale, the one row left
+    tracks the new path, and the sync reports the rename."""
     result1 = await ingestion_service.ingest_directory(
         directory=valid_ku_directory,
         pattern="*.md",
@@ -563,7 +563,7 @@ async def test_renamed_file_keeps_entity_and_repoints_tracking(
     assert stats.entities_deleted == 0
     assert stats.moves_detected == 1
     assert stats.moves == ["ku-03.md → ku-03-renamed.md"]
-    assert stats.stale_metadata_removed == 0
+    assert stats.stale_metadata_removed == 1
 
     async with neo4j_driver.session() as session:
         kept = await session.run("MATCH (e:Entity {uid: 'ku.e2e-test-03'}) RETURN count(e) AS n")

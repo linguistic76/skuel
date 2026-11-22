@@ -356,14 +356,22 @@ the uid the row holds — a first sync's minted uid is never lost to a retry.
 The real hash keeps a rename before the retry recognisable as a move. A
 pending row that cannot be written is itself a sync error (stage `tracking`).
 
-**Renames preserve identity too (content-based move detection).** A
-rename/move of a uid-less note is recognized by the move-detection pre-pass
-(`IngestionTracker.detect_and_apply_moves`, run at the start of every tracked
-directory sync), two strategies in sequence. **Exact hash** (pure rename): the
-gone path's tracker row and the new file share a SHA-256, so the row is
-rewritten (old path → new path, SAME uid) and the resolution above reuses the
-uid — node, grounding edges, MOC/manual links, and `created_at` all survive;
-the sync reports it as `moves_detected`, not a delete + a create. **Lexical
+**Renames preserve identity too.** A file whose uid is in the authored shape
+— its `uid:` line, or (content vault) its file name — names its identity by
+itself: a renamed file with the same `uid:` claims it, the moved/stale split
+keeps the entity and cleans the old row, and the sync reports the rename in
+`moves`; a file named-by-its-file renamed is a new uid, so the old node is
+deleted. A rename/move of a uid-less note (a generated uid) is recognized by
+the move-detection pre-pass (`IngestionTracker.detect_and_apply_moves`, run at
+the start of every tracked directory sync; `plan_moves` is its read-only half),
+two strategies in sequence, and only a generated-shape uid is ever a source —
+bridging an authored-shape one would put the old uid on a row the ingest then
+overwrites with the file's own, stranding the old node. **Exact hash** (pure
+rename): the gone path's tracker row and the new file share a SHA-256, so the
+row is rewritten (old path → new path, SAME uid) and the resolution above
+reuses the uid — node, grounding edges, MOC/manual links, and `created_at` all
+survive; the sync reports it in `moves` / `moves_detected`, not a delete + a
+create. **Lexical
 similarity** (rename + edit *in the same sync*): over the exact pass's
 residual, the gone node's last-ingested body (`Entity.content`) is compared
 against each new markdown file's resolved content (frontmatter `content:`
@@ -371,7 +379,7 @@ wins, else the body — the same resolution ingestion applies) with word-shingle
 Jaccard; only a MUTUAL best match at or above `SIMILARITY_MOVE_THRESHOLD`
 moves, and the sync annotates it with its score. Similarity candidacy is gated
 to the uid-less UserEntry world on both sides: sources must carry a minted
-`ue_<8hex>` uid, destinations must be `type: user_entry` markdown files with
+`ue_<16 hex>` uid, destinations must be `type: user_entry` markdown files with
 no authored `uid:` and no periodic `entry_kind` — a file that would not honor
 the rewritten uid must never be bridged (it would fuse identities or orphan
 the gone node).
@@ -1347,14 +1355,19 @@ All POSTs are CSRF-protected — a scripted caller needs an authenticated sessio
 `scripts/vault_bridge_sync.py --vault content` (both run `VaultReconciler.sync` in `smart`
 mode). Personal vaults sync via `POST /api/vault/sync`. **Dry run:** `--preview` on the script
 (either vault) and, for personal vaults, the "Preview sync" button / `POST /api/vault/preview`
-run `VaultReconciler.preview` — would-ingest / would-delete / stale rows / ownership mismatches /
-mass-deletion refusal, nothing written. The would-ingest figures apply the ingest gate's own
+run `VaultReconciler.preview` — would-ingest / would-move / would-delete / stale rows / ownership
+mismatches / mass-deletion refusal, nothing written. Its would-delete set is the sync's deleted
+set and its would-move lines are the sync's `moves` lines: it plans the sync's move pre-pass
+without its row rewrites (`plan_moves`) and tells `plan_deletions` what the sync's ingest will
+claim — each new file's own identity and each planned move's uid — so a renamed file is a move,
+never a deletion. The would-ingest figures apply the ingest gate's own
 no-type verdict (`is_non_entity_note`, `detector.py` — the same predicate `detect_entity_type`
 raises on), so a vault of loose untyped notes reports one `non_entity_notes` count instead of
 hundreds of phantom "new" files. Each remaining file then runs the sync's own parse stage
-(`UnifiedIngestionService.parse_refusals`, nothing written), so a file the sync would refuse for
+(`UnifiedIngestionService.parse_verdicts`, nothing written), so a file the sync would refuse for
 its content — a declared-but-unknown `type:`, a field outside the criteria above — is listed as
-would-ignore with the reason the sync will give.
+would-ignore with the reason the sync will give; the same stage names each accepted file's
+identity (its prepared uid, an Edge file's identity, a UserEntry's authored or periodic uid).
 
 **Remote vaults ride a staging mirror (ADR-075, `VAULT_TRANSPORT=local_agent`):** when a
 personal vault lives on the user's machine, `VaultReconciler.sync` runs a mirror-refresh
@@ -1398,7 +1411,8 @@ personal vault never authors shared content (ADR-070 Decision 11); a row whose n
 Reconciliation is split plan/execute: `IngestionTracker.plan_deletions` performs the full
 classification read-only (it backs the vault sync preview — `VaultReconciler.preview` /
 `POST /api/vault/preview`), and `reconcile_deletions` executes the resulting `DeletionPlan`.
-Response fields: `entities_deleted`, `edges_deleted`, `stale_metadata_removed`.
+Response fields: `entities_deleted`, `edges_deleted`, `stale_metadata_removed`; a stale row
+whose identity exactly one collected file claims is a rename, and joins the sync's `moves`.
 User-facing warning/error strings render paths **vault-relative** — the vault root's
 absolute host path never reaches stats (`core/utils/path_display.py`, vault security
 arc PR 5); full absolute detail stays in logs.
@@ -1478,8 +1492,9 @@ Returned for `ingestion_mode="incremental"` and `"smart"`. Everything above,
 plus the incremental-only signals: the skip breakdown (`files_skipped`,
 `skipped_unchanged`, `skipped_hash_match`),
 standalone-edge writes (`edges_created`, `edges_updated`), deletion propagation
-(`entities_deleted`, `edges_deleted`, `stale_metadata_removed`), and move
-detection (`moves_detected`, `moves`).
+(`entities_deleted`, `edges_deleted`, `stale_metadata_removed`), and every
+rename that kept its entity (`moves_detected`, `moves`: the move pre-pass's
+matches and the renames the moved/stale split kept).
 
 `edges_created` / `edges_updated` split on `MERGE`'s own flag rather than summing
 to one "written" total, so a new Edge YAML that reports *updated* tells the author

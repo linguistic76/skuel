@@ -46,9 +46,10 @@ from core.services.ingestion.move_detection import (
 )
 from core.services.ingestion.parser import parse_markdown
 from core.services.ingestion.types import (
-    AppliedMove,
     DeletionPlan,
     DeletionReconciliation,
+    FileMove,
+    FileRename,
     MovePlan,
     PlannedEdgeDeletion,
     PlannedEntityDeletion,
@@ -59,7 +60,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_grammar import GENERATED_UID
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     from core.ports.ingestion_protocols import IngestionBackendOperations
     from core.services.ingestion.config import SyncAllowlist
@@ -161,6 +162,26 @@ def _similarity_candidate_content(file_path: Path) -> str | None:
     return text if text.strip() else None
 
 
+def _file_move(
+    row: MoveCandidate,
+    new_file: NewFileCandidate,
+    directory: Path,
+    *,
+    similarity: float | None,
+) -> FileMove:
+    """One matched rename, as the plan reports it and the rewrite applies it."""
+    return FileMove(
+        old_path=row.file_path,
+        new_path=new_file.file_path,
+        entity_uid=row.entity_uid,
+        display_old=display_path(row.file_path, directory),
+        display_new=display_path(new_file.file_path, directory),
+        content_hash=new_file.content_hash,
+        authored_edges=row.authored_edges,
+        similarity=similarity,
+    )
+
+
 def _matches_pattern(path_str: str, pattern: str) -> bool:
     """Mirror collect_files() pattern semantics for tracked-row filtering.
 
@@ -217,6 +238,8 @@ class _GoneRowClassification:
 
     all_tracked: list[dict[str, Any]]
     stale_rows: list[dict[str, Any]]
+    # The stale rows whose identity exactly one collected file claims.
+    renames: list[FileRename]
     # Owner-filtered entity delete candidates (edge rows split out).
     entity_rows: list[dict[str, Any]]
     edge_rows: list[dict[str, Any]]
@@ -594,6 +617,7 @@ class IngestionTracker:
         allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
         owner_only: bool = False,
+        claims: Iterable[tuple[str, str]] = (),
     ) -> Result[_GoneRowClassification | None]:
         """Shared gone-row classification — the valve-free half of ``plan_deletions``.
 
@@ -608,6 +632,12 @@ class IngestionTracker:
         vault never authors shared content (ADR-070 Decision 11); a row whose
         node is already gone still clears. Returns ``None`` when nothing is
         tracked in scope or nothing is gone.
+
+        ``claims`` are ``(identity, canonical path)`` pairs for files that hold
+        no tracker row yet — what a dry run knows a sync's ingest will claim:
+        each counts in the moved/stale split as a collectible row would. A
+        stale row whose identity exactly one collectible file claims is a
+        rename, reported in ``renames``.
 
         Deliberately does NOT apply the mass-deletion valves: those protect
         DELETION. The move pre-pass consumes this classification too, and must
@@ -636,8 +666,9 @@ class IngestionTracker:
             path = Path(str(row["file_path"]))
             return path.exists() and is_ingestible_path(path, allowlist)
 
+        collectible_paths = {str(row["file_path"]) for row in all_tracked if _collectible(row)}
         # "gone" = deleted from disk OR now walled — both are retracted.
-        gone = [row for row in tracked if not _collectible(row)]
+        gone = [row for row in tracked if str(row["file_path"]) not in collectible_paths]
         if not gone:
             return Result.ok(None)
 
@@ -645,9 +676,28 @@ class IngestionTracker:
         # moves/renames to an allowed location (covers duplicate edge files too).
         # Claims are checked against ALL tracked rows, not just the pattern scope —
         # an identity owned by an out-of-scope allowed file must survive.
-        live_uids = {row["entity_uid"] for row in all_tracked if _collectible(row)}
-        stale_rows = [row for row in gone if row["entity_uid"] in live_uids]
-        delete_rows = [row for row in gone if row["entity_uid"] not in live_uids]
+        claimants: dict[str, set[str]] = {}
+        for row in all_tracked:
+            if str(row["file_path"]) in collectible_paths:
+                claimants.setdefault(str(row["entity_uid"]), set()).add(str(row["file_path"]))
+        for identity, claim_path in claims:
+            claimants.setdefault(identity, set()).add(claim_path)
+        stale_rows = [row for row in gone if str(row["entity_uid"]) in claimants]
+        delete_rows = [row for row in gone if str(row["entity_uid"]) not in claimants]
+        renames: list[FileRename] = []
+        for row in stale_rows:
+            paths = claimants[str(row["entity_uid"])]
+            if len(paths) != 1:
+                continue  # two files claim one identity: a duplicate, not a rename
+            (new_path,) = paths
+            renames.append(
+                FileRename(
+                    old_path=str(row["file_path"]),
+                    new_path=new_path,
+                    display_old=display_path(str(row["file_path"]), directory),
+                    display_new=display_path(new_path, directory),
+                )
+            )
 
         entity_rows = [
             row for row in delete_rows if not str(row["entity_uid"]).startswith(EDGE_UID_PREFIX)
@@ -710,6 +760,7 @@ class IngestionTracker:
             _GoneRowClassification(
                 all_tracked=all_tracked,
                 stale_rows=stale_rows,
+                renames=renames,
                 entity_rows=entity_rows,
                 edge_rows=edge_rows,
                 ownership_mismatches=ownership_mismatches,
@@ -724,6 +775,7 @@ class IngestionTracker:
         allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
         owner_only: bool = False,
+        claims: Iterable[tuple[str, str]] = (),
     ) -> Result[DeletionPlan]:
         """
         Classify what deletion reconciliation WOULD do — read-only.
@@ -773,11 +825,19 @@ class IngestionTracker:
           with ``owner_only`` (a personal vault) a live ownerless node is kept
           as well (``_classify_gone_rows``).
 
+        ``claims`` (a dry run's): identities files with no tracker row yet will
+        claim — see ``_classify_gone_rows``.
+
         Backend (reads only): IngestionBackend.get_tracked_files_under /
         get_entity_owner_uids.
         """
         classification_result = await self._classify_gone_rows(
-            directory, pattern, allowlist=allowlist, owner_uid=owner_uid, owner_only=owner_only
+            directory,
+            pattern,
+            allowlist=allowlist,
+            owner_uid=owner_uid,
+            owner_only=owner_only,
+            claims=claims,
         )
         if classification_result.is_error:
             return Result.fail(classification_result)
@@ -873,6 +933,7 @@ class IngestionTracker:
                 ),
                 edge_deletions=tuple(deletable_edges),
                 stale_file_paths=tuple(str(row["file_path"]) for row in stale_rows),
+                renames=tuple(classification.renames),
                 unparseable_edge_file_paths=tuple(unparseable_edge_paths),
                 ownership_mismatches=tuple(ownership_mismatches),
                 mass_deletion_refused=refusal_warning is not None,
@@ -880,7 +941,7 @@ class IngestionTracker:
             )
         )
 
-    async def detect_and_apply_moves(
+    async def plan_moves(
         self,
         directory: Path,
         files_to_process: list[Path],
@@ -890,21 +951,17 @@ class IngestionTracker:
         owner_uid: UserUID | None = None,
         owner_only: bool = False,
     ) -> Result[MovePlan]:
-        """Content-hash move pre-pass: turn uid-less renames into row rewrites.
+        """Content-hash move detection, read-only: which uid-less renames a sync bridges.
 
         A uid-less vault file's identity is path-keyed (#616), so a rename is
         a new path — without this pass the sync mints a fresh uid at the new
         path and deletion reconciliation deletes the old node, losing the
         uid, grounding edges, manual/MOC links, and ``created_at``. A pure
         rename preserves content, so the old row and the new file share a
-        SHA-256: for each unambiguous 1:1 match this pass rewrites the
-        tracker row (old path → new path, SAME uid), after which
-        ``_resolve_prior_user_entry_uid`` reuses the uid (in-place upsert)
-        and reconciliation sees no row for the old path (no deletion).
-
-        MUST run after ``files_to_process`` is collected and BEFORE both the
-        ingestion loop and deletion reconciliation — later, and the new path
-        has already minted a fresh uid or the old node is already gone.
+        SHA-256: each unambiguous 1:1 match is a :class:`FileMove`, which
+        ``detect_and_apply_moves`` turns into a tracker-row rewrite (old path
+        → new path, SAME uid). The sync preview calls this half alone, so it
+        reports the moves a sync would make without making them.
 
         Two matching strategies in sequence. **Exact hash** catches pure
         renames. **Lexical similarity** over the exact pass's residual
@@ -912,12 +969,19 @@ class IngestionTracker:
         last-ingested body (``Entity.content``) is compared against each new
         markdown file's resolved on-disk content (word-shingle Jaccard), and
         only a MUTUAL best match at or above
-        ``SIMILARITY_MOVE_THRESHOLD`` is applied — logged distinctly with
-        its score. Safety rails:
+        ``SIMILARITY_MOVE_THRESHOLD`` is matched — annotated with its score.
+        Safety rails:
+        - only a row whose uid is in the generated shape is a source: a uid
+          in the authored shape is the file's own (its ``uid:`` line, or its
+          file name), so the new file claims it — or does not — by itself,
+          and the uid-based moved/stale split decides the rename. Bridging
+          one would put the old uid on the new path's row, which the ingest
+          then overwrites with the file's own uid, stranding the old node
+          with no row;
         - ambiguity (2+ candidates sharing a hash, or a tied similarity
           top score) → skip, delete+create;
         - trivial content (empty / whitespace-only) → never matched;
-        - only rows whose uid names a live node are rewritten (mirrors #616;
+        - only rows whose uid names a live node are matched (mirrors #616;
           for similarity the content fetch itself is the live-node proof);
         - foreign-owned rows never qualify (shared owner-scope filter).
 
@@ -928,19 +992,10 @@ class IngestionTracker:
         old path vanish at once, which the physical-existence valve reads as
         an unmounted vault — but a real unmount produces no new files to
         match, so move detection is naturally inert there, while a genuine
-        reorganization gets its identities preserved. Authored-uid files don't
-        need this pass (the uid-based moved/stale split already preserves
-        them) but pass through harmlessly: rewriting to the same authored uid
-        is what ingestion would stamp anyway.
+        reorganization gets its identities preserved.
 
-        The rewritten row is marked pending (``PENDING_MTIME``): the
-        current run's ingest re-stamps it on success, and if that ingest
-        fails the next sync re-processes the file instead of hash-skipping a
-        node whose path metadata never updated.
-
-        Backend: IngestionBackend.get_tracked_files_under (via the shared
-        classification) / get_live_entity_uids / get_entity_contents /
-        update_ingestion_metadata / delete_ingestion_metadata.
+        Backend (reads only): IngestionBackend.get_tracked_files_under (via the
+        shared classification) / get_live_entity_uids / get_entity_contents.
         """
         if not files_to_process:
             return Result.ok(MovePlan())
@@ -963,6 +1018,7 @@ class IngestionTracker:
             )
             for row in classification.entity_rows
             if row.get("content_hash")
+            and GENERATED_UID.fullmatch(str(row["entity_uid"])) is not None
         ]
         if not candidates:
             return Result.ok(MovePlan())
@@ -1000,7 +1056,7 @@ class IngestionTracker:
         for message in match.ambiguous:
             self.logger.info("Move detection: %s", message)
 
-        applied: list[AppliedMove] = []
+        moves: list[FileMove] = []
         if match.pairs:
             # Live-node guard (mirrors #616): a stale row pointing at a deleted
             # node is not a move source.
@@ -1020,28 +1076,68 @@ class IngestionTracker:
                         pair.row.entity_uid,
                     )
                     continue
-                rewrite_result = await self._rewrite_move_row(
-                    pair.row, pair.new_file, directory, similarity=None
-                )
-                if rewrite_result.is_error:
-                    return Result.fail(rewrite_result)
-                applied.append(rewrite_result.value)
+                moves.append(_file_move(pair.row, pair.new_file, directory, similarity=None))
 
         similarity_result = await self._detect_similarity_moves(
             match.residual_rows, match.residual_files, directory
         )
         if similarity_result.is_error:
             return Result.fail(similarity_result)
-        applied.extend(similarity_result.value)
+        moves.extend(similarity_result.value)
 
-        return Result.ok(MovePlan(applied=tuple(applied)))
+        return Result.ok(MovePlan(moves=tuple(moves)))
+
+    async def detect_and_apply_moves(
+        self,
+        directory: Path,
+        files_to_process: list[Path],
+        pattern: str = "*",
+        *,
+        allowlist: SyncAllowlist | None = None,
+        owner_uid: UserUID | None = None,
+        owner_only: bool = False,
+    ) -> Result[MovePlan]:
+        """The move pre-pass: apply each rename ``plan_moves`` matches.
+
+        Each :class:`FileMove` becomes a tracker-row rewrite (old path → new
+        path, SAME uid), after which the ingest keeps the uid
+        (``_resolve_prior_user_entry_uid``, ``personal_file_uid``) and
+        reconciliation sees no row for the old path (no deletion).
+
+        MUST run after ``files_to_process`` is collected and BEFORE both the
+        ingestion loop and deletion reconciliation — later, and the new path
+        has already minted a fresh uid or the old node is already gone.
+
+        The rewritten row is marked pending (``PENDING_MTIME``): the
+        current run's ingest re-stamps it on success, and if that ingest
+        fails the next sync re-processes the file instead of hash-skipping a
+        node whose path metadata never updated.
+
+        Backend: ``plan_moves``'s reads / update_ingestion_metadata /
+        delete_ingestion_metadata.
+        """
+        plan_result = await self.plan_moves(
+            directory,
+            files_to_process,
+            pattern,
+            allowlist=allowlist,
+            owner_uid=owner_uid,
+            owner_only=owner_only,
+        )
+        if plan_result.is_error:
+            return Result.fail(plan_result)
+        for move in plan_result.value.moves:
+            rewrite_result = await self._rewrite_move_row(move)
+            if rewrite_result.is_error:
+                return Result.fail(rewrite_result)
+        return plan_result
 
     async def _detect_similarity_moves(
         self,
         residual_rows: tuple[MoveCandidate, ...],
         residual_files: tuple[NewFileCandidate, ...],
         directory: Path,
-    ) -> Result[list[AppliedMove]]:
+    ) -> Result[list[FileMove]]:
         """Similarity pass over the exact-hash residual (rename + edit in one sync).
 
         Comparison source is the gone node's own last-ingested body
@@ -1049,25 +1145,22 @@ class IngestionTracker:
         new markdown file's resolved on-disk content; scoring is cheap
         synchronous lexical similarity (word-shingle Jaccard), CORE-tier-safe
         — deliberately NOT embeddings. Only a mutual best match at or above
-        ``SIMILARITY_MOVE_THRESHOLD`` is applied; a tied top score abstains.
+        ``SIMILARITY_MOVE_THRESHOLD`` is matched; a tied top score abstains.
         The content fetch is also the live-node guard: a hand-deleted node
         yields no content row, so its row can never be a move source.
 
         Candidacy is gated to the uid-less UserEntry world on BOTH sides
         (Codex #618): a source must be a UserEntry whose uid was minted — a
-        generated uid (an authored one is in the authored shape) on a note
-        with no ``metadata.period_key`` (a periodic note's uid derives from
-        its period, so it is stable across paths). The uid-based moved/stale
+        generated uid (``plan_moves`` admits no other) on a note with no
+        ``metadata.period_key`` (a periodic note's uid derives from its
+        period, so it is stable across paths). The uid-based moved/stale
         split owns those, and bridging one here would fuse identities or
         orphan the gone node. Destinations must be markdown files that will
         honor the rewritten uid (``_similarity_candidate_content``'s gates —
         uid-less notes are markdown; YAML entity files author their uids and
-        have no body to compare).
+        have no body to compare). Reads only.
         """
-        candidate_rows = [
-            row for row in residual_rows if GENERATED_UID.fullmatch(row.entity_uid) is not None
-        ]
-        if not candidate_rows or not residual_files:
+        if not residual_rows or not residual_files:
             return Result.ok([])
         markdown_files = [
             new_file
@@ -1078,7 +1171,7 @@ class IngestionTracker:
             return Result.ok([])
 
         contents_result = await self.backend.get_entity_contents(
-            [row.entity_uid for row in candidate_rows]
+            [row.entity_uid for row in residual_rows]
         )
         if contents_result.is_error:
             return Result.fail(contents_result)
@@ -1089,7 +1182,7 @@ class IngestionTracker:
         }
         rows_with_content = [
             (row, content_by_uid[row.entity_uid])
-            for row in candidate_rows
+            for row in residual_rows
             if row.entity_uid in content_by_uid
         ]
         if not rows_with_content:
@@ -1106,71 +1199,50 @@ class IngestionTracker:
         match = match_moves_by_similarity(rows_with_content, files_with_content)
         for message in match.ambiguous:
             self.logger.info("Move detection: %s", message)
+        return Result.ok(
+            [
+                _file_move(pair.row, pair.new_file, directory, similarity=pair.score)
+                for pair in match.pairs
+            ]
+        )
 
-        applied: list[AppliedMove] = []
-        for pair in match.pairs:
-            rewrite_result = await self._rewrite_move_row(
-                pair.row, pair.new_file, directory, similarity=pair.score
-            )
-            if rewrite_result.is_error:
-                return Result.fail(rewrite_result)
-            applied.append(rewrite_result.value)
-        return Result.ok(applied)
-
-    async def _rewrite_move_row(
-        self,
-        row: MoveCandidate,
-        new_file: NewFileCandidate,
-        directory: Path,
-        *,
-        similarity: float | None,
-    ) -> Result[AppliedMove]:
+    async def _rewrite_move_row(self, move: FileMove) -> Result[None]:
         """Rewrite one tracker row old path → new path under the same uid.
 
         Upserts the new-path row FIRST, then drops the old one — a crash
         between the two leaves both rows claiming one uid, which the
         uid-based moved/stale split resolves as a stale row, never a node
-        deletion. The new row is marked pending (``PENDING_MTIME``, its real hash kept)
-        so a failed ingest this run still retries next sync, and the old row's
-        edge fingerprint, so the ingest at the new path still retracts what
-        the file dropped. ``similarity`` is the Jaccard score for a similarity
-        match (logged distinctly), ``None`` for an exact-hash match.
+        deletion. The new row is marked pending (``PENDING_MTIME``, its real
+        hash kept) so a failed ingest this run still retries next sync, and
+        carries the old row's edge fingerprint, so the ingest at the new path
+        still retracts what the file dropped.
         """
         upsert_result = await self.backend.update_ingestion_metadata(
             self._pending_row(
-                new_file.file_path, row.entity_uid, new_file.content_hash, row.authored_edges
+                move.new_path, move.entity_uid, move.content_hash, move.authored_edges
             )
         )
         if upsert_result.is_error:
             return Result.fail(upsert_result)
-        delete_result = await self.backend.delete_ingestion_metadata([row.file_path])
+        delete_result = await self.backend.delete_ingestion_metadata([move.old_path])
         if delete_result.is_error:
             return Result.fail(delete_result)
-        if similarity is None:
+        if move.similarity is None:
             self.logger.info(
                 "Move detected (content hash): %s → %s (uid %s)",
-                row.file_path,
-                new_file.file_path,
-                row.entity_uid,
+                move.old_path,
+                move.new_path,
+                move.entity_uid,
             )
         else:
             self.logger.info(
                 "Move detected (similarity %.3f): %s → %s (uid %s)",
-                similarity,
-                row.file_path,
-                new_file.file_path,
-                row.entity_uid,
+                move.similarity,
+                move.old_path,
+                move.new_path,
+                move.entity_uid,
             )
-        return Result.ok(
-            AppliedMove(
-                old_path=row.file_path,
-                new_path=new_file.file_path,
-                entity_uid=row.entity_uid,
-                display_old=display_path(row.file_path, directory),
-                display_new=display_path(new_file.file_path, directory),
-                similarity=similarity,
-            )
-        )
+        return Result.ok(None)
 
     async def reconcile_deletions(
         self,
@@ -1229,6 +1301,7 @@ class IngestionTracker:
                     mass_deletion_refused=True,
                     refusal_warning=plan.refusal_warning,
                     stale_metadata_removed=stale_removed,
+                    renames=[rename.line for rename in plan.renames],
                     ownership_mismatches=list(plan.ownership_mismatches),
                 )
             )
@@ -1287,6 +1360,7 @@ class IngestionTracker:
                 entities_deleted=entities_deleted,
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_removed,
+                renames=[rename.line for rename in plan.renames],
                 ownership_mismatches=list(plan.ownership_mismatches),
                 goals_losing_contributions=sorted(set(goals_losing_contributions)),
                 goals_losing_habits=sorted(set(goals_losing_habits)),

@@ -3,7 +3,8 @@ Move Detection - Content Matching for Uid-Less Vault Renames
 =============================================================
 
 Pure matching logic for the move-detection pre-pass
-(``IngestionTracker.detect_and_apply_moves``), two strategies in sequence:
+(``IngestionTracker.plan_moves``, applied by ``detect_and_apply_moves``), two
+strategies in sequence:
 
 - **Phase 1 — exact hash**: a gone tracked row and a new untracked file
   sharing a SHA-256 1:1 is a pure rename — the tracker row is rewritten

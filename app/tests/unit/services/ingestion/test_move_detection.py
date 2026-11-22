@@ -330,6 +330,69 @@ def _file_hash(path: Path) -> str:
 
 class TestDetectAndApplyMoves:
     @pytest.mark.asyncio
+    async def test_plan_moves_names_the_move_and_writes_nothing(self, tmp_path) -> None:
+        new_path = tmp_path / "renamed-note.md"
+        new_path.write_text("uid-less knowledge note body", encoding="utf-8")
+        anchor = tmp_path / "anchor.md"
+        anchor.write_text("anchor", encoding="utf-8")
+        backend = _backend_for_moves(
+            [
+                {
+                    "file_path": str(tmp_path / "note.md"),
+                    "entity_uid": "ue_1a1a1a1a1a1a1a1a",
+                    "content_hash": _file_hash(new_path),
+                },
+                {
+                    "file_path": str(anchor),
+                    "entity_uid": "ue_0c0c0c0c0c0c0c0c",
+                    "content_hash": "other",
+                },
+            ],
+            live_uids=["ue_1a1a1a1a1a1a1a1a"],
+        )
+
+        result = await IngestionTracker(backend).plan_moves(tmp_path, [new_path])
+
+        assert result.is_ok
+        assert [move.line for move in result.value.moves] == ["note.md → renamed-note.md"]
+        backend.update_ingestion_metadata.assert_not_called()
+        backend.delete_ingestion_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("uid", ["ku.thing", "ku.ns.thing", "ue.thing"])
+    async def test_a_uid_in_the_authored_shape_is_never_bridged(self, tmp_path, uid) -> None:
+        # The file names that uid itself (its uid: line or its file name): a new
+        # file with the same bytes claims it or not by itself, and the moved/stale
+        # split decides the rename. Bridging it would put the old uid on a row the
+        # ingest then overwrites, stranding the old node.
+        new_path = tmp_path / "renamed.md"
+        new_path.write_text("---\ntype: ku\ntitle: Thing\n---\nbody\n", encoding="utf-8")
+        anchor = tmp_path / "anchor.md"
+        anchor.write_text("anchor", encoding="utf-8")
+        backend = _backend_for_moves(
+            [
+                {
+                    "file_path": str(tmp_path / "thing.md"),
+                    "entity_uid": uid,
+                    "content_hash": _file_hash(new_path),
+                },
+                {
+                    "file_path": str(anchor),
+                    "entity_uid": "ue_0c0c0c0c0c0c0c0c",
+                    "content_hash": "other",
+                },
+            ],
+            live_uids=[uid],
+            entity_contents={uid: "body"},
+        )
+
+        result = await IngestionTracker(backend).detect_and_apply_moves(tmp_path, [new_path])
+
+        assert result.is_ok
+        assert result.value.moves == ()
+        backend.update_ingestion_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_pure_rename_rewrites_tracker_row(self, tmp_path) -> None:
         # Old path tracked + gone; new path on disk with identical content.
         old_path = tmp_path / "note.md"  # never created (renamed away)
@@ -342,21 +405,25 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(old_path),
-                    "entity_uid": "ue_moved1",
+                    "entity_uid": "ue_1a1a1a1a1a1a1a1a",
                     "content_hash": _file_hash(new_path),
                 },
-                {"file_path": str(anchor), "entity_uid": "ue_anchor", "content_hash": "other"},
+                {
+                    "file_path": str(anchor),
+                    "entity_uid": "ue_0c0c0c0c0c0c0c0c",
+                    "content_hash": "other",
+                },
             ],
-            live_uids=["ue_moved1"],
+            live_uids=["ue_1a1a1a1a1a1a1a1a"],
         )
         tracker = IngestionTracker(backend)
 
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
 
         assert result.is_ok
-        assert len(result.value.applied) == 1
-        move = result.value.applied[0]
-        assert move.entity_uid == "ue_moved1"
+        assert len(result.value.moves) == 1
+        move = result.value.moves[0]
+        assert move.entity_uid == "ue_1a1a1a1a1a1a1a1a"
         assert move.old_path == str(old_path)
         assert move.new_path == str(new_path.resolve())
         # Row rewritten: new path claims the uid marked pending (mtime
@@ -367,7 +434,7 @@ class TestDetectAndApplyMoves:
             "file_path": str(new_path.resolve()),
             "content_hash": _file_hash(new_path),
             "file_mtime": PENDING_MTIME,
-            "entity_uid": "ue_moved1",
+            "entity_uid": "ue_1a1a1a1a1a1a1a1a",
             "authored_edges": [],
         }
         backend.delete_ingestion_metadata.assert_awaited_once_with([str(old_path)])
@@ -390,7 +457,11 @@ class TestDetectAndApplyMoves:
                     "entity_uid": "ue_ee90ef12ee90ef12",
                     "content_hash": _sha("original body"),
                 },
-                {"file_path": str(anchor), "entity_uid": "ue_anchor", "content_hash": "other"},
+                {
+                    "file_path": str(anchor),
+                    "entity_uid": "ue_0c0c0c0c0c0c0c0c",
+                    "content_hash": "other",
+                },
             ],
             live_uids=["ue_ee90ef12ee90ef12"],
         )
@@ -399,7 +470,7 @@ class TestDetectAndApplyMoves:
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
 
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
         backend.delete_ingestion_metadata.assert_not_called()
 
@@ -416,18 +487,30 @@ class TestDetectAndApplyMoves:
 
         backend = _backend_for_moves(
             [
-                {"file_path": str(tmp_path / "a.md"), "entity_uid": "ue_a", "content_hash": shared},
-                {"file_path": str(tmp_path / "b.md"), "entity_uid": "ue_b", "content_hash": shared},
-                {"file_path": str(anchor), "entity_uid": "ue_anchor", "content_hash": "other"},
+                {
+                    "file_path": str(tmp_path / "a.md"),
+                    "entity_uid": "ue_0a0a0a0a0a0a0a0a",
+                    "content_hash": shared,
+                },
+                {
+                    "file_path": str(tmp_path / "b.md"),
+                    "entity_uid": "ue_0b0b0b0b0b0b0b0b",
+                    "content_hash": shared,
+                },
+                {
+                    "file_path": str(anchor),
+                    "entity_uid": "ue_0c0c0c0c0c0c0c0c",
+                    "content_hash": "other",
+                },
             ],
-            live_uids=["ue_a", "ue_b"],
+            live_uids=["ue_0a0a0a0a0a0a0a0a", "ue_0b0b0b0b0b0b0b0b"],
         )
         tracker = IngestionTracker(backend)
 
         result = await tracker.detect_and_apply_moves(tmp_path, [new_a, new_b])
 
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
         backend.delete_ingestion_metadata.assert_not_called()
 
@@ -443,19 +526,23 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(tmp_path / "old-empty.md"),
-                    "entity_uid": "ue_empty",
+                    "entity_uid": "ue_0e0e0e0e0e0e0e0e",
                     "content_hash": _file_hash(new_path),
                 },
-                {"file_path": str(anchor), "entity_uid": "ue_anchor", "content_hash": "other"},
+                {
+                    "file_path": str(anchor),
+                    "entity_uid": "ue_0c0c0c0c0c0c0c0c",
+                    "content_hash": "other",
+                },
             ],
-            live_uids=["ue_empty"],
+            live_uids=["ue_0e0e0e0e0e0e0e0e"],
         )
         tracker = IngestionTracker(backend)
 
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
 
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
@@ -470,10 +557,14 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(tmp_path / "old.md"),
-                    "entity_uid": "ue_dead",
+                    "entity_uid": "ue_0d0d0d0d0d0d0d0d",
                     "content_hash": _file_hash(new_path),
                 },
-                {"file_path": str(anchor), "entity_uid": "ue_anchor", "content_hash": "other"},
+                {
+                    "file_path": str(anchor),
+                    "entity_uid": "ue_0c0c0c0c0c0c0c0c",
+                    "content_hash": "other",
+                },
             ],
             live_uids=[],  # uid names no live node
         )
@@ -482,7 +573,7 @@ class TestDetectAndApplyMoves:
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
 
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
         backend.delete_ingestion_metadata.assert_not_called()
 
@@ -517,7 +608,7 @@ class TestDetectAndApplyMoves:
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
 
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
         backend.delete_ingestion_metadata.assert_not_called()
 
@@ -538,23 +629,26 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(tmp_path / "note-a.md"),
-                    "entity_uid": "ue_a",
+                    "entity_uid": "ue_0a0a0a0a0a0a0a0a",
                     "content_hash": _file_hash(new_a),
                 },
                 {
                     "file_path": str(tmp_path / "note-b.md"),
-                    "entity_uid": "ue_b",
+                    "entity_uid": "ue_0b0b0b0b0b0b0b0b",
                     "content_hash": _file_hash(new_b),
                 },
             ],
-            live_uids=["ue_a", "ue_b"],
+            live_uids=["ue_0a0a0a0a0a0a0a0a", "ue_0b0b0b0b0b0b0b0b"],
         )
         tracker = IngestionTracker(backend)
 
         result = await tracker.detect_and_apply_moves(tmp_path, [new_a, new_b])
 
         assert result.is_ok
-        assert {m.entity_uid for m in result.value.applied} == {"ue_a", "ue_b"}
+        assert {m.entity_uid for m in result.value.moves} == {
+            "ue_0a0a0a0a0a0a0a0a",
+            "ue_0b0b0b0b0b0b0b0b",
+        }
         assert backend.update_ingestion_metadata.await_count == 2
         assert backend.delete_ingestion_metadata.await_count == 2
 
@@ -563,7 +657,7 @@ class TestDetectAndApplyMoves:
         # The Phase 2 case: rename + edit in ONE sync. Hash no longer
         # matches, but the gone node's stored body is ≥ threshold similar to
         # the new file's resolved content → tracker row rewritten under the
-        # same uid, with the score carried on the AppliedMove.
+        # same uid, with the score carried on the FileMove.
         old_path = tmp_path / "feynman-technique.md"  # renamed away
         new_path = tmp_path / "feynman-method.md"
         edited_body = _LONG_BODY + " Added one trailing sentence after the rename."
@@ -588,8 +682,8 @@ class TestDetectAndApplyMoves:
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
 
         assert result.is_ok
-        assert len(result.value.applied) == 1
-        move = result.value.applied[0]
+        assert len(result.value.moves) == 1
+        move = result.value.moves[0]
         assert (
             move.entity_uid == "ue_ab12cd34ab12cd34"
         )  # minted uid-less shape — the only sanctioned source
@@ -638,7 +732,7 @@ class TestDetectAndApplyMoves:
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
 
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
         backend.delete_ingestion_metadata.assert_not_called()
 
@@ -683,8 +777,8 @@ class TestDetectAndApplyMoves:
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
 
         assert result.is_ok
-        assert len(result.value.applied) == 1
-        assert result.value.applied[0].similarity == 1.0
+        assert len(result.value.moves) == 1
+        assert result.value.moves[0].similarity == 1.0
 
     @pytest.mark.asyncio
     async def test_explicit_empty_content_field_suppresses_matching(self, tmp_path) -> None:
@@ -714,7 +808,7 @@ class TestDetectAndApplyMoves:
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
 
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
@@ -741,7 +835,7 @@ class TestDetectAndApplyMoves:
         result = await tracker.detect_and_apply_moves(tmp_path, [new_path])
 
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
@@ -760,7 +854,7 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(tmp_path / "pure.md"),
-                    "entity_uid": "ue_pure",
+                    "entity_uid": "ue_1c1c1c1c1c1c1c1c",
                     "content_hash": _file_hash(pure_new),
                 },
                 {
@@ -769,7 +863,7 @@ class TestDetectAndApplyMoves:
                     "content_hash": _sha("frozen pre-rename file bytes"),
                 },
             ],
-            live_uids=["ue_pure", "ue_ee90ef12ee90ef12"],
+            live_uids=["ue_1c1c1c1c1c1c1c1c", "ue_ee90ef12ee90ef12"],
             entity_contents={"ue_ee90ef12ee90ef12": _LONG_BODY},
         )
         tracker = IngestionTracker(backend)
@@ -777,9 +871,9 @@ class TestDetectAndApplyMoves:
         result = await tracker.detect_and_apply_moves(tmp_path, [pure_new, edited_new])
 
         assert result.is_ok
-        by_uid = {move.entity_uid: move for move in result.value.applied}
-        assert set(by_uid) == {"ue_pure", "ue_ee90ef12ee90ef12"}
-        assert by_uid["ue_pure"].similarity is None  # exact hash — no score
+        by_uid = {move.entity_uid: move for move in result.value.moves}
+        assert set(by_uid) == {"ue_1c1c1c1c1c1c1c1c", "ue_ee90ef12ee90ef12"}
+        assert by_uid["ue_1c1c1c1c1c1c1c1c"].similarity is None  # exact hash — no score
         assert by_uid["ue_ee90ef12ee90ef12"].similarity is not None
         assert by_uid["ue_ee90ef12ee90ef12"].similarity >= SIMILARITY_MOVE_THRESHOLD
         assert backend.update_ingestion_metadata.await_count == 2
@@ -825,7 +919,7 @@ class TestDetectAndApplyMoves:
             f"---\ntype: user_entry\nuid: moc.worldview\n---\n{_LONG_BODY} Small addition.",
         )
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
@@ -839,8 +933,8 @@ class TestDetectAndApplyMoves:
             f"---\ntype: user_entry\nuid:\n---\n{_LONG_BODY} Small addition.",
         )
         assert result.is_ok
-        assert len(result.value.applied) == 1
-        assert result.value.applied[0].entity_uid == "ue_aa11bb22aa11bb22"
+        assert len(result.value.moves) == 1
+        assert result.value.moves[0].entity_uid == "ue_aa11bb22aa11bb22"
 
     @pytest.mark.asyncio
     async def test_empty_string_uid_still_a_destination(self, tmp_path) -> None:
@@ -853,8 +947,8 @@ class TestDetectAndApplyMoves:
             f'---\ntype: user_entry\nuid: ""\n---\n{_LONG_BODY} Small addition.',
         )
         assert result.is_ok
-        assert len(result.value.applied) == 1
-        assert result.value.applied[0].entity_uid == "ue_aa11bb22aa11bb22"
+        assert len(result.value.moves) == 1
+        assert result.value.moves[0].entity_uid == "ue_aa11bb22aa11bb22"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -882,7 +976,7 @@ class TestDetectAndApplyMoves:
             f"{_LONG_BODY} Small addition.",
         )
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
@@ -896,8 +990,8 @@ class TestDetectAndApplyMoves:
             f"{_LONG_BODY} Small addition.",
         )
         assert result.is_ok
-        assert len(result.value.applied) == 1
-        assert result.value.applied[0].entity_uid == "ue_aa11bb22aa11bb22"
+        assert len(result.value.moves) == 1
+        assert result.value.moves[0].entity_uid == "ue_aa11bb22aa11bb22"
 
     @pytest.mark.asyncio
     async def test_non_user_entry_type_never_a_destination(self, tmp_path) -> None:
@@ -909,7 +1003,7 @@ class TestDetectAndApplyMoves:
             f"---\ntype: Ku\ntitle: Similar Ku\n---\n{_LONG_BODY} Small addition.",
         )
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
@@ -926,7 +1020,7 @@ class TestDetectAndApplyMoves:
             f"---\ntype: exercise_submission\n---\n{_LONG_BODY} Small addition.",
         )
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
@@ -942,7 +1036,7 @@ class TestDetectAndApplyMoves:
             row_uid="ue.worldview",
         )
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.get_entity_contents.assert_not_called()
         backend.update_ingestion_metadata.assert_not_called()
 
@@ -959,7 +1053,7 @@ class TestDetectAndApplyMoves:
             period_key="2026-07-12",
         )
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
@@ -973,7 +1067,7 @@ class TestDetectAndApplyMoves:
             f"---\ntype: user_entry\n---\n{_LONG_BODY} Small addition.",
         )
         assert result.is_ok
-        assert [move.entity_uid for move in result.value.applied] == ["ue_aa11bb22aa11bb22"]
+        assert [move.entity_uid for move in result.value.moves] == ["ue_aa11bb22aa11bb22"]
 
     @pytest.mark.asyncio
     async def test_list_frontmatter_skipped_not_fatal(self, tmp_path) -> None:
@@ -985,7 +1079,7 @@ class TestDetectAndApplyMoves:
             f"---\n- alpha\n- beta\n---\n{_LONG_BODY} Small addition.",
         )
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
@@ -996,12 +1090,16 @@ class TestDetectAndApplyMoves:
             [
                 {
                     "file_path": str(tmp_path / "gone.md"),
-                    "entity_uid": "ue_gone",
+                    "entity_uid": "ue_0f0f0f0f0f0f0f0f",
                     "content_hash": _sha("body"),
                 },
-                {"file_path": str(anchor), "entity_uid": "ue_anchor", "content_hash": "other"},
+                {
+                    "file_path": str(anchor),
+                    "entity_uid": "ue_0c0c0c0c0c0c0c0c",
+                    "content_hash": "other",
+                },
             ],
-            live_uids=["ue_gone"],
+            live_uids=["ue_0f0f0f0f0f0f0f0f"],
         )
         tracker = IngestionTracker(backend)
 
@@ -1009,7 +1107,7 @@ class TestDetectAndApplyMoves:
         result = await tracker.detect_and_apply_moves(tmp_path, [anchor])
 
         assert result.is_ok
-        assert result.value.applied == ()
+        assert result.value.moves == ()
         backend.update_ingestion_metadata.assert_not_called()
 
 
@@ -1029,7 +1127,7 @@ class TestPendingRows:
             content_hash=_file_hash(note),  # the real hash — kept for move detection
             file_mtime=PENDING_MTIME,
             last_ingested_at=datetime.now(),
-            entity_uid="ue_pending1",
+            entity_uid="ue_1b1b1b1b1b1b1b1b",
         )
         decision = tracker.needs_ingestion(note, row)
         assert decision.needs_ingestion
@@ -1047,7 +1145,7 @@ class TestPendingRows:
             content_hash=_file_hash(note),
             file_mtime=note.stat().st_mtime,
             last_ingested_at=datetime.now(),
-            entity_uid="ue_stamped1",
+            entity_uid="ue_1d1d1d1d1d1d1d1d",
         )
         assert not IngestionTracker(MagicMock()).needs_ingestion(note, row).needs_ingestion
 
@@ -1057,12 +1155,12 @@ class TestPendingRows:
         note.write_text("a note that persisted but must retry", encoding="utf-8")
         backend = MagicMock()
         backend.update_ingestion_metadata = AsyncMock(return_value=Result.ok([]))
-        result = await IngestionTracker(backend).record_pending(note, "ue_pending1")
+        result = await IngestionTracker(backend).record_pending(note, "ue_1b1b1b1b1b1b1b1b")
         assert result.is_ok
         assert backend.update_ingestion_metadata.await_args.args[0] == {
             "file_path": str(note.resolve()),
             "content_hash": _file_hash(note),
             "file_mtime": PENDING_MTIME,
-            "entity_uid": "ue_pending1",
+            "entity_uid": "ue_1b1b1b1b1b1b1b1b",
             "authored_edges": None,  # the row's fingerprint is kept
         }
