@@ -1791,7 +1791,9 @@ class UnifiedIngestionService:
         for file_path, (entity_type, data, error) in zip(files, parsed, strict=True):
             identity: str | None = None
             if error is None and entity_type is EntityType.USER_ENTRY:
-                error, identity = self._user_entry_verdict(file_path, owner)
+                error, identity, written = self._user_entry_verdict(file_path, owner)
+                if not written:
+                    verdicts.unwritten.add(file_path)
             elif error is None:
                 identity = self._claimed_identity(data or {})
             if error is not None:
@@ -1831,8 +1833,8 @@ class UnifiedIngestionService:
 
     def _user_entry_verdict(
         self, file_path: Path, owner: UserUID
-    ) -> tuple[dict[str, Any] | None, str | None]:  # boundary: IngestionError.to_dict row
-        """(refusal, identity) the sync's UserEntry door gives a parsed note.
+    ) -> tuple[dict[str, Any] | None, str | None, bool]:  # boundary: IngestionError.to_dict row
+        """(refusal, identity, written) the sync's UserEntry door gives a parsed note.
 
         That door reads the file's own data (``ingest_file``) and builds the
         entry request from it (``build_user_entry_request``) — checks the batch
@@ -1840,19 +1842,20 @@ class UnifiedIngestionService:
         content is a refusal, as the sync reports it
         (``classify_user_entry_failure``); one it refuses for any other reason
         is a sync error, not a refusal. Either way the note writes no tracker
-        row, so it claims nothing. An accepted note claims its authored or
-        periodic uid (``own_entry_uid``) — none when the sync mints it.
+        row (``written`` is false) and claims nothing. An accepted note claims
+        its authored or periodic uid (``own_entry_uid``) — none when the sync
+        mints it.
         """
         read_result = self._read_file(file_path)
         if read_result.is_error or not isinstance(read_result.value[0], dict):
-            return None, None
+            return None, None, False
         data, body = read_result.value
         request = build_user_entry_request(data, file_path, owner, body)
         if request.is_error:
             failure = request.expect_error()
             stage, error_type = classify_user_entry_failure(failure)
             if stage != "validation":
-                return None, None
+                return None, None, False
             refusal = IngestionError(
                 file=str(file_path),
                 error=failure.display_message,
@@ -1860,8 +1863,8 @@ class UnifiedIngestionService:
                 error_type=error_type,
                 entity_type=EntityType.USER_ENTRY.value,
             )
-            return refusal.to_dict(), None
-        return None, own_entry_uid(data, owner)
+            return refusal.to_dict(), None, False
+        return None, own_entry_uid(data, owner), True
 
     async def validate_file(self, file_path: Path) -> Result[ValidationResult]:
         """

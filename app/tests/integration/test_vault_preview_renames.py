@@ -221,7 +221,12 @@ class Run:
 
 
 async def _preview_then_sync(
-    vaults: Vaults, kind: VaultKind, files: dict[str, str], change: Change
+    vaults: Vaults,
+    kind: VaultKind,
+    files: dict[str, str],
+    change: Change,
+    *,
+    sync_fails_a_file: bool = False,
 ) -> Run:
     root = vaults.roots[kind]
     reconciler = vaults.reconcilers[kind]
@@ -238,7 +243,7 @@ async def _preview_then_sync(
 
     synced = await reconciler.sync(kind, OWNER)
     assert synced.is_ok, synced
-    assert not synced.value.errors, synced.value.errors
+    assert bool(synced.value.errors) is sync_fails_a_file, synced.value.errors
     return Run(
         would_delete={
             *preview.value.would_delete_entity_examples,
@@ -435,3 +440,26 @@ async def test_a_file_renamed_onto_a_tracked_path_is_previewed_as_the_sync_repor
     assert run.would_delete == run.deleted == set()
     assert run.moves == ["a.md → b.md"]
     assert list(run.preview.would_move_examples) == run.moves
+
+
+def _wipe_and_add_a_note_for_another_owner(root: Path) -> None:
+    for slug in ("a", "b", "c"):
+        (root / f"{slug}.md").unlink()
+    (root / "foreign.md").write_text(
+        "---\ntype: user_entry\npipeline: knowledge\nownership: user_0f0f0f0f0f0f0f0f\n---\nHi.\n"
+    )
+
+
+async def test_a_new_file_the_sync_fails_to_write_does_not_count_as_a_tracked_file(
+    vaults: Vaults,
+) -> None:
+    run = await _preview_then_sync(
+        vaults,
+        VaultKind.CONTENT,
+        _kus(),
+        _wipe_and_add_a_note_for_another_owner,
+        sync_fails_a_file=True,
+    )
+
+    assert run.would_delete == run.deleted == set()
+    assert run.preview.refusal_warning is not None

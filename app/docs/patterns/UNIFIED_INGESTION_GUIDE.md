@@ -1362,7 +1362,9 @@ without its row rewrites (`plan_moves`) and runs `plan_deletions` over the track
 will have it after that pass and its ingest (`TrackerProjection` — each moved row at its new
 path, a row for each new file under the identity it names by itself), so a renamed file is a
 move, never a deletion, and both mass-deletion valves count what the sync's reconciliation
-counts. The would-ingest figures apply the ingest gate's own
+counts. A file its door refuses writes no row in the projection either; a refusal only the write
+can decide (graph state — an owner gate, a uid another type holds, a teacher's qualification, a
+frontmatter target, the UserEntry create checks) is not foreseen. The would-ingest figures apply the ingest gate's own
 no-type verdict (`is_non_entity_note`, `detector.py` — the same predicate `detect_entity_type`
 raises on), so a vault of loose untyped notes reports one `non_entity_notes` count instead of
 hundreds of phantom "new" files. Each remaining file then runs the sync's own parse stage

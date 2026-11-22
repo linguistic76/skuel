@@ -369,12 +369,18 @@ class ParseVerdicts:
     ``identities`` maps an accepted file to the identity its ingest writes to
     its tracker row — an entity's uid, an Edge file's ``edge_identity`` —
     when the file names it by itself; a UserEntry with no authored or periodic
-    uid names none (its uid is the tracker's or a fresh mint).
+    uid names none (its uid is the tracker's or a fresh mint). ``unwritten``:
+    accepted by the parse stage, refused by the file's door for a reason that
+    is not its content — a sync error, not an ignore, and no tracker row. A
+    refusal that depends on graph state (an owner gate, a uid another type
+    holds, a teacher's qualification, a frontmatter target, the UserEntry
+    create checks) is decided only by the write, so it is in none of these.
     """
 
     # boundary: IngestionError.to_dict rows
     refusals: dict[Path, dict[str, Any]] = field(default_factory=dict)
     identities: dict[Path, str] = field(default_factory=dict)
+    unwritten: set[Path] = field(default_factory=set)
 
 
 @dataclass

@@ -603,8 +603,12 @@ class VaultReconciler:
             # other accepted file's ingest writes — under the identity the file
             # names by itself; a new file whose uid the sync mints gets a row
             # that claims nothing, a changed one keeps the row it has.
+            # A file the sync's door will refuse writes none; a refusal decided
+            # only by the write (graph state) is not foreseen.
             new_identities: dict[str, str | None] = {}
             for d in would_ingest:
+                if d.file_path in verdicts.value.unwritten:
+                    continue
                 identity = verdicts.value.identities.get(d.file_path)
                 if identity is not None or d.reason == "new":
                     new_identities[str(d.file_path.resolve())] = identity
