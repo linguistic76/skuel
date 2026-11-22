@@ -570,7 +570,7 @@ def create_user_entry_ui_routes(
                 else None
             )
             return Div(
-                render_inline_error(result.expect_error().message),
+                render_inline_error(result.expect_error().display_message),
                 _render_entry_responses(
                     existing.value if existing is not None and existing.is_ok else []
                 ),
@@ -793,7 +793,7 @@ def create_user_entry_ui_routes(
         chain_error: str | None = None
         chain: dict[str, Any] = {}
         if chain_result.is_error:
-            chain_error = chain_result.expect_error().message
+            chain_error = chain_result.expect_error().display_message
         else:
             chain = dict(chain_result.value or {})
         fulfilled_exercise = chain.get("exercise") or None
@@ -907,7 +907,7 @@ def create_user_entry_ui_routes(
             map_section = Div(
                 render_inline_error(
                     "Could not load this entry's organized contents: "
-                    f"{children_result.expect_error().message}"
+                    f"{children_result.expect_error().display_message}"
                 ),
                 cls="mt-6",
             )

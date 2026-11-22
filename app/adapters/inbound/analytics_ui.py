@@ -165,7 +165,7 @@ def create_analytics_ui_routes(rt: RouteDecorator, analytics_service: AnalyticsS
             case AnalyticsPeriod.CUSTOM:
                 custom_range = _read_custom_range(request)
                 if custom_range.is_error:
-                    return render_error_banner(custom_range.expect_error().message)
+                    return render_error_banner(custom_range.expect_error().display_message)
                 start, end = custom_range.value
                 result = await analytics_service.generate_report(
                     user_uid, analytics_domain, start, end

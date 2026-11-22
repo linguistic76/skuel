@@ -167,9 +167,8 @@ def create_finance_api_routes(
         result = await finance_service.generate_invoice_pdf(uid)
 
         if result.is_error:
-            error = result.error
             return Response(
-                content=f"Error: {error.message if error else 'Unknown error'}",
+                content=f"Error: {result.expect_error().display_message}",
                 status_code=500,
                 media_type="text/plain",
             )

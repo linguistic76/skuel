@@ -77,7 +77,7 @@ def _collect(
 ) -> None:
     """Append a successful assessment to results, or its error to errors."""
     if result.is_error:
-        errors.append(f"{label}: {result.expect_error().message}")
+        errors.append(f"{label}: {result.expect_error().display_message}")
     else:
         results.append((dim_value, label, result.value))
 

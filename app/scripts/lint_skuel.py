@@ -1379,9 +1379,9 @@ async def teaching_students_content_fragment(request: Request, current_user: Any
         "title": "Errors.not_found Takes a Resource Name, Not a Sentence",
         "severity": "ERROR",
         "description": """`Errors.not_found(resource, identifier=None, *, reason=None)` interpolates
-`resource` into three places: the developer `message` ("Task not found: t1", also sent as
-the `X-Toast-Message` header), the client-facing `user_message` ("The requested Task could
-not be found", the JSON body's `message`) and the `code` (`NOT_FOUND_TASK`). A sentence
+`resource` into three places: the developer `message` ("Task not found: t1", for logs),
+the client-facing `user_message` ("The requested Task could not be found", the JSON body's
+`message` and the `X-Toast-Message` header) and the `code` (`NOT_FOUND_TASK`). A sentence
 passed as `resource` reaches users doubled ("The requested Path step ps_x not found could
 not be found"), puts a UID and spaces into the code, and — where one refusal branch says
 "not found" and another names a different reason — lets a caller tell "exists but not

@@ -141,7 +141,7 @@ def create_admin_dashboard_routes(
         if users_result.is_error:
             logger.error(f"Failed to load users: {users_result.error}")
         users_data = users_result.value if not users_result.is_error else []
-        users_error = str(users_result.error) if users_result.is_error else None
+        users_error = users_result.expect_error().display_message if users_result.is_error else None
 
         # Fetch stats for header via efficient Cypher COUNT query
         user_stats_result = await orchestrator.get_user_role_counts()
@@ -185,7 +185,7 @@ def create_admin_dashboard_routes(
         )
         if users_result.is_error:
             logger.error(f"Failed to load users: {users_result.error}")
-            return pages.users_table_error_fragment(str(users_result.error))
+            return pages.users_table_error_fragment(users_result.expect_error().display_message)
         return pages.users_table_fragment(users_result.value or [])
 
     @rt("/admin/users/{uid}")
@@ -253,7 +253,7 @@ def create_admin_dashboard_routes(
 
         if health_result.is_error:
             err = health_result.expect_error()
-            content: Any = render_error_banner(err.user_message or err.message, severity="warning")
+            content: Any = render_error_banner(err.display_message, severity="warning")
         else:
             content = pages.knowledge_health_page(health_result.value)
 
@@ -293,7 +293,7 @@ def create_admin_dashboard_routes(
         run_result = await prereq_suggestions.generate_suggestions()
         if run_result.is_error:
             err = run_result.expect_error()
-            return render_error_banner(err.user_message or err.message, severity="warning")
+            return render_error_banner(err.display_message, severity="warning")
         return AdminPrereqComponents.render_queue(run_result.value)
 
     # ========================================================================

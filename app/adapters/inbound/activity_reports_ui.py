@@ -294,7 +294,7 @@ def create_activity_reports_ui_routes(
         if result.is_error:
             error = result.expect_error()
             if error.category in _INLINE_ERROR_CATEGORIES:
-                return _period_prompt_page(request, token, note=error.message)
+                return _period_prompt_page(request, token, note=error.display_message)
             logger.error(
                 "activity-reports/for generation failed for user=%s period=%s: %s",
                 user_uid,
@@ -408,7 +408,7 @@ def create_activity_reports_ui_routes(
         if result.is_error:
             error = result.expect_error()
             if error.category in _INLINE_ERROR_CATEGORIES:
-                return Result.ok(_status_note(error.message, ok=False))
+                return Result.ok(_status_note(error.display_message, ok=False))
             return Result.fail(result)
         report = result.value
         return Result.ok(
@@ -453,7 +453,7 @@ def create_activity_reports_ui_routes(
         if result.is_error:
             error = result.expect_error()
             if error.category in _INLINE_ERROR_CATEGORIES:
-                return Result.ok(_status_note(error.message, ok=False))
+                return Result.ok(_status_note(error.display_message, ok=False))
             return Result.fail(result)
         return Result.ok(_status_note("Saved.", ok=True))
 

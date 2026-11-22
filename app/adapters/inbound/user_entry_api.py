@@ -513,7 +513,9 @@ def create_user_entry_api_routes(
                 candidates = await entry_sharing.candidates(uid, user_uid)
                 if candidates.is_error:
                     return Result.fail(candidates)
-                return FtResponse(SharePanelForm(uid, candidates.value, error=error.message))
+                return FtResponse(
+                    SharePanelForm(uid, candidates.value, error=error.display_message)
+                )
             return Result.fail(result)
         outcome = result.value
         if is_htmx:

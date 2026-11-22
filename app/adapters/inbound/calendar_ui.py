@@ -404,7 +404,7 @@ def create_calendar_ui_routes(rt: RouteDecorator, calendar_service):
             # reason (e.g. the cross-midnight message); anything else offers
             # a plain retry.
             message = (
-                error.message
+                error.display_message
                 if error.category == ErrorCategory.VALIDATION
                 else "Reschedule failed — try again"
             )
@@ -457,7 +457,7 @@ def create_calendar_ui_routes(rt: RouteDecorator, calendar_service):
                 return Response("Habit not found", status_code=404)
             if error.category == ErrorCategory.VALIDATION:
                 # e.g. a day the habit never occurs on — retrying can't succeed.
-                return Response(error.message, status_code=400)
+                return Response(error.display_message, status_code=400)
             # Keep the hx attrs so the swapped-in button can retry.
             return Button(
                 "Completion failed — try again",

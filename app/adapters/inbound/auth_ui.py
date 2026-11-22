@@ -208,11 +208,9 @@ def create_auth_ui_routes(
             )
 
             if auth_result.is_error:
-                error_msg = (
-                    auth_result.error.message if auth_result.error else "Registration failed"
-                )
-                logger.warning(f"Registration failed for {reg.email}: {error_msg}")
-                return _registration_page(error_message=error_msg)
+                error = auth_result.expect_error()
+                logger.warning(f"Registration failed for {reg.email}: {error.message}")
+                return _registration_page(error_message=error.display_message)
 
             user_data = auth_result.value
             logger.info(f"New user registered: {reg.username} ({user_data['user_uid']})")
@@ -341,7 +339,8 @@ def create_auth_ui_routes(
                 error = auth_result.expect_error()
                 logger.warning(f"Login failed for {email}: {error.message}")
                 return AuthPage(
-                    AuthComponents.render_login_page(error_message=error.message), title="Sign In"
+                    AuthComponents.render_login_page(error_message=error.display_message),
+                    title="Sign In",
                 )
 
             session_data = auth_result.value
@@ -463,7 +462,7 @@ def create_auth_ui_routes(
             if result.is_error:
                 error = result.expect_error()
                 return AuthComponents.render_reset_password_page(
-                    error_message=error.message,
+                    error_message=error.display_message,
                     token=token_value,
                 )
 

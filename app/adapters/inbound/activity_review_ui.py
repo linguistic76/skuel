@@ -194,7 +194,7 @@ def create_activity_review_ui_routes(
         ctx_result = await orchestrator.build_rich_context(UserUID(subject_uid), window=time_period)
         if ctx_result.is_error:
             return render_inline_error(
-                f"Could not build the context: {ctx_result.expect_error().message}"
+                f"Could not build the context: {ctx_result.expect_error().display_message}"
             )
         result = await orchestrator.create_snapshot(
             context=ctx_result.value,
@@ -203,7 +203,9 @@ def create_activity_review_ui_routes(
             domains=domains,
         )
         if result.is_error:
-            return render_inline_error(f"Could not load snapshot: {result.expect_error().message}")
+            return render_inline_error(
+                f"Could not load snapshot: {result.expect_error().display_message}"
+            )
 
         snapshot = result.value or {}
         sections = snapshot.get("domains") or {}
@@ -256,7 +258,7 @@ def create_activity_review_ui_routes(
         )
         if result.is_error:
             error = result.expect_error()
-            return _refuse_feedback(error, f"Not sent: {error.message}")
+            return _refuse_feedback(error, f"Not sent: {error.display_message}")
 
         # The report is the subject's now (Submit & Share arc R11) and the admin has no
         # read-back of it (ADR-042), so the confirmation echoes what was sent

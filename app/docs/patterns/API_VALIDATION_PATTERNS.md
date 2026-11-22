@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: '2026-11-12'
+updated: '2026-11-22'
 category: patterns
 related_skills:
 - pydantic
@@ -216,7 +216,7 @@ from adapters.inbound.form_helpers import parse_form_body
 async def request_revision(request: Request, uid: str, current_user: Any = None) -> FT:
     parsed = await parse_form_body(request, RequestRevisionRequest)
     if parsed.is_error:
-        return Div(P(parsed.expect_error().message, cls="text-sm text-error"))
+        return Div(P(parsed.expect_error().display_message, cls="text-sm text-error"))
     req = parsed.value
 
     # The service reads the exercise from the gated detail, never from the form.

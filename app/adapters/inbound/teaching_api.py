@@ -139,7 +139,7 @@ def create_teaching_api_routes(
             # leaves no orphan on disk.
             pathlib.Path(file_path).unlink(missing_ok=True)
             error = result.expect_error()
-            return Div(P(error.message, cls="text-sm text-error"))
+            return Div(P(error.display_message, cls="text-sm text-error"))
 
         return Div(
             P("Feedback submitted successfully.", cls="text-sm text-success font-medium"),
@@ -163,7 +163,7 @@ def create_teaching_api_routes(
         result = await parse_form_body(request, RequestRevisionRequest)
         if result.is_error:
             error = result.expect_error()
-            return Div(P(error.message, cls="text-sm text-error"))
+            return Div(P(error.display_message, cls="text-sm text-error"))
         form_data = result.value
 
         raw_form = await request.form()
@@ -185,7 +185,7 @@ def create_teaching_api_routes(
             # A denied or missing submission is one not-found; any other refusal
             # (no exercise, another teacher's exercise, a status) says why.
             error = revision_result.expect_error()
-            message = "Submission not found." if is_not_found(error) else error.message
+            message = "Submission not found." if is_not_found(error) else error.display_message
             return Div(P(message, cls="text-sm text-error"))
 
         re_uid = revision_result.value["revised_exercise_uid"]
@@ -251,7 +251,7 @@ def create_teaching_api_routes(
         )
         if result.is_error:
             error = result.expect_error()
-            return Div(P(error.message, cls="text-sm text-error"))
+            return Div(P(error.display_message, cls="text-sm text-error"))
 
         return Div(
             P("Submission approved.", cls="text-sm text-success font-medium"),
@@ -400,7 +400,10 @@ def create_teaching_api_routes(
         result = await user_entry_service.delete_entry_as_teacher(uid, current_user.uid)
         if result.is_error:
             return Div(
-                P(f"Failed to delete: {result.error}", cls="text-sm text-error"),
+                P(
+                    f"Failed to delete: {result.expect_error().display_message}",
+                    cls="text-sm text-error",
+                ),
             )
 
         return ""

@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: '2026-11-14'
+updated: '2026-11-22'
 category: patterns
 related_skills:
 - result-pattern
@@ -208,6 +208,16 @@ return Div(
 show_details=False)` lives in `ui/patterns/error_banner.py`; `render_inline_error(message)`
 beside it is the one-line form for a form field or a small HTMX fragment.
 
+**A door renders an error's `display_message`, never its `message` or `str(error)`.** The
+developer `message` of a SYSTEM error is the raw text of whatever exception the service met
+(`with_error_handling` sets it to `str(e)`), and `str(error)` adds the severity, the code and
+the server path of the line that built it. `display_message` is the factory's `user_message`
+— every `Errors` factory sets one, and for a validation, business or forbidden refusal it is
+the message itself, so an actionable reason reads the same. The boundary's `X-Toast-Message`
+header carries it too. The developer text goes to the logs, or into `technical_details`
+(shown only in debug). `tests/unit/adapters/test_error_render_census.py` reads
+`adapters/inbound/` and `ui/` by syntax tree and fails on a raw render.
+
 **Benefits:**
 - **User-visible errors** - a failed fetch renders a banner, never an empty list
 - **Consistency** - one factory renders every Activity domain's error state, so the pattern
@@ -297,9 +307,9 @@ Errors.system(message, exception=None, **details)
 
 `resource` is the **name** of what was looked up (`"Task"`, `"PathStep"`,
 `"Group membership"`), never a sentence. The factory interpolates it into three
-client-visible places: `user_message` ("The requested Task could not be found",
-the JSON body's `message`), `message` ("Task not found: t1", which the boundary
-also sends as the `X-Toast-Message` header) and `code`. The code is normalised
+places: the client-facing `user_message` ("The requested Task could not be found",
+the JSON body's `message` and the `X-Toast-Message` header), the developer `message`
+("Task not found: t1", for logs) and the client-visible `code`. The code is normalised
 to `NOT_FOUND_` + the name with each run of non-word characters as `_`
 (`"Group membership"` → `NOT_FOUND_GROUP_MEMBERSHIP`). `identifier` is the
 lookup key.

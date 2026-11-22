@@ -229,11 +229,7 @@ def create_askesis_ui_routes(
             )
             if result.is_error:
                 logger.error(f"Askesis service error: {result.error}")
-                ai_response = (
-                    result.error.message
-                    if result.error.message
-                    else "I'm having trouble right now. Please try again."
-                )
+                ai_response = result.expect_error().display_message
             else:
                 ai_response = result.value.get("answer", "No response generated.")
                 # Canon readings the guided prompt drew on (ADR-077) — CanonSource

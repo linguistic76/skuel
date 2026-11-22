@@ -347,7 +347,7 @@ result = await parse_form_body(request, RequestRevisionRequest)
 
 ### Error Response Format
 
-Client responses use `ErrorContext.to_client_dict()` — internal fields (`details`, `source_location`, `stack_trace`) are stripped. The `message` field shows `user_message`; the developer `message` still reaches the client as the `X-Toast-Message` header, so neither may carry an internal diagnosis — that is what `Errors.not_found(..., reason=...)` is for:
+Client responses use `ErrorContext.to_client_dict()` — internal fields (`details`, `source_location`, `stack_trace`) are stripped. The `message` field and the `X-Toast-Message` header both show `user_message`; the developer `message` goes to the logs. Neither carries an internal diagnosis — that is what `Errors.not_found(..., reason=...)` is for. A UI door renders `error.display_message`, never `error.message` or `str(error)` (census: `tests/unit/adapters/test_error_render_census.py`):
 
 ```json
 {

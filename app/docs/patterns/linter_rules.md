@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-11-14
+updated: 2026-11-22
 category: patterns
 related_skills:
 - python
@@ -877,7 +877,7 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 
 **Pattern:** an `Errors.not_found(...)` call whose `resource` (positional 0 or `resource=`) is an f-string, a call (`str(e)`, `"...".format(...)`), a `+` / `%` expression, or a string literal containing "found"; or whose `identifier` (positional 1 or `identifier=`) has literal text containing "not found". Reported at the call line.
 
-**Why it exists:** the factory interpolates `resource` into the client-facing `user_message` ("The requested Task could not be found" — the JSON body's `message`), into the developer `message` (which the boundary also sends as the `X-Toast-Message` header) and into the `code`. About sixty calls passed a whole sentence as `resource`. Users read "The requested Path step ps_x not found could not be found", codes carried spaces and UIDs, and internal reasons reached API clients ("… does not have review access to submission …"). Where two refusal branches of one read put different sentences in, a caller could tell "exists but not yours" from "missing". `reason=` is the escape hatch for the diagnosis: it lands in `details["reason"]`, which `to_client_dict()` never sends. See [ERROR_HANDLING.md](ERROR_HANDLING.md) § `Errors.not_found`.
+**Why it exists:** the factory interpolates `resource` into the client-facing `user_message` ("The requested Task could not be found" — the JSON body's `message` and the `X-Toast-Message` header), into the developer `message` (the logs) and into the `code`. About sixty calls passed a whole sentence as `resource`. Users read "The requested Path step ps_x not found could not be found", codes carried spaces and UIDs, and internal reasons reached API clients ("… does not have review access to submission …"). Where two refusal branches of one read put different sentences in, a caller could tell "exists but not yours" from "missing". `reason=` is the escape hatch for the diagnosis: it lands in `details["reason"]`, which `to_client_dict()` never sends. See [ERROR_HANDLING.md](ERROR_HANDLING.md) § `Errors.not_found`.
 
 **Scope:** `core/`, `adapters/`, `ui/` — every first-party tree that builds an error a client can read. Tests are out of scope. `Errors` is resolved through the file's `from … import … as …` bindings, and a `not_found` method on any other receiver is untouched. A name, an attribute (`self.config_lookup_label`, `self.label.value`) or a plain literal (`"Group membership"`) passes. Multi-word names are legitimate: the factory normalises the code to `NOT_FOUND_GROUP_MEMBERSHIP`.
 
