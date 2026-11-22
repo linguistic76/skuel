@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-11-03
+updated: 2026-11-22
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -283,7 +283,7 @@ vault-authored ORGANIZES edges with no dedicated reader above the backend:
 children_result = await orchestrator.get_entry_organized_children(entry_uid)
 if children_result.is_error:
     # A failed fetch must not masquerade as "not a MOC" — surface it.
-    return render_inline_error(children_result.expect_error().message)
+    return render_inline_error(children_result.expect_error().display_message)
 section = HubSection("Contents", hub_cards_from_organizers(children_result.value))
 ```
 
