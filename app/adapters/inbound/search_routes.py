@@ -371,7 +371,7 @@ def create_search_api_routes(
 
         if result.is_error:
             logger.error(f"Search failed: {result.error}")
-            return render_search_error(f"Search error: {result.error}")
+            return render_search_error(f"Search error: {result.expect_error().display_message}")
 
         # Render results
         return render_search_results(result.value)

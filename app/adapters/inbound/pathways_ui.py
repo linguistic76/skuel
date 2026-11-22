@@ -54,7 +54,7 @@ def create_pathways_ui_routes(
         user_uid = require_authenticated_user(request)
         summary_result = await orchestrator.get_dashboard_summary(user_uid)
         if summary_result.is_error:
-            return pages.dashboard_content_error(summary_result.expect_error().message)
+            return pages.dashboard_content_error(summary_result.expect_error().display_message)
         summary = summary_result.value
         active_paths = [to_active_path_data(row) for row in summary["paths"]]
         return pages.dashboard_content(active_paths, to_learning_stats(summary))

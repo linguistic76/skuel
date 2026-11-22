@@ -175,7 +175,7 @@ def create_vault_routes(
 
         result = await vault_reconciler.sync(VaultKind.PERSONAL, user_uid)
         if result.is_error:
-            return sync_error_fragment(str(result.expect_error()))
+            return sync_error_fragment(result.expect_error().display_message)
 
         stats = result.value
         if stats.first_run_notice:
@@ -192,7 +192,7 @@ def create_vault_routes(
 
         result = await vault_reconciler.preview(VaultKind.PERSONAL, user_uid)
         if result.is_error:
-            return preview_error_fragment(str(result.expect_error()))
+            return preview_error_fragment(result.expect_error().display_message)
 
         preview = result.value
         if preview.first_run_notice:
@@ -220,11 +220,11 @@ def create_vault_routes(
 
         consent_result = await vault_reconciler.grant_consent(user_uid)
         if consent_result.is_error:
-            return preview_error_fragment(str(consent_result.expect_error()))
+            return preview_error_fragment(consent_result.expect_error().display_message)
 
         result = await vault_reconciler.preview(VaultKind.PERSONAL, user_uid)
         if result.is_error:
-            return preview_error_fragment(str(result.expect_error()))
+            return preview_error_fragment(result.expect_error().display_message)
 
         return preview_fragment(result.value)
 
@@ -236,11 +236,11 @@ def create_vault_routes(
 
         consent_result = await vault_reconciler.grant_consent(user_uid)
         if consent_result.is_error:
-            return sync_error_fragment(str(consent_result.expect_error()))
+            return sync_error_fragment(consent_result.expect_error().display_message)
 
         sync_result = await vault_reconciler.sync(VaultKind.PERSONAL, user_uid)
         if sync_result.is_error:
-            return sync_error_fragment(str(sync_result.expect_error()))
+            return sync_error_fragment(sync_result.expect_error().display_message)
 
         await _ground_after_sync(user_uid)
         return sync_stats_fragment(asdict(sync_result.value))

@@ -144,7 +144,7 @@ async def test_the_page_marks_only_the_inferred_link_and_its_remove_takes_it(env
     assert again.status_code == 404
     assert again.headers["X-Toast-Type"] == "error"
     assert again.headers["X-Toast-Message"] == (
-        f"Task knowledge link not found: {task} -> {KU_INFERRED}"
+        "The requested Task knowledge link could not be found"
     )
 
 

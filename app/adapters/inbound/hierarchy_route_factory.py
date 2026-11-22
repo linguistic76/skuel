@@ -278,7 +278,7 @@ class HierarchyRouteFactory:
                 # Delete
                 result = await self.service.delete(uid)
                 if result.is_error:
-                    errors.append(f"{uid}: {result.error}")
+                    errors.append(f"{uid}: {result.expect_error().display_message}")
                 else:
                     deleted_count += 1
 

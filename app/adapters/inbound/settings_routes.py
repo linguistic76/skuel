@@ -112,7 +112,7 @@ def create_settings_routes(
 
         parsed = await parse_form_body(request, UserPreferencesFormRequest)
         if parsed.is_error:
-            return Response(parsed.expect_error().message, status_code=400)
+            return Response(parsed.expect_error().display_message, status_code=400)
         preferences_update = parsed.value.to_preferences_update()
 
         update_result = await user_service.update_preferences(user_uid, preferences_update)

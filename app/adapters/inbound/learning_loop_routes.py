@@ -655,7 +655,7 @@ def create_learning_loop_fragment_routes(
             use_default_audience=True,
         )
         if result.is_error:
-            error_msg = result.expect_error().message
+            error_msg = result.expect_error().display_message
             return render_embedded_forms_error(template, ps_uid, error_msg)
 
         return render_embedded_forms_success(template, ps_uid)

@@ -178,7 +178,9 @@ async def _process_single_upload(
             summon_vault=summon_vault,
         )
         if compiled.is_error:
-            return render_journal_upload_status("error", str(compiled.error), is_error=True)
+            return render_journal_upload_status(
+                "error", compiled.expect_error().display_message, is_error=True
+            )
         out_name = journal_batch.write_output(stem, COMPILED_SUFFIX, compiled.value)
         return _workspace(
             FileOutputFragment(
@@ -238,7 +240,9 @@ async def _process_single_upload(
             is_founder=False,
         )
         if compiled.is_error:
-            return render_journal_upload_status("error", str(compiled.error), is_error=True)
+            return render_journal_upload_status(
+                "error", compiled.expect_error().display_message, is_error=True
+            )
         out_name = journal_batch.write_output(stem, COMPILED_SUFFIX, compiled.value)
         return _workspace(
             FileOutputFragment(

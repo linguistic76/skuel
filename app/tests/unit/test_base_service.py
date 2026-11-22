@@ -456,7 +456,7 @@ class TestOwnershipVerification:
         # The domain's name, not a sentence carrying the uid.
         assert body["code"] == "NOT_FOUND_MOCKMODEL"
         assert body["message"] == "The requested MockModel could not be found"
-        assert toast == "MockModel not found: test_001"
+        assert toast == "The requested MockModel could not be found"
         # Only logs and tests see which branch fired.
         assert foreign.expect_error().details["reason"] == "not owned by caller"
         assert "reason" not in missing.expect_error().details

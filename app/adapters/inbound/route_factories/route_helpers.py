@@ -560,7 +560,9 @@ def refuse_malformed(error: ErrorContext) -> Response:
     page minted the value, and only a crafted or stale request carries one that
     does not read.
     """
-    return Response(error.message, status_code=status_for_error(error), media_type="text/plain")
+    return Response(
+        error.display_message, status_code=status_for_error(error), media_type="text/plain"
+    )
 
 
 __all__ = [

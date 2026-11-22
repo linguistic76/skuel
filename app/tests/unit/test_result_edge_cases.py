@@ -353,8 +353,7 @@ class TestErrorFactories:
     def test_not_found_reason_reaches_details_only(self):
         """The diagnosis is for logs and tests — nothing a client reads carries it.
 
-        ``message`` counts as client-readable: the boundary sends it as the
-        ``X-Toast-Message`` header.
+        ``message`` is held to the same rule: every log line of the refusal carries it.
         """
         error = Errors.not_found("Submission", "ue_1", reason="teacher t_1 has no review access")
 

@@ -172,7 +172,7 @@ def result_to_response[T](result: Result[T], success_status: int = 200) -> Respo
 
     # Return client-safe error context (no stack traces or internal details)
     response = JSONResponse(content=error.to_client_dict(), status_code=status_code)
-    response.headers["X-Toast-Message"] = _header_safe(error.message)
+    response.headers["X-Toast-Message"] = _header_safe(error.display_message)
     response.headers["X-Toast-Type"] = "error"
 
     return response

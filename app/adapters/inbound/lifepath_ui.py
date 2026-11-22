@@ -64,7 +64,7 @@ def _refusal_banner(error: ErrorContext, retry_message: str) -> FT:
     """The banner a refused Life Path form shows: a validation refusal's own
     reason, anything else a plain retry message (its detail only in debug)."""
     if error.category == ErrorCategory.VALIDATION:
-        return render_error_banner(error.message)
+        return render_error_banner(error.display_message)
     return _read_failed_banner(retry_message, error)
 
 
