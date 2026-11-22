@@ -13,7 +13,9 @@ persists through that door, so none writes an event the doors refuse:
   has nothing to judge; its habit link rides on the entity and the door writes it.
 
 Each refusal has its control: the same creator with a span in bounds writes, and a
-habit link it carries lands as the ``REINFORCES_HABIT`` edge.
+habit link it carries lands as the ``REINFORCES_HABIT`` edge. Each creator here
+stores its events SCHEDULED, Event's default status — never DRAFT, which is no Event
+status.
 """
 
 from __future__ import annotations
@@ -77,7 +79,7 @@ async def _events(driver: AsyncDriver) -> list[dict[str, Any]]:  # boundary: neo
             """
             MATCH (e:Event {user_uid: $user})
             OPTIONAL MATCH (e)-[:REINFORCES_HABIT]->(h:Habit)
-            RETURN e.uid AS uid, e.event_type AS event_type, h.uid AS habit
+            RETURN e.uid AS uid, e.event_type AS event_type, e.status AS status, h.uid AS habit
             ORDER BY e.event_date
             """,
             user=USER,
@@ -135,8 +137,8 @@ class TestCreateEventWithContext:
         )
 
         assert result.is_ok, result.error
-        assert [(row["uid"], row["habit"]) for row in await _events(driver)] == [
-            (result.value.uid, habit)
+        assert [(row["uid"], row["habit"], row["status"]) for row in await _events(driver)] == [
+            (result.value.uid, habit, "scheduled")
         ]
 
 
@@ -187,7 +189,9 @@ class TestCreateRecurringInstances:
         )
 
         assert result.is_ok, result.error
-        assert len(await _events(driver)) == 3
+        rows = await _events(driver)
+        assert len(rows) == 3
+        assert {row["status"] for row in rows if row["uid"] != source} == {"scheduled"}
 
 
 class TestCreateRecurringEvents:
@@ -236,6 +240,7 @@ class TestCreateRecurringEvents:
         assert rows, "nothing was written"
         assert {row["uid"] for row in rows} == {event.uid for event in result.value}
         assert {row["habit"] for row in rows} == {habit}
+        assert {row["status"] for row in rows} == {"scheduled"}
 
 
 class TestCreateRecurringEventsForHabit:
@@ -254,3 +259,4 @@ class TestCreateRecurringEventsForHabit:
         assert {row["uid"] for row in rows} == {event.uid for event in result.value}
         assert len(rows) == 2
         assert {(row["habit"], row["event_type"]) for row in rows} == {(habit, "personal")}
+        assert {row["status"] for row in rows} == {"scheduled"}

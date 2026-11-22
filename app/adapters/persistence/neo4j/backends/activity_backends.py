@@ -1933,9 +1933,10 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
     ) -> Result[list[Principle]]:
         """Get principles adopted within a date range.
 
-        Principles use is_active (bool) instead of a status enum, so
-        build_user_activity_query — which filters on n.status — does not apply.
-        This method is the correct home for that Cypher.
+        A principle's status lifecycle (ACTIVE / PAUSED / ARCHIVED) has no completed
+        state, so build_user_activity_query — which excludes completed statuses on
+        n.status — does not apply: here "completed" means a principle no longer held,
+        its is_active flag. This method is the correct home for that Cypher.
 
         Args:
             user_uid: Owner of the principles.

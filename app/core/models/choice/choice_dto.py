@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.choice_enums import ChoiceType
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.user_owned_dto import UserOwnedDTO
 
@@ -110,7 +110,6 @@ class ChoiceDTO(UserOwnedDTO):
         if not uid:
             uid = UIDGenerator.generate_random_uid("choice")
 
-        kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PRIVATE)
 
         return cls(

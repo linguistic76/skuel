@@ -1,6 +1,6 @@
 ---
 title: SearchService Pattern for Activity Domains
-updated: 2026-11-12
+updated: 2026-11-22
 category: patterns
 related_skills:
 - base-analytics-service
@@ -115,8 +115,8 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 Override inherited methods when domain-specific logic differs:
 
 ```python
-# PrincipleSearchService overrides get_by_status() because
-# Principles use is_active boolean instead of status string
+# PrincipleSearchService overrides get_by_status() to filter on the is_active
+# flag (whether the principle is held), not on the principle's status
 async def get_by_status(self, status: str, limit: int = 100) -> Result[list[Principle]]:
     is_active = status.lower() in ("active", "true", "1")
     result = await self.backend.find_by(is_active=is_active, limit=limit)
