@@ -91,7 +91,7 @@ from .authored_edges import (
     goals_losing_habits,
     retracted_edges,
 )
-from .batch import ingest_directory, parse_file_for_batch
+from .batch import classify_user_entry_failure, ingest_directory, parse_file_for_batch
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
     DEFAULT_MAX_FILE_SIZE_BYTES,
@@ -122,11 +122,12 @@ from .types import (
     ChunkSource,
     DirectoryValidationResult,
     IncrementalStats,
+    IngestionError,
     IngestionStats,
     ParseVerdicts,
     ValidationResult,
 )
-from .user_entry_ingestion import ingest_user_entry, own_entry_uid
+from .user_entry_ingestion import build_user_entry_request, ingest_user_entry, own_entry_uid
 from .validator import (
     validate_directory,
     validate_edge_data,
@@ -1744,8 +1745,9 @@ class UnifiedIngestionService:
         """What a directory sync's parse stage would say of each file, by path.
 
         Runs the stage ``ingest_directory`` runs before any write (parse, detect,
-        prepare, validate), with the owner, vault kind and size cap that door
-        resolves for ``root``. Nothing is written. A refused file maps to its
+        prepare, validate) — and for a UserEntry the entry request its door
+        builds (``_user_entry_verdict``) — with the owner, vault kind and size
+        cap that door resolves for ``root``. Nothing is written. A refused file maps to its
         ``IngestionError`` dict, whose ``stage`` says whether the file's content
         or the system caused it. An accepted file maps to the identity its
         ingest writes to its tracker row, when the file names it by itself: the
@@ -1777,10 +1779,14 @@ class UnifiedIngestionService:
         )
         verdicts = ParseVerdicts()
         for file_path, (entity_type, data, error) in zip(files, parsed, strict=True):
+            identity: str | None = None
+            if error is None and entity_type is EntityType.USER_ENTRY:
+                error, identity = self._user_entry_verdict(file_path, owner)
+            elif error is None:
+                identity = self._claimed_identity(data or {})
             if error is not None:
                 verdicts.refusals[file_path] = error
                 continue
-            identity = self._claimed_identity(file_path, entity_type, data or {}, owner)
             if identity is not None:
                 verdicts.identities[file_path] = identity
         return Result.ok(verdicts)
@@ -1802,29 +1808,50 @@ class UnifiedIngestionService:
 
     def _claimed_identity(
         self,
-        file_path: Path,
-        entity_type: EntityType | NonKuDomain | None,
         data: dict[str, Any],  # boundary: prepared entity / edge data
-        owner: UserUID,
     ) -> str | None:
-        """The identity a parsed file's ingest writes to its tracker row, if the file names it."""
+        """The identity a parsed entity or Edge file's ingest writes to its tracker row."""
         if data.get("_is_edge"):
             rel_type = RelationshipName.from_string(str(data["relationship"]))
             if rel_type is None:
                 return None  # the edge ingest refuses an unknown relationship
             return edge_identity(str(data["from_uid"]), str(rel_type), str(data["to_uid"]))
-        if entity_type is EntityType.USER_ENTRY:
-            # The prepared uid of a user_entry is never written: its door reads
-            # the file's own data itself, by the file's format (``ingest_file`` →
-            # ``build_user_entry_request``).
-            read_result = self._read_file(file_path)
-            if read_result.is_error or not isinstance(read_result.value[0], dict):
-                # No data, no claim: the preview then names the file's old row a
-                # deletion, the report that errs toward caution.
-                return None
-            return own_entry_uid(read_result.value[0], owner)
         uid = data.get("uid")
         return None if uid is None else str(uid)
+
+    def _user_entry_verdict(
+        self, file_path: Path, owner: UserUID
+    ) -> tuple[dict[str, Any] | None, str | None]:  # boundary: IngestionError.to_dict row
+        """(refusal, identity) the sync's UserEntry door gives a parsed note.
+
+        That door reads the file's own data (``ingest_file``) and builds the
+        entry request from it (``build_user_entry_request``) — checks the batch
+        parse stage does not run. A request it refuses for the file's own
+        content is a refusal, as the sync reports it
+        (``classify_user_entry_failure``); one it refuses for any other reason
+        is a sync error, not a refusal. Either way the note writes no tracker
+        row, so it claims nothing. An accepted note claims its authored or
+        periodic uid (``own_entry_uid``) — none when the sync mints it.
+        """
+        read_result = self._read_file(file_path)
+        if read_result.is_error or not isinstance(read_result.value[0], dict):
+            return None, None
+        data, body = read_result.value
+        request = build_user_entry_request(data, file_path, owner, body)
+        if request.is_error:
+            failure = request.expect_error()
+            stage, error_type = classify_user_entry_failure(failure)
+            if stage != "validation":
+                return None, None
+            refusal = IngestionError(
+                file=str(file_path),
+                error=failure.display_message,
+                stage=stage,
+                error_type=error_type,
+                entity_type=EntityType.USER_ENTRY.value,
+            )
+            return refusal.to_dict(), None
+        return None, own_entry_uid(data, owner)
 
     async def validate_file(self, file_path: Path) -> Result[ValidationResult]:
         """

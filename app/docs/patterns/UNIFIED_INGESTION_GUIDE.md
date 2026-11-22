@@ -1368,8 +1368,10 @@ raises on), so a vault of loose untyped notes reports one `non_entity_notes` cou
 hundreds of phantom "new" files. Each remaining file then runs the sync's own parse stage
 (`UnifiedIngestionService.parse_verdicts`, nothing written), so a file the sync would refuse for
 its content — a declared-but-unknown `type:`, a field outside the criteria above — is listed as
-would-ignore with the reason the sync will give; the same stage names each accepted file's
-identity (its prepared uid, an Edge file's identity, a UserEntry's authored or periodic uid).
+would-ignore with the reason the sync will give — a UserEntry also through its door's own request
+check (`build_user_entry_request`: a `pipeline:` outside the vocabulary, say); the same stage
+names each accepted file's identity (its prepared uid, an Edge file's identity, a UserEntry's
+authored or periodic uid).
 
 **Remote vaults ride a staging mirror (ADR-075, `VAULT_TRANSPORT=local_agent`):** when a
 personal vault lives on the user's machine, `VaultReconciler.sync` runs a mirror-refresh

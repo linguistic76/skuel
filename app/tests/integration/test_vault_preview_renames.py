@@ -62,6 +62,10 @@ YAML_NOTE = (
     f"type: user_entry\nuid: ue.{MARK}.yaml-note\npipeline: knowledge\ntitle: A YAML note\n"
     "content: The note's own words.\n"
 )
+MD_NOTE = (
+    f"---\ntype: user_entry\nuid: ue.{MARK}.md-note\npipeline: knowledge\ntitle: A note\n---\n"
+    "The note's own words.\n"
+)
 EDGE = f"type: Edge\nfrom: ku.{MARK}.a\nto: ku.{MARK}.b\nrelationship: RELATED_TO\n"
 
 
@@ -396,3 +400,23 @@ async def test_a_reorganisation_that_empties_every_tracked_path_is_previewed_as_
     assert run.untracked == set()
     assert sorted(run.moves) == ["a.md → moved/a.md", "b.md → moved/b.md"]
     assert sorted(run.preview.would_move_examples) == sorted(run.moves)
+
+
+def _rename_to_a_refused_pipeline(root: Path) -> None:
+    text = (root / "note.md").read_text().replace("pipeline: knowledge", "pipeline: bogus")
+    (root / "note.md").unlink()
+    (root / "note2.md").write_text(text)
+
+
+async def test_a_renamed_note_the_sync_refuses_is_previewed_as_a_deletion_and_an_ignore(
+    vaults: Vaults,
+) -> None:
+    run = await _preview_then_sync(
+        vaults, VaultKind.CONTENT, {**_kus(), "note.md": MD_NOTE}, _rename_to_a_refused_pipeline
+    )
+
+    assert run.would_delete == run.deleted == {"note.md"}
+    assert [line.split(" — ")[0] for line in run.preview.would_ignore_examples] == ["note2.md"]
+    assert run.untracked == set()
+    assert run.moves == []
+    assert run.preview.would_move_examples == ()
