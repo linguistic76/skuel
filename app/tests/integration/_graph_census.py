@@ -37,10 +37,10 @@ marked test that wrote no such finding — or reached no graph the census reads 
 marker is stale. A marker on a module (``pytestmark``) or a class covers every test in it
 and is stale only when none of them wrote such a finding: the shape a module-scoped
 fixture's seed needs, whose finding the census sees in whichever test reaches it first. It
-is judged when the scope's last test finishes — in that test's body when the test runs, at
-its teardown when it is skipped — and only when the run holds the whole scope: a run of
-part of a module or class (a node id, ``-k``, ``--deselect``) cannot tell a stale marker
-from one its unrun tests earn, and judges none. ``test_graph_census_control.py`` and the two
+is judged at the scope's last test, and only when every test the scope holds ran its body
+to the end: a run of part of a module or class (a node id, ``-k``, ``--deselect``), or one
+in which a test in it skipped (an environment guard) or failed, cannot tell a stale marker
+from one a test that did not run earns, and judges none. ``test_graph_census_control.py`` and the two
 ``test_graph_census_module_*`` files hold a control for each finding, each graph and each
 marker scope; ``tests/unit/test_graph_census_marker_scopes.py`` holds the rules a run
 applies to a scope.
@@ -218,10 +218,8 @@ class _Census:
     last_in_scope: dict[str, str] = field(default_factory=dict)
     #: collector node id → the node ids of everything it collected.
     collected: dict[str, list[str]] = field(default_factory=dict)
-    #: the node ids the run runs, once collection is done.
-    selected: frozenset[str] | None = None
-    #: tests a skip kept from finishing their body.
-    skipped: set[str] = field(default_factory=set)
+    #: the tests whose body ran to its end.
+    ran: set[str] = field(default_factory=set)
 
 
 _CENSUS = pytest.StashKey[_Census]()
@@ -245,7 +243,7 @@ def _drivers(item: pytest.Item) -> dict[str, object]:
 def pytest_make_collect_report(
     collector: pytest.Collector,
 ) -> Generator[None, CollectReport, CollectReport]:
-    """Record what each collector holds: a run holds a scope only when it selects all of it."""
+    """Record what each collector holds: a scope's marker is judged only when all of it ran."""
     report = yield
     if report.passed:
         _census(collector.session).collected[collector.nodeid] = [
@@ -273,6 +271,7 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, object, object]:
     drivers = _drivers(item)
     if not drivers:
         outcome = yield
+        census.ran.add(item.nodeid)
         _fail_on(_judge(item, {}, reached_a_graph=False))
         return outcome
     if census.runner is None:
@@ -302,41 +301,17 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, object, object]:
         take(name)
     try:
         outcome = yield
-    except pytest.skip.Exception:
-        # A test that skips inside its body is judged like one skipped before it: its
-        # scope's markers count what it wrote, and its teardown judges them.
-        for name in drivers:
-            take(name)
-        census.skipped.add(item.nodeid)
-        _tally(item, findings())
-        raise
     except BaseException:
+        # A body that skips or fails is not judged, and its scope's markers are judged by
+        # no test: what it would have written is unknown. What it did write still counts.
         for name in drivers:
             take(name)
+        _tally(item, findings())
         raise
     for name in drivers:
         take(name)
+    census.ran.add(item.nodeid)
     _fail_on(_judge(item, findings(), reached_a_graph=True))
-    return outcome
-
-
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_makereport(
-    item: pytest.Item,
-) -> Generator[None, pytest.TestReport, pytest.TestReport]:
-    """Note a test a skip kept from its body: its teardown judges its scope's markers."""
-    report = yield
-    if report.skipped and report.when == "setup":
-        _census(item.session).skipped.add(item.nodeid)
-    return report
-
-
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_teardown(item: pytest.Item) -> Generator[None, object, object]:
-    """Judge the markers on a skipped test's scopes when it is their last test."""
-    outcome = yield
-    if item.nodeid in _census(item.session).skipped:
-        _fail_on(_scope_verdicts(item))
     return outcome
 
 
@@ -349,14 +324,12 @@ def _closest_marker(item: pytest.Item, name: str) -> tuple[pytest.Mark, Node] | 
     return None
 
 
-def _holds(census: _Census, session: pytest.Session, nodeid: str) -> bool:
-    """Whether the run selects everything ``nodeid`` collected — a test, or a whole scope."""
-    if census.selected is None:
-        census.selected = frozenset(item.nodeid for item in session.items)
+def _ran_whole(census: _Census, nodeid: str) -> bool:
+    """Whether everything ``nodeid`` collected ran its body to the end — a test, or a scope."""
     children = census.collected.get(nodeid)
     if children is None:
-        return nodeid in census.selected
-    return all(_holds(census, session, child) for child in children)
+        return nodeid in census.ran
+    return all(_ran_whole(census, child) for child in children)
 
 
 def _is_last_in_scope(census: _Census, item: pytest.Item, scope: Node) -> bool:
@@ -374,7 +347,7 @@ def _stale_scope(item: pytest.Item, kind: _Kind, owner: Node) -> str | None:
         return None
     if census.scope_wrote.get((owner.nodeid, kind.marker), False):
         return None
-    if not _holds(census, item.session, owner.nodeid):
+    if not _ran_whole(census, owner.nodeid):
         return None
     return (
         f"@pytest.mark.{kind.marker} is on {owner.nodeid}, and no test in it wrote "
@@ -404,21 +377,6 @@ def _tally(item: pytest.Item, findings: dict[str, dict[str, list[str]]]) -> None
         census.scope_wrote[key] = census.scope_wrote.get(key, False) or bool(
             findings.get(kind.marker)
         )
-
-
-def _scope_verdicts(item: pytest.Item) -> list[str]:
-    """The stale module/class markers whose last test ``item`` is."""
-    failures = []
-    for kind in _KINDS:
-        closest = _closest_marker(item, kind.marker)
-        if closest is None or closest[1] is item:
-            continue
-        mark, owner = closest
-        refusal = _marker_refusal(kind, mark)
-        stale = refusal or _stale_scope(item, kind, owner)
-        if stale:
-            failures.append(stale)
-    return failures
 
 
 def _judge(

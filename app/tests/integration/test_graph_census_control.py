@@ -9,7 +9,7 @@ its class requires, a stored key no read reads — and carries that finding's ma
 marked test that wrote no such finding fails as a stale marker (``_graph_census.py``), so
 each of these fails the day the census stops reading its graph or stops recognising the
 finding. A class marker covers every test in it and is stale only when none of them wrote
-one, judged at its last test on a run of the whole class. Fields and registered node state
+one, judged at its last test when every test in the class ran. Fields and registered node state
 are no finding. The nodes are deleted after the census has read them
 (``_graph_census_controls.py``). The expected failures — a ``static_only`` marker on a
 breach the census sees, a ``static_only`` marker on a kind no static census reads, an

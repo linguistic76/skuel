@@ -1,9 +1,9 @@
 """The rules the integration graph census applies to a marker on a module.
 
 A module's marker covers every test in it and is stale when none of them wrote its finding,
-judged when the module's last test finishes — in its body when it runs, at its teardown
-when it is skipped — and only on a run that holds the whole module
-(``tests/integration/_graph_census.py``). Each case runs an inner session (``pytester``)
+judged at the module's last test and only when every test in the module ran its body to the
+end (``tests/integration/_graph_census.py``): a run of part of it, or one in which a test
+skipped or failed, judges no marker. Each case runs an inner session (``pytester``)
 under the census's own hooks over a fake graph: a test writes a finding by adding it to
 ``graph``, and the fake's teardown empties it, as a fixture's wipe empties a real one.
 What the census reads of a real graph is held by its integration controls
@@ -22,9 +22,7 @@ import pytest
 from tests.integration._graph_census import (
     pytest_make_collect_report,
     pytest_runtest_call,
-    pytest_runtest_makereport,
     pytest_runtest_setup,
-    pytest_runtest_teardown,
 )
 
 # The module the hooks were imported from: an earlier inner session's copy can linger on
@@ -76,11 +74,12 @@ import pytest
 pytestmark = pytest.mark.stores_undeclared_key("the module's seed")
 
 
+{first_decorator}
 def test_first(graph):
     {first}
 
 
-{decorator}
+{last_decorator}
 def test_last(graph):
     {last}
 """
@@ -97,9 +96,20 @@ def run(pytester: pytest.Pytester):
     pytester.makeini(INI)
 
     def run_module(
-        *args: str, first: str = NONE, last: str = NONE, decorator: str = ""
+        *args: str,
+        first: str = NONE,
+        last: str = NONE,
+        first_decorator: str = "",
+        last_decorator: str = "",
     ) -> dict[str, dict[str, pytest.TestReport]]:
-        pytester.makepyfile(test_marked=MARKED.format(first=first, last=last, decorator=decorator))
+        pytester.makepyfile(
+            test_marked=MARKED.format(
+                first=first,
+                last=last,
+                first_decorator=first_decorator,
+                last_decorator=last_decorator,
+            )
+        )
         recorder = pytester.inline_run("-p", "no:cacheprovider", *args)
         reports: dict[str, dict[str, pytest.TestReport]] = {}
         for report in recorder.getreports("pytest_runtest_logreport"):
@@ -136,25 +146,40 @@ def test_a_run_that_deselects_a_test_judges_no_marker(run) -> None:
     assert by_deselect["test_last"]["call"].passed
 
 
-def test_a_skipped_last_test_judges_the_marker_at_its_teardown(run) -> None:
-    reports = run(decorator='@pytest.mark.skip(reason="skipped")')
+def _no_failure(reports: dict[str, dict[str, pytest.TestReport]]) -> bool:
+    return not any(report.failed for phases in reports.values() for report in phases.values())
+
+
+SKIP = '@pytest.mark.skip(reason="skipped")'
+
+
+def test_a_module_whose_every_test_is_skipped_judges_no_marker(run) -> None:
+    reports = run(first_decorator=SKIP, last_decorator=SKIP)
+    assert reports["test_first"]["setup"].skipped
     assert reports["test_last"]["setup"].skipped
-    assert _stale(reports["test_last"]["teardown"])
+    assert _no_failure(reports)
 
 
-def test_a_skipped_last_test_fails_no_marker_an_earlier_test_earned(run) -> None:
-    reports = run(first=WRITES, decorator='@pytest.mark.skip(reason="skipped")')
+def test_a_skipped_test_that_may_earn_the_marker_judges_none(run) -> None:
+    reports = run(first_decorator=SKIP)
+    assert reports["test_first"]["setup"].skipped
+    assert reports["test_last"]["call"].passed
+    assert _no_failure(reports)
+
+
+def test_a_skipped_last_test_judges_no_marker(run) -> None:
+    reports = run(last_decorator=SKIP)
     assert reports["test_last"]["setup"].skipped
-    assert reports["test_last"]["teardown"].passed
+    assert _no_failure(reports)
 
 
-def test_a_last_test_that_skips_in_its_body_after_writing_earns_the_marker(run) -> None:
-    reports = run(last=f'{WRITES}; pytest.skip("skipped")')
-    assert reports["test_last"]["call"].skipped
-    assert reports["test_last"]["teardown"].passed
-
-
-def test_a_last_test_that_skips_in_its_body_judges_the_marker_at_its_teardown(run) -> None:
+def test_a_test_that_skips_in_its_body_judges_no_marker(run) -> None:
     reports = run(last='pytest.skip("skipped")')
     assert reports["test_last"]["call"].skipped
-    assert _stale(reports["test_last"]["teardown"])
+    assert _no_failure(reports)
+
+
+def test_a_failing_test_judges_no_marker_beside_its_own_failure(run) -> None:
+    reports = run(first="assert False")
+    assert reports["test_first"]["call"].failed
+    assert reports["test_last"]["call"].passed

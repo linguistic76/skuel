@@ -354,7 +354,8 @@ on a stored key that is neither a field nor registered node state of its node's 
 (`core/models/node_state.py`) — a `username` on a User, whose name is its `title` — unless it
 carries `@pytest.mark.stores_undeclared_key("why")`. Any of the three markers may sit on a
 class or a module, where it is stale only when none of its tests writes one, judged at its
-last test (at its teardown when that test is skipped) on a run of the whole class or module.
+last test and only when every test in it ran its body to the end — a partial run, or one in
+which a test in it skipped or failed, judges no marker.
 What that read cannot see — a uid created and
 deleted inside one body, one on a scratch container, one a property names — the static
 census (`tests/unit/test_integration_seed_uids.py`) reads from the source, every uid

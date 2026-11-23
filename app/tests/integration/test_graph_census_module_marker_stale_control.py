@@ -1,9 +1,9 @@
 """The graph census's control of a module's marker that no test in the module earns.
 
 A marker on a module (``pytestmark``) is stale when none of its tests wrote its finding,
-judged at the module's last test on a run of the whole module (``_graph_census.py``). Here
+judged at the module's last test when every test in it ran (``_graph_census.py``). Here
 no test stores a key no read reads, so the last one fails — held strict. A run of the last
-test alone does not hold the whole module and judges nothing, so it reads as an unexpected
+test alone does not run the whole module and judges nothing, so it reads as an unexpected
 pass. Its twin, ``test_graph_census_module_marker_control.py``, holds the earned verdict.
 """
 

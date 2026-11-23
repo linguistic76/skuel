@@ -37,9 +37,7 @@ from tests.integration._container_lifecycle import bounded_neo4j_container
 from tests.integration._graph_census import (  # noqa: F401
     pytest_make_collect_report,
     pytest_runtest_call,
-    pytest_runtest_makereport,
     pytest_runtest_setup,
-    pytest_runtest_teardown,
 )
 
 # The graph census's controls write to these: what they write is wiped once it is read.

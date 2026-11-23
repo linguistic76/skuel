@@ -1,7 +1,7 @@
 """The graph census's control of a module's marker: one test in the module earns it.
 
 A marker on a module (``pytestmark``) covers every test in it and is judged at its last
-test, on a run of the whole module (``_graph_census.py``). Here the first test stores a key
+test, when every test in it ran (``_graph_census.py``). Here the first test stores a key
 no read reads and the last stores none: the marker is earned, and every test passes. The
 census fails the module's last test the day it stops carrying what an earlier test wrote
 to the module's verdict. Its twin, ``test_graph_census_module_marker_stale_control.py``,
