@@ -878,6 +878,7 @@ async def test_preview_reports_refused_files_as_ignored_with_reason(env) -> None
     _write(k / "edge.yaml", "type: Edge\nfrom: a\nto: b\nrelationship: RELATED_TO\n")
     _write(k / "ku.md", _md("ku", "A ku"))
     _write(k / "grp.md", "---\ntype: group\nname: G\n---\n\nx\n")
+    _write(k / "map.md", "---\nmoc: true\ntitle: Typeless map\n---\n\nx\n")
     _write(k / "task.md", _md("task", "A task"))
 
     preview = await env["reconciler"].preview(VaultKind.PERSONAL, ALICE)
@@ -885,11 +886,12 @@ async def test_preview_reports_refused_files_as_ignored_with_reason(env) -> None
     assert preview.is_ok, preview
     value = preview.value
     assert value.would_ingest_count == 1, value
-    assert value.would_ignore_count == 3, value
+    assert value.would_ignore_count == 4, value
     joined = "\n".join(value.would_ignore_examples)
-    for name in ("edge.yaml", "ku.md", "grp.md"):
+    for name in ("edge.yaml", "ku.md", "grp.md", "map.md"):
         assert name in joined, joined
+    assert "type: user_entry" in joined, joined
 
     # The sync then does what the preview said.
     outcome = await _sync(env, "alice", "reconciler")
-    assert set(outcome.refused) == {"edge.yaml", "ku.md", "grp.md"}, outcome.refused
+    assert set(outcome.refused) == {"edge.yaml", "ku.md", "grp.md", "map.md"}, outcome.refused

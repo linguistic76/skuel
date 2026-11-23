@@ -26,8 +26,9 @@ The content vault account (``content_owner_uid``) is the account the content vau
 *acts as* — it is **not** a fictional owner stamped on curriculum. Curriculum
 (Ku/PathStep/LP/Exercise) is SHARED-by-type and drops its owner at persist, so
 access rights are ``f(EntityType)`` computed at read time, never materialized on
-the node. The acts-as account only matters for a USER_OWNED *stray* that appears
-in the content vault, and it holds the content vault's outbound consent flag.
+the node. The acts-as account owns the content vault's Group files and holds its
+outbound consent flag; a USER_OWNED type in the content vault is refused, never
+owned (``vault_policy.content_vault_refusal``).
 :meth:`VaultRegistry.resolve_by_path` is the mechanism: it attributes one owner
 per vault by *path*, so the same file yields the same owner via any ingest
 surface (dashboard, reconciler, watcher, bare script) — and since personal roots

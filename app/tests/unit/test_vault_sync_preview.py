@@ -281,12 +281,10 @@ class TestVaultPreview:
     async def test_preview_sets_aside_untyped_notes(self, tmp_path) -> None:
         """A loose note with no ``type:`` is never tracked, so the tracker compare
         calls it "new" on every preview, forever. The ingest gate sets it aside,
-        so the preview must too — one count, no phantom pending ingest — while
-        a typed note still counts (it DOES ingest), a declared-but-unknown type
-        passes this verdict (the parse stage, stubbed here, is what refuses it),
-        and a typeless ``moc: true``
-        file — a PathStep, which a personal vault refuses (ADR-070 Decision 11) — is listed as
-        ignored, with the reason the sync will give."""
+        so the preview must too — one count, no phantom pending ingest. Every
+        other file goes to the sync's parse stage (stubbed here), which decides a
+        refusal: a typed note, a declared-but-unknown type, and a typeless
+        ``moc: true`` file, which that stage refuses in a personal vault."""
         reconciler, backend, notes = _preview_harness(tmp_path)
         (notes / "typed.md").write_text("---\ntype: user_entry\npipeline: knowledge\n---\nbody")
         (notes / "moc.md").write_text("---\nmoc: true\n---\n[[typed]]")
@@ -298,17 +296,17 @@ class TestVaultPreview:
         assert result.is_ok
         preview = result.value
         assert preview.non_entity_notes == 2
-        assert preview.would_ingest_count == 2
-        assert preview.would_ingest_new == 2
+        assert preview.would_ingest_count == 3
+        assert preview.would_ingest_new == 3
         assert preview.would_ingest_changed == 0
         assert set(preview.would_ingest_examples) == {
             "periodic_notes/typed.md (new)",
             "periodic_notes/typo.md (new)",
+            "periodic_notes/moc.md (new)",
         }
-        assert preview.would_ignore_count == 1
-        (ignored,) = preview.would_ignore_examples
-        assert ignored.startswith("periodic_notes/moc.md — ")
-        assert "type: user_entry" in ignored
+        (parsed,) = reconciler._ingestion.parse_verdicts.await_args.args
+        assert {path.name for path in parsed} == {"typed.md", "typo.md", "moc.md"}
+        assert preview.would_ignore_count == 0
         _assert_no_deletes(backend)
 
     @pytest.mark.asyncio

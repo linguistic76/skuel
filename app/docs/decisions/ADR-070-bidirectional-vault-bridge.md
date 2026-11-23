@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-10-23
+updated: 2026-11-23
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -402,6 +402,18 @@ targets linked across users; a Group file's `owner_uid` beat the vault owner; a 
 6. **One folder per vault.** Compose refuses a personal root that overlaps `INGESTION_PATH`, on
    every transport (`VaultConfig.validate_roots`): a path resolves to one vault, and a personal
    vault holds no curriculum.
+7. **The content vault holds no one's own content** (ruled with Mike, 2026-11-23). It ingests
+   curriculum, the curated resources, Edge files and Group files. Every personal type — the six
+   Activities, `life_path`, `user_entry` — is refused as ignored-with-reason, the mirror of point 1:
+   an Activity's reason points at its Activity Template (`type: task_template` …), the practice a
+   step asks of its learners; a note's at a personal vault, or at removing its `type:` line to keep
+   it as a plain note. An `interaction` is recorded by the app as a learner works, so both vaults
+   refuse it. Every door gives one verdict (`vault_refusal`): the directory door's parse stage, the
+   single-file door, and the preview, which runs that parse stage and so names a refused file in
+   the sync's own line. Measured on the day: the content vault had written ten Activity samples and
+   two curriculum drafts typed `user_entry`, each owned by the admin account the vault acts as; no
+   learner-facing reader returned them. Mike ruled the samples become templates and the drafts
+   plain notes.
 
 **See:** `core/services/ingestion/vault_policy.py`, `tests/integration/test_personal_vault_doors.py`
 (every rule through all three doors), `tests/unit/services/ingestion/test_vault_writer_census.py`.
@@ -532,5 +544,6 @@ targets linked across users; a Group file's `owner_uid` beat the vault owner; a 
 | 2026-09-22 | Mike + Claude Code | **Decision 9 AMENDED again — one ingestion system.** `POST /api/ingest/file` (+ the dashboard card that had 403'd since 2026-04-19) and `POST /api/ingest/bundle` (+ `ingest_bundle`, `BundleStats`, `find_entity_file`; no manifest ever existed) deleted with the HTTP path allowlist (`_validate_ingestion_path`, `SKUEL_INGESTION_ALLOWED_PATHS`) and the nous generator pair (`ingest_nous.py`, `generate_kus_from_moc.py`, `hierarchy_parser.py`). Ruling 2's entry points restated as the three doors built; Resolved Design Question 1 restated as built (one trigger). | 1.2 |
 | 2026-09-22 | Mike + Claude Code | **No scoped re-ingest — the open conditional closed.** The 2026-09-21 and 2026-09-22 amendments and Resolved Design Question 1 each ended by hedging that "a scoped re-ingest, if ever wanted, is a `--path` option on `scripts/vault_bridge_sync.py`". Ruled: a forced re-ingest of one *unchanged* file is not a want. All three now state the built behaviour — a changed file is re-ingested by the next sync, the whole vault by `--force` — and no `--path` option is registered as staged work. | 1.3 |
 | 2026-10-02 | Mike + Claude Code | **Decision 11 — a personal vault writes only its owner's graph.** Type allowlist per vault kind; the node upsert never changes a node's owner (content vault included); per-file identity for uid-less personal Activity / life-path files; personal frontmatter targets admitted by the link-edge guard; content Edge files bound to `:Entity` ends and never `OWNS`; Group owner = the vault's; overlapping vault roots refused at boot. Decision 8's "single-tenant today" restated. |
+| 2026-11-23 | Mike + Claude Code | **Decision 11 amended — the content vault holds no one's own content** (point 7). It refuses every personal type with where the file belongs; both vaults refuse `interaction`; the preview names a refused file in the sync's own line. |
 | 2026-10-18 | Mike + Claude Code | **Decision 11 amended — a personal file never authors a `uid:` line.** Its identity is always derived from owner + path; a file with one is refused with a reason telling its author to remove the line. Authored dot uids belong to the content vault (ADR-013 § Amendment 2026-10-18). |
 | 2026-10-12 | Mike + Claude Code | **Decision 10's in-app exception superseded by ADR-091** (S4, N3): exercises are authored only in the content vault, and the prerequisite-approval vault write goes. Implementation pending; both stay live until ADR-091's change removes them. |

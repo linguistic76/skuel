@@ -12,7 +12,7 @@ tags:
 related:
   - ADR-047-entity-types-replace-domain-categories
   - ADR-043-intelligence-tier-toggle
-updated: 2026-09-21
+updated: 2026-11-23
 related_skills: [learning-loop]
 ---
 
@@ -83,7 +83,8 @@ result.
 
 4. **YAML-ingestible (Phase 1).** Despite being auto-generated in production, Interaction
    has a full `EntityIngestionConfig` so test fixtures and content authors can create
-   them via YAML if needed.
+   them via YAML if needed. **Amended 2026-11-23 (ADR-070 Decision 11, point 7):** the app
+   records an Interaction and no vault syncs one — both refuse a `type: interaction` file.
 
 5. **`InteractionResult` tracks pipeline progression (wired 2026-07-19).** The
    `result_status` field starts as `PENDING` and transitions forward-only as the

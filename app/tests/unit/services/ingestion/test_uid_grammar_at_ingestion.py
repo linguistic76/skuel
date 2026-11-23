@@ -23,7 +23,6 @@ from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
 from core.services.ingestion.validator import validate_uid_format
 from core.services.ingestion.vault_policy import (
-    file_vault_refusal,
     personal_file_uid,
     personal_vault_refusal,
     uid_in_use_reason,
@@ -179,11 +178,10 @@ class TestPersonalFilesAuthorNoUid:
         reason = personal_vault_refusal(EntityType.KU, {"uid": "ku.a.b"})
         assert reason is not None and "'type: ku'" in reason
 
-    def test_the_preview_reads_the_same_verdict(self, tmp_path: Path) -> None:
+    def test_the_parse_stage_gives_the_same_verdict(self, tmp_path: Path) -> None:
         f = _file(tmp_path, "run.md", "type: task\nuid: task.morning-run\ntitle: Run")
-        reason = file_vault_refusal(f, VaultKind.PERSONAL)
-        assert reason is not None and "remove the 'uid:' line" in reason
-        assert file_vault_refusal(f, VaultKind.CONTENT) is None
+        _, _, error = parse_file_sync(f, INGESTION_TEST_OWNER, vault_kind=VaultKind.PERSONAL)
+        assert error is not None and "remove the 'uid:' line" in error["error"]
 
     def test_the_uid_in_use_reason_no_longer_offers_a_personal_uid(self) -> None:
         reason = uid_in_use_reason("task.secret")
