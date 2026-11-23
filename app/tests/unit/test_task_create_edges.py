@@ -194,7 +194,7 @@ class StubBackend:
         self.hierarchy_fails: bool = False
 
     async def create(self, entity: Any) -> Result[Any]:
-        props = to_neo4j_node(entity)
+        props = to_neo4j_node(entity, self._model)
         self.created.append(dict(props))
         self.trace.append("node_created")
         return Result.ok(from_neo4j_node(props, self._model))
@@ -605,7 +605,7 @@ class TestEventHabitUidIsNotAProperty:
         entity = ConversionServiceV2.event_create_to_pure(request, "event:x", user_uid=USER_UID)
 
         assert entity.reinforces_habit_uid == HABIT_UID, "the converter still carries it"
-        assert "reinforces_habit_uid" not in to_neo4j_node(entity), (
+        assert "reinforces_habit_uid" not in to_neo4j_node(entity, type(entity)), (
             "Event.reinforces_habit_uid persisted as a node property"
         )
 

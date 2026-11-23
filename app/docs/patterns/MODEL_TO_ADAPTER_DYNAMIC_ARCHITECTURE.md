@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-11-22
+updated: 2026-11-23
 category: patterns
 related_skills: []
 related_docs:
@@ -563,7 +563,7 @@ These violated fail-fast philosophy - driver is REQUIRED at bootstrap.
 
 **The Flow:**
 ```
-create: Task (add field) → to_neo4j_node()  → Neo4j
+create: Task (add field) → to_neo4j_node(task, Task) → Neo4j
 update: dict of changes  → to_neo4j_patch() → Neo4j
 read:                      ← from_neo4j_node() ← Neo4j
 ```
@@ -574,7 +574,7 @@ read:                      ← from_neo4j_node() ← Neo4j
 ```python
 # In adapters/persistence/neo4j/neo4j_mapper.py
 
-def to_neo4j_node(entity: object) -> dict:  # a dataclass instance
+def to_neo4j_node(entity: object, entity_class: type) -> dict:  # a model, read as entity_class
 def to_neo4j_patch(changes: Mapping, entity_class: type, *, uid=None) -> dict:
     # Both apply the same serialization rules:
     if isinstance(value, Enum):
@@ -608,7 +608,7 @@ class Task:
 
 # Result:
 task = Task(uid="1", title="Test", estimated_hours=3.5)
-node_data = to_neo4j_node(task)
+node_data = to_neo4j_node(task, Task)
 # ✅ {'uid': '1', 'title': 'Test', 'estimated_hours': 3.5}
 # ✅ NEW field automatically serialized, no adapter changes needed!
 ```
@@ -656,20 +656,34 @@ value or a default (`/docs/patterns/three_tier_type_system.md`). So does a field
 class requires that the node does not hold. The stored-value census (`unreadable_fields`)
 reads each node by the same per-field rule, so it names exactly what a read refuses.
 
-The write holds the same rule from the other side. `to_neo4j_node` and `to_neo4j_patch`
-read every property they serialize for a field of the class by the read's own rule,
-and raise `UnstorableValueError` before any statement runs:
+The write holds the same rule from the other side. `to_neo4j_node(entity, entity_class)`
+and `to_neo4j_patch(changes, entity_class)` read every property they serialize against
+the class the node is read as (the writing backend's) by the read's own rule, and raise
+`UnstorableValueError` before any statement runs:
 neither stores a value every later read of its node would refuse. A null on a field that
-requires a value and has no default is refused too, and so is a patch key that names no
-field of the class (`UnknownFieldError`, naming every such key and the field each most
-likely meant): stored, it would be a property no read reads. An enum field read from a tolerated spelling (`BASIC`, an
+requires a value and has no default is refused too, and so is a key that names no
+field of the class — a patch's, or a model's of another class than its backend reads
+(`UnknownFieldError`, naming every such key and the field each most likely meant):
+stored, it would be a property no read reads. An enum field read from a tolerated spelling (`BASIC`, an
 alias) is stored as its member's value, so a Cypher filter comparing it finds it. A
 backend write answers the refusal as a failed `Result` (SYSTEM, naming class, uid,
 field and reason, through `safe_backend_operation`); the vault door refuses the one file
 that holds it, against its field, and writes the rest of the batch
 (`IngestionResult.unstorable_by_uid`); a file's relationship-config keys are edge sources,
-set aside before the check, and the embedding writer's properties are dropped first. Raw-Cypher writers that SET a property from a
-parameter are outside the gate; each takes a typed value.
+set aside before the check, and the embedding writer's properties are dropped first.
+
+Raw-Cypher writers are outside the gate; each takes a typed value. Some of what they
+write is **node state** — a property the class does not declare because only the
+backend's own Cypher writes and reads it (ADR-048 learning state, embedding and
+grounding stamps, the vault sweep's retirement marks, substance counters). Each such
+key is registered beside its class's fields as `NODE_STATE`, a `ClassVar` frozenset
+(`core/models/node_state.py`; `node_state(cls)` reads a class's with its bases'). A
+map writer of learning state checks its keys against its registered set before the
+statement (habit, task duration, teacher feedback). The stored-value census reads the
+other side: `undeclared_keys` names every stored key that is neither a field nor node
+state of the node's class — `./dev stored-value-census` lists each one and exits 1,
+and the graph-health poller counts them (`skuel_stored_keys_undeclared_count`, a
+WARNING from `check_undeclared_keys`).
 
 ### 4. **Complex Types** (100% Dynamic)
 

@@ -25,6 +25,7 @@ from core.infrastructure.monitoring.query_metrics_cache import QueryMetricsCache
 from core.infrastructure.monitoring.stored_value_check import (
     STORED_VALUE_SAMPLE,
     check_stored_values,
+    check_undeclared_keys,
 )
 from core.infrastructure.monitoring.uid_grammar_check import UID_BREACH_SAMPLE, check_uid_grammar
 
@@ -34,10 +35,11 @@ __all__ = [
     "MetricsCache",
     "QueryMetricsCache",
     # In-app evaluators (production has no Prometheus): AuraDB caps, uid grammar,
-    # stored values
+    # stored values, stored keys no read reads
     "check_aura_cap_headroom",
     "check_uid_grammar",
     "check_stored_values",
+    "check_undeclared_keys",
     "STORED_VALUE_SAMPLE",
     "UID_BREACH_SAMPLE",
     # HTTP instrumentation

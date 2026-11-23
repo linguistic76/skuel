@@ -22,12 +22,13 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.ku.ku_dto import KuDTO
 
+from core.models.curriculum import SUBSTANCE_COUNTERS, SUBSTANCE_TIMESTAMPS
 from core.models.entity import Entity
 from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.entity_enums import EntityType
@@ -51,6 +52,15 @@ class Ku(Entity):
     PathSteps USES_KU to compose atoms into narrative.
     Learning Steps TRAINS_KU to declare learning objectives.
     """
+
+    # Node state: properties the node carries that the class does not declare
+    # (core/models/node_state.py): the substance credits lived activity earns
+    # (``KuBackend.increment_substance``, read by the substance queries), and
+    # ``hub_score``, the cached degree centrality (``compute_hub_scores``, read by the
+    # foundational-knowledge query).
+    NODE_STATE: ClassVar[frozenset[str]] = (
+        SUBSTANCE_COUNTERS | SUBSTANCE_TIMESTAMPS | frozenset({"hub_score"})
+    )
 
     # Honest leaf identity (G6): defaults to its own type; __post_init__
     # rejects a mismatch instead of silently correcting it.

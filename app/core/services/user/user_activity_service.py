@@ -5,11 +5,9 @@ User Activity Service - Activity Tracking
 Focused service handling user activity tracking and context invalidation.
 
 Responsibilities:
-- Activity state updates (knowledge views, task starts, habit practices)
 - Conversation history management
 - Context invalidation for event-driven architecture
 - Active learner queries
-- Activity update building
 
 This service is part of the refactored UserService architecture:
 - UserCoreService: CRUD + Auth
@@ -22,37 +20,26 @@ This service is part of the refactored UserService architecture:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.services.user.unified_user_context import RichUserContext
 
-from core.events import publish_event
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.models.user import User
 from core.ports.infrastructure_protocols import UserActivityOperations
 from core.services.user.debounced_invalidator import DebouncedContextInvalidator
 from core.services.user.user_context_cache import UserContextCache
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
 
 
 # =============================================================================
-# ACTIVITY & INVALIDATION CONSTANTS
+# INVALIDATION CONSTANTS
 # =============================================================================
-
-# Pure mapping: (activity_type, action) -> User model field
-# Makes valid combinations explicit and self-documenting
-ACTIVITY_FIELD_MAP: dict[tuple[str, str], str] = {
-    ("knowledge", "viewed"): "recently_viewed_knowledge",
-    ("knowledge", "bookmarked"): "bookmarked_knowledge",
-    ("task", "started"): "current_tasks",
-    ("task", "completed"): "recently_completed_tasks",
-    ("habit", "practiced"): "recently_practiced_habits",
-}
 
 
 class InvalidationReason:
@@ -83,12 +70,10 @@ class UserActivityService:
     """
     User activity tracking and context management.
 
-    This service handles tracking user activities and managing context state:
-    - Recording user activity (views, completions, etc.)
+    This service manages a user's conversation history and context state:
     - Managing conversation history
     - Invalidating cached contexts when data changes
     - Querying active learners
-    - Building activity update payloads
 
     Architecture:
     - Protocol-based repository dependency (UserOperations)
@@ -99,7 +84,6 @@ class UserActivityService:
     def __init__(
         self,
         user_repo: UserActivityOperations,
-        event_bus=None,
         metrics_cache=None,
         invalidation_delay_ms: int = 100,
     ) -> None:
@@ -108,7 +92,6 @@ class UserActivityService:
 
         Args:
             user_repo: Repository implementation for user persistence (protocol-based)
-            event_bus: Event bus for publishing domain events (optional)
             metrics_cache: MetricsCache for performance tracking (optional)
             invalidation_delay_ms: Debounce delay for context invalidation (default 100ms).
                                    Set to 0 to disable debouncing.
@@ -119,7 +102,6 @@ class UserActivityService:
         if not user_repo:
             raise ValueError("User repository is required")
         self.repo = user_repo
-        self.event_bus = event_bus
         self._metrics_cache = metrics_cache
         self._context_cache = UserContextCache()  # Event-driven cache invalidation
 
@@ -128,116 +110,6 @@ class UserActivityService:
             invalidate_fn=self._do_invalidate,
             delay_ms=invalidation_delay_ms,
         )
-
-    # ========================================================================
-    # ACTIVITY TRACKING
-    # ========================================================================
-
-    @with_error_handling("update_user_activity", error_type="database", uid_param="user_uid")
-    async def update_user_activity(
-        self, user_uid: UserUID, activity_type: str, entity_uid: EntityUID, action: str = "viewed"
-    ) -> Result[bool]:
-        """
-        Update user's activity state.
-
-        Records user interactions with domain entities (knowledge, tasks, habits).
-        Updates activity lists like recently_viewed_knowledge, current_tasks, etc.
-
-        Args:
-            user_uid: User's unique identifier
-            activity_type: Type of activity (knowledge, task, habit, etc.)
-            entity_uid: UID of the entity
-            action: Action performed (viewed, completed, started, bookmarked, etc.)
-
-        Returns:
-            Result[bool]: True if updated successfully
-
-        Error cases:
-            - Invalid activity/action pair → VALIDATION
-            - Database operation fails → DATABASE
-
-        Valid Activity/Action Pairs (see ACTIVITY_FIELD_MAP):
-            - knowledge: viewed, bookmarked
-            - task: started, completed
-            - habit: practiced
-
-        Eventual Consistency:
-            Event publishing is fire-and-forget. If publish_event fails,
-            the activity update has already succeeded. This is intentional -
-            activity state is source of truth, events are notifications.
-        """
-        # Validate activity/action pair upfront (fail-fast)
-        if (activity_type, action) not in ACTIVITY_FIELD_MAP:
-            return Result.fail(
-                Errors.validation(
-                    message=f"Invalid activity/action pair: {activity_type}.{action}",
-                    field="activity_type",
-                )
-            )
-
-        # Build activity update (guaranteed non-empty due to validation above)
-        activity_updates = self._build_activity_update(activity_type, entity_uid, action)
-
-        result = await self.repo.update_user_activity(user_uid, activity_updates)
-
-        if result.is_ok:
-            logger.debug(
-                f"Updated activity for user {user_uid}: {activity_type}.{action} -> {entity_uid}"
-            )
-
-            # Publish UserActivityRecorded event (eventual consistency - do NOT rollback on failure)
-            # Activity update is source of truth; events are notifications
-            try:
-                from core.events import UserActivityRecorded
-
-                event = UserActivityRecorded(
-                    user_uid=user_uid,
-                    activity_type=f"{activity_type}.{action}",
-                    activity_context={
-                        "entity_uid": entity_uid,
-                        "activity_type": activity_type,
-                        "action": action,
-                    },
-                )
-                await publish_event(self.event_bus, event, logger)
-            except (ValueError, TypeError, AttributeError) as e:
-                # Log but do NOT fail - activity update already succeeded
-                logger.warning(
-                    f"Event publish failed for {activity_type}.{action} (user={user_uid}): {e}"
-                )
-            except Exception as e:  # safety-net: catch unexpected errors
-                logger.warning(
-                    f"Event publish failed for {activity_type}.{action} (user={user_uid}): {e}"
-                )
-
-        return result
-
-    def _build_activity_update(
-        self, activity_type: str, entity_uid: EntityUID, action: str
-    ) -> dict[str, Any]:
-        """
-        Build activity update dictionary based on type and action.
-
-        Pure function: maps (activity_type, action) to field update via ACTIVITY_FIELD_MAP.
-        Total function: always returns a dict (empty if no matching field).
-
-        Args:
-            activity_type: Type of activity (knowledge, task, habit)
-            entity_uid: UID of the entity
-            action: Action performed
-
-        Returns:
-            Dictionary of field updates (empty dict if invalid activity/action pair)
-
-        Valid Combinations (see ACTIVITY_FIELD_MAP):
-            - knowledge.viewed → recently_viewed_knowledge
-            - knowledge.bookmarked → bookmarked_knowledge
-            - task.started → current_tasks
-            - task.completed → recently_completed_tasks
-            - habit.practiced → recently_practiced_habits
-        """
-        field = ACTIVITY_FIELD_MAP.get((activity_type, action))
-        return {field: [entity_uid]} if field else {}
 
     # ========================================================================
     # CONVERSATION HISTORY

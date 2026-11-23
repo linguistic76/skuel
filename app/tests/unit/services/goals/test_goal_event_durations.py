@@ -55,7 +55,7 @@ def _goal(created_at: datetime, status: EntityStatus = EntityStatus.ACTIVE) -> G
 
 def _aware_created_at() -> datetime:
     """An authored-shape stamp: an offset string read back through the real mapper."""
-    stored = to_neo4j_node(_goal(datetime.now(UTC) - timedelta(days=DAYS_AGO)))
+    stored = to_neo4j_node(_goal(datetime.now(UTC) - timedelta(days=DAYS_AGO)), Goal)
     created_at = from_neo4j_node(stored, Goal).created_at
     assert created_at is not None and created_at.tzinfo is not None  # the premise
     return created_at
@@ -81,7 +81,7 @@ class _RoundTripBackend:
     """``create`` round-trips through the real mapper, as ``_create_node`` does."""
 
     async def create(self, entity: Goal) -> Result[Any]:
-        return Result.ok(from_neo4j_node(to_neo4j_node(entity), Goal))
+        return Result.ok(from_neo4j_node(to_neo4j_node(entity, Goal), Goal))
 
     def __getattr__(self, name: str) -> Any:
         raise AssertionError(f"Unmodelled backend call: {name}")

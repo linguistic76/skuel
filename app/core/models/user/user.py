@@ -23,12 +23,16 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 from zoneinfo import ZoneInfo
 
 from core.models.enums import EnergyLevel, JournalTier, LearningLevel, TimeOfDay, UserRole
 from core.models.query_types import QueryIntent
 from core.models.type_hints import EntityUID, UserUID
+from core.models.user.learning_state import (
+    TASK_DURATION_LEARNING_PROPERTIES,
+    TEACHER_FEEDBACK_PROPERTIES,
+)
 from core.utils.uid_generator import UIDGenerator
 from core.utils.zone_context import zone_for
 
@@ -108,6 +112,26 @@ class User:
     - Relationships to the unified relationship system
     """
 
+    # Node state: properties the node carries that the class does not declare
+    # (core/models/node_state.py):
+    # - the two ADR-048 averages (core/models/user/learning_state.py);
+    # - the life-path vision (``LifePathBackend.save_vision``, read by its vision reads);
+    # - a pending device pairing code, hashed, and its expiry
+    #   (``DeviceBackend.set_pairing_code``, removed by the redemption that reads them).
+    NODE_STATE: ClassVar[frozenset[str]] = (
+        TASK_DURATION_LEARNING_PROPERTIES
+        | TEACHER_FEEDBACK_PROPERTIES
+        | frozenset(
+            {
+                "vision_statement",
+                "vision_themes",
+                "vision_captured_at",
+                "pairing_code_hash",
+                "pairing_code_expires_at",
+            }
+        )
+    )
+
     # Core identity
     uid: UserUID
     title: str  # We'll use title as username for consistency
@@ -149,6 +173,9 @@ class User:
 
     # Account status
     is_active: bool = True
+    # When the account was soft-deleted (``UserBackend.delete_user``: inactive, PII
+    # scrubbed, the node and what it owns kept); ``None`` for a live account.
+    deleted_at: datetime | None = None
     is_verified: bool = False
     is_premium: bool = False
 

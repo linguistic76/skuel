@@ -1,9 +1,9 @@
 """
-User Enums - Role, Health, and Account Status Enums
-====================================================
+User Enums - Role, Group, Health, and Journal Enums
+==================================================
 
-User-specific enumerations for role hierarchy, context health scoring,
-account management, and journal workflow tier.
+User-specific enumerations for role hierarchy, group membership role, context
+health scoring, and the journal workflow tier and mode.
 
 Four-tier role hierarchy (lowest to highest):
     REGISTERED < MEMBER < TEACHER < ADMIN
@@ -17,13 +17,10 @@ Design Principles:
 - Payment upgrades REGISTERED -> MEMBER
 - Only ADMIN can promote to TEACHER or ADMIN
 
-Two-state account lifecycle:
-    ACTIVE < DELETED
-
-Soft-delete marks the User node with status=DELETED, scrubs PII, and keeps the
-node + OWNS-linked entities (UserEntry, Task, Goal, ...) intact so teachers can
-still render the owner's historical submissions. Hard-delete (admin-only, GDPR
-right-to-erasure) deletes the User + cascade over every OWNS edge.
+Account lifecycle lives on the User model, not in an enum: ``is_active`` (sign-in
+and every request refuse an inactive account) and ``deleted_at`` (a soft delete's
+stamp — PII scrubbed, the node and its OWNS-linked entities kept). Hard-delete
+(admin-only, GDPR right-to-erasure) deletes the User + cascade over every OWNS edge.
 
 Journal tier — orthogonal to UserRole:
     STANDARD (default) — continuous single-response workflow
@@ -144,29 +141,6 @@ class UserRole(StrEnum):
     def default(cls) -> UserRole:
         """Get the default role for new users."""
         return cls.REGISTERED
-
-
-class UserStatus(StrEnum):
-    """
-    Account lifecycle state for User nodes.
-
-    Two states:
-    - ACTIVE: normal account. Can authenticate; owned entities are mutable.
-    - DELETED: soft-deleted. Blocks login, PII scrubbed, but the User node +
-      every OWNS-linked entity are preserved so downstream views
-      (teacher gradebook, analytics, audit) still resolve.
-
-    Paired with the ``User.is_active`` boolean, which sign-in
-    (``GraphAuthService.sign_in``) and the per-request session check read.
-    Soft-delete flips both (``status=DELETED``, ``is_active=False``), so those
-    guards reject a deleted user.
-    """
-
-    ACTIVE = "active"
-    DELETED = "deleted"
-
-    def is_deleted(self) -> bool:
-        return self is UserStatus.DELETED
 
 
 class ContextHealthScore(StrEnum):

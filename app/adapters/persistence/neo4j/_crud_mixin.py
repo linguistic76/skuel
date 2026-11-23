@@ -160,7 +160,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         Principles absent from ``/search``.
         """
         start_time = time.time()
-        node_data = to_neo4j_node(entity)
+        node_data = to_neo4j_node(entity, self.entity_class)
 
         # Ensure default_filter properties are set on new nodes (e.g., entity_type)
         node_data.update(self.default_filters)

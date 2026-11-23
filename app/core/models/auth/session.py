@@ -36,6 +36,7 @@ import hashlib
 import secrets
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import ClassVar
 
 from core.models.type_hints import UserUID
 from core.utils.uid_generator import UIDGenerator
@@ -78,6 +79,13 @@ class Session:
         is_valid: Whether session is valid (can be invalidated on logout)
         token_hash: SHA-256 hash of the session's token, the property it is found by
     """
+
+    # Node state: properties the node carries that the class does not declare
+    # (core/models/node_state.py):
+    # ``seen_day``, the last UTC day a request was seen on the session, so its owner's
+    # presence is counted once a day (``SessionBackend.create_session`` /
+    # ``validate_session_token``, which read it).
+    NODE_STATE: ClassVar[frozenset[str]] = frozenset({"seen_day"})
 
     uid: str
     user_uid: UserUID

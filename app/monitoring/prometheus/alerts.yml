@@ -195,7 +195,21 @@ groups:
           description: "Every read of each such node fails (UnreadableStoredValueError)"
           runbook: "Run ./dev stored-value-census to name each node and field; fix the writer, then migrate the values"
 
-      # The 19 relationship/knowledge/uid/stored-value gauges freeze at their last values when
+      # Its second verdict: a stored key that is neither a field nor registered node
+      # state (core/models/node_state.py) fails no read, but no read reads it.
+      # Evaluates only in dev; the PRODUCTION evaluator is the poller's WARNING log
+      # (core/infrastructure/monitoring/stored_value_check.py).
+      - alert: StoredKeyUndeclared
+        expr: skuel_stored_keys_undeclared_count > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} stored propert(y/ies) no read reads"
+          description: "A key that is neither a field nor registered node state of its node's class"
+          runbook: "Run ./dev stored-value-census to name each node and key; fix the writer, or register the key as node state"
+
+      # The 20 relationship/knowledge/uid/stored-value gauges freeze at their last values when
       # the poller can't reach Neo4j — this alert makes that staleness visible.
       # Baseline is set at task start, so "never succeeded since boot" also fires.
       # 900s = 3 missed 5-min cycles.

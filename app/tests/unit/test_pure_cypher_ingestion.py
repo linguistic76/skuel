@@ -48,7 +48,7 @@ def test_connection_property_filtering():
     )
 
     # Convert to Neo4j node (this happens in CypherExecutor)
-    item = to_neo4j_node(entity)
+    item = to_neo4j_node(entity, MockEntity)
 
     # Extract connections (mimics CypherExecutor lines 252-261)
     metadata = getattr(entity, "metadata", None)

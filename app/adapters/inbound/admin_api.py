@@ -403,9 +403,9 @@ def create_admin_api_routes(
         Hard-delete a user and every OWNS-linked entity (ADMIN only, GDPR erasure).
 
         Irreversible. Destroys the User node plus every owned entity (UserEntry,
-        Task, Goal, Habit, ...). For routine deletions use
-        POST /api/admin/users/deactivate instead — that soft-deletes, scrubs PII,
-        and preserves teacher-visible history.
+        Task, Goal, Habit, ...). To stop an account instead, use
+        POST /api/admin/users/deactivate: it marks the account inactive and revokes
+        its live sessions, scrubs nothing, and a reactivation undoes it.
 
         Query Parameters:
             uid: User UID to erase.

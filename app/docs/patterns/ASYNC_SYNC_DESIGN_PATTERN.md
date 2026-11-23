@@ -1,6 +1,6 @@
 ---
 title: Async/Sync Design Pattern
-updated: 2026-11-14
+updated: 2026-11-23
 category: patterns
 related_skills:
 - python
@@ -44,7 +44,7 @@ All database operations are async because they involve I/O wait time:
 
 async def create(self, entity: T) -> Result[T]:
     """HAS I/O - Neo4j database write"""
-    node_data = to_neo4j_node(entity)  # Sync helper (pure)
+    node_data = to_neo4j_node(entity, self.entity_class)  # Sync helper (pure)
 
     query = f"CREATE (n:{self.label}) SET n = $props RETURN n"
 
@@ -125,9 +125,10 @@ Type conversion is pure computation with no I/O:
 ```python
 # adapters/persistence/neo4j/neo4j_mapper.py
 
-def to_neo4j_node(entity: object) -> dict[str, Any]:
+def to_neo4j_node(entity: object, entity_class: type) -> dict[str, Any]:
     """NO I/O - Pure type transformation (simplified: the real one also reads each
-    property back by its field's type, refusing a value no read could read)"""
+    property back by its field's type in entity_class, refusing a value no read could
+    read and a key no field of entity_class names)"""
     node_data: dict[str, Any] = {}
     for field in fields(entity):
         value = getattr(entity, field.name)
@@ -240,10 +241,10 @@ async def get_user(uid: str) -> User:
 
 ```python
 # WRONG - sync helper called with await
-result = await to_neo4j_node(entity)  # to_neo4j_node is sync!
+result = await to_neo4j_node(entity, Task)  # to_neo4j_node is sync!
 
 # CORRECT - call sync helpers directly
-result = to_neo4j_node(entity)  # No await needed
+result = to_neo4j_node(entity, Task)  # No await needed
 ```
 
 ## Why This Pattern Matters

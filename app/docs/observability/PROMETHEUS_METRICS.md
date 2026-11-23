@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-20
+updated: 2026-11-23
 ---
 
 # Prometheus + Grafana Observability for SKUEL
@@ -481,11 +481,15 @@ poller (`StoredValueCensusBackend.read_summary`): every field of every node a ba
 reads, by the mapper's own rule — each stored value as its type, each required field as
 present. A field it cannot read fails every read of its node (`UnreadableStoredValueError`). Alert: `StoredValueUnreadable`
 (dev); production's evaluator is `check_stored_values`'s ERROR log
-(`core/infrastructure/monitoring/stored_value_check.py`).
+(`core/infrastructure/monitoring/stored_value_check.py`). The same read names every stored
+key that is neither a field nor registered node state of its node's class
+(`core/models/node_state.py`): it fails no read, but no read reads it. Alert:
+`StoredKeyUndeclared` (dev); production's evaluator is `check_undeclared_keys`'s WARNING log.
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
 | `skuel_stored_values_unreadable_count` | Gauge | - | Stored fields a read refuses: a value its type cannot read, or a required one absent (each fails its node's reads) |
+| `skuel_stored_keys_undeclared_count` | Gauge | - | Stored properties no read reads: neither a field nor registered node state of the node's class |
 
 #### Poller Freshness
 

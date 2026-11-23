@@ -14,7 +14,7 @@ from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
 
 # ============================================================================
-# USER ACTIVITY EVENTS
+# USER ACCOUNT EVENTS
 # ============================================================================
 
 
@@ -49,22 +49,3 @@ class UserDeleted(BaseEvent):
     reason: str = ""
 
     event_type: ClassVar[str] = "user.deleted"
-
-
-@dataclass(frozen=True)
-class UserActivityRecorded(BaseEvent):
-    """
-    Published when user activity is logged (optional analytics event).
-
-    Subscribers:
-    - AnalyticsEngine (user behavior patterns)
-    - RecommendationEngine (activity-based recommendations)
-    """
-
-    user_uid: UserUID
-
-    # Activity details
-    activity_type: str  # "viewed_page", "completed_action", "searched", etc.
-    activity_context: dict[str, str] | None = None
-
-    event_type: ClassVar[str] = "user.activity_recorded"

@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
+from core.models.curriculum import SUBSTANCE_COUNTERS, SUBSTANCE_TIMESTAMPS
 from core.models.enums import EntityStatus
 from core.models.enums.curriculum_enums import PublicationState, StepRecommendationType
 from core.models.relationship_names import RelationshipName
@@ -82,25 +83,8 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 # Allowlists for substance metric Cypher interpolation (prevents injection)
-_VALID_SUBSTANCE_METRICS: frozenset[str] = frozenset(
-    {
-        "times_applied_in_tasks",
-        "times_practiced_in_events",
-        "times_built_into_habits",
-        "times_reflected_in_entries",
-        "choices_informed_count",
-    }
-)
-
-_VALID_SUBSTANCE_TIMESTAMP_FIELDS: frozenset[str] = frozenset(
-    {
-        "last_applied_date",
-        "last_practiced_date",
-        "last_built_into_habit_date",
-        "last_reflected_date",
-        "last_choice_informed_date",
-    }
-)
+_VALID_SUBSTANCE_METRICS: frozenset[str] = SUBSTANCE_COUNTERS
+_VALID_SUBSTANCE_TIMESTAMP_FIELDS: frozenset[str] = SUBSTANCE_TIMESTAMPS
 
 
 def _compute_ps_stats(all_steps: list[Any]) -> dict[str, int | float]:

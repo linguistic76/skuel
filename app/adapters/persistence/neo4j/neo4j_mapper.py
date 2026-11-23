@@ -26,6 +26,7 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import Any, TypeVar, Union, get_args, get_origin, get_type_hints
 
+from core.models.node_state import node_state
 from core.models.type_hints import Neo4jProperties
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, UnreadableValueError
 from core.utils.logging import get_logger
@@ -81,11 +82,11 @@ class UnstorableValueError(UnreadableValueError):
 
 
 class UnknownFieldError(UnstorableValueError):
-    """A patch whose keys name no field of the class its node is read as.
+    """A write whose keys name no field of the class its node is read as.
 
-    ``to_neo4j_patch`` refuses the whole patch before anything is written, as it refuses
-    a value its field cannot read: stored, such a key is a property no read of the node
-    reads. ``field`` and ``value`` are the first such key and its value; ``unknown``
+    ``to_neo4j_patch`` refuses the whole patch, and ``to_neo4j_node`` the whole model,
+    before anything is written, as each refuses a value its field cannot read: stored,
+    such a key is a property no read of the node reads. ``field`` and ``value`` are the first such key and its value; ``unknown``
     holds every one, and ``suggestions`` each one's nearest field names, for the
     author's message.
     """
@@ -852,6 +853,17 @@ def unreadable_fields(
     return refusals
 
 
+def undeclared_keys(data: Mapping[str, Any], entity_class: type) -> list[str]:
+    """Every stored property of ``data`` that is neither a field nor node state of ``entity_class``.
+
+    The model's read skips such a property, and no registration names it as node state a
+    backend reads (``core/models/node_state.py``): a writer stored a key no read is known
+    to read. The stored-value census names each one.
+    """
+    known = {spec.field.name for spec in _field_specs(entity_class)} | node_state(entity_class)
+    return sorted(key for key in data if key not in known)
+
+
 # ============================================================================
 # PUBLIC API
 # ============================================================================
@@ -859,20 +871,26 @@ def unreadable_fields(
 _mapper = Neo4jGenericMapper()
 
 
-def to_neo4j_node(entity: object) -> dict[str, Any]:  # boundary: serialized node properties
+def to_neo4j_node(
+    entity: object, entity_class: type
+) -> dict[str, Any]:  # boundary: serialized node properties
     """
-    A model instance's node properties, as a write stores them.
+    A model instance's node properties, as a write stores them on a node read as ``entity_class``.
 
-    Every backend's one serializer of a whole model (a create, an upsert). Each
-    property is read back by its field's type, by the read's own rule, before it
-    is returned: a value that every later read of the node would refuse raises
-    ``UnstorableValueError`` and nothing is written. An enum value is stored as
-    its member's value.
+    Every backend's one serializer of a whole model (a create, an upsert).
+    ``entity_class`` is the class every read of the node builds — the writing
+    backend's. Each property is read back by its field's type there, by the read's own
+    rule, before it is returned: a value that every later read of the node would refuse
+    raises ``UnstorableValueError``, and a property that names no field of
+    ``entity_class`` — a model of another class, whose own fields that read never reads
+    — raises ``UnknownFieldError``; nothing is written. An enum value is stored as its
+    member's value.
 
     Example:
-        node_props = to_neo4j_node(task)
+        node_props = to_neo4j_node(task, Task)
 
     Raises:
+        UnknownFieldError: a property that names no field of ``entity_class``.
         UnstorableValueError: a value its field's type cannot read.
         TypeError: ``entity`` is not a dataclass instance (a patch is
             ``to_neo4j_patch``).
@@ -882,7 +900,13 @@ def to_neo4j_node(entity: object) -> dict[str, Any]:  # boundary: serialized nod
             f"to_neo4j_node serializes a model instance, not a {type(entity).__name__}; "
             "a patch is to_neo4j_patch(changes, entity_class)"
         )
-    return _stored_form(_mapper.to_node(entity), type(entity), getattr(entity, "uid", None))
+    uid = getattr(entity, "uid", None)
+    props = _mapper.to_node(entity)
+    field_names = {spec.field.name for spec in _field_specs(entity_class)}
+    unknown = {key: value for key, value in props.items() if key not in field_names}
+    if unknown:
+        raise UnknownFieldError(entity_class, uid, unknown)
+    return _stored_form(props, entity_class, uid)
 
 
 def to_neo4j_patch(

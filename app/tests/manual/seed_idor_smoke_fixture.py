@@ -22,7 +22,7 @@ from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection  # noqa:
 from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node  # noqa: E402
 from core.auth.password import hash_password  # noqa: E402
 from core.models.enums import UserRole  # noqa: E402
-from core.models.user import create_user  # noqa: E402
+from core.models.user import User, create_user  # noqa: E402
 
 PASSWORD = "TestPassword123!"
 TEACHER_A = "idor_smoke_teacher_a"
@@ -45,7 +45,7 @@ def _build_user_props(username: str, role: UserRole, password_hash: str) -> dict
         is_active=True,
         is_verified=True,
     )
-    return to_neo4j_node(user)
+    return to_neo4j_node(user, User)
 
 
 async def seed() -> None:

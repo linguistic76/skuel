@@ -76,7 +76,7 @@ class TestWithoutEmbeddingProps:
 
     def test_a_full_model_payload_carries_the_triple_as_nulls(self) -> None:
         """The premise: the mapper emits the model's None triple as explicit nulls."""
-        props = to_neo4j_node(UserEntry(uid="ue_x", title="t", user_uid="user_x"))
+        props = to_neo4j_node(UserEntry(uid="ue_x", title="t", user_uid="user_x"), UserEntry)
         assert {k: props[k] for k in ("embedding", "embedding_model", "embedding_updated_at")} == {
             "embedding": None,
             "embedding_model": None,

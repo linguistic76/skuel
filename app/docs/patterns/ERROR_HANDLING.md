@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: '2026-11-22'
+updated: '2026-11-23'
 category: patterns
 related_skills:
 - result-pattern
@@ -103,7 +103,7 @@ class ErrorContext:
 @safe_backend_operation("create_report")
 async def create(self, report: Report) -> Result[Report]:
     try:
-        node = to_neo4j_node(report)
+        node = to_neo4j_node(report, Report)
         result = await self.execute_query(
             "CREATE (r:Report $props) RETURN r",
             props=node

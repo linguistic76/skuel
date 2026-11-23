@@ -19,8 +19,8 @@ that aligned the concrete backend with its protocol:
 import pytest
 import pytest_asyncio
 
-from core.models.curriculum import Curriculum
 from core.models.enums import Domain, EntityStatus, Priority, SELCategory
+from core.models.ku.ku import Ku
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -64,7 +64,7 @@ class TestBackendProtocolConformance:
         assert (await tasks_service.create(task)).is_ok
 
         for slug in ("applies-target", "requires-target"):
-            ku = Curriculum(
+            ku = Ku(
                 uid=f"ku.{slug}",
                 title=slug,
                 domain=Domain.TECH,

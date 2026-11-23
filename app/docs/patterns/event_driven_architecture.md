@@ -1,6 +1,6 @@
 ---
 title: Event-Driven Architecture
-updated: 2026-10-25
+updated: 2026-11-23
 category: patterns
 related_skills:
 - python
@@ -114,7 +114,7 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 - `task.created`, `task.completed`, `task.deleted`
 - `goal.achieved`, `goal.progress_updated`
 - `habit.completed`, `habit.streak_broken`
-- `user.activity_recorded`, `user.deleted`
+- `user.deleted`
 - `knowledge.mastered`, `learning_path.completed`
 
 ---

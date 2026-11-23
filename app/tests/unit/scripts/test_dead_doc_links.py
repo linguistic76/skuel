@@ -550,16 +550,20 @@ def test_placeholder_vocabulary_shadows_no_file_in_the_tree() -> None:
     checker forever — a shadowed real file is a permanent blind spot of exactly the
     kind this pass exists to close. Derive the check from the tree so a future entry
     cannot open one silently; hand-listing cases would only ever pin today's.
+
+    The tree is the files a citation can resolve to: the tracked ones the checker
+    reads (``_tracked_universe``). A gitignored scratch file is no citation's target,
+    so its name shadows nothing.
     """
+    base, tracked = ddl._tracked_universe()
     shadowed = [
         rel
         for rel in (
-            str(p.relative_to(ddl.ROOT))
-            for p in ddl.ROOT.rglob("*")
-            if p.is_file() and p.suffix in ddl.LOCAL_EXTENSIONS and "__pycache__" not in p.parts
+            (base / name).relative_to(ddl.ROOT).as_posix()
+            for name in tracked
+            if (base / name).is_relative_to(ddl.ROOT)
         )
-        # Third-party trees are never cited by path in SKUEL docs.
-        if not rel.startswith((".venv/", "node_modules/", "htmlcov/")) and ddl._is_placeholder(rel)
+        if Path(rel).suffix in ddl.LOCAL_EXTENSIONS and ddl._is_placeholder(rel)
     ]
     assert shadowed == [], f"placeholder vocabulary hides real files: {shadowed}"
 

@@ -226,6 +226,7 @@ def _start_graph_health_poller(
         check_aura_cap_headroom,
         check_stored_values,
         check_uid_grammar,
+        check_undeclared_keys,
     )
 
     async def update_graph_health_metrics() -> None:
@@ -440,16 +441,19 @@ def _start_graph_health_poller(
                 check_uid_grammar(breaches.value)
 
                 # Query 6: every stored value read as its field's type — a value a
-                # read would refuse fails every read of its node.
-                unreadable = await stored_values.read_summary(STORED_VALUE_SAMPLE)
-                if unreadable.is_error:
-                    raise RuntimeError(
-                        f"stored-value census unreadable: {unreadable.expect_error()}"
-                    )
+                # read would refuse fails every read of its node — and every stored key
+                # no read reads, from the same read.
+                census = await stored_values.read_summary(STORED_VALUE_SAMPLE)
+                if census.is_error:
+                    raise RuntimeError(f"stored-value census unreadable: {census.expect_error()}")
                 prometheus_metrics.relationships.stored_values_unreadable.set(
-                    unreadable.value.count
+                    census.value.unreadable.count
                 )
-                check_stored_values(unreadable.value)
+                check_stored_values(census.value.unreadable)
+                prometheus_metrics.relationships.stored_keys_undeclared.set(
+                    census.value.undeclared.count
+                )
+                check_undeclared_keys(census.value.undeclared)
 
                 prometheus_metrics.relationships.poll_last_success.set_to_current_time()
                 logger.debug("✅ Graph health metrics updated")

@@ -232,7 +232,6 @@ from core.events.user_entry_events import (
 
 # User events
 from core.events.user_events import (
-    UserActivityRecorded,
     UserDeleted,
 )
 
@@ -343,7 +342,6 @@ __all__ = [
     "TranscriptionCompleted",
     "TranscriptionCreated",
     "TranscriptionFailed",
-    "UserActivityRecorded",
     "UserDeleted",
     "UserEntryApproved",
     "EntryShared",

@@ -93,7 +93,7 @@ only prunable telemetry — neither reports total graph counts against the 200k/
 
 ## Alert Categories
 
-SKUEL has **17 alerting rules** across 5 categories (plus one commented-out SLO rule,
+SKUEL has **18 alerting rules** across 5 categories (plus one commented-out SLO rule,
 `ErrorBudgetDepleted`, staged in `alerts.yml`):
 
 ### 1. HTTP / API Health (2 alerts)
@@ -166,7 +166,7 @@ histogram_quantile(0.95,
 
 ---
 
-### 4. Graph Health (7 alerts)
+### 4. Graph Health (8 alerts)
 
 | Alert | Severity | Threshold | Duration | Trigger Condition |
 |-------|----------|-----------|----------|-------------------|
@@ -176,7 +176,8 @@ histogram_quantile(0.95,
 | **UidOutsideGrammar** | warning | >0 | 10m | A node uid is outside the uid grammar (a shape an exemption names included) |
 | **UidHeldByTwoNodes** | warning | >0 | 10m | A uid is held by more than one node |
 | **StoredValueUnreadable** | warning | >0 | 10m | A stored value its field's type cannot read — every read of its node fails |
-| **GraphHealthPollerStale** | warning | >900s | 5m | Graph-health poller hasn't succeeded in 15 min (3 missed cycles) — the 19 relationship/knowledge/uid/stored-value gauges are frozen |
+| **StoredKeyUndeclared** | warning | >0 | 10m | A stored key that is neither a field nor registered node state — no read reads it |
+| **GraphHealthPollerStale** | warning | >900s | 5m | Graph-health poller hasn't succeeded in 15 min (3 missed cycles) — the 20 relationship/knowledge/uid/stored-value gauges are frozen |
 
 **Example PromQL**:
 ```promql
@@ -205,7 +206,9 @@ every cycle while either gauge is above zero, with a few of the uids.
 the mapper's own rule — each stored value as its type, each required field as present. A
 field it cannot read fails every read of its node (`UnreadableStoredValueError`). Production's evaluator is `check_stored_values`
 (`core/infrastructure/monitoring/stored_value_check.py`): an ERROR log every cycle while one
-is stored, naming a few; `./dev stored-value-census` names them all.
+is stored, naming a few; `./dev stored-value-census` names them all. The same read names each
+stored key that is neither a field nor registered node state of its node's class
+(`core/models/node_state.py`); its evaluator is `check_undeclared_keys`, a WARNING log.
 
 **Runbook**:
 - **HighOrphanedEntityCount**: Review entity creation logic, check relationship service
@@ -215,6 +218,8 @@ is stored, naming a few; `./dev stored-value-census` names them all.
   labels and the writer that minted it; fix the writer, then move the uids
 - **StoredValueUnreadable**: Run `./dev stored-value-census` to name each node, field and
   value; fix the writer that stored it, then migrate the values
+- **StoredKeyUndeclared**: Run `./dev stored-value-census` to name each node and key; fix the
+  writer that stored it, or register the key as node state beside the model's fields
 - **GraphHealthPollerStale**: Check app logs for graph-health errors
   (`docker logs skuel-app | grep -i 'graph health'`), verify Neo4j via `/health/ready`
 

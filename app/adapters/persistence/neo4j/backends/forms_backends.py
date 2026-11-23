@@ -512,7 +512,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         """Atomically create node + OWNS + RESPONDS_TO_FORM in one transaction."""
         from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 
-        node_data = to_neo4j_node(submission)
+        node_data = to_neo4j_node(submission, self.entity_class)
         node_data.update(self.default_filters)
 
         query = f"""

@@ -247,6 +247,14 @@ class RelationshipMetrics:
             "Stored fields a read refuses: a value its type cannot read, or a required one "
             "absent (each fails its node's reads)",
         )
+        # Its second verdict: a stored key that is neither a field nor registered node
+        # state, which no read reads. The production evaluator is check_undeclared_keys's
+        # WARNING log (the same module).
+        self.stored_keys_undeclared = Gauge(
+            "skuel_stored_keys_undeclared_count",
+            "Stored properties no read reads: neither a field nor registered node state "
+            "of the node's class",
+        )
 
         # Poller self-observability — all gauges above freeze at their last
         # values when the poller can't reach Neo4j; this timestamp makes that

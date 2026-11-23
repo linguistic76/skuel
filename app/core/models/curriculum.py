@@ -65,6 +65,29 @@ from core.models.enums import (
 )
 from core.utils.timestamp_helpers import as_utc, now_utc
 
+#: The substance credits a knowledge node counts — one counter per kind of lived
+#: activity — and the stamp of each one's latest credit (``KuBackend.increment_substance``
+#: and its batch twin, which credit a Ku and the PathSteps composing it). A Curriculum
+#: declares them as fields; a Ku carries them as node state.
+SUBSTANCE_COUNTERS: frozenset[str] = frozenset(
+    {
+        "times_applied_in_tasks",
+        "times_practiced_in_events",
+        "times_built_into_habits",
+        "times_reflected_in_entries",
+        "choices_informed_count",
+    }
+)
+SUBSTANCE_TIMESTAMPS: frozenset[str] = frozenset(
+    {
+        "last_applied_date",
+        "last_practiced_date",
+        "last_built_into_habit_date",
+        "last_reflected_date",
+        "last_choice_informed_date",
+    }
+)
+
 
 @dataclass(frozen=True, kw_only=True)
 class Curriculum(Entity):

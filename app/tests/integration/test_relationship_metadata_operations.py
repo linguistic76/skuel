@@ -12,8 +12,8 @@ from datetime import date, datetime
 import pytest
 import pytest_asyncio
 
-from core.models.curriculum import Curriculum
 from core.models.enums import Domain, EntityStatus, Priority, SELCategory
+from core.models.ku.ku import Ku
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -53,7 +53,7 @@ class TestRelationshipMetadataOperations:
     async def test_get_metadata_with_properties(self, tasks_backend, tasks_service, ku_backend):
         """Test getting metadata from relationship with properties."""
         # Create knowledge unit first
-        ku = Curriculum(
+        ku = Ku(
             uid="ku.python",
             title="Python",
             domain=Domain.TECH,
@@ -125,7 +125,7 @@ class TestRelationshipMetadataOperations:
     async def test_update_single_property(self, tasks_backend, tasks_service, ku_backend):
         """Test updating a single property preserves others."""
         # Create knowledge unit first
-        ku = Curriculum(
+        ku = Ku(
             uid="ku.algorithms",
             title="Algorithms",
             domain=Domain.TECH,
@@ -180,7 +180,7 @@ class TestRelationshipMetadataOperations:
     async def test_update_multiple_properties(self, tasks_backend, tasks_service, ku_backend):
         """Test updating multiple properties at once."""
         # Create knowledge unit first
-        ku = Curriculum(
+        ku = Ku(
             uid="ku.databases",
             title="Databases",
             domain=Domain.TECH,
@@ -246,7 +246,7 @@ class TestRelationshipMetadataOperations:
     async def test_add_new_properties(self, tasks_backend, tasks_service, ku_backend):
         """Test adding new properties to relationship that didn't have them."""
         # Create knowledge unit first
-        ku = Curriculum(
+        ku = Ku(
             uid="ku.testing",
             title="Testing",
             domain=Domain.TECH,
@@ -305,7 +305,7 @@ class TestRelationshipMetadataOperations:
     async def test_increment_counter_pattern(self, tasks_backend, tasks_service, ku_backend):
         """Test common pattern: get, increment, update."""
         # Create knowledge unit first
-        ku = Curriculum(
+        ku = Ku(
             uid="ku.patterns",
             title="Patterns",
             domain=Domain.TECH,
