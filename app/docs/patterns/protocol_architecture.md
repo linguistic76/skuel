@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-11-12
+updated: 2026-11-23
 category: patterns
 related_skills:
 - python
@@ -117,7 +117,7 @@ BackendOperations[T]  <- THE protocol (UniversalNeo4jBackend implements this)
 UserOperations  <- composed protocol (UserBackend implements this)
     ├── UserCrudOperations (12)          <- UserCoreService, GraphAuthService
     ├── UserLearningStateOperations (7)  <- UserProgressRecorderService
-    └── UserActivityOperations (3)       <- UserActivityService
+    └── UserActivityOperations (2)       <- UserActivityService
 ```
 
 **KnowledgeIntelligenceOperations** (4) is a single flat protocol, satisfied by `ActivityKnowledgeIntelligenceService` (shared across all 6 Activity Domains). Per-domain intelligence services share no core protocol; their route-facing slice is `IntelligenceRouteFactory`'s own 3-method `IntelligenceOperations`.
