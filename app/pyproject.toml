@@ -555,7 +555,8 @@ markers = [
     "asyncio: Async tests",
     "reads_real_settings: a test of get_settings() itself, which sets the environment it reads — the unit tier's refusal of the real config (tests/unit/conftest.py) is lifted for it",
     "outside_uid_grammar(reason, static_only=False): writes a uid outside the uid grammar on purpose — the integration graph census does not fail it (tests/integration/_graph_census.py); static_only=True when that census never sees the uid, which the static census then holds (tests/unit/test_integration_seed_uids.py)",
-    "stores_unreadable_value(reason): writes a stored value no read of its node can read on purpose — the integration graph census does not fail it (tests/integration/_graph_census.py); on a module or class it covers every test in it"
+    "stores_unreadable_value(reason): writes a stored value no read of its node can read on purpose — the integration graph census does not fail it (tests/integration/_graph_census.py); on a module or class it covers every test in it",
+    "stores_undeclared_key(reason): writes a stored key that is neither a field nor registered node state of its node's class on purpose — the integration graph census does not fail it (tests/integration/_graph_census.py); on a module or class it covers every test in it"
 ]
 
 # Async test configuration

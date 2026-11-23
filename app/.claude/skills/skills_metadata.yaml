@@ -628,7 +628,7 @@ skills:
 
   - name: pytest
     description: SKUEL testing patterns - fixtures, async testing, mocking with Result[T]
-    last_reviewed: "2026-11-20"
+    last_reviewed: "2026-11-23"
     foundation: [python, result-pattern]
     dependencies: [python, result-pattern]
     library_package: pytest

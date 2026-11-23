@@ -142,7 +142,7 @@ async def world(
             await session.run(
                 """
                 MATCH (u:User {uid: $uid})
-                SET u.username = $uid, u.display_name = $uid, u.email = $uid + '@example.com',
+                SET u.display_name = $uid, u.email = $uid + '@example.com',
                     u.role = 'admin', u.created_at = datetime(), u.updated_at = datetime()
                 """,
                 uid=ADMIN,

@@ -70,7 +70,7 @@ async def _set_role(driver: AsyncDriver, uid: str, role: str) -> None:
         await session.run(
             """
             MATCH (u:User {uid: $uid})
-            SET u.username = $uid, u.display_name = $uid, u.email = $uid + '@example.com',
+            SET u.display_name = $uid, u.email = $uid + '@example.com',
                 u.role = $role, u.created_at = datetime(), u.updated_at = datetime()
             """,
             uid=uid,

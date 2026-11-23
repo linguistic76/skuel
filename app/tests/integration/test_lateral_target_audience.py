@@ -7,17 +7,17 @@ that anchor to ANY node, so the backend query ties each target to the caller
 with the far-node rule (``build_far_node_clause``). These tests pin that rule on
 the real backend against the real graph, from a curriculum anchor (the shape a
 ku / ps / lp route reads): a target is returned to its owner whichever way the
-graph spells ownership (``user_uid`` on an activity, ``owner_uid`` plus the
-``OWNS`` edge on an Exercise), published ownerless (curriculum-shaped) targets
+graph spells ownership (``user_uid`` on an activity, an ``OWNS`` edge alone on a node
+with no ``user_uid``), published ownerless (curriculum-shaped) targets
 are returned to everyone, a draft is returned to nobody, and an anonymous read
 keeps only the published ownerless ones (fail-closed).
 
-Fixture shapes mirror the live writers: activity nodes persist ``user_uid`` as
-a plain string alongside ``:Entity:<Domain>`` labels (the CRUD create door);
-an Exercise persists ``owner_uid`` and is reached by ``(:User)-[:OWNS]->`` with
-no ``user_uid`` (the exercise create door, ADR-086); curriculum nodes carry no
-``user_uid`` at all (SHARED — ingestion drops the owner for curriculum types),
-and a draft is marked ``publication_state: draft``; lateral edges carry an
+Fixture shapes mirror the live writers but one: activity nodes persist ``user_uid``
+as a plain string alongside ``:Entity:<Domain>`` labels (the CRUD create door);
+curriculum nodes carry no ``user_uid`` at all (SHARED — ingestion drops the owner for
+curriculum types); the foreign Exercise is owned by an ``(:User)-[:OWNS]->`` edge
+alone, which no door writes on an exercise (ADR-091) — the far-node rule reads the edge
+on any node, and this one stands for every node owned by edge alone; a draft is marked ``publication_state: draft``; lateral edges carry an
 ISO-string ``created_at`` (both the service and the edge-YAML ingestion door
 stamp that shape).
 """
@@ -68,7 +68,7 @@ def service(neo4j_driver) -> LateralRelationshipService:
 @pytest_asyncio.fixture(loop_scope="session")
 async def lateral_neighbourhood(neo4j_driver):
     """A curriculum anchor with five RELATED_TO neighbours: two owned goals, the other
-    user's Exercise (owned by edge and ``owner_uid``, no ``user_uid``), one published
+    user's Exercise (owned by an ``OWNS`` edge alone, no ``user_uid``), one published
     ownerless Ku and one draft Ku."""
     stamp = datetime.now().isoformat()
     async with neo4j_driver.session() as session:
@@ -81,8 +81,7 @@ async def lateral_neighbourhood(neo4j_driver):
             CREATE (f:Entity:Goal {uid: $foreign, title: 'Someone elses goal',
                                    entity_type: 'goal', user_uid: $other})
             CREATE (x:Entity:Exercise {uid: $foreign_exercise, title: 'Someone elses exercise',
-                                       entity_type: 'exercise', scope: 'curriculum',
-                                       owner_uid: $other})
+                                       entity_type: 'exercise', scope: 'curriculum'})
             CREATE (o)-[:OWNS]->(x)
             CREATE (k:Entity {uid: $curriculum, title: 'Shared concept',
                               entity_type: 'ku'})

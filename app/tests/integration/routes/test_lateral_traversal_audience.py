@@ -89,9 +89,8 @@ async def graph(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (member:User {uid: $member, title: $member_name, username: $member_name})
-            CREATE (stranger:User {uid: $stranger, title: $stranger_name,
-                                   username: $stranger_name})
+            CREATE (member:User {uid: $member, title: $member_name})
+            CREATE (stranger:User {uid: $stranger, title: $stranger_name})
             CREATE (step:Entity:PathStep {uid: $step, title: 'Shared step',
                                           entity_type: 'path_step'})
             CREATE (ku:Entity:Ku {uid: $ku, title: 'Shared ku', entity_type: 'ku'})

@@ -545,10 +545,12 @@ class TestIncrementSubstanceGrain:
             "a PathStep composing via two edge types must be credited once"
         )
 
-    async def test_a_uid_naming_no_curriculum_node_writes_nothing(self, ku_backend, neo4j_driver):
-        """The counter belongs to shared curriculum: a uid naming a user's Task or
-        exercise — an event can carry a request-supplied uid — is a no-op, single
-        and batched, while a Ku in the same batch is still credited."""
+    async def test_a_uid_naming_neither_a_ku_nor_a_step_writes_nothing(
+        self, ku_backend, neo4j_driver
+    ):
+        """The counter belongs to a Ku or a PathStep: a uid naming a user's Task or an
+        Exercise — an event can carry a request-supplied uid — is a no-op, single and
+        batched, while a Ku in the same batch is still credited."""
         ku = Ku(uid="ku.test.batched-atom", title="Batched Atom")
         assert (await ku_backend.create(ku)).is_ok
         async with neo4j_driver.session() as session:
@@ -557,7 +559,7 @@ class TestIncrementSubstanceGrain:
                 CREATE (:Entity:Task {uid: 'task.test-someones', entity_type: 'task',
                                       user_uid: $someone, title: 'task.test-someones'})
                 CREATE (:Entity:Exercise {uid: 'ex.test-someones', entity_type: 'exercise',
-                                          owner_uid: $someone, title: 'ex.test-someones'})
+                                          title: 'ex.test-someones'})
                 """,
                 someone=seed_user_uid("someone"),
             )

@@ -76,13 +76,11 @@ class TestHabitAchievementsFlow:
                 """
                 MERGE (u:User {uid: $user_uid}) ON CREATE SET u.title = $user_uid
                 ON CREATE SET
-                    u.username = $username,
                     u.email = $email,
                     u.created_at = datetime()
                 RETURN u
                 """,
                 user_uid=test_user_uid,
-                username="test_habit_achiever",
                 email="achiever@test.com",
             )
         return test_user_uid

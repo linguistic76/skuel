@@ -44,7 +44,7 @@ async def test_report(neo4j_driver):
     # Create owner User + Entity nodes
     query = """
     MERGE (u:User {uid: $user_uid}) ON CREATE SET u.title = $user_uid
-    SET u.name = 'Test Owner'
+    SET u.display_name = 'Test Owner'
     CREATE (a:Entity {
         uid: $uid,
         user_uid: $user_uid,
@@ -84,7 +84,7 @@ async def test_report(neo4j_driver):
     for ruid in recipient_uids:
         # ``title`` is the username — what a Stop-sharing target names.
         await neo4j_driver.execute_query(
-            "MERGE (u:User {uid: $uid}) SET u.name = $uid, u.title = $uid",
+            "MERGE (u:User {uid: $uid}) SET u.title = $uid",
             uid=ruid,
         )
 

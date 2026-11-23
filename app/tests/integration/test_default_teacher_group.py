@@ -127,7 +127,7 @@ async def default_group_graph(neo4j_driver):
         await session.run(
             """
             MERGE (g:Group {uid: $group_uid}) ON CREATE SET g.name = $group_uid
-            SET g.title = 'Default group (DTG test)', g.is_default = true
+            SET g.is_default = true
             WITH g
             MATCH (u:User {uid: $user_uid})
             MERGE (u)-[:MEMBER_OF]->(g)

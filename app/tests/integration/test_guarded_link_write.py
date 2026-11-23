@@ -126,7 +126,7 @@ async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
         CREATE (:Entity:Ku {uid: $ku_two, title: $ku_two, entity_type: 'ku'})
         WITH 1 AS one
         MATCH (alice:User {uid: $alice})
-        CREATE (g:Group {uid: $group, title: $group, owner_uid: $alice, name: $group})
+        CREATE (g:Group {uid: $group, owner_uid: $alice, name: $group})
         CREATE (alice)-[:OWNS]->(g)
         CREATE (:Session {uid: $session, user_uid: $alice, created_at: datetime(),
                           expires_at: datetime() + duration('P1D'), last_active_at: datetime(),

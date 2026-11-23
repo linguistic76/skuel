@@ -230,6 +230,10 @@ async def test_goal_dashboard_figures_are_the_contribution_tally(
 
 
 @pytest.mark.asyncio
+@pytest.mark.stores_undeclared_key(
+    "an event carrying completion_updates_goal: the opt-out is a task's, and the tally "
+    "reads it on no event"
+)
 async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
     neo4j_driver, rel_backend, clean_neo4j
 ):

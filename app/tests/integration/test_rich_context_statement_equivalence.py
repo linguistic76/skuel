@@ -255,6 +255,14 @@ def _kept_daily_stamps(days: int) -> list[str]:
     ]
 
 
+#: The seed stores ``completed`` on its path steps: the key the curriculum statement reads
+#: for a step's completion, which no writer stores (a learner's completion of a step is
+#: their MASTERED edge to it; docs/roadmap/path-step-completion-read.md).
+_SEEDS_STEP_COMPLETED = pytest.mark.stores_undeclared_key(
+    "path steps carrying the completed key the curriculum statement reads and no writer stores"
+)
+
+
 @pytest.fixture
 async def every_section_seeded(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
     async with neo4j_driver.session() as session:
@@ -263,6 +271,7 @@ async def every_section_seeded(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
 
 
 @pytest.mark.asyncio
+@_SEEDS_STEP_COMPLETED
 async def test_the_merged_map_has_the_shape_the_populator_reads(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
@@ -329,6 +338,7 @@ async def test_the_merged_map_has_the_shape_the_populator_reads(
 
 
 @pytest.mark.asyncio
+@_SEEDS_STEP_COMPLETED
 async def test_every_section_reads_what_the_one_statement_read(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
@@ -654,6 +664,7 @@ async def test_every_section_reads_what_the_one_statement_read(
 
 
 @pytest.mark.asyncio
+@_SEEDS_STEP_COMPLETED
 async def test_the_rich_context_carries_every_section(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
@@ -773,6 +784,7 @@ async def test_the_rich_context_carries_every_section(
 
 
 @pytest.mark.asyncio
+@_SEEDS_STEP_COMPLETED
 async def test_the_standard_context_skips_the_admin_report_too(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
@@ -788,6 +800,7 @@ async def test_the_standard_context_skips_the_admin_report_too(
 
 
 @pytest.mark.asyncio
+@_SEEDS_STEP_COMPLETED
 async def test_the_standard_context_derives_the_same_habit_rates(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:

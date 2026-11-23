@@ -68,8 +68,8 @@ async def _seed(driver: AsyncDriver) -> None:
     async with driver.session() as session:
         await session.run(
             """
-            MERGE (a:User {uid: $a}) SET a.username = $a, a.title = $a
-            MERGE (b:User {uid: $b}) SET b.username = $b, b.title = $b
+            MERGE (a:User {uid: $a}) SET a.title = $a
+            MERGE (b:User {uid: $b}) SET b.title = $b
             MERGE (t:Entity:Task {uid: $task})
             SET t.title = $task_title, t.entity_type = 'task', t.user_uid = $b,
                 t.status = 'active', t.embedding = $embedding

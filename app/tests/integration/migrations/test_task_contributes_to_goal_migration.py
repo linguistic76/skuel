@@ -64,7 +64,14 @@ if TYPE_CHECKING:
     import httpx
     from neo4j import AsyncDriver
 
-pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
+pytestmark = [
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.integration,
+    pytest.mark.stores_undeclared_key(
+        "seeds the retired fulfills_goal_uid / fulfills_goal_template_uid columns this "
+        "migration turns into edges"
+    ),
+]
 
 SCRIPT = (
     Path(__file__).resolve().parents[3] / "scripts/migrations/task_contributes_to_goal_2026_10.py"

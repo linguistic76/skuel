@@ -18,8 +18,10 @@ Load-bearing checks:
 - dry-run counts exactly what a real run then deletes (no global-isolation needed:
   measured back-to-back).
 
-All nodes carry ``test_tag:'retention_it'`` so seeding + teardown are self-scoped;
-assertions target seeded UIDs, so other suites' telemetry cannot perturb them.
+Seeding and teardown are self-scoped: the telemetry nodes carry ``test_tag:'retention_it'``,
+and every node a read turns into a model (Interaction, User, Ku, Session) is found by its
+seeded uid instead — a tag there is a key no read reads. Assertions target seeded UIDs, so
+other suites' telemetry cannot perturb them.
 """
 
 from __future__ import annotations
@@ -35,14 +37,24 @@ from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
 _TAG = "retention_it"
+_RET_USER = seed_user_uid("ret_user")
+# The seeded nodes a read turns into a model, found by uid rather than by the tag.
+_MODEL_UIDS = [
+    "ret.int-old",
+    "ret.int-new",
+    "ret.ku-old",
+    "ret.ku-new",
+    "ret.sess-expired",
+    "ret.sess-valid",
+    _RET_USER,
+]
 
 
 async def _exists(driver, uid_field: str, uid: str) -> bool:
     async with driver.session() as session:
         result = await session.run(
-            f"MATCH (n {{{uid_field}: $uid, test_tag: $tag}}) RETURN count(n) AS c",
+            f"MATCH (n {{{uid_field}: $uid}}) RETURN count(n) AS c",
             uid=uid,
-            tag=_TAG,
         )
         record = await result.single()
     return record["c"] > 0
@@ -64,7 +76,11 @@ async def seeded(neo4j_driver):
 
     async def _wipe() -> None:
         async with neo4j_driver.session() as session:
-            await session.run("MATCH (n {test_tag: $tag}) DETACH DELETE n", tag=_TAG)
+            await session.run(
+                "MATCH (n) WHERE n.test_tag = $tag OR n.uid IN $uids DETACH DELETE n",
+                tag=_TAG,
+                uids=_MODEL_UIDS,
+            )
 
     await _wipe()
     async with neo4j_driver.session() as session:
@@ -75,27 +91,27 @@ async def seeded(neo4j_driver):
             CREATE (:SearchEvent {uid:'ret.se-old', created_at: datetime($old), test_tag:$tag})
             CREATE (:SearchEvent {uid:'ret.se-new', created_at: datetime($recent), test_tag:$tag})
             // Interaction.created_at is a STRING (universal-backend writer) — NOT datetime()
-            CREATE (:Entity:Interaction {uid:'ret.int-old', created_at: $old, test_tag:$tag, title: 'ret.int-old', user_uid: $user_ret_user})
-            CREATE (:Entity:Interaction {uid:'ret.int-new', created_at: $recent, test_tag:$tag, title: 'ret.int-new', user_uid: $user_ret_user})
-            CREATE (u:User {uid:$user_ret_user, test_tag:$tag, title: $user_ret_user})
-            CREATE (ko:Ku {uid:'ret.ku-old', test_tag:$tag, title: 'ret.ku-old'})
-            CREATE (kn:Ku {uid:'ret.ku-new', test_tag:$tag, title: 'ret.ku-new'})
+            CREATE (:Entity:Interaction {uid:'ret.int-old', created_at: $old, title: 'ret.int-old', user_uid: $user_ret_user})
+            CREATE (:Entity:Interaction {uid:'ret.int-new', created_at: $recent, title: 'ret.int-new', user_uid: $user_ret_user})
+            CREATE (u:User {uid:$user_ret_user, title: $user_ret_user})
+            CREATE (ko:Ku {uid:'ret.ku-old', title: 'ret.ku-old'})
+            CREATE (kn:Ku {uid:'ret.ku-new', title: 'ret.ku-new'})
             CREATE (u)-[:VIEWED {last_viewed_at: datetime($old)}]->(ko)
             CREATE (u)-[:VIEWED {last_viewed_at: datetime($recent)}]->(kn)
             CREATE (so:ConversationSession {session_id:'ret_cs_old', last_activity: datetime($old), test_tag:$tag})
             CREATE (sn:ConversationSession {session_id:'ret_cs_new', last_activity: datetime($recent), test_tag:$tag})
             CREATE (so)-[:HAS_TURN]->(:ConversationTurn {turn_id:'ret_ct_old', test_tag:$tag})
             CREATE (sn)-[:HAS_TURN]->(:ConversationTurn {turn_id:'ret_ct_new', test_tag:$tag})
-            CREATE (:Session {uid:'ret.sess-expired', expires_at: datetime($old), test_tag:$tag,
+            CREATE (:Session {uid:'ret.sess-expired', expires_at: datetime($old),
                               user_uid: $user_ret_user, created_at: datetime($old), last_active_at: datetime($old), ip_address: '127.0.0.1', user_agent: 'test'})
-            CREATE (:Session {uid:'ret.sess-valid', expires_at: datetime($future), test_tag:$tag,
+            CREATE (:Session {uid:'ret.sess-valid', expires_at: datetime($future),
                               user_uid: $user_ret_user, created_at: datetime($old), last_active_at: datetime($old), ip_address: '127.0.0.1', user_agent: 'test'})
             """,
             old=old,
             recent=recent,
             future=future,
             tag=_TAG,
-            user_ret_user=seed_user_uid("ret_user"),
+            user_ret_user=_RET_USER,
         )
 
     backend = TelemetryRetentionBackend(Neo4jQueryExecutor(neo4j_driver))
@@ -145,7 +161,7 @@ async def test_viewed_edge_pruned_but_ku_survives(neo4j_driver, seeded):
     async with neo4j_driver.session() as session:
         edge = await session.run(
             "MATCH (:User {uid:$user_ret_user})-[r:VIEWED]->(:Ku {uid:'ret.ku-old'}) RETURN count(r) AS c",
-            user_ret_user=seed_user_uid("ret_user"),
+            user_ret_user=_RET_USER,
         )
         assert (await edge.single())["c"] == 0
     # ...but both Ku nodes and the recent edge survive.
@@ -153,7 +169,7 @@ async def test_viewed_edge_pruned_but_ku_survives(neo4j_driver, seeded):
     async with neo4j_driver.session() as session:
         kept = await session.run(
             "MATCH (:User {uid:$user_ret_user})-[r:VIEWED]->(:Ku {uid:'ret.ku-new'}) RETURN count(r) AS c",
-            user_ret_user=seed_user_uid("ret_user"),
+            user_ret_user=_RET_USER,
         )
         assert (await kept.single())["c"] == 1
 

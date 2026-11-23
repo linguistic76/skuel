@@ -48,24 +48,24 @@ async def seeded(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (:Entity:Ku {uid: $well_formed, entity_type: 'ku', mark: $mark, title: $well_formed})
+            CREATE (:Entity:Ku {uid: $well_formed, entity_type: 'ku', title: $well_formed})
                    -[:HAS_CONTENT]->(:Content {mark: $mark})
                    -[:HAS_CHUNK]->(:ContentChunk {uid: $chunk, mark: $mark})
-            CREATE (:Entity:Ku {uid: $with_uid, entity_type: 'ku', mark: $mark, title: $with_uid})
+            CREATE (:Entity:Ku {uid: $with_uid, entity_type: 'ku', title: $with_uid})
                    -[:HAS_CONTENT]->(:Content {uid: $content_uid, mark: $mark})
-            CREATE (:Entity:Ku {uid: $stray_edge, entity_type: 'ku', mark: $mark, title: $stray_edge})
+            CREATE (:Entity:Ku {uid: $stray_edge, entity_type: 'ku', title: $stray_edge})
                    -[:HAS_CONTENT]->(stray:Content {mark: $mark})
             CREATE (stray)-[:EXTRACTED_FROM]->
-                   (:Entity:UserEntry {uid: $entry, entity_type: 'user_entry', mark: $mark,
+                   (:Entity:UserEntry {uid: $entry, entity_type: 'user_entry',
                                       title: 'Entry', user_uid: $user})
             CREATE (:Content {mark: $mark, orphan: true})
-            CREATE (:Entity:Ku {uid: $second_holder, entity_type: 'ku', mark: $mark, title: $second_holder})
+            CREATE (:Entity:Ku {uid: $second_holder, entity_type: 'ku', title: $second_holder})
                    -[:HAS_CONTENT]->(held_twice:Content {mark: $mark})
-            CREATE (:User {uid: $user, mark: $mark, title: $user})-[:HAS_CONTENT]->(held_twice)
-            CREATE (:Entity:Ku {uid: $wrong_chunk, entity_type: 'ku', mark: $mark, title: $wrong_chunk})
+            CREATE (:User {uid: $user, title: $user})-[:HAS_CONTENT]->(held_twice)
+            CREATE (:Entity:Ku {uid: $wrong_chunk, entity_type: 'ku', title: $wrong_chunk})
                    -[:HAS_CONTENT]->(:Content {mark: $mark})
                    -[:HAS_CHUNK]->(:ReferenceChunk {uid: $reference_chunk, mark: $mark})
-            CREATE (:Entity:Ku {uid: $extra_label, entity_type: 'ku', mark: $mark, title: $extra_label})
+            CREATE (:Entity:Ku {uid: $extra_label, entity_type: 'ku', title: $extra_label})
                    -[:HAS_CONTENT]->(:Content:Entity {mark: $mark})
             """,
             well_formed=WELL_FORMED,
@@ -83,7 +83,22 @@ async def seeded(neo4j_driver):
         )
     yield
     async with neo4j_driver.session() as session:
-        await session.run("MATCH (n {mark: $mark}) DETACH DELETE n", mark=MARK)
+        # A :Content holds no uid, so it and its chunks carry the mark; every node a read
+        # turns into a model is found by its uid — a mark there is a key no read reads.
+        await session.run(
+            "MATCH (n) WHERE n.mark = $mark OR n.uid IN $uids DETACH DELETE n",
+            mark=MARK,
+            uids=[
+                WELL_FORMED,
+                WITH_UID,
+                STRAY_EDGE,
+                ENTRY,
+                SECOND_HOLDER,
+                USER,
+                WRONG_CHUNK,
+                EXTRA_LABEL,
+            ],
+        )
 
 
 async def _report(driver) -> list[dict]:

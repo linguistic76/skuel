@@ -141,6 +141,10 @@ def backend(neo4j_driver):
 
 
 @pytest.mark.asyncio
+@pytest.mark.stores_undeclared_key(
+    "seeds a goal carrying only the retired completion_date alias, which the read must not "
+    "fall back to"
+)
 class TestGetRecentActivities:
     async def test_stamped_completions_come_back_newest_first(self, backend, graph):
         """Every stamped shape surfaces via :OWNS, ordered across mixed timestamp types."""

@@ -30,8 +30,23 @@ from adapters.persistence.neo4j.graph_driver import (
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 from tests.helpers.production_backends import build_ingestion_service, build_production_backends
 from tests.helpers.seed_uids import seed_owner, seed_user_uid
-from tests.integration import _graph_census
 from tests.integration._container_lifecycle import bounded_neo4j_container
+
+# The graph census: what each test wrote that the graph's invariants refuse — a uid
+# outside the grammar, a stored value no read can read, a stored key no read reads.
+from tests.integration._graph_census import (  # noqa: F401
+    pytest_make_collect_report,
+    pytest_runtest_call,
+    pytest_runtest_makereport,
+    pytest_runtest_setup,
+    pytest_runtest_teardown,
+)
+
+# The graph census's controls write to these: what they write is wiped once it is read.
+from tests.integration._graph_census_controls import (  # noqa: F401
+    control_app_graph,
+    control_graph,
+)
 from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION, running_kernel_version
 
 # The personal-vault sync rig (ADR-070 / R4) — one fixture, two test files.
@@ -42,20 +57,6 @@ from tests.integration._vault_rig import rig  # noqa: F401
 
 # NOTE: No custom event_loop fixture needed - pytest-asyncio provides one automatically
 # with better cleanup handling for async fixtures
-
-
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_setup(item: pytest.Item) -> Generator[None, object, object]:
-    """The graph census reads what the test starts on (``_graph_census.py``)."""
-    _graph_census.read_before_setup()
-    return (yield)
-
-
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_call(item: pytest.Item) -> Generator[None, object, object]:
-    """The graph census fails a test on what it wrote that the graph's invariants refuse:
-    a uid outside the grammar, or a stored value no read can read (``_graph_census.py``)."""
-    return (yield from _graph_census.census_call(item))
 
 
 @pytest.fixture(scope="session")

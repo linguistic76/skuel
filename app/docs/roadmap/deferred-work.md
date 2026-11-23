@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-15
+updated: 2026-11-23
 ---
 
 # Deferred Work
@@ -266,6 +266,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Assigned Exercises After ADR-091
 
 [Assigned Exercises After ADR-091](assigned-exercises-after-adr-091.md) — the submission-stats read counts exercises in a scope ADR-091 retired, so the daily plan suggests none; what an exercise waiting for a learner means now waits on a design ruling.
+
+## Path Step Completion Read
+
+[Path Step Completion Read](path-step-completion-read.md) — the curriculum statement reads a step's completion off a `completed` property no writer stores, so every enrolled path reads 0 steps done; ruled: it reads the learner's MASTERED edge instead, built as its own row.
 
 ## Review Schedule
 

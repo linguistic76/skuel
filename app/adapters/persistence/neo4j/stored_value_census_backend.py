@@ -10,7 +10,9 @@ what a read refuses. It also names each stored property no read reads: a key tha
 neither a field nor registered node state of the node's class (``undeclared_keys``,
 ``core/models/node_state.py``).
 ``scripts/stored_value_census.py`` (``./dev stored-value-census``) lists both; the
-graph-health poller counts both. Nothing is written.
+graph-health poller counts both; the integration suite's graph census
+(``tests/integration/_graph_census.py``) fails a test on either it wrote, from one read
+(``read_findings``). Nothing is written.
 
 Like the uid census backend, it spans every label, so it takes a
 ``Neo4jQueryExecutor`` directly rather than extending ``UniversalNeo4jBackend``.
@@ -107,14 +109,26 @@ class StoredValueCensusBackend:
             return Result.fail(nodes)
         return Result.ok(_undeclared(nodes.value))
 
-    async def read_summary(self, sample: int) -> Result[StoredNodeCensus]:
-        """How many fields a read would refuse and how many stored keys no read reads,
-        ``sample`` of each named — from one read of the graph."""
+    async def read_findings(self) -> Result[StoredNodeFindings]:
+        """Each field a read would refuse and each stored property no read reads — from
+        one read of the graph."""
         nodes = await self._read_nodes()
         if nodes.is_error:
             return Result.fail(nodes)
-        unreadable = _unreadable(nodes.value)
-        undeclared = _undeclared(nodes.value)
+        return Result.ok(
+            StoredNodeFindings(
+                unreadable=_unreadable(nodes.value), undeclared=_undeclared(nodes.value)
+            )
+        )
+
+    async def read_summary(self, sample: int) -> Result[StoredNodeCensus]:
+        """How many fields a read would refuse and how many stored keys no read reads,
+        ``sample`` of each named — from one read of the graph."""
+        findings = await self.read_findings()
+        if findings.is_error:
+            return Result.fail(findings)
+        unreadable = findings.value.unreadable
+        undeclared = findings.value.undeclared
         return Result.ok(
             StoredNodeCensus(
                 unreadable=UnreadableStoredValues(
@@ -226,3 +240,11 @@ class UndeclaredStoredKey:
 
 def _undeclared_order(found: UndeclaredStoredKey) -> tuple[str, str, str]:
     return found.entity_class, str(found.uid), found.key
+
+
+@dataclass(frozen=True)
+class StoredNodeFindings:
+    """What one read of the graph finds: each field a read refuses, each key no read reads."""
+
+    unreadable: list[UnreadableStoredValueError]
+    undeclared: list[UndeclaredStoredKey]
