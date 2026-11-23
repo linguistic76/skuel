@@ -39,7 +39,7 @@ from structlog.testing import capture_logs
 from core.models.enums.entity_enums import EntityType
 from core.services.ingestion.authored_edges import authored_edge_fingerprint
 from core.services.ingestion.config import ENTITY_CONFIGS
-from tests.helpers.seed_uids import seed_user_uid
+from tests.helpers.seed_uids import seed_owner, seed_user_uid
 from tests.integration._activity_link_rig import sync_vault, write_vault_file
 
 if TYPE_CHECKING:
@@ -104,7 +104,7 @@ async def _node(driver: AsyncDriver, label: str, entity_type: str, uid: str) -> 
         """,
         uid=uid,
         entity_type=entity_type,
-        user=USER,
+        user=seed_owner(label, USER),
     )
 
 

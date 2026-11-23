@@ -66,9 +66,7 @@ async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
     await _wipe(driver)
     async with driver.session() as session:
         # The rich context resolves its owner through the User model, which needs a title.
-        await session.run(
-            "MERGE (u:User {uid: $uid}) SET u.username = $uid, u.title = $uid", uid=USER
-        )
+        await session.run("MERGE (u:User {uid: $uid}) SET u.title = $uid", uid=USER)
         await session.run(
             """
             MATCH (u:User {uid: $u})

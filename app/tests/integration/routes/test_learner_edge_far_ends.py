@@ -89,7 +89,7 @@ async def _seed(driver: AsyncDriver) -> None:
         await session.run(
             """
             MATCH (s:PathStep {uid: $ps})
-            CREATE (e:Entity:Exercise {uid: $ex, title: $ex, name: $ex, entity_type: 'exercise',
+            CREATE (e:Entity:Exercise {uid: $ex, title: $ex, entity_type: 'exercise',
                                        scope: 'curriculum', status: 'active',
                                        instructions: 'curriculum instructions'})
             CREATE (s)-[:HAS_EXERCISE]->(e)

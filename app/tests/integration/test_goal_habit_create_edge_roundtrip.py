@@ -324,6 +324,9 @@ class TestGoalHierarchyEdgeRoundTrip:
                 "e.owner_uid = $victim",
                 False,
                 id="owner_uid-property",
+                marks=pytest.mark.stores_undeclared_key(
+                    "an exercise owned by the owner_uid spelling the owner read still reads"
+                ),
             ),
             pytest.param(
                 "exercise.owns-edge", "e.title = 'Private drill'", True, id="OWNS-edge-only"
@@ -335,11 +338,12 @@ class TestGoalHierarchyEdgeRoundTrip:
     ) -> None:
         """Ownership is spelled three ways; reading only ``user_uid`` leaks the other two.
 
-        ``Exercise`` is ``Curriculum``, NOT ``UserOwnedEntity`` — a PERSONAL exercise
-        carries ``owner_uid`` (and an ``OWNS`` edge), no ``user_uid``. A guard that
-        treats "no user_uid" as "shared content" therefore links another user's private
-        exercise, and REQUIRES_KNOWLEDGE accepts any ``:Entity`` target, so the goal
-        context query would hand back its uid and title. (Codex, #965.)
+        ``Exercise`` is ``Curriculum``, NOT ``UserOwnedEntity``: an exercise a user owns —
+        a shape no door writes (ADR-091), which the owner read still reads — carries
+        ``owner_uid`` or an ``OWNS`` edge, no ``user_uid``. A guard that treats "no
+        user_uid" as "shared content" would link another user's private exercise, and
+        REQUIRES_KNOWLEDGE accepts any ``:Entity`` target, so the goal context query would
+        hand back its uid and title.
 
         Both spellings are exercised because either alone would let the other through.
         """

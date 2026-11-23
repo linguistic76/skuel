@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-11-22
+updated: 2026-11-23
 category: patterns
 related_skills:
 - python
@@ -120,7 +120,8 @@ whole. A node missing a field that requires a value refuses the read the same wa
 `./dev stored-value-census` names every such value and missing field in the graph, by the
 read's own per-field rule; the graph-health poller logs ERROR while one is stored
 (`check_stored_values`), and the integration suite fails the test that writes one
-(`tests/integration/_graph_census.py`). A primitive field is handed over as stored.
+(`tests/integration/_graph_census.py`) — as it does one that stores a key no field or
+registered node state names (`core/models/node_state.py`). A primitive field is handed over as stored.
 
 **The mapper's writers never store one:** `to_neo4j_node` (a model) and `to_neo4j_patch` (a
 patch, given the class the node is read as) read each property they serialize for a field of

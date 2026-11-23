@@ -182,6 +182,7 @@ async def test_a_tracker_row_holding_a_key_of_the_type_is_listed(graph: AsyncDri
     assert (found.edges, found.edge_file_rows, found.property_nodes) == ([], [], [])
 
 
+@pytest.mark.stores_undeclared_key("seeds the retired aligned_principle_uids the guard lists")
 async def test_a_task_carrying_aligned_principle_uids_is_listed(graph: AsyncDriver) -> None:
     await _run(
         graph,
@@ -220,6 +221,7 @@ def _lend(monkeypatch: pytest.MonkeyPatch, driver: AsyncDriver) -> None:
     monkeypatch.setattr(neo4j_connection, "Neo4jConnection", _Connection)
 
 
+@pytest.mark.stores_undeclared_key("seeds the retired aligned_principle_uids the guard lists")
 async def test_main_exits_0_on_a_clean_graph_and_2_on_a_remnant_and_writes_nothing(
     graph: AsyncDriver, monkeypatch: pytest.MonkeyPatch
 ) -> None:

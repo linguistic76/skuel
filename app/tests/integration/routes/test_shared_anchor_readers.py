@@ -27,6 +27,7 @@ from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.relationship_names import RelationshipName
+from tests.helpers.activity_seeds import declared_fields
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -87,7 +88,7 @@ async def _seed_activity(
             MERGE (e:Entity:{label} {{uid: $uid}})
             SET e.title = $title, e.description = $title + ' description',
                 e.entity_type = $entity_type, e.status = 'active', e.user_uid = $owner,
-                e.recurrence_pattern = 'daily', e.priority = 'medium',
+                e.priority = 'medium',
                 e.created_at = $now, e.updated_at = $now
             SET e += $properties
             MERGE (u)-[:OWNS]->(e)
@@ -96,7 +97,7 @@ async def _seed_activity(
             owner=owner,
             title=title,
             entity_type=label.lower(),
-            properties=properties,
+            properties={**declared_fields(label, recurrence_pattern="daily"), **properties},
             # ISO text, as the mapper stores every instant.
             now=datetime.now(UTC).isoformat(),
         )

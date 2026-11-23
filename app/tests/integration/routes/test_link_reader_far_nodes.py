@@ -40,6 +40,7 @@ from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import PublicationState
+from tests.helpers.activity_seeds import declared_fields
 from tests.helpers.seed_uids import seed_user_uid
 
 if TYPE_CHECKING:
@@ -201,14 +202,20 @@ async def _seed_activity(driver: AsyncDriver, label: str, uid: str, owner: str, 
             MERGE (e:Entity:{label} {{uid: $uid}})
             SET e.title = $title, e.description = $title + ' description',
                 e.entity_type = $entity_type, e.status = 'active', e.user_uid = $owner,
-                e.recurrence_pattern = 'daily', e.event_date = $today, e.priority = 'medium',
+                e.priority = 'medium',
                 e.created_at = $now, e.updated_at = $now
+            SET e += $schedule
             MERGE (u)-[:OWNS]->(e)
             """,
             uid=uid,
             owner=owner,
             title=title,
             entity_type=label.lower(),
+            schedule=declared_fields(
+                label,
+                recurrence_pattern="daily",
+                event_date=datetime.now(UTC).date().isoformat(),
+            ),
             # ISO text, as the mapper stores it — a native temporal would reach
             # a JSON route as a value the app never writes.
             today=datetime.now(UTC).date().isoformat(),

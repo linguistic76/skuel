@@ -37,6 +37,7 @@ from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from tests.helpers.activity_seeds import declared_fields
 from tests.helpers.lateral_routes_client import without_timestamp
 from tests.helpers.seed_uids import seed_user_uid
 
@@ -142,14 +143,15 @@ async def _seed_owned(
             MATCH (u:User {{uid: $owner}})
             MERGE (e:Entity:{label} {{uid: $uid}})
             SET e.title = $title, e.description = $title + ' description',
-                e.entity_type = $entity_type, e.status = 'active', e.user_uid = $owner,
-                e.recurrence_pattern = 'daily'
+                e.entity_type = $entity_type, e.status = 'active', e.user_uid = $owner
+            SET e += $schedule
             MERGE (u)-[:OWNS]->(e)
             """,
             uid=uid,
             owner=owner,
             title=title,
             entity_type=entity_type,
+            schedule=declared_fields(label, recurrence_pattern="daily"),
         )
 
 

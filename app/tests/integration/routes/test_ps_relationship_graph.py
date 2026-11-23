@@ -58,9 +58,7 @@ async def graph(skuel_app: FastHTMLApp) -> AsyncIterator[AsyncDriver]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     await _wipe(driver)
     async with driver.session() as session:
-        await session.run(
-            "MERGE (u:User {uid: $uid}) SET u.username = $uid, u.title = $uid", uid=READER
-        )
+        await session.run("MERGE (u:User {uid: $uid}) SET u.title = $uid", uid=READER)
         for uid, label, kind in (
             (STEP, "PathStep", "path_step"),
             (PREREQUISITE, "PathStep", "path_step"),

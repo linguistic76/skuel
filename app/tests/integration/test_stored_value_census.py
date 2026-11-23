@@ -90,6 +90,11 @@ async def test_the_census_names_each_unreadable_value_and_nothing_else(
         assert summary.is_ok, summary
         assert summary.value.unreadable.count == len(after.value)
         assert f"Task {STRAY_TASK}.status" in summary.value.unreadable.sample
+
+        # The integration census's one read of the stored nodes names the same.
+        findings = await census.read_findings()
+        assert findings.is_ok, findings
+        assert _ours(findings.value.unreadable) == _ours(after.value)
     finally:
         async with neo4j_driver.session() as session:
             await session.run("MATCH (u:User {uid: $owner}) DETACH DELETE u", owner=OWNER)
@@ -142,6 +147,11 @@ async def test_the_census_names_each_key_no_read_reads_and_no_registered_one(
         assert summary.is_ok, summary
         assert summary.value.undeclared.count == len(after.value)
         assert f"Task {KEYED_TASK}.titel" in summary.value.undeclared.sample
+
+        # The integration census's one read of the stored nodes names the same.
+        findings = await census.read_findings()
+        assert findings.is_ok, findings
+        assert _our_keys(findings.value.undeclared) == _our_keys(after.value)
     finally:
         async with neo4j_driver.session() as session:
             await session.run(

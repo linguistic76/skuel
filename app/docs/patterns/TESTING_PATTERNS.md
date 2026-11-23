@@ -1,6 +1,6 @@
 ---
 title: Testing Patterns
-updated: 2026-11-20
+updated: 2026-11-23
 category: patterns
 related_skills:
 - pytest
@@ -349,8 +349,14 @@ After each integration test the census reads its graph against the uid grammar
 one two nodes hold. A test that writes one on purpose carries
 `@pytest.mark.outside_uid_grammar("why")`. The same read fails a test on a node no read can
 read — a retired enum value, a `metadata` that is not JSON, a property its class requires
-left out, seeded by raw Cypher — unless it carries `@pytest.mark.stores_unreadable_value("why")`. Either marker
-may sit on a class or a module, where it is stale only when none of its tests writes one. What that read cannot see — a uid created and
+left out, seeded by raw Cypher — unless it carries `@pytest.mark.stores_unreadable_value("why")`; and
+on a stored key that is neither a field nor registered node state of its node's class
+(`core/models/node_state.py`) — a `username` on a User, whose name is its `title` — unless it
+carries `@pytest.mark.stores_undeclared_key("why")`. Any of the three markers may sit on a
+class or a module, where it is stale only when none of its tests writes one, judged at its
+last test and only when every test in it ran its body to the end — a partial run, or one in
+which a test in it skipped or failed, judges no marker.
+What that read cannot see — a uid created and
 deleted inside one body, one on a scratch container, one a property names — the static
 census (`tests/unit/test_integration_seed_uids.py`) reads from the source, every uid
 literal in `tests/integration`; a uid only it sees is marked

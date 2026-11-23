@@ -54,10 +54,10 @@ async def teacher_review_fixture(neo4j_driver):
 
     await neo4j_driver.execute_query(
         """
-        MERGE (ta:User {uid: $teacher_a}) ON CREATE SET ta.title = $teacher_a SET ta.name = 'Teacher A', ta.status = 'active'
-        MERGE (tb:User {uid: $teacher_b}) ON CREATE SET tb.title = $teacher_b SET tb.name = 'Teacher B', tb.status = 'active'
-        MERGE (s1:User {uid: $student_1}) ON CREATE SET s1.title = $student_1 SET s1.name = 'Student 1', s1.status = 'active'
-        MERGE (s2:User {uid: $student_2}) ON CREATE SET s2.title = $student_2 SET s2.name = 'Student 2', s2.status = 'active'
+        MERGE (ta:User {uid: $teacher_a}) ON CREATE SET ta.title = $teacher_a SET ta.display_name = 'Teacher A'
+        MERGE (tb:User {uid: $teacher_b}) ON CREATE SET tb.title = $teacher_b SET tb.display_name = 'Teacher B'
+        MERGE (s1:User {uid: $student_1}) ON CREATE SET s1.title = $student_1 SET s1.display_name = 'Student 1'
+        MERGE (s2:User {uid: $student_2}) ON CREATE SET s2.title = $student_2 SET s2.display_name = 'Student 2'
 
         MERGE (gx:Group {uid: $group_x})
           SET gx.name = 'Group X', gx.owner_uid = $teacher_a, gx.is_active = true

@@ -38,6 +38,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import date
 
 import httpx
 import pytest
@@ -58,6 +59,7 @@ from core.services.mixins.link_edge_guard import (
     KNOWLEDGE_FAR_END,
 )
 from core.utils.result_simplified import ErrorCategory
+from tests.helpers.activity_seeds import declared_fields
 from tests.helpers.lateral_routes_client import without_timestamp
 from tests.helpers.seed_uids import seed_user_uid
 
@@ -269,14 +271,17 @@ async def _seed_owned(driver: AsyncDriver, *, kind: str, uid: str, owner: str, t
             MERGE (e:Entity:{kind} {{uid: $uid}})
             SET e.title = $title, e.description = $title + ' description',
                 e.entity_type = $entity_type, e.status = 'active', e.user_uid = $owner,
-                e.recurrence_pattern = 'daily', e.event_date = date('2026-06-15'),
                 e.priority = 'medium'
+            SET e += $schedule
             MERGE (u)-[:OWNS]->(e)
             """,
             uid=uid,
             owner=owner,
             title=title,
             entity_type=kind.lower(),
+            schedule=declared_fields(
+                kind, recurrence_pattern="daily", event_date=date(2026, 6, 15)
+            ),
         )
 
 

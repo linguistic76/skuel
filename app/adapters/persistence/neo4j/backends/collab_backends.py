@@ -159,12 +159,16 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         return Result.ok(result.value or [])
 
     async def get_members(self, group_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get all members of a group with metadata."""
+        """Get all members of a group with metadata.
+
+        A member's name is the one a page shows: their display name, else their username
+        (``title``), else their uid.
+        """
         result = await self.execute_query(
             f"""
             MATCH (user:User)-[r:{RelationshipName.MEMBER_OF}]->(group:Group {{uid: $group_uid}})
             RETURN user.uid as user_uid,
-                   user.name as user_name,
+                   coalesce(user.display_name, user.title, user.uid) as user_name,
                    r.role as role,
                    r.joined_at as joined_at
             ORDER BY datetime(r.joined_at)

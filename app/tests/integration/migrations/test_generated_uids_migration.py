@@ -412,6 +412,9 @@ async def test_the_census_stops_on_what_the_rename_cannot_account_for(
 
 
 @pytest.mark.usefixtures("old_graph")
+@pytest.mark.stores_undeclared_key(
+    "seeds an instruction set as the old graph stored it, with its name"
+)
 async def test_an_instruction_set_lands_on_the_hash_of_its_slug(
     neo4j_driver: AsyncDriver,
 ) -> None:

@@ -41,8 +41,8 @@ async def curriculum_group_fixture(neo4j_driver):
     # Create users, group, and curriculum entities authored by the teacher
     await neo4j_driver.execute_query(
         """
-        MERGE (t:User {uid: $teacher_uid}) ON CREATE SET t.title = $teacher_uid SET t.name = 'Teacher'
-        MERGE (s:User {uid: $student_uid}) ON CREATE SET s.title = $student_uid SET s.name = 'Student'
+        MERGE (t:User {uid: $teacher_uid}) ON CREATE SET t.title = $teacher_uid SET t.display_name = 'Teacher'
+        MERGE (s:User {uid: $student_uid}) ON CREATE SET s.title = $student_uid SET s.display_name = 'Student'
         MERGE (g:Group {uid: $group_uid})
           SET g.name = 'Unified Sharing Test',
               g.owner_uid = $teacher_uid,

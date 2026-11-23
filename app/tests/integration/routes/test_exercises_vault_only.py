@@ -47,6 +47,9 @@ pytestmark = [
     pytest.mark.stores_unreadable_value(
         "seeds exercises as the retired create door wrote them, with the scopes it wrote"
     ),
+    pytest.mark.stores_undeclared_key(
+        "seeds exercises as the retired create door wrote them, with their owner_uid and group_uid"
+    ),
 ]
 
 MARK = "zzzexvaultonly"
@@ -75,7 +78,7 @@ async def _set_role(driver: AsyncDriver, uid: str, role: str) -> None:
         await session.run(
             """
             MATCH (u:User {uid: $uid})
-            SET u.username = $uid, u.display_name = $uid, u.email = $uid + '@example.com',
+            SET u.display_name = $uid, u.email = $uid + '@example.com',
                 u.role = $role, u.created_at = datetime(), u.updated_at = datetime()
             """,
             uid=uid,
