@@ -1,12 +1,12 @@
-"""Owner uniformity — the same content-vault file gets the same owner everywhere.
+"""Owner uniformity — the same vault file gets the same owner everywhere.
 
 The whole point of resolving ingest ownership from the vault descriptor of the
 target path (ADR-070) is *surface-independence*: whoever triggers the ingest, a
-USER_OWNED entity that lives in the content vault is owned by the content acts-as
-account, a personal-vault entity by that vault's compose-time BOUND owner (#521 —
-the acting-user hint never decides ownership when a registry governs), and a
-curriculum entity is owned by no one. These tests drive one registry-wired
-ingestion service through three surfaces and assert the graph agrees.
+personal-vault entity is owned by that vault's compose-time BOUND owner (the
+acting-user hint never decides ownership when a registry governs), a curriculum
+entity is owned by no one, and a USER_OWNED file in the content vault is refused
+(ADR-070 Decision 11). These tests drive one registry-wired ingestion service
+through three surfaces and assert the graph agrees.
 
 Requires: Docker running with Neo4j testcontainer.
 """
@@ -154,8 +154,8 @@ async def _owner_of(driver, uid: str) -> str | None:
         return record["owner"] if record else None
 
 
-async def test_content_task_owner_uniform_across_surfaces(owner_env) -> None:
-    """A task file in the content vault → content owner, whoever ingests it."""
+async def test_content_task_is_refused_on_every_surface(owner_env) -> None:
+    """A task file in the content vault writes nothing, whoever ingests it."""
     service = owner_env["service"]
     reconciler = owner_env["reconciler"]
     content_root: Path = owner_env["content_root"]
@@ -177,11 +177,14 @@ async def test_content_task_owner_uniform_across_surfaces(owner_env) -> None:
     r3 = await reconciler.sync(VaultKind.CONTENT, seed_user_uid("gamma"))
     assert r3.is_ok, r3
 
-    owner_env["created_uids"].extend(["task.alpha-task", "task.beta-task", "task.gamma-task"])
-
-    assert await _owner_of(driver, "task.alpha-task") == _CONTENT_OWNER
-    assert await _owner_of(driver, "task.beta-task") == _CONTENT_OWNER
-    assert await _owner_of(driver, "task.gamma-task") == _CONTENT_OWNER
+    refused = [*r1.value.errors, *r2.value.errors]
+    assert {Path(str(e["file"])).name for e in refused} == {"alpha-task.md", "beta-task.md"}
+    assert all("personal vault" in str(e["error"]) for e in refused), refused
+    assert any(line.startswith("gamma-task.md — ") for line in r3.value.ignored), r3.value
+    async with driver.session() as session:
+        result = await session.run("MATCH (n:Task) RETURN count(n) AS n")
+        record = await result.single()
+    assert record is not None and record["n"] == 0
 
 
 async def test_content_curriculum_has_no_owner(owner_env) -> None:

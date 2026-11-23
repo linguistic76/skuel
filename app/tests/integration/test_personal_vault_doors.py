@@ -94,12 +94,25 @@ def _personal(env: VaultEnv, who: str, name: str, entity_type: EntityType) -> tu
 
 
 async def _seed_owned_task(driver: AsyncDriver, uid: str, owner: UserUID, title: str) -> None:
-    """A task ``owner`` holds under an authored-shape uid, as the content vault writes one."""
+    """A task ``owner`` holds under an authored-shape uid — the shape a content file's uid takes."""
     async with driver.session() as session:
         await session.run(
             "MATCH (u:User {uid: $owner}) "
             "CREATE (u)-[:OWNS]->(:Entity:Task {uid: $uid, user_uid: $owner, title: $title, "
             "entity_type: 'task', status: 'active'})",
+            uid=uid,
+            owner=owner,
+            title=title,
+        )
+
+
+async def _seed_owned_ku(driver: AsyncDriver, uid: str, owner: UserUID, title: str) -> None:
+    """A Ku ``owner`` holds by ``:OWNS`` — a node a content-vault Ku file's uid can name."""
+    async with driver.session() as session:
+        await session.run(
+            "MATCH (u:User {uid: $owner}) "
+            "CREATE (u)-[:OWNS]->(:Entity:Ku {uid: $uid, title: $title, entity_type: 'ku', "
+            "status: 'completed'})",
             uid=uid,
             owner=owner,
             title=title,
@@ -499,18 +512,27 @@ async def test_a_personal_file_never_authors_a_uid(env, door) -> None:
 
 @pytest.mark.parametrize("door", DOORS)
 async def test_content_vault_file_never_reowns_a_users_node(env, door) -> None:
-    """The content vault's owner is an account like any other."""
+    """A content file never writes a node someone owns.
+
+    A personal type is refused for its type before any write; a type the content
+    vault ingests whose uid names an owned node is refused by the owner gate.
+    """
     d = env["driver"]
     await _seed_owned_task(d, "task.secret", BOB, "Bob secret")
+    await _seed_owned_ku(d, "ku.secret", BOB, "Bob's own")
     _write(env["content"] / "stray.md", _md("task", "Admin overwrite", "uid: task.secret\n"))
-    _write(env["content"] / "own.md", _md("task", "Admin own", "uid: task.admin-own\n"))
+    _write(env["content"] / "taken.md", _md("ku", "Admin overwrite", "uid: ku.secret\n"))
+    _write(env["content"] / "own.md", _md("ku", "Admin own", "uid: ku.admin-own\n"))
 
     outcome = await _sync(env, "content", door)
 
     secret = await _node(d, "task.secret")
     assert secret["owners"] == [str(BOB)] and secret["title"] == "Bob secret"
-    assert "stray.md" in outcome.refused, outcome.refused
-    assert (await _node(d, "task.admin-own"))["owners"] == [str(ADMIN)]
+    assert "personal vault" in outcome.refused.get("stray.md", ""), outcome.refused
+    taken = await _node(d, "ku.secret")
+    assert taken["owners"] == [str(BOB)] and taken["title"] == "Bob's own"
+    assert "already in use" in outcome.refused.get("taken.md", ""), outcome.refused
+    assert (await _node(d, "ku.admin-own"))["owners"] == []
 
 
 # ---------------------------------------------------------------------------
