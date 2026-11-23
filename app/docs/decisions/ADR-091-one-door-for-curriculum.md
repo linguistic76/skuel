@@ -1,6 +1,6 @@
 ---
 title: "ADR-091: One Door for Curriculum"
-updated: 2026-11-21
+updated: 2026-11-23
 status: implemented
 category: decisions
 tags: [adr, decisions, curriculum, content-vault, ingestion, exercises, teacher-review, ownership, publication]
@@ -110,7 +110,9 @@ controller at once. Each word now has one spelling, so a reader never has to gue
 ### S2. Curriculum belongs to SKUEL
 
 Curriculum is authored only in the content vault, and that includes every exercise. No user owns
-any of it. Admins control it; learners see what is published.
+any of it. Admins control it; learners see what is published. The door holds curriculum only: a
+file of a type a person owns (an Activity, a note, a life path) is refused there with where it
+belongs (ADR-070 Decision 11, point 7).
 
 **Why.** The design already says so: access to curriculum is computed from its type, never from an
 owner (ADR-070 Decision 7), and live no curriculum node has an owner. Writing it down removes the
@@ -377,3 +379,4 @@ replaced.
 | 2026-10-16 | Claude Code | Change 7d implemented: the DSL bridge offers and emits no curriculum line; the task-pattern pipeline that built Ku drafts on every task completion is gone with its manual trigger; the generated `ku_{slug}_{random}` uid form is retired (ADR-013 amendment) and an `@ku()` reference in another spelling links nothing and is reported | 1.7 |
 | 2026-10-16 | Claude Code | Change 7e implemented: the DSL bridge emits no `@ku` (ADR-069 § Decision 1, amendment 2026-10-16), so a knowledge link is the user's own `@ku` / `@link(ku:…)` or `EntryGroundingService`'s | 1.8 |
 | 2026-10-16 | Claude Code | Change 8 implemented, the ADR is implemented: CLAUDE.md, the skills and the docs describe the result, and the supersession notes in ADR-018 and ADR-070 say their parts are replaced | 1.9 |
+| 2026-11-23 | Mike + Claude Code | S2 amended: the content vault refuses every type a person owns, with where the file belongs (ADR-070 Decision 11, point 7) | 1.10 |

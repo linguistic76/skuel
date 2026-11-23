@@ -181,6 +181,8 @@ RENAMED: dict[str, str] = {
 # ── Deleted identifiers ──────────────────────────────────────────────────────
 # "deleted_identifier": "explanation / what replaced it"
 DELETED: dict[str, str] = {
+    # The sync preview reads a refused file from the sync's own parse stage.
+    "file_vault_refusal": "deleted — the preview runs the parse stage (UnifiedIngestionService.parse_verdicts), which applies vault_policy.vault_refusal",
     # Nothing reads a domain's mastery tracking from its config: a learner's mastery is
     # their own edges, read by the services that need it.
     "supports_user_progress": "deleted — DomainConfig carries no progress flag; mastery is the learner's edges",
@@ -736,7 +738,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (46, "JournalOutputService"): Allow(_adr043),
     },
     "docs/decisions/ADR-051-user-interaction-contract.md": {
-        (127, "_get_learning_context"): Allow(_adr051),
+        (128, "_get_learning_context"): Allow(_adr051),
     },
     "docs/decisions/ADR-054-user-entry-unified-submissions.md": {
         # Re-anchored -2 (PR #1045): the execution note above lost 2 net lines when
@@ -825,8 +827,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (168, "update_from"): Allow(_adr066, hits=2),
     },
     "docs/decisions/ADR-070-bidirectional-vault-bridge.md": {
-        # Decision 9's two amendment paragraphs (L304, L306) and their changelog rows
-        # (L532, L533) — the decision names what it retired. The ADR-091 supersession
+        # Decision 9's two amendment paragraphs (L303, L305) and their changelog rows
+        # (L543, L544) — the decision names what it retired. The ADR-091 supersession
         # notes sit above them.
         (303, "/api/ingest/vault"): Allow(_adr070),
         (303, "/api/ingest/domain"): Allow(_adr070),
@@ -848,19 +850,19 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (305, "ingest_nous"): Allow(_adr070),
         (305, "generate_kus_from_moc"): Allow(_adr070),
         (305, "hierarchy_parser"): Allow(_adr070),
-        (531, "/api/ingest/vault"): Allow(_adr070),
-        (531, "/api/ingest/domain"): Allow(_adr070),
-        (531, "ingest_vault"): Allow(_adr070),
-        (532, "/api/ingest/file"): Allow(_adr070),
-        (532, "/api/ingest/bundle"): Allow(_adr070),
-        (532, "ingest_bundle"): Allow(_adr070),
-        (532, "BundleStats"): Allow(_adr070),
-        (532, "find_entity_file"): Allow(_adr070),
-        (532, "_validate_ingestion_path"): Allow(_adr070),
-        (532, "SKUEL_INGESTION_ALLOWED_PATHS"): Allow(_adr070),
-        (532, "ingest_nous"): Allow(_adr070),
-        (532, "generate_kus_from_moc"): Allow(_adr070),
-        (532, "hierarchy_parser"): Allow(_adr070),
+        (543, "/api/ingest/vault"): Allow(_adr070),
+        (543, "/api/ingest/domain"): Allow(_adr070),
+        (543, "ingest_vault"): Allow(_adr070),
+        (544, "/api/ingest/file"): Allow(_adr070),
+        (544, "/api/ingest/bundle"): Allow(_adr070),
+        (544, "ingest_bundle"): Allow(_adr070),
+        (544, "BundleStats"): Allow(_adr070),
+        (544, "find_entity_file"): Allow(_adr070),
+        (544, "_validate_ingestion_path"): Allow(_adr070),
+        (544, "SKUEL_INGESTION_ALLOWED_PATHS"): Allow(_adr070),
+        (544, "ingest_nous"): Allow(_adr070),
+        (544, "generate_kus_from_moc"): Allow(_adr070),
+        (544, "hierarchy_parser"): Allow(_adr070),
     },
     "docs/decisions/ADR-073-journals-zero-persistence-vault-memory.md": {
         (125, "Pipeline.JOURNAL"): Allow(_adr073),

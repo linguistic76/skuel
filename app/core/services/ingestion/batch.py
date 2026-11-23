@@ -204,9 +204,9 @@ def parse_file_sync(
         file_path: Path to file to parse
         default_user_uid: Default user UID for multi-tenant entities
         max_file_size_bytes: Maximum file size
-        vault_kind: The kind of vault the file lives in — a personal vault
-            refuses what it may not hold (``vault_policy.vault_refusal``) as a
-            content fault. ``None`` refuses nothing by kind.
+        vault_kind: The kind of vault the file lives in — each vault refuses
+            what it may not hold (``vault_policy.vault_refusal``) as a content
+            fault. ``None`` refuses nothing by kind.
         identities: The tracker's identity per canonical path, when the vault
             gives its uid-less files their own identity (a personal vault; empty
             when no tracker is wired). ``None`` derives ``{prefix}.{file stem}``.

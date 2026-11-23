@@ -1,12 +1,13 @@
-"""A sync preview names exactly what the sync then deletes and moves.
+"""A sync preview names exactly what the sync then deletes, moves and ignores.
 
-For a renamed file — an authored-uid file, a uid-less UserEntry note, a uid-less
-personal Task, an Edge file, a content file whose uid is its file name — and for
-a real deletion, the preview run before a sync reports as deleted the files whose
-entity or relationship the sync removes, and as moved the renames the sync
-reports, line for line. The preview writes no tracker row. After the sync, every
-node the vault wrote is held by a tracker row: a rename never strands the old
-node where no later sync can delete it.
+For a renamed file — an authored-uid file, a uid-less or periodic UserEntry note,
+a uid-less personal Task, an Edge file, a content file whose uid is its file
+name — and for a real deletion, the preview run before a sync reports as deleted
+the files whose entity or relationship the sync removes, and as moved the renames
+the sync reports, line for line. A file its vault refuses for its type is
+previewed in the sync's own ignore line and writes nothing. The preview writes no
+tracker row. After the sync, every node the vault wrote is held by a tracker row:
+a rename never strands the old node where no later sync can delete it.
 
 Drives the real ``VaultReconciler`` (preview, then sync) over temp content and
 personal vaults and the container.
@@ -59,12 +60,12 @@ DAILY = (
     "date: 2026-08-23\n---\nA day.\n"
 )
 YAML_NOTE = (
-    f"type: user_entry\nuid: ue.{MARK}.yaml-note\npipeline: knowledge\ntitle: A YAML note\n"
-    "content: The note's own words.\n"
+    "type: user_entry\npipeline: extract_activities\nmetadata:\n  entry_kind: daily\n"
+    "date: 2026-08-24\ntitle: A YAML day\ncontent: The note's own words.\n"
 )
 MD_NOTE = (
-    f"---\ntype: user_entry\nuid: ue.{MARK}.md-note\npipeline: knowledge\ntitle: A note\n---\n"
-    "The note's own words.\n"
+    "---\ntype: user_entry\npipeline: knowledge\nmetadata:\n  entry_kind: daily\n"
+    "date: 2026-08-25\ntitle: A note\n---\nThe note's own words.\n"
 )
 EDGE = f"type: Edge\nfrom: ku.{MARK}.a\nto: ku.{MARK}.b\nrelationship: RELATED_TO\n"
 
@@ -265,18 +266,6 @@ RENAMES: list[ParameterSet] = [
         id="authored-uid-edited",
     ),
     pytest.param(
-        VaultKind.CONTENT,
-        _notes(""),
-        _rename("z.md", "z2.md"),
-        id="uidless-note-content",
-    ),
-    pytest.param(
-        VaultKind.CONTENT,
-        _notes(""),
-        _rename("z.md", "z2.md", edit="one more line\n"),
-        id="uidless-note-content-edited",
-    ),
-    pytest.param(
         VaultKind.PERSONAL,
         _notes(PERSONAL_DIR),
         _rename(f"{PERSONAL_DIR}z.md", f"{PERSONAL_DIR}z2.md"),
@@ -301,9 +290,9 @@ RENAMES: list[ParameterSet] = [
         id="periodic-note-personal-edited",
     ),
     pytest.param(
-        VaultKind.CONTENT,
-        {**_kus(), "note.yaml": YAML_NOTE},
-        _rename("note.yaml", "note2.yaml", edit="tags: [moved]\n"),
+        VaultKind.PERSONAL,
+        {**_notes(PERSONAL_DIR), f"{PERSONAL_DIR}note.yaml": YAML_NOTE},
+        _rename(f"{PERSONAL_DIR}note.yaml", f"{PERSONAL_DIR}note2.yaml", edit="tags: [moved]\n"),
         id="yaml-user-entry-edited",
     ),
     pytest.param(
@@ -356,7 +345,7 @@ async def test_a_file_named_uid_rename_deletes_the_old_node_and_is_previewed_so(
 
 
 DELETIONS: list[ParameterSet] = [
-    pytest.param(VaultKind.CONTENT, _notes(""), _delete("z.md"), "z.md", id="content-deleted"),
+    pytest.param(VaultKind.CONTENT, _kus(), _delete("c.md"), "c.md", id="content-deleted"),
     pytest.param(
         VaultKind.PERSONAL,
         _notes(PERSONAL_DIR),
@@ -408,20 +397,26 @@ async def test_a_reorganisation_that_empties_every_tracked_path_is_previewed_as_
 
 
 def _rename_to_a_refused_pipeline(root: Path) -> None:
-    text = (root / "note.md").read_text().replace("pipeline: knowledge", "pipeline: bogus")
-    (root / "note.md").unlink()
-    (root / "note2.md").write_text(text)
+    note = root / PERSONAL_DIR / "note.md"
+    text = note.read_text().replace("pipeline: knowledge", "pipeline: bogus")
+    note.unlink()
+    (root / PERSONAL_DIR / "note2.md").write_text(text)
 
 
 async def test_a_renamed_note_the_sync_refuses_is_previewed_as_a_deletion_and_an_ignore(
     vaults: Vaults,
 ) -> None:
     run = await _preview_then_sync(
-        vaults, VaultKind.CONTENT, {**_kus(), "note.md": MD_NOTE}, _rename_to_a_refused_pipeline
+        vaults,
+        VaultKind.PERSONAL,
+        {**_notes(PERSONAL_DIR), f"{PERSONAL_DIR}note.md": MD_NOTE},
+        _rename_to_a_refused_pipeline,
     )
 
-    assert run.would_delete == run.deleted == {"note.md"}
-    assert [line.split(" — ")[0] for line in run.preview.would_ignore_examples] == ["note2.md"]
+    assert run.would_delete == run.deleted == {f"{PERSONAL_DIR}note.md"}
+    assert [line.split(" — ")[0] for line in run.preview.would_ignore_examples] == [
+        f"{PERSONAL_DIR}note2.md"
+    ]
     assert run.untracked == set()
     assert run.moves == []
     assert run.preview.would_move_examples == ()
@@ -442,47 +437,60 @@ async def test_a_file_renamed_onto_a_tracked_path_is_previewed_as_the_sync_repor
     assert list(run.preview.would_move_examples) == run.moves
 
 
-def _wipe_and_add(name: str, content: bytes, *, readable: bool = True) -> Change:
+def _wipe_and_add(name: str, content: bytes, *, readable: bool = True, folder: str = "") -> Change:
     """Every tracked file deleted, and one new file the sync does not write."""
 
     def change(root: Path) -> None:
         for slug in ("a", "b", "c"):
-            (root / f"{slug}.md").unlink()
-        (root / name).write_bytes(content)
+            (root / f"{folder}{slug}.md").unlink()
+        (root / f"{folder}{name}").write_bytes(content)
         if not readable:
-            (root / name).chmod(0)
+            (root / f"{folder}{name}").chmod(0)
 
     return change
 
 
+PERSONAL_TASKS = {f"{PERSONAL_DIR}{slug}.md": TASK.format(slug=slug) for slug in ("a", "b", "c")}
+
+
 @pytest.mark.parametrize(
-    ("change", "sync_fails"),
+    ("kind", "files", "change", "sync_fails"),
     [
         pytest.param(
+            VaultKind.PERSONAL,
+            PERSONAL_TASKS,
             _wipe_and_add(
                 "foreign.md",
                 b"---\ntype: user_entry\npipeline: knowledge\n"
                 b"ownership: user_0f0f0f0f0f0f0f0f\n---\nHi.\n",
+                folder=PERSONAL_DIR,
             ),
             True,
             id="a-note-for-another-owner",
         ),
         pytest.param(
+            VaultKind.CONTENT,
+            _kus(),
             _wipe_and_add("broken.md", b"---\ntype: ku\ntitle: \xff\xfe\n---\nbody\n"),
             False,
             id="a-file-that-is-not-utf-8",
         ),
         pytest.param(
+            VaultKind.PERSONAL,
+            PERSONAL_TASKS,
             _wipe_and_add(
                 "long.md",
                 b"---\ntype: user_entry\npipeline: knowledge\ntitle: "
                 + b"t" * 201
                 + b"\n---\nHi.\n",
+                folder=PERSONAL_DIR,
             ),
             True,
             id="a-note-whose-title-the-request-refuses",
         ),
         pytest.param(
+            VaultKind.CONTENT,
+            _kus(),
             _wipe_and_add(
                 "locked.md", b"---\ntype: ku\ntitle: Locked\n---\nbody\n", readable=False
             ),
@@ -492,11 +500,56 @@ def _wipe_and_add(name: str, content: bytes, *, readable: bool = True) -> Change
     ],
 )
 async def test_a_new_file_the_sync_does_not_write_does_not_count_as_a_tracked_file(
-    vaults: Vaults, change: Change, sync_fails: bool
+    vaults: Vaults, kind: VaultKind, files: dict[str, str], change: Change, sync_fails: bool
 ) -> None:
-    run = await _preview_then_sync(
-        vaults, VaultKind.CONTENT, _kus(), change, sync_fails_a_file=sync_fails
-    )
+    run = await _preview_then_sync(vaults, kind, files, change, sync_fails_a_file=sync_fails)
 
     assert run.would_delete == run.deleted == set()
     assert run.preview.refusal_warning is not None
+
+
+INTERACTION = (
+    "---\ntype: interaction\ninteraction_type: exercise_submission\ntarget_uid: ex.a\n---\n"
+)
+# Per vault: the files it refuses for their type, and one it ingests beside them.
+REFUSED_BY_KIND: dict[VaultKind, tuple[dict[str, str], dict[str, str]]] = {
+    VaultKind.CONTENT: (
+        {
+            "task.md": TASK.format(slug="t"),
+            "habit.yaml": "type: habit\ntitle: A habit\n",
+            "note.md": NOTE.replace("{slug}", "n"),
+            "path.md": "---\ntype: lifepath\ntitle: A life path\n---\nBody.\n",
+            "ia.md": INTERACTION,
+        },
+        {"a.md": KU.format(mark=MARK, slug="a")},
+    ),
+    VaultKind.PERSONAL: (
+        {
+            f"{PERSONAL_DIR}ia.md": INTERACTION,
+            f"{PERSONAL_DIR}k.md": KU.format(mark=MARK, slug="k"),
+        },
+        {f"{PERSONAL_DIR}p.md": TASK.format(slug="p")},
+    ),
+}
+
+
+@pytest.mark.parametrize("kind", [VaultKind.CONTENT, VaultKind.PERSONAL], ids=str)
+async def test_a_file_its_vault_refuses_is_previewed_as_the_sync_ignores_it(
+    vaults: Vaults, kind: VaultKind
+) -> None:
+    root = vaults.roots[kind]
+    reconciler = vaults.reconcilers[kind]
+    refused, accepted = REFUSED_BY_KIND[kind]
+    _write(root, {**refused, **accepted})
+
+    preview = await reconciler.preview(kind, OWNER)
+    assert preview.is_ok, preview
+    synced = await reconciler.sync(kind, OWNER)
+    assert synced.is_ok, synced
+
+    assert preview.value.would_ignore_count == len(refused)
+    assert sorted(preview.value.would_ignore_examples) == sorted(synced.value.ignored)
+    assert {line.split(" — ")[0] for line in synced.value.ignored} == set(refused)
+    assert preview.value.would_ingest_count == synced.value.entries_ingested == len(accepted)
+    assert set(await _rows(vaults, root)) == set(accepted)
+    assert len(await _vault_nodes(vaults)) == len(accepted)

@@ -6,8 +6,8 @@ Frozen dataclass for situated learning-loop events (EntityType.INTERACTION).
 Records who did what, to which target, in which curriculum context, with what result.
 
 This is the 22nd entity type in SKUEL. It materialises the "User Interaction
-Contract" design concept: a first-class, YAML-ingestible, graph-queryable record
-of every meaningful user-curriculum interaction.
+Contract" design concept: a first-class, graph-queryable record of every
+meaningful user-curriculum interaction.
 
 Learning context at interaction time — the critical gap this fills:
     UserEntry records WHAT was submitted but not WHERE in the curriculum
@@ -24,14 +24,8 @@ Graph relationships:
     (Interaction)-[:INTERACTION_DURING]->(PathStep)        curriculum context
     (Interaction)-[:INTERACTION_WITHIN]->(LearningPath)    path context
 
-YAML ingestion:
-    type: interaction
-    interaction_type: exercise_submission
-    target_uid: ex.body-check-30s
-    context_path_step_uid: ps.notice-the-loop      # optional
-    context_learning_path_uid: lp.game-of-life     # optional
-    result_status: pending
-    source_entity_uid: es.abc123                   # optional
+Written by the app as a learner works (``InteractionService``). No vault syncs
+one: both refuse a ``type: interaction`` file (``vault_policy.APP_RECORDED_TYPES``).
 
 See: /home/mike/0bsidian/0design/layers - architecture 0.md
 """

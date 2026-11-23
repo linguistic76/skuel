@@ -2,14 +2,23 @@
 Vault Policy — what a vault file may write, by the kind of vault it lives in
 =============================================================================
 
-A personal vault belongs to one user, so what a file in it can say is narrower
-than what the content vault can (ADR-070 Decision 11):
+Each vault holds one side of SKUEL and refuses the other's files (ADR-070
+Decision 11, ADR-091):
 
-- **What it may hold.** A personal vault ingests the six Activity types, the
+- **The content vault** is curriculum's one door and no learner's vault. It
+  ingests the curriculum types, the curated resources, Edge files and Group files
+  (``CONTENT_VAULT_TYPES``). A type a person owns — an Activity, a note, a life
+  path — is refused, and its reason says where the file belongs.
+- **A personal vault** belongs to one user. It ingests the six Activity types, the
   user's ``life_path`` and ``user_entry`` notes (journals, fulfilled assignments,
-  knowledge notes). An Edge file, a Group file and every curriculum type belong
-  to the content vault and are refused — reported as ignored-with-reason, never
-  half-written.
+  knowledge notes) (``PERSONAL_VAULT_TYPES``). An Edge file, a Group file and every
+  curriculum type belong to the content vault and are refused.
+- **No vault** syncs a record the app writes as a learner works
+  (``APP_RECORDED_TYPES``).
+
+A refused file is reported as ignored-with-reason and writes nothing — never
+half-written. A personal vault narrows two things more:
+
 - **Whose identity it has.** A personal file never authors a ``uid:`` line — uids
   share one namespace across every user and the curriculum, so two learners
   writing ``uid: task.morning-run`` would collide; a file that has one is refused,
@@ -31,6 +40,7 @@ changes a node's owner (``bulk_upsert_backend.build_node_upsert_template``), and
 Edge file joins two entities (``IngestionWriteBackend.ingest_edge``).
 
 See: /docs/decisions/ADR-070-bidirectional-vault-bridge.md,
+     /docs/decisions/ADR-091-one-door-for-curriculum.md,
      /docs/decisions/ADR-085-ownership-read-enforcement-contract.md
 """
 
@@ -39,14 +49,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
-from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.enums.entity_enums import ContentOrigin, EntityType, NonKuDomain
 from core.services.mixins.link_edge_guard import LinkEdge, partition_link_edges
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.result_simplified import Result
 from core.utils.uid_grammar import hashed_uid
 
 from .config import ENTITY_CONFIGS
-from .detector import detect_entity_type, is_edge_type, read_document
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -69,6 +78,52 @@ PERSONAL_VAULT_TYPES: Final[frozenset[EntityType]] = frozenset(
 MINTED_IDENTITY_TYPES: Final[frozenset[EntityType]] = PERSONAL_VAULT_TYPES - {EntityType.USER_ENTRY}
 
 _PERSONAL_TYPE_NAMES: Final = ", ".join(sorted(member.value for member in PERSONAL_VAULT_TYPES))
+
+# What the content vault ingests besides Edge files: every file-ingestible curriculum
+# and curated type, and Group files.
+_CONTENT_VAULT_ORIGINS: Final = frozenset({ContentOrigin.CURRICULUM, ContentOrigin.CURATED})
+CONTENT_VAULT_TYPES: Final[frozenset[EntityType | NonKuDomain]] = frozenset(
+    member
+    for member in ENTITY_CONFIGS
+    if member is NonKuDomain.GROUP
+    or (isinstance(member, EntityType) and member.content_origin() in _CONTENT_VAULT_ORIGINS)
+)
+
+# Records the app writes as a learner works — no vault syncs one.
+APP_RECORDED_TYPES: Final[frozenset[EntityType]] = frozenset({EntityType.INTERACTION})
+
+
+def _app_recorded_reason(entity_type: EntityType) -> str:
+    return (
+        f"'type: {entity_type.value}' is recorded by the app as a learner works — no vault syncs it"
+    )
+
+
+def content_vault_refusal(entity_type: EntityType | NonKuDomain | None) -> str | None:
+    """Why the content vault refuses this file, or ``None`` when it ingests it.
+
+    ``entity_type`` is ``None`` for an Edge file, which the content vault ingests. The
+    content vault is curriculum's one door and no learner's vault (ADR-091): every
+    personal type is refused with where it belongs, and so is a record the app writes.
+    """
+    if not isinstance(entity_type, EntityType):
+        return None
+    if entity_type in APP_RECORDED_TYPES:
+        return _app_recorded_reason(entity_type)
+    if entity_type is EntityType.USER_ENTRY:
+        return (
+            "a note belongs in its author's personal vault — to keep it here as a plain "
+            "note the sync sets aside, remove its 'type:' line"
+        )
+    if entity_type is EntityType.LIFE_PATH:
+        return "a life path belongs in its owner's personal vault"
+    if entity_type.is_activity():
+        return (
+            f"'type: {entity_type.value}' is a learner's own and belongs in a personal "
+            "vault — the practice a step asks of its learners is a "
+            f"'type: {entity_type.template_type().value}' file"
+        )
+    return None
 
 
 def personal_vault_refusal(
@@ -94,6 +149,8 @@ def personal_vault_refusal(
                 "identity comes from you and the file's place in your vault"
             )
         return None
+    if isinstance(entity_type, EntityType) and entity_type in APP_RECORDED_TYPES:
+        return _app_recorded_reason(entity_type)
     if entity_type is NonKuDomain.GROUP:
         return "Group files are synced from the content vault only"
     if entity_type is EntityType.PATH_STEP and not data.get("type") and data.get("moc") is True:
@@ -101,10 +158,13 @@ def personal_vault_refusal(
             "a 'moc: true' file with no type is a PathStep, which is curriculum — "
             "for a personal map add 'type: user_entry' and 'pipeline: knowledge'"
         )
-    return (
-        f"'type: {entity_type.value}' is synced from the content vault only — a "
-        f"personal vault syncs {_PERSONAL_TYPE_NAMES} files"
-    )
+    if entity_type in CONTENT_VAULT_TYPES:
+        return (
+            f"'type: {entity_type.value}' is synced from the content vault only — a "
+            f"personal vault syncs {_PERSONAL_TYPE_NAMES} files"
+        )
+    # A type no vault syncs: the ingest reports it as unsupported.
+    return None
 
 
 def vault_refusal(
@@ -114,34 +174,17 @@ def vault_refusal(
 ) -> str | None:
     """Why the vault of ``kind`` refuses this file, or ``None``.
 
-    ``kind`` is ``None`` when no vault governs the path (a minimal compose, a
-    script outside every root): nothing is refused by kind there, as nothing is
-    attributed by kind there either. The content vault refuses no type.
+    The one verdict every door gives — the directory door's parse stage, the
+    single-file door, and the sync preview, which runs that parse stage. ``kind`` is
+    ``None`` when no vault governs the path (a minimal compose, a script outside
+    every root): nothing is refused by kind there, as nothing is attributed by kind
+    there either.
     """
     if kind is VaultKind.PERSONAL:
         return personal_vault_refusal(entity_type, data)
+    if kind is VaultKind.CONTENT:
+        return content_vault_refusal(entity_type)
     return None
-
-
-def file_vault_refusal(file_path: Path, kind: VaultKind | None) -> str | None:
-    """``vault_refusal`` for a file on disk — the sync preview's reading of it.
-
-    Reads the file the way the ingest gate does. A file that does not parse, has
-    no type, or has an unknown one is not refused BY KIND — the sync reports those
-    faults itself — so this returns ``None`` for them.
-    """
-    if kind is not VaultKind.PERSONAL:
-        return None
-    data = read_document(file_path)
-    if data is None:
-        return None
-    if is_edge_type(data):
-        return vault_refusal(kind, None, data)
-    try:
-        entity_type = detect_entity_type(data, file_path)
-    except ValueError:
-        return None
-    return vault_refusal(kind, entity_type, data)
 
 
 def uid_in_use_reason(uid: str) -> str:
@@ -335,11 +378,13 @@ async def admit_frontmatter_targets(
 
 
 __all__ = [
+    "APP_RECORDED_TYPES",
+    "CONTENT_VAULT_TYPES",
     "MINTED_IDENTITY_TYPES",
     "PERSONAL_VAULT_TYPES",
     "TrackedIdentity",
     "admit_frontmatter_targets",
-    "file_vault_refusal",
+    "content_vault_refusal",
     "missing_target_warning",
     "personal_file_uid",
     "personal_vault_refusal",

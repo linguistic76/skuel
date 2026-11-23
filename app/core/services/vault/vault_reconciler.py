@@ -55,7 +55,6 @@ from core.services.ingestion.config import collect_files
 from core.services.ingestion.detector import is_non_entity_note
 from core.services.ingestion.ingestion_tracker import IngestionDecision, IngestionTracker
 from core.services.ingestion.types import IncrementalStats, IngestionStats, TrackerProjection
-from core.services.ingestion.vault_policy import file_vault_refusal
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -538,9 +537,6 @@ class VaultReconciler:
             # (``is_non_entity_note`` — the detector's predicate, not a copy)
             # so the would-ingest figures describe what a sync would write; the
             # set-aside notes are reported once, as one number.
-            # A file this vault may not hold is classified by the ingest gate's
-            # own verdict too (``file_vault_refusal`` — the policy the sync's
-            # parse stage applies), so the preview names it as the sync will.
             would_ingest: list[IngestionDecision] = []
             would_ignore: list[str] = []
             non_entity_notes = 0
@@ -549,17 +545,11 @@ class VaultReconciler:
                     continue
                 if is_non_entity_note(decision.file_path):
                     non_entity_notes += 1
-                elif (
-                    refusal := file_vault_refusal(decision.file_path, descriptor.kind)
-                ) is not None:
-                    would_ignore.append(
-                        f"{display_path(decision.file_path, descriptor.root)} — {refusal}"
-                    )
                 else:
                     would_ingest.append(decision)
             # A file the sync's own parse stage refuses for its content (a
-            # broken field, a value the vault may not hold) is reported as the
-            # sync reports it, ignored with the same reason, by running that
+            # broken field, a type this vault may not hold) is reported as the
+            # sync reports it, ignored with the same line, by running that
             # stage here (``parse_verdicts``) rather than restating its rules.
             verdicts = await self._ingestion.parse_verdicts(
                 [d.file_path for d in would_ingest],

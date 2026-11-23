@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-11-14
+updated: 2026-11-23
 status: current
 category: architecture
 version: 8.1.0
@@ -54,7 +54,7 @@ This doc is **Model A at the fine grain** per ADR-055 — the 25 EntityTypes. Fo
 | LearningPath | An ordered sequence of PathSteps | `lp.{namespace}.{slug}` authored | Admin-created, shared |
 | Exercise | Instruction template, assignment, or formal assessment | `ex.{ns}.{slug}` authored | Admin-created, shared |
 | RevisedExercise | Targeted revision after feedback | `re_{16 hex}` | Teacher-owned |
-| UserEntry | Unified user-authored content — submissions, journals, uploads (ADR-054) | `ue_{16 hex}` — minted, or a periodic note's `periodic_note_uid` / `ue.{slug}` authored (content vault) | User-owned |
+| UserEntry | Unified user-authored content — submissions, journals, uploads (ADR-054) | `ue_{16 hex}` — minted, or a periodic note's `periodic_note_uid` | User-owned |
 | Interaction | Situated learning-loop event (curriculum context at submission time) | `ia_{16 hex}` | User-owned |
 | ActivityReport | Feedback about activity patterns over time | `ar_{16 hex}` | User-owned |
 | EntryReport | Report (teacher/AI assessment or LLM reflective response) tied to a specific UserEntry | `er_{16 hex}` | User-owned |
