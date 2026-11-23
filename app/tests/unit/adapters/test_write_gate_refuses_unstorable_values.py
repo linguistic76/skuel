@@ -118,7 +118,7 @@ def test_a_model_holding_a_value_of_another_type_refuses_the_write() -> None:
     )  # type: ignore[arg-type]  # the wrong type is the point
 
     with pytest.raises(UnstorableValueError) as refused:
-        to_neo4j_node(event)
+        to_neo4j_node(event, Event)
 
     assert (refused.value.entity_class, refused.value.field) == ("Event", "start_time")
 
@@ -126,12 +126,12 @@ def test_a_model_holding_a_value_of_another_type_refuses_the_write() -> None:
 def test_a_model_holding_its_own_types_is_stored() -> None:
     task = Task(uid=_UID, title="T", user_uid=_OWNER, due_date=date(2026, 11, 20))
 
-    assert to_neo4j_node(task)["due_date"] == "2026-11-20"
+    assert to_neo4j_node(task, Task)["due_date"] == "2026-11-20"
 
 
 def test_a_patch_is_not_a_model() -> None:
     with pytest.raises(TypeError):
-        to_neo4j_node({"title": "T"})
+        to_neo4j_node({"title": "T"}, Task)
 
 
 def test_the_refusal_is_not_taken_for_bad_input() -> None:

@@ -1708,7 +1708,7 @@ class TestCrossDomainPatternsInTheReport:
         report = _persisted(generator)
         assert report.metadata["intelligence"]["cross_domain_patterns"] == patterns
         # The node the save writes — the mapper serializes metadata to a JSON string.
-        node = to_neo4j_node(report)
+        node = to_neo4j_node(report, ActivityReport)
         stored = json.loads(node["metadata"])
         assert stored["intelligence"]["cross_domain_patterns"] == patterns
 

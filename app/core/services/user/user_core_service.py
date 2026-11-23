@@ -390,9 +390,10 @@ class UserCoreService:
         deleted_by: UserUID | None = None,
     ) -> Result[bool]:
         """
-        Soft-delete a user (default account closure path).
+        Soft-delete a user. Staged: no door calls it yet — the admin deactivate
+        door marks an account inactive and scrubs nothing.
 
-        Marks ``status=DELETED``, scrubs PII (email, display_name,
+        Stamps ``deleted_at``, scrubs PII (email, display_name,
         password_hash), and preserves the User node plus every OWNS-linked
         entity so teachers can still render historical submissions. Login is
         blocked because sign-in (``GraphAuthService.sign_in``) and the

@@ -174,7 +174,7 @@ class UserCrudOperations(Protocol):
         ...
 
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
-        """Soft-delete a user: mark status=DELETED, scrub PII, preserve graph."""
+        """Soft-delete a user: stamp ``deleted_at``, scrub PII, preserve graph."""
         ...
 
     async def hard_delete_user(self, user_uid: UserUID) -> Result[int]:
@@ -276,16 +276,10 @@ class UserLearningStateOperations(Protocol):
 
 @runtime_checkable
 class UserActivityOperations(Protocol):
-    """Activity tracking. Used by: UserActivityService.
+    """Conversation history and active learners. Used by: UserActivityService.
 
     See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
     """
-
-    async def update_user_activity(
-        self, user_uid: UserUID, activity_data: Metadata
-    ) -> Result[bool]:
-        """Update user's activity tracking data."""
-        ...
 
     async def add_conversation_message(
         self, user_uid: UserUID, role: str, content: str, metadata: Metadata | None = None

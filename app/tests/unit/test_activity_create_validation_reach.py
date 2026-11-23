@@ -103,7 +103,7 @@ class StubBackend:
         self.hierarchy: list[tuple[str, str, dict[str, Any] | None]] = []
 
     async def create(self, entity: Any) -> Result[Any]:
-        props = to_neo4j_node(entity)
+        props = to_neo4j_node(entity, self._model)
         self.created.append(dict(props))
         return Result.ok(from_neo4j_node(props, self._model))
 

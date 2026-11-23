@@ -30,7 +30,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -40,6 +40,7 @@ from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.enums.scheduling_enums import RecurrencePattern, TimeOfDay
+from core.models.habit.learning_state import HABIT_LEARNING_PROPERTIES
 from core.models.user_owned_entity import UserOwnedEntity
 from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
@@ -56,6 +57,11 @@ class Habit(UserOwnedEntity):
     Adds 31 habit-specific fields for classification, streak tracking,
     behavioral science, identity, scheduling, reminders, and cross-domain links.
     """
+
+    # Node state: properties the node carries that the class does not declare
+    # (core/models/node_state.py): the habit's ADR-048 learning state, written under its
+    # lock by ``update_habit_learning_state`` and read raw by ``get_habit_learning_states``.
+    NODE_STATE: ClassVar[frozenset[str]] = frozenset(HABIT_LEARNING_PROPERTIES)
 
     # Honest leaf identity (G6): defaults to its own type; __post_init__
     # rejects a mismatch instead of silently correcting it.

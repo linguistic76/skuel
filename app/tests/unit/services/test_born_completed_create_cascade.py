@@ -82,7 +82,7 @@ class _RoundTripBackend:
         self._model = model
 
     async def create(self, entity: Any) -> Result[Any]:
-        return Result.ok(from_neo4j_node(to_neo4j_node(entity), self._model))
+        return Result.ok(from_neo4j_node(to_neo4j_node(entity, self._model), self._model))
 
     async def get(self, uid: str) -> Result[Any]:
         return Result.fail(Errors.not_found(self._model.__name__, uid))

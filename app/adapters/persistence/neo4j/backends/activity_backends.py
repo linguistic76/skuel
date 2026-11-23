@@ -47,6 +47,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.models.update_contracts import GuardedRecompute, GuardedWritePlan
+from core.models.user.learning_state import TASK_DURATION_LEARNING_PROPERTIES
 from core.ports.query_types import (
     ChoiceStats,
     ContributionTally,
@@ -1279,7 +1280,20 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     async def update_user_learning_state(
         self, user_uid: UserUID, properties: dict[str, Any]
     ) -> Result[bool]:
-        """Update learning state properties on User node."""
+        """Write a learner's task-duration learning state on their User node.
+
+        ADR-048 state the ``User`` model does not declare: every key must be one of
+        ``TASK_DURATION_LEARNING_PROPERTIES``, or nothing is written and the write
+        answers a validation error naming each other key.
+        """
+        unknown = set(properties) - TASK_DURATION_LEARNING_PROPERTIES
+        if unknown:
+            return Result.fail(
+                Errors.validation(
+                    f"Not a task-duration learning property: {', '.join(sorted(unknown))}",
+                    field="properties",
+                )
+            )
         query = """
         MATCH (u:User {uid: $user_uid})
         SET u += $properties

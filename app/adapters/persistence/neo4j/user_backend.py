@@ -44,7 +44,6 @@ from adapters.persistence.neo4j.neo4j_mapper import (
 from adapters.persistence.neo4j.query.cypher.crud_queries import build_content_subtree_delete
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.enums.curriculum_enums import EnrollmentStatus
-from core.models.enums.user_enums import UserStatus
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterValue, UserUID
 from core.models.user import User, UserPreferences
@@ -176,7 +175,9 @@ class UserBackend(Neo4jSessionRunner):
         """
         # Convert User to Neo4j properties. Append-only fields are managed solely
         # via atomic_append_dual_track_checkin, never seeded by a whole-model write.
-        user_dict = {k: v for k, v in to_neo4j_node(user).items() if k not in _APPEND_ONLY_FIELDS}
+        user_dict = {
+            k: v for k, v in to_neo4j_node(user, User).items() if k not in _APPEND_ONLY_FIELDS
+        }
 
         query = f"""
         CREATE (u:{self.label})
@@ -452,7 +453,7 @@ class UserBackend(Neo4jSessionRunner):
     @safe_backend_operation("delete_user")
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """
-        Soft-delete the User node: mark status=DELETED, scrub PII, preserve graph.
+        Soft-delete the User node: stamp ``deleted_at``, scrub PII, preserve graph.
 
         The node + every OWNS-linked entity (UserEntry, Task, Goal, Habit, ...)
         are kept so teachers can still render historical submissions and
@@ -476,8 +477,7 @@ class UserBackend(Neo4jSessionRunner):
         now_iso = datetime.now(UTC).isoformat()
         query = f"""
         MATCH (u:{self.label} {{uid: $uid}})
-        SET u.status = $deleted_status,
-            u.is_active = false,
+        SET u.is_active = false,
             u.deleted_at = datetime($now),
             u.email = null,
             u.display_name = 'Deleted User',
@@ -493,7 +493,6 @@ class UserBackend(Neo4jSessionRunner):
             query,
             {
                 "uid": user_uid,
-                "deleted_status": UserStatus.DELETED.value,
                 "now": now_iso,
             },
         )
@@ -998,38 +997,8 @@ class UserBackend(Neo4jSessionRunner):
         return Result.ok(True)
 
     # ========================================================================
-    # ACTIVITY & CONVERSATION TRACKING
+    # CONVERSATION TRACKING
     # ========================================================================
-
-    @safe_backend_operation("update_user_activity")
-    async def update_user_activity(
-        self, user_uid: UserUID, activity_updates: dict[str, Any]
-    ) -> Result[bool]:
-        """
-        Update user activity metadata.
-
-        Args:
-            user_uid: User UID
-            activity_updates: Activity data to update
-
-        Returns:
-            Result[bool]: Success status
-        """
-        # Add last_active timestamp
-        activity_updates["last_active_at"] = datetime.now().isoformat()
-
-        query = f"""
-        MATCH (u:{self.label} {{uid: $uid}})
-        SET u += $updates
-        RETURN u
-        """
-
-        record = await self._run_single(query, {"uid": user_uid, "updates": activity_updates})
-
-        if not record:
-            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-
-        return Result.ok(True)
 
     @safe_backend_operation("add_conversation_message")
     async def add_conversation_message(

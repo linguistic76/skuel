@@ -54,7 +54,7 @@ See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from core.utils.timestamp_helpers import as_utc
 
@@ -65,6 +65,7 @@ if TYPE_CHECKING:
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import SubmissionModality
+from core.models.node_state import GROUNDING_STAMPS
 from core.models.user_owned_entity import UserOwnedEntity
 from core.utils.uid_grammar import hashed_uid
 
@@ -112,6 +113,12 @@ class UserEntry(UserOwnedEntity):
 
     `entity_type` is forced to `EntityType.USER_ENTRY` in `__post_init__`.
     """
+
+    # Node state: properties the node carries that the class does not declare
+    # (core/models/node_state.py): the knowledge-grounding stamps, and ``score`` — the
+    # mastery score an approved submission earns (``update_entry_score``), read by the
+    # ZPD's submission evidence.
+    NODE_STATE: ClassVar[frozenset[str]] = frozenset({"score"}) | GROUNDING_STAMPS
 
     # Honest leaf identity (G6): defaults to its own type; __post_init__
     # rejects a mismatch instead of silently correcting it.

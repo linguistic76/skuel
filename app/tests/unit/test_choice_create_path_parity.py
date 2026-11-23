@@ -98,7 +98,7 @@ class StubChoicesBackend:
         self.trace: list[str] = []
 
     async def create(self, entity: Any) -> Result[Choice]:
-        props = to_neo4j_node(entity)
+        props = to_neo4j_node(entity, Choice)
         self.created.append(dict(props))
         self.trace.append("node_created")
         return Result.ok(from_neo4j_node(props, Choice))
@@ -626,7 +626,7 @@ class StubOutcomeBackend:
     """
 
     def __init__(self, choice: Choice) -> None:
-        self.props: dict[str, Any] = dict(to_neo4j_node(choice))
+        self.props: dict[str, Any] = dict(to_neo4j_node(choice, Choice))
 
     async def rewrite_under_lock[P: GuardedWritePlan](
         self, uid: str, plan: Callable[[Choice], P | None]

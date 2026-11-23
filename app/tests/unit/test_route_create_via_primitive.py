@@ -268,7 +268,7 @@ class StubBackend:
         self.trace: list[str] = []
 
     async def create(self, entity: Any) -> Result[Any]:
-        props = to_neo4j_node(entity)
+        props = to_neo4j_node(entity, Task)
         self.created.append(dict(props))
         self.trace.append("node_created")
         return Result.ok(from_neo4j_node(props, Task))

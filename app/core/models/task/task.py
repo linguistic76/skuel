@@ -21,7 +21,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from collections.abc import Collection
 from dataclasses import dataclass, field, replace
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.scheduling_enums import RecurrencePattern
+from core.models.node_state import GROUNDING_STAMPS
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -49,6 +50,27 @@ class Task(UserOwnedEntity):
     Adds task-specific fields for scheduling, hierarchy, cross-domain
     links, progress impact, and knowledge intelligence.
     """
+
+    # Node state: properties the node carries that the class does not declare
+    # (core/models/node_state.py):
+    # - ``predicted_duration_minutes`` — ADR-048 learning state, the completed task's
+    #   duration calibrated from actuals (``TasksBackend.set_predicted_duration``); read
+    #   by nothing yet.
+    # - the vault sweep's retirement stamps on a task whose line left its note
+    #   (``retire_extracted_from_links``, ``delete_entities_with_metadata``), read by the
+    #   end-of-sync sweep and cleared on re-link (ADR-070 Decision 1).
+    # - the knowledge-grounding stamps.
+    NODE_STATE: ClassVar[frozenset[str]] = (
+        frozenset(
+            {
+                "predicted_duration_minutes",
+                "retired_vault_id",
+                "retired_source_line",
+                "vault_line_retired_at",
+            }
+        )
+        | GROUNDING_STAMPS
+    )
 
     # Honest leaf identity (G6): defaults to its own type; __post_init__
     # rejects a mismatch instead of silently correcting it.

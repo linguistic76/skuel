@@ -462,7 +462,7 @@ case "$1" in
     echo "  ./dev eval-askesis-draw - Askesis chunk-draw arms: intent filter vs thin-draw (FULL tier; --json)"
     echo "  ./dev eval-intent-classification - Askesis intent classification: labelled set × aggregation arms (FULL tier; --json)"
     echo "  ./dev uid-census - Read every node uid against the uid grammar, per label (read-only; exits 1 on a uid outside the grammar or two nodes hold)"
-    echo "  ./dev stored-value-census - Read every stored node as its class, per label: each value as its field's type, each required field present (read-only; exits 1 on a field a read would refuse)"
+    echo "  ./dev stored-value-census - Read every stored node as its class, per label: each value as its field's type, each required field present, each key a field or registered node state (read-only; exits 1 on a field a read would refuse or a key no read reads)"
     echo "  ./dev telemetry-retention - Prune unbounded-growth telemetry (ADR-080 H0; --dry-run | --days N)"
     echo "  ./dev reconcile-learning-progress - Derived step MASTERED edges + uninitialized enrollment recounts (--dry-run)"
   echo "  ./dev reconcile-goal-tallies - Recompute TASK_BASED and HABIT_BASED goals whose stored figure disagrees with their contributions or habits (--dry-run)"

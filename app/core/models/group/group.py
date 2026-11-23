@@ -13,7 +13,7 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from core.utils.uid_grammar import hashed_uid
 
@@ -103,6 +103,12 @@ class Group:
     - Curriculum (Exercises, PathSteps, LearningPaths) is shared to groups
       via SHARED_WITH_GROUP (ADR-053, supersedes the retired FOR_GROUP edge)
     """
+
+    # Node state: properties the node carries that the class does not declare
+    # (core/models/node_state.py):
+    # ``is_default``, set on the default group ``get_or_create_default_group`` makes,
+    # read by the co-membership predicate that leaves it out.
+    NODE_STATE: ClassVar[frozenset[str]] = frozenset({"is_default"})
 
     uid: str
     name: str

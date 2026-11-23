@@ -180,7 +180,6 @@ from .user_enums import (
     JournalMode,
     JournalTier,
     UserRole,
-    UserStatus,
 )
 
 __all__ = [
@@ -284,6 +283,5 @@ __all__ = [
     "TrendDirection",
     "GroupMemberRole",
     "UserRole",
-    "UserStatus",
     "Visibility",
 ]

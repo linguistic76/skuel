@@ -27,7 +27,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -47,6 +47,12 @@ class PathStep(Curriculum):
     within a LearningPath. Inherits ~50 fields from Curriculum. Adds 9 fields
     for intent, knowledge references, path relationship, and authored mastery metadata.
     """
+
+    # Node state: properties the node carries that the class does not declare
+    # (core/models/node_state.py):
+    # ``hub_score``, the cached degree centrality (``compute_hub_scores``, read by the
+    # foundational-knowledge query).
+    NODE_STATE: ClassVar[frozenset[str]] = frozenset({"hub_score"})
 
     # Honest leaf identity (G6): defaults to its own type; __post_init__
     # rejects a mismatch instead of silently correcting it.

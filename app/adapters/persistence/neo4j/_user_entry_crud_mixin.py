@@ -29,6 +29,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.user.learning_state import TEACHER_FEEDBACK_PROPERTIES
 from core.ports.query_types import (
     AppliedKnowledgeWriteRow,
     ExtractionTwinRow,
@@ -145,7 +146,7 @@ class _UserEntryCrudMixin:
         # an explicit null; under ``+=`` that null would REMOVE the stored vector on
         # every re-sync. The embeddings writer stores those properties — drop them
         # here, unless the entry may hold no vector: then the nulls are the point.
-        node_data = without_embedding_props(to_neo4j_node(entry))
+        node_data = without_embedding_props(to_neo4j_node(entry, self.entity_class))
         ungrounded = entry.private or not entry.pipeline.grounds_knowledge()
         if ungrounded:
             node_data.update(dict.fromkeys(EMBEDDING_OWNED_PROPERTIES))
@@ -777,7 +778,20 @@ class _UserEntryCrudMixin:
     async def update_teacher_feedback_state(
         self, teacher_uid: str, properties: Neo4jProperties
     ) -> Result[bool]:
-        """Write feedback EMA state to User node."""
+        """Write a teacher's feedback-time learning state on their User node.
+
+        ADR-048 state the ``User`` model does not declare: every key must be one of
+        ``TEACHER_FEEDBACK_PROPERTIES``, or nothing is written and the write answers a
+        validation error naming each other key.
+        """
+        unknown = set(properties) - TEACHER_FEEDBACK_PROPERTIES
+        if unknown:
+            return Result.fail(
+                Errors.validation(
+                    f"Not a teacher feedback property: {', '.join(sorted(unknown))}",
+                    field="properties",
+                )
+            )
         query = """
         MATCH (u:User {uid: $teacher_uid})
         SET u += $properties

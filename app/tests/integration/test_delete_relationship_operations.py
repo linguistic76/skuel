@@ -12,8 +12,8 @@ from datetime import date
 import pytest
 import pytest_asyncio
 
-from core.models.curriculum import Curriculum
 from core.models.enums import Domain, EntityStatus, Priority, SELCategory
+from core.models.ku.ku import Ku
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -43,7 +43,7 @@ class TestDeleteRelationshipOperations:
     async def test_delete_single_relationship(self, tasks_backend, tasks_service, ku_backend):
         """Test deleting a single relationship."""
         # Create a knowledge unit first
-        ku = Curriculum(
+        ku = Ku(
             uid="ku.test-knowledge",
             title="Test Knowledge",
             domain=Domain.TECH,
@@ -118,7 +118,7 @@ class TestDeleteRelationshipOperations:
             ("ku.algorithms", "Algorithms"),
             ("ku.databases", "Databases"),
         ]:
-            ku = Curriculum(
+            ku = Ku(
                 uid=ku_uid,
                 title=title,
                 domain=Domain.TECH,
@@ -180,7 +180,7 @@ class TestDeleteRelationshipOperations:
         """Test batch delete with mix of existing and non-existing relationships."""
         # Create knowledge units first
         for ku_uid, title in [("ku.existing1", "Existing 1"), ("ku.existing2", "Existing 2")]:
-            ku = Curriculum(
+            ku = Ku(
                 uid=ku_uid,
                 title=title,
                 domain=Domain.TECH,
@@ -237,7 +237,7 @@ class TestDeleteRelationshipOperations:
             ("ku.algorithms", "Algorithms"),
             ("ku.databases", "Databases"),
         ]:
-            ku = Curriculum(
+            ku = Ku(
                 uid=ku_uid,
                 title=title,
                 domain=Domain.TECH,

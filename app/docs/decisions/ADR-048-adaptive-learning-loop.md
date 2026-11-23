@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # ADR-048: Adaptive Learning Loop Architecture
@@ -69,10 +69,12 @@ Next recommendation query reads updated weights
 
 1. **Learning state lives in Neo4j** — as properties on existing nodes and relationships, not as separate frozen dataclasses. Examples:
    - `(user)-[:HAS_MASTERY {weight, success_count, last_updated}]->(ku)` — existing relationship, new properties
-   - `(:User {preferred_task_time, avg_completion_rate})` — existing node, new properties
-   - `(:Task {predicted_duration_minutes})` — calibrated over time from actuals, written by `TasksBackend.set_predicted_duration`, never through the `Task` model (which declares none of it, so its write would refuse the key)
+   - `(:User {task_duration_ratio, task_completion_count, task_duration_updated_at})` — a learner's actual-over-estimated duration average, written by `TasksBackend.update_user_learning_state` and read back by `get_user_learning_state`; `(:User {feedback_ema_hours, feedback_sample_count, feedback_updated_at})` — a teacher's average hours to feedback, written by `update_teacher_feedback_state` and read back by `get_teacher_feedback_state` (`core/models/user/learning_state.py`)
+   - `(:Task {predicted_duration_minutes})` — calibrated over time from actuals, written by `TasksBackend.set_predicted_duration`, never through the `Task` model (which declares none of it, so its write would refuse the key); read by nothing yet
 
    A habit's learning state (`completion_hours_json`, `learned_preferred_hour`, `learned_on_time_rate`, `learned_completion_count`, `learned_difficulty_level` — `core/models/habit/learning_state.py`) is stored on the habit's node and read raw (`HabitsBackend.get_habit_learning_states`, written under the node's lock by `update_habit_learning_state`), never through the `Habit` model, which declares none of it.
+
+   Each such property is registered beside its model's fields as node state (`NODE_STATE`, `core/models/node_state.py`), and each map writer of learning state refuses a key outside its registered set. The stored-value census names any stored key that is neither a field nor registered node state.
 
 2. **`*EventHandlerService` classes handle `learn_from_outcome()` methods** — fire-and-forget event handlers. Examples:
    - `TaskEventHandlerService.handle_task_completed()` (duration calibration)

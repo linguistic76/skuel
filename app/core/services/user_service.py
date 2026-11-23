@@ -27,7 +27,7 @@ from zoneinfo import ZoneInfo
 
 from core.models.enums import DualTrackDimension
 from core.models.shared.dual_track import DualTrackResult
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.models.user import User
 from core.ports.infrastructure_protocols import (
     EventBusOperations,
@@ -119,9 +119,7 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         # Initialize all sub-services
         self.core = UserCoreService(user_repo, event_bus=event_bus)
         self.progress = UserProgressRecorderService(user_repo, event_bus=event_bus)
-        self.activity = UserActivityService(
-            user_repo, event_bus=event_bus, metrics_cache=metrics_cache
-        )
+        self.activity = UserActivityService(user_repo, metrics_cache=metrics_cache)
         self._rich_context_builds = {}
 
         # Context builder requires the injected query executor.
@@ -271,7 +269,7 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         reason: str = "",
         deleted_by: UserUID | None = None,
     ) -> Result[bool]:
-        """Soft-delete a user: mark status=DELETED, scrub PII, preserve OWNS graph."""
+        """Soft-delete a user: stamp ``deleted_at``, scrub PII, preserve OWNS graph."""
         return await self.core.delete_user(user_uid, reason=reason, deleted_by=deleted_by)
 
     # ========================================================================
@@ -422,14 +420,8 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         )
 
     # ========================================================================
-    # ACTIVITY TRACKING (Delegate to UserActivityService)
+    # CONVERSATION HISTORY (Delegate to UserActivityService)
     # ========================================================================
-
-    async def update_user_activity(
-        self, user_uid: UserUID, activity_type: str, entity_uid: EntityUID, action: str = "viewed"
-    ) -> Result[bool]:
-        """Update user's activity state."""
-        return await self.activity.update_user_activity(user_uid, activity_type, entity_uid, action)
 
     async def add_conversation_message(
         self, user_uid: UserUID, role: str, content: str, metadata: dict | None = None

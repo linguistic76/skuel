@@ -99,7 +99,7 @@ class StubBackend:
         self.label_lookups: list[list[str]] = []
 
     async def create(self, entity: Any) -> Result[Choice]:
-        props = to_neo4j_node(entity)
+        props = to_neo4j_node(entity, Choice)
         self.created.append(dict(props))
         self.trace.append("node_created")
         return Result.ok(from_neo4j_node(props, Choice))

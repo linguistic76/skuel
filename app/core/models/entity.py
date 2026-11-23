@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
+from core.models.node_state import EMBEDDING_STAMPS
 from core.models.type_hints import EntityUID
 from core.utils.timestamp_helpers import as_utc, now_utc
 
@@ -57,6 +58,10 @@ class Entity:
 
     # Neo4j node label — all EntityType subclasses share the :Entity label
     _neo4j_label: ClassVar[str] = "Entity"
+
+    # Node state: properties the node carries that the class does not declare
+    # (core/models/node_state.py): the embedding writer's freshness stamps.
+    NODE_STATE: ClassVar[frozenset[str]] = EMBEDDING_STAMPS
 
     # =========================================================================
     # IDENTITY

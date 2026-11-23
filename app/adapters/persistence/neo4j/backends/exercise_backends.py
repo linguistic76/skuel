@@ -736,7 +736,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         params = {
             **params,
             "pipeline": Pipeline.TEACHER_REVIEW.value,
-            "re_props": to_neo4j_node(re_entity),
+            "re_props": to_neo4j_node(re_entity, RevisedExercise),
             "re_entity_type": EntityType.REVISED_EXERCISE.value,
             "exercise_entity_type": EntityType.EXERCISE.value,
         }
