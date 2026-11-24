@@ -399,10 +399,9 @@ DELETED: dict[str, str] = {
     "EventResponse": "deleted — never wired; the Events API renders through the CRUD factory, not a response model",
     "EventListResponse": "deleted — served only EventResponse",
     # Deleted enum members
-    # A step names Activities at the template grain only (ADR-091 § S2, amendment
-    # 2026-11-24): the step → instance edges went with its six instance channels. The two
-    # rich-context keys (practice_habits / practice_tasks) stay — they read the learner's own
-    # Activities stamped with the step.
+    # A step names Activities at the template grain only (ADR-091 § S2): no edge runs from a
+    # step to an Activity. The rich-context keys practice_habits / practice_tasks are live —
+    # they read the learner's own Activities stamped with the step.
     "BUILDS_HABIT": (
         "deleted — a step names a habit template: (PathStep)-[:HAS_HABIT_TEMPLATE]->(HabitTemplate); "
         "the learner's own habit from it carries source_path_step_uid (ADR-091 § S2)"
@@ -440,7 +439,7 @@ DELETED: dict[str, str] = {
     ),
     # An event ↔ principle link is one edge, DEMONSTRATES_PRINCIPLE from the event; an
     # event that reinforces a habit is REINFORCES_HABIT (ADR-090). The event's
-    # practiced_habits view and user-context key went with the type.
+    # practiced_habits view and user-context key name the same link.
     "PRACTICED_AT_EVENT": (
         "deleted — an event demonstrates a principle: (Event)-[:DEMONSTRATES_PRINCIPLE]->(Principle), "
         "read as the event's demonstrated_principles and the principle's demonstrating_events; "
@@ -675,7 +674,7 @@ _sharing_arc_bases = (
     "closed Submit & Share arc record -- names the bases and inheritors it kept, since deleted"
 )
 _links_arc = "the Activity Links arc's record of the principle ↔ goal, principle ↔ choice, task ↔ goal and event ↔ principle collapses -- ADR-090, the arc document, ADR-090's INDEX row, the older ADRs that keep the names (ADR-001's 2025 single-query record, ADR-015's 2025-12 rich-query record and its amendment notes, ADR-057's Context paragraph, ADR-026's 2026-02 ingestion record), the closed case files in roadmap/done/ and the closed Cypher-vocabulary sweep name the edge types the arc retired"
-_step_templates = "a step names Activities at the template grain only (ADR-091 § S2, amendment 2026-11-24) -- the ADRs and closed case files that record the step's retired instance edges (BUILDS_HABIT, ASSIGNS_TASK, GUIDED_BY_PRINCIPLE: ADR-026's 2026-02 registry snapshot, ADR-085's G2 gap, ADR-090's O2 and ADR-057's note, ADR-091's amendment, the Activity Links arc and O2 case files, the context-retriever case file's 2026-08-21 record, the closed Cypher-vocabulary sweep, and INDEX's rows for them) name the types they retired"
+_step_templates = "a step names Activities at the template grain only (ADR-091 § S2) -- the ADRs and closed case files that record the step's retired instance edges (BUILDS_HABIT, ASSIGNS_TASK, GUIDED_BY_PRINCIPLE: ADR-026's 2026-02 registry snapshot, ADR-085's G2 gap, ADR-090's O2 and ADR-057's note, ADR-091's amendment, the Activity Links arc and O2 case files, the context-retriever case file's 2026-08-21 record, the closed Cypher-vocabulary sweep, and INDEX's rows for them) name the types they retired"
 _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
 _m_kuuid = "migration record -- the January 2026 UID migration's inventory and test names the Ku minter the 2026-10-16 ADR-013 amendment retired"
 _m_devuser = "migration record -- the January 2026 UID migration's before/after of the dev-user default the 2026-10-24 uid arc residuals deleted"
