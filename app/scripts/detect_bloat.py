@@ -528,7 +528,7 @@ _PS_PREREQUISITE_ANALYSIS = PlannedEntry(
     "the publication gate, stop reporting a failed source read as not-found, keep its steps "
     "as models (asdict makes each a dict, and the JSON boundary leaves the embedding fields "
     "out of an Entity only), and take "
-    "completed as marked as read or mastered, where it reads score >= 0.8. Wire it when a "
+    "completed as the learner's MASTERED edge, where it reads score >= 0.8. Wire it when a "
     "page shows a learner what stands between them and a step (Mike ruled staged 2026-11-07)",
     since=date(2026, 11, 7),
 )

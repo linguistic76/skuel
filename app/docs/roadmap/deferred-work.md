@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # Deferred Work
@@ -267,9 +267,13 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Assigned Exercises After ADR-091](assigned-exercises-after-adr-091.md) — the submission-stats read counts exercises in a scope ADR-091 retired, so the daily plan suggests none; what an exercise waiting for a learner means now waits on a design ruling.
 
-## Path Step Completion Read
+## Path Step Prerequisite Gate
 
-[Path Step Completion Read](path-step-completion-read.md) — the curriculum statement reads a step's completion off a `completed` property no writer stores, so every enrolled path reads 0 steps done; ruled: it reads the learner's MASTERED edge instead, built as its own row.
+[Path Step Prerequisite Gate](path-step-prerequisite-gate.md) — a prerequisite step is one the learner masters before the step that requires it may be undertaken, but no door that undertakes a step checks it; ruled: the gate is its own PR.
+
+## Enrollment Progress Counts Prerequisite Kus
+
+[Enrollment Progress Counts Prerequisite Kus](enrollment-progress-counts-prerequisite-kus.md) — an enrollment's progress and completion count the path's prerequisite Kus as part of the path; what a completed enrollment counts waits on a ruling.
 
 ## Review Schedule
 

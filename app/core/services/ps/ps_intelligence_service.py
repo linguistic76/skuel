@@ -260,9 +260,11 @@ class PsIntelligenceService(
         """
         A step's published direct prerequisites, each with whether this reader completed it.
 
-        Completed is marked as read or mastered, the rule the PathStep page's hero card
-        shows as Completed, so a step shown as Completed never blocks the next one. A
-        draft prerequisite is withheld. With no reader, none is completed.
+        Completed is mastered: a prerequisite is what the learner masters before the
+        step that requires it is undertaken. It is the rule the PathStep page's hero
+        card shows as Completed and the one ``unmet_count`` counts, so a step shown as
+        Completed never blocks the next one. A draft prerequisite is withheld. With no
+        reader, none is completed.
 
         Backend: PsIntelligenceBackend.fetch_prerequisite_statuses
         """

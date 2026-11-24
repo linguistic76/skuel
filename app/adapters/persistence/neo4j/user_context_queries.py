@@ -769,19 +769,20 @@ WITH user,
 
 // Filter learning paths for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_lp_nodes) > 0 THEN all_lp_nodes ELSE [null] END as lp
-// HAS_STEP is the one containment edge (RelationshipName.HAS_STEP) — written by
-// both ingestion (connections.contains_steps) and the LP step mixin; CONTAINS_STEP
-// never had a writer.
+// HAS_STEP is the one containment edge (RelationshipName.HAS_STEP), written by
+// both ingestion (connections.contains_steps) and the LP step mixin.
 OPTIONAL MATCH (lp)-[r_step:HAS_STEP]->(step:PathStep)
 WHERE lp IS NOT NULL
 WITH user, enrolled_path_uids,
      // A path with no HAS_STEP edge yields one unmatched row; collect() drops
      // the null the CASE emits for it, so an empty path collects [] and the
      // derived total_steps / progress_percentage below count real steps only.
+     // A step is shared curriculum: this learner has completed it when they
+     // hold a MASTERED edge to it (PsMasteryService), never a property on it.
      lp, collect(DISTINCT CASE WHEN step IS NOT NULL THEN {
          uid: step.uid,
          title: step.title,
-         completed: step.completed,
+         completed: EXISTS { (user)-[:MASTERED]->(step) },
          sequence: coalesce(r_step.sequence, step.sequence)
      } END) as lp_steps
 
@@ -812,18 +813,16 @@ WITH user, enrolled_path_uids,
              aligned_goals: lp_goals,
              embodied_principles: lp_embodied_principles,
              total_steps: size(lp_steps),
-             completed_steps: size([s IN lp_steps WHERE s.completed = true]),
+             completed_steps: size([s IN lp_steps WHERE s.completed]),
              progress_percentage: CASE WHEN size(lp_steps) > 0
-                 THEN toFloat(size([s IN lp_steps WHERE s.completed = true])) / size(lp_steps) * 100.0
+                 THEN toFloat(size([s IN lp_steps WHERE s.completed])) / size(lp_steps) * 100.0
                  ELSE 0.0 END
          }
      } END) as paths_rich
 
 // ====================================================================
 // PATH STEPS - Fetch active steps with rich data
-// IN_PROGRESS is the edge the PS enrollment door writes (PsMasteryService);
-// WORKING_ON/ENROLLED_IN had no production writer targeting PathStep, which
-// left active_path_steps_rich permanently empty (systems-review Arc B).
+// IN_PROGRESS is the edge the PS enrollment door writes (PsMasteryService).
 // ====================================================================
 OPTIONAL MATCH (user)-[:IN_PROGRESS]->(ps:PathStep)
 // Vault-ingested PathSteps carry no status property (NULL) — treat missing
@@ -834,10 +833,12 @@ WITH user, enrolled_path_uids, paths_rich,
 
 // Filter path steps for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_ps_nodes) > 0 THEN all_ps_nodes ELSE [null] END as ps
+// A prerequisite step is one this learner masters before the step that requires
+// it is undertaken: met is their MASTERED edge to it, the one completion edge.
 OPTIONAL MATCH (ps)-[:REQUIRES_STEP]->(prereq_step:PathStep)
 WHERE ps IS NOT NULL AND __FAR(prereq_step)__
 WITH user, enrolled_path_uids, paths_rich,
-     ps, collect(DISTINCT CASE WHEN prereq_step IS NOT NULL THEN {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed} END) as ps_prereq_steps
+     ps, collect(DISTINCT CASE WHEN prereq_step IS NOT NULL THEN {uid: prereq_step.uid, title: prereq_step.title, completed: EXISTS { (user)-[:MASTERED]->(prereq_step) }} END) as ps_prereq_steps
 
 // Owner predicate re-ties the projection to the anchored user (ADR-085 §4/G2):
 // a PathStep is shared curriculum, so BUILDS_HABIT can point at ANY user's

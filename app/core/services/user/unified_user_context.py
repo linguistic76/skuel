@@ -570,11 +570,8 @@ class UserContext:
 
     # Cross-domain relationship insights (extracted from MEGA-QUERY)
     cross_domain_insights: CrossDomainInsightsData = field(default_factory=dict)  # type: ignore[assignment]  # empty dict is valid runtime default for TypedDict
-    # Contains:
-    # - task_goal_alignments: {task_uid: {goal_uid, alignment_score}}
-    # - knowledge_task_applications: {ku_uid: [task_uids applying this knowledge]}
-    # - principle_goal_alignments: {principle_uid: {goal_uid, alignment_score}}
-    # - learning_path_progress: {path_uid: {completed_steps, total_steps, next_step}}
+    # Contains: active_count (the active insights the read returned, at most 10) and
+    # top_insights (the five most confident), set by populate_cross_domain_insights.
 
     # =========================================================================
     # CORE METHODS - Validation and metadata

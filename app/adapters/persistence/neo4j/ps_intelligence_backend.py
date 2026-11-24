@@ -165,8 +165,10 @@ class PsIntelligenceBackend:
 
         A prerequisite is REQUIRES_STEP or REQUIRES_KNOWLEDGE, the pair
         :meth:`has_prerequisites` reads. A draft is withheld, so it neither shows nor
-        blocks. ``completed`` is the reader's MASTERED or MARKED_AS_READ edge; with no
-        reader the match binds nothing and every row reads False.
+        blocks. ``completed`` is the reader's MASTERED edge: a prerequisite is what the
+        learner masters before the step that requires it is undertaken, and marking one
+        as read does not meet it. With no reader the match binds nothing and every row
+        reads False.
         """
         published, published_params = build_publication_clause("prereq")
         return await self._executor.execute(
@@ -176,10 +178,7 @@ class PsIntelligenceBackend:
                 OPTIONAL MATCH (reader:User {{uid: $user_uid}})
                 RETURN DISTINCT prereq.uid AS uid, prereq.title AS title,
                        prereq.entity_type AS entity_type,
-                       reader IS NOT NULL AND (
-                           EXISTS {{ (reader)-[:MASTERED]->(prereq) }}
-                           OR EXISTS {{ (reader)-[:MARKED_AS_READ]->(prereq) }}
-                       ) AS completed
+                       reader IS NOT NULL AND EXISTS {{ (reader)-[:MASTERED]->(prereq) }} AS completed
                 ORDER BY title, uid
             """,
             params={"ps_uid": ps_uid, "user_uid": user_uid, **published_params},

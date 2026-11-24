@@ -107,13 +107,13 @@ def render_askesis_grounding(context: UserContext) -> str:
 
 
 def _path_entry(item: RichLearningPathItem) -> str:
-    """One enrolled-path entry: title, with step progress when the graph has it.
+    """One enrolled-path entry: title, with the learner's step progress when the path has steps.
 
-    ``steps`` holds real HAS_STEP targets only — the MEGA-QUERY's OPTIONAL
-    MATCH collects nothing for a path without steps — so an empty skeleton
-    renders its title alone, never "(0/1 steps)" filler. That filler was
-    Codex #786 P2, when the collect still held an all-null placeholder map
-    and this render had to re-filter what the query now guarantees.
+    ``steps`` holds real HAS_STEP targets only — the curriculum statement's
+    OPTIONAL MATCH collects nothing for a path without steps — so an empty
+    skeleton renders its title alone, never "(0/1 steps)" filler. A step's
+    ``completed`` is this learner's MASTERED edge to it, so the count is the
+    steps they have mastered.
     """
     path = item.get("path") or {}
     title = path.get("title")

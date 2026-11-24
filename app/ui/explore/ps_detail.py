@@ -62,6 +62,21 @@ def render_ps_not_found(uid: str) -> FT:
     )
 
 
+def _progress_state(*, is_mastered: bool, is_marked_read: bool, is_in_progress: bool) -> str:
+    """The hero card's state for this reader.
+
+    Completed is ``mastered``: the learner's MASTERED edge, derived from the step's Kus.
+    A step marked as read is ``read``, short of completion and still in progress.
+    """
+    if is_mastered:
+        return "mastered"
+    if is_marked_read:
+        return "read"
+    if is_in_progress:
+        return "learning"
+    return "not_started"
+
+
 def render_ps_detail_content(
     *,
     step: Any,
@@ -121,12 +136,8 @@ def render_ps_detail_content(
         exercises: Not rendered inline in this design (deferred).
         engagement: Not rendered inline in this design (deferred).
     """
-    progress_state = (
-        "read"
-        if (is_marked_read or is_mastered)
-        else "learning"
-        if is_in_progress
-        else "not_started"
+    progress_state = _progress_state(
+        is_mastered=is_mastered, is_marked_read=is_marked_read, is_in_progress=is_in_progress
     )
 
     seed = {
@@ -314,12 +325,19 @@ def _action_bar(uid: str) -> FT:
                     cls="inline-flex items-center gap-1.5 text-13 font-semibold text-warning whitespace-nowrap",
                     **{"x-show": "status === 'learning'"},
                 ),
-                # read / completed
+                # read — still in progress until the step is mastered
+                Span(
+                    Icon("book-open", cls="w-[15px] h-[15px]"),
+                    " Read",
+                    cls="inline-flex items-center gap-1.5 text-13 font-semibold text-foreground/80 whitespace-nowrap",
+                    **{"x-show": "status === 'read'"},
+                ),
+                # mastered — completed
                 Span(
                     Icon("check", cls="w-[15px] h-[15px]"),
                     " Completed",
                     cls="inline-flex items-center gap-1.5 text-13 font-semibold text-priority-low whitespace-nowrap",
-                    **{"x-show": "status === 'read'"},
+                    **{"x-show": "status === 'mastered'"},
                 ),
                 cls="flex items-center gap-2",
             ),
@@ -340,11 +358,11 @@ def _action_bar(uid: str) -> FT:
                         "focus:outline-hidden focus:shadow-focus whitespace-nowrap"
                     ),
                     **{
-                        "x-show": "status !== 'read'",
+                        "x-show": "status === 'not_started' || status === 'learning'",
                         "@click": "advance()",
                     },
                 ),
-                # Review again (read state)
+                # Review again (read or mastered)
                 Button(
                     Icon("rotate-ccw", cls="w-3.5 h-3.5"),
                     " Review again",
@@ -356,7 +374,7 @@ def _action_bar(uid: str) -> FT:
                         "hover:bg-muted focus:outline-hidden focus:shadow-focus"
                     ),
                     **{
-                        "x-show": "status === 'read'",
+                        "x-show": "status === 'read' || status === 'mastered'",
                         "@click": "reviewAgain()",
                     },
                 ),

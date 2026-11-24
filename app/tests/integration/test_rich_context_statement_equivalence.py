@@ -9,7 +9,8 @@ learner with at least one node in EVERY section — a task with a subtask, a
 dependency and applied knowledge (direct and through a PathStep), a goal with a
 subgoal, a mastered and an in-progress Ku, a viewed / read / bookmarked Ku, a
 habit with a prerequisite and 24 completions in the adherence window, an event with a conflict, a principle, a choice, an
-enrolled path with an in-progress step, a life path with a step and the goals serving
+enrolled path with an in-progress step and a mastered one (a step's completion is the
+learner's MASTERED edge, never a key on the shared step), a life path with a step and the goals serving
 it, an organizer, two activity
 reports, a live and a dismissed insight — and pins every field group of the
 merged map and of the built context. The pinned values are the contract; the
@@ -71,15 +72,16 @@ CREATE (u)-[:MARKED_AS_READ]->(ku_a)
 CREATE (u)-[:BOOKMARKED]->(ku_b)
 // curriculum
 CREATE (lp:Entity:LearningPath {uid: 'lp.eq.path', entity_type: 'learning_path', title: 'Path'})
-CREATE (ps0:Entity:PathStep {uid: 'ps.eq.zero', entity_type: 'path_step', title: 'Step 0', completed: true})
-CREATE (ps1:Entity:PathStep {uid: 'ps.eq.one', entity_type: 'path_step', title: 'Step 1', completed: false})
-CREATE (ps2:Entity:PathStep {uid: 'ps.eq.two', entity_type: 'path_step', title: 'Step 2', completed: true})
+CREATE (ps0:Entity:PathStep {uid: 'ps.eq.zero', entity_type: 'path_step', title: 'Step 0'})
+CREATE (ps1:Entity:PathStep {uid: 'ps.eq.one', entity_type: 'path_step', title: 'Step 1'})
+CREATE (ps2:Entity:PathStep {uid: 'ps.eq.two', entity_type: 'path_step', title: 'Step 2'})
 CREATE (u)-[:ENROLLED_IN]->(lp)
 CREATE (lp)-[:HAS_STEP {sequence: 1}]->(ps1)
 CREATE (lp)-[:HAS_STEP {sequence: 2}]->(ps2)
 CREATE (lp)-[:REQUIRES_KNOWLEDGE]->(ku_pre)
 CREATE (u)-[:IN_PROGRESS]->(ps1)
 CREATE (u)-[:MASTERED {mastered_at: $iso, mastery_score: 1.0, confidence: 1.0, method: 'derived'}]->(ps0)
+CREATE (u)-[:MASTERED {mastered_at: $iso, mastery_score: 1.0, confidence: 1.0, method: 'derived'}]->(ps2)
 CREATE (ps1)-[:REQUIRES_STEP]->(ps0)
 CREATE (ps1)-[:USES_KU]->(ku_c)
 CREATE (ps1)-[:REQUIRES_KNOWLEDGE]->(ku_pre)
@@ -255,14 +257,6 @@ def _kept_daily_stamps(days: int) -> list[str]:
     ]
 
 
-#: The seed stores ``completed`` on its path steps: the key the curriculum statement reads
-#: for a step's completion, which no writer stores (a learner's completion of a step is
-#: their MASTERED edge to it; docs/roadmap/path-step-completion-read.md).
-_SEEDS_STEP_COMPLETED = pytest.mark.stores_undeclared_key(
-    "path steps carrying the completed key the curriculum statement reads and no writer stores"
-)
-
-
 @pytest.fixture
 async def every_section_seeded(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
     async with neo4j_driver.session() as session:
@@ -271,7 +265,6 @@ async def every_section_seeded(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
 
 
 @pytest.mark.asyncio
-@_SEEDS_STEP_COMPLETED
 async def test_the_merged_map_has_the_shape_the_populator_reads(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
@@ -338,7 +331,6 @@ async def test_the_merged_map_has_the_shape_the_populator_reads(
 
 
 @pytest.mark.asyncio
-@_SEEDS_STEP_COMPLETED
 async def test_every_section_reads_what_the_one_statement_read(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
@@ -664,7 +656,6 @@ async def test_every_section_reads_what_the_one_statement_read(
 
 
 @pytest.mark.asyncio
-@_SEEDS_STEP_COMPLETED
 async def test_the_rich_context_carries_every_section(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
@@ -699,10 +690,12 @@ async def test_the_rich_context_carries_every_section(
     assert context.active_moc_uids == ["moc.eq.one"]
     assert context.recently_viewed_moc_uids == ["moc.eq.one"]
     assert context.current_ps_uids == {"ps.eq.one"}
-    # the mastered step is its own read beside the MEGA-QUERY (mastery retires the enrollment)
-    assert context.mastered_ps_uids == {"ps.eq.zero"}
+    # the mastered steps are their own read beside the MEGA-QUERY (mastery retires the
+    # enrollment): the prerequisite, and the path's completed step
+    assert context.mastered_ps_uids == {"ps.eq.zero", "ps.eq.two"}
     assert context.mastered_path_steps == [
-        {"uid": "ps.eq.zero", "title": "Step 0", "entity_type": "path_step"}
+        {"uid": "ps.eq.zero", "title": "Step 0", "entity_type": "path_step"},
+        {"uid": "ps.eq.two", "title": "Step 2", "entity_type": "path_step"},
     ]
     # rich fields
     assert {
@@ -784,7 +777,6 @@ async def test_the_rich_context_carries_every_section(
 
 
 @pytest.mark.asyncio
-@_SEEDS_STEP_COMPLETED
 async def test_the_standard_context_skips_the_admin_report_too(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
@@ -800,7 +792,6 @@ async def test_the_standard_context_skips_the_admin_report_too(
 
 
 @pytest.mark.asyncio
-@_SEEDS_STEP_COMPLETED
 async def test_the_standard_context_derives_the_same_habit_rates(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
