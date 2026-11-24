@@ -1301,7 +1301,7 @@ move, and is never borrowed.
 > **Note:** A step names Activities at the template grain only. `habit_uids`, `task_uids`,
 > `event_uids`, `goal_uids`, `principle_uids` and `choice_uids` name no field, so a file
 > authoring one is refused and the report names its template key
-> (`PathStep.REPLACED_KEYS`, read by the write gate's `nearest_field_names`).
+> (`PathStep.SUGGESTED_KEYS`, read by the write gate's `nearest_field_names`).
 
 > **Note:** Relationship types are unified with the Relationship Registry.
 > Ingestion config is derived from the registry via `generate_ingestion_relationship_config()`.

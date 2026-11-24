@@ -420,10 +420,10 @@ class TestLsFieldWiring:
 
     def test_a_step_names_no_activity_instance(self):
         """A step names Activities at the template grain only: no instance key is wired,
-        and each one names the template key that replaced it."""
+        and the gate suggests each one's template key, which is wired."""
         config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
-        for field, template_field in PathStep.REPLACED_KEYS.items():
+        for field, template_field in PathStep.SUGGESTED_KEYS.items():
             assert field not in config
             assert template_field in config
 

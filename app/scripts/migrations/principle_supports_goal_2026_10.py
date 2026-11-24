@@ -84,7 +84,7 @@ if TYPE_CHECKING:
 # One driver record, keyed by RETURN alias; the values are heterogeneous Neo4j scalars.
 type Row = dict[str, Any]  # boundary: raw neo4j-driver record
 
-# Neither old type is a RelationshipName member any more, so each is named as a string.
+# Neither type is a RelationshipName member, so each is named as a string.
 _GUIDES_GOAL = "GUIDES_GOAL"
 _GUIDED_BY = "GUIDED_BY_PRINCIPLE"
 _SUPPORTS = RelationshipName.SUPPORTS_GOAL.value

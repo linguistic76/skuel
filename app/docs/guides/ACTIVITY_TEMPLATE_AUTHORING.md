@@ -254,7 +254,7 @@ after fixing the template (any edit to the file, or `--force`), then check the c
 A step names templates only. An Activity is one learner's and a step is shared, so a
 PathStep file authoring an instance key (`habit_uids:`, `task_uids:`, `event_uids:`,
 `goal_uids:`, `principle_uids:`, `choice_uids:`) is refused, and the report names the
-template key that replaces it (`'habit_uids' (did you mean 'habit_template_uids'?)`).
+template key to use instead (`'habit_uids' (did you mean 'habit_template_uids'?)`).
 
 ---
 

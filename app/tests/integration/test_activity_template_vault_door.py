@@ -16,7 +16,7 @@ Also pinned here, because neither is visible to a config assertion:
   RelativeOffset — the property reaches Neo4j as a JSON string, not a map;
 - a step names Activities at the template grain only: a step file authoring an
   instance key (``habit_uids``, ``event_uids``, …) is refused at both doors, its
-  report naming the template key that replaced it, and nothing of it is written;
+  report naming the template key to use instead, and nothing of it is written;
 - a dropped ``task_template_uids`` target loses its edge on the next sync, so
   attachment is retractable like every other frontmatter-authored edge.
 

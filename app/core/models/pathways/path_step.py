@@ -57,12 +57,12 @@ class PathStep(Curriculum):
     # foundational-knowledge query).
     NODE_STATE: ClassVar[frozenset[str]] = frozenset({"hub_score"})
 
-    # Keys a step no longer reads, each with the key that replaced it; the write gate
-    # names the replacement when a file authors one (``nearest_field_names``). A step
-    # names Activities at the template grain only — a template is nobody's, and a
-    # learner who engages the step gets their own Activity from it. An instance key
-    # would name one user's Activity on shared curriculum.
-    REPLACED_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType(
+    # Activity-instance keys a step names no field for, each with the template key an
+    # author who writes it means; the write gate refuses the file and suggests that key
+    # (``nearest_field_names``). A step names Activities at the template grain only — a
+    # template is nobody's, and a learner who engages the step gets their own Activity
+    # from it — so no step names one user's Activity on shared curriculum.
+    SUGGESTED_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType(
         {
             "habit_uids": "habit_template_uids",
             "task_uids": "task_template_uids",

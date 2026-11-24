@@ -122,8 +122,8 @@ def _unknown_key_phrase(key: str, suggestions: tuple[str, ...]) -> str:
 def nearest_field_names(key: str, entity_class: type) -> tuple[str, ...]:
     """The fields of ``entity_class`` an author most likely meant by ``key``, nearest first.
 
-    A key the class registers as replaced names its replacement alone
-    (``REPLACED_KEYS``: ``habit_uids`` on a PathStep → ``habit_template_uids``). Else a
+    A key the class maps to the key its author means names that key alone
+    (``SUGGESTED_KEYS``: ``habit_uids`` on a PathStep → ``habit_template_uids``). Else a
     field that ends in ``_{key}`` comes first (``category`` → ``habit_category``),
     one whose leading word is a word of the class's name ahead of the rest
     (``source`` on a Principle → ``principle_source`` before ``original_source``); at
@@ -131,9 +131,9 @@ def nearest_field_names(key: str, entity_class: type) -> tuple[str, ...]:
     nothing.
     """
     for cls in entity_class.__mro__:
-        replacement = vars(cls).get("REPLACED_KEYS", {}).get(key)
-        if replacement is not None:
-            return (replacement,)
+        suggested = vars(cls).get("SUGGESTED_KEYS", {}).get(key)
+        if suggested is not None:
+            return (suggested,)
     names = [spec.field.name for spec in _field_specs(entity_class)]
     class_words = {word.lower() for word in re.findall(r"[A-Z][a-z]*", entity_class.__name__)}
 

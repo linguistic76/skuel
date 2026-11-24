@@ -185,7 +185,7 @@ def test_pathstep_attaches_every_template_kind() -> None:
 
 def test_event_template_uids_targets_an_event_template() -> None:
     """``event_template_uids`` targets an EventTemplate, and a step names no Event
-    instance (``event_uids`` is a replaced key, not a channel)."""
+    instance (``event_uids`` names no field: its template key is suggested)."""
     config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
     assert config is not None
     assert config["event_template_uids"]["target_label"] == "EventTemplate"

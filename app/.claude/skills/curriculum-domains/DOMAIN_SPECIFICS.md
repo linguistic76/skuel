@@ -45,7 +45,7 @@ Plus optional `PsAIService` (`ai`, FULL tier only — LLM / embedding features).
   `HAS_HABIT_TEMPLATE`, …), scored by `PsIntelligenceService.get_practice_summary`, not
   substance; a learner who engages the step gets their own Activity from each, stamped
   `source_path_step_uid`. A step names no Activity itself — `habit_uids` and its five siblings
-  are refused (`PathStep.REPLACED_KEYS`). Do not look for a `connections.reflects_knowledge`
+  are refused (`PathStep.SUGGESTED_KEYS`). Do not look for a `connections.reflects_knowledge`
   field; it does not exist. See `/docs/guides/YAML_AUTHORING_GUIDE.md`.
 - **Per-user context** — `calculate_user_substance(ps_uid, user_context)` for personalized metrics (needs a RICH context).
 - **Semantic relationships** — REQUIRES_KNOWLEDGE, ENABLES_KNOWLEDGE, HAS_NARROWER, RELATED_TO.

@@ -124,7 +124,7 @@ who engages the step gets their own Activity from each template, stamped with th
 (`source_path_step_uid`); that stamp is the one connection between a learner's Activities and a
 step. The step's six instance channels (`habit_uids`, `task_uids`, `event_uids`, `goal_uids`,
 `principle_uids`, `choice_uids`) are gone: each named one user's Activity on a shared step. A file
-authoring one is refused, its report naming the template key (`PathStep.REPLACED_KEYS`). Every reader
+authoring one is refused, its report naming the template key (`PathStep.SUGGESTED_KEYS`). Every reader
 takes one of the two grains: what a step offers is its templates (the practice counts, the
 step's graph context); a learner's practice of a step is their own Activities stamped with it (the
 rich context's `practice_habits` / `practice_tasks`). `BUILDS_HABIT`, `ASSIGNS_TASK` and
