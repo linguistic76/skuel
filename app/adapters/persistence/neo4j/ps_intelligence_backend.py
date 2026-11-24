@@ -32,6 +32,7 @@ from adapters.persistence.neo4j.query.cypher import (
     build_publication_clause,
 )
 from core.models.enums import EntityType
+from core.models.relationship_names import RelationshipName
 from core.ports.query_types import (
     PsGuidanceCountsRow,
     PsPracticeCountsRow,
@@ -44,6 +45,14 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+# A step's practice in each Activity domain: the templates it names.
+_HABIT_TEMPLATE = RelationshipName.HAS_HABIT_TEMPLATE.value
+_TASK_TEMPLATE = RelationshipName.HAS_TASK_TEMPLATE.value
+_EVENT_TEMPLATE = RelationshipName.HAS_EVENT_TEMPLATE.value
+_GOAL_TEMPLATE = RelationshipName.HAS_GOAL_TEMPLATE.value
+_PRINCIPLE_TEMPLATE = RelationshipName.HAS_PRINCIPLE_TEMPLATE.value
+_CHOICE_TEMPLATE = RelationshipName.HAS_CHOICE_TEMPLATE.value
 
 
 # The ``_to_*_rows`` processors take the neo4j driver's own row shape, straight
@@ -187,16 +196,20 @@ class PsIntelligenceBackend:
         )
 
     async def fetch_practice_counts(self, ps_uid: str) -> Result[list[PsPracticeCountsRow]]:
-        """Return per-domain practice-opportunity counts for a PathStep."""
+        """Return per-domain practice-opportunity counts for a PathStep.
+
+        A step's practice is the Activity Templates it names — the same for every
+        learner; each learner who engages the step gets their own Activity from each.
+        """
         return await self._executor.execute(
-            query="""
-                MATCH (ps:Entity {uid: $ps_uid})
-                OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(h)
-                OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(t)
-                OPTIONAL MATCH (ps)-[:SCHEDULES_EVENT]->(e)
-                OPTIONAL MATCH (ps)-[:SUPPORTS_GOAL]->(g)
-                OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(c)
+            query=f"""
+                MATCH (ps:Entity {{uid: $ps_uid}})
+                OPTIONAL MATCH (ps)-[:{_HABIT_TEMPLATE}]->(h)
+                OPTIONAL MATCH (ps)-[:{_TASK_TEMPLATE}]->(t)
+                OPTIONAL MATCH (ps)-[:{_EVENT_TEMPLATE}]->(e)
+                OPTIONAL MATCH (ps)-[:{_GOAL_TEMPLATE}]->(g)
+                OPTIONAL MATCH (ps)-[:{_PRINCIPLE_TEMPLATE}]->(p)
+                OPTIONAL MATCH (ps)-[:{_CHOICE_TEMPLATE}]->(c)
                 RETURN count(DISTINCT h) as habits,
                        count(DISTINCT t) as tasks,
                        count(DISTINCT e) as events,
@@ -210,12 +223,12 @@ class PsIntelligenceBackend:
         )
 
     async def fetch_guidance_counts(self, ps_uid: str) -> Result[list[PsGuidanceCountsRow]]:
-        """Return principle/choice guidance counts for a PathStep."""
+        """Return principle/choice guidance counts for a PathStep (its templates of each)."""
         return await self._executor.execute(
-            query="""
-                MATCH (ps:Entity {uid: $ps_uid})
-                OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(c)
+            query=f"""
+                MATCH (ps:Entity {{uid: $ps_uid}})
+                OPTIONAL MATCH (ps)-[:{_PRINCIPLE_TEMPLATE}]->(p)
+                OPTIONAL MATCH (ps)-[:{_CHOICE_TEMPLATE}]->(c)
                 RETURN count(DISTINCT p) as principle_count,
                        count(DISTINCT c) as choice_count
             """,
@@ -237,12 +250,12 @@ class PsIntelligenceBackend:
         )
 
     async def has_guidance(self, ps_uid: str) -> Result[bool]:
-        """True if the PathStep has principle or choice guidance edges."""
+        """True if the PathStep names a principle or choice template."""
         return await self._executor.execute_exists(
-            query="""
-                MATCH (ps:Entity {uid: $ps_uid})
-                WHERE exists((ps)-[:GUIDED_BY_PRINCIPLE]->())
-                   OR exists((ps)-[:INFORMS_CHOICE]->())
+            query=f"""
+                MATCH (ps:Entity {{uid: $ps_uid}})
+                WHERE exists((ps)-[:{_PRINCIPLE_TEMPLATE}]->())
+                   OR exists((ps)-[:{_CHOICE_TEMPLATE}]->())
                 RETURN ps
             """,
             params={"ps_uid": ps_uid},
@@ -250,16 +263,16 @@ class PsIntelligenceBackend:
         )
 
     async def has_practice_opportunities(self, ps_uid: str) -> Result[bool]:
-        """True if the PathStep has any of the 6 activity-domain practice edges."""
+        """True if the PathStep names a template in any of the six Activity domains."""
         return await self._executor.execute_exists(
-            query="""
-                MATCH (ps:Entity {uid: $ps_uid})
-                WHERE exists((ps)-[:BUILDS_HABIT]->())
-                   OR exists((ps)-[:ASSIGNS_TASK]->())
-                   OR exists((ps)-[:SCHEDULES_EVENT]->())
-                   OR exists((ps)-[:SUPPORTS_GOAL]->())
-                   OR exists((ps)-[:GUIDED_BY_PRINCIPLE]->())
-                   OR exists((ps)-[:INFORMS_CHOICE]->())
+            query=f"""
+                MATCH (ps:Entity {{uid: $ps_uid}})
+                WHERE exists((ps)-[:{_HABIT_TEMPLATE}]->())
+                   OR exists((ps)-[:{_TASK_TEMPLATE}]->())
+                   OR exists((ps)-[:{_EVENT_TEMPLATE}]->())
+                   OR exists((ps)-[:{_GOAL_TEMPLATE}]->())
+                   OR exists((ps)-[:{_PRINCIPLE_TEMPLATE}]->())
+                   OR exists((ps)-[:{_CHOICE_TEMPLATE}]->())
                 RETURN ps
             """,
             params={"ps_uid": ps_uid},

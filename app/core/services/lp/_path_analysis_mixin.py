@@ -349,9 +349,8 @@ class _PathAnalysisMixin:
         """Find which steps of a learning path lack complete practice.
 
         Every step is scored by the canonical PS measure — the fraction of the
-        six activity-domain practice edges (``BUILDS_HABIT``, ``ASSIGNS_TASK``,
-        ``SCHEDULES_EVENT``, ``SUPPORTS_GOAL``, ``GUIDED_BY_PRINCIPLE``,
-        ``INFORMS_CHOICE``) present on it. A step below 1.0 is a *practice gap*:
+        six Activity domains it names a template in (``HAS_HABIT_TEMPLATE``,
+        ``HAS_TASK_TEMPLATE``, … ``HAS_CHOICE_TEMPLATE``). A step below 1.0 is a *practice gap*:
         the learner can read the concept but has an incomplete set of structured
         ways to embody it. Reuses ``PsIntelligenceService.get_practice_summary``
         per step so LP never forks a competing practice definition (One Path

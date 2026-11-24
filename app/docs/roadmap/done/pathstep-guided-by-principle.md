@@ -1,19 +1,25 @@
 ---
 title: "The PathStep's `GUIDED_BY_PRINCIPLE` (O2)"
-updated: 2026-10-08
-status: "deferred"
+updated: 2026-11-24
+status: "done"
 registered: "2026-10-04 (Activity Links arc, open item O2)"
-ruled: "2026-10-04 — deferred by the founder (\"look at that closer later\")"
+ruled: "2026-10-04 — deferred by the founder (\"look at that closer later\"); 2026-11-24 — retired with the PathStep's six instance channels (row 2i-b-iv)"
 trigger: "the founder's ruling on keep-vs-move, or the next change to how a PathStep names its guiding principles (the `principle_uids` frontmatter field, PS_CONFIG's definition, or the PathStep intelligence reads)"
 check: "`git grep -nw GUIDED_BY_PRINCIPLE -- core adapters` hits only the enum member, PS_CONFIG's one definition and `ps_intelligence_backend.py`; live: MATCH (a)-[r:GUIDED_BY_PRINCIPLE]->(b) RETURN labels(a), count(r) — PathStep sources only"
 ---
 
 # The PathStep's `GUIDED_BY_PRINCIPLE` (O2)
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+*Closed 2026-11-24. Mike ruled that a step names Activities at the template grain only, and that a
+step's principles and choices go with its other four instance channels: `GUIDED_BY_PRINCIPLE`
+retired outright (enum member, PS_CONFIG's definition, its `GRAPH_CONTRACT.yaml` rows, the
+`principle_uids` field, the four PathStep intelligence reads, which now count principle
+templates). The one live edge this file names was deleted earlier, by #1722's cleanup (the
+principle became `pt.self-reflection.observation-before-action`, a template). See
+[ADR-091](../../decisions/ADR-091-one-door-for-curriculum.md) § S2, amendment 2026-11-24.*
 
-The one open item the [Activity Links arc](done/activity-links-arc.md) (closed 2026-10-08) left
-behind. [ADR-090 §7](../decisions/ADR-090-one-link-per-fact-a-view-per-domain.md) retires six edge
+The one open item the [Activity Links arc](activity-links-arc.md) (closed 2026-10-08) left
+behind. [ADR-090 §7](../../decisions/ADR-090-one-link-per-fact-a-view-per-domain.md) retires six edge
 types from the links between Activities; `GUIDED_BY_PRINCIPLE` is the one that also has a source
 outside the Activities, and the rulings cover links between Activities only.
 

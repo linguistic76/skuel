@@ -1,6 +1,6 @@
 ---
 title: "Activity Links Follow-ons — Link Doors, Unwritten Links, Same-Type Pairs"
-updated: 2026-10-08
+updated: 2026-11-24
 status: "deferred"
 registered: "2026-10-04 (Activity Links arc, ruling R8)"
 ruled: "2026-10-04 — R8: storage and visibility were the arc; page controls are the arc after; same-type pairs a later pass; which arc creates the unwritten links was not put to the founder"
@@ -56,7 +56,7 @@ type, which is the only way one exists today):
 | `IMPLEMENTS_CHOICE` (Task → Choice) | task, choice | the task's `implements_choices`, the choice's view |
 | `INFORMS_CHOICE` from a Habit (Habit → Choice) | habit, choice | the habit's `informed_choices`, the choice's `informing_habits` (principles write the type; habits do not) |
 | `TRIGGERS_CHOICE` (Event → Choice) | event, choice | both |
-| `SCHEDULES_EVENT` from a Choice (Choice → Event) | choice, event | the event's `scheduled_by_choices` names `Choice`; PathSteps write the type through `event_uids` |
+| `SCHEDULES_EVENT` from a Choice (Choice → Event) | choice, event | the event's `scheduled_by_choices` names `Choice` |
 | `DEMONSTRATES_PRINCIPLE` (Event → Principle) | event, principle | the one event ↔ principle link since PR 5 (the principle-side type retired with it); "events where this principle is practiced" |
 
 Creating them is neither storage nor visibility, so R8 put it outside the arc; **which later arc

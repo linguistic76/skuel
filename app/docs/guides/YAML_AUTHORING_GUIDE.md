@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-11-23
+updated: 2026-11-24
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -444,9 +444,9 @@ uses_kus:
 trains_ku_uids: [ku.mindfulness.breath]
 learning_path_uid: lp.mindfulness-101
 sequence: 1
-# Activity fields (habit_uids, task_uids, etc.) belong on this PathStep YAML/frontmatter directly
-habit_uids: [habit.daily-2min-breath]
-task_uids: [task.log-first-5-sessions]
+# A step's practice is Activity Templates, each learner's own Activity on engagement
+habit_template_uids: [ht.mindfulness.daily-2min-breath]
+task_template_uids: [tt.mindfulness.log-first-5-sessions]
 # Learning loop: wire the Exercise that closes the loop for this PathStep
 exercise_uids: [ex.mindfulness-101.breath-awareness-check-in]
 ```
@@ -455,20 +455,18 @@ exercise_uids: [ex.mindfulness-101.breath-awareness-check-in]
 
 ## PS → Activity Template → Instance Engagement Workflow
 
-A PathStep can spawn its own copy of a task, habit, goal, event, choice or principle for
-each learner when they engage it, rather than assigning a single shared entity to
-everyone. That blueprint is an **Activity Template**.
+A PathStep names its practice — a task, habit, goal, event, choice or principle — as an
+**Activity Template**, a blueprint that belongs to no one. Each learner who engages the step
+gets their own copy, stamped with the step and dated relative to when *they* engaged.
 
-### Two ways to connect an activity to a PathStep
+A step never names an Activity itself: an Activity is one learner's, and a step is shared
+by everyone. A PathStep file authoring `task_uids`, `habit_uids`, `goal_uids`, `event_uids`,
+`choice_uids` or `principle_uids` is refused, and the report names the template key that
+replaces it.
 
-| Approach | Field on the PathStep | Relationship | When the learner gets one |
-|----------|----------------------|--------------|---------------------------|
-| **Static assignment** | `task_uids`, `habit_uids`, `goal_uids`, `event_uids`, `choice_uids`, `principle_uids` | `ASSIGNS_TASK`, `BUILDS_HABIT`, … | Never — the entity already exists and is shared by everyone |
-| **Engagement templates** | `task_template_uids`, `habit_template_uids`, … | `HAS_TASK_TEMPLATE`, … | On "Start learning" — one fresh instance per learner |
-
-Use the instance channels for pre-authored reference material everyone shares. Use
-templates when each learner should get their own copy, dated relative to when *they*
-engaged.
+| Field on the PathStep | Relationship | When the learner gets one |
+|----------------------|--------------|---------------------------|
+| `task_template_uids`, `habit_template_uids`, `goal_template_uids`, `event_template_uids`, `choice_template_uids`, `principle_template_uids` | `HAS_TASK_TEMPLATE`, … | On engagement — one fresh instance per learner |
 
 ### The template file
 
@@ -508,28 +506,6 @@ walks one template from file to verified-in-the-graph; Part 3 is the complete fi
 reference for all six kinds, and Part 4 is what spawning does and does not let you change
 afterwards. The vault is the only template door: the app has no template create, edit or
 attach (ADR-091 S8).
-
-### PathStep YAML with `task_uids` (Static Approach)
-
-If you want to link pre-existing tasks directly to a PathStep (not engagement-driven), use `task_uids` in the PathStep YAML:
-
-```yaml
-# ps_breath-awareness-basics.md
----
-type: PathStep
-uid: ps.mindfulness-101.breath-awareness-basics
-title: Breath Awareness Basics
-
-task_uids:
-  - task.mindfulness-101.log-first-5-sessions   # ASSIGNS_TASK → (shared task)
----
-
-## The Core Technique
-
-When attention wanders — and it will — the moment you *notice* is the practice...
-```
-
-This creates a static link: all students see the same `task.mindfulness-101.log-first-5-sessions` entity. Use this pattern for reference or demonstration tasks, not for per-student practice tasks. For per-student tasks, use the TaskTemplate pattern above.
 
 ---
 

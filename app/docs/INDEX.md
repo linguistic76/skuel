@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-11-21
+updated: 2026-11-24
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -443,7 +443,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Sharing HTTP Door — Operations on Existing Shares](roadmap/sharing-http-door.md) | `UnifiedSharingService`'s revoke / access-list / visibility half has no door — the per-method PLANNED / deleted ruling (2026-09-21), why the door operates on the edges audience-at-submit wrote and never a second share form, and why `set_visibility` waits on the PUBLIC reader |
 | [Form-Submission Recipient Read](roadmap/form-submission-recipient-read.md) | A FormSubmission shared with a person is listed on their Shared page and opens as not-found — `get_submission` is owner-only; deferred by the Submit & Share arc until its PR 5 audience read exists to reuse |
 | **[UTC Instants Arc — Rulings & Contract](roadmap/utc-instants-arc.md)** | **ACTIVE (ruled 2026-09-27): the multi-PR arc — run from a Claude Code cloud session, with the AuraDB steps on the laptop — that makes every instant UTC and every calendar concept ask the user's zone — founder rulings R1–R8, the verified census (four stored cohorts, the zone history, the live defects), the migration contract, and the PR ledger** |
-| [The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](roadmap/pathstep-guided-by-principle.md) | The one edge type the Activity Links arc retired between Activities but not from the curriculum — a PathStep's guiding principles still write it; keep or move deferred by ruling (2026-10-04) |
+| [The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](roadmap/done/pathstep-guided-by-principle.md) | Closed 2026-11-24: retired with the PathStep's six instance channels — a step names Activities at the template grain only (ADR-091 § S2) |
 | [Activity Links Follow-ons — Link Doors, Unwritten Links, Same-Type Pairs](roadmap/activity-links-follow-ons.md) | What the Activity Links arc left outside itself by ruling R8: the link/unlink page controls (the arc after), creating the five links nothing writes, the same-type pairs pass |
 | [Activity Links Arc — Registered Residuals](roadmap/activity-links-registered-residuals.md) | The 27 defects the arc's censuses registered outside its scope, each at its file and line, grouped by subject; all re-verified live at the close |
 | [Askesis Intelligence Doors — the Hub Methods' Second Door](roadmap/askesis-intelligence-doors.md) | The nine hub methods (`UserContextIntelligence`) and their two doors: the Insights cards (first, being built) and the Askesis conversation reaching a method by tool-selection (second, staged) — the eight Askesis wrappers and the zoom lens's filter / sort / metadata half registered PLANNED behind it; rulings of 2026-10-08 |

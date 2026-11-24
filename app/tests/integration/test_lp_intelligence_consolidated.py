@@ -45,23 +45,24 @@ _LP_DEEP = "lp.test.lpintel-deep"  # 1 step, 1 KU, 2-hop prerequisite chain
 _LP_PRACTICE = "lp.test.lpintel-practice"  # 3 steps: full / partial / no practice
 _LP_PRACTICE_FULL = "lp.test.lpintel-practice-full-path"  # 1 fully-practiced step
 
-# Practice edge → target node, one activity node per domain (shared across the
-# practice paths; MERGE-idempotent). A step wired to all six has complete practice.
+# A step's practice in a domain is a template it names: practice domain → (template
+# edge, template label, template entity_type), one template node per domain (shared
+# across the practice paths; MERGE-idempotent). A step naming all six has complete practice.
 _PRACTICE_EDGES = {
-    "habits": "BUILDS_HABIT",
-    "tasks": "ASSIGNS_TASK",
-    "events": "SCHEDULES_EVENT",
-    "goals": "SUPPORTS_GOAL",
-    "principles": "GUIDED_BY_PRINCIPLE",
-    "choices": "INFORMS_CHOICE",
+    "habits": ("HAS_HABIT_TEMPLATE", "HabitTemplate", "habit_template"),
+    "tasks": ("HAS_TASK_TEMPLATE", "TaskTemplate", "task_template"),
+    "events": ("HAS_EVENT_TEMPLATE", "EventTemplate", "event_template"),
+    "goals": ("HAS_GOAL_TEMPLATE", "GoalTemplate", "goal_template"),
+    "principles": ("HAS_PRINCIPLE_TEMPLATE", "PrincipleTemplate", "principle_template"),
+    "choices": ("HAS_CHOICE_TEMPLATE", "ChoiceTemplate", "choice_template"),
 }
 _PRACTICE_TARGETS = {
-    "habits": "act.lpintel-habit",
-    "tasks": "act.lpintel-task",
-    "events": "act.lpintel-event",
-    "goals": "act.lpintel-goal",
-    "principles": "act.lpintel-principle",
-    "choices": "act.lpintel-choice",
+    "habits": "ht.lpintel.habit",
+    "tasks": "tt.lpintel.task",
+    "events": "et.lpintel.event",
+    "goals": "gt.lpintel.goal",
+    "principles": "pt.lpintel.principle",
+    "choices": "ct.lpintel.choice",
 }
 _PS_PRACTICE_FULL = "ps.test.lpintel-practice-full"
 _PS_PRACTICE_PARTIAL = "ps.test.lpintel-practice-partial"
@@ -159,22 +160,24 @@ async def _seed_path(session, lp_uid: str, title: str, steps: list[tuple[str, st
 
 
 async def _seed_practice(session, ps_uid: str, domains):
-    """Wire the given practice domains (BUILDS_HABIT/ASSIGNS_TASK/…) onto a step.
+    """Name a template in each of the given practice domains on a step.
 
-    Each domain gets one activity target node (shared, MERGE-idempotent). A step
-    seeded with all six domains has complete practice; fewer leaves a gap.
+    Each domain gets one template node (shared, MERGE-idempotent). A step seeded
+    with all six domains has complete practice; fewer leaves a gap.
     """
     for domain in domains:
+        edge, label, entity_type = _PRACTICE_EDGES[domain]
         await session.run(
             f"""
-            MERGE (t:Entity {{uid: $target}})
-            ON CREATE SET t.status = 'active'
+            MERGE (t:Entity:{label} {{uid: $target}})
+            ON CREATE SET t.entity_type = $entity_type, t.title = $target
             WITH t
             MATCH (ps:Entity {{uid: $ps_uid}})
-            MERGE (ps)-[:{_PRACTICE_EDGES[domain]}]->(t)
+            MERGE (ps)-[:{edge}]->(t)
             """,
             ps_uid=ps_uid,
             target=_PRACTICE_TARGETS[domain],
+            entity_type=entity_type,
         )
 
 

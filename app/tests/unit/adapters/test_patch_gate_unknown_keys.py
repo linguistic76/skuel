@@ -89,6 +89,7 @@ class TestThePatchRefusesAKeyNamingNoField:
             pytest.param(PathStep, "difficulty", ("step_difficulty",), id="another-prefix"),
             pytest.param(Task, "titel", ("title",), id="a-misspelling"),
             pytest.param(LearningPath, "goal", (), id="nothing-near"),
+            pytest.param(PathStep, "habit_uids", ("habit_template_uids",), id="a-replaced-key"),
         ],
     )
     def test_the_nearest_field(

@@ -728,8 +728,8 @@ GOALS_CONFIG = DomainRelationshipConfig(
             ),  # Context: include status/progress
             yaml_field_path="connections.sub_goals",
         ),
-        # SUPPORTS_GOAL has three kinds of source — habits, principles and PathSteps
-        # (``practice_goals``) — so every goal view of it names its kind.
+        # SUPPORTS_GOAL has two kinds of source — habits and principles — so every goal
+        # view of it names its kind.
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
             "Habit",
@@ -1108,8 +1108,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             fields=("uid", "title", "status"),
             page_heading="Choices this event prompts",
         ),
-        # Incoming: Choice schedules event. PathSteps write SCHEDULES_EVENT too
-        # (``event_uids``); the PathStep reads its own as ``scheduled_events``.
+        # Incoming: Choice schedules event.
         UnifiedRelationshipDefinition(
             RelationshipName.SCHEDULES_EVENT,
             "Choice",
@@ -1236,8 +1235,8 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "implementing_tasks",
             page_heading="Tasks that carry out this choice",
         ),
-        # INFORMS_CHOICE has three kinds of source — principles, habits and PathSteps
-        # (``choice_uids``) — so every choice view of it names its kind.
+        # INFORMS_CHOICE has two kinds of source — principles and habits — so every
+        # choice view of it names its kind.
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMS_CHOICE,
             "Principle",
@@ -1775,58 +1774,6 @@ PS_CONFIG = DomainRelationshipConfig(
             "organized_by",
             "organized_by",
         ),
-        # === Activity domain wiring: PS → Activity entities ===
-        UnifiedRelationshipDefinition(
-            RelationshipName.BUILDS_HABIT,
-            "Entity",
-            "outgoing",
-            "builds_habits",
-            "practice_habits",
-            yaml_field_path="habit_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.ASSIGNS_TASK,
-            "Task",
-            "outgoing",
-            "assigned_tasks",
-            "practice_tasks",
-            yaml_field_path="task_uids",
-        ),
-        # ``event_uids``, not ``event_template_uids``: this channel targets an
-        # Event INSTANCE. The old spelling now names the HAS_EVENT_TEMPLATE
-        # channel below, which is what an author reading it would expect.
-        UnifiedRelationshipDefinition(
-            RelationshipName.SCHEDULES_EVENT,
-            "Event",
-            "outgoing",
-            "scheduled_events",
-            "practice_events",
-            yaml_field_path="event_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.SUPPORTS_GOAL,
-            "Goal",
-            "outgoing",
-            "supports_goals",
-            "practice_goals",
-            yaml_field_path="goal_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.GUIDED_BY_PRINCIPLE,
-            "Principle",
-            "outgoing",
-            "guiding_principles",
-            "principles",
-            yaml_field_path="principle_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.INFORMS_CHOICE,
-            "Entity",
-            "outgoing",
-            "informed_choices",
-            "choices",
-            yaml_field_path="choice_uids",
-        ),
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_EXERCISE,
             "Entity",
@@ -1836,11 +1783,14 @@ PS_CONFIG = DomainRelationshipConfig(
             yaml_field_path="exercise_uids",
         ),
         # === Activity Templates: PS → template, spawned on engagement ===
-        # The six channels the block above mirrors at the template grain. Each
-        # targets its own domain label (a template node is :Entity:TaskTemplate),
-        # so a uid pointing at the wrong kind matches nothing rather than
-        # creating an edge no reader consults. PsEngagementService walks these
-        # same edges at spawn time (ps_engagement/_template_loader.py).
+        # A step names Activities at the template grain only: a template is nobody's,
+        # and a learner who engages the step gets their own instance of each one,
+        # stamped with the step (``source_path_step_uid``). The step names no
+        # Activity of its own — an Activity is one user's, and curriculum is shared.
+        # Each channel targets its own domain label (a template node is
+        # :Entity:TaskTemplate), so a uid pointing at the wrong kind matches nothing
+        # rather than creating an edge no reader consults. PsEngagementService walks
+        # these same edges at spawn time (ps_engagement/_template_loader.py).
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_TASK_TEMPLATE,
             "TaskTemplate",

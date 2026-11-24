@@ -1,6 +1,6 @@
 ---
 title: "Activity Links Arc — Rulings & Contract"
-updated: 2026-10-08
+updated: 2026-11-24
 status: "done"
 registered: 2026-10-02
 ruled: 2026-10-04
@@ -13,7 +13,7 @@ PRs (#1498–#1508), each run in a **fresh local session**, one row of the [PR l
 each, every one merged; the close row verified every retired type at 0 in the live graph and in
 live code on 2026-10-08. This document was the single source of truth for the arc, and the
 ledger's **Status** column its progress record. What it left open has moved to the live roadmap:
-[The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](../pathstep-guided-by-principle.md),
+[The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](pathstep-guided-by-principle.md),
 [Activity Links Follow-ons](../activity-links-follow-ons.md) (the R8 next arcs) and
 [Activity Links Arc — Registered Residuals](../activity-links-registered-residuals.md) (the 27
 "outside the arc; registered" defects, re-verified at the close).
@@ -94,7 +94,7 @@ Sub-tasks section reads through the hierarchy backend.
 
 Each is settled in prose before the first edit of the PR named. O1 and O4 were answered in round 5
 (R10, R11) and O1's remainder and O3 before PR 4's first edit; O2 is deferred — at the close it
-moved to its own case file, [The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](../pathstep-guided-by-principle.md).
+moved to its own case file, [The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](pathstep-guided-by-principle.md).
 
 - **O1 — How a contribution counts (PR 4). RULED — cancelled left out for tasks and events alike
   (R11); the rest settled before PR 4's first edit (§ PR 4, settled list items 5 and 6).** What

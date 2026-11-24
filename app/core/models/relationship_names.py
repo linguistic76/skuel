@@ -68,7 +68,7 @@ class RelationshipName(StrEnum):
     ENABLES_KNOWLEDGE = "ENABLES_KNOWLEDGE"
     ENABLES_GOAL = "ENABLES_GOAL"
     ENABLES_TASK = "ENABLES_TASK"
-    INFORMS_CHOICE = "INFORMS_CHOICE"  # (principle|habit|path_step)-[:INFORMS_CHOICE]->(choice)
+    INFORMS_CHOICE = "INFORMS_CHOICE"  # (principle|habit)-[:INFORMS_CHOICE]->(choice)
     # NOTE: Task→Habit is REINFORCES_HABIT (matching Event + the field name). The
     # former SUPPORTS_HABIT was removed when consolidating. It was described here
     # as "never written" — that was FALSE: one live edge existed, found by
@@ -120,7 +120,6 @@ class RelationshipName(StrEnum):
     HAS_SUBGOAL = "HAS_SUBGOAL"
     HAS_CHILD = "HAS_CHILD"
     DEPENDS_ON_GOAL = "DEPENDS_ON_GOAL"
-    GUIDED_BY_PRINCIPLE = "GUIDED_BY_PRINCIPLE"
     SUPPORTS_GOAL = "SUPPORTS_GOAL"
     INSPIRES_GOAL = "INSPIRES_GOAL"
     CELEBRATES_GOAL = (
@@ -294,9 +293,7 @@ class RelationshipName(StrEnum):
     # PathStep (PS) relationships
     CONTAINS_KNOWLEDGE = "CONTAINS_KNOWLEDGE"  # (ps)-[:CONTAINS_KNOWLEDGE]->(ku)
     REQUIRES_STEP = "REQUIRES_STEP"  # (ps)-[:REQUIRES_STEP]->(ps) - Step prerequisites
-    BUILDS_HABIT = "BUILDS_HABIT"  # (ps)-[:BUILDS_HABIT]->(habit) - Practice pattern
-    ASSIGNS_TASK = "ASSIGNS_TASK"  # (ps)-[:ASSIGNS_TASK]->(task) - Practice pattern
-    SCHEDULES_EVENT = "SCHEDULES_EVENT"  # (ps)-[:SCHEDULES_EVENT]->(event) - Practice pattern
+    SCHEDULES_EVENT = "SCHEDULES_EVENT"  # (choice)-[:SCHEDULES_EVENT]->(event)
     HAS_EXERCISE = "HAS_EXERCISE"  # (ps)-[:HAS_EXERCISE]->(exercise) - Curriculum loop anchor
 
     # Learning Path (LP) relationships

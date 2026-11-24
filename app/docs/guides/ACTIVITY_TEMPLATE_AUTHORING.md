@@ -1,7 +1,7 @@
 ---
 title: Activity Template Authoring
 created: 2026-09-06
-updated: 2026-11-22
+updated: 2026-11-24
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, curriculum, activity-templates, pathstep, engagement]
@@ -37,8 +37,8 @@ stamped from.
 | Owner | one user | none — PS-owned curriculum |
 | Dates | absolute (`due_date: 2026-10-01`) | offsets (`due_offset: {days: 7}`) |
 | Cross-refs | `scheduled_event_uid` | `scheduled_event_template_uid` |
-| Attached from a PS by | `task_uids:` (`ASSIGNS_TASK`) | `task_template_uids:` (`HAS_TASK_TEMPLATE`) |
-| Per learner | shared — everyone sees the same node | one fresh instance each |
+| Attached from a PS by | never — a step names no Activity | `task_template_uids:` (`HAS_TASK_TEMPLATE`) |
+| Per learner | the learner's own, stamped with its step (`source_path_step_uid`) | one fresh instance each |
 
 ## The idea in one picture
 
@@ -251,10 +251,10 @@ later, or failed validation on that run — gets *no edge*, and nothing says so:
 reports success and the PathStep simply has one fewer template. Re-sync the PathStep
 after fixing the template (any edit to the file, or `--force`), then check the count.
 
-Do not confuse the two grains: `habit_uids:` points at a Habit that already exists and is
-shared by everyone; `habit_template_uids:` points at a HabitTemplate the PathStep spawns
-a fresh Habit from, per learner. `event_uids:` is the instance channel — it was renamed
-from `event_template_uids:` when the template channel took the name it reads like.
+A step names templates only. An Activity is one learner's and a step is shared, so a
+PathStep file authoring an instance key (`habit_uids:`, `task_uids:`, `event_uids:`,
+`goal_uids:`, `principle_uids:`, `choice_uids:`) is refused, and the report names the
+template key that replaces it (`'habit_uids' (did you mean 'habit_template_uids'?)`).
 
 ---
 

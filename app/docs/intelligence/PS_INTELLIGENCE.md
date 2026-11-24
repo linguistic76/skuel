@@ -24,36 +24,36 @@ Every `backend` read below is on `PsIntelligenceBackend`. "PLANNED" means no pro
 |---|---|---|---|
 | `get_with_context(uid, depth=2)` | The step and its graph neighbourhood. Inherited from `_CoreIntelligenceMixin` | `UnifiedRelationshipService.get_with_context` | `GET /api/path-steps/context?uid=` |
 | `get_domain_insights(uid, _min_confidence=0.7)` | Title, intent, practice summary, completeness and whether prerequisites exist (`PsDomainInsights`). A failed practice or prerequisite read answers zeros or `False`; `_min_confidence` is a placeholder | `backend.get` on the PathStep, then the three methods below | `GET /api/path-steps/insights?uid=` |
-| `get_practice_summary(ps_uid)` | How many of each practice edge the step carries: 7 keys, the six domains plus `total` | `fetch_practice_counts` (the six edges below) | `get_domain_insights`, `practice_completeness_score`, `LpIntelligenceService.identify_practice_gaps` |
+| `get_practice_summary(ps_uid)` | How many templates the step names in each Activity domain: 7 keys, the six domains plus `total` | `fetch_practice_counts` (the six template channels below) | `get_domain_insights`, `practice_completeness_score`, `LpIntelligenceService.identify_practice_gaps` |
 | `practice_completeness_score(ps_uid)` | The fraction of the six domains present, 0.0-1.0. Each counts once, so a step with five habits and nothing else scores 1/6 | `get_practice_summary` | `get_domain_insights` |
 | `has_prerequisites(ps_uid)` | Does any `REQUIRES_STEP` or `REQUIRES_KNOWLEDGE` edge leave the step? Reads no edge property | `backend.has_prerequisites` | `get_domain_insights` |
 | `get_prerequisite_statuses(ps_uid, user_uid)` | Each published direct prerequisite (`REQUIRES_STEP` or `REQUIRES_KNOWLEDGE`), and whether this reader completed it: mastered (marking it as read does not meet it). A draft is withheld, and with no reader nothing is completed | `fetch_prerequisite_statuses` | `GET /explore/ps/{uid}/content` (the PathStep page's "Blocking dependencies") |
 | `is_ready(ps_uid, completed_step_uids)` | Is every `REQUIRES_STEP` target in the caller's set? | `fetch_prerequisite_step_uids` | PLANNED |
-| `calculate_guidance_strength(ps_uid)` | 0.0-1.0: `min(0.4, principles × 0.15) + min(0.6, choices × 0.2)` | `fetch_guidance_counts` (`GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE`) | PLANNED |
-| `has_guidance(ps_uid)` | Does a `GUIDED_BY_PRINCIPLE` or `INFORMS_CHOICE` edge leave the step? | `backend.has_guidance` | PLANNED |
-| `has_practice_opportunities(ps_uid)` | Does any of the six practice edges leave the step? | `backend.has_practice_opportunities` | PLANNED |
+| `calculate_guidance_strength(ps_uid)` | 0.0-1.0: `min(0.4, principles × 0.15) + min(0.6, choices × 0.2)`, over the step's principle and choice templates | `fetch_guidance_counts` (`HAS_PRINCIPLE_TEMPLATE`, `HAS_CHOICE_TEMPLATE`) | PLANNED |
+| `has_guidance(ps_uid)` | Does the step name a principle or choice template? | `backend.has_guidance` | PLANNED |
+| `has_practice_opportunities(ps_uid)` | Does the step name a template in any of the six domains? | `backend.has_practice_opportunities` | PLANNED |
 | `calculate_user_substance(ps_uid, user_context)` | How much one learner has applied the step: overall substance and mastery, per-Ku detail, a status message. Requires a rich context | `fetch_taught_kus`, then the context's channel maps | `PsService.get_user_step_context` ← `GET /explore/ps/{uid}/applied` (the PathStep page's "How you've applied this") and `GET /api/path-steps/my-context?uid=` |
 | `calculate_user_substance_for_steps(ps_uids, channels)` | Substance score per step, for a whole set, in one round trip. Projects the score out of the breakdown below | `calculate_user_substance_breakdown_for_steps` | `PsService.get_user_substance_scores` ← `AnalyticsMetricsService` |
 | `calculate_user_substance_breakdown_for_steps(ps_uids, channels)` | Score and per-channel parts per step (`StepSubstance`), in one round trip | `fetch_taught_ku_uids_for_steps` | `PsService.get_user_substance_breakdowns` ← `AnalyticsLifePathService` |
 
-**What reaches a person:** the per-step substance reading is on the PathStep page. The page's relationship graph draws the same edge vocabulary `/api/path-steps/context` traverses (`PS_CONFIG.cross_domain_relationship_types`), through `/api/ps/{uid}/lateral/graph`. No page calls `/context` or `/insights` themselves, so they answer JSON clients only; `/insights`' practice half waits on a published step authoring a practice edge. The two batch substance methods also reach learners: the score through the weekly life summary, the breakdown through the life-path alignment. `identify_practice_gaps` feeds `analyze_path_knowledge_scope` on `LpService`, which no route calls.
+**What reaches a person:** the per-step substance reading is on the PathStep page. The page's relationship graph draws the same edge vocabulary `/api/path-steps/context` traverses (`PS_CONFIG.cross_domain_relationship_types`), through `/api/ps/{uid}/lateral/graph`. No page calls `/context` or `/insights` themselves, so they answer JSON clients only; `/insights`' practice half waits on a published step naming a template. The two batch substance methods also reach learners: the score through the weekly life summary, the breakdown through the life-path alignment. `identify_practice_gaps` feeds `analyze_path_knowledge_scope` on `LpService`, which no route calls.
 
 ---
 
 ## Notes
 
-### The six practice edges
+### The six practice channels
 
-`PRACTICE_DOMAINS` is the one definition of "what counts as practice". The PS scorer and `identify_practice_gaps` both read it, through `practice_completeness_from_summary` and `missing_practice_domains`.
+`PRACTICE_DOMAINS` is the one definition of "what counts as practice". The PS scorer and `identify_practice_gaps` both read it, through `practice_completeness_from_summary` and `missing_practice_domains`. A step's practice is the Activity Templates it names — the same for every learner; each learner who engages it gets their own Activity from each, stamped `source_path_step_uid`.
 
 | Key | Edge from the PathStep |
 |---|---|
-| `habits` | `BUILDS_HABIT` |
-| `tasks` | `ASSIGNS_TASK` |
-| `events` | `SCHEDULES_EVENT` |
-| `goals` | `SUPPORTS_GOAL` |
-| `principles` | `GUIDED_BY_PRINCIPLE` |
-| `choices` | `INFORMS_CHOICE` |
+| `habits` | `HAS_HABIT_TEMPLATE` |
+| `tasks` | `HAS_TASK_TEMPLATE` |
+| `events` | `HAS_EVENT_TEMPLATE` |
+| `goals` | `HAS_GOAL_TEMPLATE` |
+| `principles` | `HAS_PRINCIPLE_TEMPLATE` |
+| `choices` | `HAS_CHOICE_TEMPLATE` |
 
 ### Readiness and prerequisites ask different questions
 

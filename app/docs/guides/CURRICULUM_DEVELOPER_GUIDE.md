@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-24
+updated: 2026-11-24
 ---
 
 # Curriculum Developer Guide
@@ -664,9 +664,17 @@ Notice the format convention: `.md` for PathSteps (content-heavy), `.yaml` for e
 
 ## Wiring Activities to PathSteps
 
-Curriculum content becomes *real* when learners apply it through activities. SKUEL's 6 activity domains — Habits, Tasks, Events, Goals, Principles, Choices — wire directly to PathSteps, making each PathStep a self-contained learning unit with built-in practice.
+Curriculum content becomes *real* when learners apply it through activities. A PathStep names
+its practice in SKUEL's 6 activity domains — Habits, Tasks, Events, Goals, Principles, Choices —
+as **Activity Templates**: blueprints that belong to no one. When a learner engages the step,
+each template becomes the learner's own Activity, stamped with the step it came from.
 
-### The 6 Activity YAML Fields
+A step never names an Activity itself. An Activity is one learner's, and a step is shared by
+every learner, so the content vault refuses an instance key (`habit_uids:`, `task_uids:`,
+`event_uids:`, `goal_uids:`, `principle_uids:`, `choice_uids:`) and its report names the template
+key to use instead.
+
+### The 6 Activity Template Fields
 
 Add these to any PathStep frontmatter:
 
@@ -679,52 +687,42 @@ uses_kus:
   - ku.sel.empathy
   - ku.sel.perspective-taking
 
-# Activity domain wiring
-habit_uids:
-  - habit.daily-empathy-check        # BUILDS_HABIT → Habit
-
-task_uids:
-  - task.perspective-journal          # ASSIGNS_TASK → Task
-
-event_uids:
-  - event.weekly-reflection           # SCHEDULES_EVENT → Event
-
-goal_uids:
-  - goal.deeper-listening             # SUPPORTS_GOAL → Goal
-
-principle_uids:
-  - principle.empathy-first           # GUIDED_BY_PRINCIPLE → Principle
-
-choice_uids:
-  - choice.ask-before-assuming        # INFORMS_CHOICE → Choice
-
-# Activity template wiring — spawned as instances when a learner engages the PS
-task_template_uids:
-  - tt.perspective-journal            # HAS_TASK_TEMPLATE → TaskTemplate
-
+# Activity templates — each learner who engages the step gets their own Activity from each
 habit_template_uids:
-  - ht.daily-empathy-check            # HAS_HABIT_TEMPLATE → HabitTemplate
-```
+  - ht.sel.daily-empathy-check        # HAS_HABIT_TEMPLATE → HabitTemplate
 
-The two blocks are different grains. `habit_uids` points at a Habit that already
-exists; `habit_template_uids` points at a HabitTemplate the PathStep spawns a
-fresh Habit from, per learner, on engagement. The remaining template channels are
-`goal_template_uids`, `event_template_uids`, `choice_template_uids` and
-`principle_template_uids`.
+task_template_uids:
+  - tt.sel.perspective-journal        # HAS_TASK_TEMPLATE → TaskTemplate
+
+event_template_uids:
+  - et.sel.weekly-reflection          # HAS_EVENT_TEMPLATE → EventTemplate
+
+goal_template_uids:
+  - gt.sel.deeper-listening           # HAS_GOAL_TEMPLATE → GoalTemplate
+
+principle_template_uids:
+  - pt.sel.empathy-first              # HAS_PRINCIPLE_TEMPLATE → PrincipleTemplate
+
+choice_template_uids:
+  - ct.sel.ask-before-assuming        # HAS_CHOICE_TEMPLATE → ChoiceTemplate
+```
 
 Not every PathStep needs all 6. Use what fits the content — a good first step is one
-HabitTemplate and one TaskTemplate. Authoring the template files themselves is
-[Activity Template Authoring](ACTIVITY_TEMPLATE_AUTHORING.md); start at its Part 1.
+HabitTemplate and one TaskTemplate. The step's practice completeness (`GET
+/api/path-steps/insights`) is the share of the six domains it names a template in. Authoring the
+template files themselves is [Activity Template Authoring](ACTIVITY_TEMPLATE_AUTHORING.md); start
+at its Part 1.
 
-### LearningPath Inherits from PathSteps
+### LearningPaths Inherit from PathSteps
 
-LearningPaths do NOT have their own activity fields. They inherit activities from their PathSteps via graph traversal:
+LearningPaths do NOT have their own activity fields. A path's practice is its steps' templates,
+reached through the graph:
 
 ```
-(LP)-[:HAS_STEP]->(PathStep)-[:BUILDS_HABIT]->(Habit)
+(LP)-[:HAS_STEP]->(PathStep)-[:HAS_HABIT_TEMPLATE]->(HabitTemplate)
 ```
 
-An LP that contains 3 PathSteps automatically aggregates all their activities.
+An LP that contains 3 PathSteps aggregates all their templates (`identify_practice_gaps`).
 
 ### Substance Tracking
 

@@ -1,6 +1,6 @@
 ---
 title: "ADR-091: One Door for Curriculum"
-updated: 2026-11-23
+updated: 2026-11-24
 status: implemented
 category: decisions
 tags: [adr, decisions, curriculum, content-vault, ingestion, exercises, teacher-review, ownership, publication]
@@ -117,6 +117,19 @@ belongs (ADR-070 Decision 11, point 7).
 **Why.** The design already says so: access to curriculum is computed from its type, never from an
 owner (ADR-070 Decision 7), and live no curriculum node has an owner. Writing it down removes the
 exceptions instead of adding rules to guard them.
+
+**Amendment 2026-11-24 — curriculum names nothing a person owns.** A PathStep names its practice
+at the template grain only: its six Activity Template channels (`habit_template_uids`, …). A learner
+who engages the step gets their own Activity from each template, stamped with the step
+(`source_path_step_uid`); that stamp is the one connection between a learner's Activities and a
+step. The step's six instance channels (`habit_uids`, `task_uids`, `event_uids`, `goal_uids`,
+`principle_uids`, `choice_uids`) are gone: each named one user's Activity on a shared step. A file
+authoring one is refused, its report naming the template key (`PathStep.REPLACED_KEYS`). Every reader
+takes one of the two grains: what a step offers is its templates (the practice counts, the
+step's graph context); a learner's practice of a step is their own Activities stamped with it (the
+rich context's `practice_habits` / `practice_tasks`). `BUILDS_HABIT`, `ASSIGNS_TASK` and
+`GUIDED_BY_PRINCIPLE` left the enum; `SCHEDULES_EVENT`, `SUPPORTS_GOAL` and `INFORMS_CHOICE` keep
+their Activity sources. Mike's ruling; it settles ADR-090's O2.
 
 ### S3. Every exercise names its teacher
 
@@ -380,3 +393,4 @@ replaced.
 | 2026-10-16 | Claude Code | Change 7e implemented: the DSL bridge emits no `@ku` (ADR-069 § Decision 1, amendment 2026-10-16), so a knowledge link is the user's own `@ku` / `@link(ku:…)` or `EntryGroundingService`'s | 1.8 |
 | 2026-10-16 | Claude Code | Change 8 implemented, the ADR is implemented: CLAUDE.md, the skills and the docs describe the result, and the supersession notes in ADR-018 and ADR-070 say their parts are replaced | 1.9 |
 | 2026-11-23 | Mike + Claude Code | S2 amended: the content vault refuses every type a person owns, with where the file belongs (ADR-070 Decision 11, point 7) | 1.10 |
+| 2026-11-24 | Mike + Claude Code | S2 amended: curriculum names nothing a person owns — a step names Activities at the template grain only; its six instance channels and `BUILDS_HABIT` / `ASSIGNS_TASK` / `GUIDED_BY_PRINCIPLE` are gone | 1.11 |

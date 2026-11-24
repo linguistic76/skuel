@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-22
+updated: 2026-11-24
 ---
 
 # YAML to Graph — A Creator's Guide to SKUEL Content
@@ -196,7 +196,7 @@ The backtick escaping (`` item.`connections.enables` ``) handles the dotted key 
 
 ### PathStep — The Cross-Domain Connector
 
-A PathStep is the richest entity type in SKUEL. It carries curriculum content (via the `content` field and `uses_kus`) and also wires that content into practice — Habits, Tasks, Choices, Events, and Principles (how to live it).
+A PathStep is the richest entity type in SKUEL. It carries curriculum content (via the `content` field and `uses_kus`) and also wires that content into practice — Habits, Tasks, Choices, Events, Goals and Principles (how to live it). It names that practice as Activity Templates: each learner who engages the step gets their own Habit, Task, … from each template, stamped with the step. A step never names an Activity itself — an Activity is one learner's, and the step is shared.
 
 Every UID-list field on a PathStep becomes a set of edges in the graph:
 
@@ -206,11 +206,6 @@ Every UID-list field on a PathStep becomes a set of edges in the graph:
 | `trains_ku_uids` | `TRAINS_KU` | outgoing | Ku |
 | `prerequisite_step_uids` | `REQUIRES_STEP` | outgoing | PathStep |
 | `prerequisite_knowledge_uids` | `REQUIRES_KNOWLEDGE` | outgoing | Ku |
-| `principle_uids` | `GUIDED_BY_PRINCIPLE` | outgoing | Principle |
-| `habit_uids` | `BUILDS_HABIT` | outgoing | Habit |
-| `task_uids` | `ASSIGNS_TASK` | outgoing | Task |
-| `choice_uids` | `INFORMS_CHOICE` | outgoing | Choice |
-| `event_uids` | `SCHEDULES_EVENT` | outgoing | Event |
 | `task_template_uids` | `HAS_TASK_TEMPLATE` | outgoing | TaskTemplate |
 | `goal_template_uids` | `HAS_GOAL_TEMPLATE` | outgoing | GoalTemplate |
 | `habit_template_uids` | `HAS_HABIT_TEMPLATE` | outgoing | HabitTemplate |
@@ -240,28 +235,27 @@ sequence: 1
 
 prerequisite_step_uids: []
 
-principle_uids:
-  - principle.small-steps
+principle_template_uids:
+  - pt.mindfulness-101.small-steps
 
-choice_uids:
-  - choice.2-minutes-right-now
-  - choice.2-minutes-before-bed
+choice_template_uids:
+  - ct.mindfulness-101.two-minutes-right-now
 
-habit_uids:
-  - habit.daily-2min-breath
+habit_template_uids:
+  - ht.mindfulness-101.daily-2min-breath
 
-task_uids:
-  - task.log-first-5-sessions
+task_template_uids:
+  - tt.mindfulness-101.log-first-5-sessions
 
-event_uids:
-  - event.practice-block-2min
+event_template_uids:
+  - et.mindfulness-101.practice-block-2min
 
 mastery_threshold: 0.7
 estimated_hours: 0.5
 step_difficulty: easy
 ```
 
-This single YAML file produces one node and up to 10 edges. That's the power of the PathStep — it's the hub where knowledge, practice, and intention converge.
+This single YAML file produces one node and up to 9 edges. That's the power of the PathStep — it's the hub where knowledge, practice, and intention converge.
 
 ### LearningPath — The Sequence
 

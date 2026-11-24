@@ -1,6 +1,6 @@
 ---
 title: "ContextRetriever's Three Write-Only Fields"
-updated: 2026-11-21
+updated: 2026-11-24
 status: "open — events/principles half"
 registered: 2026-08-20
 ruled: 2026-08-21
@@ -12,6 +12,16 @@ check: "load_ps_bundle still hardcodes events = [] / principles = [] in core/ser
 
 *Live plan. Registered 2026-08-20. Case file for the `deferred-work.md` entry of the same name;
 move to `docs/roadmap/done/` when nothing in it remains open.*
+
+> **2026-11-24 — the instance channels Case B builds on are gone.** Mike ruled that a step names
+> Activities at the template grain only (ADR-091 § S2, amendment 2026-11-24): `habit_uids`,
+> `event_uids`, `principle_uids` and their siblings, and the `BUILDS_HABIT` / `ASSIGNS_TASK` /
+> `SCHEDULES_EVENT` / `GUIDED_BY_PRINCIPLE` edges from a step, are retired. The rich context's
+> `practice_habits` / `practice_tasks` now read the learner's own Activities stamped with the step
+> (`source_path_step_uid`, written by the engagement spawn), off their `OWNS` edges. The open half
+> stands, reframed: an events/principles projection reads the learner's own Events and Principles
+> stamped with the step the same way, not a step → instance edge. Everything below that tests or
+> builds on the instance channels is the record of 2026-08-21, not a plan.
 
 `ContextRetriever` (`core/services/askesis/context_retriever.py`) assigned three `self.*` fields
 that nothing reads. Surfaced by the AST sweep in PR #1108 and deliberately left there, because

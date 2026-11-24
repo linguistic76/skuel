@@ -399,8 +399,24 @@ DELETED: dict[str, str] = {
     "EventResponse": "deleted — never wired; the Events API renders through the CRUD factory, not a response model",
     "EventListResponse": "deleted — served only EventResponse",
     # Deleted enum members
+    # A step names Activities at the template grain only (ADR-091 § S2, amendment
+    # 2026-11-24): the step → instance edges went with its six instance channels. The two
+    # rich-context keys (practice_habits / practice_tasks) stay — they read the learner's own
+    # Activities stamped with the step.
+    "BUILDS_HABIT": (
+        "deleted — a step names a habit template: (PathStep)-[:HAS_HABIT_TEMPLATE]->(HabitTemplate); "
+        "the learner's own habit from it carries source_path_step_uid (ADR-091 § S2)"
+    ),
+    "ASSIGNS_TASK": (
+        "deleted — a step names a task template: (PathStep)-[:HAS_TASK_TEMPLATE]->(TaskTemplate); "
+        "the learner's own task from it carries source_path_step_uid (ADR-091 § S2)"
+    ),
+    "GUIDED_BY_PRINCIPLE": (
+        "deleted — a step names a principle template: (PathStep)-[:HAS_PRINCIPLE_TEMPLATE]->"
+        "(PrincipleTemplate); a principle supports a goal through SUPPORTS_GOAL (ADR-090, ADR-091 § S2)"
+    ),
     # A principle ↔ goal link is one edge, written and read as SUPPORTS_GOAL from the
-    # principle (ADR-090). GUIDED_BY_PRINCIPLE is a different, live type (PathStep → Principle).
+    # principle (ADR-090).
     "GUIDES_GOAL": (
         "deleted — a principle supports a goal: (Principle)-[:SUPPORTS_GOAL]->(Goal), "
         "read as the principle's supported_goals and the goal's supporting_principles (ADR-090)"
@@ -424,8 +440,7 @@ DELETED: dict[str, str] = {
     ),
     # An event ↔ principle link is one edge, DEMONSTRATES_PRINCIPLE from the event; an
     # event that reinforces a habit is REINFORCES_HABIT (ADR-090). The event's
-    # practiced_habits view and user-context key went with the type. practice_events is
-    # the PathStep's live method key for SCHEDULES_EVENT, so it has no entry here.
+    # practiced_habits view and user-context key went with the type.
     "PRACTICED_AT_EVENT": (
         "deleted — an event demonstrates a principle: (Event)-[:DEMONSTRATES_PRINCIPLE]->(Principle), "
         "read as the event's demonstrated_principles and the principle's demonstrating_events; "
@@ -660,6 +675,7 @@ _sharing_arc_bases = (
     "closed Submit & Share arc record -- names the bases and inheritors it kept, since deleted"
 )
 _links_arc = "the Activity Links arc's record of the principle ↔ goal, principle ↔ choice, task ↔ goal and event ↔ principle collapses -- ADR-090, the arc document, ADR-090's INDEX row, the older ADRs that keep the names (ADR-001's 2025 single-query record, ADR-015's 2025-12 rich-query record and its amendment notes, ADR-057's Context paragraph, ADR-026's 2026-02 ingestion record), the closed case files in roadmap/done/ and the closed Cypher-vocabulary sweep name the edge types the arc retired"
+_step_templates = "a step names Activities at the template grain only (ADR-091 § S2, amendment 2026-11-24) -- the ADRs and closed case files that record the step's retired instance edges (BUILDS_HABIT, ASSIGNS_TASK, GUIDED_BY_PRINCIPLE: ADR-026's 2026-02 registry snapshot, ADR-085's G2 gap, ADR-090's O2 and ADR-057's note, ADR-091's amendment, the Activity Links arc and O2 case files, the context-retriever case file's 2026-08-21 record, the closed Cypher-vocabulary sweep, and INDEX's rows for them) name the types they retired"
 _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
 _m_kuuid = "migration record -- the January 2026 UID migration's inventory and test names the Ku minter the 2026-10-16 ADR-013 amendment retired"
 _m_devuser = "migration record -- the January 2026 UID migration's before/after of the dev-user default the 2026-10-24 uid arc residuals deleted"
@@ -1041,6 +1057,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (315, "GUIDES_GOAL"): Allow(_links_arc),
         (315, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (315, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (315, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates, hits=2),
+        (446, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
     },
     "docs/decisions/ADR-015-mega-query-rich-queries-completion.md": {
         (25, "GUIDES_GOAL"): Allow(_links_arc),
@@ -1054,41 +1072,62 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/decisions/ADR-026-unified-relationship-registry.md": {
         (348, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (358, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (297, "BUILDS_HABIT"): Allow(_step_templates, hits=3),
+        (298, "ASSIGNS_TASK"): Allow(_step_templates, hits=3),
     },
     "docs/decisions/ADR-057-activity-domain-sibling-signals.md": {
         (43, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (43, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (81, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (91, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
     },
     "docs/decisions/ADR-090-one-link-per-fact-a-view-per-domain.md": {
         (55, "GUIDES_GOAL"): Allow(_links_arc),
         (56, "GUIDES_CHOICE"): Allow(_links_arc),
         (56, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (61, "FULFILLS_GOAL"): Allow(_links_arc),
+        (64, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (66, "practiced_habits"): Allow(_links_arc),
         (70, "GUIDES_GOAL"): Allow(_links_arc),
         (71, "GUIDES_CHOICE"): Allow(_links_arc),
+        (73, "PRACTICED_AT_EVENT"): Allow(_links_arc),
         (74, "FULFILLS_GOAL"): Allow(_links_arc),
         (173, "GUIDES_GOAL"): Allow(_links_arc),
         (174, "FULFILLS_GOAL"): Allow(_links_arc),
         (174, "GUIDES_CHOICE"): Allow(_links_arc),
         (174, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (176, "FULFILLS_GOAL"): Allow(_links_arc),
-        (259, "GUIDES_CHOICE"): Allow(_links_arc),
-        (259, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (271, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (275, "GUIDES_CHOICE"): Allow(_links_arc),
-        (275, "GUIDES_GOAL"): Allow(_links_arc),
-        (276, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (302, "GUIDES_GOAL"): Allow(_links_arc),
-        (308, "GUIDES_CHOICE"): Allow(_links_arc),
-        (309, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (64, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (73, "PRACTICED_AT_EVENT"): Allow(_links_arc),
         (174, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (260, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (276, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (66, "practiced_habits"): Allow(_links_arc),
+        (176, "FULFILLS_GOAL"): Allow(_links_arc),
         (176, "practiced_habits"): Allow(_links_arc),
-        (277, "practiced_habits"): Allow(_links_arc),
-        (314, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (264, "GUIDES_CHOICE"): Allow(_links_arc),
+        (264, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (265, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (276, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (280, "GUIDES_CHOICE"): Allow(_links_arc),
+        (280, "GUIDES_GOAL"): Allow(_links_arc),
+        (281, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (281, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (282, "practiced_habits"): Allow(_links_arc),
+        (307, "GUIDES_GOAL"): Allow(_links_arc),
+        (313, "GUIDES_CHOICE"): Allow(_links_arc),
+        (314, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (319, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (17, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (55, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (70, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (173, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (183, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (186, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (187, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (192, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (253, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (271, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (275, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (276, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (289, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (302, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (308, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (326, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
     },
     "docs/decisions/ADR-001-unified-user-context-single-query.md": {
         (93, "FULFILLS_GOAL"): Allow(_links_arc),
@@ -1096,26 +1135,40 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/patterns/CYPHER_VOCABULARY_FINDINGS.md": {
         (476, "FULFILLS_GOAL"): Allow(_links_arc),
+        (910, "ASSIGNS_TASK"): Allow(_step_templates),
+        (910, "BUILDS_HABIT"): Allow(_step_templates),
+        (911, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
     },
     "docs/roadmap/done/activity-links-arc.md": {
         (24, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (54, "FULFILLS_GOAL"): Allow(_links_arc),
+        (56, "PRACTICED_AT_EVENT"): Allow(_links_arc),
         (71, "GUIDES_GOAL"): Allow(_links_arc),
         (72, "GUIDES_CHOICE"): Allow(_links_arc),
         (72, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (74, "FULFILLS_GOAL"): Allow(_links_arc, hits=2),
+        (78, "PRACTICED_AT_EVENT"): Allow(_links_arc, hits=2),
+        (78, "practiced_habits"): Allow(_links_arc),
+        (79, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (79, "practiced_habits"): Allow(_links_arc),
         (123, "FULFILLS_GOAL"): Allow(_links_arc),
+        (161, "PRACTICED_AT_EVENT"): Allow(_links_arc),
         (171, "GUIDES_GOAL"): Allow(_links_arc),
         (172, "GUIDES_CHOICE"): Allow(_links_arc),
         (172, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (176, "FULFILLS_GOAL"): Allow(_links_arc),
+        (183, "PRACTICED_AT_EVENT"): Allow(_links_arc),
         (197, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (202, "practiced_habits"): Allow(_links_arc),
+        (204, "practiced_habits"): Allow(_links_arc),
         (224, "GUIDES_GOAL"): Allow(_links_arc),
         (228, "FULFILLS_GOAL"): Allow(_links_arc),
+        (233, "PRACTICED_AT_EVENT"): Allow(_links_arc),
         (242, "FULFILLS_GOAL"): Allow(_links_arc),
         (246, "FULFILLS_GOAL"): Allow(_links_arc),
         (254, "FULFILLS_GOAL"): Allow(_links_arc),
         (256, "GUIDES_GOAL"): Allow(_links_arc),
+        (333, "PRACTICED_AT_EVENT"): Allow(_links_arc),
         (334, "FULFILLS_GOAL"): Allow(_links_arc),
         (335, "GUIDES_GOAL"): Allow(_links_arc),
         (346, "FULFILLS_GOAL"): Allow(_links_arc),
@@ -1128,6 +1181,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (558, "GUIDES_CHOICE"): Allow(_links_arc),
         (558, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (559, "FULFILLS_GOAL"): Allow(_links_arc),
+        (560, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (560, "practiced_habits"): Allow(_links_arc),
         (671, "GUIDES_GOAL"): Allow(_links_arc),
         (678, "GUIDES_GOAL"): Allow(_links_arc),
         (732, "GUIDES_CHOICE"): Allow(_links_arc),
@@ -1138,27 +1193,31 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (812, "FULFILLS_GOAL"): Allow(_links_arc),
         (870, "FULFILLS_GOAL"): Allow(_links_arc),
         (872, "FULFILLS_GOAL"): Allow(_links_arc),
-        (56, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (78, "PRACTICED_AT_EVENT"): Allow(_links_arc, hits=2),
-        (79, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (161, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (183, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (233, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (333, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (560, "PRACTICED_AT_EVENT"): Allow(_links_arc),
         (882, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (883, "practiced_habits"): Allow(_links_arc),
         (901, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (902, "practiced_habits"): Allow(_links_arc),
+        (903, "practiced_habits"): Allow(_links_arc),
         (917, "PRACTICED_AT_EVENT"): Allow(_links_arc),
         (921, "PRACTICED_AT_EVENT"): Allow(_links_arc),
         (922, "PRACTICED_AT_EVENT"): Allow(_links_arc),
-        (78, "practiced_habits"): Allow(_links_arc),
-        (79, "practiced_habits"): Allow(_links_arc),
-        (202, "practiced_habits"): Allow(_links_arc),
-        (204, "practiced_habits"): Allow(_links_arc),
-        (560, "practiced_habits"): Allow(_links_arc),
-        (883, "practiced_habits"): Allow(_links_arc),
-        (902, "practiced_habits"): Allow(_links_arc),
-        (903, "practiced_habits"): Allow(_links_arc),
+        (16, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (25, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (71, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (97, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (115, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (171, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (223, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (230, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (255, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (259, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (350, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (557, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (561, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates, hits=2),
+        (573, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (673, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (678, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (715, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
     },
     "docs/roadmap/done/goal-progress-reads-an-unwritten-edge.md": {
         (29, "FULFILLS_GOAL"): Allow(_links_arc),
@@ -1176,6 +1235,59 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/roadmap/done/habit-event-scheduler-dead-goal-stamp.md": {
         (61, "FULFILLS_GOAL"): Allow(_links_arc),
+    },
+    "docs/roadmap/done/pathstep-guided-by-principle.md": {
+        (2, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (8, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (11, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (14, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (23, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (32, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (47, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+    },
+    "docs/roadmap/context-retriever-write-only-fields.md": {
+        (18, "ASSIGNS_TASK"): Allow(_step_templates),
+        (18, "BUILDS_HABIT"): Allow(_step_templates),
+        (19, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (115, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (121, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (124, "ASSIGNS_TASK"): Allow(_step_templates),
+        (124, "BUILDS_HABIT"): Allow(_step_templates),
+        (125, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (133, "BUILDS_HABIT"): Allow(_step_templates),
+        (133, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (149, "ASSIGNS_TASK"): Allow(_step_templates),
+        (149, "BUILDS_HABIT"): Allow(_step_templates),
+        (149, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (187, "BUILDS_HABIT"): Allow(_step_templates),
+        (191, "BUILDS_HABIT"): Allow(_step_templates),
+        (215, "BUILDS_HABIT"): Allow(_step_templates),
+        (384, "BUILDS_HABIT"): Allow(_step_templates),
+        (386, "ASSIGNS_TASK"): Allow(_step_templates),
+        (388, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (424, "BUILDS_HABIT"): Allow(_step_templates),
+        (461, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (465, "BUILDS_HABIT"): Allow(_step_templates),
+        (465, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (472, "BUILDS_HABIT"): Allow(_step_templates),
+        (473, "ASSIGNS_TASK"): Allow(_step_templates),
+        (475, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (477, "BUILDS_HABIT"): Allow(_step_templates),
+        (486, "BUILDS_HABIT"): Allow(_step_templates),
+        (507, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (519, "BUILDS_HABIT"): Allow(_step_templates),
+    },
+    "docs/decisions/ADR-091-one-door-for-curriculum.md": {
+        (130, "ASSIGNS_TASK"): Allow(_step_templates),
+        (130, "BUILDS_HABIT"): Allow(_step_templates),
+        (131, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+        (396, "ASSIGNS_TASK"): Allow(_step_templates),
+        (396, "BUILDS_HABIT"): Allow(_step_templates),
+        (396, "GUIDED_BY_PRINCIPLE"): Allow(_step_templates),
+    },
+    "docs/decisions/ADR-085-ownership-read-enforcement-contract.md": {
+        (192, "ASSIGNS_TASK"): Allow(_step_templates),
+        (192, "BUILDS_HABIT"): Allow(_step_templates),
     },
 }
 

@@ -36,8 +36,7 @@ if TYPE_CHECKING:
     from core.services.ingestion.types import IncrementalStats
 
 # The edge types that once stored each link, one set per link. A retired type is no
-# longer a RelationshipName member (GUIDED_BY_PRINCIPLE stays for the PathStep's use),
-# so each is named here as a string.
+# longer a RelationshipName member, so each is named here as a string.
 RETIRED_PRINCIPLE_GOAL = frozenset({"GUIDES_GOAL", "GUIDED_BY_PRINCIPLE"})
 RETIRED_PRINCIPLE_CHOICE = frozenset({"GUIDES_CHOICE", "INFORMED_BY_PRINCIPLE"})
 # Event ↔ principle is the event's DEMONSTRATES_PRINCIPLE; event ↔ habit its REINFORCES_HABIT.

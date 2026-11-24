@@ -135,7 +135,6 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 |--------------|------|-----|---------|
 | `HAS_SUBPRINCIPLE` / `SUBPRINCIPLE_OF` | Principle | Principle | Hierarchy pair |
 | `SUPPORTS_GOAL` | Principle | Goal | Principle supports goal — the one principle ↔ goal edge, whichever page made the link |
-| `GUIDED_BY_PRINCIPLE` | PathStep | Principle | A PathStep's guiding principles (`principle_uids`); no Activity writes or reads it |
 | `INFORMS_CHOICE` | Principle | Choice | Principle informs choice — the one principle ↔ choice edge, whichever page made the link; no properties |
 | `CONFLICTS_WITH_PRINCIPLE` | * | Principle | Conflict marker |
 

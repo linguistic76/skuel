@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-11-23
+updated: 2026-11-24
 category: patterns
 related_skills: []
 related_docs:
@@ -1279,7 +1279,7 @@ move, and is never borrowed.
 | `contains_steps` | HAS_STEP | Entity | LP |
 | `organizes` | ORGANIZES | Entity | PathStep |
 
-#### Path Step Fields (12 total)
+#### Path Step Fields
 
 | YAML Field | Relationship Type | Target | Direction |
 |-----------|-------------------|--------|-----------|
@@ -1287,11 +1287,6 @@ move, and is never borrowed.
 | `trains_ku_uids` | TRAINS_KU | Ku | outgoing |
 | `prerequisite_step_uids` | REQUIRES_STEP | Entity | outgoing |
 | `prerequisite_knowledge_uids` | REQUIRES_KNOWLEDGE | Entity | outgoing |
-| `principle_uids` | GUIDED_BY_PRINCIPLE | Principle | outgoing |
-| `choice_uids` | INFORMS_CHOICE | Entity | outgoing |
-| `habit_uids` | BUILDS_HABIT | Entity | outgoing |
-| `task_uids` | ASSIGNS_TASK | Task | outgoing |
-| `event_uids` | SCHEDULES_EVENT | Event | outgoing |
 | `task_template_uids` | HAS_TASK_TEMPLATE | TaskTemplate | outgoing |
 | `goal_template_uids` | HAS_GOAL_TEMPLATE | GoalTemplate | outgoing |
 | `habit_template_uids` | HAS_HABIT_TEMPLATE | HabitTemplate | outgoing |
@@ -1302,6 +1297,11 @@ move, and is never borrowed.
 
 > **Note:** Single-value fields `learning_path_uid` and `knowledge_uid` are auto-converted
 > to their list equivalents (`learning_path_uids`, `knowledge_uids`) during preparation.
+
+> **Note:** A step names Activities at the template grain only. `habit_uids`, `task_uids`,
+> `event_uids`, `goal_uids`, `principle_uids` and `choice_uids` name no field, so a file
+> authoring one is refused and the report names its template key
+> (`PathStep.REPLACED_KEYS`, read by the write gate's `nearest_field_names`).
 
 > **Note:** Relationship types are unified with the Relationship Registry.
 > Ingestion config is derived from the registry via `generate_ingestion_relationship_config()`.
