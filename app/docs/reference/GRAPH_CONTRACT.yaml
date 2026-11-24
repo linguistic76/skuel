@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 169, with_contract: 89}
+    relationships: {total: 166, with_contract: 86}
     labels: {total: 58, with_contract: 16}
   legacy_label_config_aliases: []
 
@@ -157,9 +157,6 @@ relationships:
         roles: [enables]
         definitions:
           - {direction: outgoing, target: Choice, context_field: informed_choices, method: informed_choices, ingestion_field: connections.informs_choice}
-      - config: PathStep
-        definitions:
-          - {direction: outgoing, target: Entity, context_field: informed_choices, method: choices, ingestion_field: choice_uids}
   COMPLETES_KNOWLEDGE:
     contract: null
   GUIDED_BY_KNOWLEDGE:
@@ -286,11 +283,6 @@ relationships:
     contract:
       - config: Goal
         roles: [prerequisite]
-  GUIDED_BY_PRINCIPLE:
-    contract:
-      - config: PathStep
-        definitions:
-          - {direction: outgoing, target: Principle, context_field: guiding_principles, method: principles, ingestion_field: principle_uids}
   SUPPORTS_GOAL:
     contract:
       - config: Goal
@@ -308,9 +300,6 @@ relationships:
         definitions:
           - {direction: outgoing, target: Goal, context_field: supported_goals, method: supported_goals, ingestion_field: connections.supports_goal}
           - {direction: both, target: Principle, context_field: related_principles_shared, method: related_principles_shared, fields: [uid, title, strength], limit: 5, shared_neighbor: {via: [SUPPORTS_GOAL, GROUNDED_IN_KNOWLEDGE], target: Principle, alias: related_principles_shared}}
-      - config: PathStep
-        definitions:
-          - {direction: outgoing, target: Goal, context_field: supports_goals, method: practice_goals, ingestion_field: goal_uids}
   INSPIRES_GOAL:
     contract: null
   CELEBRATES_GOAL:
@@ -632,16 +621,6 @@ relationships:
           - {direction: outgoing, target: Entity, context_field: prerequisites, method: prerequisite_steps, ingestion_field: prerequisite_step_uids}
       - config: LearningPath
         roles: [prerequisite]
-  BUILDS_HABIT:
-    contract:
-      - config: PathStep
-        definitions:
-          - {direction: outgoing, target: Entity, context_field: builds_habits, method: practice_habits, ingestion_field: habit_uids}
-  ASSIGNS_TASK:
-    contract:
-      - config: PathStep
-        definitions:
-          - {direction: outgoing, target: Task, context_field: assigned_tasks, method: practice_tasks, ingestion_field: task_uids}
   SCHEDULES_EVENT:
     contract:
       - config: Event
@@ -650,9 +629,6 @@ relationships:
       - config: Choice
         definitions:
           - {direction: outgoing, target: Event, context_field: scheduled_events, method: scheduled_events, fields: [uid, title, start_time]}
-      - config: PathStep
-        definitions:
-          - {direction: outgoing, target: Event, context_field: scheduled_events, method: practice_events, ingestion_field: event_uids}
   HAS_EXERCISE:
     contract:
       - config: PathStep
@@ -1078,12 +1054,6 @@ labels:
         - REINFORCES_KNOWLEDGE
         - INFORMED_BY_KNOWLEDGE
         - ORGANIZES
-        - BUILDS_HABIT
-        - ASSIGNS_TASK
-        - SCHEDULES_EVENT
-        - SUPPORTS_GOAL
-        - GUIDED_BY_PRINCIPLE
-        - INFORMS_CHOICE
         - HAS_EXERCISE
         - HAS_TASK_TEMPLATE
         - HAS_GOAL_TEMPLATE

@@ -74,7 +74,7 @@ Finance is a Firefly III sidecar — there is no `:Expense` label.
 
 // Principles guidance
 (principle:Principle)-[:SUPPORTS_GOAL]->(goal:Goal)
-(ps:PathStep)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
+(ps:PathStep)-[:HAS_PRINCIPLE_TEMPLATE]->(pt:PrincipleTemplate)
 (principle:Principle)-[:INFORMS_CHOICE]->(choice:Choice)
 (task:Task)-[:ALIGNED_WITH_PRINCIPLE]->(principle:Principle)
 

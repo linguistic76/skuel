@@ -183,16 +183,13 @@ def test_pathstep_attaches_every_template_kind() -> None:
         assert config[field]["target_label"] == target_label
 
 
-def test_event_instance_channel_no_longer_claims_the_template_name() -> None:
-    """``event_template_uids`` targets an EventTemplate; the Event instance
-    channel is ``event_uids``. Before the template door landed the instance
-    channel held the template-shaped name and a uid followed from it matched
-    nothing (the naming hazard recorded in the ContextRetriever case file)."""
+def test_event_template_uids_targets_an_event_template() -> None:
+    """``event_template_uids`` targets an EventTemplate, and a step names no Event
+    instance (``event_uids`` names no field: its template key is suggested)."""
     config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
     assert config is not None
-    assert config["event_uids"]["rel_type"] == "SCHEDULES_EVENT"
-    assert config["event_uids"]["target_label"] == "Event"
     assert config["event_template_uids"]["target_label"] == "EventTemplate"
+    assert "event_uids" not in config
 
 
 def test_templates_author_no_outgoing_edges() -> None:

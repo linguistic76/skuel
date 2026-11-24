@@ -1,6 +1,6 @@
 ---
 title: "ADR-090: One Link per Fact, a View per Domain"
-updated: 2026-10-10
+updated: 2026-11-24
 status: implemented
 category: decisions
 tags: [adr, decisions, relationships, activity-domains, graph-schema, registry, goals, principles]
@@ -183,9 +183,14 @@ stored edges (migrated), and the vault files that declare it. No alias remains.
 Five of the six retire outright. `GUIDED_BY_PRINCIPLE` also has a source outside the Activities: a
 PathStep's guiding principles. The rulings cover links between Activities only, so whether that
 curriculum link keeps the type or moves is open (arc document, O2), deferred by the founder and
-now its own case file, [The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](../roadmap/pathstep-guided-by-principle.md).
+now its own case file, [The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](../roadmap/done/pathstep-guided-by-principle.md).
 Until it is settled, `GUIDED_BY_PRINCIPLE` stays in the enum with that one source and the goal's
 use retires alone; if the PathStep's use later moves, all six types go.
+
+> **2026-11-24 — O2 settled.** A step names Activities at the template grain only
+> ([ADR-091](ADR-091-one-door-for-curriculum.md) § S2, amendment 2026-11-24), so the PathStep's
+> `principle_uids` retired with its five sibling instance channels and `GUIDED_BY_PRINCIPLE` left
+> the enum: all six types of this section are gone.
 
 ### 8. Scope (R8)
 
@@ -281,7 +286,7 @@ patterns that named edges nothing carries — a task's `GUIDED_BY_PRINCIPLE`, `A
 The [arc document](../roadmap/done/activity-links-arc.md) (closed 2026-10-08) carries the rulings,
 the verified census, the per-PR scope, the decisions settled in prose before each PR and the PR
 ledger. What the arc left open lives in three case files on the live roadmap: the PathStep's
-`GUIDED_BY_PRINCIPLE` ([O2](../roadmap/pathstep-guided-by-principle.md)), the work R8 put after the
+`GUIDED_BY_PRINCIPLE` ([O2](../roadmap/done/pathstep-guided-by-principle.md)), the work R8 put after the
 arc ([follow-ons](../roadmap/activity-links-follow-ons.md)) and the 27 defects its censuses
 registered ([residuals](../roadmap/activity-links-registered-residuals.md)).
 
@@ -318,3 +323,5 @@ integration test and a census mode that re-verifies the live graph.
 - 2026-10-08 — Implemented (Activity Links arc close): every retired type reads 0 in the live
   graph and in live code; the arc document moved to `done/`; O2, the R8 follow-ons and the
   registered residuals each have a live case file.
+- 2026-11-24 — O2 settled: `GUIDED_BY_PRINCIPLE` retired with the PathStep's instance channels
+  (ADR-091 § S2 amendment); all six types of §7 are gone.

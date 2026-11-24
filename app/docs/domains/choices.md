@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-11-12
+updated: 2026-11-24
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -142,9 +142,9 @@ Each option in `options` list:
 | `informing_principles` | `INFORMS_CHOICE` | Principle | Principles that inform this choice (YAML: `connections.informing_principles`). One edge per principle ↔ choice link, read from the principle as `informed_choices` |
 | `informing_habits` | `INFORMS_CHOICE` | Habit | Habits that inform this choice |
 
-`INFORMS_CHOICE` has three kinds of source — principles, habits and PathSteps (`choice_uids`) — so
-each choice view names its kind: a keyed read of `informing_principles` returns principles only, and
-`informing_habits` habits only. A PathStep that informs the choice is on no choice view.
+`INFORMS_CHOICE` has two kinds of source — principles and habits — so each choice view names its
+kind: a keyed read of `informing_principles` returns principles only, and `informing_habits` habits
+only.
 
 `related_choices` is a shared-neighbour view: other choices that affect the same goal
 (`AFFECTS_GOAL`). `generate_graph_enrichment` leaves it out of the patterns it computes, as it

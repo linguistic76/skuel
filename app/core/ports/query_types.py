@@ -1819,7 +1819,7 @@ class PsKnowledgeSummaryResult(TypedDict):
 class PsPracticeSummaryResult(TypedDict):
     """Return shape for PsIntelligenceService.get_practice_summary().
 
-    Counts of activity entities connected to this path step.
+    Counts of the Activity Templates this path step names, per domain.
     """
 
     habits: int
@@ -1905,9 +1905,8 @@ class PsPrerequisiteStepUidsRow(TypedDict):
 class PsPracticeCountsRow(TypedDict):
     """Row shape for fetch_practice_counts() — one count per activity domain.
 
-    ``RETURN count(DISTINCT h) as habits, ...`` over the 6 practice edges
-    (BUILDS_HABIT / ASSIGNS_TASK / SCHEDULES_EVENT / SUPPORTS_GOAL /
-    GUIDED_BY_PRINCIPLE / INFORMS_CHOICE).
+    One count per domain of the templates the step names (``HAS_HABIT_TEMPLATE``,
+    ``HAS_TASK_TEMPLATE``, … — the six template channels).
     """
 
     habits: int
@@ -1921,8 +1920,7 @@ class PsPracticeCountsRow(TypedDict):
 class PsGuidanceCountsRow(TypedDict):
     """Row shape for fetch_guidance_counts().
 
-    ``RETURN count(DISTINCT p) as principle_count, count(DISTINCT c) as
-    choice_count`` over GUIDED_BY_PRINCIPLE / INFORMS_CHOICE.
+    The step's principle and choice templates, counted.
     """
 
     principle_count: int
@@ -2277,8 +2275,8 @@ class LpPracticeGap(TypedDict):
     """One step's practice shortfall in LpIntelligenceService.identify_practice_gaps().
 
     - ``step_uid`` / ``step_title`` — the PathStep with incomplete practice.
-    - ``practice_completeness`` — fraction of the six activity-domain practice
-      edges present on the step (0.0-1.0); a gap is any step below 1.0.
+    - ``practice_completeness`` — fraction of the six Activity domains the step
+      names a template in (0.0-1.0); a gap is any step below 1.0.
     - ``missing_types`` — the practice domains absent on the step, in canonical
       ``PRACTICE_DOMAINS`` order (habits, tasks, events, goals, principles, choices).
     """
@@ -2294,7 +2292,7 @@ class LpPracticeGapAnalysis(TypedDict):
 
     Path-level rollup of per-step practice completeness. Each step is scored by
     the canonical PS measure (``practice_completeness_from_summary`` — fraction of
-    the six activity-domain practice edges present), so LP never forks a competing
+    the six Activity domains the step names a template in), so LP never forks a competing
     "what counts as practice" definition. ``overall_practice_coverage`` is the
     mean per-step completeness and is folded into analyze_path_knowledge_scope as
     ``practice_coverage``.

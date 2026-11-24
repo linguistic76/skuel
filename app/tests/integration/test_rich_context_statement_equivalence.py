@@ -123,9 +123,9 @@ CREATE (h_active)-[:REINFORCES_KNOWLEDGE]->(ku_a)
 CREATE (h_active)-[:APPLIES_KNOWLEDGE]->(ps1)
 CREATE (h_pre)-[:ENABLES_HABIT]->(h_active)
 CREATE (h_active)-[:REQUIRES_PREREQUISITE_HABIT]->(h_pre)
-CREATE (ps1)-[:BUILDS_HABIT]->(h_active)
-CREATE (ps1)-[:BUILDS_HABIT]->(h_other)
-CREATE (ps1)-[:ASSIGNS_TASK]->(t_open)
+// the step's practice: Activities stamped with it, the learner's own and another user's
+SET h_active.source_path_step_uid = 'ps.eq.one', h_other.source_path_step_uid = 'ps.eq.one',
+    t_open.source_path_step_uid = 'ps.eq.one'
 // events
 CREATE (e_today:Entity:Event {uid: 'event.eq.today', entity_type: 'event', title: 'Today event', event_date: $today,
                               updated_at: $iso, user_uid: $user_uid})
@@ -587,7 +587,7 @@ async def test_every_section_reads_what_the_one_statement_read(
     assert _canon(steps["ps.eq.one"]) == _canon(
         {
             "prerequisite_steps": [{"uid": "ps.eq.zero", "title": "Step 0", "completed": True}],
-            # BUILDS_HABIT also points at another user's habit — re-tied to the anchored user (ADR-085 G2)
+            # another user's habit stamped with the step is not this learner's practice
             "practice_habits": [{"uid": "habit.eq.active", "title": "Active habit"}],
             "practice_tasks": [{"uid": "task.eq.open", "title": "Open task", "status": "active"}],
             "knowledge_relationships": [

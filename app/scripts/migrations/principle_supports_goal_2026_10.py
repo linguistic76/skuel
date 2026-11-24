@@ -25,9 +25,8 @@ states, per (principle, goal) pair:
 
 What is NOT touched:
 
-- ``(PathStep)-[:GUIDED_BY_PRINCIPLE]->(Principle)`` — that use of the type
-  stays (the arc's O2, deferred). The goal-side statement matches a ``:Goal``
-  source only.
+- ``(PathStep)-[:GUIDED_BY_PRINCIPLE]->(Principle)`` — not this migration's:
+  the goal-side statement matches a ``:Goal`` source only.
 - Any ``GUIDES_GOAL`` edge that is not Principle → Goal. The type leaves the
   enum with this PR, so such an edge would be stranded: the census lists each
   one and the run STOPS (exit 2) before any write until a person removes it.
@@ -85,9 +84,9 @@ if TYPE_CHECKING:
 # One driver record, keyed by RETURN alias; the values are heterogeneous Neo4j scalars.
 type Row = dict[str, Any]  # boundary: raw neo4j-driver record
 
-# GUIDES_GOAL is no longer a RelationshipName member, so it is named as a string.
+# Neither type is a RelationshipName member, so each is named as a string.
 _GUIDES_GOAL = "GUIDES_GOAL"
-_GUIDED_BY = RelationshipName.GUIDED_BY_PRINCIPLE.value
+_GUIDED_BY = "GUIDED_BY_PRINCIPLE"
 _SUPPORTS = RelationshipName.SUPPORTS_GOAL.value
 _PRINCIPLE = NeoLabel.PRINCIPLE.value
 _GOAL = NeoLabel.GOAL.value

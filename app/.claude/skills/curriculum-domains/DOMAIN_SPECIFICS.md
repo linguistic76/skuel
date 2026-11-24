@@ -41,11 +41,12 @@ Plus optional `PsAIService` (`ai`, FULL tier only — LLM / embedding features).
   | Choices | 0.07 (0.15) | `connections.informed_by_knowledge` on the Choice → `INFORMED_BY_KNOWLEDGE` |
   | Principles | 0.07 (0.15) | `connections.grounded_in_knowledge` on the Principle → `GROUNDED_IN_KNOWLEDGE` |
 
-  The PathStep's own activity fields (`habit_uids`, `task_uids`, `event_uids`, `goal_uids`,
-  `principle_uids`, `choice_uids`) draw `BUILDS_HABIT`, `ASSIGNS_TASK`, … — static practice
-  assignment, scored by `PsIntelligenceService.get_practice_summary`, not substance. Do not
-  look for a `connections.reflects_knowledge` field; it does not exist. See
-  `/docs/guides/YAML_AUTHORING_GUIDE.md`.
+  The PathStep's practice is its Activity Templates (`habit_template_uids`, … →
+  `HAS_HABIT_TEMPLATE`, …), scored by `PsIntelligenceService.get_practice_summary`, not
+  substance; a learner who engages the step gets their own Activity from each, stamped
+  `source_path_step_uid`. A step names no Activity itself — `habit_uids` and its five siblings
+  are refused (`PathStep.SUGGESTED_KEYS`). Do not look for a `connections.reflects_knowledge`
+  field; it does not exist. See `/docs/guides/YAML_AUTHORING_GUIDE.md`.
 - **Per-user context** — `calculate_user_substance(ps_uid, user_context)` for personalized metrics (needs a RICH context).
 - **Semantic relationships** — REQUIRES_KNOWLEDGE, ENABLES_KNOWLEDGE, HAS_NARROWER, RELATED_TO.
 - **Content ingestion** — YAML frontmatter + Markdown body.
@@ -230,5 +231,4 @@ A learning path is authored in the content vault (`connections.contains_steps` w
 | **Navigation** | Point lookup + non-linear (ORGANIZES) | Referenced from PathSteps | Linear path | Anchored to PathStep (`HAS_EXERCISE`) |
 | **Cross-Domain Dep** | None | None | PsService | None |
 
-**Activity integration lives directly on PathSteps** (no intermediate Lesson node), authored as `habit_uids`, `task_uids`, `event_uids`, `goal_uids`, `principle_uids`, `choice_uids`:
-`BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT`, `SUPPORTS_GOAL`, `GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE`.
+**Activity integration lives directly on PathSteps** (no intermediate Lesson node), at the template grain only: `habit_template_uids`, `task_template_uids`, `event_template_uids`, `goal_template_uids`, `principle_template_uids`, `choice_template_uids` → `HAS_HABIT_TEMPLATE` … `HAS_CHOICE_TEMPLATE`. Engaging the step gives each learner their own Activity from each template, stamped `source_path_step_uid`; an Activity is one learner's, so a step names none (`habit_uids` and its five siblings are refused with the template key).

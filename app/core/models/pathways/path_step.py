@@ -20,13 +20,16 @@ Key relationships:
 - CONTAINS_KNOWLEDGE -> Ku (knowledge reference)
 - TRAINS_KU -> Ku (learning objectives)
 - ORGANIZES -> PathStep (emergent MOC identity)
-- Activity wiring: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, etc.
+- Activity Templates: HAS_TASK_TEMPLATE, HAS_HABIT_TEMPLATE, … (a learner's own
+  Activities spawn from them on engagement and carry ``source_path_step_uid``)
 - Learning states: VIEWED, IN_PROGRESS, MASTERED, BOOKMARKED (on user relationships)
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
@@ -53,6 +56,22 @@ class PathStep(Curriculum):
     # ``hub_score``, the cached degree centrality (``compute_hub_scores``, read by the
     # foundational-knowledge query).
     NODE_STATE: ClassVar[frozenset[str]] = frozenset({"hub_score"})
+
+    # Activity-instance keys a step names no field for, each with the template key an
+    # author who writes it means; the write gate refuses the file and suggests that key
+    # (``nearest_field_names``). A step names Activities at the template grain only — a
+    # template is nobody's, and a learner who engages the step gets their own Activity
+    # from it — so no step names one user's Activity on shared curriculum.
+    SUGGESTED_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType(
+        {
+            "habit_uids": "habit_template_uids",
+            "task_uids": "task_template_uids",
+            "event_uids": "event_template_uids",
+            "goal_uids": "goal_template_uids",
+            "principle_uids": "principle_template_uids",
+            "choice_uids": "choice_template_uids",
+        }
+    )
 
     # Honest leaf identity (G6): defaults to its own type; __post_init__
     # rejects a mismatch instead of silently correcting it.

@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-11-12
+updated: 2026-11-24
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -130,7 +130,7 @@ Also handles: attendance time-of-day tracking, goal alignment checks, rescheduli
 | Key | Relationship | Source | Description |
 |-----|--------------|--------|-------------|
 | `conflicting_events` | `CONFLICTS_WITH` | Event | Events that conflict |
-| `scheduled_by_choices` | `SCHEDULES_EVENT` | Choice | Choices that scheduled this event. PathSteps write `SCHEDULES_EVENT` too (`event_uids`); the PathStep reads its own edge, and this view lists choices only |
+| `scheduled_by_choices` | `SCHEDULES_EVENT` | Choice | Choices that scheduled this event |
 
 ### Bidirectional
 

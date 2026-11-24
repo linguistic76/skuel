@@ -840,19 +840,18 @@ WHERE ps IS NOT NULL AND __FAR(prereq_step)__
 WITH user, enrolled_path_uids, paths_rich,
      ps, collect(DISTINCT CASE WHEN prereq_step IS NOT NULL THEN {uid: prereq_step.uid, title: prereq_step.title, completed: EXISTS { (user)-[:MASTERED]->(prereq_step) }} END) as ps_prereq_steps
 
-// Owner predicate re-ties the projection to the anchored user (ADR-085 §4/G2):
-// a PathStep is shared curriculum, so BUILDS_HABIT can point at ANY user's
-// Habit — without `ps_habit.user_uid = user.uid` the anchor-escape hands one
-// learner another user's habit (the shape the exercise projections below use).
-OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(ps_habit:Habit)
-WHERE ps IS NOT NULL AND __FAR(ps_habit)__
+// The step's practice for this learner: their own Activities from it. A step names
+// Activities at the template grain only; engaging it gives the learner their own
+// Habit and Task, each stamped with the step (source_path_step_uid). Read from the
+// learner's OWNS edges, so no other user's Activity can reach the projection.
+OPTIONAL MATCH (user)-[:OWNS]->(ps_habit:Habit)
+WHERE ps IS NOT NULL AND ps_habit.source_path_step_uid = ps.uid
 WITH user, enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps,
      collect(DISTINCT CASE WHEN ps_habit IS NOT NULL THEN {uid: ps_habit.uid, title: ps_habit.title} END) as ps_habits
 
-// Same anchor re-tie as ps_habit above (ADR-085 G2): Tasks are OWNER_ONLY.
-OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(ps_task:Task)
-WHERE ps IS NOT NULL AND __FAR(ps_task)__
+OPTIONAL MATCH (user)-[:OWNS]->(ps_task:Task)
+WHERE ps IS NOT NULL AND ps_task.source_path_step_uid = ps.uid
 WITH user, enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps, ps_habits,
      collect(DISTINCT CASE WHEN ps_task IS NOT NULL THEN {uid: ps_task.uid, title: ps_task.title, status: ps_task.status} END) as ps_tasks

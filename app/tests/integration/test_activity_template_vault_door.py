@@ -14,8 +14,9 @@ Also pinned here, because neither is visible to a config assertion:
 
 - an authored ``due_offset: {days: 7}`` survives the round trip as a
   RelativeOffset — the property reaches Neo4j as a JSON string, not a map;
-- ``event_uids`` and ``event_template_uids`` are two channels, and each lands
-  on the label its name says (the naming hazard the held rename closed);
+- a step names Activities at the template grain only: a step file authoring an
+  instance key (``habit_uids``, ``event_uids``, …) is refused at both doors, its
+  report naming the template key to use instead, and nothing of it is written;
 - a dropped ``task_template_uids`` target loses its edge on the next sync, so
   attachment is retractable like every other frontmatter-authored edge.
 
@@ -41,7 +42,6 @@ from tests.helpers.production_backends import build_ingestion_service, build_pro
 
 _MARK = "zzztmpl"
 _PS = f"ps.{_MARK}.host"
-_EVENT = f"event.{_MARK}.instance"
 
 # (type value, uid prefix, Neo4j label, the PS frontmatter field that attaches it,
 #  the edge that field authors)
@@ -79,41 +79,22 @@ def _template_file(vault: Path, type_value: str, prefix: str, *, extra: str = ""
     return path
 
 
-def _event_file(vault: Path) -> Path:
-    path = vault / f"{_MARK}_event.md"
-    path.write_text(f"---\ntype: event\nuid: {_EVENT}\ntitle: Instance Event\n---\nBody.\n")
-    return path
-
-
-def _ps_file(
-    vault: Path,
-    *,
-    attach: dict[str, list[str]] | None = None,
-    event_uids: list[str] | None = None,
-) -> Path:
+def _ps_file(vault: Path, *, attach: dict[str, list[str]] | None = None) -> Path:
     lines = ["type: ps", f"uid: {_PS}", "title: Template Host"]
     for field, values in (attach or {}).items():
         lines.append(f"{field}:")
         lines.extend(f"  - {value}" for value in values)
-    if event_uids is not None:
-        lines.append("event_uids:")
-        lines.extend(f"  - {value}" for value in event_uids)
     path = vault / f"{_MARK}_host_Ps.md"
     path.write_text("---\n" + "\n".join(lines) + "\n---\nBody.\n")
     return path
 
 
 def _full_vault(vault: Path) -> None:
-    """One template file per kind, an Event instance, and a PS attaching them all."""
+    """One template file per kind and a PS attaching them all."""
     for type_value, prefix, _label, _field, _edge in _KINDS:
         extra = "due_offset:\n  days: 7\n" if type_value == "task_template" else ""
         _template_file(vault, type_value, prefix, extra=extra)
-    _event_file(vault)
-    _ps_file(
-        vault,
-        attach={field: [_template_uid(prefix)] for _t, prefix, _l, field, _e in _KINDS},
-        event_uids=[_EVENT],
-    )
+    _ps_file(vault, attach={field: [_template_uid(prefix)] for _t, prefix, _l, field, _e in _KINDS})
 
 
 async def _node(neo4j_driver, uid: str) -> dict[str, Any] | None:
@@ -151,11 +132,6 @@ async def template_service(neo4j_driver):
         ingestion_backend=build_production_backends(neo4j_driver, executor)["ingestion_backend"],
         default_user_uid=INGESTION_TEST_OWNER,
     )
-    # The Event INSTANCE in the vault is user-owned, and the ingest door refuses
-    # a batch naming an owner with no :User node (ADR-086). Templates themselves
-    # are PS-owned and need none.
-    async with neo4j_driver.session() as session:
-        await session.run("MERGE (u:User {uid: $uid})", {"uid": str(INGESTION_TEST_OWNER)})
     yield service
     # Session-scoped container — remove this module's nodes + tracker rows.
     async with neo4j_driver.session() as session:
@@ -212,25 +188,46 @@ class TestActivityTemplateVaultDoor:
             assert len(targets) == 1, f"{edge} should attach exactly one template"
             assert label in targets[0]
 
-    async def test_event_instance_and_event_template_are_two_channels(
+    async def test_a_step_naming_an_activity_instance_is_refused_naming_its_template(
         self, template_service, neo4j_driver, tmp_path: Path
     ):
-        """``event_uids`` reaches an :Event; ``event_template_uids`` an
-        :EventTemplate. Before the held rename executed, one name served both
-        and a uid followed from it matched nothing."""
+        """An Activity is one user's and curriculum is shared, so a step names a
+        template, never an instance: the file is refused, every instance key named
+        with its template key, and nothing of the step is written."""
         vault = tmp_path / "vault"
         vault.mkdir()
-        _full_vault(vault)
-        await _sync(template_service, vault)
+        _template_file(vault, "habit_template", "ht")
+        _ps_file(
+            vault,
+            attach={
+                "habit_uids": ["habit_0a1b2c3d4e5f6071"],
+                "event_uids": ["event_0a1b2c3d4e5f6071"],
+            },
+        )
 
-        scheduled = await _edge_target_labels(neo4j_driver, _PS, "SCHEDULES_EVENT")
-        assert len(scheduled) == 1
-        assert "Event" in scheduled[0]
-        assert "EventTemplate" not in scheduled[0]
+        result = await template_service.ingest_directory(vault, ingestion_mode="smart")
 
-        templated = await _edge_target_labels(neo4j_driver, _PS, "HAS_EVENT_TEMPLATE")
-        assert len(templated) == 1
-        assert "EventTemplate" in templated[0]
+        assert result.is_ok, result
+        errors = cast("IncrementalStats", result.value).errors or []
+        refused = [error for error in errors if "host_Ps" in str(error.get("file", ""))]
+        assert [error.get("stage") for error in refused] == ["validation"], errors
+        reason = str(refused[0].get("error"))
+        assert "'habit_uids' (did you mean 'habit_template_uids'?)" in reason, reason
+        assert "'event_uids' (did you mean 'event_template_uids'?)" in reason, reason
+        assert await _node(neo4j_driver, _PS) is None
+        assert await _node(neo4j_driver, _template_uid("ht")) is not None
+
+    async def test_the_single_file_door_refuses_an_instance_key_the_same_way(
+        self, template_service, neo4j_driver, tmp_path: Path
+    ):
+        path = _ps_file(tmp_path, attach={"principle_uids": ["principle_0a1b2c3d4e5f6071"]})
+
+        result = await template_service.ingest_file(path)
+
+        assert result.is_error
+        message = result.expect_error().display_message
+        assert "'principle_uids' (did you mean 'principle_template_uids'?)" in message, message
+        assert await _node(neo4j_driver, _PS) is None
 
     async def test_authored_offset_round_trips_as_a_relative_offset(
         self, template_service, neo4j_driver, tmp_path: Path
@@ -259,7 +256,7 @@ class TestActivityTemplateVaultDoor:
 
         attach = {field: [_template_uid(prefix)] for _t, prefix, _l, field, _e in _KINDS}
         del attach["task_template_uids"]
-        _ps_file(vault, attach=attach, event_uids=[_EVENT])
+        _ps_file(vault, attach=attach)
         await _sync(template_service, vault)
 
         assert not await _edge_target_labels(neo4j_driver, _PS, "HAS_TASK_TEMPLATE"), (

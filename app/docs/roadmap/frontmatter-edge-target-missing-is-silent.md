@@ -1,6 +1,6 @@
 ---
 title: "A Frontmatter Edge Whose Target Does Not Exist Yet Is Silent"
-updated: 2026-09-06
+updated: 2026-11-24
 status: "registered"
 registered: 2026-09-06
 trigger: "the next ingestion-mechanism touch, or the first authoring session that loses an edge to it"
@@ -13,7 +13,7 @@ check: "`git grep -n 'unresolved' core/services/ingestion/batch.py` — empty un
 when nothing in it remains open. Found while driving the vault door in the
 [activity-templates-vault-door](done/activity-templates-vault-door.md) arc, PR-2.*
 
-Every registered `*_uids:` frontmatter channel (`uses_kus`, `exercise_uids`, `task_uids`, the six
+Every registered `*_uids:` frontmatter channel (`uses_kus`, `exercise_uids`, the six
 `*_template_uids`, …) writes its edge with a `MATCH` on the target. When the target node does not
 exist at the moment that file is ingested, the match returns nothing, no edge is written, **and
 nothing reports it**. The sync's stats show no error, no warning, and no unresolved count; the

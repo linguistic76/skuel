@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-10-16
+updated: 2026-11-24
 status: current
 category: domains
 tags:
@@ -260,17 +260,18 @@ config = LP_CONFIG
 ### What It Does
 
 For a learning path, scores every step's practice completeness and surfaces the steps that
-lack complete practice. A step's completeness is the fraction of the **six activity-domain
-practice edges** present on it (the canonical PS measure — see below):
+lack complete practice. A step's completeness is the fraction of the **six Activity domains it
+names a template in** (the canonical PS measure — see below); each learner who engages the step
+gets their own Activity from each template:
 
 | Relationship | Target | Meaning |
 |--------------|--------|---------|
-| `BUILDS_HABIT` | Habit | "Practice this daily to internalize the knowledge" |
-| `ASSIGNS_TASK` | Task | "Do this concrete thing to apply the knowledge" |
-| `SCHEDULES_EVENT` | Event | "Attend this to experience the knowledge" |
-| `SUPPORTS_GOAL` | Goal | "This advances a goal you're pursuing" |
-| `GUIDED_BY_PRINCIPLE` | Principle | "A value that frames how you apply it" |
-| `INFORMS_CHOICE` | Choice | "A decision this knowledge informs" |
+| `HAS_HABIT_TEMPLATE` | HabitTemplate | "Practice this daily to internalize the knowledge" |
+| `HAS_TASK_TEMPLATE` | TaskTemplate | "Do this concrete thing to apply the knowledge" |
+| `HAS_EVENT_TEMPLATE` | EventTemplate | "Attend this to experience the knowledge" |
+| `HAS_GOAL_TEMPLATE` | GoalTemplate | "This advances a goal you're pursuing" |
+| `HAS_PRINCIPLE_TEMPLATE` | PrincipleTemplate | "A value that frames how you apply it" |
+| `HAS_CHOICE_TEMPLATE` | ChoiceTemplate | "A decision this knowledge informs" |
 
 A step below 1.0 has a *practice gap* — the learner can read the concept but has an incomplete
 set of structured ways to embody it. The path-level mean completeness is

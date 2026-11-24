@@ -140,16 +140,18 @@ Dots join authored curriculum segments; every node uid is `[a-z0-9._-]` and no n
 | `IN_PROGRESS` / `MASTERED` / `PINNED` | incoming | User | Studying / understood / bookmarked |
 
 ### PS Activity Relationships
-Activity-domain integration lives directly on PathSteps (no intermediate Lesson node):
+Activity-domain integration lives directly on PathSteps (no intermediate Lesson node), at the
+template grain only — a learner who engages the step gets their own Activity from each template,
+stamped `source_path_step_uid`; a step names no Activity itself:
 
 | Relationship | Direction | Target | Purpose |
 |--------------|-----------|--------|---------|
-| `BUILDS_HABIT` | outgoing | Habit | Practice integration |
-| `ASSIGNS_TASK` | outgoing | Task | Practice integration |
-| `SCHEDULES_EVENT` | outgoing | Event | Practice integration |
-| `SUPPORTS_GOAL` | outgoing | Goal | Goal alignment |
-| `GUIDED_BY_PRINCIPLE` | outgoing | Principle | Guidance |
-| `INFORMS_CHOICE` | outgoing | Choice | Decision points |
+| `HAS_HABIT_TEMPLATE` | outgoing | HabitTemplate | Practice integration |
+| `HAS_TASK_TEMPLATE` | outgoing | TaskTemplate | Practice integration |
+| `HAS_EVENT_TEMPLATE` | outgoing | EventTemplate | Practice integration |
+| `HAS_GOAL_TEMPLATE` | outgoing | GoalTemplate | Goal alignment |
+| `HAS_PRINCIPLE_TEMPLATE` | outgoing | PrincipleTemplate | Guidance |
+| `HAS_CHOICE_TEMPLATE` | outgoing | ChoiceTemplate | Decision points |
 
 ### LP Relationships
 | Relationship | Direction | Target | Purpose |

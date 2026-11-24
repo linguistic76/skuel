@@ -288,47 +288,60 @@ class TestCurriculumRichContext:
                 {"lp_uid": learning_path.uid},
             )
 
-    async def test_practice_projections_scope_to_the_anchored_user(self, services, test_user):
-        """ADR-085 G2 pin — practice_habits/practice_tasks re-tie to the anchor.
+    async def test_practice_projections_are_the_learners_own_activities_from_the_step(
+        self, services, test_user, ensure_test_users
+    ):
+        """practice_habits/practice_tasks are the learner's own Activities from the step.
 
-        A PathStep is SHARED curriculum, so its BUILDS_HABIT/ASSIGNS_TASK edges
-        can point at ANY user's activities (the vault-authored habit stamped
-        user_admin was the live instance). The nested projections must carry
-        `user_uid = user.uid` — another user's habit/task behaves exactly like
-        no habit/task at all.
+        A step names Activities at the template grain only; engaging it gives the
+        learner their own Habit and Task, each stamped with the step
+        (``source_path_step_uid``). Another user's Activity stamped with the same step,
+        and the learner's own Activity from another step or from no step, are not this
+        learner's practice of this step.
 
-        Fixtures mirror the live writer shapes: activities persist `user_uid`
-        as a plain string alongside `:Entity:<Domain>` labels (the CRUD create
-        door), and BUILDS_HABIT/ASSIGNS_TASK are the ingestion door's practice
-        edges from `habit_uids`/`task_uids` frontmatter.
+        Fixtures mirror the live writer shapes: an activity persists ``user_uid`` and
+        its owner's ``OWNS`` edge (the create door), and carries the step's uid as the
+        engagement spawn stamps it.
         """
         driver = services.lp.core.backend.driver
         ps_uid = UIDGenerator.generate_random_uid("ps")
         mine_habit = UIDGenerator.generate_random_uid("habit")
         foreign_habit = UIDGenerator.generate_random_uid("habit")
+        unstamped_habit = UIDGenerator.generate_random_uid("habit")
         mine_task = UIDGenerator.generate_random_uid("task")
         foreign_task = UIDGenerator.generate_random_uid("task")
-        fixture_uids = [ps_uid, mine_habit, foreign_habit, mine_task, foreign_task]
+        other_step_task = UIDGenerator.generate_random_uid("task")
+        fixture_uids = [
+            ps_uid,
+            mine_habit,
+            foreign_habit,
+            unstamped_habit,
+            mine_task,
+            foreign_task,
+            other_step_task,
+        ]
 
         try:
             await driver.execute_query(
                 """
+                MATCH (user:User {uid: $user_uid})
+                MATCH (other:User {uid: $someone_else})
                 CREATE (ps:Entity:PathStep {uid: $ps_uid, title: 'Shared Lesson',
                                             entity_type: 'path_step'})
-                CREATE (mh:Entity:Habit {uid: $mine_habit, title: 'My Practice',
-                                         entity_type: 'habit', user_uid: $user_uid})
-                CREATE (fh:Entity:Habit {uid: $foreign_habit, title: 'Author Habit',
-                                         entity_type: 'habit', user_uid: $someone_else})
-                CREATE (mt:Entity:Task {uid: $mine_task, title: 'My Drill',
-                                        entity_type: 'task', user_uid: $user_uid})
-                CREATE (ft:Entity:Task {uid: $foreign_task, title: 'Author Task',
-                                        entity_type: 'task', user_uid: $someone_else})
-                CREATE (ps)-[:BUILDS_HABIT]->(mh)
-                CREATE (ps)-[:BUILDS_HABIT]->(fh)
-                CREATE (ps)-[:ASSIGNS_TASK]->(mt)
-                CREATE (ps)-[:ASSIGNS_TASK]->(ft)
-                WITH ps
-                MATCH (user:User {uid: $user_uid})
+                CREATE (user)-[:OWNS]->(:Entity:Habit {uid: $mine_habit, title: 'My Practice',
+                    entity_type: 'habit', user_uid: $user_uid, source_path_step_uid: $ps_uid})
+                CREATE (other)-[:OWNS]->(:Entity:Habit {uid: $foreign_habit,
+                    title: 'Their Practice', entity_type: 'habit', user_uid: $someone_else,
+                    source_path_step_uid: $ps_uid})
+                CREATE (user)-[:OWNS]->(:Entity:Habit {uid: $unstamped_habit,
+                    title: 'My Own Habit', entity_type: 'habit', user_uid: $user_uid})
+                CREATE (user)-[:OWNS]->(:Entity:Task {uid: $mine_task, title: 'My Drill',
+                    entity_type: 'task', user_uid: $user_uid, source_path_step_uid: $ps_uid})
+                CREATE (other)-[:OWNS]->(:Entity:Task {uid: $foreign_task, title: 'Their Drill',
+                    entity_type: 'task', user_uid: $someone_else, source_path_step_uid: $ps_uid})
+                CREATE (user)-[:OWNS]->(:Entity:Task {uid: $other_step_task,
+                    title: 'Another Step Drill', entity_type: 'task', user_uid: $user_uid,
+                    source_path_step_uid: $other_step})
                 CREATE (user)-[:IN_PROGRESS]->(ps)
                 SET ps.status = 'active'
                 """,
@@ -336,10 +349,13 @@ class TestCurriculumRichContext:
                     "ps_uid": ps_uid,
                     "mine_habit": mine_habit,
                     "foreign_habit": foreign_habit,
+                    "unstamped_habit": unstamped_habit,
                     "mine_task": mine_task,
                     "foreign_task": foreign_task,
+                    "other_step_task": other_step_task,
+                    "other_step": UIDGenerator.generate_random_uid("ps"),
                     "user_uid": test_user.uid,
-                    "someone_else": seed_user_uid("someone_else"),
+                    "someone_else": seed_user_uid("other"),
                 },
             )
 
@@ -358,11 +374,11 @@ class TestCurriculumRichContext:
                 t["uid"] for t in graph_context["practice_tasks"] if t.get("uid") is not None
             }
 
-            # Positive control first: the owner's own practice IS projected —
-            # without it, an over-broad predicate that drops everything would
-            # green the foreign assertions below.
+            # The learner's own Activities from this step ARE projected — the positive
+            # half, without which a predicate that drops everything would pass.
             assert habit_uids == {mine_habit}, f"expected only own habit, got {habit_uids}"
             assert task_uids == {mine_task}, f"expected only own task, got {task_uids}"
+            assert graph_context["total_practice_opportunities"] == 2
         finally:
             await driver.execute_query(
                 "MATCH (n:Entity) WHERE n.uid IN $uids DETACH DELETE n",

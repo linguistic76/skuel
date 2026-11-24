@@ -49,9 +49,10 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-# The six activity-domain practice edges a PathStep can carry (the keys
-# get_practice_summary returns, minus the derived ``total``). A step with all six
-# present has "complete" practice; each contributes an equal 1/6 to completeness.
+# The six Activity domains a PathStep's practice spans (the keys get_practice_summary
+# returns, minus the derived ``total``). A step's practice in a domain is the templates
+# it names there; a step with a template in all six has "complete" practice, each
+# domain an equal 1/6 of completeness.
 # This is the single source of truth for "what counts as practice" — reused by
 # the PS per-step scorer AND LpIntelligenceService.identify_practice_gaps, so the
 # two never fork competing definitions (One Path Forward).
@@ -283,8 +284,9 @@ class PsIntelligenceService(
         """
         Get summary of practice opportunities for a path step.
 
-        Counts all 6 activity
-        domains: habits, tasks, events, goals, principles, choices.
+        Counts the templates the step names in each of the 6 Activity domains:
+        habits, tasks, events, goals, principles, choices. The same for every
+        learner — each one who engages the step gets their own Activity from each.
 
         Args:
             ps_uid: UID of the path step
@@ -448,9 +450,7 @@ class PsIntelligenceService(
     @with_error_handling("has_guidance", error_type="database", uid_param="ps_uid")
     async def has_guidance(self, ps_uid: str) -> Result[bool]:
         """
-        Check if path step has guidance (principles or choices).
-
-        Checks direct activity domain relationships.
+        Check if path step has guidance (a principle or choice template).
 
         Args:
             ps_uid: UID of the path step
@@ -472,9 +472,8 @@ class PsIntelligenceService(
     @with_error_handling("has_practice_opportunities", error_type="database", uid_param="ps_uid")
     async def has_practice_opportunities(self, ps_uid: str) -> Result[bool]:
         """
-        Check if path step has practice opportunities.
-
-        Checks all 6 activity domain relationships.
+        Check if path step has practice opportunities (a template in any of the
+        6 Activity domains).
 
         Args:
             ps_uid: UID of the path step

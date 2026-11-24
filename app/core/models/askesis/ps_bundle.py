@@ -62,8 +62,9 @@ class PsBundle:
 
     # Activity entities linked to this PS
     principles: tuple[Principle, ...] = ()  # via EMBODIES_PRINCIPLE
-    habits: tuple[Habit, ...] = ()  # via BUILDS_HABIT
-    tasks: tuple[Task, ...] = ()  # via ASSIGNS_TASK
+    # The learner's own habits and tasks from this step (source_path_step_uid)
+    habits: tuple[Habit, ...] = ()
+    tasks: tuple[Task, ...] = ()
     events: tuple[Event, ...] = ()  # via event templates
 
     # Real Ku↔Ku lateral edges touching bundle KUs (either endpoint), shaped

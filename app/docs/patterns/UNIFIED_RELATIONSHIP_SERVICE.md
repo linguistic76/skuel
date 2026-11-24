@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-11-08
+updated: 2026-11-24
 category: patterns
 related_skills:
 - base-analytics-service
@@ -207,7 +207,7 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 | `PRINCIPLES_CONFIG` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, SUPPORTS_GOAL, INFORMS_CHOICE |
 | **Curriculum (3)** |
 | `KU_CONFIG` | KNOWLEDGE | Ku | USES_KU / TRAINS_KU (incoming), CITES_RESOURCE |
-| `PS_CONFIG` | LEARNING | PathStep | CONTAINS_KNOWLEDGE, TRAINS_KU, REQUIRES_STEP, BUILDS_HABIT, ASSIGNS_TASK |
+| `PS_CONFIG` | LEARNING | PathStep | CONTAINS_KNOWLEDGE, TRAINS_KU, REQUIRES_STEP, HAS_HABIT_TEMPLATE, HAS_TASK_TEMPLATE |
 | `LP_CONFIG` | LEARNING | LearningPath | HAS_STEP, ALIGNED_WITH_GOAL, HAS_MILESTONE_EVENT |
 
 **Notes:**

@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from core.models.enums.entity_enums import EntityType
+from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import periodic_note_uid
 from core.services.ingestion.config import generate_ingestion_relationship_config
@@ -417,21 +418,14 @@ class TestLsFieldWiring:
         assert config["learning_path_uids"]["rel_type"] == "HAS_STEP"
         assert config["learning_path_uids"]["direction"] == "incoming"
 
-    def test_activity_wiring_present(self):
-        """Activity domain wiring on PathStep."""
+    def test_a_step_names_no_activity_instance(self):
+        """A step names Activities at the template grain only: no instance key is wired,
+        and the gate suggests each one's template key, which is wired."""
         config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
-        for field in (
-            "principle_uids",
-            "choice_uids",
-            "habit_uids",
-            "task_uids",
-            # The INSTANCE channel. Named ``event_template_uids`` until the
-            # template door landed; ``event_template_uids`` now targets an
-            # EventTemplate, which is what an author reading it expects.
-            "event_uids",
-        ):
-            assert field in config
+        for field, template_field in PathStep.SUGGESTED_KEYS.items():
+            assert field not in config
+            assert template_field in config
 
     def test_activity_template_wiring_present(self):
         """PathStep attaches all 6 Activity Templates, each at its own domain label."""
@@ -450,10 +444,10 @@ class TestLsFieldWiring:
             assert config[field]["direction"] == "outgoing"
 
     def test_total_field_count(self):
-        """PS should have 23 relationship fields wired (knowledge + steps + paths + activity wiring + activity templates + connections + exercises + resources)."""
+        """PS should have 17 relationship fields wired (knowledge + steps + paths + activity templates + connections + exercises + resources)."""
         config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
-        assert len(config) == 23
+        assert len(config) == 17
 
 
 # ============================================================================

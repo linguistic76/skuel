@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-11-13
+updated: 2026-11-24
 status: current
 category: domains
 tags:
@@ -156,10 +156,10 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 | `critical_habits` | `SUPPORTS_GOAL` (essentiality=critical) | Habit | Critical habits |
 | `optional_habits` | `SUPPORTS_GOAL` (essentiality=optional) | Habit | Optional habits |
 
-`SUPPORTS_GOAL` has three kinds of source — habits, principles and PathSteps (`goal_uids`) — so each
-goal view names its kind: a keyed read of `supporting_habits` returns habits only, and
-`supporting_principles` principles only. The three tier views are habit-only; a principle's edge
-stores `essentiality` but has no tier view. A PathStep that supports the goal is on no goal view.
+`SUPPORTS_GOAL` has two kinds of source — habits and principles — so each goal view names its kind:
+a keyed read of `supporting_habits` returns habits only, and `supporting_principles` principles
+only. The three tier views are habit-only; a principle's edge stores `essentiality` but has no tier
+view.
 
 `CONTRIBUTES_TO_GOAL` has two kinds of source, tasks and events, so the goal reads each as its own
 view: `contributing_tasks` names `Task`, `contributing_events` names `Event`. A cancelled

@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-11-14
+updated: 2026-11-24
 status: current
 category: domains
 tags:
@@ -25,7 +25,7 @@ related_skills:
 
 **Skill:** [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
 
-PathStep is THE curriculum content entity in SKUEL. It composes atomic Kus into a coherent learning experience with practice opportunities (habits, tasks, events, goals, principles, choices) wired directly on the step. A step is authored only in the content vault (ADR-091); the app reads it and records what learners do with it. As of 2026-04, the former `Lesson` entity has been merged into `PathStep`.
+PathStep is THE curriculum content entity in SKUEL. It composes atomic Kus into a coherent learning experience with practice opportunities (habits, tasks, events, goals, principles, choices) named on the step as Activity Templates — each learner who engages the step gets their own Activity from each. A step is authored only in the content vault (ADR-091); the app reads it and records what learners do with it. As of 2026-04, the former `Lesson` entity has been merged into `PathStep`.
 
 ## Service Architecture (ADR-030)
 
@@ -108,12 +108,7 @@ await ps_service.intelligence.get_practice_summary(step_uid)
 | `HAS_STEP` (incoming) | Incoming | Lp | Parent learning path (via `in_paths` key) |
 | `REQUIRES_STEP` | Outgoing | PathStep | Prerequisite steps |
 | `REQUIRES_KNOWLEDGE` | Outgoing | Ku | Prerequisite knowledge (`prerequisite_knowledge_uids`) |
-| `BUILDS_HABIT` | Outgoing | Habit | Practice via habits (authored directly on PS) |
-| `ASSIGNS_TASK` | Outgoing | Task | Practice via tasks (authored directly on PS) |
-| `SCHEDULES_EVENT` | Outgoing | Event | Practice via events (authored directly on PS) |
-| `SUPPORTS_GOAL` | Outgoing | Goal | Outcome alignment (authored directly on PS) |
-| `GUIDED_BY_PRINCIPLE` | Outgoing | Principle | Values-based guidance (authored directly on PS) |
-| `INFORMS_CHOICE` | Outgoing | Choice | Decision points (authored directly on PS) |
+| `HAS_HABIT_TEMPLATE` … `HAS_CHOICE_TEMPLATE` | Outgoing | HabitTemplate … ChoiceTemplate | Practice: the six Activity Template channels (`habit_template_uids`, …); each learner who engages the step gets their own Activity from each, stamped `source_path_step_uid` |
 | `MASTERED` (incoming) | Incoming | User | Derived: `PsMasteryService.handle_knowledge_mastered` writes it the moment the step's last Ku is mastered — same writer (`mark_mastered`) and shape (`mastered_at`, `mastery_score` 1.0, `confidence`, `method = 'derived'`) as a Ku's edge; the step's `IN_PROGRESS` enrollment is retired in the same write. A step teaching no Ku is never derived — it is a content defect the knowledge-health gauge lists (`../roadmap/done/zero-ku-step-mastery.md`) |
 
 ## Intelligence Methods
@@ -142,17 +137,28 @@ HTMX twins `GET /api/path-steps/journey-html` and `GET /api/path-steps/curriculu
 
 ## Cross-Domain: Practice Infrastructure
 
-Activity-domain relationships (BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, SUPPORTS_GOAL, GUIDED_BY_PRINCIPLE, INFORMS_CHOICE) live directly on PathSteps. LearningPaths aggregate these connections via `(LP)-[:HAS_STEP]->(PathStep)` traversal. Practice and guidance coverage is authored at the PathStep level and automatically aggregated at the LP level.
+A PathStep names its practice as Activity Templates — blueprints that belong to no one.
+Engaging the step gives the learner their own Activity from each, stamped with the step
+(`source_path_step_uid`); a step names no Activity itself, since an Activity is one learner's and
+the step is shared (the content vault refuses `habit_uids:` and its five siblings, naming the
+template key). LearningPaths aggregate their steps' templates via `(LP)-[:HAS_STEP]->(PathStep)`.
 
 ```
 PathStep
- ├── BUILDS_HABIT ──→ Habit    "Practice this daily"
- ├── ASSIGNS_TASK ──→ Task     "Do this concrete thing"
- ├── SCHEDULES_EVENT → Event   "Attend this experience"
- ├── SUPPORTS_GOAL ──→ Goal
- ├── GUIDED_BY_PRINCIPLE ──→ Principle
- └── INFORMS_CHOICE ──→ Choice
+ ├── HAS_HABIT_TEMPLATE ──→ HabitTemplate        "Practice this daily"
+ ├── HAS_TASK_TEMPLATE ──→ TaskTemplate          "Do this concrete thing"
+ ├── HAS_EVENT_TEMPLATE ──→ EventTemplate        "Attend this experience"
+ ├── HAS_GOAL_TEMPLATE ──→ GoalTemplate
+ ├── HAS_PRINCIPLE_TEMPLATE ──→ PrincipleTemplate
+ └── HAS_CHOICE_TEMPLATE ──→ ChoiceTemplate
+         ⋮ on engagement
+ learner's own Habit / Task / … {source_path_step_uid: <the step>}
 ```
+
+The two grains are read by two kinds of reader. Everyone sees what the step offers — its
+templates (`get_practice_summary`, `GET /api/path-steps/insights`, the step's `/context`). One
+learner's context holds their own Activities from the step (the rich context's
+`practice_habits` / `practice_tasks`, read off their `OWNS` edges by the stamp).
 
 ### Per-Step Practice Analysis
 
@@ -160,32 +166,16 @@ PathStep
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `get_practice_summary(ps_uid)` | `dict` | `{"habits": int, "tasks": int, "events": int, "goals": int, "principles": int, "choices": int, "total": int}` |
-| `practice_completeness_score(ps_uid)` | `float` | 0.0-1.0 — each of 6 activity domains contributes 1/6 |
-| `has_practice_opportunities(ps_uid)` | `bool` | True if any practice relationship exists on the step |
+| `get_practice_summary(ps_uid)` | `dict` | `{"habits": int, "tasks": int, "events": int, "goals": int, "principles": int, "choices": int, "total": int}` — the templates the step names per domain |
+| `practice_completeness_score(ps_uid)` | `float` | 0.0-1.0 — each of 6 activity domains the step names a template in contributes 1/6 |
+| `has_practice_opportunities(ps_uid)` | `bool` | True if the step names any template (staged) |
 
-These methods query activity relationships directly on the PathStep:
-
-```cypher
-MATCH (ps:Entity {uid: $ps_uid})
-OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(h)
-OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(t)
-OPTIONAL MATCH (ps)-[:SCHEDULES_EVENT]->(e)
-OPTIONAL MATCH (ps)-[:SUPPORTS_GOAL]->(g)
-OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(p)
-OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(c)
-RETURN count(DISTINCT h) as habits,
-       count(DISTINCT t) as tasks,
-       count(DISTINCT e) as events,
-       count(DISTINCT g) as goals,
-       count(DISTINCT p) as principles,
-       count(DISTINCT c) as choices
-```
+Backend: `PsIntelligenceBackend.fetch_practice_counts`, one `OPTIONAL MATCH` per template channel.
 
 ### LP-Level Consumption
 
 These per-step methods are the building blocks for LP-level practice gap analysis.
-When learning paths contain PathSteps with practice relationships,
+When learning paths contain PathSteps that name templates,
 `LpIntelligenceService.identify_practice_gaps()` iterates through the path's steps
 and aggregates these scores into a path-wide coverage report.
 
@@ -193,9 +183,9 @@ See: [LP Domain: Future Practice Gap Analysis](lp.md#future-practice-gap-analysi
 
 ### Knowledge Substance Connection
 
-Practice relationships are how SKUEL measures whether knowledge is being *lived*, not
-just studied. A step with all three types (habit + task + event) has full practice coverage.
-A step with none is pure theory — valuable but incomplete without embodiment.
+Practice is how SKUEL measures whether knowledge is being *lived*, not just studied. A step
+that names a template in all six domains has full practice coverage. A step with none is pure
+theory — valuable but incomplete without embodiment.
 
 See: [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md)
 
