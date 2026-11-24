@@ -8,8 +8,9 @@
  * phase, but Alpine initializes the swapped tree first, so the component
  * would read undefined (uid='' broke Start learning, 2026-07-05).
  *
- * Owns: progress state (not_started → learning → read), bookmark
- * toggle, deps accordion open/close.
+ * Owns: progress state (not_started → learning → read; mastered is the
+ * server's, derived from the step's Kus, and is the only state shown as
+ * Completed), bookmark toggle, deps accordion open/close.
  *
  * All mutations POST via htmx.ajax() — skuel.js attaches X-CSRF-Token
  * to every htmx request automatically, so no manual token wiring needed.
@@ -72,7 +73,8 @@
       },
 
       get progressPct() {
-        return this.status === 'read' ? 100 : this.status === 'learning' ? 55 : 0;
+        if (this.status === 'mastered') return 100;
+        return this.status === 'read' ? 80 : this.status === 'learning' ? 55 : 0;
       },
       get allCompleted() {
         return this.blocking.every(function (d) { return d.status === 'completed'; });

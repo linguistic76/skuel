@@ -284,7 +284,8 @@ def create_path_steps_ui_routes(
 
         state=learning, review=false → new enrollment (mark_in_progress, cap enforced, fires PathStepEnrolled)
         state=learning, review=true  → Review again (mark_as_learning, no cap, no event)
-        state=read                   → mark_as_read
+        state=read                   → mark_as_read (the step stays in progress: only
+                                       mastering it frees an enrollment slot)
         Alpine updates the UI optimistically; on success the empty response is
         discarded. Failures (enrollment cap, write errors) return an error status
         with X-Toast headers — ps-detail.js rolls the optimistic state back and
@@ -319,7 +320,7 @@ def create_path_steps_ui_routes(
                             Errors.business(
                                 rule="ps_enrollment_cap",
                                 message="You can study at most 2 Path Steps at once"
-                                " - mark one as read to start another.",
+                                " - master one to start another.",
                             )
                         )
                     )

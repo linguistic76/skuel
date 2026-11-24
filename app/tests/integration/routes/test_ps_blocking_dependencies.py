@@ -1,10 +1,11 @@
 """Blocking dependencies, over a real graph.
 
 The PathStep page seeds its accordion from one read: the step's published direct
-prerequisites, each with whether this reader completed it. Mike's ruling (2026-11-06):
-completed is the rule the page's hero card uses, marked as read or mastered, so a learner
-never sees a step shown as Completed while it still blocks the next one. The module pins
-that against the hero card itself, for every state a prerequisite can be in.
+prerequisites, each with whether this reader completed it. A prerequisite is what the
+learner masters before the step that requires it is undertaken, so completed is this
+reader's MASTERED edge, the one state the page's hero card shows as Completed; a
+prerequisite only marked as read still blocks, and its hero card reads Read. The module
+pins that against the hero card itself, for every state a prerequisite can be in.
 
 ``GET /api/path-steps/prerequisites`` walks the same edges transitively and takes the same
 ruling on a draft: it neither shows nor counts, and nor does what lies only beyond one.
@@ -235,9 +236,9 @@ async def test_each_prerequisite_reads_this_readers_state(reader: httpx.AsyncCli
         UNTOUCHED: "blocked",
         IN_PROGRESS: "blocked",
         OTHERS_ONLY: "blocked",
-        MARKED_READ: "completed",
+        MARKED_READ: "blocked",
         MASTERED: "completed",
-        KU_READ: "completed",
+        KU_READ: "blocked",
     }
 
 
@@ -249,11 +250,39 @@ async def test_a_draft_prerequisite_neither_shows_nor_blocks(reader: httpx.Async
 async def test_a_step_shown_as_completed_never_blocks_the_next_one(
     reader: httpx.AsyncClient, prerequisite: str
 ) -> None:
-    """The ruling itself: the hero card and the accordion agree, state by state."""
+    """The hero card and the accordion agree, state by state: Completed is mastered."""
     hero = (await _seed(reader, prerequisite))["progress_state"]
     status = (await _statuses(reader, TARGET))[prerequisite]
 
-    assert (hero == "read") == (status == "completed"), (hero, status)
+    assert (hero == "mastered") == (status == "completed"), (hero, status)
+
+
+@pytest.mark.parametrize(
+    ("step", "state"),
+    [
+        (UNTOUCHED, "not_started"),
+        (IN_PROGRESS, "learning"),
+        (MARKED_READ, "read"),
+        (MASTERED, "mastered"),
+    ],
+)
+async def test_the_hero_card_reads_a_marked_read_step_as_read_and_only_mastery_as_completed(
+    reader: httpx.AsyncClient, step: str, state: str
+) -> None:
+    assert (await _seed(reader, step))["progress_state"] == state
+
+
+async def test_the_accordion_and_the_chain_door_count_the_same_prerequisites_as_met(
+    reader: httpx.AsyncClient,
+) -> None:
+    """One rule for a met prerequisite: the accordion's completed rows are the chain door's mastered."""
+    statuses = await _statuses(reader, TARGET)
+    chain = await reader.get("/api/path-steps/prerequisites", params={"step_uid": TARGET})
+
+    assert chain.status_code == 200, chain.text[:300]
+    met = [uid for uid, status in statuses.items() if status == "completed"]
+    assert len(met) == chain.json()["prerequisites_mastered"]
+    assert len(statuses) - len(met) == chain.json()["unmet_count"]
 
 
 async def test_a_prerequisite_links_to_its_own_kinds_page(reader: httpx.AsyncClient) -> None:

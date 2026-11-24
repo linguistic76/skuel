@@ -154,6 +154,16 @@ class TestProgressEnrollmentCap:
         assert "2 Path Steps" in response.headers["X-Toast-Message"]
         mastery.mark_in_progress.assert_not_awaited()
 
+    def test_the_cap_names_mastery_as_what_frees_a_slot(self) -> None:
+        """Marking a step as read keeps it in progress, so the refusal never offers it."""
+        client = _client_for(_mastery_mock(in_progress_count=2))
+
+        response = _post(client, f"/explore/ps/{_PS_UID}/progress", {"state": "learning"})
+
+        message = response.headers["X-Toast-Message"]
+        assert "master one to start another" in message
+        assert "read" not in message
+
     def test_learning_under_cap_enrolls_and_returns_200(self) -> None:
         mastery = _mastery_mock(in_progress_count=1)
         client = _client_for(mastery)

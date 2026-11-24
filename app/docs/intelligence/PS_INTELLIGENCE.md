@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-06
+updated: 2026-11-24
 ---
 
 # PsIntelligenceService - Practice, Readiness & Per-User Substance
@@ -27,7 +27,7 @@ Every `backend` read below is on `PsIntelligenceBackend`. "PLANNED" means no pro
 | `get_practice_summary(ps_uid)` | How many of each practice edge the step carries: 7 keys, the six domains plus `total` | `fetch_practice_counts` (the six edges below) | `get_domain_insights`, `practice_completeness_score`, `LpIntelligenceService.identify_practice_gaps` |
 | `practice_completeness_score(ps_uid)` | The fraction of the six domains present, 0.0-1.0. Each counts once, so a step with five habits and nothing else scores 1/6 | `get_practice_summary` | `get_domain_insights` |
 | `has_prerequisites(ps_uid)` | Does any `REQUIRES_STEP` or `REQUIRES_KNOWLEDGE` edge leave the step? Reads no edge property | `backend.has_prerequisites` | `get_domain_insights` |
-| `get_prerequisite_statuses(ps_uid, user_uid)` | Each published direct prerequisite (`REQUIRES_STEP` or `REQUIRES_KNOWLEDGE`), and whether this reader completed it: marked as read or mastered. A draft is withheld, and with no reader nothing is completed | `fetch_prerequisite_statuses` | `GET /explore/ps/{uid}/content` (the PathStep page's "Blocking dependencies") |
+| `get_prerequisite_statuses(ps_uid, user_uid)` | Each published direct prerequisite (`REQUIRES_STEP` or `REQUIRES_KNOWLEDGE`), and whether this reader completed it: mastered (marking it as read does not meet it). A draft is withheld, and with no reader nothing is completed | `fetch_prerequisite_statuses` | `GET /explore/ps/{uid}/content` (the PathStep page's "Blocking dependencies") |
 | `is_ready(ps_uid, completed_step_uids)` | Is every `REQUIRES_STEP` target in the caller's set? | `fetch_prerequisite_step_uids` | PLANNED |
 | `calculate_guidance_strength(ps_uid)` | 0.0-1.0: `min(0.4, principles × 0.15) + min(0.6, choices × 0.2)` | `fetch_guidance_counts` (`GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE`) | PLANNED |
 | `has_guidance(ps_uid)` | Does a `GUIDED_BY_PRINCIPLE` or `INFORMS_CHOICE` edge leave the step? | `backend.has_guidance` | PLANNED |

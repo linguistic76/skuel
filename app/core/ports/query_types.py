@@ -814,7 +814,7 @@ class PrerequisiteChainData(TypedDict):
         prerequisites_mastered: How many the user has mastered
         unmet_count: total_prerequisites - prerequisites_mastered. Unmet means not
             mastered: a prerequisite the reader only marked as read is still unmet,
-            though the PathStep page shows it as Completed
+            and the PathStep page shows it as Blocked
         has_prerequisites: Whether any prerequisites exist
     """
 
@@ -1950,8 +1950,9 @@ class PsEngagementCountsRow(TypedDict):
 class PsPrerequisiteStatusRow(TypedDict):
     """Row shape for fetch_prerequisite_statuses() — one published direct prerequisite.
 
-    ``completed`` is the reader's: marked as read or mastered, the same two edges the
-    PathStep page's hero card reads as Completed. With no reader it is False.
+    ``completed`` is the reader's MASTERED edge, the one edge the PathStep page's hero
+    card reads as Completed; marking a prerequisite as read does not meet it. With no
+    reader it is False.
     """
 
     uid: str

@@ -173,6 +173,18 @@ async def test_mastery_is_terminal_for_the_enrollment(neo4j_driver, backend, bus
     assert batch.is_ok and set(batch.value.values()) == {LearningState.MASTERED}
 
 
+@pytest.mark.asyncio
+async def test_marking_a_step_as_read_keeps_its_enrollment_slot(
+    neo4j_driver, backend, bus, mastery
+) -> None:
+    """Only mastery frees a slot, which is what the cap's refusal tells the learner."""
+    assert (await mastery.mark_as_read(USER, STEP)).is_ok
+
+    assert await _enrolled(neo4j_driver, STEP), "a step read but not mastered is still studied"
+    assert (await mastery.count_in_progress_steps(USER)).value == 1
+    assert await _step_edges(neo4j_driver, STEP) == [], "reading a step does not master it"
+
+
 def _ku_masteries(bus: InMemoryEventBus) -> list[KnowledgeMastered]:
     return [e for e in bus.get_event_history() if isinstance(e, KnowledgeMastered)]
 
