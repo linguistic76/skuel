@@ -112,7 +112,9 @@ from core.ports.query_types import (
     RequiredKnowledgeResult,
     RevisionChainResult,
     RootOrganizerResult,
+    StepHoldRow,
     StepMasteryGapRow,
+    StepStartRow,
     UserMasteryResult,
     UserProgressResult,
 )
@@ -859,7 +861,7 @@ class PsOperations(
 
     async def mark_in_progress(
         self, user_uid: UserUID, ku_uid: str, now: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {mastered}
+    ) -> Result[list[StepStartRow]]:
         """Put a published PathStep into the user's in-progress set, refreshing last activity.
 
         One record per user/step pair and safe to repeat — nothing accumulates, and
@@ -870,9 +872,7 @@ class PsOperations(
         """
         ...
 
-    async def mark_as_learning(
-        self, user_uid: UserUID, ku_uid: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {held, mastered}
+    async def mark_as_learning(self, user_uid: UserUID, ku_uid: str) -> Result[list[StepHoldRow]]:
         """Take back the user's mark as read on a step they hold in progress (Review again).
 
         Undertakes nothing: a step the user never started, and one they mastered, are
@@ -880,9 +880,7 @@ class PsOperations(
         """
         ...
 
-    async def mark_as_read(
-        self, user_uid: UserUID, ku_uid: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {held, mastered}
+    async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[list[StepHoldRow]]:
         """Mark a published PathStep the user holds in progress as read.
 
         Idempotent — the original marked-at time survives a repeat. A step the user

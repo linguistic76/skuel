@@ -3522,6 +3522,22 @@ class MasteredWriteRow(TypedDict):
     was_mastered: bool
 
 
+class StepStartRow(TypedDict):
+    """What ``mark_in_progress`` reports for a published step: whether the learner had
+    mastered it, in which case nothing was written (mastery is the terminal state)."""
+
+    mastered: bool
+
+
+class StepHoldRow(TypedDict):
+    """What the writes that need a step held in progress report — mark as read and
+    Review again: ``held``, whether the learner holds the step's IN_PROGRESS edge (only
+    then was anything written), and ``mastered``, whether they mastered it."""
+
+    held: bool
+    mastered: bool
+
+
 class MasteredEntityUidRow(TypedDict):
     """Return shape for UserProgressBackend.get_mastered_entity_uids() — the uid of
     one entity the user has mastered, a Ku or a PathStep (the query's one alias)."""
@@ -4682,6 +4698,8 @@ __all__ = [
     "PsPracticeCountsRow",
     "PsGuidanceCountsRow",
     "PsPrerequisiteStatusRow",
+    "StepHoldRow",
+    "StepStartRow",
     "PsTaughtKuRow",
     # LP Intelligence Result Types
     "LpDomainInsights",

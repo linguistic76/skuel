@@ -31,7 +31,12 @@ if TYPE_CHECKING:
     import logging
 
     from core.models.type_hints import Neo4jProperties
-    from core.ports.query_types import MasteredWriteRow, StepMasteryGapRow
+    from core.ports.query_types import (
+        MasteredWriteRow,
+        StepHoldRow,
+        StepMasteryGapRow,
+        StepStartRow,
+    )
 
 
 # The far end of every learner-door write here (VIEWED, IN_PROGRESS, MARKED_AS_READ,
@@ -47,6 +52,20 @@ _MATCH_PUBLISHED_STEP = (
 
 def _step_params(user_uid: UserUID, step_uid: str, **extra: str | int) -> dict[str, str | int]:
     return {"user_uid": user_uid, "step_uid": step_uid, **_PUBLISHED_STEP_PARAMS, **extra}
+
+
+def _to_step_start_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[StepStartRow]:
+    """Project ``mark_in_progress``'s rows onto StepStartRow (KeyError on alias drift)."""
+    return [{"mastered": bool(row["mastered"])} for row in records]
+
+
+def _to_step_hold_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[StepHoldRow]:
+    """Project a held-step write's rows onto StepHoldRow (KeyError on alias drift)."""
+    return [{"held": bool(row["held"]), "mastered": bool(row["mastered"])} for row in records]
 
 
 def to_mastered_write_rows(
@@ -115,7 +134,7 @@ class _LearningStateMixin:
 
     async def mark_in_progress(
         self, user_uid: UserUID, ku_uid: str, now: str
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[StepStartRow]]:
         """MERGE IN_PROGRESS onto a published PathStep the user has not mastered.
 
         Mastery is the terminal learning state, so a mastered step is left alone. One
@@ -136,11 +155,12 @@ class _LearningStateMixin:
         )
         RETURN mastered
         """
-        return await self.execute_query(query, _step_params(user_uid, ku_uid, now=now))
+        result = await self.execute_query(query, _step_params(user_uid, ku_uid, now=now))
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(_to_step_start_rows(result.value or []))
 
-    async def mark_as_learning(
-        self, user_uid: UserUID, ku_uid: str
-    ) -> Result[list[Neo4jProperties]]:
+    async def mark_as_learning(self, user_uid: UserUID, ku_uid: str) -> Result[list[StepHoldRow]]:
         """Delete MARKED_AS_READ from a published PathStep the user holds IN_PROGRESS (Review again).
 
         Writes only when the user holds the step's IN_PROGRESS edge, so it undertakes
@@ -159,9 +179,12 @@ class _LearningStateMixin:
         )
         RETURN ip IS NOT NULL AS held, EXISTS {{ (u)-[:MASTERED]->(ps) }} AS mastered
         """
-        return await self.execute_query(query, _step_params(user_uid, ku_uid))
+        result = await self.execute_query(query, _step_params(user_uid, ku_uid))
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(_to_step_hold_rows(result.value or []))
 
-    async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[list[Neo4jProperties]]:
+    async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[list[StepHoldRow]]:
         """MERGE MARKED_AS_READ onto a published PathStep the user holds IN_PROGRESS.
 
         A step the user never started is left alone. One row for a published step,
@@ -177,7 +200,10 @@ class _LearningStateMixin:
         )
         RETURN ip IS NOT NULL AS held, EXISTS {{ (user)-[:MASTERED]->(ps) }} AS mastered
         """
-        return await self.execute_query(query, _step_params(user_uid, ku_uid))
+        result = await self.execute_query(query, _step_params(user_uid, ku_uid))
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(_to_step_hold_rows(result.value or []))
 
     async def mark_mastered(
         self, user_uid: UserUID, entity_uid: str, now: str, mastery_score: float, method: str

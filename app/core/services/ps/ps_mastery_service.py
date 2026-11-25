@@ -36,7 +36,7 @@ from core.utils.result_simplified import ErrorContext, Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import PsOperations
-    from core.ports.query_types import StepMasteryGapRow
+    from core.ports.query_types import StepHoldRow, StepMasteryGapRow
     from core.services.ps.ps_prerequisite_gate import PsPrerequisiteGate
 
 
@@ -402,7 +402,7 @@ class PsMasteryService:
         return Result.ok(True)
 
     @staticmethod
-    def _refuse_unheld(rows: list[dict[str, Any]] | None, step_uid: str) -> ErrorContext | None:
+    def _refuse_unheld(rows: list[StepHoldRow] | None, step_uid: str) -> ErrorContext | None:
         """The refusal for a write that needs the step held in progress, or None if it was."""
         if not rows:
             return step_not_found(step_uid)
