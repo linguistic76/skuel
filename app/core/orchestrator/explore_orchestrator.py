@@ -148,7 +148,7 @@ class ExploreOrchestrator:
     async def get_ps_prerequisite_statuses(
         self, ps_uid: str, user_uid: UserUID | None
     ) -> Result[list[PsPrerequisiteStatusRow]]:
-        """A step's published direct prerequisites, each with whether this reader completed it."""
+        """A step's published prerequisite chain, each with whether this reader mastered it."""
         return await self._ps.intelligence.get_prerequisite_statuses(ps_uid, user_uid)
 
     async def get_user_step_context(

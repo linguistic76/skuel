@@ -116,45 +116,66 @@ class _LearningStateMixin:
     async def mark_in_progress(
         self, user_uid: UserUID, ku_uid: str, now: str
     ) -> Result[list[Neo4jProperties]]:
-        """MERGE IN_PROGRESS onto a published PathStep."""
+        """MERGE IN_PROGRESS onto a published PathStep the user has not mastered.
+
+        Mastery is the terminal learning state, so a mastered step is left alone. One
+        row for a published step, reporting ``mastered``; no row for any other uid.
+        """
         query = f"""
         MATCH (u:User {{uid: $user_uid}})
         {_MATCH_PUBLISHED_STEP}
-        MERGE (u)-[r:IN_PROGRESS]->(ps)
-        ON CREATE SET
-            r.started_at = datetime($now),
-            r.last_activity_at = datetime($now),
-            r.progress_score = 0.0
-        ON MATCH SET
-            r.last_activity_at = datetime($now)
-        RETURN true as success
+        WITH u, ps, EXISTS {{ (u)-[:MASTERED]->(ps) }} AS mastered
+        FOREACH (_ IN CASE WHEN mastered THEN [] ELSE [1] END |
+            MERGE (u)-[r:IN_PROGRESS]->(ps)
+            ON CREATE SET
+                r.started_at = datetime($now),
+                r.last_activity_at = datetime($now),
+                r.progress_score = 0.0
+            ON MATCH SET
+                r.last_activity_at = datetime($now)
+        )
+        RETURN mastered
         """
         return await self.execute_query(query, _step_params(user_uid, ku_uid, now=now))
 
     async def mark_as_learning(
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Delete MARKED_AS_READ and ensure IN_PROGRESS on a published PathStep (Review again)."""
+        """Delete MARKED_AS_READ from a published PathStep the user holds IN_PROGRESS (Review again).
+
+        Writes only when the user holds the step's IN_PROGRESS edge, so it undertakes
+        nothing new: a step never started, and a mastered one (whose IN_PROGRESS its
+        mastery retired), are left alone. One row for a published step, reporting
+        ``held`` and ``mastered``; no row for any other uid.
+        """
         query = f"""
         MATCH (u:User {{uid: $user_uid}})
         {_MATCH_PUBLISHED_STEP}
+        OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(ps)
         OPTIONAL MATCH (u)-[r:MARKED_AS_READ]->(ps)
-        DELETE r
-        MERGE (u)-[ip:IN_PROGRESS]->(ps)
-        ON CREATE SET ip.started_at = datetime(), ip.last_activity_at = datetime(), ip.progress_score = 0.0
-        ON MATCH SET ip.last_activity_at = datetime()
-        RETURN true AS success
+        FOREACH (_ IN CASE WHEN ip IS NULL THEN [] ELSE [1] END |
+            DELETE r
+            SET ip.last_activity_at = datetime()
+        )
+        RETURN ip IS NOT NULL AS held, EXISTS {{ (u)-[:MASTERED]->(ps) }} AS mastered
         """
         return await self.execute_query(query, _step_params(user_uid, ku_uid))
 
     async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """MERGE MARKED_AS_READ onto a published PathStep."""
+        """MERGE MARKED_AS_READ onto a published PathStep the user holds IN_PROGRESS.
+
+        A step the user never started is left alone. One row for a published step,
+        reporting ``held`` and ``mastered``; no row for any other uid.
+        """
         query = f"""
         MATCH (user:User {{uid: $user_uid}})
         {_MATCH_PUBLISHED_STEP}
-        MERGE (user)-[r:MARKED_AS_READ]->(ps)
-        ON CREATE SET r.marked_at = datetime()
-        RETURN r
+        OPTIONAL MATCH (user)-[ip:IN_PROGRESS]->(ps)
+        FOREACH (_ IN CASE WHEN ip IS NULL THEN [] ELSE [1] END |
+            MERGE (user)-[r:MARKED_AS_READ]->(ps)
+            ON CREATE SET r.marked_at = datetime()
+        )
+        RETURN ip IS NOT NULL AS held, EXISTS {{ (user)-[:MASTERED]->(ps) }} AS mastered
         """
         return await self.execute_query(query, _step_params(user_uid, ku_uid))
 

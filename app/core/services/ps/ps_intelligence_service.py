@@ -38,6 +38,7 @@ from core.services.knowledge.user_substance import (
     substance_breakdown,
     user_substance_score,
 )
+from core.services.ps.ps_prerequisite_gate import PREREQUISITE_GATE_DEPTH
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -256,16 +257,18 @@ class PsIntelligenceService(
 
     @with_error_handling("get_prerequisite_statuses", error_type="database", uid_param="ps_uid")
     async def get_prerequisite_statuses(
-        self, ps_uid: str, user_uid: str | None
+        self, ps_uid: str, user_uid: str | None, depth: int = PREREQUISITE_GATE_DEPTH
     ) -> Result[list[PsPrerequisiteStatusRow]]:
         """
-        A step's published direct prerequisites, each with whether this reader completed it.
+        A step's published prerequisite chain, each with whether this reader completed it.
 
-        Completed is mastered: a prerequisite is what the learner masters before the
-        step that requires it is undertaken. It is the rule the PathStep page's hero
-        card shows as Completed and the one ``unmet_count`` counts, so a step shown as
-        Completed never blocks the next one. A draft prerequisite is withheld. With no
-        reader, none is completed.
+        The chain is what the step requires directly and through each prerequisite,
+        nearest-first. Completed is mastered: a prerequisite is what the learner masters
+        before the step that requires it is undertaken. It is the rule the PathStep
+        page's hero card shows as Completed, the one ``unmet_count`` counts and the one
+        the prerequisite gate admits by, at the gate's depth by default, so a step the
+        page shows as ready is one every door admits. A draft prerequisite is withheld.
+        With no reader, none is completed.
 
         Backend: PsIntelligenceBackend.fetch_prerequisite_statuses
         """
@@ -273,7 +276,7 @@ class PsIntelligenceService(
         if backend_result.is_error:
             return Result.fail(backend_result)
 
-        return await backend_result.value.fetch_prerequisite_statuses(ps_uid, user_uid)
+        return await backend_result.value.fetch_prerequisite_statuses(ps_uid, user_uid, depth)
 
     # ========================================================================
     # PRACTICE ANALYSIS

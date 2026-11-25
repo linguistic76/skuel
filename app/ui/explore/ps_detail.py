@@ -344,25 +344,32 @@ def _action_bar(uid: str) -> FT:
             # Primary action (right)
             Div(
                 # Start learning / Mark as read
+                # Disabled while a prerequisite blocks a step not yet started: the
+                # server refuses the start the same way (PsPrerequisiteGate).
                 Button(
                     Span(
                         "",
-                        **{"x-text": "status === 'learning' ? 'Mark as read' : 'Start learning'"},
+                        **{"x-text": "primaryLabel"},
                     ),
-                    Icon("arrow-right", cls="w-[15px] h-[15px]"),
+                    Icon("arrow-right", cls="w-[15px] h-[15px]", **{"x-show": "!startBlocked"}),  # type: ignore[arg-type]  # boundary: fasthtml-elements
+                    Icon("lock", cls="w-[15px] h-[15px]", **{"x-show": "startBlocked"}),  # type: ignore[arg-type]  # boundary: fasthtml-elements
                     type="button",
                     cls=(
                         "inline-flex items-center gap-2 px-[18px] py-[9px] rounded-lg "
                         "bg-primary text-primary-foreground "
                         "text-13 font-semibold hover:opacity-90 "
+                        "disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed "
+                        "disabled:hover:opacity-100 "
                         "focus:outline-hidden focus:shadow-focus whitespace-nowrap"
                     ),
                     **{
                         "x-show": "status === 'not_started' || status === 'learning'",
+                        ":disabled": "startBlocked",
                         "@click": "advance()",
                     },
                 ),
-                # Review again (read or mastered)
+                # Review again (read only: a mastered step is completed, and its
+                # mastery retired the in-progress hold Review again returns to)
                 Button(
                     Icon("rotate-ccw", cls="w-3.5 h-3.5"),
                     " Review again",
@@ -374,7 +381,7 @@ def _action_bar(uid: str) -> FT:
                         "hover:bg-muted focus:outline-hidden focus:shadow-focus"
                     ),
                     **{
-                        "x-show": "status === 'read' || status === 'mastered'",
+                        "x-show": "status === 'read'",
                         "@click": "reviewAgain()",
                     },
                 ),
@@ -782,14 +789,19 @@ def _relationships_section(uid: str) -> FT:
     )
 
 
-def _blocking_seed(prerequisites: list[PsPrerequisiteStatusRow]) -> list[dict[str, str | None]]:
-    """The accordion's rows, for the Alpine seed."""
+def _blocking_seed(
+    prerequisites: list[PsPrerequisiteStatusRow],
+) -> list[dict[str, str | bool | None]]:
+    """The accordion's rows, for the Alpine seed: the step's whole prerequisite chain,
+    nearest-first, the rows the prerequisite gate admits by. ``earlier`` marks one the
+    step requires through another prerequisite."""
     return [
         {
             "uid": row["uid"],
             "title": row["title"],
             "href": entity_detail_href(row["entity_type"], row["uid"]),
             "status": "completed" if row["completed"] else "blocked",
+            "earlier": row["distance"] > 1,
         }
         for row in prerequisites
     ]
@@ -876,13 +888,21 @@ def _deps_accordion() -> FT:
                                 "x-show": "dep.status !== 'completed'",
                             },
                         ),
-                        A(
-                            "",
-                            cls="flex-1 text-13 font-semibold text-foreground/85 hover:underline",
-                            **{
-                                ":href": "dep.href",
-                                "x-text": "dep.title",
-                            },
+                        Span(
+                            A(
+                                "",
+                                cls="text-13 font-semibold text-foreground/85 hover:underline",
+                                **{
+                                    ":href": "dep.href",
+                                    "x-text": "dep.title",
+                                },
+                            ),
+                            Span(
+                                "Earlier prerequisite",
+                                cls="block text-11 text-muted-foreground",
+                                **{"x-show": "dep.earlier"},
+                            ),
+                            cls="flex-1 min-w-0",
                         ),
                         Span(
                             "",

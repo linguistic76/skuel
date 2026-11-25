@@ -63,6 +63,7 @@ from core.models.enums.metadata_enums import SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
+from core.services.ps.ps_prerequisite_gate import PREREQUISITE_GATE_DEPTH
 from core.utils.result_simplified import Result
 from tests.helpers.production_backends import build_production_backends
 
@@ -495,6 +496,21 @@ def _payload(result: Result[Payload], label: str) -> Payload:
     return payload
 
 
+async def _chain_and_statuses(backends: Any, step_uid: str) -> Result[Payload]:
+    """Both reads of the prerequisite chain builder, as one payload."""
+    chain = await backends["ps_backend"].prerequisite_chain_with_distance(
+        step_uid, PREREQUISITE_EDGES
+    )
+    if chain.is_error:
+        return chain
+    statuses = await backends["ps_intelligence_backend"].fetch_prerequisite_statuses(
+        step_uid, USER, PREREQUISITE_GATE_DEPTH
+    )
+    if statuses.is_error:
+        return statuses
+    return Result.ok({"chain": chain.value, "statuses": statuses.value})
+
+
 def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
     """Every covered surface as a zero-arg callable, keyed by its registry key.
 
@@ -521,22 +537,15 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
         return Result.ok(await cf.fetch_source_pathstep(STEP_DRAFT, USER))
 
     return {
-        # A published step asks for a draft step first; the reader's marked-as-read
+        # The transitive chain from a published step that asks for a draft step first:
+        # the draft is a hop on it as well as a row of it. Measured through both of the
+        # builder's reads — the bare chain, and the learner's statuses on it (the PathStep
+        # page, the chain door and the prerequisite gate), whose reader's marked-as-read
         # edge to the draft must not name it either.
-        (
-            "adapters.persistence.neo4j.ps_intelligence_backend",
-            "PsIntelligenceBackend.fetch_prerequisite_statuses",
-        ): partial(
-            backends["ps_intelligence_backend"].fetch_prerequisite_statuses,
-            STEP_REQUIRES_DRAFT,
-            USER,
-        ),
-        # The transitive chain from the same step: the draft is a hop on it as well as a
-        # row of it.
         (
             "adapters.persistence.neo4j.query.cypher.crud_queries",
             "build_prerequisite_chain_query",
-        ): partial(ps.prerequisite_chain_with_distance, STEP_REQUIRES_DRAFT, PREREQUISITE_EDGES),
+        ): partial(_chain_and_statuses, backends, STEP_REQUIRES_DRAFT),
         # The same edges read the other way: a draft that requires this step stays unnamed.
         (
             "adapters.persistence.neo4j.backends.curriculum_backends",
@@ -887,10 +896,6 @@ def test_registry_and_coverage_agree() -> None:
 
 
 _COVERED_KEYS = (
-    (
-        "adapters.persistence.neo4j.ps_intelligence_backend",
-        "PsIntelligenceBackend.fetch_prerequisite_statuses",
-    ),
     (
         "adapters.persistence.neo4j.query.cypher.crud_queries",
         "build_prerequisite_chain_query",

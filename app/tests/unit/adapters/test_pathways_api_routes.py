@@ -19,7 +19,7 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.pathways_api import create_pathways_api_routes
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorContext, Errors, Result
 
 _USER_UID = "user_owner"
 _PATH_UID = "lp.core.stoicism"
@@ -42,6 +42,7 @@ class _Harness:
     learning: MagicMock
     users: MagicMock
     progress: MagicMock
+    ps: MagicMock
 
 
 def _make_harness(
@@ -49,6 +50,7 @@ def _make_harness(
     *,
     authenticated: bool = True,
     knowledge_uids: tuple[str, ...] = ("ku_a", "ku_b"),
+    held: Result[None] | None = None,
 ) -> _Harness:
     app, rt = fast_app(pico=False, default_hdrs=False)
 
@@ -63,6 +65,10 @@ def _make_harness(
 
     user_progress = MagicMock()
 
+    # The caller holds the step in progress; default = admitted.
+    ps_service = MagicMock()
+    ps_service.mastery.require_held = AsyncMock(return_value=held or Result.ok(None))
+
     if authenticated:
         monkeypatch.setattr("adapters.inbound.pathways_api.require_authenticated_user", _fake_auth)
 
@@ -71,13 +77,14 @@ def _make_harness(
         learning_service,
         user_service=user_service,
         user_progress=user_progress,
-        ps_service=MagicMock(),
+        ps_service=ps_service,
     )
     return _Harness(
         client=TestClient(app),
         learning=learning_service,
         users=user_service,
         progress=user_progress,
+        ps=ps_service,
     )
 
 
@@ -160,6 +167,32 @@ class TestProgressRecording:
         )
 
         assert response.status_code == 400
+        harness.users.record_knowledge_mastery.assert_not_awaited()
+        harness.users.record_knowledge_progress.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        ("refusal", "status"),
+        [
+            (Errors.not_found("PathStep", _STEP_UID), 404),
+            (Errors.business(rule="ps_not_started", message="Start this step first."), 422),
+        ],
+        ids=["not-a-published-step", "not-started"],
+    )
+    def test_a_step_the_caller_does_not_hold_records_nothing(
+        self, monkeypatch: pytest.MonkeyPatch, refusal: ErrorContext, status: int
+    ) -> None:
+        """Self-reported mastery reaches only a step its learner was admitted to."""
+        harness = _make_harness(monkeypatch, held=Result.fail(refusal))
+
+        response = _post_json(
+            harness.client,
+            "/api/pathways/progress",
+            {"step_uid": _STEP_UID, "mastery_level": 0.9, "completed": True},
+        )
+
+        assert response.status_code == status, response.text
+        harness.ps.mastery.require_held.assert_awaited_once_with(_USER_UID, _STEP_UID)
+        harness.learning.get_step.assert_not_awaited()
         harness.users.record_knowledge_mastery.assert_not_awaited()
         harness.users.record_knowledge_progress.assert_not_awaited()
 

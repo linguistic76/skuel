@@ -99,10 +99,13 @@ def create_pathways_api_routes(
     @csrf_protected
     @boundary_handler(success_status=201)
     async def update_progress_route(request: Request) -> Result[dict[str, Any]]:
-        """Update progress for a path step.
+        """Update progress for a path step the caller holds in progress.
 
         Resolves the step's knowledge UIDs and records mastery or progress
         for each via UserService delegation to UserProgressRecorderService.
+        Only on a published step the caller started (``PsMasteryService.require_held``),
+        so a self-reported mastery reaches only a step its learner was admitted to past
+        the prerequisite gate; a step never started and a completed one are refused.
         """
         user_uid = require_authenticated_user(request)
 
@@ -112,6 +115,10 @@ def create_pathways_api_routes(
         if parsed.is_error:
             return Result.fail(parsed)
         progress_req = parsed.value
+
+        held = await ps_service.mastery.require_held(user_uid, progress_req.step_uid)
+        if held.is_error:
+            return Result.fail(held)
 
         # Resolve step to knowledge UIDs
         step_found = require_found(

@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from fasthtml.common import FT, Div, to_xml
 
-from ui.explore.ps_detail import _action_bar, _progress_state
+from ui.explore.ps_detail import _action_bar, _blocking_seed, _progress_state
 
 _FIXTURE = Path(__file__).resolve().parents[2] / "js" / "fixtures" / "ps-hero-states.html"
 
@@ -49,6 +49,19 @@ def _hero() -> FT:
         "uid": "ps.test.hero",
         "progress_state": _progress_state(
             is_mastered=True, is_marked_read=True, is_in_progress=False
+        ),
+        "has_task_templates": True,
+        "blocking": _blocking_seed(
+            [
+                {
+                    "uid": "ps.test.first",
+                    "title": "First",
+                    "domain": "",
+                    "entity_type": "path_step",
+                    "distance": 1,
+                    "completed": False,
+                }
+            ]
         ),
     }
     return Div(_action_bar("ps.test.hero"), **{"x-data": f"pathstep({json.dumps(seed)})"})

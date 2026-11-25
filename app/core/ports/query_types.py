@@ -1946,16 +1946,20 @@ class PsEngagementCountsRow(TypedDict):
 
 
 class PsPrerequisiteStatusRow(TypedDict):
-    """Row shape for fetch_prerequisite_statuses() — one published direct prerequisite.
+    """Row shape for fetch_prerequisite_statuses() — one published prerequisite in a step's chain.
 
-    ``completed`` is the reader's MASTERED edge, the one edge the PathStep page's hero
-    card reads as Completed; marking a prerequisite as read does not meet it. With no
-    reader it is False.
+    The chain is every prerequisite the step requires, directly (``distance`` 1) or
+    through another (``distance`` ≥ 2, its nearest route); a draft is withheld, and so
+    is a prerequisite reached only through one. ``completed`` is the reader's MASTERED
+    edge, the one edge the PathStep page's hero card reads as Completed; marking a
+    prerequisite as read does not meet it. With no reader it is False.
     """
 
     uid: str
     title: str
+    domain: str
     entity_type: str
+    distance: int
     completed: bool
 
 

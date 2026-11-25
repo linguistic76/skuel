@@ -266,11 +266,22 @@ STEP_DOOR_IDS = [
 ]
 
 
+# The doors that act only on a step the learner holds in progress (Mark as read, Review
+# again): each is asked after the step is started.
+HELD_STEP_DOORS = {"mark-read", "progress-review", "progress-read"}
+
+
 @pytest.mark.parametrize(("path", "form", "edge"), STEP_DOORS, ids=STEP_DOOR_IDS)
 async def test_a_published_path_step_takes_the_learning_state(
-    world: World, path: str, form: dict[str, str] | None, edge: str
+    request: pytest.FixtureRequest,
+    world: World,
+    path: str,
+    form: dict[str, str] | None,
+    edge: str,
 ) -> None:
     await world.clear_learner_edges(PS_PUBLISHED)
+    if request.node.callspec.id in HELD_STEP_DOORS:
+        await _enrol(world)
 
     response = await world.learner.post(path.format(u=PS_PUBLISHED), data=form)
 
@@ -316,7 +327,7 @@ async def test_opening_a_draft_step_records_no_view(world: World) -> None:
 async def _enrol(world: World) -> None:
     """In progress on the published step — what admits a turn-in against its exercise."""
     response = await world.learner.post(
-        f"/explore/ps/{PS_PUBLISHED}/progress", data={"state": "learning", "review": "true"}
+        f"/explore/ps/{PS_PUBLISHED}/progress", data={"state": "learning", "review": "false"}
     )
     assert response.status_code == 200, response.text
 

@@ -1,4 +1,4 @@
-"""Blocking dependencies: what the PathStep page seeds for each read of its prerequisites."""
+"""Blocking dependencies: what the PathStep page seeds for each read of its prerequisite chain."""
 
 from __future__ import annotations
 
@@ -36,16 +36,25 @@ def _page(prerequisites: list[PsPrerequisiteStatusRow] | None) -> str:
     )
 
 
-def _blocking(page: str) -> list[dict[str, str]]:
+def _blocking(page: str) -> list[dict[str, str | bool]]:
     match = re.search(r"""x-data=(['"])pathstep\((.*?)\)\1""", page, re.DOTALL)
     assert match, "the page carries no pathstep seed"
-    return cast("list[dict[str, str]]", json.loads(html.unescape(match.group(2)))["blocking"])
+    return cast(
+        "list[dict[str, str | bool]]", json.loads(html.unescape(match.group(2)))["blocking"]
+    )
 
 
 def _row(
-    uid: str, title: str, entity_type: str = "path_step", *, completed: bool
+    uid: str, title: str, entity_type: str = "path_step", *, completed: bool, distance: int = 1
 ) -> PsPrerequisiteStatusRow:
-    return {"uid": uid, "title": title, "entity_type": entity_type, "completed": completed}
+    return {
+        "uid": uid,
+        "title": title,
+        "domain": "",
+        "entity_type": entity_type,
+        "distance": distance,
+        "completed": completed,
+    }
 
 
 def test_a_completed_prerequisite_reads_completed_and_the_rest_are_blocked() -> None:
@@ -64,13 +73,32 @@ def test_a_completed_prerequisite_reads_completed_and_the_rest_are_blocked() -> 
             "title": "Done first",
             "href": "/explore/ps/ps.test.done",
             "status": "completed",
+            "earlier": False,
         },
         {
             "uid": "ps.test.open",
             "title": "Still open",
             "href": "/explore/ps/ps.test.open",
             "status": "blocked",
+            "earlier": False,
         },
+    ]
+
+
+def test_a_prerequisite_required_through_another_is_marked_earlier() -> None:
+    """The chain reaches past the step's own prerequisites; the gate reads every row."""
+    blocking = _blocking(
+        _page(
+            [
+                _row("ps.test.near", "Near", completed=True),
+                _row("ps.test.far", "Far", completed=False, distance=2),
+            ]
+        )
+    )
+
+    assert [(row["uid"], row["earlier"], row["status"]) for row in blocking] == [
+        ("ps.test.near", False, "completed"),
+        ("ps.test.far", True, "blocked"),
     ]
 
 
@@ -107,7 +135,7 @@ def _accordion() -> FT:
         "blocking": _blocking_seed(
             [
                 _row("ps.test.done", "Done first", completed=True),
-                _row("ps.test.open", "Still open", completed=False),
+                _row("ps.test.open", "Still open", completed=False, distance=2),
             ]
         )
     }

@@ -21,6 +21,19 @@ from core.utils.result_simplified import Errors, Result
 USER = UserUID("user_1")
 
 
+class _NoStartGate:
+    """Deriving a step's mastery starts nothing, so the gate is never asked."""
+
+    async def admit(self, user_uid: str, ps_uid: str) -> Result[None]:
+        raise AssertionError("mastery derivation must not ask the prerequisite gate")
+
+    async def require_published(self, ps_uid: str) -> Result[None]:
+        raise AssertionError("mastery derivation must not ask the prerequisite gate")
+
+
+_NO_START_GATE = _NoStartGate()
+
+
 @dataclass
 class _Trace:
     """One ordered log shared by the backend and the bus, so ordering is provable."""
@@ -86,7 +99,9 @@ async def test_the_edge_is_written_before_the_event_is_published() -> None:
     backend = _Backend(trace, detected=["ps.one", "ps.two"])
     bus = _Bus(trace)
 
-    await PsMasteryService(backend=backend, event_bus=bus).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
+    await PsMasteryService(
+        backend=backend, prerequisite_gate=_NO_START_GATE, event_bus=bus
+    ).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
 
     assert trace.steps == [
         "detect:ku.a",
@@ -113,7 +128,9 @@ async def test_a_failed_write_withholds_the_event() -> None:
     )
     bus = _Bus(trace)
 
-    await PsMasteryService(backend=backend, event_bus=bus).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
+    await PsMasteryService(
+        backend=backend, prerequisite_gate=_NO_START_GATE, event_bus=bus
+    ).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
 
     assert trace.steps == ["detect:ku.a", "write:ps.one"]
     assert bus.published == []
@@ -126,7 +143,9 @@ async def test_a_write_that_matched_nothing_withholds_the_event() -> None:
     backend = _Backend(trace, detected=["ps.gone"], write_result=Result.ok([]))
     bus = _Bus(trace)
 
-    await PsMasteryService(backend=backend, event_bus=bus).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
+    await PsMasteryService(
+        backend=backend, prerequisite_gate=_NO_START_GATE, event_bus=bus
+    ).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
 
     assert trace.steps == ["detect:ku.a", "write:ps.gone"]
     assert bus.published == []
@@ -138,7 +157,9 @@ async def test_no_completed_step_writes_nothing() -> None:
     backend = _Backend(trace, detected=[])
     bus = _Bus(trace)
 
-    await PsMasteryService(backend=backend, event_bus=bus).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
+    await PsMasteryService(
+        backend=backend, prerequisite_gate=_NO_START_GATE, event_bus=bus
+    ).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
 
     assert trace.steps == ["detect:ku.a"]
     assert backend.writes == []
@@ -156,7 +177,9 @@ async def test_a_step_already_mastered_is_not_announced_again() -> None:
     )
     bus = _Bus(trace)
 
-    await PsMasteryService(backend=backend, event_bus=bus).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
+    await PsMasteryService(
+        backend=backend, prerequisite_gate=_NO_START_GATE, event_bus=bus
+    ).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
 
     assert trace.steps == ["detect:ku.a", "write:ps.one"]
     assert bus.published == []
@@ -169,7 +192,9 @@ async def test_reconcile_returns_the_gaps_it_closed() -> None:
     backend = _Backend(trace, detected=[], gaps=gaps)
     bus = _Bus(trace)
 
-    result = await PsMasteryService(backend=backend, event_bus=bus).reconcile_step_mastery()  # type: ignore[arg-type]
+    result = await PsMasteryService(
+        backend=backend, prerequisite_gate=_NO_START_GATE, event_bus=bus
+    ).reconcile_step_mastery()  # type: ignore[arg-type]
 
     assert result.is_ok and result.value == gaps
     assert [e.ps_uid for e in bus.published if isinstance(e, PathStepCompleted)] == [
@@ -185,7 +210,9 @@ async def test_reconcile_dry_run_reports_without_writing() -> None:
     backend = _Backend(trace, detected=[], gaps=gaps)
     bus = _Bus(trace)
 
-    result = await PsMasteryService(backend=backend, event_bus=bus).reconcile_step_mastery(  # type: ignore[arg-type]
+    result = await PsMasteryService(
+        backend=backend, prerequisite_gate=_NO_START_GATE, event_bus=bus
+    ).reconcile_step_mastery(  # type: ignore[arg-type]
         dry_run=True
     )
 
@@ -202,7 +229,9 @@ async def test_reconcile_fails_naming_the_gaps_it_could_not_close() -> None:
     backend = _Backend(trace, detected=[], gaps=gaps, failing={"ps.one"})
     bus = _Bus(trace)
 
-    result = await PsMasteryService(backend=backend, event_bus=bus).reconcile_step_mastery()  # type: ignore[arg-type]
+    result = await PsMasteryService(
+        backend=backend, prerequisite_gate=_NO_START_GATE, event_bus=bus
+    ).reconcile_step_mastery()  # type: ignore[arg-type]
 
     assert result.is_error
     message = str(result.error)
@@ -219,7 +248,9 @@ async def test_reconcile_counts_a_gap_the_live_handler_closed_meanwhile_as_close
     backend = _Backend(trace, detected=[], gaps=gaps, already={"ps.one"})
     bus = _Bus(trace)
 
-    result = await PsMasteryService(backend=backend, event_bus=bus).reconcile_step_mastery()  # type: ignore[arg-type]
+    result = await PsMasteryService(
+        backend=backend, prerequisite_gate=_NO_START_GATE, event_bus=bus
+    ).reconcile_step_mastery()  # type: ignore[arg-type]
 
     assert result.is_ok and result.value == gaps
     assert [e.ps_uid for e in bus.published if isinstance(e, PathStepCompleted)] == ["ps.two"]

@@ -50,6 +50,7 @@ from core.ports.query_types import (
 )
 from core.services.filtered_context import build_filtered_context
 from core.services.ps.ps_ai_service import PsAIService
+from core.services.ps.ps_prerequisite_gate import PREREQUISITE_GATE_DEPTH
 from core.services.ps.ps_progress_service import PsProgressService
 from core.services.whole_set_read import find_all_by
 from core.utils.error_boundary import safe_event_handler
@@ -179,7 +180,8 @@ class PsService:
             embeddings_service: Optional for embedding generation
             ps_intelligence_backend: PsIntelligenceBackend built at the composition
                 root and injected so the intelligence sub-service never imports the
-                adapter (ADR-044/SKUEL022). Optional (None in tests).
+                adapter (ADR-044/SKUEL022). REQUIRED: the prerequisite gate reads a
+                step's chain through it before any door starts the step.
         """
         if not backend:
             raise ValueError(
@@ -192,6 +194,13 @@ class PsService:
                 "PsService graph_intel is REQUIRED. "
                 "SKUEL follows fail-fast architecture - graph intelligence enables "
                 "cross-domain queries for curriculum domains."
+            )
+
+        if not ps_intelligence_backend:
+            raise ValueError(
+                "PsService ps_intelligence_backend is REQUIRED. "
+                "SKUEL follows fail-fast architecture - the prerequisite gate reads a "
+                "step's chain through it before any door starts the step."
             )
 
         from core.services.curriculum_domain_config import (
@@ -397,9 +406,12 @@ class PsService:
         return await self.graph.find_prerequisites(uid=uid, depth=GraphDepth.DEFAULT)
 
     async def get_prerequisite_chain(
-        self, uid: str, max_depth: int = GraphDepth.DEFAULT
+        self, uid: str, max_depth: int = PREREQUISITE_GATE_DEPTH
     ) -> Result[list[PrerequisiteChainRow]]:
         """Get the transitive prerequisite chain, each node with its hop distance.
+
+        By default as deep as the prerequisite gate reads it, so a count of it is what
+        the chain door totals and what a learner masters before starting the step.
 
         One variable-length traversal (nearest-first, min-distance deduped so a
         diamond dependency is counted once). Spans both REQUIRES_STEP (sequential)

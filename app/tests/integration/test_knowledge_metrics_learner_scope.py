@@ -721,8 +721,16 @@ class TestKnowledgeMetricsLearnerScope:
         assert (
             await backend.mark_mastered(writer_user, "ps.w-mastered", now_iso, 1.0, "derived")
         ).is_ok
-        # marked_at
-        assert (await backend.mark_as_read(writer_user, "ps.w-read")).is_ok
+        # marked_at — a step is marked read only while held in progress, so the hold is
+        # seeded bare: its own timestamps are not what this row tests.
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MATCH (u:User {uid: $u}), (s:PathStep {uid: 'ps.w-read'}) "
+                "CREATE (u)-[:IN_PROGRESS]->(s)",
+                u=writer_user,
+            )
+        read = await backend.mark_as_read(writer_user, "ps.w-read")
+        assert read.is_ok and read.value and read.value[0]["held"], read
 
         start, end = self._window()
         result = await backend.find_engaged_path_steps_by_date_range(writer_user, start, end)

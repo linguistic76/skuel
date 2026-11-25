@@ -29,9 +29,11 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query.cypher import (
     CURRICULUM_COMPOSITION_EDGES,
+    build_prerequisite_chain_query,
     build_publication_clause,
 )
 from core.models.enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.ports.query_types import (
     PsGuidanceCountsRow,
@@ -81,7 +83,9 @@ def _to_prerequisite_status_rows(
         {
             "uid": str(row["uid"]),
             "title": str(row["title"] or row["uid"]),
+            "domain": str(row["domain"] or ""),
             "entity_type": str(row["entity_type"] or ""),
+            "distance": int(row["distance"]),
             "completed": bool(row["completed"]),
         }
         for row in records
@@ -168,31 +172,48 @@ class PsIntelligenceBackend:
         )
 
     async def fetch_prerequisite_statuses(
-        self, ps_uid: str, user_uid: str | None
+        self, ps_uid: str, user_uid: str | None, depth: int
     ) -> Result[list[PsPrerequisiteStatusRow]]:
-        """Return a row per published direct prerequisite of a PathStep, ordered by title.
+        """Return a row per published prerequisite in a PathStep's chain, nearest-first.
 
-        A prerequisite is REQUIRES_STEP or REQUIRES_KNOWLEDGE, the pair
-        :meth:`has_prerequisites` reads. A draft is withheld, so it neither shows nor
+        The chain is REQUIRES_STEP or REQUIRES_KNOWLEDGE, any number of hops up to
+        ``depth``, each prerequisite once at its nearest distance. A draft is withheld,
+        and so is a prerequisite reached only through one, so it neither shows nor
         blocks. ``completed`` is the reader's MASTERED edge: a prerequisite is what the
         learner masters before the step that requires it is undertaken, and marking one
-        as read does not meet it. With no reader the match binds nothing and every row
-        reads False.
+        as read does not meet it. With no reader every row reads False.
+
+        The one read behind the PathStep page's Blocking dependencies, the chain door's
+        ``unmet_count`` and the prerequisite gate (``build_prerequisite_chain_query``).
         """
-        published, published_params = build_publication_clause("prereq")
+        query, params = build_prerequisite_chain_query(
+            label=NeoLabel.ENTITY,
+            uid=ps_uid,
+            relationship_types=[
+                RelationshipName.REQUIRES_STEP.value,
+                RelationshipName.REQUIRES_KNOWLEDGE.value,
+            ],
+            depth=depth,
+            reader_uid=user_uid,
+        )
         return await self._executor.execute(
-            query=f"""
-                MATCH (:Entity {{uid: $ps_uid}})-[:REQUIRES_STEP|REQUIRES_KNOWLEDGE]->(prereq:Entity)
-                WHERE {published}
-                OPTIONAL MATCH (reader:User {{uid: $user_uid}})
-                RETURN DISTINCT prereq.uid AS uid, prereq.title AS title,
-                       prereq.entity_type AS entity_type,
-                       reader IS NOT NULL AND EXISTS {{ (reader)-[:MASTERED]->(prereq) }} AS completed
-                ORDER BY title, uid
-            """,
-            params={"ps_uid": ps_uid, "user_uid": user_uid, **published_params},
+            query=query,
+            params=params,
             processor=_to_prerequisite_status_rows,
             operation="get_prerequisite_statuses",
+        )
+
+    async def is_published_step(self, ps_uid: str) -> Result[bool]:
+        """True if the uid names a published PathStep (a draft, another kind, nothing: False)."""
+        published, published_params = build_publication_clause("ps")
+        return await self._executor.execute_exists(
+            query=f"""
+                MATCH (ps:{NeoLabel.ENTITY}:{NeoLabel.PATH_STEP} {{uid: $ps_uid}})
+                WHERE {published}
+                RETURN ps
+            """,
+            params={"ps_uid": ps_uid, **published_params},
+            operation="is_published_step",
         )
 
     async def fetch_practice_counts(self, ps_uid: str) -> Result[list[PsPracticeCountsRow]]:

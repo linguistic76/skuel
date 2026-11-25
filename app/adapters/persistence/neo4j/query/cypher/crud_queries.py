@@ -1541,6 +1541,7 @@ def build_prerequisite_chain_query(
     uid: str,
     relationship_types: list[str],
     depth: int = 3,
+    reader_uid: str | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build a flat, distance-annotated prerequisite-chain query over published curriculum.
@@ -1566,13 +1567,15 @@ def build_prerequisite_chain_query(
         relationship_types: Prerequisite relationship type strings (any of them
             may connect a hop; e.g. ["REQUIRES_STEP", "REQUIRES_KNOWLEDGE"])
         depth: Maximum traversal depth (1-10)
+        reader_uid: The learner whose ``completed`` each row reports — their
+            MASTERED edge to the prerequisite. With no reader every row reads False.
 
     Returns:
         Tuple of (cypher_query, parameters). Each record has keys ``uid``,
-        ``title``, ``domain``, ``entity_type`` and ``distance`` (int, ≥1),
-        ordered by distance ascending. Fields are projected directly (not the
-        node) so heterogeneous prerequisite types — Ku *and* PathStep — return
-        uniformly without per-type model construction.
+        ``title``, ``domain``, ``entity_type``, ``distance`` (int, ≥1) and
+        ``completed``, ordered by distance, then title, then uid. Fields are
+        projected directly (not the node) so heterogeneous prerequisite types —
+        Ku *and* PathStep — return uniformly without per-type model construction.
     """
     rel_pattern = "|".join(relationship_types)
     arrow = direction_clause("outgoing", None, f"{rel_pattern}*1..{depth}")
@@ -1587,8 +1590,10 @@ def build_prerequisite_chain_query(
     WHERE n <> start AND all(hop IN nodes(path)[1..] WHERE {published})
     WITH n, min(length(path)) AS distance
     RETURN n.uid AS uid, n.title AS title, n.domain AS domain,
-           n.entity_type AS entity_type, distance
-    ORDER BY distance ASC
+           n.entity_type AS entity_type, distance,
+           EXISTS {{ (:{NeoLabel.USER} {{uid: $reader_uid}})-[:{RelationshipName.MASTERED}]->(n) }}
+               AS completed
+    ORDER BY distance ASC, title, uid
     """
 
-    return query, {"uid": uid, **published_params}
+    return query, {"uid": uid, "reader_uid": reader_uid, **published_params}
