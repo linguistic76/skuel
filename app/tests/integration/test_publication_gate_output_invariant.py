@@ -65,6 +65,7 @@ from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
 from core.services.ps.ps_prerequisite_gate import PREREQUISITE_GATE_DEPTH
 from core.utils.result_simplified import Result
+from services_bootstrap._backends import Backends
 from tests.helpers.production_backends import build_production_backends
 
 # Sibling-module import: scripts/ has no __init__.py and tests/unit/scripts/
@@ -496,7 +497,7 @@ def _payload(result: Result[Payload], label: str) -> Payload:
     return payload
 
 
-async def _chain_and_statuses(backends: Any, step_uid: str) -> Result[Payload]:
+async def _chain_and_statuses(backends: Backends, step_uid: str) -> Result[Payload]:
     """Both reads of the prerequisite chain builder, as one payload."""
     chain = await backends["ps_backend"].prerequisite_chain_with_distance(
         step_uid, PREREQUISITE_EDGES

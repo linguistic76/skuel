@@ -13,14 +13,13 @@ Each fake records what it was asked, so a refusal is shown to stop before any wr
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from core.events.curriculum_events import PathStepEnrolled
 from core.models.type_hints import UserUID
-from core.ports.query_types import PsPrerequisiteStatusRow
+from core.ports.query_types import PsPrerequisiteStatusRow, StepHoldRow, StepStartRow
 from core.services.ps.ps_mastery_service import (
     ENROLLMENT_CAP,
     ENROLLMENT_CAP_RULE,
@@ -49,11 +48,15 @@ def _row(uid: str, *, completed: bool, distance: int = 1) -> PsPrerequisiteStatu
     }
 
 
+def _the_step() -> set[str]:
+    return {STEP}
+
+
 @dataclass
 class _IntelligenceBackend:
     """The two reads the gate makes."""
 
-    published: set[str] = field(default_factory=lambda: {STEP})
+    published: set[str] = field(default_factory=_the_step)
     chain: list[PsPrerequisiteStatusRow] = field(default_factory=list)
     chain_result: Result[list[PsPrerequisiteStatusRow]] | None = None
     chain_reads: list[tuple[str, str | None, int]] = field(default_factory=list)
@@ -78,7 +81,9 @@ class _StepBackend:
     write_reports_mastered: bool = False
     writes: list[str] = field(default_factory=list)
 
-    async def get_learning_state_raw(self, user_uid: str, ku_uid: str) -> Result[list[Any]]:
+    async def get_learning_state_raw(
+        self, user_uid: str, ku_uid: str
+    ) -> Result[list[dict[str, bool]]]:
         return Result.ok(
             [
                 {
@@ -88,22 +93,24 @@ class _StepBackend:
             ]
         )
 
-    async def count_in_progress_path_steps(self, user_uid: str) -> Result[list[Any]]:
+    async def count_in_progress_path_steps(self, user_uid: str) -> Result[list[dict[str, int]]]:
         return Result.ok([{"cnt": self.held_elsewhere + len(self.in_progress)}])
 
-    async def mark_in_progress(self, user_uid: str, ku_uid: str, now: str) -> Result[list[Any]]:
+    async def mark_in_progress(
+        self, user_uid: str, ku_uid: str, now: str
+    ) -> Result[list[StepStartRow]]:
         mastered = self.write_reports_mastered or ku_uid in self.mastered
         if not mastered:
             self.writes.append("IN_PROGRESS")
         return Result.ok([{"mastered": mastered}])
 
-    async def mark_as_read(self, user_uid: str, ku_uid: str) -> Result[list[Any]]:
+    async def mark_as_read(self, user_uid: str, ku_uid: str) -> Result[list[StepHoldRow]]:
         return self._held_write("MARKED_AS_READ", ku_uid)
 
-    async def mark_as_learning(self, user_uid: str, ku_uid: str) -> Result[list[Any]]:
+    async def mark_as_learning(self, user_uid: str, ku_uid: str) -> Result[list[StepHoldRow]]:
         return self._held_write("REVIEW_AGAIN", ku_uid)
 
-    def _held_write(self, name: str, ku_uid: str) -> Result[list[Any]]:
+    def _held_write(self, name: str, ku_uid: str) -> Result[list[StepHoldRow]]:
         if ku_uid != STEP:
             return Result.ok([])
         held = ku_uid in self.in_progress
@@ -134,7 +141,7 @@ def _service(
     return service, intelligence, steps, bus
 
 
-def _rule(result: Result[Any]) -> object:
+def _rule[T](result: Result[T]) -> object:
     return result.expect_error().details.get("rule")
 
 
