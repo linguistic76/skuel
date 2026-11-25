@@ -176,10 +176,10 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 | State | Trigger | Relationship |
 |-------|---------|-------------|
 | VIEWED | Automatic on page load (`ExploreOrchestrator`) | `(User)-[:VIEWED]->(PathStep)` |
-| IN_PROGRESS | User clicks "Start" / progress `state=learning` (capped) | `(User)-[:IN_PROGRESS]->(PathStep)` |
+| IN_PROGRESS | User clicks "Start" / progress `state=learning` — only once every published prerequisite in the step's chain is mastered (`PsPrerequisiteGate`), never on a mastered step, capped at 2 (`PsMasteryService.mark_in_progress`) | `(User)-[:IN_PROGRESS]->(PathStep)` |
 | MASTERED | Derived — `PsMasteryService.handle_knowledge_mastered` writes it when the step's last Ku is mastered, through the Ku edge's writer `mark_mastered`; retires the step's IN_PROGRESS edge; then publishes `PathStepCompleted` | `(User)-[:MASTERED {mastered_at, mastery_score: 1.0, confidence, method: 'derived'}]->(PathStep)` |
 
-Beside the progression: `MARKED_AS_READ` (progress `state=read`) and `BOOKMARKED` (`POST /explore/ps/{uid}/bookmark`).
+Beside the progression: `MARKED_AS_READ` (progress `state=read`; Review again, `review=true`, takes it back) — both only on a step held `IN_PROGRESS`, so neither starts a step — and `BOOKMARKED` (`POST /explore/ps/{uid}/bookmark`). Engaging a step (`PsEngagementService.engage_pathstep`) asks the same prerequisite gate first (`/docs/roadmap/done/path-step-prerequisite-gate.md`).
 
 Report approval masters **Kus**: `ReportMasteryService.propagate_mastery` marks the entry's linked `:Ku` uids `MASTERED {mastery_score}` (through `ps_service.mastery.mark_mastered`); `PsProgressService` then publishes `PathStepProgressUpdated` for the steps that use those Kus, and `PsMasteryService` masters any step whose every Ku is mastered. A step teaching no Ku has no derivable mastery and is a content defect — the knowledge-health gauge lists it (`/docs/roadmap/done/zero-ku-step-mastery.md`). Readers that report "Kus mastered" match `:Ku` — a step's edge is the same shape and must not be counted as knowledge.
 
