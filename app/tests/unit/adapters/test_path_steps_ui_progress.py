@@ -7,9 +7,8 @@ Pins three Arc-Care fixes on the routes registered by
    to fall through and return a 200 empty Div — fake success that left the
    caller's optimistic UI stuck. Now: 400 validation error with X-Toast
    headers.
-2. Enrollment cap: with 2 PathSteps already in progress, ``state=learning``
-   (no review) must return 422 with a toast about the cap and must NOT call
-   ``mark_in_progress``.
+2. A start the service refuses (unmet prerequisites, the enrollment cap)
+   returns 422 with the service's message as its toast.
 3. ``POST /explore/ps/{uid}/bookmark``: a failed ``set_bookmark`` Result used
    to be discarded (200 Div). Now: error status with X-Toast headers (G7 —
    no more silent failures).
@@ -33,6 +32,8 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.path_steps_ui import create_path_steps_ui_routes
+from core.services.ps.ps_mastery_service import ENROLLMENT_CAP_RULE
+from core.services.ps.ps_prerequisite_gate import PREREQUISITES_UNMET_RULE
 from core.utils.result_simplified import Errors, Result
 
 _PS_UID = "ps.test.progress"
@@ -57,7 +58,6 @@ def _auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _mastery_mock(
     *,
-    in_progress_count: int = 0,
     mark_in_progress: Result[bool] | None = None,
     mark_as_read: Result[bool] | None = None,
     mark_as_learning: Result[bool] | None = None,
@@ -65,7 +65,6 @@ def _mastery_mock(
 ) -> MagicMock:
     """Build a PsService.mastery stand-in with AsyncMock operations."""
     mastery = MagicMock()
-    mastery.count_in_progress_steps = AsyncMock(return_value=Result.ok(in_progress_count))
     mastery.mark_in_progress = AsyncMock(return_value=mark_in_progress or Result.ok(True))
     mastery.mark_as_read = AsyncMock(return_value=mark_as_read or Result.ok(True))
     mastery.mark_as_learning = AsyncMock(return_value=mark_as_learning or Result.ok(True))
@@ -138,40 +137,52 @@ class TestProgressInvalidState:
 
 
 # ============================================================================
-# POST /explore/ps/{uid}/progress — enrollment cap (max 2 in progress)
+# POST /explore/ps/{uid}/progress — a start the service refuses
 # ============================================================================
 
 
-class TestProgressEnrollmentCap:
-    def test_cap_reached_returns_422_and_skips_enrollment(self) -> None:
-        mastery = _mastery_mock(in_progress_count=2)
+class TestProgressStartRefused:
+    """The prerequisites and the enrollment cap are ``PsMasteryService.mark_in_progress``'s
+    (``tests/unit/services/ps/test_ps_prerequisite_gate.py``); the route answers its refusal."""
+
+    @pytest.mark.parametrize(
+        "rule",
+        [PREREQUISITES_UNMET_RULE, ENROLLMENT_CAP_RULE],
+        ids=["prerequisites", "cap"],
+    )
+    def test_a_refused_start_returns_422_with_its_toast(self, rule: str) -> None:
+        refused: Result[bool] = Result.fail(Errors.business(rule=rule, message=f"refused: {rule}"))
+        mastery = _mastery_mock(mark_in_progress=refused)
         client = _client_for(mastery)
 
         response = _post(client, f"/explore/ps/{_PS_UID}/progress", {"state": "learning"})
 
         assert response.status_code == 422
         assert response.headers["X-Toast-Type"] == "error"
-        assert "2 Path Steps" in response.headers["X-Toast-Message"]
-        mastery.mark_in_progress.assert_not_awaited()
+        assert response.headers["X-Toast-Message"] == f"refused: {rule}"
+        mastery.mark_in_progress.assert_awaited_once_with(_USER_UID, _PS_UID)
 
-    def test_the_cap_names_mastery_as_what_frees_a_slot(self) -> None:
-        """Marking a step as read keeps it in progress, so the refusal never offers it."""
-        client = _client_for(_mastery_mock(in_progress_count=2))
-
-        response = _post(client, f"/explore/ps/{_PS_UID}/progress", {"state": "learning"})
-
-        message = response.headers["X-Toast-Message"]
-        assert "master one to start another" in message
-        assert "read" not in message
-
-    def test_learning_under_cap_enrolls_and_returns_200(self) -> None:
-        mastery = _mastery_mock(in_progress_count=1)
+    def test_an_admitted_start_returns_200(self) -> None:
+        mastery = _mastery_mock()
         client = _client_for(mastery)
 
         response = _post(client, f"/explore/ps/{_PS_UID}/progress", {"state": "learning"})
 
         assert response.status_code == 200
         mastery.mark_in_progress.assert_awaited_once_with(_USER_UID, _PS_UID)
+        mastery.mark_as_learning.assert_not_awaited()
+
+    def test_review_again_takes_back_the_read_and_starts_nothing(self) -> None:
+        mastery = _mastery_mock()
+        client = _client_for(mastery)
+
+        response = _post(
+            client, f"/explore/ps/{_PS_UID}/progress", {"state": "learning", "review": "true"}
+        )
+
+        assert response.status_code == 200
+        mastery.mark_as_learning.assert_awaited_once_with(_USER_UID, _PS_UID)
+        mastery.mark_in_progress.assert_not_awaited()
 
 
 # ============================================================================

@@ -85,6 +85,9 @@ async def test_each_reader_answers_not_found_for_a_uid_of_another_kind(
         prerequisites = await client.get("/api/path-steps/prerequisites", params={"step_uid": STEP})
         assert prerequisites.status_code == 200, prerequisites.text
         # Found, then refused for what the step lacks: it names no knowledge to record.
+        # The door records progress only on a step the reader started.
+        started = await client.post(f"/explore/ps/{STEP}/progress", data={"state": "learning"})
+        assert started.status_code == 200, started.text
         progress = await client.post(
             "/api/pathways/progress", json={"step_uid": STEP, "mastery_level": 0.5}
         )

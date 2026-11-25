@@ -162,7 +162,7 @@ async def world(
                 teacher_uid=TEACHER,
             )
             started = await student.post(
-                f"/explore/ps/{STEP}/progress", data={"state": "learning", "review": "true"}
+                f"/explore/ps/{STEP}/progress", data={"state": "learning", "review": "false"}
             )
             assert started.status_code == 200, started.text
 

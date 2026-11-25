@@ -35,8 +35,8 @@ from core.ports.query_types import (
     PsUserSubstanceResult,
     RootOrganizerResult,
 )
+from core.services.ps.ps_prerequisite_gate import PREREQUISITE_GATE_DEPTH
 from core.services.ps_service import PsService
-from core.services.user_progress_service import UserProgressService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.feedback import Alert, AlertT
@@ -47,7 +47,6 @@ logger = get_logger("skuel.routes.path_steps.api")
 def create_path_steps_api_routes(
     rt: RouteDecorator,
     ps_service: PsService,
-    user_progress_service: UserProgressService,
 ) -> None:
     """
     Create path steps API routes using factory pattern.
@@ -55,9 +54,6 @@ def create_path_steps_api_routes(
     Args:
         rt: Route decorator
         ps_service: PsService instance
-        user_progress_service: UserProgressService for per-caller mastery annotation
-            on the prerequisite-chain read (REQUIRED — a missing progress service
-            would silently mark every prerequisite unmastered; fail-fast instead)
     """
 
     # Step Prerequisites
@@ -78,10 +74,14 @@ def create_path_steps_api_routes(
         prerequisite reached only through one: the totals say what a learner
         has to clear, and nobody can clear what this read does not name.
 
+        The same read as the PathStep page's Blocking dependencies and the
+        prerequisite gate, at the gate's depth by default: at that depth an
+        ``unmet_count`` of 0 is exactly a step every door lets the caller start.
+
         Args:
             step_uid: Target path step
-            depth: Traversal depth (query, default 3; one that does not read or
-                is below 1 is a 400, one above 10 is 10); depth=1 yields only
+            depth: Traversal depth (query, default the gate's 10; one that does not
+                read or is below 1 is a 400, one above 10 is 10); depth=1 yields only
                 immediate prerequisites.
         """
         user_uid = require_authenticated_user(request)
@@ -89,7 +89,7 @@ def create_path_steps_api_routes(
             request.query_params.get("depth"),
             "depth",
             GraphDepth.DIRECT,
-            default=GraphDepth.DEFAULT,
+            default=PREREQUISITE_GATE_DEPTH,
             cap=GraphDepth.MAXIMUM,
         )
         if depth_read.is_error:
@@ -102,38 +102,26 @@ def create_path_steps_api_routes(
         if found.is_error:
             return Result.fail(found)
 
-        chain_result = await ps_service.get_prerequisite_chain(step_uid, max_depth=depth)
-        if chain_result.is_error:
-            return Result.fail(chain_result)
-        chain = chain_result.value
+        # A failed read fails the request: answering every node unmastered would
+        # tell the caller a step they may start is blocked.
+        statuses = await ps_service.intelligence.get_prerequisite_statuses(
+            step_uid, user_uid, depth
+        )
+        if statuses.is_error:
+            return Result.fail(statuses)
 
-        # Mastery is the caller's only — one read, set-membership per node.
-        # get_mastered_uids preserves the read's Result (unlike the resilient
-        # build_user_knowledge_profile, which swallows sub-query errors), so a
-        # failed mastery read fails the request instead of silently reporting
-        # every node as unmastered.
-        mastered_result = await user_progress_service.get_mastered_uids(user_uid)
-        if mastered_result.is_error:
-            return Result.fail(mastered_result)
-        mastered_uids: set[str] = mastered_result.value
-
-        nodes: list[PrerequisiteChainNode] = []
-        mastered_count = 0
-        for row in chain:
-            is_mastered = row["uid"] in mastered_uids
-            if is_mastered:
-                mastered_count += 1
-            nodes.append(
-                PrerequisiteChainNode(
-                    uid=row["uid"],
-                    title=row["title"],
-                    domain=row["domain"],
-                    entity_type=row["entity_type"],
-                    distance=row["distance"],
-                    is_mastered=is_mastered,
-                )
+        nodes: list[PrerequisiteChainNode] = [
+            PrerequisiteChainNode(
+                uid=row["uid"],
+                title=row["title"],
+                domain=row["domain"],
+                entity_type=row["entity_type"],
+                distance=row["distance"],
+                is_mastered=row["completed"],
             )
-
+            for row in statuses.value
+        ]
+        mastered_count = sum(1 for node in nodes if node["is_mastered"])
         total = len(nodes)
         return Result.ok(
             PrerequisiteChainData(

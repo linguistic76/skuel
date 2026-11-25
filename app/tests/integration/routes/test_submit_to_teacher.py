@@ -304,7 +304,7 @@ async def world(
             for client in (learner, teacher):
                 started = await client.post(
                     f"/explore/ps/{PS_PUBLISHED}/progress",
-                    data={"state": "learning", "review": "true"},
+                    data={"state": "learning", "review": "false"},
                 )
                 assert started.status_code == 200, started.text
 

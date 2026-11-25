@@ -1,6 +1,6 @@
 ---
 title: "Path Step Completion Read"
-updated: 2026-11-24
+updated: 2026-11-25
 status: "done — a learner's completion of a step is their MASTERED edge to it, at every reader"
 registered: "2026-11-23 (bootstrap typing residuals, row 2i-b-v)"
 ruled: "2026-11-23 — a learner has completed a step when they have mastered it: their MASTERED edge to it. 2026-11-24 — mastered only, the PathStep page too; a prerequisite step is one the learner masters before the step that requires it may be undertaken"
@@ -56,7 +56,7 @@ different measure (the path's mastered Kus), and no page shows it.
 ## Not here
 
 - A gate on the doors that undertake a step whose prerequisites are not mastered:
-  [path-step-prerequisite-gate.md](../path-step-prerequisite-gate.md).
+  [path-step-prerequisite-gate.md](path-step-prerequisite-gate.md).
 - The enrollment's completion counting the path's prerequisite Kus:
   [enrollment-progress-counts-prerequisite-kus.md](../enrollment-progress-counts-prerequisite-kus.md).
 - Draft steps in a path's step total, here and on the LP pages: parked with the publication work on

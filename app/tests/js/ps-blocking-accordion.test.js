@@ -68,6 +68,18 @@ describe('Blocking dependencies', () => {
     expect([shown(openTick), shown(openLock)]).toEqual([false, true]);
   });
 
+  it('marks a prerequisite the step requires through another as earlier', async () => {
+    const host = mount();
+    await settle();
+
+    const earlier = (title) =>
+      [...rowFor(host, title).querySelectorAll('span')].find(
+        (span) => span.textContent === 'Earlier prerequisite',
+      );
+    expect(shown(earlier('Still open'))).toBe(true);
+    expect(shown(earlier('Done first'))).toBe(false);
+  });
+
   it('counts what is left to clear', async () => {
     const host = mount();
     await settle();

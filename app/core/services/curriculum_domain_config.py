@@ -43,7 +43,12 @@ from core.services.relationships import UnifiedRelationshipService
 
 if TYPE_CHECKING:
     from core.ports import EventBusOperations
-    from core.ports.curriculum_protocols import KuOperations, LpOperations, PsOperations
+    from core.ports.curriculum_protocols import (
+        KuOperations,
+        LpOperations,
+        PsIntelligenceBackendOperations,
+        PsOperations,
+    )
     from core.services.lp.lp_core_service import LpCoreService
     from core.services.lp.lp_intelligence_service import LpIntelligenceService
     from core.services.lp.lp_progress_service import LpProgressService
@@ -138,10 +143,10 @@ def create_ps_sub_services(
     _chunking_service: Any | None,
     graph_intel: Any,
     event_bus: EventBusOperations | None,
+    ps_intelligence_backend: PsIntelligenceBackendOperations,
     user_service: Any | None = None,
     _vector_search_service: Any | None = None,
     _embeddings_service: Any | None = None,
-    ps_intelligence_backend: Any | None = None,
 ) -> PsSubServices:
     """Factory function to create all 12 PsService sub-services.
 
@@ -153,7 +158,7 @@ def create_ps_sub_services(
     5. PsGraphService (repo, graph_intel)
     6. PsSemanticService (repo, intelligence)
     7. PsPracticeService (backend, event_bus)
-    8. PsMasteryService (backend, event_bus)
+    8. PsMasteryService (backend, prerequisite gate, event_bus)
     9. PsAdaptiveService (backend, user_service)
     10. PsApplicationDiscoveryService (repo)
     11. PsContextService (repo)
@@ -168,6 +173,7 @@ def create_ps_sub_services(
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.ps.ps_organization_service import PsOrganizationService
     from core.services.ps.ps_practice_service import PsPracticeService
+    from core.services.ps.ps_prerequisite_gate import PsPrerequisiteGate
     from core.services.ps.ps_search_service import PsSearchService
     from core.services.ps.ps_semantic_service import PsSemanticService
 
@@ -202,8 +208,13 @@ def create_ps_sub_services(
     # Step 7: Create practice (event-driven)
     practice = PsPracticeService(backend=backend, event_bus=event_bus)
 
-    # Step 8: Create mastery (pedagogical tracking)
-    mastery = PsMasteryService(backend=backend, event_bus=event_bus)
+    # Step 8: Create mastery (pedagogical tracking), which starts a step only through
+    # the prerequisite gate
+    mastery = PsMasteryService(
+        backend=backend,
+        prerequisite_gate=PsPrerequisiteGate(ps_intelligence_backend),
+        event_bus=event_bus,
+    )
 
     # Step 9: Create adaptive
     adaptive = PsAdaptiveService(backend=backend, user_service=user_service)

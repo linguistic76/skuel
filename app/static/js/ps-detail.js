@@ -16,9 +16,15 @@
  * to every htmx request automatically, so no manual token wiring needed.
  *
  * Progress updates are optimistic: the UI flips immediately, and if the
- * server rejects the write (enrollment cap, write error) the htmx
- * lifecycle listener in init() rolls the state back and surfaces the
- * server's X-Toast-Message as an error toast (G7).
+ * server rejects the write (prerequisites, enrollment cap, write error) the
+ * htmx lifecycle listener in init() rolls the state back and surfaces the
+ * server's X-Toast-Message as an error toast.
+ *
+ * Start learning is disabled while a prerequisite in the step's chain is not
+ * mastered (`blocking`, the rows the server's gate admits by). On a step with
+ * task templates the start is posted first and the engagement only once it
+ * lands, so a refused start spawns nothing; an engagement that then fails
+ * leaves the step Learning — the start did land — and says so in a toast.
  */
 (function () {
   'use strict';
@@ -33,6 +39,7 @@
       blocking: s.blocking || [],
       depsOpen: false,
       _syncedStatus: null,
+      _engageAfterStart: false,
 
       init: function () {
         var self = this;
@@ -43,11 +50,25 @@
         // state back to the last server-confirmed value and show the toast.
         this.$el.addEventListener('htmx:afterRequest', function (evt) {
           var cfg = evt.detail && evt.detail.requestConfig;
-          if (!cfg || String(cfg.path).indexOf('/progress') === -1) return;
-          if (evt.detail.successful) {
-            self._syncedStatus = self.status;
+          if (!cfg) return;
+          var path = String(cfg.path);
+          if (path.indexOf('/engage') !== -1) {
+            self._engagementLanded(evt);
             return;
           }
+          if (path.indexOf('/progress') === -1) return;
+          if (evt.detail.successful) {
+            self._syncedStatus = self.status;
+            if (self._engageAfterStart) {
+              self._engageAfterStart = false;
+              htmx.ajax('POST', '/api/ps/' + self.uid + '/engage', {
+                source: self.$el,
+                swap: 'none',
+              });
+            }
+            return;
+          }
+          self._engageAfterStart = false;
           self.status = self._syncedStatus;
           // The global toastManager (htmx:afterRequest on body) surfaces
           // X-Toast headers for every response — only dispatch the local
@@ -62,6 +83,27 @@
             );
           }
         });
+      },
+
+      _engagementLanded: function (evt) {
+        if (evt.detail.successful) {
+          // Reload the tasks fragment now that the server has spawned them.
+          var tasksEl = document.getElementById('ps-tasks-fragment');
+          if (tasksEl) htmx.trigger(tasksEl, 'ps-engaged');
+          return;
+        }
+        // The start landed, so the step stays Learning; only the activities failed.
+        var xhr = evt.detail.xhr;
+        if (!xhr || !xhr.getResponseHeader('X-Toast-Message')) {
+          window.dispatchEvent(
+            new CustomEvent('toast', {
+              detail: {
+                message: "Could not set up this step's activities — please try again",
+                type: 'error',
+              },
+            })
+          );
+        }
       },
 
       postProgress: function (values) {
@@ -82,21 +124,24 @@
       get blockedCount() {
         return this.blocking.filter(function (d) { return d.status !== 'completed'; }).length;
       },
+      // A step not yet started waits on every prerequisite in its chain.
+      get startBlocked() {
+        return this.status === 'not_started' && !this.allCompleted;
+      },
+      get primaryLabel() {
+        if (this.startBlocked) {
+          var n = this.blockedCount;
+          return n + ' prerequisite' + (n === 1 ? '' : 's') + ' to clear';
+        }
+        return this.status === 'learning' ? 'Mark as read' : 'Start learning';
+      },
 
       advance: function () {
-        // When the PS has TaskTemplates and learning hasn't started, engage the
-        // PS to spawn tasks rather than just toggling read-progress.
+        if (this.startBlocked) return;
+        // A step with task templates is engaged once its start lands, so the
+        // learner's activities are spawned only for a step they were admitted to.
         if (this.hasTaskTemplates && this.status === 'not_started') {
-          this.status = 'learning';
-          htmx.ajax('POST', '/api/ps/' + this.uid + '/engage', { swap: 'none' });
-          // Mark as in-progress so mastery state persists across page reloads.
-          this.postProgress({ state: 'learning' });
-          // Reload the tasks fragment after the server has had time to spawn tasks.
-          var tasksEl = document.getElementById('ps-tasks-fragment');
-          if (tasksEl) {
-            setTimeout(function () { htmx.trigger(tasksEl, 'ps-engaged'); }, 700);
-          }
-          return;
+          this._engageAfterStart = true;
         }
         var newState = this.status === 'learning' ? 'read' : 'learning';
         this.postProgress({ state: newState });

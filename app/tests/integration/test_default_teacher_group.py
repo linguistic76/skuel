@@ -26,6 +26,7 @@ from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from core.models.group.group import default_group_uid
 from core.services.ps.ps_mastery_service import PsMasteryService
+from core.services.ps.ps_prerequisite_gate import PsPrerequisiteGate
 from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
@@ -356,7 +357,11 @@ async def test_count_in_progress_counts_path_steps_only(neo4j_driver, enrollment
 
 async def test_mastery_service_count_matches_backend(neo4j_driver, enrollment_cap_graph):
     """The service layer the enrollment cap actually calls agrees with the backend."""
-    service = PsMasteryService(backend=_ps_backend(neo4j_driver))
+    backends = build_production_backends(neo4j_driver)
+    service = PsMasteryService(
+        backend=backends["ps_backend"],
+        prerequisite_gate=PsPrerequisiteGate(backends["ps_intelligence_backend"]),
+    )
 
     result = await service.count_in_progress_steps(enrollment_cap_graph["learner"])
 

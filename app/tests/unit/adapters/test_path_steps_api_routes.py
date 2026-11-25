@@ -20,6 +20,7 @@ from fasthtml.common import fast_app
 from starlette.testclient import TestClient
 
 from adapters.inbound.path_steps_api import create_path_steps_api_routes
+from core.services.ps.ps_prerequisite_gate import PREREQUISITE_GATE_DEPTH
 from core.utils.result_simplified import Errors, Result
 
 _USER_UID = "user_admin"
@@ -34,7 +35,6 @@ def _fake_auth(request: object) -> str:
 class _Harness:
     client: TestClient
     ps: MagicMock
-    user_progress: MagicMock
 
 
 def _chain_row(
@@ -43,14 +43,16 @@ def _chain_row(
     distance: int,
     domain: str = "programming",
     entity_type: str = "path_step",
+    completed: bool = False,
 ) -> dict[str, object]:
-    """A PrerequisiteChainRow stand-in as the service returns (uid/title/domain/type/distance)."""
+    """A PsPrerequisiteStatusRow stand-in as the service returns it."""
     return {
         "uid": uid,
         "title": title,
         "domain": domain,
         "entity_type": entity_type,
         "distance": distance,
+        "completed": completed,
     }
 
 
@@ -64,27 +66,20 @@ def _make_harness(
     ps_service = MagicMock()
     ps_service.get_personalized_curriculum = AsyncMock(return_value=Result.ok([]))
     ps_service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
-    ps_service.get_prerequisite_chain = AsyncMock(return_value=Result.ok([]))
+    # The chain with the caller's mastery on each row; default = no prerequisites.
+    ps_service.intelligence.get_prerequisite_statuses = AsyncMock(return_value=Result.ok([]))
     # Existence gate for the prerequisite-chain read; default = step exists.
     ps_service.get_step = AsyncMock(
         return_value=Result.ok(SimpleNamespace(uid=_CHILD_UID, title="Child"))
     )
-
-    # Prerequisite-chain mastery source; default = nothing mastered.
-    user_progress_service = MagicMock()
-    user_progress_service.get_mastered_uids = AsyncMock(return_value=Result.ok(set()))
 
     if authenticated:
         monkeypatch.setattr(
             "adapters.inbound.path_steps_api.require_authenticated_user", _fake_auth
         )
 
-    create_path_steps_api_routes(
-        rt,
-        ps_service,
-        user_progress_service=user_progress_service,
-    )
-    return _Harness(client=TestClient(app), ps=ps_service, user_progress=user_progress_service)
+    create_path_steps_api_routes(rt, ps_service)
+    return _Harness(client=TestClient(app), ps=ps_service)
 
 
 class TestInputGuards:
@@ -130,7 +125,7 @@ class TestPrerequisiteChain:
         response = harness.client.get(f"/api/path-steps/prerequisites?step_uid={_CHILD_UID}")
 
         assert response.status_code == 401
-        harness.ps.get_prerequisite_chain.assert_not_awaited()
+        harness.ps.intelligence.get_prerequisite_statuses.assert_not_awaited()
 
     def test_missing_step_is_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
@@ -140,22 +135,19 @@ class TestPrerequisiteChain:
         response = harness.client.get("/api/path-steps/prerequisites?step_uid=ps.missing")
 
         assert response.status_code == 404
-        harness.ps.get_prerequisite_chain.assert_not_awaited()
+        harness.ps.intelligence.get_prerequisite_statuses.assert_not_awaited()
 
     def test_chain_distance_and_mastery(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
         # Diamond deduped upstream → flat rows, nearest-first.
-        harness.ps.get_prerequisite_chain = AsyncMock(
+        # Caller has mastered the nearer prerequisite only.
+        harness.ps.intelligence.get_prerequisite_statuses = AsyncMock(
             return_value=Result.ok(
                 [
-                    _chain_row("ps.functions", "Functions", 1),
+                    _chain_row("ps.functions", "Functions", 1, completed=True),
                     _chain_row("ku.variables", "Variables", 2, entity_type="ku"),
                 ]
             )
-        )
-        # Caller has mastered the nearer prerequisite only.
-        harness.user_progress.get_mastered_uids = AsyncMock(
-            return_value=Result.ok({"ps.functions"})
         )
 
         response = harness.client.get(
@@ -164,7 +156,9 @@ class TestPrerequisiteChain:
 
         assert response.status_code == 200
         payload = response.json()
-        harness.ps.get_prerequisite_chain.assert_awaited_once_with(_CHILD_UID, max_depth=5)
+        harness.ps.intelligence.get_prerequisite_statuses.assert_awaited_once_with(
+            _CHILD_UID, _USER_UID, 5
+        )
         assert payload["total_prerequisites"] == 2
         assert payload["prerequisites_mastered"] == 1
         assert payload["unmet_count"] == 1
@@ -184,14 +178,11 @@ class TestPrerequisiteChain:
 
     def test_mastery_read_error_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
-        harness.ps.get_prerequisite_chain = AsyncMock(
-            return_value=Result.ok([_chain_row("ps.functions", "Functions", 1)])
-        )
-        # A failing mastery read must fail the request — silently marking every
-        # node unmastered would be valid-looking but wrong.
-        harness.user_progress.get_mastered_uids = AsyncMock(
+        # A failing read must fail the request — silently marking every node
+        # unmastered would be valid-looking but wrong.
+        harness.ps.intelligence.get_prerequisite_statuses = AsyncMock(
             return_value=Result.fail(
-                Errors.database(operation="get_mastered_uids", message="read failed")
+                Errors.database(operation="get_prerequisite_statuses", message="read failed")
             )
         )
 
@@ -209,7 +200,9 @@ class TestPrerequisiteChain:
 
         assert response.status_code == 200
         # The route clamps to the 1-10 ceiling; the service and the report agree.
-        harness.ps.get_prerequisite_chain.assert_awaited_once_with(_CHILD_UID, max_depth=10)
+        harness.ps.intelligence.get_prerequisite_statuses.assert_awaited_once_with(
+            _CHILD_UID, _USER_UID, 10
+        )
         assert response.json()["depth"] == 10
 
     @pytest.mark.parametrize("depth", ["abc", "2.5", "0"])
@@ -223,7 +216,7 @@ class TestPrerequisiteChain:
         )
 
         assert response.status_code == 400, response.text
-        harness.ps.get_prerequisite_chain.assert_not_awaited()
+        harness.ps.intelligence.get_prerequisite_statuses.assert_not_awaited()
 
     @pytest.mark.parametrize("depth", ["", "%20"])
     def test_a_missing_or_blank_depth_is_the_default(
@@ -236,5 +229,9 @@ class TestPrerequisiteChain:
         )
 
         assert response.status_code == 200, response.text
-        harness.ps.get_prerequisite_chain.assert_awaited_once_with(_CHILD_UID, max_depth=3)
-        assert response.json()["depth"] == 3
+        # The default is the prerequisite gate's depth, so unmet_count 0 is a step the
+        # caller may start.
+        harness.ps.intelligence.get_prerequisite_statuses.assert_awaited_once_with(
+            _CHILD_UID, _USER_UID, PREREQUISITE_GATE_DEPTH
+        )
+        assert response.json()["depth"] == PREREQUISITE_GATE_DEPTH

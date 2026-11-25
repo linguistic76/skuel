@@ -62,5 +62,7 @@ def test_the_scan_finds_a_parameter_of_each_kind() -> None:
 
 def test_ps_service_builds_on_its_backend_alone() -> None:
     """Boot refuses a missing required dependency; a query executor is not one."""
-    service = PsService(backend=MagicMock(), graph_intel=MagicMock())
+    service = PsService(
+        backend=MagicMock(), graph_intel=MagicMock(), ps_intelligence_backend=MagicMock()
+    )
     assert service.repo is not None

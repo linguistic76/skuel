@@ -24,6 +24,7 @@ from core.models.templates.habit_template import HabitTemplate
 from core.models.templates.principle_template import PrincipleTemplate
 from core.models.templates.task_template import TaskTemplate
 from core.ports import BackendOperations, PsEngagementOperations
+from core.ports.curriculum_protocols import PsIntelligenceBackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.ports.template_protocols import TemplateAttachmentOperations
 from core.utils.logging import get_logger
@@ -73,6 +74,7 @@ def _create_template_services(
     choices_backend: BackendOperations[Choice],
     principles_backend: BackendOperations[Principle],
     event_bus: EventBusOperations,
+    ps_intelligence_backend: PsIntelligenceBackendOperations,
 ) -> TemplateServices:
     """Construct the template + engagement layer.
 
@@ -86,6 +88,7 @@ def _create_template_services(
     Builds (Phase 4):
     - ``ps_engagement``: PsEngagementService — 3-transition lifecycle facade.
     """
+    from core.services.ps.ps_prerequisite_gate import PsPrerequisiteGate
     from core.services.ps_engagement import PsEngagementService
     from core.services.templates import (
         ChoiceTemplateService,
@@ -121,6 +124,7 @@ def _create_template_services(
         choices_backend=choices_backend,
         principles_backend=principles_backend,
         event_bus=event_bus,
+        prerequisite_gate=PsPrerequisiteGate(ps_intelligence_backend),
     )
     logger.info(
         "✅ Template services created: 6 read services (Phase 5) + PsEngagementService (Phase 4)"

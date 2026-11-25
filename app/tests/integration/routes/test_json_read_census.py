@@ -325,7 +325,6 @@ async def _seed_curriculum(driver: AsyncDriver) -> None:
         WITH s, p, x
         MATCH (k:Ku {uid: $ku}), (n:Ku {uid: $ku_next})
         MERGE (s)-[:USES_KU]->(k)
-        MERGE (s)-[:REQUIRES_KNOWLEDGE]->(n)
         MERGE (s)-[o:ORGANIZES]->(k) SET o.order = 0
         MERGE (s)-[:HAS_EXERCISE]->(x)
         MERGE (p)-[h:HAS_STEP]->(s) SET h.sequence = 0
@@ -488,6 +487,16 @@ async def _seed_learner_state(client: httpx.AsyncClient, driver: AsyncDriver) ->
         f"/api/ku/{KU_NEXT}/mark-studying",
     ):
         await _post_ok(client, path)
+    # The step's prerequisite is authored after the learner started it, so the learner
+    # holds a step whose prerequisite they have not mastered: the gate governs starting a
+    # step, not holding one, and the reads must still carry both edges.
+    await _run(
+        driver,
+        "MATCH (s:PathStep {uid: $step}), (n:Ku {uid: $ku_next}) "
+        "MERGE (s)-[:REQUIRES_KNOWLEDGE]->(n)",
+        step=STEP,
+        ku_next=KU_NEXT,
+    )
     grounding = build_production_backends(driver)["entry_grounding_backend"]
     written = await grounding.write_applies_knowledge(ENTRY, KU, 0.82)
     assert written.is_ok and written.value, written

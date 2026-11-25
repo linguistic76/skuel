@@ -171,7 +171,7 @@ async def world(
             await sync_vault(driver, vault)
 
             started = await learner.post(
-                f"/explore/ps/{STEP}/progress", data={"state": "learning", "review": "true"}
+                f"/explore/ps/{STEP}/progress", data={"state": "learning", "review": "false"}
             )
             assert started.status_code == 200, started.text
             entry = await _turn_in(learner, PRACTICE, "practice")

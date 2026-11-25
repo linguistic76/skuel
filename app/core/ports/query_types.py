@@ -1946,16 +1946,20 @@ class PsEngagementCountsRow(TypedDict):
 
 
 class PsPrerequisiteStatusRow(TypedDict):
-    """Row shape for fetch_prerequisite_statuses() — one published direct prerequisite.
+    """Row shape for fetch_prerequisite_statuses() — one published prerequisite in a step's chain.
 
-    ``completed`` is the reader's MASTERED edge, the one edge the PathStep page's hero
-    card reads as Completed; marking a prerequisite as read does not meet it. With no
-    reader it is False.
+    The chain is every prerequisite the step requires, directly (``distance`` 1) or
+    through another (``distance`` ≥ 2, its nearest route); a draft is withheld, and so
+    is a prerequisite reached only through one. ``completed`` is the reader's MASTERED
+    edge, the one edge the PathStep page's hero card reads as Completed; marking a
+    prerequisite as read does not meet it. With no reader it is False.
     """
 
     uid: str
     title: str
+    domain: str
     entity_type: str
+    distance: int
     completed: bool
 
 
@@ -3518,6 +3522,22 @@ class MasteredWriteRow(TypedDict):
     was_mastered: bool
 
 
+class StepStartRow(TypedDict):
+    """What ``mark_in_progress`` reports for a published step: whether the learner had
+    mastered it, in which case nothing was written (mastery is the terminal state)."""
+
+    mastered: bool
+
+
+class StepHoldRow(TypedDict):
+    """What the writes that need a step held in progress report — mark as read and
+    Review again: ``held``, whether the learner holds the step's IN_PROGRESS edge (only
+    then was anything written), and ``mastered``, whether they mastered it."""
+
+    held: bool
+    mastered: bool
+
+
 class MasteredEntityUidRow(TypedDict):
     """Return shape for UserProgressBackend.get_mastered_entity_uids() — the uid of
     one entity the user has mastered, a Ku or a PathStep (the query's one alias)."""
@@ -4678,6 +4698,8 @@ __all__ = [
     "PsPracticeCountsRow",
     "PsGuidanceCountsRow",
     "PsPrerequisiteStatusRow",
+    "StepHoldRow",
+    "StepStartRow",
     "PsTaughtKuRow",
     # LP Intelligence Result Types
     "LpDomainInsights",

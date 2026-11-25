@@ -29,6 +29,7 @@ from core.services.ps.ps_mastery_service import (
     LearningState,
     PsMasteryService,
 )
+from core.services.ps.ps_prerequisite_gate import PsPrerequisiteGate
 from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 
@@ -89,9 +90,10 @@ def bus() -> InMemoryEventBus:
 
 
 @pytest_asyncio.fixture
-async def mastery(backend: PsBackend, bus: InMemoryEventBus) -> PsMasteryService:
+async def mastery(neo4j_driver, backend: PsBackend, bus: InMemoryEventBus) -> PsMasteryService:
     """The service wired as ``services_bootstrap/_event_wiring.py`` wires it."""
-    service = PsMasteryService(backend=backend, event_bus=bus)
+    gate = PsPrerequisiteGate(build_production_backends(neo4j_driver)["ps_intelligence_backend"])
+    service = PsMasteryService(backend=backend, prerequisite_gate=gate, event_bus=bus)
     bus.subscribe(KnowledgeMastered, service.handle_knowledge_mastered)
     return service
 

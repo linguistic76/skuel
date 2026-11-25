@@ -18,6 +18,8 @@ from adapters.inbound.boundary import result_to_response
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
+from core.services.ps.ps_mastery_service import ENROLLMENT_CAP, ENROLLMENT_CAP_RULE
+from core.services.ps.ps_prerequisite_gate import PREREQUISITES_UNMET_RULE
 from core.services.ps_engagement.engagement import Engagement
 from core.services.ps_engagement.ps_engagement_service import (
     PsEngagementService,
@@ -35,6 +37,12 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 
+# The start door's button label for each refusal it shows in place.
+_START_REFUSAL_LABELS: dict[object, str] = {
+    PREREQUISITES_UNMET_RULE: "Prerequisites to clear",
+    ENROLLMENT_CAP_RULE: f"Limit reached ({ENROLLMENT_CAP})",
+}
+
 # Container id used by HTMX swaps for the engagement action group.
 # Defined here so both renderer and handlers stay in sync.
 _ENGAGEMENT_ACTIONS_ID = "ps-engagement-actions"
@@ -45,22 +53,6 @@ logger = get_logger("skuel.routes.path_steps.ui")
 # ============================================================================
 # Helpers
 # ============================================================================
-
-
-def _start_step_button(uid: str, is_in_progress: bool, is_mastered: bool) -> Any:
-    """Render the enrollment/start button based on learning state."""
-    if is_mastered:
-        return Badge("Mastered", variant=BadgeT.success, size=Size.sm)
-    if is_in_progress:
-        return Badge("In Progress", variant=BadgeT.secondary, size=Size.sm)
-    return Button(
-        "Start Learning",
-        cls=ButtonT.primary,
-        size="sm",
-        hx_post=f"/api/path-steps/{uid}/start",
-        hx_swap="outerHTML",
-        hx_target="this",
-    )
 
 
 def _parse_review_form(form: FormData) -> dict[str, ReviewDecision]:
@@ -196,29 +188,21 @@ def create_path_steps_ui_routes(
     async def start_step(request: Request, uid: str) -> FT:
         """Start a path step (mark as in-progress). Returns updated button HTML.
 
-        Enforces a limit of 2 simultaneously enrolled PathSteps.
+        Every refusal is ``PsMasteryService.mark_in_progress``'s: prerequisites, the
+        enrollment cap, a completed step.
         """
         user_uid = require_authenticated_user(request)
-
-        # Enforce enrollment limit (max 2 in-progress PathSteps)
-        count_result = await ps_service.mastery.count_in_progress_steps(user_uid)
-        if not count_result.is_error and (count_result.value or 0) >= 2:
-            return Button(
-                "Limit reached (2)",
-                cls=ButtonT.destructive,
-                size="sm",
-                disabled=True,
-                title="You can enrol in at most 2 Path Steps at once",
-            )
 
         result = await ps_service.mastery.mark_in_progress(user_uid, uid)
 
         if result.is_error:
+            error = result.expect_error()
             return Button(
-                "Error",
+                _START_REFUSAL_LABELS.get(error.details.get("rule"), "Error"),
                 cls=ButtonT.destructive,
                 size="sm",
                 disabled=True,
+                title=error.display_message,
             )
 
         return Badge("In Progress", variant=BadgeT.secondary, size=Size.sm)
@@ -282,14 +266,17 @@ def create_path_steps_ui_routes(
     async def update_ps_progress(request: Request, uid: str) -> FT | Response:
         """Advance PathStep learning state. Called by ps-detail.js (hx-swap=none).
 
-        state=learning, review=false → new enrollment (mark_in_progress, cap enforced, fires PathStepEnrolled)
-        state=learning, review=true  → Review again (mark_as_learning, no cap, no event)
-        state=read                   → mark_as_read (the step stays in progress: only
-                                       mastering it frees an enrollment slot)
+        state=learning, review=false → start the step (mark_in_progress: prerequisites,
+                                       enrollment cap, fires PathStepEnrolled)
+        state=learning, review=true  → Review again (mark_as_learning: a step held in
+                                       progress only, no gate, no cap, no event)
+        state=read                   → mark_as_read (a step held in progress only; it
+                                       stays in progress: only mastering it frees an
+                                       enrollment slot)
         Alpine updates the UI optimistically; on success the empty response is
-        discarded. Failures (enrollment cap, write errors) return an error status
-        with X-Toast headers — ps-detail.js rolls the optimistic state back and
-        surfaces the toast (G7: no more silent failures).
+        discarded. Failures (prerequisites, enrollment cap, write errors) return an
+        error status with X-Toast headers — ps-detail.js rolls the optimistic state
+        back and surfaces the toast.
         """
         user_uid = require_authenticated_user(request)
         form = await request.form()
@@ -313,17 +300,6 @@ def create_path_steps_ui_routes(
             if review:
                 result = await ps_service.mastery.mark_as_learning(user_uid, uid)
             else:
-                count_result = await ps_service.mastery.count_in_progress_steps(user_uid)
-                if not count_result.is_error and (count_result.value or 0) >= 2:
-                    return result_to_response(
-                        Result.fail(
-                            Errors.business(
-                                rule="ps_enrollment_cap",
-                                message="You can study at most 2 Path Steps at once"
-                                " - master one to start another.",
-                            )
-                        )
-                    )
                 result = await ps_service.mastery.mark_in_progress(user_uid, uid)
         if result is not None and result.is_error:
             return result_to_response(result)

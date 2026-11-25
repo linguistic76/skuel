@@ -112,7 +112,9 @@ from core.ports.query_types import (
     RequiredKnowledgeResult,
     RevisionChainResult,
     RootOrganizerResult,
+    StepHoldRow,
     StepMasteryGapRow,
+    StepStartRow,
     UserMasteryResult,
     UserProgressResult,
 )
@@ -513,9 +515,13 @@ class PsIntelligenceBackendOperations(Protocol):
         ...
 
     async def fetch_prerequisite_statuses(
-        self, ps_uid: str, user_uid: str | None
+        self, ps_uid: str, user_uid: str | None, depth: int
     ) -> Result[list[PsPrerequisiteStatusRow]]:
-        """Return a row per published direct prerequisite of a PathStep, ordered by title."""
+        """Return a row per published prerequisite in a PathStep's chain, nearest-first."""
+        ...
+
+    async def is_published_step(self, ps_uid: str) -> Result[bool]:
+        """True if the uid names a published PathStep."""
         ...
 
     async def fetch_practice_counts(self, ps_uid: str) -> Result[list[PsPracticeCountsRow]]:
@@ -855,27 +861,30 @@ class PsOperations(
 
     async def mark_in_progress(
         self, user_uid: UserUID, ku_uid: str, now: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {success}
+    ) -> Result[list[StepStartRow]]:
         """Put a published PathStep into the user's in-progress set, refreshing last activity.
 
         One record per user/step pair and safe to repeat — nothing accumulates, and
         the original start time and progress score survive. Only the
-        last-activity timestamp moves.
+        last-activity timestamp moves. A step the user mastered is left alone and
+        reports ``mastered``: mastery is the terminal state. Admits no prerequisite
+        check; the service gates the step before it writes.
         """
         ...
 
-    async def mark_as_learning(
-        self, user_uid: UserUID, ku_uid: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {success}
-        """Delete MARKED_AS_READ and ensure IN_PROGRESS on a published PathStep (Review again)."""
+    async def mark_as_learning(self, user_uid: UserUID, ku_uid: str) -> Result[list[StepHoldRow]]:
+        """Take back the user's mark as read on a step they hold in progress (Review again).
+
+        Undertakes nothing: a step the user never started, and one they mastered, are
+        left alone, and the row reports which (``held``, ``mastered``).
+        """
         ...
 
-    async def mark_as_read(
-        self, user_uid: UserUID, ku_uid: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns the MARKED_AS_READ edge
-        """Mark a published PathStep as read for this user, returning the read record.
+    async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[list[StepHoldRow]]:
+        """Mark a published PathStep the user holds in progress as read.
 
-        Idempotent — the original marked-at time survives a repeat.
+        Idempotent — the original marked-at time survives a repeat. A step the user
+        never started is left alone, and the row reports it (``held``, ``mastered``).
         """
         ...
 

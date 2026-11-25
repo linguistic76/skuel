@@ -179,11 +179,12 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.ps_intelligence_backend",
-        "PsIntelligenceBackend.fetch_prerequisite_statuses",
-        Disposition.GATED,
-        "Names each prerequisite on the PathStep page. A draft neither shows nor counts: unlike "
-        "find_ready_to_learn's ranking, this list is what a learner is told to clear, and a "
-        "learner cannot clear what the list cannot name.",
+        "PsIntelligenceBackend.is_published_step",
+        Disposition.ADMISSION,
+        "The undertaking doors' admission read (PsPrerequisiteGate.require_published): whether "
+        "the uid a learner handed in names a published step, so starting, engaging or recording "
+        "progress on a draft is refused like a uid that names nothing. Returns a bool — no "
+        "curriculum the caller did not name.",
     ),
     Surface(
         "adapters.persistence.neo4j._lp_progress_mixin",
@@ -687,14 +688,17 @@ SURFACES: tuple[Surface, ...] = (
         "adapters.persistence.neo4j.query.cypher.crud_queries",
         "build_prerequisite_chain_query",
         Disposition.GATED,
-        "The transitive chain behind /api/path-steps/prerequisites. Gates every node after "
-        "the start, not only the far end: 'this requires that' is carried by the whole path, "
-        "so a published prerequisite reached only through a draft is withheld too. A draft "
-        "neither shows nor counts, as on the PathStep page (fetch_prerequisite_statuses), "
-        "because total_prerequisites and unmet_count say what a learner has to clear. "
+        "The transitive chain behind the PathStep page's Blocking dependencies, "
+        "/api/path-steps/prerequisites and the prerequisite gate's refusal "
+        "(PsIntelligenceBackend.fetch_prerequisite_statuses), and the step stats' count "
+        "(prerequisite_chain_with_distance). Gates every node after the start, not only the "
+        "far end: 'this requires that' is carried by the whole path, so a published "
+        "prerequisite reached only through a draft is withheld too. A draft neither shows "
+        "nor counts, because total_prerequisites and unmet_count say what a learner has to "
+        "clear, and a learner cannot clear what the list cannot name. "
         "find_ready_to_learn differs on purpose: it counts a draft it cannot name, because "
         "that read ranks. The start is exempt, since the caller named it. Measured through "
-        "prerequisite_chain_with_distance.",
+        "both reads.",
     ),
     Surface(
         "adapters.persistence.neo4j.query.cypher.crud_queries",

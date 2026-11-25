@@ -71,16 +71,21 @@ column (`max-w-[760px]`, no sidebar; body rendered by `ui/explore/ps_detail.py`)
 reader design language. Alpine component
 `pathstep` (in `static/js/ps-detail.js`) owns progress state (`not_started/learning/read`; `mastered`, the
 only state shown as Completed, is the learner's derived `MASTERED` edge), bookmark toggle, and the
-"Blocking dependencies" accordion (seeded from `get_prerequisite_statuses`: a prerequisite is met when
-mastered). CSRF-protected mutation endpoints:
-- `POST /explore/ps/{uid}/progress` (`state=learning|read`) — progress toggle (no TaskTemplates)
+"Blocking dependencies" accordion (seeded from `get_prerequisite_statuses`: the step's whole published
+prerequisite chain, a prerequisite met when mastered). A step is started only once that chain is
+mastered (`PsPrerequisiteGate`, `/docs/roadmap/done/path-step-prerequisite-gate.md`): Start learning is
+disabled while a row is Blocked, and every start and engage door refuses it. CSRF-protected mutation
+endpoints:
+- `POST /explore/ps/{uid}/progress` (`state=learning|read`) — start (gate, cap), mark as read, or with
+  `review=true` take back a mark as read; the last two only on a step held in progress
 - `POST /explore/ps/{uid}/bookmark` (`on=true|false`)
 - `GET /explore/ps/{uid}/applied` — HTMX fragment: how the signed-in reader has applied what the step teaches
 - `GET /explore/ps/{uid}/tasks` — HTMX fragment: tasks spawned from this PS for the current user
 
 **Engage-to-spawn:** when the PS has TaskTemplates (`has_task_templates` in the inline x-data seed), "Start
-learning" calls `POST /api/ps/{ps_uid}/engage` instead of the progress endpoint — spawning all
-template instances — then fires `ps-engaged` to reload the tasks fragment.
+learning" posts the start first and, once it lands, `POST /api/ps/{ps_uid}/engage` — spawning all
+template instances — then fires `ps-engaged` to reload the tasks fragment. A refused start spawns
+nothing; a failed engagement leaves the step Learning, with a toast.
 
 For a signed-in visitor, the page's learning-loop section (`_learning_loop_section` in
 `ui/explore/ps_detail.py`) HTMX-loads the `exercises` and `submissions-and-feedback` fragments

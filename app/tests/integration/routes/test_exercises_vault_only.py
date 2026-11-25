@@ -240,7 +240,7 @@ async def world(
             await sync_vault(driver, vault)
             await _seed_retired_door_shapes(driver)
             started = await learner.post(
-                f"/explore/ps/{STEP}/progress", data={"state": "learning", "review": "true"}
+                f"/explore/ps/{STEP}/progress", data={"state": "learning", "review": "false"}
             )
             assert started.status_code == 200, started.text
             yield World(driver, {NAMED: named, AUTHOR: author, LEARNER: learner, IDLE: idle})

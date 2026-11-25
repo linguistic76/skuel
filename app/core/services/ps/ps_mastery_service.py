@@ -23,19 +23,21 @@ Architecture:
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum, StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from core.events import publish_event
 from core.events.curriculum_events import PathStepCompleted, PathStepEnrolled
 from core.events.learning_events import KnowledgeMastered
 from core.models.type_hints import UserUID
+from core.services.ps.ps_prerequisite_gate import step_not_found
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorContext, Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import PsOperations
-    from core.ports.query_types import StepMasteryGapRow
+    from core.ports.query_types import StepHoldRow, StepMasteryGapRow
+    from core.services.ps.ps_prerequisite_gate import PsPrerequisiteGate
 
 
 STEP_MASTERY_METHOD = "derived"
@@ -48,10 +50,35 @@ STEP_MASTERY_SCORE = 1.0
 ratio, which is 1.0 by the time the edge is written."""
 
 
-def _step_not_found(step_uid: str) -> ErrorContext:
-    """The one refusal a learner-state write gives: a uid that names nothing, another
-    kind of node, another user's entity and a draft step all read as a missing step."""
-    return Errors.not_found("PathStep", step_uid)
+ENROLLMENT_CAP: Final = 2
+"""How many PathSteps a learner holds in progress at once. Mastering one frees its
+slot; marking one as read does not."""
+
+ENROLLMENT_CAP_RULE: Final = "ps_enrollment_cap"
+
+
+def _enrollment_cap_reached() -> ErrorContext:
+    return Errors.business(
+        rule=ENROLLMENT_CAP_RULE,
+        message=f"You can study at most {ENROLLMENT_CAP} Path Steps at once"
+        " - master one to start another.",
+    )
+
+
+def _not_started(step_uid: str) -> ErrorContext:
+    return Errors.business(
+        rule="ps_not_started",
+        message="Start this step before marking your progress on it.",
+        step_uid=step_uid,
+    )
+
+
+def _already_mastered(step_uid: str) -> ErrorContext:
+    return Errors.business(
+        rule="ps_already_mastered",
+        message="You have completed this step.",
+        step_uid=step_uid,
+    )
 
 
 class StepWrite(Enum):
@@ -112,9 +139,13 @@ class PsMasteryService:
     def __init__(
         self,
         backend: PsOperations,
+        prerequisite_gate: PsPrerequisiteGate,
         event_bus=None,
     ) -> None:
+        if prerequisite_gate is None:
+            raise ValueError("PsMasteryService requires the prerequisite gate")
         self.backend = backend
+        self.prerequisite_gate = prerequisite_gate
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.ps.mastery")
 
@@ -146,7 +177,7 @@ class PsMasteryService:
                 view_count=record["view_count"],
             )
             return Result.ok(True)
-        return Result.fail(_step_not_found(ku_uid))
+        return Result.fail(step_not_found(ku_uid))
 
     async def count_in_progress_steps(self, user_uid: UserUID) -> Result[int]:
         """Count PathSteps the user is currently enrolled in (IN_PROGRESS)."""
@@ -172,24 +203,70 @@ class PsMasteryService:
     ) -> Result[bool]:
         """Enrol the user in a published PathStep (IN_PROGRESS) and announce it.
 
-        Refused as ``not_found`` of the step for any other uid; nothing is
-        written and ``PathStepEnrolled`` is not published.
+        The one writer that starts a step, so every refusal lives here, answered in
+        this order: a uid that is not a published step is ``not_found`` of the step;
+        a step whose prerequisite chain the learner has not mastered is refused,
+        naming what to master (``PsPrerequisiteGate``); a step they mastered is
+        refused, since mastery is the terminal state (the write decides it again);
+        a learner already holding ``ENROLLMENT_CAP`` steps is refused — a step they
+        already hold is no new slot. A refused start writes nothing and publishes
+        nothing.
         """
+        admitted = await self.prerequisite_gate.admit(user_uid, ku_uid)
+        if admitted.is_error:
+            return Result.fail(admitted)
+
+        state = await self.backend.get_learning_state_raw(user_uid, ku_uid)
+        if state.is_error:
+            return Result.fail(state)
+        row = state.value[0] if state.value else None
+        if row is not None and row["has_mastered"]:
+            return Result.fail(_already_mastered(ku_uid))
+        holds_step = bool(row and row["has_in_progress"])
+        if not holds_step:
+            count = await self.count_in_progress_steps(user_uid)
+            if count.is_error:
+                return Result.fail(count)
+            if count.value >= ENROLLMENT_CAP:
+                return Result.fail(_enrollment_cap_reached())
+
         now = datetime.now(UTC).isoformat()
         result = await self.backend.mark_in_progress(user_uid, ku_uid, now)
 
         if result.is_error:
             return Result.fail(result)
+        if not result.value:
+            return Result.fail(step_not_found(ku_uid))
+        if result.value[0]["mastered"]:
+            return Result.fail(_already_mastered(ku_uid))
 
-        if result.value:
-            self.logger.debug("Marked in progress", user_uid=user_uid, ku_uid=ku_uid)
-            await publish_event(
-                self.event_bus,
-                PathStepEnrolled(ps_uid=ku_uid, user_uid=user_uid),
-                self.logger,
-            )
-            return Result.ok(True)
-        return Result.fail(_step_not_found(ku_uid))
+        self.logger.debug("Marked in progress", user_uid=user_uid, ku_uid=ku_uid)
+        await publish_event(
+            self.event_bus,
+            PathStepEnrolled(ps_uid=ku_uid, user_uid=user_uid),
+            self.logger,
+        )
+        return Result.ok(True)
+
+    async def require_held(self, user_uid: UserUID, ps_uid: str) -> Result[None]:
+        """Ok when the user holds the published step in progress.
+
+        ``not_found`` of the step for any other uid; a step never started, and one
+        mastered, are refused. A door that records progress on a step's Kus asks
+        this first, so progress reaches only a step its learner was admitted to.
+        """
+        published = await self.prerequisite_gate.require_published(ps_uid)
+        if published.is_error:
+            return published
+        state = await self.backend.get_learning_state_raw(user_uid, ps_uid)
+        if state.is_error:
+            return Result.fail(state)
+        row = state.value[0] if state.value else None
+        if row is not None and row["has_in_progress"]:
+            return Result.ok(None)
+        if row is not None and row["has_mastered"]:
+            return Result.fail(_already_mastered(ps_uid))
+        return Result.fail(_not_started(ps_uid))
 
     async def get_learning_state(
         self,
@@ -287,34 +364,53 @@ class PsMasteryService:
     # =========================================================================
 
     async def mark_as_learning(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
-        """Transition a completed step back to in-progress (Review again).
+        """Take back a step's mark as read (Review again).
 
-        Deletes MARKED_AS_READ, ensures IN_PROGRESS. Does NOT fire PathStepEnrolled
-        — this is a re-read, not a new enrollment.
+        Only on a step the user holds in progress, so it undertakes nothing: it is not
+        a new enrollment, fires no ``PathStepEnrolled`` and needs no gate. A step never
+        started and a mastered step are refused; ``not_found`` of the step for any
+        other uid.
         """
         result = await self.backend.mark_as_learning(user_uid, ku_uid)
         if result.is_error:
             return Result.fail(result)
-        if result.value:
-            self.logger.debug("Reset to learning", user_uid=user_uid, ku_uid=ku_uid)
-            return Result.ok(True)
-        return Result.fail(_step_not_found(ku_uid))
+        refused = self._refuse_unheld(result.value, ku_uid)
+        if refused is not None:
+            return Result.fail(refused)
+        self.logger.debug("Reset to learning", user_uid=user_uid, ku_uid=ku_uid)
+        return Result.ok(True)
 
     async def mark_as_read(
         self,
         user_uid: UserUID,
         ku_uid: str,
     ) -> Result[bool]:
-        """Mark a published PathStep as read; ``not_found`` of the step for any other uid."""
+        """Mark a step the user holds in progress as read; it stays in progress.
+
+        A step never started and a mastered step are refused; ``not_found`` of the
+        step for any other uid.
+        """
         result = await self.backend.mark_as_read(user_uid, ku_uid)
 
         if result.is_error:
             return Result.fail(result)
-        if not result.value:
-            return Result.fail(_step_not_found(ku_uid))
+        refused = self._refuse_unheld(result.value, ku_uid)
+        if refused is not None:
+            return Result.fail(refused)
 
         self.logger.info(f"Marked KU as read: {user_uid} -> {ku_uid}")
         return Result.ok(True)
+
+    @staticmethod
+    def _refuse_unheld(rows: list[StepHoldRow] | None, step_uid: str) -> ErrorContext | None:
+        """The refusal for a write that needs the step held in progress, or None if it was."""
+        if not rows:
+            return step_not_found(step_uid)
+        if rows[0]["held"]:
+            return None
+        if rows[0]["mastered"]:
+            return _already_mastered(step_uid)
+        return _not_started(step_uid)
 
     async def set_bookmark(self, user_uid: UserUID, ku_uid: str, desired: bool) -> Result[bool]:
         """Set bookmark to an explicit state — idempotent, safe on retry.
@@ -330,7 +426,7 @@ class PsMasteryService:
         if result.is_error:
             return Result.fail(result)
         if desired and not result.value:
-            return Result.fail(_step_not_found(ku_uid))
+            return Result.fail(step_not_found(ku_uid))
         self.logger.debug("Set bookmark", user_uid=user_uid, ku_uid=ku_uid, desired=desired)
         return Result.ok(desired)
 
@@ -363,7 +459,7 @@ class PsMasteryService:
             if create_result.is_error:
                 return Result.fail(create_result)
             if not create_result.value:
-                return Result.fail(_step_not_found(ku_uid))
+                return Result.fail(step_not_found(ku_uid))
             self.logger.info(f"Added bookmark: {user_uid} -> {ku_uid}")
             return Result.ok(True)
 

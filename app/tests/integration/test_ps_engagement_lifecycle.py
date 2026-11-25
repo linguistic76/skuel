@@ -46,6 +46,7 @@ from core.models.templates.habit_template import HabitTemplate
 from core.models.templates.principle_template import PrincipleTemplate
 from core.models.templates.relative_offset import RelativeOffset
 from core.models.templates.task_template import TaskTemplate
+from core.services.ps.ps_prerequisite_gate import PsPrerequisiteGate
 from core.services.ps_engagement import PsEngagementService
 from core.utils.result_simplified import Errors, Result
 from tests.helpers.production_backends import build_production_backends
@@ -108,8 +109,9 @@ async def engagement_service(
     instance_backends: dict[str, Any],
     event_bus: InMemoryEventBus,
 ) -> PsEngagementService:
+    backends = build_production_backends(Mock(), executor)
     return PsEngagementService(
-        backend=build_production_backends(Mock(), executor)["ps_engagement_backend"],
+        backend=backends["ps_engagement_backend"],
         task_template_backend=template_backends["task"],
         goal_template_backend=template_backends["goal"],
         habit_template_backend=template_backends["habit"],
@@ -123,6 +125,7 @@ async def engagement_service(
         choices_backend=instance_backends["choices"],
         principles_backend=instance_backends["principles"],
         event_bus=event_bus,
+        prerequisite_gate=PsPrerequisiteGate(backends["ps_intelligence_backend"]),
     )
 
 

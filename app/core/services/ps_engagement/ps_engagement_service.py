@@ -15,6 +15,9 @@ Concrete facade pattern (per CLAUDE.md "Facade IS the contract"):
 the class itself is the route-facing type — no parallel protocol.
 
 Invariants enforced:
+- T1 admits only a published PathStep whose prerequisite chain the student has
+  mastered (``PsPrerequisiteGate``); a draft, another kind of node and a missing
+  uid are ``not_found`` of the step.
 - T1 fails fast if any template's cross-template references are broken
   (returns ``Errors.ps_validation_report`` with a typed ``list[Violation]``).
 - T1 refuses if an active engagement already exists for (student, PS).
@@ -60,6 +63,7 @@ from core.models.templates.task_template import TaskTemplate
 from core.models.type_hints import UserUID
 from core.ports import CrudOperations, PsEngagementOperations
 from core.ports.infrastructure_protocols import EventBusOperations
+from core.services.ps.ps_prerequisite_gate import PsPrerequisiteGate
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -126,11 +130,15 @@ class PsEngagementService:
         choices_backend: CrudOperations[Choice],
         principles_backend: CrudOperations[Principle],
         event_bus: EventBusOperations,
+        prerequisite_gate: PsPrerequisiteGate,
     ) -> None:
         if backend is None:
             raise ValueError(
                 "PsEngagementService requires a backend (SKUEL fail-fast — no graceful degradation)."
             )
+        if prerequisite_gate is None:
+            raise ValueError("PsEngagementService requires the prerequisite gate.")
+        self._prerequisite_gate = prerequisite_gate
 
         # Spawning and discarding instances changes goal contributions: a spawned task
         # contributes to its spawned goal, and a discarded one leaves it.
@@ -171,6 +179,8 @@ class PsEngagementService:
         """Spawn instances and open the engagement edge.
 
         Steps:
+            0. Refuse a uid that is not a published step, then a step whose
+               prerequisite chain the student has not mastered.
             1. Refuse if (student, PS) already has an active engagement.
             2. Validate the PS's templates (they are read fresh on every
                engagement).
@@ -179,6 +189,10 @@ class PsEngagementService:
                with the engagement's ``uid``.
             5. On spawn failure: roll back the engagement edge.
         """
+        admitted = await self._prerequisite_gate.admit(student_uid, ps_uid)
+        if admitted.is_error:
+            return Result.fail(admitted)
+
         active = await self._gateway.find_active(student_uid, ps_uid)
         if active.is_error:
             return Result.fail(active)
