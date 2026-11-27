@@ -264,7 +264,8 @@ class TasksCoreService(
         # here — and a cleared priority is still measured (as MEDIUM) rather than
         # skipped, so clearing cannot be used to duck the rule.
         new_priority = Priority.from_value(changes["priority"])
-        if new_priority.to_numeric() < Priority.from_value(current.priority).to_numeric():
+        current_priority = current.priority or Priority.MEDIUM
+        if new_priority.to_numeric() < current_priority.to_numeric():
             return Result.fail(
                 Errors.validation(
                     message="Cannot decrease priority of overdue tasks",

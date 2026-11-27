@@ -166,7 +166,7 @@ _GOAL_FILTER_CONFIG: FilterConfig = {
 
 
 def _get_goal_priority_order(goal: Any) -> int:
-    """Sort key for priority (CRITICAL first = 0, LOW last = 3)."""
+    """Sort key for priority: HIGH 0, MEDIUM 1, LOW 2; no priority sorts as MEDIUM."""
     return Priority.from_value(_get_goal_priority_str(goal)).sort_order()
 
 

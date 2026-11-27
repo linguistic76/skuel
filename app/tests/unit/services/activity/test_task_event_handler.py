@@ -19,6 +19,7 @@ from core.events.task_events import (
     TaskPriorityChanged,
     TasksBulkCompleted,
 )
+from core.models.enums.activity_enums import Priority
 from core.models.task.task import Task
 from core.services.tasks.task_event_handler_service import (
     TaskEventHandlerService,
@@ -83,7 +84,7 @@ def _make_task(
     uid: str = "task_test_abc",
     duration_minutes: int | None = None,
     actual_minutes: int | None = None,
-    priority: str | None = None,
+    priority: Priority | None = None,
 ) -> Mock:
     """Create a mock task with given attributes."""
     task = Mock(spec=Task)
@@ -347,8 +348,8 @@ class TestHandleTaskPriorityChanged:
         self, service: TaskEventHandlerService, mock_backend: Mock
     ):
         """Warns when >60% of tasks are high/critical priority."""
-        high_tasks = [_make_task(priority="high") for _ in range(4)]
-        low_tasks = [_make_task(priority="low") for _ in range(1)]
+        high_tasks = [_make_task(priority=Priority.HIGH) for _ in range(4)]
+        low_tasks = [_make_task(priority=Priority.LOW) for _ in range(1)]
         mock_backend.find_by.return_value = Result.ok(high_tasks + low_tasks)
 
         event = TaskPriorityChanged(
@@ -485,8 +486,8 @@ class TestInsightPersistence:
     ):
         """Priority inflation >60% persists an IMBALANCE_DETECTED insight."""
         service = TaskEventHandlerService(backend=mock_backend, insight_store=mock_insight_store)
-        high_tasks = [_make_task(priority="high") for _ in range(4)]
-        low_tasks = [_make_task(priority="low") for _ in range(1)]
+        high_tasks = [_make_task(priority=Priority.HIGH) for _ in range(4)]
+        low_tasks = [_make_task(priority=Priority.LOW) for _ in range(1)]
         mock_backend.find_by.return_value = Result.ok(high_tasks + low_tasks)
 
         event = TaskPriorityChanged(

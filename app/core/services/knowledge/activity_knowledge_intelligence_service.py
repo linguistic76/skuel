@@ -321,11 +321,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
                     knowledge_nodes = context_result.value.get_published_knowledge_nodes()
 
                     if knowledge_nodes:
-                        priority_value = getattr(entity, "priority", None)
-                        is_high = (
-                            priority_value is not None
-                            and Priority(priority_value).to_numeric() >= 3
-                        )
+                        is_high = getattr(entity, "priority", None) == Priority.HIGH
                         opportunities.append(
                             {
                                 "type": "knowledge_gap",

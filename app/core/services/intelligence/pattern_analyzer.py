@@ -269,7 +269,7 @@ class PatternAnalyzer:
 
         Example:
             def has_high_priority_focus(ts) -> bool:
-                return sum(1 for t in ts if t.priority.is_high()) / len(ts) > 0.4
+                return sum(1 for t in ts if t.priority == Priority.HIGH) / len(ts) > 0.4
             def has_detailed_descriptions(ts) -> bool:
                 return sum(1 for t in ts if t.description) / len(ts) > 0.6
             factors = PatternAnalyzer.identify_factors(

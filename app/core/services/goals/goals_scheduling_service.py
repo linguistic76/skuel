@@ -780,7 +780,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
                 Priority.MEDIUM: 0.15,
                 Priority.LOW: 0.1,
             }
-            score += priority_scores.get(Priority(goal.priority), 0.15) if goal.priority else 0.15
+            score += priority_scores.get(goal.priority, 0.15) if goal.priority else 0.15
 
             # Factor 3: Progress momentum (0-0.2)
             progress = goal.progress_percentage

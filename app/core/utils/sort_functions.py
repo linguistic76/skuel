@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from _typeshed import SupportsRichComparison
 
-from core.ports.base_protocols import HasPriority, HasToNumeric
 from core.utils.timestamp_helpers import (
     EARLIEST_INSTANT,
     LATEST_INSTANT,
@@ -111,32 +110,6 @@ def get_synergy_score(synergy: Any) -> float:
     Example: synergies.sort(key=get_synergy_score, reverse=True)
     """
     return synergy.synergy_score
-
-
-def get_priority_value(item: Any) -> int:
-    """
-    Get numeric priority value from item.
-
-    Used for sorting by priority (higher number = higher priority).
-    Example: tasks.sort(key=get_priority_value, reverse=True)
-    """
-    if isinstance(item, HasPriority):
-        # Handle enum priorities with to_numeric method
-        if isinstance(item.priority, HasToNumeric):
-            return item.priority.to_numeric()
-        # Handle string priorities (stored as str via Neo4j deserialization)
-        if isinstance(item.priority, str):
-            from core.models.enums import Priority
-
-            try:
-                return Priority(item.priority).to_numeric()
-            except ValueError:
-                return 0
-        # Ensure we return an int (priority could be int)
-        if isinstance(item.priority, int):
-            return item.priority
-        return 0
-    return 0
 
 
 def get_sequence(item: dict[str, Any]) -> int:

@@ -59,9 +59,8 @@ ENUM_FIELD_TYPES: dict[str, type[Enum]] = {
     "status": EntityStatus,
     "domain": Domain,
     "visibility": Visibility,
-    # Every UserOwnedEntity carries priority; authored PathStep frontmatter does too.
-    # Registered so the vault door canonicalizes casing and refuses any value outside
-    # the three-level vocabulary.
+    # Every UserOwnedEntity carries priority. Registered so the vault door canonicalizes
+    # casing and refuses any value outside the three-level vocabulary.
     "priority": Priority,
     # Curriculum fields
     "confidence": Confidence,

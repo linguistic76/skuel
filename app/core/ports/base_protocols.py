@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from datetime import date, datetime
 
-    from core.models.enums import Priority, SearchVisibility
+    from core.models.enums import SearchVisibility
     from core.models.enums.neo_labels import NeoLabel
     from core.models.link_write_contracts import GuardedLinkOutcome, GuardedLinkWrite
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
@@ -283,15 +283,6 @@ class HasRelevanceScore(Protocol):
 
 
 @runtime_checkable
-class HasToNumeric(Protocol):
-    """Protocol for enum-like objects with to_numeric method."""
-
-    def to_numeric(self) -> int:
-        """Convert to numeric representation."""
-        ...
-
-
-@runtime_checkable
 class IsMockEndpoint(Protocol):
     """Protocol for functions decorated with @mock_endpoint."""
 
@@ -338,13 +329,6 @@ class HasUsage(Protocol):
     """Protocol for objects with usage attribute."""
 
     usage: str
-
-
-@runtime_checkable
-class HasPriority(Protocol):
-    """Protocol for objects with priority attribute."""
-
-    priority: Priority | int | str
 
 
 # ============================================================================
@@ -1621,14 +1605,12 @@ __all__ = [
     "HasCreatedAt",
     "HasLogger",
     # Priority/Sorting Protocols (3)
-    "HasPriority",
     "HasRelevanceScore",
     # Score/Metrics Protocols (6)
     "HasScore",
     # Query/Optimizer Protocols (3)
     "HasSeverity",
     "HasStrategy",
-    "HasToNumeric",
     # Entity Attribute Protocols - Core (6)
     "HasUID",
     "HasUpdated",

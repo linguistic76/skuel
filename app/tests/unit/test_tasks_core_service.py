@@ -353,7 +353,7 @@ async def test_update_task_success(core_service, mock_backend, sample_task_dto):
     intent = TaskUpdateIntent(title="Updated Title", priority=Priority.LOW.value)
     updated_dto = TaskDTO.from_dict(sample_task_dto.to_dict())
     updated_dto.title = "Updated Title"
-    updated_dto.priority = Priority.LOW.value
+    updated_dto.priority = Priority.LOW
 
     # update_task calls get() for priority change detection, then update()
     mock_backend.get.return_value = Result.ok(sample_task_dto.to_dict())

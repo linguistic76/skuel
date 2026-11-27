@@ -4,8 +4,7 @@ Three promises, held for every class at once:
 
 - A field whose name ``ENUM_FIELD_TYPES`` registers is annotated with the registry's
   enum on every ``Entity`` and ``EntityDTO`` subclass and on every DTO that converts
-  through its own ``from_dict``, except the fields in ``_STILL_TYPED_STR``. That set
-  only shrinks: a field in it that is typed as its enum fails here too.
+  through its own ``from_dict``.
 - A DTO's ``from_dict`` turns a stored member value into the member for every field
   its annotation types as an enum. A field left out of a DTO's hand-written conversion
   list would hold the raw ``str`` under an enum annotation.
@@ -45,15 +44,6 @@ class _ConvertingDTO(Protocol):
     def from_dict(cls, data: dict[str, Any]) -> Self: ...  # boundary: stored node properties
 
     def to_dict(self) -> dict[str, Any]: ...  # boundary: stored node properties
-
-
-# Enum-named fields still annotated ``str`` — (class name, field name).
-_STILL_TYPED_STR: frozenset[tuple[str, str]] = frozenset(
-    {
-        ("UserOwnedDTO", "priority"),
-        ("UserOwnedEntity", "priority"),
-    }
-)
 
 
 def _class_id(cls: type) -> str:
@@ -206,26 +196,16 @@ class TestTheWalkReachesEveryClass:
 
         assert len(names) == len(set(names))
 
-    def test_every_still_str_entry_names_a_field_the_walk_reaches(self) -> None:
-        reached = {(cls.__name__, name) for cls, name in _ENUM_NAMED}
-
-        assert _STILL_TYPED_STR.issubset(reached), sorted(_STILL_TYPED_STR - reached)
-
 
 @pytest.mark.parametrize(("cls", "name"), _ENUM_NAMED, ids=[_pair_id(p) for p in _ENUM_NAMED])
 def test_an_enum_named_field_is_typed_as_its_registered_enum(cls: type, name: str) -> None:
     typed_as = _enum_of(_hints(cls)[name])
     registered = ENUM_FIELD_TYPES[name]
 
-    if (cls.__name__, name) in _STILL_TYPED_STR:
-        assert typed_as is not registered, (
-            f"{cls.__name__}.{name} is typed as {registered.__name__}: take it out of _STILL_TYPED_STR"
-        )
-    else:
-        assert typed_as is registered, (
-            f"{cls.__name__}.{name} is not typed as {registered.__name__}, the enum "
-            f"ENUM_FIELD_TYPES registers for '{name}'"
-        )
+    assert typed_as is registered, (
+        f"{cls.__name__}.{name} is not typed as {registered.__name__}, the enum "
+        f"ENUM_FIELD_TYPES registers for '{name}'"
+    )
 
 
 @pytest.mark.parametrize("cls", _DTOS, ids=[_class_id(cls) for cls in _DTOS])

@@ -1,6 +1,6 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-11-08
+updated: 2026-11-27
 category: patterns
 related_skills: []
 related_docs: []
@@ -218,7 +218,8 @@ def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[N
         return Result.ok(None)
 
     new_priority = Priority.from_value(changes["priority"])  # None/unknown → MEDIUM
-    if new_priority.to_numeric() < Priority.from_value(current.priority).to_numeric():
+    current_priority = current.priority or Priority.MEDIUM
+    if new_priority.to_numeric() < current_priority.to_numeric():
         return Result.fail(
             Errors.validation(
                 message="Cannot decrease priority of overdue tasks",
@@ -523,7 +524,8 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         # Business rule: Cannot decrease priority of overdue tasks
         if "priority" in changes and current.is_overdue():
             new_priority = Priority.from_value(changes["priority"])
-            if new_priority.to_numeric() < Priority.from_value(current.priority).to_numeric():
+            current_priority = current.priority or Priority.MEDIUM
+            if new_priority.to_numeric() < current_priority.to_numeric():
                 return Result.fail(
                     Errors.validation(
                         message="Cannot decrease priority of overdue tasks",

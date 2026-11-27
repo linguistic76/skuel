@@ -43,7 +43,7 @@ class FormSubmissionDTO(UserOwnedDTO):
 
         data = dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility"],
+            enum_fields=["entity_type", "status", "domain", "visibility", "priority"],
             datetime_fields=["created_at", "updated_at"],
         )
         data["form_data"] = json.dumps(self.form_data) if self.form_data else None
@@ -65,7 +65,9 @@ class FormSubmissionDTO(UserOwnedDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields=enum_fields_for("entity_type", "status", "domain", "visibility"),
+            enum_fields=enum_fields_for(
+                "entity_type", "status", "domain", "visibility", "priority"
+            ),
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags"],
             dict_fields=["metadata", "form_data"],

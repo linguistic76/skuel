@@ -34,7 +34,7 @@ LOW + UNCERTAIN      → Prune or validate. Low signal.
 
 ## Where Priority Lives
 
-**Field:** `UserOwnedEntity.priority: str | None`
+**Field:** `UserOwnedEntity.priority: Priority | None`
 
 **File:** `core/models/user_owned_entity.py`
 
@@ -143,6 +143,7 @@ rank by it — every one of them through the enum's own methods, never a hand-wr
 | Search scoring (`core/models/search/scoring.py`) | `score_priority_level` → HIGH 1.0 / MEDIUM 0.5 / LOW 0.25 |
 | List sorts (`core/utils/entity_filters.py`) | sort by `sort_order()`; the view vocabulary IS the enum's three values (the day view orders by date, not priority — every priority renders there) |
 | Goal scheduling (`goals_scheduling_service.py`) | priority weight in the goal score; the HIGH-count recommendation is advisory |
+| Next critical tasks (`get_task_urgency`, `core/models/task/task.py`) | `sort_order()`: HIGH, MEDIUM, LOW, then a task with no priority; the earlier due date breaks a tie, no due date last |
 
 ---
 
@@ -175,7 +176,7 @@ rank by it — every one of them through the enum's own methods, never a hand-wr
 | File | Role |
 |------|------|
 | `core/models/enums/activity_enums.py` | `Priority` and `Confidence` enum definitions |
-| `core/models/user_owned_entity.py` | `priority: str \| None` field declaration |
+| `core/models/user_owned_entity.py` | `priority: Priority \| None` field declaration |
 | `core/models/curriculum.py` | `confidence: Confidence \| None` field declaration |
 | `core/services/lateral_relationships/lateral_relationship_service.py` | `confidence` + `priority` on graph edges |
 | `static/js/skuel.js` | vis.js edge styling by confidence and priority |

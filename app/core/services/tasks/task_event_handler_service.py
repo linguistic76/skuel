@@ -521,7 +521,7 @@ class TaskEventHandlerService:
         if len(tasks) < 3:
             return
 
-        high_count = sum(1 for t in tasks if t.priority and Priority(t.priority).to_numeric() >= 3)
+        high_count = sum(1 for t in tasks if t.priority == Priority.HIGH)
         inflation_ratio = high_count / len(tasks)
 
         if inflation_ratio > 0.6:

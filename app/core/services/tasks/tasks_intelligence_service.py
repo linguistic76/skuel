@@ -233,16 +233,14 @@ class TasksIntelligenceService(
             "task_uid": uid,
             "task_title": task.title,
             "status": task.status.value if task.status else None,
-            "priority": task.priority if task.priority else None,
+            "priority": task.priority,
             "knowledge_prerequisites": prerequisites.get("required_knowledge", []),
             "has_prerequisites": len(prerequisites.get("required_knowledge", [])) > 0,
             "insights": {
                 "is_overdue": task.is_overdue()
                 if callable(getattr(task, "is_overdue", None))
                 else False,
-                "is_high_priority": bool(
-                    task.priority and Priority(task.priority).to_numeric() >= 3
-                ),
+                "is_high_priority": task.priority == Priority.HIGH,
                 "has_description": bool(task.description),
             },
             "min_confidence": min_confidence,

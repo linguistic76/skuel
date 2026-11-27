@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-10-24
+updated: 2026-11-27
 status: current
 category: architecture
 tags:
@@ -1208,7 +1208,7 @@ Reused by multiple `score_<domain>` functions. Each returns a `ComponentScore` w
 | Helper | Inputs | Used by |
 |--------|--------|---------|
 | `score_deadline_proximity(target_date)` | Target date, today, urgent/soon day thresholds | Task, Goal, Event, Choice |
-| `score_priority_level(priority)` | `Priority` enum or raw string | Task, Goal, Choice |
+| `score_priority_level(priority)` | `Priority` member, or None | Task, Goal, Choice |
 | `score_goal_alignment(goal_uid, context.active_goal_uids)` | Foreign key + active set | Task, Goal, Event, Habit |
 | `score_streak_protection(habit_uid, context.habit_streaks, context.active_habit_uids)` | Habit UID + streak map | Task, Habit, Event |
 | `score_progress_momentum(progress)` | Progress percentage | Goal |

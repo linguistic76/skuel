@@ -243,7 +243,7 @@ class GoalTaskGenerator:
         3. At-risk habit reinforcement
         4. Time-sensitive goals
         """
-        critical_tasks = []
+        critical_tasks: list[TaskDTO] = []
 
         # Fetch all active goals in one batch query
         many_result = await self.goals_backend.get_many(list(user_context.active_goal_uids))

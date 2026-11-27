@@ -76,14 +76,12 @@ from .base_protocols import (
     HasCreatedAt,
     HasLogger,
     # Priority/Sorting Protocols (3)
-    HasPriority,
     HasRelevanceScore,
     # Score/Metrics Protocols (6)
     HasScore,
     # Query/Optimizer Protocols (3)
     HasSeverity,
     HasStrategy,
-    HasToNumeric,
     # Entity Attribute Protocols - Core (6)
     HasUID,
     HasUpdated,
@@ -330,14 +328,12 @@ __all__ = [
     "HasCreatedAt",
     "HasLogger",
     # ========== PRIORITY/SORTING PROTOCOLS (3) ==========
-    "HasPriority",
     "HasRelevanceScore",
     # ========== SCORE/METRICS PROTOCOLS (6) ==========
     "HasScore",
     # ========== QUERY/OPTIMIZER PROTOCOLS (3) ==========
     "HasSeverity",
     "HasStrategy",
-    "HasToNumeric",
     # ========== ENTITY ATTRIBUTE PROTOCOLS (6) ==========
     "HasUID",
     "HasUpdated",

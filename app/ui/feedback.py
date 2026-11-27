@@ -237,8 +237,8 @@ def PriorityBadge(priority: str | None, **kwargs: Any) -> Any:
 
     Args:
         priority: The priority string (case-insensitive). Supported values:
-            - "urgent" / "high" -> error
-            - "medium" / "normal" -> warning
+            - "high" -> error
+            - "medium" -> warning
             - "low" -> success
         **kwargs: Additional attributes passed to Badge
 
@@ -251,10 +251,8 @@ def PriorityBadge(priority: str | None, **kwargs: Any) -> Any:
     priority_lower = priority.lower()
 
     priority_map: dict[str, tuple[str, BadgeT]] = {
-        "urgent": ("Urgent", BadgeT.error),
         "high": ("High", BadgeT.error),
         "medium": ("Medium", BadgeT.warning),
-        "normal": ("Normal", BadgeT.warning),
         "low": ("Low", BadgeT.success),
     }
 
