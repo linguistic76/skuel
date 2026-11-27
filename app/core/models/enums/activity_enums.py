@@ -145,18 +145,22 @@ _PRIORITY_SORT_ORDERS: dict[Priority, int] = {
 
 class Confidence(StrEnum):
     """
-    User-assessed certainty about an entity.
+    Certainty about an entity, as a named level.
 
     Parallel to Priority — named levels map to ConfidenceLevel float constants.
 
-    Used by:
-    - UserOwnedEntity.confidence (entity-level self-assessment)
-    - Lateral relationship metadata (relationship-level assertion strength)
+    Used by ``Curriculum.confidence`` (PathStep, LearningPath, Exercise): the
+    curriculum author's certainty about the content, authored as a ``confidence:``
+    frontmatter key in the content vault.
 
+    Planned (ADR-045): ``UserOwnedEntity.confidence``, a learner's self-assessment.
     On a Task: "How confident am I that I'll complete this?"
     On a Goal: "How certain am I I'll achieve this?"
     On a Habit: "How sure am I this habit is serving me?"
     On a Principle: "How deeply held is this principle?"
+
+    A lateral edge stores its confidence as a float, not as this enum;
+    ``from_numeric`` maps a float to its nearest level.
     """
 
     UNCERTAIN = "uncertain"  # ~0.3 — exploratory, speculative

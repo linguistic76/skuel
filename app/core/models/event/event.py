@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.event_enums import EventType
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_entity import UserOwnedEntity
 
@@ -77,7 +78,7 @@ class Event(UserOwnedEntity):
     # =========================================================================
     # EVENT LOGISTICS
     # =========================================================================
-    event_type: str | None = None  # canonical EventType value, e.g. "personal", "meeting"
+    event_type: EventType | None = None
     location: str | None = None
     is_online: bool = False
     meeting_url: str | None = None

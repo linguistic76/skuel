@@ -171,6 +171,7 @@ class HabitDTO(UserOwnedDTO):
                 "habit_difficulty",
                 "recurrence_pattern",
                 "preferred_time",
+                "engagement_state",
             ],
             date_fields=["recurrence_end_date"],
             datetime_fields=[

@@ -162,6 +162,7 @@ class PrincipleDTO(UserOwnedDTO):
                 "principle_source",
                 "strength",
                 "current_alignment",
+                "engagement_state",
             ],
             date_fields=["last_review_date", "adopted_date"],
             datetime_fields=["created_at", "updated_at"],

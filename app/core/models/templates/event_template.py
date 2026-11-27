@@ -25,6 +25,8 @@ from typing import TYPE_CHECKING
 
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.event_enums import EventType
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.templates.relative_offset import RelativeOffset
 
 if TYPE_CHECKING:
@@ -59,7 +61,7 @@ class EventTemplate(Entity):
     # =========================================================================
     # EVENT LOGISTICS
     # =========================================================================
-    event_type: str | None = None
+    event_type: EventType | None = None
     location: str | None = None
     is_online: bool = False
     meeting_url: str | None = None
@@ -67,7 +69,7 @@ class EventTemplate(Entity):
     # =========================================================================
     # RECURRENCE
     # =========================================================================
-    recurrence_pattern: str | None = None
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_offset: RelativeOffset | None = None
 
     # =========================================================================

@@ -20,6 +20,7 @@ from typing import Any
 
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.user_owned_dto import UserOwnedDTO
 
 
@@ -58,7 +59,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
     context_notes: list[str] = field(default_factory=list)
     feedback_points: list[dict[str, str]] = field(default_factory=list)
     revision_rationale: str | None = None
-    expected_modality: str | None = None
+    expected_modality: SubmissionModality | None = None
 
     # =========================================================================
     # SERIALIZATION
@@ -70,7 +71,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility"],
+            enum_fields=["entity_type", "status", "domain", "visibility", "expected_modality"],
             datetime_fields=["created_at", "updated_at"],
         )
 
@@ -82,7 +83,9 @@ class RevisedExerciseDTO(UserOwnedDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields=enum_fields_for("entity_type", "status", "domain", "visibility"),
+            enum_fields=enum_fields_for(
+                "entity_type", "status", "domain", "visibility", "expected_modality"
+            ),
             datetime_fields=["created_at", "updated_at"],
             list_fields=[
                 "tags",

@@ -95,14 +95,6 @@ class RevisedExercise(UserOwnedEntity):
             object.__setattr__(
                 self, "feedback_points", _parse_feedback_points_json(self.feedback_points)
             )
-        # Neo4j stores expected_modality as string — parse on construction
-        if isinstance(self.expected_modality, str):
-            try:
-                object.__setattr__(
-                    self, "expected_modality", SubmissionModality(self.expected_modality)
-                )
-            except ValueError:
-                object.__setattr__(self, "expected_modality", None)
         super().__post_init__()
 
     # =========================================================================

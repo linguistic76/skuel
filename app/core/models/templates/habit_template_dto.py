@@ -10,7 +10,7 @@ from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
-from core.models.enums.scheduling_enums import TimeOfDay
+from core.models.enums.scheduling_enums import RecurrencePattern, TimeOfDay
 from core.models.templates.offset_helpers import (
     TEMPLATE_OFFSET_FIELDS,
     jsonable_to_offset,
@@ -46,7 +46,7 @@ class HabitTemplateDTO(EntityDTO):
 
     # Scheduling
     duration_minutes: int | None = None
-    recurrence_pattern: str | None = None
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_offset: RelativeOffset | None = None
     target_days_per_week: int | None = None
     preferred_time: TimeOfDay | None = None
@@ -72,6 +72,7 @@ class HabitTemplateDTO(EntityDTO):
                 "polarity",
                 "habit_category",
                 "habit_difficulty",
+                "recurrence_pattern",
                 "preferred_time",
             ],
             datetime_fields=["created_at", "updated_at"],
@@ -100,6 +101,7 @@ class HabitTemplateDTO(EntityDTO):
                 "polarity",
                 "habit_category",
                 "habit_difficulty",
+                "recurrence_pattern",
                 "preferred_time",
             ),
             datetime_fields=["created_at", "updated_at"],

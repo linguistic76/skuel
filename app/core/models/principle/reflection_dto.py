@@ -155,7 +155,7 @@ class PrincipleReflectionDTO:
 
         return dto_to_dict(
             self,
-            enum_fields=[],
+            enum_fields=["alignment_level", "trigger_type"],
         )
 
     @classmethod

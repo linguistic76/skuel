@@ -495,19 +495,17 @@ class EventsCoreService(
         ``CalendarEventCreated`` is subscribed to ``invalidate_context``
         (services_bootstrap/_event_wiring.py), which debounces and then rebuilds the
         user context — and the rebuild reads ``(event)-[:REINFORCES_HABIT]->(:Habit)``
-        and ``(event)-[:CONTRIBUTES_TO_GOAL]->(:Goal)`` back out of the graph (adapters/persistence/neo4j/user_context_queries.py). The
-        old request door wrote its edges AFTER the publish, so the rebuild could observe
-        an event with no links and cache that empty result for the full TTL — the same
-        inversion Codex reported on #960, closed for Tasks in #967.
+        and ``(event)-[:CONTRIBUTES_TO_GOAL]->(:Goal)`` back out of the graph
+        (adapters/persistence/neo4j/user_context_queries.py). Published before the edges,
+        the rebuild could read the event with no links and cache that empty result for
+        the full TTL.
         """
         domain_event = CalendarEventCreated(
             event_uid=event.uid,
             user_uid=event.user_uid,
             title=event.title,
             event_date=event.event_date or today_in(current_zone()),
-            # Canonical member, not the former lowercase "meeting" literal:
-            # EventAdapter compares against EventType's UPPERCASE members.
-            # (get_enum_value was a no-op here — event_type is a str field.)
+            # An event created with no type is announced as a meeting.
             calendar_event_type=event.event_type or EventType.MEETING,
         )
         await publish_event(self.event_bus, domain_event, self.logger)

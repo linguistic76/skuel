@@ -1,6 +1,6 @@
 ---
 title: "ADR-045: Priority & Confidence as First-Class Customization Dials"
-updated: 2026-09-13
+updated: 2026-11-27
 status: current
 category: decisions
 tags: [adr, decisions, enums, priority, confidence, planning, graph-visualization]
@@ -78,7 +78,8 @@ Both enums live in `core/models/enums/activity_enums.py`.
 UserOwnedEntity hierarchy (Tasks, Goals, Habits, Events, Choices, Principles, Submissions, LifePath).
 
 **Confidence placement (two slots):**
-- Entity: `Curriculum.confidence: str | None` — present on KU, PS, LP (and their request models)
+- Entity: `Curriculum.confidence: Confidence | None` — present on PS, LP and Exercise (the `Curriculum`
+  subclasses; Ku is not one), authored in the content vault
 - Edge: `rel.confidence: float` — property on all lateral relationship edges across all 9 domains
 
 ---
@@ -144,8 +145,8 @@ This applies uniformly regardless of which domain the entities belong to.
 - ⚠️ Confidence on edges is stored as float, not as the enum string. `Confidence.from_numeric()` bridges the gap, but callers must know which representation to use.
 
 ### Neutral Consequences
-- ℹ️ Confidence enum docstring mentions `UserOwnedEntity.confidence` as a planned use case.
-  As of 2026-03-05, Confidence is only on `Curriculum` entities and lateral edges — not UserOwnedEntity.
+- ℹ️ The Confidence enum docstring names `UserOwnedEntity.confidence` as a planned use case.
+  Confidence is on `Curriculum` entities (the enum) and lateral edges (a float) — not UserOwnedEntity.
   Activity domains use Dual-Track Assessment for self-assessment instead.
 
 ---
@@ -156,8 +157,7 @@ This applies uniformly regardless of which domain the entities belong to.
 
 - Primary enums: `core/models/enums/activity_enums.py` — `Priority` and `Confidence` classes
 - Priority field: `core/models/user_owned_entity.py` — `priority: str | None = None`
-- Confidence field: `core/models/curriculum.py` — `confidence: str | None = None`
-- Confidence request models: `core/models/pathways/pathways_request.py`
+- Confidence field: `core/models/curriculum.py` — `confidence: Confidence | None = None`
 - Graph visualization: `core/services/lateral_relationships/lateral_relationship_service.py` — returns `confidence` + `priority` on each edge
 - Vis.js edge styling: `static/js/skuel.js` — `renderNetwork()` function
 

@@ -66,7 +66,7 @@ chrome. There is no hub page; `/today` is the landing.
 
 ### Events
 - Event file is `calendar_event_events.py` (not `event_events.py`)
-- `event_type: str | None` holds a canonical `EventType` value
+- `event_type: EventType | None`
 - Supports `CONFLICTS_WITH` relationship
 
 ### Choices

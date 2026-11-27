@@ -12,6 +12,8 @@ from typing import Any
 from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.event_enums import EventType
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.templates.offset_helpers import (
     TEMPLATE_OFFSET_FIELDS,
     jsonable_to_offset,
@@ -36,13 +38,13 @@ class EventTemplateDTO(EntityDTO):
     duration_minutes: int | None = None
 
     # Logistics
-    event_type: str | None = None
+    event_type: EventType | None = None
     location: str | None = None
     is_online: bool = False
     meeting_url: str | None = None
 
     # Recurrence
-    recurrence_pattern: str | None = None
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_offset: RelativeOffset | None = None
 
     # Reminders
@@ -74,7 +76,7 @@ class EventTemplateDTO(EntityDTO):
 
         data = dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain"],
+            enum_fields=["entity_type", "status", "domain", "event_type", "recurrence_pattern"],
             datetime_fields=["created_at", "updated_at"],
             time_fields=["start_time", "end_time"],
         )
@@ -95,7 +97,9 @@ class EventTemplateDTO(EntityDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields=enum_fields_for("entity_type", "status", "domain"),
+            enum_fields=enum_fields_for(
+                "entity_type", "status", "domain", "event_type", "recurrence_pattern"
+            ),
             datetime_fields=["created_at", "updated_at"],
             time_fields=["start_time", "end_time"],
             list_fields=["tags"],
