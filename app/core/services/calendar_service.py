@@ -39,7 +39,6 @@ if TYPE_CHECKING:
     from core.services.tasks_service import TasksService
 
 from core.constants import HabitBlock
-from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import CompletionStatus
 from core.models.enums.scheduling_enums import TimeOfDay
@@ -76,11 +75,6 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.type_converters import get_enum_value
 
 logger = get_logger("skuel.services.calendar")
-
-
-def _stated_priority(raw: str | None) -> Priority | None:
-    """The entity's priority as a member, or None when it states none."""
-    return Priority.from_value(raw) if raw else None
 
 
 def _item_start(item: CalendarItem) -> datetime:
@@ -793,7 +787,7 @@ class CalendarService:
             all_day=is_due,
             is_due=is_due,
             color=item_type.get_color(),
-            priority=_stated_priority(task.priority),
+            priority=task.priority,
             status=task.status,
             tags=list(task.tags),
         )
@@ -830,7 +824,7 @@ class CalendarService:
             end_time=end_time,
             all_day=False,
             color=color,
-            priority=_stated_priority(event.priority),
+            priority=event.priority,
             status=event.status,
             tags=list(event.tags),
             # Multi-attendee event support
@@ -867,7 +861,7 @@ class CalendarService:
             end_time=end_time,
             all_day=True,
             color=item_type.get_color(),
-            priority=_stated_priority(goal.priority),
+            priority=goal.priority,
             status=goal.status,
             tags=list(goal.tags),
         )
@@ -899,7 +893,7 @@ class CalendarService:
             end_time=end_time,
             all_day=False,
             color=CalendarItemType.HABIT.get_color(),
-            priority=_stated_priority(habit.priority),
+            priority=habit.priority,
             status=habit.status,
             # The slot itself, not just its hour: the chip names the habit's
             # own vocabulary, and 09:00 cannot be read back as MORNING vs

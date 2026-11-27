@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from core.models.enums.activity_enums import Priority
 from core.models.task.task import Task
 from core.services.knowledge.knowledge_pattern_analyzer import (
     LearningPattern,
@@ -30,7 +31,9 @@ from core.utils.result_simplified import Result
 # ---------------------------------------------------------------------------
 
 
-def make_task(uid: str = "task_abc123", title: str = "Test Task", priority: str = "medium") -> Task:
+def make_task(
+    uid: str = "task_abc123", title: str = "Test Task", priority: Priority = Priority.MEDIUM
+) -> Task:
     """Construct a minimal Task with sensible defaults for analytics tests."""
     return Task(uid=uid, title=title, priority=priority, user_uid="user_test")
 
@@ -177,7 +180,7 @@ class TestCalculateKnowledgeAwarePriority:
         self, engine_no_svc: TaskKnowledgeAnalyzer
     ) -> None:
         """final_priority_score must be in [0.0, 1.0]."""
-        task = make_task(priority="high")
+        task = make_task(priority=Priority.HIGH)
 
         result = await engine_no_svc.calculate_knowledge_aware_priority(
             task, user_mastery_progressions={}, learning_patterns=[]
@@ -192,8 +195,8 @@ class TestCalculateKnowledgeAwarePriority:
         self, engine_no_svc: TaskKnowledgeAnalyzer
     ) -> None:
         """High-priority task scores higher than low-priority (no knowledge rels)."""
-        high_task = make_task("task_high", priority="high")
-        low_task = make_task("task_low", priority="low")
+        high_task = make_task("task_high", priority=Priority.HIGH)
+        low_task = make_task("task_low", priority=Priority.LOW)
 
         high_result = await engine_no_svc.calculate_knowledge_aware_priority(
             high_task, user_mastery_progressions={}, learning_patterns=[]

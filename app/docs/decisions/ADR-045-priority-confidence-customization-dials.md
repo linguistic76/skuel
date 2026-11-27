@@ -74,8 +74,9 @@ class Confidence(str, Enum):
 
 Both enums live in `core/models/enums/activity_enums.py`.
 
-**Priority placement:** `UserOwnedEntity.priority: str | None` — present on all 8 models in the
-UserOwnedEntity hierarchy (Tasks, Goals, Habits, Events, Choices, Principles, Submissions, LifePath).
+**Priority placement:** `UserOwnedEntity.priority: Priority | None` — present on all 13 models in
+the UserOwnedEntity hierarchy (Task, Goal, Habit, Event, Choice, Principle, UserEntry, EntryReport,
+ActivityReport, RevisedExercise, FormSubmission, Interaction, LifePath).
 
 **Confidence placement (two slots):**
 - Entity: `Curriculum.confidence: Confidence | None` — present on PS, LP and Exercise (the `Curriculum`
@@ -156,7 +157,7 @@ This applies uniformly regardless of which domain the entities belong to.
 ### Code Location
 
 - Primary enums: `core/models/enums/activity_enums.py` — `Priority` and `Confidence` classes
-- Priority field: `core/models/user_owned_entity.py` — `priority: str | None = None`
+- Priority field: `core/models/user_owned_entity.py` — `priority: Priority | None = None`
 - Confidence field: `core/models/curriculum.py` — `confidence: Confidence | None = None`
 - Graph visualization: `core/services/lateral_relationships/lateral_relationship_service.py` — returns `confidence` + `priority` on each edge
 - Vis.js edge styling: `static/js/skuel.js` — `renderNetwork()` function

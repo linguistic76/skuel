@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-13
+updated: 2026-11-27
 ---
 
 # SKUEL UI Component Catalog
@@ -240,16 +240,16 @@ Status-aware badge that delegates to `EntityStatus.get_badge_class()` for canoni
 Priority-specific badge with predefined styling.
 
 **Parameters:**
-- `priority: str | None` - Priority value (critical, urgent, high, medium, normal, low)
+- `priority: str | None` - Priority value (high, medium, low)
 
 **Auto-mapped colors:**
-- "critical", "urgent", "high" → Error (red)
-- "medium", "normal" → Warning (yellow)
+- "high" → Error (red)
+- "medium" → Warning (yellow)
 - "low" → Success (green)
 
 ### PriorityBadgeDropdown(uid, priority, domain, singular)
 
-Interactive variant for Activity Domain **cards** (`ui/activities/_shared.py`): the badge is a button that opens an Alpine dropdown of the 4 `Priority` levels; picking one POSTs `/api/{domain}/{uid}/priority` via HTMX and swaps the re-rendered card back in. Unset priority renders a ghost "Priority" badge so it can be set inline. Detail pages keep the static `PriorityBadge`.
+Interactive variant for Activity Domain **cards** (`ui/activities/_shared.py`): the badge is a button that opens an Alpine dropdown of the 3 `Priority` levels; picking one POSTs `/api/{domain}/{uid}/priority` via HTMX and swaps the re-rendered card back in. Unset priority renders a ghost "Priority" badge so it can be set inline. Detail pages keep the static `PriorityBadge`.
 
 ### Badge selection convention
 

@@ -538,7 +538,7 @@ class TaskKnowledgeAnalyzer:
         )
 
         priority_boost = 0.0
-        if task.priority == Priority.HIGH.value:
+        if task.priority == Priority.HIGH:
             priority_boost = KnowledgeEnhancementScore.HIGH_PRIORITY_BOOST
 
         return min(1.0, base_score + priority_boost)
@@ -631,7 +631,7 @@ class TaskKnowledgeAnalyzer:
         )
 
         priority_boost = 0.0
-        if task.priority == Priority.HIGH.value:
+        if task.priority == Priority.HIGH:
             priority_boost = CrossDomainImpactScore.CROSS_DOMAIN_PRIORITY_BOOST
 
         tag_boost = 0.0

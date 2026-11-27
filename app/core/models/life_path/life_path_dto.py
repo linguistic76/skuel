@@ -82,7 +82,14 @@ class LifePathDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility", "alignment_level"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "priority",
+                "alignment_level",
+            ],
             datetime_fields=["created_at", "updated_at", "designated_at", "vision_captured_at"],
         )
 
@@ -99,6 +106,7 @@ class LifePathDTO(UserOwnedDTO):
                 "status",
                 "domain",
                 "visibility",
+                "priority",
                 "alignment_level",
             ),
             datetime_fields=[

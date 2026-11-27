@@ -40,6 +40,7 @@ from typing import Any
 
 import pytest
 
+from core.models.enums.activity_enums import Priority
 from core.models.relationship_registry import TASKS_CONFIG
 from core.models.task.task import Task
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -101,7 +102,7 @@ def _harness(rel_backend, task_uid: str) -> _TaskIntelHarness:
         uid=task_uid,
         title="Write the report",
         user_uid=seed_user_uid("tkctx_user"),
-        priority="high",
+        priority=Priority.HIGH,
     )
     rels: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=rel_backend, config=TASKS_CONFIG, graph_intel=None

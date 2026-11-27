@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.principle.principle_dto import PrincipleDTO
 
-from core.models.enums.activity_enums import EngagementState
+from core.models.enums.activity_enums import EngagementState, Priority
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import (
     AlignmentLevel,
@@ -337,28 +337,14 @@ class Principle(UserOwnedEntity):
         )
 
 
-def get_principle_priority(principle: Any) -> int:
+def get_principle_priority(principle: Principle) -> int:
     """
-    Sort key: numeric priority (1-4) for ordering principles.
+    Sort key: a principle's priority as a number (LOW 1, MEDIUM 2, HIGH 3).
 
-    Principle-domain sorting policy (Dynamic Enum Pattern): converts the
-    Priority enum via to_numeric(); string priorities (Neo4j deserialization)
-    are resolved through the Priority enum; anything else defaults to
-    MEDIUM (2).
+    Principle-domain sorting policy (Dynamic Enum Pattern). A principle that
+    states no priority counts as MEDIUM (2).
 
     Example:
         principles.sort(key=get_principle_priority, reverse=True)
     """
-    from core.ports.base_protocols import HasPriority, HasToNumeric
-
-    if isinstance(principle, HasPriority):
-        if isinstance(principle.priority, HasToNumeric):
-            return principle.priority.to_numeric()
-        if isinstance(principle.priority, str):
-            from core.models.enums import Priority
-
-            try:
-                return Priority(principle.priority).to_numeric()
-            except ValueError:
-                return 2
-    return 2  # Default to MEDIUM priority
+    return (principle.priority or Priority.MEDIUM).to_numeric()

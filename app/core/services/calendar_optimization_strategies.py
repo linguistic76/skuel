@@ -113,8 +113,8 @@ class _SchedulingStrategiesMixin:
 
         # Categorize tasks by energy requirements — HIGH priority and
         # knowledge-mastery work demand peak energy.
-        def _priority_rank(task) -> int:
-            return Priority.from_value(task.priority).sort_order()
+        def _priority_rank(task: Task) -> int:
+            return (task.priority or Priority.MEDIUM).sort_order()
 
         high_energy_tasks = sorted(
             (t for t in tasks if t.priority == Priority.HIGH or t.knowledge_mastery_check),

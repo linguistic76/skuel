@@ -25,6 +25,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.events import TaskEmbeddingRequested
+from core.models.enums.activity_enums import Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
@@ -209,7 +210,7 @@ class TestEmbeddingTextExtraction:
             user_uid=seed_user_uid("test"),
             title="Learn Python",
             description="Study async/await patterns",
-            priority="medium",
+            priority=Priority.MEDIUM,
             status="pending",
         )
 
@@ -231,7 +232,7 @@ class TestEmbeddingTextExtraction:
             user_uid=seed_user_uid("test"),
             title="Buy groceries",
             description=None,
-            priority="low",
+            priority=Priority.LOW,
             status="pending",
         )
 

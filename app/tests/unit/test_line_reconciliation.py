@@ -49,7 +49,7 @@ def _task(
     title: str = "Vacuum",
     tags: tuple[str, ...] = ("period:daily",),
     due_date: date | None = None,
-    priority: str | None = "medium",
+    priority: Priority | None = Priority.MEDIUM,
 ) -> Task:
     return Task(
         uid="task_1",
@@ -256,7 +256,7 @@ class TestTheFieldRules:
         name for medium) is the same level as none, so swapping one for the
         other is not."""
         high = f"- [ ] Vacuum ⏫ 🆔 {VAULT_ID}"
-        out = reconcile_task_line(_line(high), _line(OPEN), _task(priority="high"))
+        out = reconcile_task_line(_line(high), _line(OPEN), _task(priority=Priority.HIGH))
         assert out.intent is not None and out.intent.priority == Priority.MEDIUM.value
 
         medium_marked = f"- [ ] Vacuum 🔼 🆔 {VAULT_ID}"

@@ -21,7 +21,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from collections.abc import Collection
 from dataclasses import dataclass, field, replace
 from datetime import date
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from core.models.task.task_request import TaskCreateRequest
     from core.models.type_hints import UserUID
 
-from core.models.enums.activity_enums import EngagementState
+from core.models.enums.activity_enums import EngagementState, Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.node_state import GROUNDING_STAMPS
@@ -378,18 +378,23 @@ class Task(UserOwnedEntity):
         )
 
 
-def get_task_urgency(task: Any) -> tuple[Any, Any]:
-    """
-    Sort key: (priority value, due date) for ordering tasks by urgency.
+# A task that states no priority sorts after LOW, the last of ``Priority.sort_order()``.
+_NO_PRIORITY_SORT_ORDER = len(Priority)
 
-    Task-domain sorting policy (Dynamic Enum Pattern — the policy lives with
-    its domain, not in a generic utils grab-bag). None due_dates sort last.
+
+def get_task_urgency(task: Task | TaskDTO) -> tuple[int, date]:
+    """
+    Sort key: a task's priority, then its due date, for ordering tasks by urgency.
+
+    HIGH first, then MEDIUM, then LOW, then a task that states no priority. Within
+    one priority the earlier due date comes first and a task with no due date last.
+    Task-domain sorting policy (Dynamic Enum Pattern — the policy lives with its
+    domain, not in a generic utils grab-bag).
 
     Example:
         critical_tasks.sort(key=get_task_urgency)
     """
-    from core.ports.base_protocols import HasPriority
-
-    priority_value = getattr(task.priority, "value", 0) if isinstance(task, HasPriority) else 0
-    due_date = getattr(task, "due_date", None) or date.max
-    return (priority_value, due_date)
+    priority_order = (
+        task.priority.sort_order() if task.priority is not None else _NO_PRIORITY_SORT_ORDER
+    )
+    return (priority_order, task.due_date or date.max)

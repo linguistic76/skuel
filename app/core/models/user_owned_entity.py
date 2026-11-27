@@ -3,9 +3,9 @@ UserOwnedEntity - Intermediate Base for User-Owned Domain Models
 =================================================================
 
 Adds user ownership fields (user_uid, priority) to Entity for domains where
-entities belong to a specific user: Activity Domains (Task, Goal, Habit, Event,
-Choice, Principle), Submission types (Journal, ActivityReport,
-EntryReport), and LifePath.
+entities belong to a specific user: the Activity Domains (Task, Goal, Habit,
+Event, Choice, Principle), the learning-loop records (UserEntry, EntryReport,
+ActivityReport, RevisedExercise, Interaction), FormSubmission, and LifePath.
 
 Shared/curriculum types (Curriculum, PathStep, LearningPath, Exercise,
 Resource) inherit directly from Entity and do NOT have these fields.
@@ -14,8 +14,9 @@ Hierarchy:
     Entity (~19 fields: identity, content, status, visibility, meta, embedding)
     ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
     │   ├── Task, Goal, Habit, Event, Choice, Principle
-    │   ├── UserEntry (ADR-054 — replaces ExerciseSubmission/JeInput/JeOutput)
+    │   ├── UserEntry (ADR-054)
     │   ├── EntryReport, ActivityReport (activity-level feedback — no file fields)
+    │   ├── RevisedExercise, Interaction, FormSubmission
     │   └── LifePath
     ├── Curriculum(Entity) → PathStep, LearningPath, Exercise
     └── Resource(Entity)
@@ -26,6 +27,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from dataclasses import dataclass
 
 from core.models.entity import Entity
+from core.models.enums.activity_enums import Priority
 from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import UserUID
 
@@ -38,14 +40,15 @@ class UserOwnedEntity(Entity):
     Adds user_uid and priority to Entity. Overrides visibility default
     from PUBLIC (shared types) to PRIVATE (user-owned types).
 
-    All activity domains, submission types, and LifePath inherit from this.
+    The activity domains, the learning-loop records, FormSubmission and LifePath
+    inherit from this.
     """
 
     # =========================================================================
     # USER OWNERSHIP
     # =========================================================================
     user_uid: UserUID  # Owner user UID (e.g. "user_5f2c8e1a9b3d7046") — required on every persisted UserOwnedEntity
-    priority: str | None = None  # Priority enum value (LOW/MEDIUM/HIGH)
+    priority: Priority | None = None
 
     # =========================================================================
     # INITIALIZATION

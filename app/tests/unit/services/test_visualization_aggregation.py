@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums import EntityStatus
+from core.models.enums.activity_enums import Priority
 from core.models.habit.habit import Habit
 from core.models.task.task import Task
 from core.ports.query_types import ChartJsConfig, ChartJsDataset
@@ -82,7 +83,7 @@ async def test_month_completion_buckets_three_days() -> None:
 
 
 async def test_priority_distribution_counts_active_tasks_that_have_a_priority() -> None:
-    tasks = [_task("t1", priority="high"), _task("t2", priority="high"), _task("t3")]
+    tasks = [_task("t1", priority=Priority.HIGH), _task("t2", priority=Priority.HIGH), _task("t3")]
     config = (
         await _service(tasks_by_status=Result.ok(tasks)).get_priority_distribution_chart_data(
             "user_x"

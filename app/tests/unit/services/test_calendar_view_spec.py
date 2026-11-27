@@ -38,7 +38,7 @@ _WEEK_START = date(2026, 8, 17)
 _WEEK_END = date(2026, 8, 23)
 
 
-def _task(uid: str, priority: str | None) -> Task:
+def _task(uid: str, priority: Priority | None) -> Task:
     return Task(
         uid=uid,
         user_uid="user_test",
@@ -52,7 +52,7 @@ def _task(uid: str, priority: str | None) -> Task:
     )
 
 
-def _event(uid: str, priority: str | None) -> Event:
+def _event(uid: str, priority: Priority | None) -> Event:
     return Event(
         uid=uid,
         user_uid="user_test",
@@ -68,7 +68,7 @@ def _event(uid: str, priority: str | None) -> Event:
     )
 
 
-def _goal(uid: str, priority: str | None) -> Goal:
+def _goal(uid: str, priority: Priority | None) -> Goal:
     return Goal(
         uid=uid,
         user_uid="user_test",
@@ -82,7 +82,7 @@ def _goal(uid: str, priority: str | None) -> Goal:
     )
 
 
-def _habit(uid: str, priority: str | None) -> Habit:
+def _habit(uid: str, priority: Priority | None) -> Habit:
     return Habit(
         uid=uid,
         user_uid="user_test",
@@ -197,10 +197,10 @@ async def test_month_fetches_events_only() -> None:
     """Non-member kinds are not fetched at all — the month issues no task,
     goal or habit read."""
     service, reads = _service(
-        tasks=[_task("task_hi", "high")],
-        events=[_event("event_mid", "medium")],
-        goals=[_goal("goal_hi", "high")],
-        habits=[_habit("habit_hi", "high")],
+        tasks=[_task("task_hi", Priority.HIGH)],
+        events=[_event("event_mid", Priority.MEDIUM)],
+        goals=[_goal("goal_hi", Priority.HIGH)],
+        habits=[_habit("habit_hi", Priority.HIGH)],
     )
 
     assert await _uids(service, CalendarView.MONTH) == ["event-event_mid"]
@@ -213,9 +213,9 @@ async def test_month_fetches_events_only() -> None:
 async def test_month_drops_low_priority_events() -> None:
     service, _ = _service(
         events=[
-            _event("event_low", "low"),
-            _event("event_mid", "medium"),
-            _event("event_hi", "high"),
+            _event("event_low", Priority.LOW),
+            _event("event_mid", Priority.MEDIUM),
+            _event("event_hi", Priority.HIGH),
         ]
     )
     assert await _uids(service, CalendarView.MONTH) == ["event-event_hi", "event-event_mid"]
@@ -224,10 +224,14 @@ async def test_month_drops_low_priority_events() -> None:
 @pytest.mark.asyncio
 async def test_week_keeps_high_tasks_and_medium_plus_events_milestones_habits() -> None:
     service, _ = _service(
-        tasks=[_task("task_hi", "high"), _task("task_mid", "medium"), _task("task_low", "low")],
-        events=[_event("event_mid", "medium"), _event("event_low", "low")],
-        goals=[_goal("goal_hi", "high"), _goal("goal_low", "low")],
-        habits=[_habit("habit_mid", "medium"), _habit("habit_low", "low")],
+        tasks=[
+            _task("task_hi", Priority.HIGH),
+            _task("task_mid", Priority.MEDIUM),
+            _task("task_low", Priority.LOW),
+        ],
+        events=[_event("event_mid", Priority.MEDIUM), _event("event_low", Priority.LOW)],
+        goals=[_goal("goal_hi", Priority.HIGH), _goal("goal_low", Priority.LOW)],
+        habits=[_habit("habit_mid", Priority.MEDIUM), _habit("habit_low", Priority.LOW)],
     )
 
     assert await _uids(service, CalendarView.WEEK) == [
@@ -255,7 +259,9 @@ async def test_week_reads_unstated_priority_as_medium() -> None:
 async def test_week_expands_occurrences_only_for_admitted_habits() -> None:
     """A habit below the floor is filtered before its occurrences are read —
     no completions query and no occurrence rows for it."""
-    service, reads = _service(habits=[_habit("habit_mid", "medium"), _habit("habit_low", "low")])
+    service, reads = _service(
+        habits=[_habit("habit_mid", Priority.MEDIUM), _habit("habit_low", Priority.LOW)]
+    )
 
     result = await service.get_calendar_view("user_test", _WEEK_START, _WEEK_END, CalendarView.WEEK)
 

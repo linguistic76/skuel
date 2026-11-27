@@ -102,7 +102,15 @@ class UserEntryDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility", "pipeline", "modality"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "priority",
+                "pipeline",
+                "modality",
+            ],
             datetime_fields=[
                 "created_at",
                 "updated_at",
@@ -124,6 +132,7 @@ class UserEntryDTO(UserOwnedDTO):
                 "status",
                 "domain",
                 "visibility",
+                "priority",
                 "pipeline",
                 "modality",
             ),

@@ -71,7 +71,14 @@ class RevisedExerciseDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility", "expected_modality"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "priority",
+                "expected_modality",
+            ],
             datetime_fields=["created_at", "updated_at"],
         )
 
@@ -84,7 +91,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
             cls,
             data,
             enum_fields=enum_fields_for(
-                "entity_type", "status", "domain", "visibility", "expected_modality"
+                "entity_type", "status", "domain", "visibility", "priority", "expected_modality"
             ),
             datetime_fields=["created_at", "updated_at"],
             list_fields=[

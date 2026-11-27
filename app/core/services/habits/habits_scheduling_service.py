@@ -769,7 +769,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             preferred_time=capacity_result.value.get("suggested_time", TimeOfDay.MORNING),
             source_path_step_uid=path_step_uid,
             curriculum_practice_type="daily_review",
-            priority=Priority.HIGH.value,
+            priority=Priority.HIGH,
             tags=("learning", "practice", "curriculum"),
         )
 

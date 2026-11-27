@@ -23,6 +23,7 @@ from typing import Any
 
 from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
+from core.models.enums.activity_enums import Priority
 from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import UserUID
 
@@ -34,7 +35,7 @@ class UserOwnedDTO(EntityDTO):
 
     Extends EntityDTO with:
     - user_uid: Owner user UID
-    - priority: Priority enum value
+    - priority: the entity's Priority, or None when it states none
     - visibility: PRIVATE by default (vs PUBLIC for shared types)
     """
 
@@ -42,7 +43,7 @@ class UserOwnedDTO(EntityDTO):
     # USER OWNERSHIP
     # =========================================================================
     user_uid: UserUID | None = None
-    priority: str | None = None
+    priority: Priority | None = None
 
     # =========================================================================
     # SHARING
@@ -59,7 +60,7 @@ class UserOwnedDTO(EntityDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility"],
+            enum_fields=["entity_type", "status", "domain", "visibility", "priority"],
             datetime_fields=["created_at", "updated_at"],
         )
 
@@ -71,7 +72,9 @@ class UserOwnedDTO(EntityDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields=enum_fields_for("entity_type", "status", "domain", "visibility"),
+            enum_fields=enum_fields_for(
+                "entity_type", "status", "domain", "visibility", "priority"
+            ),
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags"],
             dict_fields=["metadata"],

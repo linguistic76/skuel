@@ -98,7 +98,14 @@ class ActivityReportDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility", "processor_type"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "priority",
+                "processor_type",
+            ],
             datetime_fields=[
                 "created_at",
                 "updated_at",
@@ -122,6 +129,7 @@ class ActivityReportDTO(UserOwnedDTO):
                 "status",
                 "domain",
                 "visibility",
+                "priority",
                 "processor_type",
             ),
             datetime_fields=[

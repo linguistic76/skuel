@@ -269,7 +269,7 @@ def _apply_task_secondary_filters(
 
 
 def _get_task_priority_order(task: Any) -> int:
-    """Sort key for priority (CRITICAL first = 0, LOW last = 3)."""
+    """Sort key for priority: HIGH 0, MEDIUM 1, LOW 2; no priority sorts as MEDIUM."""
     return Priority.from_value(task.priority).sort_order()
 
 
