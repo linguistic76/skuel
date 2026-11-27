@@ -7,8 +7,9 @@ names nothing. The ``PathStep`` constructor refuses a node of another kind (G6),
 label is what keeps such a uid from reading as a database error (503).
 
 The three readers: ``GET /api/path-steps/prerequisites``, ``POST /api/pathways/progress``
-and ``LpService.get_step`` (the progress door's own read). A published step is the
-control at each: found, and answered past the existence gate.
+(whose existence gate is ``PsMasteryService.require_held``, before it reads the step's
+composed Kus) and ``LpService.get_step``. A published step is the control at each:
+found, and answered past the existence gate.
 """
 
 from __future__ import annotations

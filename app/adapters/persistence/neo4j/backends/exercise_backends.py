@@ -12,7 +12,10 @@ from __future__ import annotations
 from typing import Any, cast
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
-from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
+from adapters.persistence.neo4j.query.cypher import (
+    CURRICULUM_COMPOSITION_EDGES,
+    build_search_visibility_clause,
+)
 from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
     SUPERSEDED_COPY,
     asks_teacher,
@@ -333,7 +336,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     ) -> Result[list[Neo4jProperties]]:
         """Get exercises associated with a list of PathStep UIDs.
 
-        Traverses PathStep -[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]-> Ku <-[:REQUIRES_KNOWLEDGE]- Exercise
+        Traverses PathStep -[:CURRICULUM_COMPOSITION_EDGES]-> Ku <-[:REQUIRES_KNOWLEDGE]- Exercise
         to find exercises that practice knowledge from those PathSteps.
 
         Args:
@@ -347,7 +350,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
         result = await self.execute_query(
             f"""
-            MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity)
+            MATCH (ps:Entity:PathStep)-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity)
                   <-[:{RelationshipName.REQUIRES_KNOWLEDGE}]-(ex:Entity {{entity_type: 'exercise'}})
             WHERE ps.uid IN $ps_uids
             RETURN DISTINCT ex.uid AS uid,

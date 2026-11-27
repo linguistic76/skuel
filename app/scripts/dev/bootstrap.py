@@ -37,6 +37,7 @@ from adapters.inbound.middleware import (
     RequestTimingMiddleware,
     StaticCacheHeadersMiddleware,
 )
+from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
 from adapters.persistence.neo4j.stored_value_census_backend import StoredValueCensusBackend
 from adapters.persistence.neo4j.uid_census_backend import UidCensusBackend
 from core.config import UnifiedConfig
@@ -397,7 +398,7 @@ def _start_graph_health_poller(
                 CALL () {
                     MATCH (k:Entity {entity_type: 'ku'})
                     WHERE exists{ (:Entity {entity_type: 'path_step'})
-                                  -[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(k) }
+                                  -[:__COMPOSITION__]->(k) }
                     RETURN count(k) AS composed_kus
                 }
                 CALL () {
@@ -414,7 +415,7 @@ def _start_graph_health_poller(
                 }
                 RETURN total_kus, avg_degree, orphan_kus, composed_kus,
                        prerequisite_edges, organizes_edges
-                """
+                """.replace("__COMPOSITION__", CURRICULUM_COMPOSITION_EDGES)
                 result_knowledge = await neo4j_adapter.driver.execute_query(query_knowledge)
                 if result_knowledge.records:
                     krec = result_knowledge.records[0]

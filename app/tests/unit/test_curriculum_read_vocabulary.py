@@ -86,7 +86,7 @@ def test_lp_progress_reads_kus_through_path_steps() -> None:
 
     for name in DEAD_CURRICULUM_NAMES:
         assert name not in source
-    assert source.count("[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->") == 2
+    assert source.count("[:HAS_STEP]->(:Entity)-[:{CURRICULUM_COMPOSITION_EDGES}]->") == 2
 
 
 def test_ku_mastery_progress_survives_a_user_with_no_masteries() -> None:
@@ -119,7 +119,7 @@ def test_curriculum_lp_lookup_uses_live_endpoints() -> None:
     # The LP→step hop, then the step→Ku composition union — via a step of any
     # name, anonymous or bound.
     assert re.search(r"\(lp\)-\[:HAS_STEP\]->\(\w*:Entity\)", source)
-    assert "-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)" in source
+    assert "-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku)" in source
     # CONTAINS_KNOWLEDGE is legitimate — but only at the PathStep endpoint.
     assert "(lp:LearningPath)-[:CONTAINS_KNOWLEDGE" not in source
 
@@ -272,3 +272,59 @@ def test_the_shared_composition_alternation_is_built_from_registered_edges() -> 
     ]
     assert len(arms) == len(set(arms)), "a duplicated arm means the triple was hand-edited"
     assert all(RelationshipName.is_valid(arm) for arm in arms)
+
+
+# Every module below the boundary that may author Cypher, and the scripts that
+# open the graph themselves (the graph-health poller in ``scripts/dev``).
+_CYPHER_TREES = ("adapters", "scripts")
+_COMPOSITION_ARMS = (
+    RelationshipName.USES_KU.value,
+    RelationshipName.CONTAINS_KNOWLEDGE.value,
+    RelationshipName.TRAINS_KU.value,
+)
+
+
+def _hand_spelled_triple() -> re.Pattern[str]:
+    """The three composition edges as an alternation of exactly those three arms,
+    in any order — and not one arm of a wider alternation (a read over more edges
+    than composition is a different set, and spells its own)."""
+    arm = "|".join(_COMPOSITION_ARMS)
+    return re.compile(rf"(?<![|\w])(?:{arm})\|(?:{arm})\|(?:{arm})(?![|\w])")
+
+
+def test_the_composition_triple_is_spelled_once() -> None:
+    """No query spells the composition triple by hand: each reads the constant.
+
+    A step's mastery is derived over the Kus it composes, and the door that
+    records a learner's self-reported mastery writes over the Kus it reads.
+    Spelled separately, the two sets can drift: a door reading fewer edges than
+    derivation counts refuses a step it should serve, and what it writes can
+    never master the step. One declaration, ``CURRICULUM_COMPOSITION_EDGES``,
+    built from the enum in ``query/cypher/_helpers.py``; this census holds every
+    other file to it.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    pattern = _hand_spelled_triple()
+    spelled: list[str] = []
+    for tree in _CYPHER_TREES:
+        for path in sorted((root / tree).rglob("*.py")):
+            text = path.read_text(encoding="utf-8")
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                if pattern.search(line):
+                    spelled.append(f"{path.relative_to(root)}:{lineno}: {line.strip()}")
+
+    assert spelled == [], "spell CURRICULUM_COMPOSITION_EDGES instead:\n" + "\n".join(spelled)
+
+
+def test_the_census_sees_a_hand_spelled_triple() -> None:
+    """The census pattern fires on every order of the three, and not on a wider set."""
+    pattern = _hand_spelled_triple()
+
+    assert pattern.search("MATCH (ps)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)")
+    assert pattern.search("-[:TRAINS_KU|USES_KU|CONTAINS_KNOWLEDGE]->")
+    assert pattern.search("// via the triple TRAINS_KU|USES_KU|CONTAINS_KNOWLEDGE")
+    assert not pattern.search("-[:USES_KU|TRAINS_KU|CONTAINS_KNOWLEDGE|REQUIRES_KNOWLEDGE]->")
+    assert not pattern.search("-[:TRAINS_KU|USES_KU]->")
+    assert not pattern.search("-[:{CURRICULUM_COMPOSITION_EDGES}]->")

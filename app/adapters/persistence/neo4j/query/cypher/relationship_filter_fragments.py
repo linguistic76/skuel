@@ -26,6 +26,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ._helpers import CURRICULUM_COMPOSITION_EDGES
+
 if TYPE_CHECKING:
     from core.models.relationship_filters import RelationshipFilters
 
@@ -47,15 +49,15 @@ _BUILDS_ON_MASTERED = """EXISTS {
 }"""
 
 # Pattern 3: In active learning path. PathSteps compose content via
-# USES_KU/TRAINS_KU/CONTAINS_KNOWLEDGE (all three coexist); enrollment
+# CURRICULUM_COMPOSITION_EDGES (all three coexist); enrollment
 # lifecycle lives on the ENROLLED_IN edge (r.status='completed' marks
 # completion — see _adaptive_mixin), NOT on lp.status.
-_IN_ACTIVE_PATH = """EXISTS {
-    MATCH (user:User {uid: $user_uid})-[enrollment:ENROLLED_IN]->(lp:LearningPath)
+_IN_ACTIVE_PATH = f"""EXISTS {{
+    MATCH (user:User {{uid: $user_uid}})-[enrollment:ENROLLED_IN]->(lp:LearningPath)
           -[:HAS_STEP]->(ps:PathStep)
-          -[:USES_KU|TRAINS_KU|CONTAINS_KNOWLEDGE]->(entity)
+          -[:{CURRICULUM_COMPOSITION_EDGES}]->(entity)
     WHERE coalesce(enrollment.status, 'active') <> 'completed'
-}"""
+}}"""
 
 # Pattern 4: Supports active goals (OWNS is the universal ownership edge)
 _SUPPORTS_GOALS = """EXISTS {

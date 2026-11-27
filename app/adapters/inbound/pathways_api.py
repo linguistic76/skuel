@@ -101,8 +101,10 @@ def create_pathways_api_routes(
     async def update_progress_route(request: Request) -> Result[dict[str, Any]]:
         """Update progress for a path step the caller holds in progress.
 
-        Resolves the step's knowledge UIDs and records mastery or progress
-        for each via UserService delegation to UserProgressRecorderService.
+        Records mastery or progress on each Ku the step composes — the set its
+        own mastery is derived over (``PsService.get_composed_ku_uids``), so a
+        step self-reported complete on every Ku is mastered by derivation — via
+        UserService delegation to UserProgressRecorderService.
         Only on a published step the caller started (``PsMasteryService.require_held``),
         so a self-reported mastery reaches only a step its learner was admitted to past
         the prerequisite gate; a step never started and a completed one are refused.
@@ -120,18 +122,10 @@ def create_pathways_api_routes(
         if held.is_error:
             return Result.fail(held)
 
-        # Resolve step to knowledge UIDs
-        step_found = require_found(
-            await learning_service.get_step(progress_req.step_uid),
-            "PathStep",
-            progress_req.step_uid,
-        )
-        if step_found.is_error:
-            return Result.fail(step_found)
-
-        step = step_found.value
-
-        ku_uids = list(step.knowledge_uids)
+        composed = await ps_service.get_composed_ku_uids(progress_req.step_uid)
+        if composed.is_error:
+            return Result.fail(composed)
+        ku_uids = composed.value
         if not ku_uids:
             return Result.fail(
                 Errors.validation(

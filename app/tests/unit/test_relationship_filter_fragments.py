@@ -20,6 +20,9 @@ import pytest
 
 from adapters.persistence.neo4j.query import build_relationship_filter_fragments
 from adapters.persistence.neo4j.query.cypher import (
+    CURRICULUM_COMPOSITION_EDGES,
+)
+from adapters.persistence.neo4j.query.cypher import (
     build_relationship_filter_fragments as build_via_cypher_pkg,
 )
 from core.models.relationship_filters import RelationshipFilters
@@ -28,7 +31,7 @@ from core.models.relationship_filters import RelationshipFilters
 FLAG_SIGNATURES: dict[str, str] = {
     "ready_to_learn": "MATCH (entity)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)",
     "builds_on_mastered": "(mastered)-[:ENABLES_KNOWLEDGE|RELATED_TO]-(entity)",
-    "in_active_path": "[:USES_KU|TRAINS_KU|CONTAINS_KNOWLEDGE]->(entity)",
+    "in_active_path": f"[:{CURRICULUM_COMPOSITION_EDGES}]->(entity)",
     "supports_goals": "[:OWNS]->(goal:Goal)",
     "builds_on_habits": "[:OWNS]->(habit:Habit)",
     # datetime() coercion is load-bearing: updated_at is a DTO-written ISO

@@ -273,7 +273,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance):
 // keep direct :Ku targets (1-hop) and bridge :PathStep targets to the Kus they
-// compose via the canonical curriculum triple TRAINS_KU|USES_KU|CONTAINS_KNOWLEDGE
+// compose via the canonical curriculum triple (CURRICULUM_COMPOSITION_EDGES)
 // (2-hop). DISTINCT per task.
 //
 // All three edges, not the two this listed until 2026-08-12: the substance write
