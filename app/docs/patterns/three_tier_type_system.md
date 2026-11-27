@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-11-23
+updated: 2026-11-27
 category: patterns
 related_skills:
 - python
@@ -813,7 +813,7 @@ sees, and `to_changes()` is the single materialization point. See
 - Type-safe parameter extraction
 - No manual JSON parsing
 
-**Example**: Without Pydantic validation, `{"priority": "super-high"}` would cause a crash when converting to Priority enum. With Pydantic, it returns 400 immediately: "Input should be 'low', 'medium', 'high', or 'critical'".
+**Example**: Without Pydantic validation, `{"priority": "super-high"}` would cause a crash when converting to Priority enum. With Pydantic, it returns 400 immediately: "Input should be 'low', 'medium' or 'high'".
 
 ### Tier 2 (DTO) - Flexibility in Services
 
@@ -839,11 +839,11 @@ sees, and `to_changes()` is the single materialization point. See
 
 **Benefits**:
 - Immutability prevents accidental mutations
-- Business logic methods (is_overdue, urgency_score, impact_score)
+- Business logic methods (is_overdue, days_remaining, calculate_learning_impact)
 - Protocol-based type safety (`DomainModelProtocol`)
 - Used by intelligence services for calculations
 
-**Example**: `task.urgency_score()` combines priority, due date, and status using domain logic. This logic belongs in the domain model, not spread across services.
+**Example**: `task.is_overdue()` combines due date and status using domain logic. This logic belongs in the domain model, not spread across services.
 
 ### Intelligence is the Exception (No DTO Mutation)
 
