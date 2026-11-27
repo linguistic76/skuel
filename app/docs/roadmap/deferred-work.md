@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-25
+updated: 2026-11-27
 ---
 
 # Deferred Work
@@ -266,6 +266,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Enrollment Progress Counts Prerequisite Kus
 
 [Enrollment Progress Counts Prerequisite Kus](enrollment-progress-counts-prerequisite-kus.md) — an enrollment's progress and completion count the path's prerequisite Kus as part of the path; what a completed enrollment counts waits on a ruling.
+
+## Reading-Plan Capability Tray
+
+[Reading-Plan Capability Tray](reading-plan-capability-tray.md) — the reading plan's "What this step adds" tray posts to a route never built, and its producer always sends no capabilities; what starting a capability does waits on a ruling.
 
 ## Review Schedule
 

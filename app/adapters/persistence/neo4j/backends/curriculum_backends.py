@@ -19,6 +19,7 @@ from adapters.persistence.neo4j._lp_step_mixin import _LpStepMixin
 from adapters.persistence.neo4j._organizes_mixin import _OrganizesMixin
 from adapters.persistence.neo4j._semantic_mixin import _SemanticMixin
 from adapters.persistence.neo4j.query.cypher import (
+    CURRICULUM_COMPOSITION_EDGES,
     build_knowledge_read_clause,
     build_publication_clause,
 )
@@ -261,7 +262,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         PathStep — the increment lands on whichever it names. A uid naming any
         other node is a no-op: the counter belongs to shared curriculum, and an
         event carrying a request-supplied uid must not write onto a user's
-        Task or exercise. Composing PathSteps (``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`` into a
+        Task or exercise. Composing PathSteps (``CURRICULUM_COMPOSITION_EDGES`` into a
         named Ku) are credited once each per named entity, regardless of how
         many of those edge types connect the pair. Returns the number of
         PathStep credits written; uids that match no Ku or PathStep contribute
@@ -275,7 +276,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             k.{timestamp_field} = datetime($timestamp),
             k._substance_cache_timestamp = NULL
         WITH k
-        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(k)
+        OPTIONAL MATCH (ps:PathStep)-[:{CURRICULUM_COMPOSITION_EDGES}]->(k)
         WITH k, collect(DISTINCT ps) AS steps
         FOREACH (p IN steps |
             SET p.{metric} = COALESCE(p.{metric}, 0) + 1,
@@ -318,7 +319,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             k.{timestamp_field} = datetime($timestamp),
             k._substance_cache_timestamp = NULL
         WITH k
-        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(k)
+        OPTIONAL MATCH (ps:PathStep)-[:{CURRICULUM_COMPOSITION_EDGES}]->(k)
         WITH k, collect(DISTINCT ps) AS steps
         FOREACH (p IN steps |
             SET p.{metric} = COALESCE(p.{metric}, 0) + 1,
@@ -399,7 +400,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         WHERE ((lp)-[:REQUIRES_KNOWLEDGE]->(ku)
            OR EXISTS {{
                  MATCH (lp)-[:HAS_STEP]->(step:Entity)
-                       -[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
+                       -[:{CURRICULUM_COMPOSITION_EDGES}]->(ku)
                  WHERE {published_step}
                }})
           AND {published_lp}
@@ -856,7 +857,8 @@ class PsBackend(
     ) -> Result[Neo4jProperties]:
         """Return total and mastered KU counts for PathStep progress calculation.
 
-        Progress = mastered_kus / total_kus (via USES_KU + CONTAINS_KNOWLEDGE).
+        Progress = mastered_kus / total_kus, over the step's composed Kus
+        (``CURRICULUM_COMPOSITION_EDGES``).
 
         Args:
             ps_uid: PathStep UID
@@ -865,10 +867,10 @@ class PsBackend(
         Returns:
             Result containing dict with total_kus and mastered_kus
         """
-        query = """
-        MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity:Ku)
+        query = f"""
+        MATCH (ps:Entity {{uid: $ps_uid}})-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity:Ku)
         WITH collect(DISTINCT ku) as all_kus, count(DISTINCT ku) as total
-        OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
+        OPTIONAL MATCH (user:User {{uid: $user_uid}})-[:MASTERED]->(mastered:Entity)
         WHERE mastered IN all_kus
         RETURN total as total_kus, count(DISTINCT mastered) as mastered_kus
         """
@@ -885,14 +887,37 @@ class PsBackend(
             }
         )
 
+    async def get_composed_ku_uids(self, ps_uid: str) -> Result[list[str]]:
+        """The uids of the Kus a PathStep composes, title-ordered — the set its mastery
+        is derived over.
+
+        The same edges (``CURRICULUM_COMPOSITION_EDGES``) and the same ``:Ku``-only
+        targets as ``detect_path_step_completion`` and ``find_step_mastery_gaps``
+        tally, so a learner who masters every uid this returns has mastered the
+        step. A step that composes no Ku, and a uid that names no PathStep, are
+        both an empty list.
+        """
+        query = f"""
+        MATCH (:Entity:{NeoLabel.PATH_STEP} {{uid: $ps_uid}})
+              -[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity:{NeoLabel.KU})
+        WITH DISTINCT ku
+        ORDER BY ku.title, ku.uid
+        RETURN collect(ku.uid) AS uids
+        """
+        result = await self.execute_query(query, {"ps_uid": ps_uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        return Result.ok([str(uid) for uid in records[0]["uids"]] if records else [])
+
     # ========================================================================
     # KU → PATHSTEP LOOKUP (for progress tracking)
     # ========================================================================
 
     async def find_path_steps_for_ku(self, ku_uid: str) -> Result[list[str]]:
-        """Find all PathStep UIDs that contain a given KU via USES_KU or CONTAINS_KNOWLEDGE."""
-        query = """
-        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {uid: $ku_uid})
+        """Find all PathStep UIDs that compose a given KU (``CURRICULUM_COMPOSITION_EDGES``)."""
+        query = f"""
+        MATCH (ps:Entity:PathStep)-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{uid: $ku_uid}})
         RETURN ps.uid as ps_uid
         """
         result = await self.execute_query(query, {"ku_uid": ku_uid})
@@ -1155,14 +1180,7 @@ class LpBackend(
 # SKUEL013/030). Every metric scopes BOTH endpoints to knowledge nodes: DEPENDS_ON
 # is also the live Task-dependency edge, and BLOCKS/RELATED_TO/… are lateral edges
 # on all six activity domains, so an unscoped count would fold activity structure
-# into a *knowledge* gauge.
-_COMPOSITION_EDGES = "|".join(
-    (
-        RelationshipName.USES_KU.value,
-        RelationshipName.CONTAINS_KNOWLEDGE.value,
-        RelationshipName.TRAINS_KU.value,
-    )
-)
+# into a *knowledge* gauge. Composition is ``CURRICULUM_COMPOSITION_EDGES``.
 # Hard prerequisites only — ENABLES/ENABLED_BY (soft enablement) are reported
 # separately so ``prerequisite_edge_count`` stays the DAG the ZPD reasons over.
 # Used for the broad edge COUNT + COVERAGE (direction doesn't matter there).
@@ -1367,7 +1385,7 @@ def _build_knowledge_health_query() -> str:
     cap into the corpus query. Built once at import time."""
     query = _KNOWLEDGE_HEALTH_QUERY_TEMPLATE
     substitutions = {
-        "__COMPOSITION__": _COMPOSITION_EDGES,
+        "__COMPOSITION__": CURRICULUM_COMPOSITION_EDGES,
         # Order matters: replace the longer __DAG_* tokens before __DAG__.
         "__DAG_FWD__": _DAG_FORWARD_EDGES,
         "__DAG_INV__": _DAG_INVERSE_EDGES,

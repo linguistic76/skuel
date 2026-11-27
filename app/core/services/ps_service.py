@@ -694,6 +694,15 @@ class PsService:
     # KU COMPOSITION (PathStep → atomic Ku via USES_KU)
     # ============================================================================
 
+    async def get_composed_ku_uids(self, ps_uid: str) -> Result[list[str]]:
+        """The uids of the Kus this PathStep composes, title-ordered: the set its
+        mastery is derived over, so a learner who masters every one has mastered
+        the step. Empty for a step that composes no Ku and for a uid naming no step.
+
+        Backend: ``PsBackend.get_composed_ku_uids``.
+        """
+        return await self.repo.get_composed_ku_uids(ps_uid)
+
     async def get_used_kus(self, ps_uid: str) -> Result[list[UsedKuRow] | None]:
         """The atomic Kus this PathStep composes, or None when the uid names no PathStep."""
         return await self.core.backend.get_used_kus(ps_uid)  # type: ignore[attr-defined]

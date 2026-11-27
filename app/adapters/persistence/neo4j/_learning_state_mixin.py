@@ -21,7 +21,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from adapters.persistence.neo4j.query.cypher import (
+    CURRICULUM_COMPOSITION_EDGES,
+    build_publication_clause,
+)
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
@@ -405,10 +408,10 @@ class _LearningStateMixin:
         """
         published, published_params = build_publication_clause("ps")
         query = f"""
-        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity:Ku {{uid: $ku_uid}})
+        MATCH (ps:Entity:PathStep)-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity:Ku {{uid: $ku_uid}})
         WHERE {published}
         WITH ps
-        MATCH (ps)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(all_ku:Entity:Ku)
+        MATCH (ps)-[:{CURRICULUM_COMPOSITION_EDGES}]->(all_ku:Entity:Ku)
         WITH ps, collect(DISTINCT all_ku.uid) as all_ku_uids, count(DISTINCT all_ku) as total
         OPTIONAL MATCH (user:User {{uid: $user_uid}})-[:MASTERED]->(mastered_ku:Entity)
         WHERE mastered_ku.uid IN all_ku_uids
@@ -434,7 +437,7 @@ class _LearningStateMixin:
         """
         published, published_params = build_publication_clause("ps")
         query = f"""
-        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity:Ku)
+        MATCH (ps:Entity:PathStep)-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity:Ku)
         WHERE {published}
         WITH ps, collect(DISTINCT ku) AS kus
         MATCH (user:User)-[:MASTERED]->(mastered:Entity)

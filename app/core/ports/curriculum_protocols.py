@@ -808,10 +808,14 @@ class PsOperations(
         ...
 
     # =========================================================================
-    # KU COMPLETION PROGRESS (direct USES_KU/CONTAINS_KNOWLEDGE traversal)
+    # KU COMPLETION PROGRESS (the step's composed Kus)
     # =========================================================================
-    # Inherited from ``PsProgressBackendOperations`` along with
-    # ``find_path_steps_for_ku`` — one source for both signatures.
+    # ``get_ku_completion_progress`` and ``find_path_steps_for_ku`` are inherited
+    # from ``PsProgressBackendOperations`` — one source for both signatures.
+
+    async def get_composed_ku_uids(self, ps_uid: str) -> Result[list[str]]:
+        """The uids of the Kus a PathStep composes — the set its mastery is derived over."""
+        ...
 
     # =========================================================================
     # CORE READS

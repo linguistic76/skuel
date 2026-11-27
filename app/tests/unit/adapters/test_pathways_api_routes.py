@@ -3,7 +3,8 @@
 Testing-gap roadmap item 6 (tranche 2, learning-loop cluster): PIN tests over
 the domain-specific pathways routes — auth gate (401), CSRF enforcement on
 mutations (403), the progress route's mastery-vs-progress branching with
-exact recorder kwargs (201 created), the no-knowledge-units input guard, and
+exact recorder kwargs over the step's composed Kus (201 created), the
+no-knowledge-units input guard, and
 the enroll route's HX-Redirect contract. Harness mirrors
 ``test_choices_api_routes.py``.
 """
@@ -30,12 +31,6 @@ def _fake_auth(request: object) -> str:
     return _USER_UID
 
 
-def _make_step(knowledge_uids: tuple[str, ...]) -> MagicMock:
-    step = MagicMock()
-    step.knowledge_uids = knowledge_uids
-    return step
-
-
 @dataclass(frozen=True)
 class _Harness:
     client: TestClient
@@ -56,7 +51,6 @@ def _make_harness(
 
     learning_service = MagicMock()
     learning_service.get_path_steps = AsyncMock(return_value=Result.ok([]))
-    learning_service.get_step = AsyncMock(return_value=Result.ok(_make_step(knowledge_uids)))
 
     user_service = MagicMock()
     user_service.record_knowledge_mastery = AsyncMock(return_value=Result.ok(True))
@@ -68,6 +62,8 @@ def _make_harness(
     # The caller holds the step in progress; default = admitted.
     ps_service = MagicMock()
     ps_service.mastery.require_held = AsyncMock(return_value=held or Result.ok(None))
+    # The step's composed Kus — the set its mastery is derived over.
+    ps_service.get_composed_ku_uids = AsyncMock(return_value=Result.ok(list(knowledge_uids)))
 
     if authenticated:
         monkeypatch.setattr("adapters.inbound.pathways_api.require_authenticated_user", _fake_auth)
@@ -133,6 +129,7 @@ class TestProgressRecording:
         assert response.status_code == 201
         payload = response.json()
         assert payload["updated_ku_uids"] == ["ku_a", "ku_b"]
+        harness.ps.get_composed_ku_uids.assert_awaited_once_with(_STEP_UID)
         assert harness.users.record_knowledge_mastery.await_count == 2
         harness.users.record_knowledge_mastery.assert_any_await(
             user_uid=_USER_UID, knowledge_uid="ku_a", mastery_score=0.9
@@ -192,7 +189,7 @@ class TestProgressRecording:
 
         assert response.status_code == status, response.text
         harness.ps.mastery.require_held.assert_awaited_once_with(_USER_UID, _STEP_UID)
-        harness.learning.get_step.assert_not_awaited()
+        harness.ps.get_composed_ku_uids.assert_not_awaited()
         harness.users.record_knowledge_mastery.assert_not_awaited()
         harness.users.record_knowledge_progress.assert_not_awaited()
 

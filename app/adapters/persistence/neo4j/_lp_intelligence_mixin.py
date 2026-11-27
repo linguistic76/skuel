@@ -17,7 +17,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from adapters.persistence.neo4j.query.cypher import (
+    CURRICULUM_COMPOSITION_EDGES,
+    build_publication_clause,
+)
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.type_hints import UserUID
 from core.ports.query_types import LpKnowledgeScopeSummary
@@ -55,11 +58,6 @@ class _LpIntelligenceMixin:
     # ========================================================================
     # INTELLIGENCE QUERIES (moved from LpIntelligenceService)
     # ========================================================================
-
-    # PS→KU edge union: the same vocabulary LifePathBackend's alignment queries
-    # traverse. USES_KU is THE composition edge; CONTAINS_KNOWLEDGE and
-    # TRAINS_KU are the sanctioned siblings.
-    _STEP_KNOWLEDGE_EDGES = "USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU"
 
     @staticmethod
     def _build_prerequisite_subquery(
@@ -114,7 +112,7 @@ class _LpIntelligenceMixin:
         """
         query = f"""
         MATCH (path:Entity {{uid: $path_uid}})-[:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (step)-[:{self._STEP_KNOWLEDGE_EDGES}]->(ku:Entity {{entity_type: 'ku'}})
+        MATCH (step)-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{entity_type: 'ku'}})
         RETURN collect(DISTINCT ku.uid) AS uids
         """
         result = await self.execute_query(query, {"path_uid": path_uid})
@@ -138,7 +136,7 @@ class _LpIntelligenceMixin:
         query = f"""
         MATCH (path:Entity {{uid: $path_uid}})
         OPTIONAL MATCH (path)-[:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        OPTIONAL MATCH (step)-[:{self._STEP_KNOWLEDGE_EDGES}]->(ku:Entity {{entity_type: 'ku'}})
+        OPTIONAL MATCH (step)-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{entity_type: 'ku'}})
         WITH path,
              count(DISTINCT step) AS total_steps,
              count(DISTINCT ku) AS total_unique_kus,
@@ -195,7 +193,7 @@ class _LpIntelligenceMixin:
         query = f"""
         MATCH (path:Entity {{uid: $path_uid}})
         MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (step)-[:{self._STEP_KNOWLEDGE_EDGES}]->(k:Entity {{entity_type: 'ku'}})
+        MATCH (step)-[:{CURRICULUM_COMPOSITION_EDGES}]->(k:Entity {{entity_type: 'ku'}})
 
         // Get all prerequisites using pure Cypher
         {self._build_prerequisite_subquery("k", 3, carry="path, step, r")}
@@ -211,7 +209,7 @@ class _LpIntelligenceMixin:
         // OPTIONAL: the first step has no earlier steps and must still be
         // returned (a bare MATCH would drop it from the results).
         OPTIONAL MATCH (path)-[r2:HAS_STEP]->(earlier:Entity {{entity_type: 'path_step'}})
-            -[:{self._STEP_KNOWLEDGE_EDGES}]->(ek:Entity {{entity_type: 'ku'}})
+            -[:{CURRICULUM_COMPOSITION_EDGES}]->(ek:Entity {{entity_type: 'ku'}})
         WHERE r2.sequence < step_seq
 
         WITH step, step_seq, knowledge_uids, step_prereqs,
@@ -253,7 +251,7 @@ class _LpIntelligenceMixin:
 
         // Get path steps and their knowledge units (graph edges, not properties)
         MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (step)-[:{self._STEP_KNOWLEDGE_EDGES}]->(k:Entity {{entity_type: 'ku'}})
+        MATCH (step)-[:{CURRICULUM_COMPOSITION_EDGES}]->(k:Entity {{entity_type: 'ku'}})
 
         // Check prerequisites
         {self._build_prerequisite_subquery("k", 2, carry="step, r, mastered_uids")}
@@ -334,7 +332,7 @@ class _LpIntelligenceMixin:
         // Calculate path readiness over the path's knowledge units
         // (graph edges from each step, not a node property)
         MATCH (path)-[:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (step)-[:{self._STEP_KNOWLEDGE_EDGES}]->(k:Entity {{entity_type: 'ku'}})
+        MATCH (step)-[:{CURRICULUM_COMPOSITION_EDGES}]->(k:Entity {{entity_type: 'ku'}})
 
         // Get prerequisites
         {self._build_prerequisite_subquery("k", 2, carry="path, mastered_uids")}

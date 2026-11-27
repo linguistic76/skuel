@@ -18,7 +18,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from adapters.persistence.neo4j.query.cypher import (
+    CURRICULUM_COMPOSITION_EDGES,
+    build_publication_clause,
+)
 from core.models.enums.curriculum_enums import EnrollmentStatus
 from core.models.pathways.learning_path import LearningPath
 from core.models.type_hints import Neo4jProperties, UserUID
@@ -71,11 +74,11 @@ class _LpProgressMixin:
         # compose Kus. There is no LP→Ku containment edge: INCLUDES_KU was never
         # a RelationshipName member and the live graph has no LearningPath→Ku
         # relationship of any type (findings §8).
-        query = """
-        MATCH (lp:Entity {entity_type: 'learning_path'})-[:REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        query = f"""
+        MATCH (lp:Entity {{entity_type: 'learning_path'}})-[:REQUIRES_KNOWLEDGE]->(ku:Entity {{uid: $ku_uid}})
         RETURN DISTINCT lp.uid as lp_uid
         UNION
-        MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {uid: $ku_uid})
+        MATCH (lp:Entity {{entity_type: 'learning_path'}})-[:HAS_STEP]->(:Entity)-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{uid: $ku_uid}})
         RETURN DISTINCT lp.uid as lp_uid
         """
         result = await self.execute_query(query, {"ku_uid": ku_uid})
@@ -137,7 +140,7 @@ class _LpProgressMixin:
     ) -> Result[list[LearningPath]]:
         """Get learning paths that teach a knowledge unit (2-hop via HAS_STEP + the PS→KU edge union).
 
-        Traverses the canonical ``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`` union
+        Traverses the canonical ``CURRICULUM_COMPOSITION_EDGES`` union
         (matching the sibling ``get_paths_containing_ku``) so API-created paths —
         which compose Kus via ``USES_KU`` only — are not invisible to search.
         Uses DISTINCT since multiple steps within a path may contain the same knowledge.
@@ -160,7 +163,7 @@ class _LpProgressMixin:
         published_ps, ps_params = build_publication_clause("ps")
         published_lp, lp_params = build_publication_clause("lp")
         query = f"""
-        MATCH (ku:Entity {{uid: $ku_uid}})<-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]-(ps:Entity {{entity_type: 'path_step'}})<-[:HAS_STEP]-(lp:Entity {{entity_type: 'learning_path'}})
+        MATCH (ku:Entity {{uid: $ku_uid}})<-[:{CURRICULUM_COMPOSITION_EDGES}]-(ps:Entity {{entity_type: 'path_step'}})<-[:HAS_STEP]-(lp:Entity {{entity_type: 'learning_path'}})
         WHERE {published_ps} AND {published_lp}
         RETURN DISTINCT lp
         ORDER BY datetime(lp.created_at) DESC
@@ -248,21 +251,21 @@ class _LpProgressMixin:
         learner who has mastered nothing reads as 0-of-N and an empty path as
         0-of-0 — never as a vanished row.
         """
-        query = """
-        MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath {uid: $lp_uid})
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[r:ENROLLED_IN]->(lp:LearningPath {{uid: $lp_uid}})
         SET r.status = r.status
         WITH u, r, lp, coalesce(r.progress, 0.0) AS prior_progress,
              coalesce(r.status, $active) = $completed AS was_completed
         OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(direct_ku:Entity:Ku)
         WITH u, r, lp, prior_progress, was_completed, collect(DISTINCT direct_ku) AS direct_kus
-        OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(step_ku:Entity:Ku)
+        OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:{CURRICULUM_COMPOSITION_EDGES}]->(step_ku:Entity:Ku)
         WITH u, r, prior_progress, was_completed, direct_kus, collect(DISTINCT step_ku) AS step_kus
         WITH u, r, prior_progress, was_completed, direct_kus + step_kus AS candidate_kus
         UNWIND (CASE WHEN size(candidate_kus) = 0 THEN [null] ELSE candidate_kus END) AS ku
         WITH u, r, prior_progress, was_completed,
              [k IN collect(DISTINCT ku) WHERE k IS NOT NULL] AS lp_kus
         WITH r, prior_progress, was_completed, size(lp_kus) AS total_kus,
-             size([k IN lp_kus WHERE EXISTS { (u)-[:MASTERED]->(k) }]) AS mastered_kus
+             size([k IN lp_kus WHERE EXISTS {{ (u)-[:MASTERED]->(k) }}]) AS mastered_kus
         WITH r, prior_progress, was_completed, total_kus, mastered_kus,
              CASE WHEN total_kus = 0 THEN 0.0 ELSE toFloat(mastered_kus) / total_kus END AS progress
         SET r.progress = progress,

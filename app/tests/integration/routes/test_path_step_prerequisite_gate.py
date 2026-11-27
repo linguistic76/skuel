@@ -9,7 +9,9 @@ as ready is a step every door admits.
 
 The doors that start nothing — Mark as read, Review again, and recording progress on a
 step's Kus — act only on a step the learner holds in progress, so none of them is a way
-round the gate. A mastered step is not started again.
+round the gate. A mastered step is not started again. Recording progress writes on the
+Kus the step composes, over every composition edge its derived mastery counts, so a step
+self-reported complete is mastered.
 
 The curriculum is seeded (no HTTP door authors it); every write here goes through a real
 door of the app.
@@ -17,6 +19,7 @@ door of the app.
     first ◀─REQUIRES_STEP── second ◀─REQUIRES_STEP── third       (a chain)
     draft ◀─REQUIRES_STEP── after_draft                         (a draft prerequisite)
     hidden: a draft step, with a Ku, that requires nothing
+    composed: two Kus over USES_KU      trained: one Ku over TRAINS_KU
 
 Third and Hidden each name a task template, so an engagement a door wrongly admits
 spawns the learner a task rather than failing for want of templates.
@@ -65,9 +68,14 @@ DRAFT = f"ps.{MARK}.draft"
 AFTER_DRAFT = f"ps.{MARK}.after-draft"
 HIDDEN = f"ps.{MARK}.hidden"
 KU = f"ku.{MARK}.concept"
+COMPOSED = f"ps.{MARK}.composed"
+TRAINED = f"ps.{MARK}.trained"
+COMPOSED_KUS = (f"ku.{MARK}.used-a", f"ku.{MARK}.used-b")
+TRAINED_KU = f"ku.{MARK}.trained"
 TEMPLATES = {THIRD: f"ttpl.{MARK}.third", HIDDEN: f"ttpl.{MARK}.hidden"}
 MISSING = f"ps.{MARK}.missing"
-STEPS = (FIRST, SECOND, THIRD, DRAFT, AFTER_DRAFT, HIDDEN)
+STEPS = (FIRST, SECOND, THIRD, DRAFT, AFTER_DRAFT, HIDDEN, COMPOSED, TRAINED)
+KUS = (KU, *COMPOSED_KUS, TRAINED_KU)
 LEARNER_EDGES = ("IN_PROGRESS", "MARKED_AS_READ", "MASTERED", "ENGAGED_WITH")
 
 _SEED = """
@@ -78,14 +86,22 @@ SET s.publication_state = step.state
 WITH collect(s) AS created
 MATCH (first:PathStep {uid: $first}), (second:PathStep {uid: $second}),
       (third:PathStep {uid: $third}), (draft:PathStep {uid: $draft}),
-      (after:PathStep {uid: $after_draft}), (hidden:PathStep {uid: $hidden})
+      (after:PathStep {uid: $after_draft}), (hidden:PathStep {uid: $hidden}),
+      (composed:PathStep {uid: $composed}), (trained:PathStep {uid: $trained})
 CREATE (third)-[:REQUIRES_STEP]->(second)
 CREATE (second)-[:REQUIRES_STEP]->(first)
 CREATE (after)-[:REQUIRES_STEP]->(draft)
 CREATE (ku:Entity:Ku {uid: $ku, entity_type: 'ku', title: 'Concept', status: 'active'})
-// The Ku-progress door reads a step's Kus off CONTAINS_KNOWLEDGE (``LpService.get_step``).
-CREATE (hidden)-[:CONTAINS_KNOWLEDGE]->(ku)
-CREATE (third)-[:CONTAINS_KNOWLEDGE]->(ku)
+CREATE (hidden)-[:USES_KU]->(ku)
+CREATE (third)-[:USES_KU]->(ku)
+CREATE (trained_ku:Entity:Ku {uid: $trained_ku, entity_type: 'ku', title: 'Trained',
+                              status: 'active'})
+CREATE (trained)-[:TRAINS_KU]->(trained_ku)
+WITH composed
+UNWIND $composed_kus AS composed_ku
+CREATE (used:Entity:Ku {uid: composed_ku, entity_type: 'ku', title: composed_ku,
+                        status: 'active'})
+CREATE (composed)-[:USES_KU]->(used)
 """
 
 
@@ -108,6 +124,8 @@ async def _seed(driver: AsyncDriver) -> None:
         {"uid": DRAFT, "title": "Draft", "state": "draft"},
         {"uid": AFTER_DRAFT, "title": "After draft", "state": "published"},
         {"uid": HIDDEN, "title": "Hidden", "state": "draft"},
+        {"uid": COMPOSED, "title": "Composed", "state": "published"},
+        {"uid": TRAINED, "title": "Trained", "state": "published"},
     ]
     async with driver.session() as session:
         await session.run(
@@ -120,6 +138,10 @@ async def _seed(driver: AsyncDriver) -> None:
             after_draft=AFTER_DRAFT,
             hidden=HIDDEN,
             ku=KU,
+            composed=COMPOSED,
+            trained=TRAINED,
+            composed_kus=list(COMPOSED_KUS),
+            trained_ku=TRAINED_KU,
         )
         await session.run(
             """
@@ -168,7 +190,7 @@ class World:
                 """,
                 user=LEARNER,
                 types=list(LEARNER_EDGES),
-                uids=[*STEPS, KU],
+                uids=[*STEPS, *KUS],
             )
             # What an engagement spawned.
             await session.run(
@@ -357,6 +379,31 @@ async def test_progress_on_a_draft_steps_kus_is_refused_as_missing(fresh: World)
 
     assert response.status_code == 404, response.text
     assert "MASTERED" not in await fresh.edges(KU)
+
+
+@pytest.mark.parametrize(
+    ("step", "kus"),
+    [(COMPOSED, COMPOSED_KUS), (TRAINED, (TRAINED_KU,))],
+    ids=["uses-ku", "trains-ku"],
+)
+async def test_a_step_reported_complete_masters_its_kus_and_itself(
+    fresh: World, step: str, kus: tuple[str, ...]
+) -> None:
+    """The door writes on the Kus the step's derived mastery counts, so the step lands too."""
+    assert (await _progress(fresh, step, state="learning")).status_code == 200
+
+    response = await fresh.learner.post(
+        "/api/pathways/progress",
+        json={"step_uid": step, "mastery_level": 0.9, "completed": True},
+    )
+
+    assert response.status_code == 201, response.text
+    assert sorted(response.json()["updated_ku_uids"]) == sorted(kus)
+    for ku in kus:
+        assert "MASTERED" in await fresh.edges(ku), ku
+    step_edges = await fresh.edges(step)
+    assert "MASTERED" in step_edges, step_edges
+    assert "IN_PROGRESS" not in step_edges, "a mastered step holds no enrollment"
 
 
 # -------------------------------------------------- the page and the chain door
