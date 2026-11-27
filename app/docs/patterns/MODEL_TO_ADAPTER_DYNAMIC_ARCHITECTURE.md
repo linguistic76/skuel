@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-11-25
+updated: 2026-11-27
 category: patterns
 related_skills: []
 related_docs:
@@ -213,7 +213,7 @@ Four new domain backends added under `adapters/persistence/neo4j/backends/`:
 
 | Backend | Methods Added |
 |---------|-------------|
-| `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 5 CRUD methods: ~~`create_step_node`~~, `get_step_with_knowledge`, ~~`update_step_fields`~~, ~~`delete_step_node`~~, `list_steps_raw` (the three writers deleted with the in-app curriculum writers, ADR-091) |
+| `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 5 CRUD methods: ~~`create_step_node`~~, `get_step_with_knowledge`, ~~`update_step_fields`~~, ~~`delete_step_node`~~, `list_steps_raw` (the three writers deleted with the in-app curriculum writers, ADR-091); `get_composed_ku_uids` — the Kus a step's mastery is derived over (`CURRICULUM_COMPOSITION_EDGES`, `:Ku` targets), read by the Ku-progress door |
 | `LpBackend` | 4 HAS_STEP methods: `get_steps_raw`, ~~`add_step_to_path`~~, ~~`remove_step_from_path`~~, ~~`reorder_steps`~~ (the three writers deleted with the in-app curriculum writers, ADR-091) |
 | `GoalsBackend` | 9 progress-helper methods: `find_contributed_goals`, `recompute_progress_from_contributions`, `get_contribution_tally`, `list_goals_by_measurement`, `find_linked_goals_for_habit`, `recompute_progress_from_linked_habits`, `get_linked_habit_tally`, `get_supporting_habit_windows`, `get_required_knowledge_tally` (the two recomputes lock, tally, plan and write in one transaction — `_CrudMixin._recompute_with_status_guard`; `get_contribution_tally` and `get_linked_habit_tally` are the plain reads of the two tallies, each running the statement its recompute counts with — `query/cypher/goal_tally_queries.py` and the habit tally statement in the backend; `list_goals_by_measurement` feeds `./dev reconcile-goal-tallies`; the last two are the progress dashboard's habit-adherence and required-knowledge reads — `core/services/goals/dashboard_figures.py`) |
 | `KuBackend` | 2 substance methods: `batch_increment_substance`, `increment_substance` |
