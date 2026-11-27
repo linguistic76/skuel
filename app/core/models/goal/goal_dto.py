@@ -150,6 +150,7 @@ class GoalDTO(UserOwnedDTO):
                 "goal_type",
                 "timeframe",
                 "measurement_type",
+                "engagement_state",
             ],
             date_fields=["start_date", "target_date", "achieved_date"],
             datetime_fields=["created_at", "updated_at", "last_progress_update"],

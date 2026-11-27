@@ -130,7 +130,14 @@ class ChoiceDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility", "choice_type"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "choice_type",
+                "engagement_state",
+            ],
             datetime_fields=[
                 "created_at",
                 "updated_at",

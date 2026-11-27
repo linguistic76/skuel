@@ -1,6 +1,6 @@
-"""Every enum-valued field is typed as its enum, and every DTO reads it as one.
+"""Every enum-valued field is typed as its enum, and every DTO reads and writes it as one.
 
-Two promises, held for every class at once:
+Three promises, held for every class at once:
 
 - A field whose name ``ENUM_FIELD_TYPES`` registers is annotated with the registry's
   enum on every ``Entity`` and ``EntityDTO`` subclass and on every DTO that converts
@@ -9,6 +9,8 @@ Two promises, held for every class at once:
 - A DTO's ``from_dict`` turns a stored member value into the member for every field
   its annotation types as an enum. A field left out of a DTO's hand-written conversion
   list would hold the raw ``str`` under an enum annotation.
+- A DTO's ``to_dict`` hands each of those fields back as the stored string: a field left
+  out of its list would come back as the member, not the value a node stores.
 
 The classes are found by importing every module under ``core.models``, so a new DTO or
 model is held without being listed here.
@@ -37,25 +39,17 @@ from core.models.enum_field_registry import ENUM_FIELD_TYPES
 
 
 class _ConvertingDTO(Protocol):
-    """What a DTO in ``core.models`` offers to read stored properties."""
+    """What a DTO in ``core.models`` offers to read and write stored properties."""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self: ...  # boundary: stored node properties
+
+    def to_dict(self) -> dict[str, Any]: ...  # boundary: stored node properties
 
 
 # Enum-named fields still annotated ``str`` — (class name, field name).
 _STILL_TYPED_STR: frozenset[tuple[str, str]] = frozenset(
     {
-        ("Curriculum", "confidence"),
-        ("Event", "event_type"),
-        ("EventDTO", "event_type"),
-        ("EventTemplate", "event_type"),
-        ("EventTemplate", "recurrence_pattern"),
-        ("EventTemplateDTO", "event_type"),
-        ("EventTemplateDTO", "recurrence_pattern"),
-        ("HabitTemplate", "recurrence_pattern"),
-        ("HabitTemplateDTO", "recurrence_pattern"),
-        ("RevisedExerciseDTO", "expected_modality"),
         ("UserOwnedDTO", "priority"),
         ("UserOwnedEntity", "priority"),
     }
@@ -248,3 +242,25 @@ def test_from_dict_reads_each_enum_field_as_its_member(cls: type[_ConvertingDTO]
         name for name, member in expected.items() if getattr(dto, name) is not member
     )
     assert not left_as_str, f"{cls.__name__}.from_dict leaves {left_as_str} unread as their enum"
+
+
+@pytest.mark.parametrize("cls", _DTOS, ids=[_class_id(cls) for cls in _DTOS])
+def test_to_dict_hands_each_enum_field_back_as_its_stored_string(
+    cls: type[_ConvertingDTO],
+) -> None:
+    expected = _expected_members(cls)
+    stored = {
+        **_required_properties(cls),
+        **{name: member.value for name, member in expected.items()},
+    }
+
+    out = cls.from_dict(dict(stored)).to_dict()
+
+    left_as_member = sorted(
+        name
+        for name, member in expected.items()
+        if type(out.get(name)) is not str or out.get(name) != member.value
+    )
+    assert not left_as_member, (
+        f"{cls.__name__}.to_dict hands back {left_as_member} as something other than the stored string"
+    )

@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.event_enums import EventType
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_dto import UserOwnedDTO
@@ -63,7 +64,7 @@ class EventDTO(UserOwnedDTO):
     # =========================================================================
     # LOGISTICS
     # =========================================================================
-    event_type: str | None = None
+    event_type: EventType | None = None
     location: str | None = None
     is_online: bool = False
     meeting_url: str | None = None
@@ -163,7 +164,9 @@ class EventDTO(UserOwnedDTO):
                 "status",
                 "domain",
                 "visibility",
+                "event_type",
                 "recurrence_pattern",
+                "engagement_state",
             ],
             date_fields=["event_date", "recurrence_end_date"],
             datetime_fields=["created_at", "updated_at", "completed_at", "rescheduled_at"],
@@ -183,6 +186,7 @@ class EventDTO(UserOwnedDTO):
                 "status",
                 "domain",
                 "visibility",
+                "event_type",
                 "recurrence_pattern",
                 "engagement_state",
             ),

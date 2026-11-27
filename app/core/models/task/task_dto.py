@@ -140,6 +140,7 @@ class TaskDTO(UserOwnedDTO):
                 "domain",
                 "visibility",
                 "recurrence_pattern",
+                "engagement_state",
             ],
             date_fields=["due_date", "scheduled_date", "completion_date", "recurrence_end_date"],
             datetime_fields=["created_at", "updated_at"],

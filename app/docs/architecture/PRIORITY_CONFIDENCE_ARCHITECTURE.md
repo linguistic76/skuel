@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-16
+updated: 2026-11-27
 ---
 
 # Priority & Confidence Architecture
@@ -80,16 +80,18 @@ Priority.from_search_text("urgent")          # → [Priority.HIGH]
 
 ### On Curriculum Entities
 
-**Field:** `Curriculum.confidence: str | None`
+**Field:** `Curriculum.confidence: Confidence | None`
 
 **File:** `core/models/curriculum.py`
 
 Curriculum has no request models: it is authored in the content vault (ADR-091).
 
-**Domains:** KU, PS (PathStep), LP (LearningPath)
+**Domains:** PS (PathStep), LP (LearningPath), Exercise — the `Curriculum` subclasses. Ku is not
+one and carries no confidence.
 
-Set by admins when creating or updating curriculum content — "how certain are we that this
-knowledge is accurate, pedagogically sound, and ready for learners?"
+Authored as a `confidence:` frontmatter key in the content vault — "how certain are we that this
+knowledge is accurate, pedagogically sound, and ready for learners?" No content-vault file authors
+one yet, and nothing reads it.
 
 ### On Lateral Relationship Edges
 
@@ -174,8 +176,7 @@ rank by it — every one of them through the enum's own methods, never a hand-wr
 |------|------|
 | `core/models/enums/activity_enums.py` | `Priority` and `Confidence` enum definitions |
 | `core/models/user_owned_entity.py` | `priority: str \| None` field declaration |
-| `core/models/curriculum.py` | `confidence: str \| None` field declaration |
-| `core/models/pathways/pathways_request.py` | `confidence` in PS/LP create requests |
+| `core/models/curriculum.py` | `confidence: Confidence \| None` field declaration |
 | `core/services/lateral_relationships/lateral_relationship_service.py` | `confidence` + `priority` on graph edges |
 | `static/js/skuel.js` | vis.js edge styling by confidence and priority |
 

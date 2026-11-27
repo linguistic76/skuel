@@ -934,9 +934,7 @@ def score_event(event: Event, context: UserContext) -> PriorityScore:
     )
 
     # Event type priority (weight: 0.10)
-    from core.utils.type_converters import get_enum_value
-
-    event_type = get_enum_value(event.event_type) if event.event_type else None
+    event_type = event.event_type
 
     learning_types = {EventType.LEARNING}
     if event_type in learning_types:

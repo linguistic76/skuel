@@ -27,9 +27,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.event_enums import EventType
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.templates.choice_template import ChoiceTemplate
 from core.models.templates.event_template import EventTemplate
@@ -285,6 +288,24 @@ class TestEventBuilder:
         assert event.status == EntityStatus.SCHEDULED
         assert "status" not in EVENT_SPEC.copied_fields()
 
+    def test_a_stored_type_and_recurrence_reach_the_event_as_members(self) -> None:
+        """The template is read from its node, as the loader reads it; its text arrives as the member."""
+        et = from_neo4j_node(
+            {
+                "uid": "etpl_session",
+                "title": "Session",
+                "entity_type": "event_template",
+                "event_type": "learning",
+                "recurrence_pattern": "weekly",
+            },
+            EventTemplate,
+        )
+
+        event = _build(EVENT_SPEC, et, STUDENT, PS, ANCHOR, {"etpl_session": "event_uid"})
+
+        assert event.event_type is EventType.LEARNING
+        assert event.recurrence_pattern is RecurrencePattern.WEEKLY
+
 
 class TestHabitBuilder:
     def test_habit_recurrence_end_resolves(self) -> None:
@@ -297,6 +318,22 @@ class TestHabitBuilder:
         assert habit.recurrence_end_date == date(2026, 8, 7)
         assert habit.user_uid == STUDENT
         assert habit.source_path_step_uid == PS
+
+    def test_a_stored_recurrence_reaches_the_habit_as_its_member(self) -> None:
+        """The template is read from its node, as the loader reads it; its text arrives as the member."""
+        ht = from_neo4j_node(
+            {
+                "uid": "htpl_morning",
+                "title": "Morning practice",
+                "entity_type": "habit_template",
+                "recurrence_pattern": "daily",
+            },
+            HabitTemplate,
+        )
+
+        habit = _build(HABIT_SPEC, ht, STUDENT, PS, ANCHOR, {"htpl_morning": "habit_uid"})
+
+        assert habit.recurrence_pattern is RecurrencePattern.DAILY
 
 
 class TestChoiceBuilder:

@@ -56,6 +56,7 @@ if TYPE_CHECKING:
 
 from core.models.entity import Entity
 from core.models.enums import (
+    Confidence,
     Domain,
     KuComplexity,
     LearningLevel,
@@ -128,7 +129,7 @@ class Curriculum(Entity):
     # =========================================================================
     # CONFIDENCE (admin-assessed certainty about this curriculum content)
     # =========================================================================
-    confidence: str | None = None  # Confidence enum value (UNCERTAIN/LOW/MEDIUM/HIGH/CERTAIN)
+    confidence: Confidence | None = None
 
     # =========================================================================
     # LEARNING METADATA (11)
