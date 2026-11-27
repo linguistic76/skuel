@@ -32,7 +32,11 @@ class Priority(StrEnum):
         return _PRIORITY_NUMERIC_VALUES[self]
 
     def sort_order(self) -> int:
-        """Sort order for priority lists (HIGH first, LOW last)."""
+        """Sort order for priority lists (HIGH first, LOW last).
+
+        A list sorted by priority reads ``priority_sort_order``, which places an
+        item with no priority after LOW.
+        """
         return _PRIORITY_SORT_ORDERS[self]
 
     @classmethod
@@ -141,6 +145,19 @@ _PRIORITY_SORT_ORDERS: dict[Priority, int] = {
     Priority.MEDIUM: 1,
     Priority.LOW: 2,
 }
+
+
+def priority_sort_order(priority: Priority | None) -> int:
+    """The place a priority takes in a list sorted by priority — the one rank.
+
+    A member's ``sort_order()`` (HIGH 0, MEDIUM 1, LOW 2); no priority is
+    ``len(Priority)``, after LOW. The Activity list pages, the facades'
+    filtered-context sorts, ``get_task_urgency`` and the calendar's peak-energy
+    bucket read it. A read that needs a neutral value instead of a place in a list
+    (a score, a weight, a threshold) treats no priority as MEDIUM; so do the
+    principle sorts, whose key ``get_principle_priority`` is also the alignment weight.
+    """
+    return len(Priority) if priority is None else priority.sort_order()
 
 
 class Confidence(StrEnum):

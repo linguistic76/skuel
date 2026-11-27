@@ -67,12 +67,19 @@ LOW + UNCERTAIN      → Prune or validate. Low signal.
 | `HIGH` | 3 | `#F59E0B` (amber) | Should do soon |
 
 ```python
-from core.models.enums import Priority
+from core.models.enums import Priority, priority_sort_order
 
 Priority.HIGH.to_numeric()                   # → 3
 Priority.HIGH.get_color()                    # → "#F59E0B" (amber)
 Priority.from_search_text("urgent")          # → [Priority.HIGH]
+priority_sort_order(Priority.LOW)            # → 2
+priority_sort_order(None)                    # → 3: no priority sorts after LOW
 ```
+
+**No priority:** the field is optional. A list sorted by priority places an item with none
+after LOW, through one rank, `priority_sort_order`. A read that needs a neutral value rather
+than a place in a list — a score, a weight, the calendar lens's floor — reads it as MEDIUM.
+So do the principle sorts: their key, `get_principle_priority`, is also the alignment weight.
 
 ---
 
@@ -139,11 +146,11 @@ rank by it — every one of them through the enum's own methods, never a hand-wr
 
 | Surface | Read |
 |---------|------|
-| Calendar optimization (`calendar_optimization_service.py`, `_strategies.py`) | HIGH tasks add intrinsic load and join the peak-energy bucket, ordered by `sort_order()` |
+| Calendar optimization (`calendar_optimization_service.py`, `_strategies.py`) | HIGH tasks add intrinsic load and join the peak-energy bucket, ordered by `priority_sort_order` (a mastery task with no priority last) |
 | Search scoring (`core/models/search/scoring.py`) | `score_priority_level` → HIGH 1.0 / MEDIUM 0.5 / LOW 0.25 |
-| List sorts (`core/utils/entity_filters.py`) | sort by `sort_order()`; the view vocabulary IS the enum's three values (the day view orders by date, not priority — every priority renders there) |
+| List sorts — the Activity list pages (`core/utils/entity_filters.py`) and the facades' `get_filtered_context` (`core/services/{tasks,goals,choices}_service.py`) | `priority_sort_order`: HIGH, MEDIUM, LOW, then no priority. The task page's priority sort is `get_task_urgency` (below); goals and choices keep their listed order within a priority. The view vocabulary IS the enum's three values (the day view orders by date, not priority — every priority renders there) |
 | Goal scheduling (`goals_scheduling_service.py`) | priority weight in the goal score; the HIGH-count recommendation is advisory |
-| Next critical tasks (`get_task_urgency`, `core/models/task/task.py`) | `sort_order()`: HIGH, MEDIUM, LOW, then a task with no priority; the earlier due date breaks a tie, no due date last |
+| Next critical tasks and the task page's priority sort (`get_task_urgency`, `core/models/task/task.py`) | `priority_sort_order`: HIGH, MEDIUM, LOW, then a task with no priority; the earlier due date breaks a tie, no due date last |
 
 ---
 
@@ -175,7 +182,7 @@ rank by it — every one of them through the enum's own methods, never a hand-wr
 
 | File | Role |
 |------|------|
-| `core/models/enums/activity_enums.py` | `Priority` and `Confidence` enum definitions |
+| `core/models/enums/activity_enums.py` | `Priority` and `Confidence` enum definitions; `priority_sort_order`, the one rank |
 | `core/models/user_owned_entity.py` | `priority: Priority \| None` field declaration |
 | `core/models/curriculum.py` | `confidence: Confidence \| None` field declaration |
 | `core/services/lateral_relationships/lateral_relationship_service.py` | `confidence` + `priority` on graph edges |

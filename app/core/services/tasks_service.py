@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 # Domain models
 from core.events import GoalContributionsChanged, TaskUpdated, publish_event
-from core.models.enums import EntityStatus, Priority
+from core.models.enums import EntityStatus, priority_sort_order
 from core.models.relationship_names import RelationshipName
 from core.models.sentinels import UNSET, Unset
 from core.models.task.task import Task
@@ -268,9 +268,9 @@ def _apply_task_secondary_filters(
     return tasks
 
 
-def _get_task_priority_order(task: Any) -> int:
-    """Sort key for priority: HIGH 0, MEDIUM 1, LOW 2; no priority sorts as MEDIUM."""
-    return Priority.from_value(task.priority).sort_order()
+def _get_task_priority_order(task: Task) -> int:
+    """Sort key for priority: HIGH, MEDIUM, LOW, then a task with no priority."""
+    return priority_sort_order(task.priority)
 
 
 _TASK_SORT_CONFIG: SortConfig = {
@@ -1247,6 +1247,3 @@ class TasksService(
             sort_by=sort_by,
             compute_metadata=_compute_task_metadata,
         )
-
-
-# Legacy alias removed - class renamed directly to TasksService

@@ -194,7 +194,7 @@ omitted from forms — assign those via the detail-page relationship picker.
 **Shared UI utilities** (`ui/activities/_shared.py`):
 - `MetadataField(label, *value)` — label + value pair for detail page metadata grids. Variadic `*value` supports simple (`Span`), paragraph (`P`), list (`Ul`), and multi-element (stars + score) content. Used ~60 times across all 6 detail views.
 - `safe_id(uid)` — converts UIDs to safe HTML id attributes (replaces `.` and `:` with `-`)
-- `PRIORITY_ORDER` lives in `core/utils/entity_filters.py` (a business rule), not here
+- A priority sort reads `priority_sort_order` (`core/models/enums/activity_enums.py`, a business rule), not a table here
 - `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
 - `ConnectionsSection(connections, removal=None)` — the detail page's Connections block: one list per heading. Only the task page passes `removal` (`TaskConnectionsSection`): an inferred knowledge link is marked there, with a remove.
 - `ConnectionRows(connections)` — the list card's links: one compact line per heading, the titles after it. All six cards use it.

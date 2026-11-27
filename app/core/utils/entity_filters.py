@@ -13,7 +13,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.activity_enums import priority_sort_order
 from core.models.enums.entity_enums import EntityStatus
+from core.models.task.task import get_task_urgency
 from core.utils.timestamp_helpers import LATEST_INSTANT, instant_key
 
 if TYPE_CHECKING:
@@ -26,18 +28,11 @@ if TYPE_CHECKING:
 
 
 # -- Shared status groupings --------------------------------------------------
-# Entity.status is always a canonical EntityStatus (set in __post_init__), so
-# status grouping must compare enum members, never raw strings. The previous code
-# compared `status.value` against alias spellings ("in_progress", "ready",
-# "not_started") that EntityStatus.from_string normalizes away at ingest — so
-# those branches never matched a stored value and were dead.
-#
-# This migration is behavior-preserving: each set is exactly the canonical members
-# the old string list *actually matched*, not the (wider) set the dead aliases
-# would have implied. Activating those aliases — e.g. folding SCHEDULED into
-# "active" — would desync these tabs from each domain's own "active" semantics
-# (compute_habit_stats and Habit.should_do_today gate strictly on ACTIVE), so any
-# such widening is a deliberate cross-domain decision, not part of this refactor.
+# Entity.status is always a canonical EntityStatus (set in __post_init__), so a
+# status grouping compares enum members, never raw strings. Each set is the members
+# its tab shows. Widening one — folding SCHEDULED into "active", say — would desync
+# the tab from its domain's own "active" (compute_habit_stats and
+# Habit.should_do_today gate strictly on ACTIVE): a cross-domain decision.
 
 _TASK_ACTIVE_STATUSES = frozenset(
     {
@@ -49,8 +44,7 @@ _TASK_ACTIVE_STATUSES = frozenset(
 
 
 # -- Shared sort constants ----------------------------------------------------
-
-PRIORITY_ORDER: dict[str, int] = {"high": 0, "medium": 1, "low": 2}
+# A priority sort reads ``priority_sort_order``: HIGH, MEDIUM, LOW, then no priority.
 
 STRENGTH_ORDER: dict[str, int] = {
     "core": 0,
@@ -64,10 +58,6 @@ STRENGTH_ORDER: dict[str, int] = {
 # =============================================================================
 # Tasks
 # =============================================================================
-
-
-def _task_sort_by_priority(task: Task) -> int:
-    return PRIORITY_ORDER.get(str(task.priority) if task.priority else "", 3)
 
 
 def _task_sort_by_due_date(task: Task) -> str:
@@ -102,7 +92,8 @@ def filter_tasks(
         filtered = [t for t in filtered if t.priority and str(t.priority) == priority_filter]
 
     if sort_by == "priority":
-        filtered.sort(key=_task_sort_by_priority)
+        # Within a priority the earlier due date first, an undated task last.
+        filtered.sort(key=get_task_urgency)
     elif sort_by == "due_date":
         filtered.sort(key=_task_sort_by_due_date)
     elif sort_by == "title":
@@ -119,7 +110,7 @@ def filter_tasks(
 
 
 def _goal_sort_by_priority(goal: Goal) -> int:
-    return PRIORITY_ORDER.get(str(goal.priority) if goal.priority else "", 3)
+    return priority_sort_order(goal.priority)
 
 
 def _goal_sort_by_target_date(goal: Goal) -> str:
@@ -282,8 +273,8 @@ def filter_choices(
     def by_deadline(c: Any) -> datetime:
         return instant_key(c.decision_deadline, LATEST_INSTANT)
 
-    def by_priority(c: Any) -> int:
-        return PRIORITY_ORDER.get(str(c.priority) if c.priority else "", 3)
+    def by_priority(c: Choice) -> int:
+        return priority_sort_order(c.priority)
 
     def by_title(c: Any) -> str:
         return (c.title or "").lower()

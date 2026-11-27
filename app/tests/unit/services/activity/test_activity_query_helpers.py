@@ -24,7 +24,6 @@ from core.services.events_service import (
 )
 from core.services.goals_service import (
     _apply_goal_sort,
-    _get_goal_priority_str,
     _get_goal_status_str,
     _get_goal_target_date,
 )
@@ -197,7 +196,7 @@ class TestApplyTaskSort:
 
 def make_goal(
     status: str = "active",
-    priority: str = "medium",
+    priority: Priority = Priority.MEDIUM,
     target_date: date | None = None,
     current_value: float = 0.0,
     created_at: datetime | None = None,
@@ -222,10 +221,6 @@ class TestGoalAccessors:
         goal = make_goal()
         goal.status = EntityStatus.ACTIVE
         assert _get_goal_status_str(goal) == EntityStatus.ACTIVE.value.lower()
-
-    def test_get_priority_str_string(self):
-        goal = make_goal(priority="high")
-        assert _get_goal_priority_str(goal) == "high"
 
     def test_get_target_date_returns_date(self):
         d = date(2025, 6, 1)
@@ -257,9 +252,9 @@ class TestApplyGoalSort:
         assert result[0].target_date == date(2025, 6, 1)
 
     def test_sort_by_priority(self):
-        goals = [make_goal(priority="low"), make_goal(priority="high")]
+        goals = [make_goal(priority=Priority.LOW), make_goal(priority=Priority.HIGH)]
         result = _apply_goal_sort(goals, "priority")
-        assert result[0].priority == "high"
+        assert result[0].priority == Priority.HIGH
 
 
 # ============================================================================
@@ -330,7 +325,7 @@ class TestApplyEventSort:
 
 def make_choice(
     status: str = "pending",
-    priority: str = "medium",
+    priority: Priority = Priority.MEDIUM,
     decision_deadline: datetime | None = None,
     created_at: datetime | None = None,
 ) -> Any:
@@ -353,9 +348,9 @@ class TestApplyChoiceSort:
         assert result[0].decision_deadline == datetime(2025, 1, 1)
 
     def test_sort_by_priority(self):
-        choices = [make_choice(priority="low"), make_choice(priority="high")]
+        choices = [make_choice(priority=Priority.LOW), make_choice(priority=Priority.HIGH)]
         result = _apply_choice_sort(choices, "priority")
-        assert result[0].priority == "high"
+        assert result[0].priority == Priority.HIGH
 
     def test_sort_by_created_at_descending(self):
         choices = [
