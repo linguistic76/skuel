@@ -864,15 +864,18 @@ class PsOperations(
         ...
 
     async def mark_in_progress(
-        self, user_uid: UserUID, ku_uid: str, now: str
+        self, user_uid: UserUID, ku_uid: str, now: str, cap: int
     ) -> Result[list[StepStartRow]]:
-        """Put a published PathStep into the user's in-progress set, refreshing last activity.
+        """Put a published PathStep into the user's in-progress set while they hold
+        fewer than ``cap`` steps, refreshing last activity; the cap is decided by the write.
 
         One record per user/step pair and safe to repeat — nothing accumulates, and
-        the original start time and progress score survive. Only the
-        last-activity timestamp moves. A step the user mastered is left alone and
-        reports ``mastered``: mastery is the terminal state. Admits no prerequisite
-        check; the service gates the step before it writes.
+        the original start time and progress score survive. A step the user already
+        holds takes no new slot: only the last-activity timestamp moves. A step the
+        user mastered is left alone (``mastered``), and so is a new step past the cap
+        (``capped``). Concurrent starts for one learner are decided one at a time, so
+        they never hold more than ``cap`` between them. Admits no prerequisite check;
+        the service gates the step before it writes.
         """
         ...
 
@@ -905,12 +908,6 @@ class PsOperations(
         Returns the score that ended up stored and whether the edge already
         existed (``was_mastered`` — the transition flag the publisher reads).
         """
-        ...
-
-    async def count_in_progress_path_steps(
-        self, user_uid: UserUID
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {cnt}
-        """Count PathSteps with an IN_PROGRESS edge for a user."""
         ...
 
     async def get_in_progress_path_step_uids(

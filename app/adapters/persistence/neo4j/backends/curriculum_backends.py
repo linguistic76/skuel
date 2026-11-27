@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j._adaptive_mixin import _AdaptiveMixin
 from adapters.persistence.neo4j._knowledge_context_mixin import _KnowledgeContextMixin
 from adapters.persistence.neo4j._learning_state_mixin import (
+    LOCK_LEARNER,
     _LearningStateMixin,
     to_mastered_write_rows,
 )
@@ -483,9 +484,10 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     ) -> Result[list[Neo4jProperties]]:
         """MERGE IN_PROGRESS onto a published Ku; no row for any other uid."""
         query = f"""
-        MATCH (user:User {{uid: $user_uid}})
+        MATCH (u:User {{uid: $user_uid}})
+        {LOCK_LEARNER}
         {_MATCH_PUBLISHED_KU}
-        MERGE (user)-[r:IN_PROGRESS]->(ku)
+        MERGE (u)-[r:IN_PROGRESS]->(ku)
         ON CREATE SET
             r.started_at = datetime(),
             r.last_activity_at = datetime(),
@@ -512,9 +514,10 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         itself, under its lock (``_LearningStateMixin.mark_mastered`` explains).
         """
         query = f"""
-        MATCH (user:User {{uid: $user_uid}})
+        MATCH (u:User {{uid: $user_uid}})
+        {LOCK_LEARNER}
         {_MATCH_PUBLISHED_KU}
-        MERGE (user)-[r:MASTERED]->(ku)
+        MERGE (u)-[r:MASTERED]->(ku)
         ON CREATE SET
             r.mastered_at = datetime(),
             r.mastery_score = $mastery_score,

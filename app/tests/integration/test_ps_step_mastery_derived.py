@@ -157,13 +157,13 @@ async def test_the_step_is_mastered_only_when_its_last_ku_is(
 
 @pytest.mark.asyncio
 async def test_mastery_is_terminal_for_the_enrollment(neo4j_driver, backend, bus, mastery) -> None:
-    assert (await mastery.count_in_progress_steps(USER)).value == 1
+    assert (await mastery.get_in_progress_step_uids(USER)).value == [STEP]
 
     assert (await mastery.mark_mastered(USER, KU_A, 0.9)).is_ok
     assert (await mastery.mark_mastered(USER, KU_B, 0.9)).is_ok
 
     assert not await _enrolled(neo4j_driver, STEP)
-    assert (await mastery.count_in_progress_steps(USER)).value == 0, (
+    assert (await mastery.get_in_progress_step_uids(USER)).value == [], (
         "a mastered step must not hold an enrollment-cap slot"
     )
     # The step was never VIEWED — the detail page's state read must still see
@@ -183,7 +183,7 @@ async def test_marking_a_step_as_read_keeps_its_enrollment_slot(
     assert (await mastery.mark_as_read(USER, STEP)).is_ok
 
     assert await _enrolled(neo4j_driver, STEP), "a step read but not mastered is still studied"
-    assert (await mastery.count_in_progress_steps(USER)).value == 1
+    assert (await mastery.get_in_progress_step_uids(USER)).value == [STEP]
     assert await _step_edges(neo4j_driver, STEP) == [], "reading a step does not master it"
 
 

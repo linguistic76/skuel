@@ -78,8 +78,8 @@ class _StepBackend:
     in_progress: set[str] = field(default_factory=set)
     mastered: set[str] = field(default_factory=set)
     held_elsewhere: int = 0
-    write_reports_mastered: bool = False
     writes: list[str] = field(default_factory=list)
+    caps: list[int] = field(default_factory=list)
 
     async def get_learning_state_raw(
         self, user_uid: str, ku_uid: str
@@ -93,16 +93,20 @@ class _StepBackend:
             ]
         )
 
-    async def count_in_progress_path_steps(self, user_uid: str) -> Result[list[dict[str, int]]]:
-        return Result.ok([{"cnt": self.held_elsewhere + len(self.in_progress)}])
-
     async def mark_in_progress(
-        self, user_uid: str, ku_uid: str, now: str
+        self, user_uid: str, ku_uid: str, now: str, cap: int
     ) -> Result[list[StepStartRow]]:
-        mastered = self.write_reports_mastered or ku_uid in self.mastered
-        if not mastered:
+        """The statement's verdict, decided as the backend decides it under the lock."""
+        self.caps.append(cap)
+        mastered = ku_uid in self.mastered
+        held = ku_uid in self.in_progress
+        capped = not mastered and not held and self.held_elsewhere + len(self.in_progress) >= cap
+        if not (mastered or capped):
             self.writes.append("IN_PROGRESS")
-        return Result.ok([{"mastered": mastered}])
+        started = not (mastered or held or capped)
+        return Result.ok(
+            [{"mastered": mastered, "held": held, "started": started, "capped": capped}]
+        )
 
     async def mark_as_read(self, user_uid: str, ku_uid: str) -> Result[list[StepHoldRow]]:
         return self._held_write("MARKED_AS_READ", ku_uid)
@@ -276,14 +280,15 @@ async def test_a_mastered_step_is_not_started_again() -> None:
     assert bus.published == []
 
 
-async def test_a_step_mastered_between_the_read_and_the_write_is_refused_by_the_write() -> None:
-    service, _, steps, bus = _service(steps=_StepBackend(write_reports_mastered=True))
+async def test_the_start_asks_the_write_for_the_cap() -> None:
+    """The cap is decided by the statement: the service hands it ``ENROLLMENT_CAP`` and
+    reads no learner state of its own before it (the fake has no tally to read)."""
+    service, _, steps, _ = _service(steps=_StepBackend(held_elsewhere=ENROLLMENT_CAP - 1))
 
     result = await service.mark_in_progress(USER, STEP)
 
-    assert _rule(result) == "ps_already_mastered"
-    assert steps.writes == []
-    assert bus.published == []
+    assert result.is_ok
+    assert steps.caps == [ENROLLMENT_CAP]
 
 
 async def test_an_admitted_start_writes_and_announces() -> None:

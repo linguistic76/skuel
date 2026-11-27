@@ -10,9 +10,9 @@ Three seams, all raw-Cypher and therefore invisible to the mock-only suites:
    ADR-091 S3), never to the learner's default group. A revision resolves to
    the exercise it revises in this lookup, so a turn-in against a revision
    reaches the root exercise's teacher (N8).
-3. ``PsBackend.count_in_progress_path_steps`` — the basis of the enrollment
-   cap counts IN_PROGRESS edges to :PathStep nodes only; a :Ku edge must
-   not inflate the cap.
+3. The enrollment cap's tally (``PsBackend.mark_in_progress``) counts
+   IN_PROGRESS edges to :PathStep nodes only, the set the held-steps list
+   names; a :Ku edge must not fill a slot.
 """
 
 from __future__ import annotations
@@ -22,10 +22,9 @@ import uuid
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from core.models.group.group import default_group_uid
-from core.services.ps.ps_mastery_service import PsMasteryService
+from core.services.ps.ps_mastery_service import ENROLLMENT_CAP_RULE, PsMasteryService
 from core.services.ps.ps_prerequisite_gate import PsPrerequisiteGate
 from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
@@ -51,7 +50,7 @@ _DEFAULT_GROUP_UID = default_group_uid(seed_user_uid(f"zz_admin_{_RUN}"))
 
 # --- (c) enrollment-cap fixtures --------------------------------------------
 _LEARNER_UID = seed_user_uid(f"zz_learner_{_RUN}")
-_PS_UIDS = [f"ps.test.cap-one-{_RUN}", f"ps.test.cap-two-{_RUN}"]
+_PS_UIDS = [f"ps.test.cap-one-{_RUN}", f"ps.test.cap-two-{_RUN}", f"ps.test.cap-three-{_RUN}"]
 _KU_UID = f"ku.test-cap-{_RUN}"
 
 
@@ -184,7 +183,7 @@ async def default_group_graph(neo4j_driver):
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def enrollment_cap_graph(neo4j_driver):
-    """Learner with IN_PROGRESS → 2 PathSteps and IN_PROGRESS → 1 Ku."""
+    """Learner holding 1 PathStep and 1 Ku IN_PROGRESS, beside 2 published steps unheld."""
     async with neo4j_driver.session() as session:
         await session.run(
             "MERGE (u:User {uid: $uid}) SET u.title = $uid",
@@ -195,13 +194,17 @@ async def enrollment_cap_graph(neo4j_driver):
                 """
                 MERGE (ps:Entity:PathStep {uid: $uid})
                 SET ps.title = $uid, ps.entity_type = 'path_step', ps.status = 'active'
-                WITH ps
-                MATCH (u:User {uid: $user_uid})
-                MERGE (u)-[:IN_PROGRESS]->(ps)
                 """,
                 uid=ps_uid,
-                user_uid=_LEARNER_UID,
             )
+        await session.run(
+            """
+            MATCH (u:User {uid: $user_uid}), (ps:Entity:PathStep {uid: $uid})
+            MERGE (u)-[:IN_PROGRESS]->(ps)
+            """,
+            uid=_PS_UIDS[0],
+            user_uid=_LEARNER_UID,
+        )
         # A Ku IN_PROGRESS edge exists too (KU-grain study) — it must NOT
         # count against the PathStep enrollment cap.
         await session.run(
@@ -331,39 +334,42 @@ async def test_a_revision_is_usable_by_the_student_it_names(neo4j_driver, defaul
 
 
 # ============================================================================
-# (c) enrollment cap basis — count IN_PROGRESS → :PathStep only
+# (c) enrollment cap tally — IN_PROGRESS → :PathStep only
 # ============================================================================
 
 
-def _ps_backend(neo4j_driver) -> PsBackend:
-    # Same construction as the conftest `services` fixture.
-    return build_production_backends(neo4j_driver)["ps_backend"]
-
-
-async def test_count_in_progress_counts_path_steps_only(neo4j_driver, enrollment_cap_graph):
-    """2 IN_PROGRESS→PathStep edges + 1 IN_PROGRESS→Ku edge → count == 2."""
-    backend = _ps_backend(neo4j_driver)
-
-    result = await backend.count_in_progress_path_steps(enrollment_cap_graph["learner"])
-
-    assert result.is_ok, f"count_in_progress_path_steps failed: {result.error}"
-    records = result.value or []
-    assert records, "Count query must return a row"
-    assert int(records[0]["cnt"]) == 2, (
-        "The enrollment-cap basis must count IN_PROGRESS→PathStep edges only; "
-        "a :Ku IN_PROGRESS edge must not inflate the cap"
-    )
-
-
-async def test_mastery_service_count_matches_backend(neo4j_driver, enrollment_cap_graph):
-    """The service layer the enrollment cap actually calls agrees with the backend."""
+def _mastery_service(neo4j_driver) -> PsMasteryService:
     backends = build_production_backends(neo4j_driver)
-    service = PsMasteryService(
+    return PsMasteryService(
         backend=backends["ps_backend"],
         prerequisite_gate=PsPrerequisiteGate(backends["ps_intelligence_backend"]),
     )
 
-    result = await service.count_in_progress_steps(enrollment_cap_graph["learner"])
 
-    assert result.is_ok, f"count_in_progress_steps failed: {result.error}"
-    assert result.value == 2
+async def test_held_steps_list_names_path_steps_only(neo4j_driver, enrollment_cap_graph):
+    """1 IN_PROGRESS→PathStep edge + 1 IN_PROGRESS→Ku edge → the list names the step."""
+    held = await _mastery_service(neo4j_driver).get_in_progress_step_uids(
+        enrollment_cap_graph["learner"]
+    )
+
+    assert held.is_ok, held
+    assert held.value == [_PS_UIDS[0]]
+
+
+async def test_a_ku_edge_fills_no_enrollment_slot(neo4j_driver, enrollment_cap_graph):
+    """Holding one step and one Ku, the learner starts a second step; the third is capped.
+
+    The cap's tally is the held-steps list's set: had the Ku edge counted, the second
+    start would have been refused.
+    """
+    service = _mastery_service(neo4j_driver)
+    learner = enrollment_cap_graph["learner"]
+
+    second = await service.mark_in_progress(learner, _PS_UIDS[1])
+    third = await service.mark_in_progress(learner, _PS_UIDS[2])
+
+    assert second.is_ok, second
+    assert third.is_error
+    assert third.expect_error().details["rule"] == ENROLLMENT_CAP_RULE
+    held = await service.get_in_progress_step_uids(learner)
+    assert sorted(held.value) == sorted(_PS_UIDS[:2])

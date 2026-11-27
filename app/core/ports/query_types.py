@@ -3523,10 +3523,16 @@ class MasteredWriteRow(TypedDict):
 
 
 class StepStartRow(TypedDict):
-    """What ``mark_in_progress`` reports for a published step: whether the learner had
-    mastered it, in which case nothing was written (mastery is the terminal state)."""
+    """What ``mark_in_progress`` reports for a published step, decided under the
+    learner's lock: ``mastered`` (nothing written — mastery is the terminal state),
+    ``held`` (the learner held the step before this write — no new slot), ``started``
+    (this write created the edge) and ``capped`` (nothing written — the learner holds
+    the enrollment cap)."""
 
     mastered: bool
+    held: bool
+    started: bool
+    capped: bool
 
 
 class StepHoldRow(TypedDict):
