@@ -35,7 +35,10 @@ from neo4j import AsyncDriver
 from neo4j.exceptions import ConstraintError
 
 from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_checkin
-from adapters.persistence.neo4j._learning_state_mixin import to_mastered_write_rows
+from adapters.persistence.neo4j._learning_state_mixin import (
+    LOCK_LEARNER,
+    to_mastered_write_rows,
+)
 from adapters.persistence.neo4j.neo4j_mapper import (
     from_neo4j_node,
     to_neo4j_node,
@@ -619,13 +622,14 @@ class UserBackend(Neo4jSessionRunner):
         """
         # Not _merge_user_edge: mastering a KU must also retire its IN_PROGRESS
         # edge (the state progression is VIEWED → IN_PROGRESS → MASTERED, and
-        # readers like count_in_progress_path_steps would otherwise keep counting
-        # a mastered KU as actively studied). Mirrors
-        # UserProgressBackend.record_mastery, the other MASTERED writer.
+        # the IN_PROGRESS readers would otherwise keep counting a mastered KU as
+        # actively studied). Mirrors UserProgressBackend.record_mastery. The
+        # learner is locked first (LOCK_LEARNER), as by every learner-state write.
         record = await self._run_single(
-            """
-            MATCH (u:User {uid: $user_uid})
-            MATCH (t:Entity {uid: $target_uid})
+            f"""
+            MATCH (u:User {{uid: $user_uid}})
+            {LOCK_LEARNER}
+            MATCH (t:Entity {{uid: $target_uid}})
             MERGE (u)-[r:MASTERED]->(t)
             ON CREATE SET r.transition = true
             ON MATCH SET r.transition = false
@@ -698,9 +702,10 @@ class UserBackend(Neo4jSessionRunner):
         # pathways progress route omits it), and a bare SET of NULL would REMOVE
         # a rating the other writer stored on the same shared edge.
         record = await self._run_single(
-            """
-            MATCH (u:User {uid: $user_uid})
-            MATCH (t:Entity {uid: $target_uid})
+            f"""
+            MATCH (u:User {{uid: $user_uid}})
+            {LOCK_LEARNER}
+            MATCH (t:Entity {{uid: $target_uid}})
             OPTIONAL MATCH (u)-[mastered:MASTERED]->(t)
             FOREACH (_ IN CASE WHEN mastered IS NULL THEN [1] ELSE [] END |
                 MERGE (u)-[r:IN_PROGRESS]->(t)

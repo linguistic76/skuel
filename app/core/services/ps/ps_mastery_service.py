@@ -179,15 +179,6 @@ class PsMasteryService:
             return Result.ok(True)
         return Result.fail(step_not_found(ku_uid))
 
-    async def count_in_progress_steps(self, user_uid: UserUID) -> Result[int]:
-        """Count PathSteps the user is currently enrolled in (IN_PROGRESS)."""
-        result = await self.backend.count_in_progress_path_steps(user_uid)
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        count = records[0]["cnt"] if records else 0
-        return Result.ok(int(count))
-
     async def get_in_progress_step_uids(self, user_uid: UserUID) -> Result[list[str]]:
         """Get UIDs of PathSteps the user is enrolled in (IN_PROGRESS)."""
         result = await self.backend.get_in_progress_path_step_uids(user_uid)
@@ -207,40 +198,40 @@ class PsMasteryService:
         this order: a uid that is not a published step is ``not_found`` of the step;
         a step whose prerequisite chain the learner has not mastered is refused,
         naming what to master (``PsPrerequisiteGate``); a step they mastered is
-        refused, since mastery is the terminal state (the write decides it again);
-        a learner already holding ``ENROLLMENT_CAP`` steps is refused — a step they
-        already hold is no new slot. A refused start writes nothing and publishes
-        nothing.
+        refused, since mastery is the terminal state; a learner already holding
+        ``ENROLLMENT_CAP`` steps is refused — a step they already hold is no new
+        slot. A refused start writes nothing and publishes nothing.
+
+        The last two are decided BY the write (ADR-087): one statement locks the
+        learner, reads mastery, the hold and the tally, and writes only under the
+        cap, so concurrent starts never hold more than ``ENROLLMENT_CAP``. The gate
+        reads the prerequisite chain before it, outside that lock, and that is safe:
+        the learner's side of the chain is MASTERED edges, which no writer retires,
+        so a chain met when it is read is still met when the start lands; the
+        curriculum's side changes only by a content sync, and a start admitted
+        before a sync grew the chain stands as one that landed before the sync
+        would: a sync that adds a prerequisite takes back no hold.
         """
         admitted = await self.prerequisite_gate.admit(user_uid, ku_uid)
         if admitted.is_error:
             return Result.fail(admitted)
 
-        state = await self.backend.get_learning_state_raw(user_uid, ku_uid)
-        if state.is_error:
-            return Result.fail(state)
-        row = state.value[0] if state.value else None
-        if row is not None and row["has_mastered"]:
-            return Result.fail(_already_mastered(ku_uid))
-        holds_step = bool(row and row["has_in_progress"])
-        if not holds_step:
-            count = await self.count_in_progress_steps(user_uid)
-            if count.is_error:
-                return Result.fail(count)
-            if count.value >= ENROLLMENT_CAP:
-                return Result.fail(_enrollment_cap_reached())
-
         now = datetime.now(UTC).isoformat()
-        result = await self.backend.mark_in_progress(user_uid, ku_uid, now)
+        result = await self.backend.mark_in_progress(user_uid, ku_uid, now, ENROLLMENT_CAP)
 
         if result.is_error:
             return Result.fail(result)
         if not result.value:
             return Result.fail(step_not_found(ku_uid))
-        if result.value[0]["mastered"]:
+        row = result.value[0]
+        if row["mastered"]:
             return Result.fail(_already_mastered(ku_uid))
+        if row["capped"]:
+            return Result.fail(_enrollment_cap_reached())
 
-        self.logger.debug("Marked in progress", user_uid=user_uid, ku_uid=ku_uid)
+        self.logger.debug(
+            "Marked in progress", user_uid=user_uid, ku_uid=ku_uid, started=row["started"]
+        )
         await publish_event(
             self.event_bus,
             PathStepEnrolled(ps_uid=ku_uid, user_uid=user_uid),

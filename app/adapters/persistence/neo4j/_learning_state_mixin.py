@@ -53,6 +53,18 @@ _MATCH_PUBLISHED_STEP = (
 )
 
 
+# The lock every learner-state write takes first, after binding the learner as ``u``
+# (here and on the Ku and User backends: VIEWED, IN_PROGRESS, MASTERED, MARKED_AS_READ,
+# BOOKMARKED onto a step or a Ku): a no-op SET takes the learner's exclusive lock, so
+# the writes for one learner run one at a time and in one order — the User node, then
+# the step or Ku and its edges. Sign-in writes the User node first too
+# (``SessionBackend.create_session``). Creating an edge takes a shared lock on each end
+# and then upgrades; two writes upgrading on the one User node, or taking the User and
+# the step in opposite orders, deadlock, and an auto-commit statement answers a
+# deadlock as an error.
+LOCK_LEARNER = "SET u.uid = u.uid WITH u"
+
+
 def _step_params(user_uid: UserUID, step_uid: str, **extra: str | int) -> dict[str, str | int]:
     return {"user_uid": user_uid, "step_uid": step_uid, **_PUBLISHED_STEP_PARAMS, **extra}
 
@@ -61,7 +73,15 @@ def _to_step_start_rows(
     records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
 ) -> list[StepStartRow]:
     """Project ``mark_in_progress``'s rows onto StepStartRow (KeyError on alias drift)."""
-    return [{"mastered": bool(row["mastered"])} for row in records]
+    return [
+        {
+            "mastered": bool(row["mastered"]),
+            "held": bool(row["held"]),
+            "started": bool(row["started"]),
+            "capped": bool(row["capped"]),
+        }
+        for row in records
+    ]
 
 
 def _to_step_hold_rows(
@@ -118,6 +138,7 @@ class _LearningStateMixin:
         """MERGE VIEWED onto a published PathStep, tracking timestamps and count."""
         query = f"""
         MATCH (u:User {{uid: $user_uid}})
+        {LOCK_LEARNER}
         {_MATCH_PUBLISHED_STEP}
         MERGE (u)-[r:VIEWED]->(ps)
         ON CREATE SET
@@ -136,18 +157,39 @@ class _LearningStateMixin:
         )
 
     async def mark_in_progress(
-        self, user_uid: UserUID, ku_uid: str, now: str
+        self, user_uid: UserUID, ku_uid: str, now: str, cap: int
     ) -> Result[list[StepStartRow]]:
-        """MERGE IN_PROGRESS onto a published PathStep the user has not mastered.
+        """Start a published PathStep for the user, under the enrollment cap; one statement.
 
-        Mastery is the terminal learning state, so a mastered step is left alone. One
-        row for a published step, reporting ``mastered``; no row for any other uid.
+        The verdict is decided BY the write (ADR-087): the statement locks the learner's
+        ``User`` node before it reads anything, so every start for one learner runs one at
+        a time and the tally it reads is the tally it writes against. Under that lock it
+        reads whether the learner mastered the step (mastery is terminal: nothing is
+        written), whether they already hold it (no new slot: only ``last_activity_at``
+        moves), and how many steps they hold; a new start is written only while they
+        hold fewer than ``cap``.
+
+        The tally is every PathStep the learner holds IN_PROGRESS, a draft included —
+        the set ``get_in_progress_path_step_uids`` lists.
+
+        Lock order: the ``User`` node (``SET u.uid = u.uid``, a no-op that takes its
+        exclusive lock), then the step and the edge — the order every learner-state
+        write takes (``LOCK_LEARNER``).
+
+        One row for a published step — ``mastered``, ``held`` (before this write),
+        ``started`` (the edge was created) and ``capped`` (refused for the cap); no row
+        for any other uid.
         """
         query = f"""
         MATCH (u:User {{uid: $user_uid}})
+        {LOCK_LEARNER}
         {_MATCH_PUBLISHED_STEP}
-        WITH u, ps, EXISTS {{ (u)-[:MASTERED]->(ps) }} AS mastered
-        FOREACH (_ IN CASE WHEN mastered THEN [] ELSE [1] END |
+        WITH u, ps,
+             EXISTS {{ (u)-[:MASTERED]->(ps) }} AS mastered,
+             EXISTS {{ (u)-[:IN_PROGRESS]->(ps) }} AS held,
+             COUNT {{ (u)-[:IN_PROGRESS]->(:{NeoLabel.ENTITY}:{NeoLabel.PATH_STEP}) }} AS holding
+        WITH u, ps, mastered, held, NOT mastered AND NOT held AND holding >= $cap AS capped
+        FOREACH (_ IN CASE WHEN mastered OR capped THEN [] ELSE [1] END |
             MERGE (u)-[r:IN_PROGRESS]->(ps)
             ON CREATE SET
                 r.started_at = datetime($now),
@@ -156,9 +198,9 @@ class _LearningStateMixin:
             ON MATCH SET
                 r.last_activity_at = datetime($now)
         )
-        RETURN mastered
+        RETURN mastered, held, capped, NOT (mastered OR held OR capped) AS started
         """
-        result = await self.execute_query(query, _step_params(user_uid, ku_uid, now=now))
+        result = await self.execute_query(query, _step_params(user_uid, ku_uid, now=now, cap=cap))
         if result.is_error:
             return Result.fail(result)
         return Result.ok(_to_step_start_rows(result.value or []))
@@ -173,6 +215,7 @@ class _LearningStateMixin:
         """
         query = f"""
         MATCH (u:User {{uid: $user_uid}})
+        {LOCK_LEARNER}
         {_MATCH_PUBLISHED_STEP}
         OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(ps)
         OPTIONAL MATCH (u)-[r:MARKED_AS_READ]->(ps)
@@ -194,14 +237,15 @@ class _LearningStateMixin:
         reporting ``held`` and ``mastered``; no row for any other uid.
         """
         query = f"""
-        MATCH (user:User {{uid: $user_uid}})
+        MATCH (u:User {{uid: $user_uid}})
+        {LOCK_LEARNER}
         {_MATCH_PUBLISHED_STEP}
-        OPTIONAL MATCH (user)-[ip:IN_PROGRESS]->(ps)
+        OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(ps)
         FOREACH (_ IN CASE WHEN ip IS NULL THEN [] ELSE [1] END |
-            MERGE (user)-[r:MARKED_AS_READ]->(ps)
+            MERGE (u)-[r:MARKED_AS_READ]->(ps)
             ON CREATE SET r.marked_at = datetime()
         )
-        RETURN ip IS NOT NULL AS held, EXISTS {{ (user)-[:MASTERED]->(ps) }} AS mastered
+        RETURN ip IS NOT NULL AS held, EXISTS {{ (u)-[:MASTERED]->(ps) }} AS mastered
         """
         result = await self.execute_query(query, _step_params(user_uid, ku_uid))
         if result.is_error:
@@ -217,7 +261,7 @@ class _LearningStateMixin:
         caller's ISO instant), ``mastery_score``, ``confidence``, ``method``.
         Mastery is the terminal learning state, so the entity's IN_PROGRESS
         edge is retired in the same statement — a mastered step holds no
-        enrollment-cap slot (``count_in_progress_path_steps``).
+        enrollment-cap slot (``mark_in_progress``).
 
         Reports ``was_mastered`` — whether the edge existed before this write —
         so the caller publishes on the transition only, never on a repeat. The
@@ -227,10 +271,11 @@ class _LearningStateMixin:
         taken before the ``MERGE`` would let two concurrent first writes both
         report a transition.
         """
-        query = """
-        MATCH (user:User {uid: $user_uid})
-        MATCH (entity:Entity {uid: $entity_uid})
-        MERGE (user)-[r:MASTERED]->(entity)
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
+        {LOCK_LEARNER}
+        MATCH (entity:Entity {{uid: $entity_uid}})
+        MERGE (u)-[r:MASTERED]->(entity)
         ON CREATE SET
             r.mastered_at = datetime($now),
             r.mastery_score = $mastery_score,
@@ -248,10 +293,10 @@ class _LearningStateMixin:
             END,
             r.method = $method,
             r.transition = false
-        WITH user, entity, r, NOT r.transition AS was_mastered
+        WITH u, entity, r, NOT r.transition AS was_mastered
         REMOVE r.transition
-        WITH user, entity, r, was_mastered
-        OPTIONAL MATCH (user)-[ip:IN_PROGRESS]->(entity)
+        WITH u, entity, r, was_mastered
+        OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(entity)
         DELETE ip
         RETURN r.mastery_score AS mastery_score, was_mastered
         """
@@ -269,20 +314,11 @@ class _LearningStateMixin:
             return Result.fail(result)
         return Result.ok(to_mastered_write_rows(result.value or []))
 
-    async def count_in_progress_path_steps(
-        self, user_uid: UserUID
-    ) -> Result[list[Neo4jProperties]]:
-        """Count PathSteps with an IN_PROGRESS relationship for a user."""
-        query = """
-        MATCH (u:User {uid: $user_uid})-[:IN_PROGRESS]->(ps:Entity:PathStep)
-        RETURN count(ps) AS cnt
-        """
-        return await self.execute_query(query, {"user_uid": user_uid})
-
     async def get_in_progress_path_step_uids(
         self, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
-        """Get UIDs of PathSteps the user is enrolled in (IN_PROGRESS)."""
+        """The uids of the PathSteps the user holds IN_PROGRESS, a draft included: the set
+        the enrollment cap counts (``mark_in_progress``)."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:IN_PROGRESS]->(ps:Entity:PathStep)
         RETURN ps.uid AS uid
@@ -306,8 +342,10 @@ class _LearningStateMixin:
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Delete BOOKMARKED relationship."""
-        query = """
-        MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity {uid: $ku_uid})
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
+        {LOCK_LEARNER}
+        MATCH (u)-[r:BOOKMARKED]->(:Entity {{uid: $ku_uid}})
         DELETE r
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
@@ -317,9 +355,10 @@ class _LearningStateMixin:
     ) -> Result[list[Neo4jProperties]]:
         """MERGE BOOKMARKED onto a published PathStep; one row when it lands."""
         query = f"""
-        MATCH (user:User {{uid: $user_uid}})
+        MATCH (u:User {{uid: $user_uid}})
+        {LOCK_LEARNER}
         {_MATCH_PUBLISHED_STEP}
-        MERGE (user)-[r:BOOKMARKED]->(ps)
+        MERGE (u)-[r:BOOKMARKED]->(ps)
         ON CREATE SET r.bookmarked_at = datetime()
         RETURN true AS success
         """

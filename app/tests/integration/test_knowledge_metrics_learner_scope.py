@@ -78,6 +78,7 @@ import pytest_asyncio
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
 from core.services.ps.ps_intelligence_service import PsIntelligenceService
+from core.services.ps.ps_mastery_service import ENROLLMENT_CAP
 from core.utils.result_simplified import Errors, Result
 from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
@@ -500,9 +501,10 @@ class TestKnowledgeMetricsLearnerScope:
                 """,
                 u=cn_user,
             )
-        assert (
-            await backend.mark_in_progress(cn_user, "ps.contains", datetime.now(UTC).isoformat())
-        ).is_ok
+        started = await backend.mark_in_progress(
+            cn_user, "ps.contains", datetime.now(UTC).isoformat(), ENROLLMENT_CAP
+        )
+        assert started.is_ok and started.value[0]["started"]
 
         start, end = self._window()
         result = await _metrics_service(backend).calculate_knowledge_metrics(cn_user, start, end)
@@ -534,11 +536,10 @@ class TestKnowledgeMetricsLearnerScope:
                                            times_built_into_habits: 3})
                 """
             )
-        assert (
-            await backend.mark_in_progress(
-                lone_user, "ps.teaches-nothing", datetime.now(UTC).isoformat()
-            )
-        ).is_ok
+        started = await backend.mark_in_progress(
+            lone_user, "ps.teaches-nothing", datetime.now(UTC).isoformat(), ENROLLMENT_CAP
+        )
+        assert started.is_ok and started.value[0]["started"]
 
         start, end = self._window()
         service = _metrics_service(backend)
@@ -716,7 +717,10 @@ class TestKnowledgeMetricsLearnerScope:
 
         now_iso = datetime.now(UTC).isoformat()
         # started_at / last_activity_at
-        assert (await backend.mark_in_progress(writer_user, "ps.w-learning-state", now_iso)).is_ok
+        started = await backend.mark_in_progress(
+            writer_user, "ps.w-learning-state", now_iso, ENROLLMENT_CAP
+        )
+        assert started.is_ok and started.value[0]["started"]
         # mastered_at — the derived step edge
         assert (
             await backend.mark_mastered(writer_user, "ps.w-mastered", now_iso, 1.0, "derived")
@@ -777,7 +781,10 @@ class TestKnowledgeMetricsLearnerScope:
                 ku_user, "ku.mastered-via-report", now_iso, 0.8, "activity_report"
             )
         ).is_ok
-        assert (await backend.mark_in_progress(ku_user, "ps.engaged-alongside", now_iso)).is_ok
+        started = await backend.mark_in_progress(
+            ku_user, "ps.engaged-alongside", now_iso, ENROLLMENT_CAP
+        )
+        assert started.is_ok and started.value[0]["started"]
 
         counts = (await backend.count_engaged_knowledge(ku_user)).value
         assert counts["total"] == 2, "the :Ku node was dropped by a label pin"
