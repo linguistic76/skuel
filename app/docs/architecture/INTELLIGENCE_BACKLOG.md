@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-14
+updated: 2026-11-28
 ---
 
 # Intelligence Backlog
@@ -27,8 +27,8 @@ is itself unresolved.** An earlier revision described injecting the activity fac
 
 | Claim | Reality |
 |---|---|
-| `LpService` owns `create_tasks_from_learning_path()` | It does not. Both that method (138) and `get_next_learning_task()` (115) are on **`TasksLearningService`** — neither curriculum facade has either |
-| It needs a `tasks_service` injected to create tasks | It already creates them, via `self.backend.create_task` (`tasks_learning_service.py:64`) |
+| `LpService` owns `create_tasks_from_learning_path()` | It does not. Both that method and `get_next_learning_task()` are on **`TasksLearningService`** (`core/services/tasks/tasks_learning_service.py`) — neither curriculum facade has either |
+| It needs a `tasks_service` injected to create tasks | It already can: its backend is `TasksOperations`, which declares `create_task` |
 | `LearningAlignmentBridge` can supply the path | It cannot. Its methods take an `LpPosition` handed in *by the caller*; it does not fetch the LearningPath → PathStep → Ku sequence |
 
 What `TasksLearningService` actually lacks is a route to **read** that curriculum sequence. The
@@ -41,7 +41,7 @@ Pattern).
 
 ⚠ **The three bullets are not one problem, and the wiring design is undecided.** Only
 `create_tasks_from_learning_path()` needs the curriculum route above. `get_next_learning_task()`
-already has its context input (121) and needs an `APPLIES_KNOWLEDGE` query on the *task* side. And
+already has its context input (`user_context.get_ready_to_learn()`) and needs an `APPLIES_KNOWLEDGE` query on the *task* side. And
 the KU-detail-page read is **already implemented — do not build a second one**: use
 `PsService.find_tasks_applying_knowledge(ku_uid, user_uid, status_filter)` (`ps_service.py:505` →
 `ps_application_discovery_service.py:161`, user-scoped) or the unscoped
@@ -75,7 +75,7 @@ non-underscore `AskesisDeps` fields.
 `tasks_scheduling_service.py` (which still exists, but no longer holds them). Fronted by
 `TasksService` at `core/services/tasks_service.py:693` and `:698`.
 
-### `create_tasks_from_learning_path(learning_path_uid, _user_context)` (line 138)
+### `create_tasks_from_learning_path(learning_path_uid, _user_context)`
 
 Logs a debug line and returns `Result.ok([])`; the docstring marks it "stub — pending
 implementation". Real implementation needs:
@@ -84,10 +84,10 @@ implementation". Real implementation needs:
 - Create a Task per unmastered step, linked via `APPLIES_KNOWLEDGE`
 - Respect `user_context.available_minutes_daily` for capacity
 
-### `get_next_learning_task(user_context)` (line 115)
+### `get_next_learning_task(user_context)`
 
 Returns `Result.ok(None)` on every path. **It already calls `user_context.get_ready_to_learn()`**
-(line 121) and early-returns when that comes back empty — so the remaining work starts at the
+and early-returns when that comes back empty — so the remaining work starts at the
 query, not the context read. Real implementation needs:
 - Query Tasks that `APPLIES_KNOWLEDGE` to those ready KU UIDs, filter to incomplete/unblocked
 - Rank by readiness score + task priority

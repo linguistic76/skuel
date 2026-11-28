@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-13
+updated: 2026-11-28
 ---
 
 # Intelligence Backlog: Implementation Guide
@@ -33,9 +33,9 @@ been **verified against the tree**; design the wiring when the work is actually 
 
 | Fact | Coordinate |
 |---|---|
-| Both consumers are on `TasksLearningService` — neither is on `LpService` or `KuService` | `tasks_learning_service.py:138` (`create_tasks_from_learning_path`), `:115` (`get_next_learning_task`) |
-| It already creates tasks, so it does **not** need a `tasks_service` injected | `self.backend.create_task` — `tasks_learning_service.py:64` |
-| Its constructor receives only a tasks backend, event bus and relationship service | `tasks_learning_service.py:50–58` |
+| Both consumers are on `TasksLearningService` — neither is on `LpService` or `KuService` | `tasks_learning_service.py` — `create_tasks_from_learning_path`, `get_next_learning_task` |
+| It already creates tasks, so it does **not** need a `tasks_service` injected | the service's backend is `TasksOperations`, which declares `create_task` |
+| Its constructor receives only a tasks backend, event bus and relationship service | `TasksLearningService.__init__` |
 | The ordered-step reader it needs lives on the curriculum side | `LpService.get_path_steps(path_uid)` — `lp_service.py:249` → `lp_core_service.py:261` |
 | Activity services are built **before** learning services, so a curriculum reader cannot simply be constructor-injected into the task service | `compose.py:532` (activity) vs `:709` (learning) |
 | `LearningAlignmentBridge` cannot supply the path — its methods take an `LpPosition` from the caller rather than fetching it | `core/services/infrastructure/learning_alignment_bridge.py` |
@@ -47,7 +47,7 @@ it currently has no route to, and the construction order above means that route 
 deliberately rather than passed at construction. Note also that moving the LearningPath traversal
 onto `TasksBackend` would cross the domain-backend boundary (`CLAUDE.md` § 100% Dynamic Backend
 Pattern). `get_next_learning_task()` is different: it already has its context input via
-`user_context.get_ready_to_learn()` (121), and what it still needs is an `APPLIES_KNOWLEDGE` query
+`user_context.get_ready_to_learn()`, and what it still needs is an `APPLIES_KNOWLEDGE` query
 on the **task** side.
 
 Note `services_bootstrap` is a **package, not a module** — there is no `services_bootstrap.py`. If
@@ -64,8 +64,8 @@ a design does end up threading services through the composition root, the workin
 **File:** `core/services/tasks/tasks_learning_service.py` — both methods live here, not in
 `tasks_scheduling_service.py` (which still exists, but no longer holds them).
 
-Two stub methods, at lines 138 (`create_tasks_from_learning_path`) and 115
-(`get_next_learning_task`), separated by `suggest_learning_aligned_tasks` (130). Implement them
+Two stub methods, `create_tasks_from_learning_path` and `get_next_learning_task`,
+separated by `suggest_learning_aligned_tasks`. Implement them
 together — they share the same dependency pattern.
 
 ---

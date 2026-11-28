@@ -102,9 +102,7 @@ def learning_position() -> LpPosition:
 def sample_tasks() -> list[Task]:
     """Create sample tasks for relevance tests."""
     return [
-        Task(
-            uid=f"task:{i}", user_uid="user_123", title=f"Task {i}", priority=Priority.MEDIUM.value
-        )
+        Task(uid=f"task:{i}", user_uid="user_123", title=f"Task {i}", priority=Priority.MEDIUM)
         for i in range(5)
     ]
 
@@ -150,14 +148,14 @@ async def test_get_learning_relevant_tasks_skips_completed(
         uid="task:done",
         user_uid="user_123",
         title="Done",
-        priority=Priority.MEDIUM.value,
-        status=EntityStatus.COMPLETED.value,
+        priority=Priority.MEDIUM,
+        status=EntityStatus.COMPLETED,
     )
     active = Task(
         uid="task:active",
         user_uid="user_123",
         title="Active",
-        priority=Priority.MEDIUM.value,
+        priority=Priority.MEDIUM,
     )
     task_data = [completed.to_dto().to_dict(), active.to_dto().to_dict()]
     mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
