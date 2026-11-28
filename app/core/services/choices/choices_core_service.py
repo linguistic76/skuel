@@ -153,7 +153,7 @@ class ChoicesCoreService(
         """
         super().__init__(backend, "choices")
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.choices.core")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.choices.core")
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)

@@ -77,7 +77,7 @@ affected — only its edges are refused); a link door fails with the read's erro
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Final, Protocol
+from typing import TYPE_CHECKING, Final, Protocol
 
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jProperties
@@ -85,6 +85,8 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
+
+    from structlog.typing import FilteringBoundLogger
 
 # (from_uid, to_uid, relationship_type, properties) — the batch writer's tuple.
 EdgeTuple = tuple[str, str, str, Neo4jProperties | None]
@@ -416,7 +418,7 @@ async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note
     candidates: Sequence[LinkEdge],
     subject_uid: str,
     owner_uid: str,
-    logger: Any,  # boundary: structlog BoundLogger, typed loosely as services do
+    logger: FilteringBoundLogger,
 ) -> list[EdgeTuple]:
     """Return the candidate edges whose far end this owner may legitimately link.
 
@@ -468,7 +470,7 @@ def permitted_link_edges(
     *,
     subject_uid: str,
     owner_uid: str,
-    logger: Any,  # boundary: structlog BoundLogger, typed loosely as services do
+    logger: FilteringBoundLogger,
 ) -> list[EdgeTuple]:
     """The kept edges of a ``partition_link_edges`` result, each refusal logged.
 

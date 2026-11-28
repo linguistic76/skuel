@@ -320,7 +320,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         self.graph_intel = graph_intel
         self.prometheus_metrics = prometheus_metrics
         self.default_filters = default_filters or {}
-        self.logger = get_logger(f"skuel.universal.{self.label.lower()}")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger(f"skuel.universal.{self.label.lower()}")
 
         # Multi-label support: base_label enables CREATE (n:Entity:Task)
         self.base_label: NeoLabel | None = (

@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-13
+updated: 2026-11-28
 ---
 
 # Any Usage Policy
@@ -18,7 +18,7 @@ These are `Any` uses that exist out of habit or because no one got around to typ
 They provide no value and actively undermine type safety.
 
 **Examples of Category A (now fixed):**
-- `logger: Any` — Should always be `logging.Logger`
+- `logger: Any` — Should be `FilteringBoundLogger` (`structlog.typing`), the type `get_logger` returns (`logging.Logger` only for a `logging.getLogger` logger)
 - `driver: Any` (concrete `__init__` parameter) — Should be `neo4j.AsyncDriver`
 - `prometheus_metrics: Any` — Should be `PrometheusMetrics | None`
 - `services: Any` (in route factories) — Should be `Services | None`
@@ -262,7 +262,7 @@ Every such placeholder is registered in `docs/reference/PLACEHOLDER_INDEX.md`.
 
 | Situation | Old | Correct |
 |-----------|-----|---------|
-| Logger field | `logger: Any` | `logger: logging.Logger` |
+| Logger field | `logger: Any` | `logger: FilteringBoundLogger` (`structlog.typing`) |
 | Neo4j driver | `driver: Any` | `driver: AsyncDriver` |
 | Metrics | `prometheus_metrics: Any` | `prometheus_metrics: PrometheusMetrics \| None` |
 | Services container | `services: Any` | `services: Services \| None` |

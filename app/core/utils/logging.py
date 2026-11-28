@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import structlog
-from structlog.typing import Processor
+from structlog.typing import FilteringBoundLogger, Processor
 
 # ============================================================================
 # CONTEXT VARIABLES
@@ -201,10 +201,14 @@ class ErrorRotatingFileHandler(TimedRotatingFileHandler):
 # ============================================================================
 
 
-def get_logger(name: str) -> structlog.BoundLogger:
+def get_logger(name: str) -> FilteringBoundLogger:
     """
     Get a properly configured logger for any SKUEL component.
     Use this instead of logging.getLogger() everywhere.
+
+    The logger is the class ``setup_logging`` configures as structlog's
+    ``wrapper_class`` (``make_filtering_bound_logger``). Annotate an attribute
+    or parameter that holds one with this return type, so MyPy checks each call.
     """
     return structlog.get_logger(name)
 

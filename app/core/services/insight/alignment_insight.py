@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 
 if TYPE_CHECKING:
-    import structlog
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.type_hints import EntityUID, UserUID
     from core.services.insight.insight_store import InsightStore
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 async def persist_principle_alignment_insight(  # skuel-lint: disable=SKUEL005 -- fire-and-forget event side effect; failures logged, never surfaced
     insight_store: InsightStore | None,
-    logger: structlog.BoundLogger,
+    logger: FilteringBoundLogger,
     *,
     user_uid: UserUID,
     entity_uid: EntityUID,

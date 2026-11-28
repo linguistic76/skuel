@@ -51,7 +51,8 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
-    from logging import Logger
+
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.search_request import SearchRequest
     from core.ports.base_protocols import Direction
@@ -66,7 +67,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     Required attributes from composing class:
         backend: B - Backend implementation
-        logger: Logger - For debug logging
+        logger: FilteringBoundLogger - For debug logging
         entity_label: str - Neo4j base-label for Cypher matching (e.g., "Entity", "Ku")
         config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep").
             Used for domain-specific target_label filters and log/_domain strings.
@@ -85,7 +86,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     # Type hints for attributes that must be provided by composing class
     backend: B
-    logger: Logger
+    logger: FilteringBoundLogger
     service_name: str
     _dto_class: type[DTOProtocol] | None
     _model_class: type[T] | None

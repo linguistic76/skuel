@@ -63,7 +63,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
         super().__init__(backend, "form_templates")
         self.backend = backend
         self.event_bus = event_bus
-        self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = logger
         logger.info("FormTemplateService initialized")
 
     # ========================================================================

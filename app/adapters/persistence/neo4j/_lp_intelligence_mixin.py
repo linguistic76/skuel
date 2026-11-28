@@ -28,7 +28,8 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     import builtins
-    import logging
+
+    from structlog.typing import FilteringBoundLogger
 
 # Safety bound on how deep a REQUIRES_KNOWLEDGE prerequisite chain is walked when
 # measuring a path's depth. Prerequisite graphs are shallow DAGs (chains of 1-3
@@ -45,11 +46,11 @@ class _LpIntelligenceMixin:
 
     Requires on concrete class:
         execute_query: async (query, params) -> Result[list[dict]]
-        logger: logging.Logger
+        logger: FilteringBoundLogger
     """
 
     if TYPE_CHECKING:
-        logger: logging.Logger
+        logger: FilteringBoundLogger
 
         async def execute_query(
             self, query: str, params: dict[str, Any] | None = None

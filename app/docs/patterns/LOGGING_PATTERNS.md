@@ -1,6 +1,6 @@
 ---
 title: Logging Patterns
-updated: 2026-07-25
+updated: 2026-11-28
 category: patterns
 related_skills: []
 related_docs: []
@@ -86,6 +86,28 @@ logger.error("Task creation failed", error=str(e), task_data=data)
 logger.warning("Deprecated method called", method="old_create")
 logger.debug("Query executed", query=query, params=params)
 ```
+
+### Typing a Logger
+
+`get_logger` returns `FilteringBoundLogger` (`structlog.typing`) — the class `setup_logging`
+configures as structlog's `wrapper_class`. Annotate an attribute or parameter that holds one
+with that type, so MyPy checks each call, keyword fields included:
+
+```python
+from structlog.typing import FilteringBoundLogger
+
+class MyMixin:
+    logger: FilteringBoundLogger
+```
+
+Not `logging.Logger` — it refuses the keyword fields above and passes calls a structlog logger
+lacks — and not `structlog.BoundLogger`, whose log methods all resolve through `__getattr__`
+to `Any`, so no log call is checked. `logging.Logger` is right only for a `logging.getLogger`
+logger. `tests/unit/test_logger_type.py` refuses both names on a logger annotation.
+
+One member is a gap in structlog itself: `FilteringBoundLogger` declares `err`, which the class
+`make_filtering_bound_logger` builds does not define, so `logger.err(...)` passes MyPy and raises
+`AttributeError`. Call `logger.error(...)`; the same test refuses an `.err(` call.
 
 ### Component Logger Names
 

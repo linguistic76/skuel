@@ -25,7 +25,7 @@ from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
-    import structlog
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.choice.choice import Choice
     from core.ports.domain_protocols import ChoicesOperations
@@ -64,7 +64,7 @@ class _AnalyticsMixin:
     # Declaring the attribute narrower than what is assigned to it would assert a type
     # nothing checks; narrowing for real means re-parameterising the shared factory.
     relationships: UnifiedRelationshipService[Any, Any, Any] | None
-    logger: structlog.BoundLogger
+    logger: FilteringBoundLogger
 
     async def _fetch_choice_relationships(self, choice_uid: str) -> ChoiceRelationships:
         """Relationship container for one choice — the callable form the batch paths need."""

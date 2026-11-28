@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Collection
 
+    from structlog.typing import FilteringBoundLogger
+
 from core.events.embedding_events import (
     ChoiceEmbeddingRequested,
     EmbeddingRequested,
@@ -90,7 +92,7 @@ async def publish_embedding_requested(
     event_bus: EventBusOperations | None,
     entity_type: EntityType,
     source: dict[str, Any] | object,
-    logger: Any = None,
+    logger: FilteringBoundLogger | None = None,
     *,
     changed_fields: Collection[str] | None = None,
 ) -> bool:

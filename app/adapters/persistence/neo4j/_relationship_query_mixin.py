@@ -39,9 +39,9 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
-    import logging
 
     from neo4j import AsyncDriver, Record
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.enums.neo_labels import NeoLabel
     from core.models.semantic import EdgeMetadata
@@ -54,7 +54,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        logger: logging.Logger
+        logger: FilteringBoundLogger
         label: NeoLabel
         entity_class: type[T]
         default_filters: FilterParams
@@ -75,7 +75,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             self, query: str, params: dict[str, Any] | None = None
         ) -> list[dict[str, Any]]: ...
 
-        logger: logging.Logger
+        logger: FilteringBoundLogger
         label: NeoLabel
         entity_class: type[T]
         default_filters: FilterParams

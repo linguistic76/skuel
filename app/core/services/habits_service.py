@@ -582,7 +582,7 @@ class HabitsService(
         self.graph_intel = graph_intel
         self.cross_domain_query = cross_domain_query
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.habits")  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.habits")
 
         # Initialize core/search/relationships/event_handler/learning/
         # knowledge_intelligence via factory. Intelligence is built manually

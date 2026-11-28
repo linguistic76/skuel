@@ -170,7 +170,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         self.event_bus = event_bus
         self.user_service = user_service
         self.exercise_service = exercise_service
-        self.logger = get_logger("skuel.services.user_entry")  # type: ignore[assignment]
+        self.logger = get_logger("skuel.services.user_entry")
         # AudienceResolver owns audience validation + sharing fan-out; the
         # share door (EntrySharingService) reuses it without going through
         # this facade. Construct one if a caller hasn't provided it.

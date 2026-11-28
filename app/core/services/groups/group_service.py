@@ -13,9 +13,8 @@ Membership operations stay manual in groups_api.py.
 See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
-import logging
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.events.base import BaseEvent
 from core.models.enums import GroupMemberRole
@@ -29,6 +28,9 @@ from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, Errors, Result
+
+if TYPE_CHECKING:
+    from structlog.typing import FilteringBoundLogger
 
 logger = get_logger(__name__)
 
@@ -71,7 +73,7 @@ class GroupService(BaseService[GroupBackendOperations, Group]):
         super().__init__(backend, "groups")
         self.backend = backend
         self.event_bus = event_bus
-        self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = logger
         logger.info("GroupService initialized")
 
     @property
@@ -384,7 +386,7 @@ class GroupService(BaseService[GroupBackendOperations, Group]):
 
 
 async def _publish_event(
-    event_bus: EventBusOperations, event: BaseEvent, event_logger: logging.Logger
+    event_bus: EventBusOperations, event: BaseEvent, event_logger: FilteringBoundLogger
 ) -> None:
     """Publish event with error handling."""
     try:

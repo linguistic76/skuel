@@ -193,7 +193,7 @@ class BaseService(
 
         # Logger initialization: parameter > class attribute > class name
         self.service_name = service_name or self._service_name or self.__class__.__name__
-        self.logger = get_logger(f"skuel.services.{self.service_name}")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger(f"skuel.services.{self.service_name}")
 
         # Sync DomainConfig values onto the instance so mixins that read
         # self._dto_class / self._model_class / self._prerequisite_relationships

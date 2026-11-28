@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-14
+updated: 2026-11-28
 ---
 
 # Type Safety Architecture Overview
@@ -117,7 +117,7 @@ Every `Any` annotation must belong to one of three categories:
 
 | Category | Status | Action |
 |----------|--------|--------|
-| **A — Lazy Typing** | Must not exist | Fix immediately (`logger: Any` → `logging.Logger`) |
+| **A — Lazy Typing** | Must not exist | Fix immediately (`logger: Any` → `FilteringBoundLogger`) |
 | **B — Reducible** | Use specific types | `Neo4jProperties`, `FilterParams`, `RelationshipMetadata` |
 | **C — Permanent Boundary** | Document with `# boundary:` | Neo4j primitives, FastHTML elements, error metadata |
 
@@ -266,11 +266,12 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver                    # Zero runtime cost
     from core.ports import TasksOperations           # Protocol for IDE
     from services_bootstrap import Services              # Concrete for wiring
+    from structlog.typing import FilteringBoundLogger    # What get_logger returns
 
 class MyMixin:
     if TYPE_CHECKING:
         driver: AsyncDriver          # ✅ typed for mypy, zero runtime overhead
-        logger: logging.Logger       # ✅ stdlib — no circular import risk
+        logger: FilteringBoundLogger # ✅ what get_logger returns — MyPy checks each call
 ```
 
 The `if TYPE_CHECKING:` block runs ONLY during static analysis, never at runtime.

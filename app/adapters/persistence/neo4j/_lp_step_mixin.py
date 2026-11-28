@@ -28,7 +28,8 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     import builtins
-    import logging
+
+    from structlog.typing import FilteringBoundLogger
 
 from adapters.persistence.neo4j.query.cypher import build_publication_clause
 
@@ -47,11 +48,11 @@ class _LpStepMixin:
 
     Requires on concrete class:
         execute_query: async (query, params) -> Result[list[dict]]
-        logger: logging.Logger
+        logger: FilteringBoundLogger
     """
 
     if TYPE_CHECKING:
-        logger: logging.Logger
+        logger: FilteringBoundLogger
 
         async def execute_query(
             self, query: str, params: dict[str, Any] | None = None

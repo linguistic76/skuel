@@ -41,6 +41,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from structlog.typing import FilteringBoundLogger
+
     from core.services.resource_service import ResourceService
 
 logger = get_logger("skuel.services.ingestion.reference")
@@ -195,7 +197,7 @@ class ReferenceIngestionService:
         reference_chunk_adapter: Any,  # boundary: Neo4jReferenceChunkAdapter (persistence)
         event_bus: EventBusOperations | None = None,
         resource_service: ResourceService | None = None,
-        logger: Any = logger,
+        logger: FilteringBoundLogger = logger,
     ) -> None:
         """
         Args:

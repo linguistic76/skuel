@@ -326,7 +326,7 @@ from core.models.protocols import DomainModelProtocol
 from core.ports import BackendOperations
 
 if TYPE_CHECKING:
-    from logging import Logger
+    from structlog.typing import FilteringBoundLogger
 
 class MyFeatureMixin[B: BackendOperations, T: DomainModelProtocol]:
     """
@@ -334,14 +334,14 @@ class MyFeatureMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     Required attributes from composing class:
         backend: B - Backend implementation
-        logger: Logger - For logging
+        logger: FilteringBoundLogger - For logging
         _to_domain_models: Conversion method (from ConversionHelpersMixin)
         get: Get method (from CrudOperationsMixin)
     """
 
     # Type hints for required attributes
     backend: B
-    logger: Logger
+    logger: FilteringBoundLogger
 
     # Declare dependencies
     def _to_domain_models(self, dtos, dto_class, model_class):

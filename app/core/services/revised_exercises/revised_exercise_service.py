@@ -80,7 +80,7 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
         """Initialize with the RevisedExercise backend."""
         super().__init__(backend, "revised_exercises")
         self.backend = backend
-        self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = logger
         logger.info("RevisedExerciseService initialized")
 
     # ========================================================================

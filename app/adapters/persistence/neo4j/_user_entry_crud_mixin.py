@@ -41,9 +41,8 @@ from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    import logging
-
     from neo4j import AsyncDriver, Record
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.user_entry.user_entry import UserEntry
 
@@ -70,7 +69,7 @@ class _UserEntryCrudMixin:
         ) -> list[dict[str, Any]]: ...
 
         label: NeoLabel
-        logger: logging.Logger
+        logger: FilteringBoundLogger
         entity_class: type[UserEntry]
         _create_labels: str
         default_filters: Neo4jProperties
