@@ -55,6 +55,8 @@ References:
 
 from collections.abc import Iterator
 
+from structlog.typing import FilteringBoundLogger
+
 # Base classes and protocols
 # Knowledge substance events (tracking real-world application)
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
@@ -402,7 +404,9 @@ def get_event_class(event_type: str) -> type[BaseEvent] | None:
     return EVENT_REGISTRY.get(event_type)
 
 
-async def publish_event(event_bus, event: BaseEvent, logger=None) -> bool:
+async def publish_event(
+    event_bus, event: BaseEvent, logger: FilteringBoundLogger | None = None
+) -> bool:
     """
     Publish an event with proper warning if event bus is not configured.
 

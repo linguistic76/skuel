@@ -62,7 +62,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         self.form_template_service = form_template_service
         self.event_bus = event_bus
         self.sharing_service = sharing_service
-        self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = logger
         logger.info("FormSubmissionService initialized")
 
     # ========================================================================

@@ -26,9 +26,9 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     import builtins
-    import logging
 
     from neo4j import AsyncDriver, Record
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.enums.neo_labels import NeoLabel
     from core.ports.base_protocols import Direction
@@ -41,7 +41,7 @@ class _TraversalMixin:
 
     Requires on concrete class:
         driver: AsyncDriver — Neo4j async driver
-        logger: logging.Logger — Logger instance
+        logger: FilteringBoundLogger — Logger instance
         create_relationship: async method
     """
 
@@ -57,7 +57,7 @@ class _TraversalMixin:
             self, query: str, params: dict[str, Any] | None = None
         ) -> list[dict[str, Any]]: ...
 
-        logger: logging.Logger
+        logger: FilteringBoundLogger
         label: NeoLabel
 
         async def create_relationship(

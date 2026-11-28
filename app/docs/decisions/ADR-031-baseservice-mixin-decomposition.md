@@ -1,6 +1,6 @@
 ---
 title: "ADR-031: BaseService Mixin Decomposition"
-updated: 2026-09-15
+updated: 2026-11-28
 status: current
 category: decisions
 tags: [adr, decisions, baseservice, mixin, srp, decomposition]
@@ -207,7 +207,7 @@ Mixins declare required attributes from composing class:
 class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     # Required from composing class
     backend: B
-    logger: Logger
+    logger: FilteringBoundLogger  # what get_logger returns
     _dto_class: type[DTOProtocol] | None
     _model_class: type[T] | None
 ```

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-16
+updated: 2026-11-28
 ---
 
 # Service Decomposition Rule
@@ -181,7 +181,7 @@ class _{Theme}Mixin:
     # `backend: Any` mixins were retyped or, where they never touched `self.backend`,
     # deleted outright — declare it only if the mixin actually uses it.
     backend: {Domain}Operations
-    logger: Any
+    logger: FilteringBoundLogger  # structlog.typing — what get_logger returns
     # ... other attributes used by the mixin methods
 
     # Facade-method hook — type it precisely, never Any: an async facade

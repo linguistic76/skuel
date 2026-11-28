@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Final
 
 from core.events import publish_event
 from core.events.knowledge_substance_events import (
@@ -46,6 +46,8 @@ from core.models.relationship_names import RelationshipName
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.type_hints import UserUID
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -77,7 +79,7 @@ async def publish_knowledge_credit(
     event_bus: EventBusOperations | None,
     source: KnowledgeCreditSource,
     knowledge_uids: Sequence[str],
-    logger: Any = None,  # boundary: a stdlib or structlog logger, as publish_event takes
+    logger: FilteringBoundLogger | None = None,
 ) -> None:
     """Announce ``knowledge_uids`` as newly linked to ``source``.
 

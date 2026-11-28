@@ -315,7 +315,7 @@ class GoalsCoreService(
             event_bus: Event bus for publishing domain events (optional)
         """
         super().__init__(backend, "goals")
-        self.logger = get_logger("skuel.services.goals.core")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.goals.core")
         self.event_bus = event_bus
 
     # ========================================================================

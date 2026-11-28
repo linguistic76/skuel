@@ -34,9 +34,9 @@ from core.utils.validation_helpers import validate_field_name
 
 if TYPE_CHECKING:
     import builtins
-    import logging
 
     from neo4j import AsyncDriver, Record
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.enums.neo_labels import NeoLabel
 
@@ -51,7 +51,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        logger: logging.Logger
+        logger: FilteringBoundLogger
         label: NeoLabel
         entity_class: type[T]
         _inject_default_filters: method (from shell)
@@ -69,7 +69,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
             self, query: str, params: dict[str, Any] | None = None
         ) -> list[dict[str, Any]]: ...
 
-        logger: logging.Logger
+        logger: FilteringBoundLogger
         label: NeoLabel
         entity_class: type[T]
 

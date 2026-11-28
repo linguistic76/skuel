@@ -40,9 +40,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    import logging
-
-    import structlog
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.user_entry.user_entry import UserEntry
     from core.ports.group_protocols import GroupOperations
@@ -63,7 +61,7 @@ async def publish_entry_shared(  # skuel-lint: disable=SKUEL005 -- an event publ
     event_bus: EventBusOperations | None,
     entry: UserEntry,
     outcome: ShareOutcome,
-    log: structlog.BoundLogger | logging.Logger,
+    log: FilteringBoundLogger,
 ) -> None:
     """Ring every recipient whose ``SHARES_WITH`` this pass created — one ``EntryShared`` each."""
     for recipient_uid in outcome.newly_shared_users:

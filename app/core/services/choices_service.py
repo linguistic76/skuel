@@ -351,7 +351,7 @@ class ChoicesService(
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: ChoicesAIService | None = ai_service
-        self.logger = get_logger("skuel.services.choices")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.choices")
 
         # Initialize core/search/relationships/event_handler/learning/
         # knowledge_intelligence via factory. Intelligence is built manually

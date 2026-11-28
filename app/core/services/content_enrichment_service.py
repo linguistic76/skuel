@@ -102,7 +102,7 @@ class ContentEnrichmentService(BaseService[UserEntryOperations, UserEntry]):
         self.transcription_service = transcription_service
         self.chat_port = chat_port
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.content_enrichment")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.content_enrichment")
 
     # ========================================================================
     # CORE PURPOSE: TRANSCRIPT PROCESSING

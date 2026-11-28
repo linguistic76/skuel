@@ -60,7 +60,7 @@ class InteractionService(BaseService[InteractionBackendOperations, Interaction])
     ) -> None:
         super().__init__(backend, "InteractionService")
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.interaction")  # type: ignore[assignment]
+        self.logger = get_logger("skuel.services.interaction")
 
     # =========================================================================
     # CREATE

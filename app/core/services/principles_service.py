@@ -538,7 +538,7 @@ class PrinciplesService(
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: PrinciplesAIService | None = ai_service
-        self.logger = get_logger("skuel.services.principles")  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.principles")
         self.alignment_cache: dict[str, AlignmentAssessment] = {}
 
         # Initialize all common sub-services via factory, including event_handler,

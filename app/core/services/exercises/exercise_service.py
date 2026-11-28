@@ -115,7 +115,7 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         """
         super().__init__(backend, "exercises")
         self.backend = backend
-        self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = logger
         logger.info("ExerciseService initialized")
 
     # ========================================================================

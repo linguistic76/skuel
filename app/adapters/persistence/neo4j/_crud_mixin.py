@@ -54,9 +54,9 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
-    import logging
 
     from neo4j import AsyncDriver, Record
+    from structlog.typing import FilteringBoundLogger
 
     from adapters.persistence.neo4j.query import UnifiedQueryBuilder
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
@@ -71,7 +71,7 @@ class _CrudMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        logger: logging.Logger
+        logger: FilteringBoundLogger
         entity_class: type[T]
         label: NeoLabel
         default_filters: FilterParams
@@ -97,7 +97,7 @@ class _CrudMixin[T: DomainModelProtocol]:
             self, query: str, params: dict[str, Any] | None = None
         ) -> list[dict[str, Any]]: ...
 
-        logger: logging.Logger
+        logger: FilteringBoundLogger
         entity_class: type[T]
         label: NeoLabel
         default_filters: FilterParams

@@ -585,7 +585,7 @@ class GoalsService(
 
         self.graph_intel = graph_intel
         self.cross_domain_query = cross_domain_query
-        self.logger = get_logger("skuel.services.goals")  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.goals")
 
         # Initialize core, search, relationships, event_handler, learning, and
         # knowledge_intelligence via factory. intelligence is skipped because it

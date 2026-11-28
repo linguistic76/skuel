@@ -60,7 +60,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
             relationship_service: Relationship service (accepted for factory uniformity, not used)
         """
         super().__init__(backend, "choices.learning")
-        self.logger = get_logger("skuel.services.choices.learning")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.choices.learning")
 
         # Initialize LearningAlignmentBridge for learning operations
         self.learning_helper = LearningAlignmentBridge[Choice](

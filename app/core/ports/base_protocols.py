@@ -46,9 +46,10 @@ from core.models.type_hints import EntityUID, Neo4jProperties, Neo4jValue, UserU
 
 if TYPE_CHECKING:
     import builtins
-    import logging
     from collections.abc import Callable, Sequence
     from datetime import date, datetime
+
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.enums import SearchVisibility
     from core.models.enums.neo_labels import NeoLabel
@@ -300,7 +301,7 @@ class IsStubEndpoint(Protocol):
 class HasLogger(Protocol):
     """Protocol for objects with a logger attribute."""
 
-    logger: logging.Logger
+    logger: FilteringBoundLogger
 
 
 @runtime_checkable

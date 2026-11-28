@@ -26,7 +26,8 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     import builtins
-    import logging
+
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.type_hints import Neo4jProperties
     from core.ports.query_types import UserMasteryResult
@@ -40,11 +41,11 @@ class _AdaptiveMixin:
 
     Requires on concrete class:
         execute_query: async (query, params) -> Result[list[dict]]
-        logger: logging.Logger
+        logger: FilteringBoundLogger
     """
 
     if TYPE_CHECKING:
-        logger: logging.Logger
+        logger: FilteringBoundLogger
 
         async def execute_query(
             self, query: str, params: dict[str, Any] | None = None

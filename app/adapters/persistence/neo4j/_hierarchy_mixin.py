@@ -29,7 +29,8 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
-    import logging
+
+    from structlog.typing import FilteringBoundLogger
 
     from core.models.enums.neo_labels import NeoLabel
 
@@ -67,11 +68,11 @@ class _HierarchyMixin:
 
     Requires on concrete class:
         execute_query: async (query, params) -> Result[list[dict]]
-        logger: logging.Logger
+        logger: FilteringBoundLogger
     """
 
     if TYPE_CHECKING:
-        logger: logging.Logger
+        logger: FilteringBoundLogger
         _hierarchy_config: HierarchyConfig
 
         async def execute_query(

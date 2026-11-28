@@ -647,7 +647,7 @@ class EventsService(
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: EventsAIService | None = ai_service
-        self.logger = get_logger("skuel.services.events")  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.events")
 
         # Initialize core, search, relationships, event_handler, learning, and
         # knowledge_intelligence via factory; intelligence is created manually
