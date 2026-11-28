@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: '2026-11-23'
+updated: '2026-11-28'
 category: patterns
 related_skills:
 - result-pattern
@@ -348,7 +348,7 @@ For event handlers that should log errors but not propagate them (event-driven a
 ```python
 from core.utils.error_boundary import safe_event_handler
 
-class KuService:
+class PsService:
     @safe_event_handler("knowledge.applied_in_task")
     async def handle_knowledge_applied_in_task(self, event) -> None:
         """
