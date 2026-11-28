@@ -720,11 +720,12 @@ If issues persist after troubleshooting:
    - [Grafana Troubleshooting](https://grafana.com/docs/grafana/latest/troubleshooting/)
 
 4. **Enable debug logging**:
-   ```python
-   # In main.py
-   import logging
-   logging.getLogger("core.infrastructure.monitoring").setLevel(logging.DEBUG)
+   ```bash
+   # In .env — setup_logging builds the level SKUEL's loggers filter at from it
+   LOG_LEVEL=DEBUG
    ```
+   Setting a stdlib logger to DEBUG does not reach a SKUEL logger: below `LOG_LEVEL`,
+   `get_logger`'s structlog filter drops the line before any stdlib logger sees it.
 
 5. **Create minimal reproduction**:
    ```python

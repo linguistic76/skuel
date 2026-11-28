@@ -1,12 +1,18 @@
-"""One logger type: what ``get_logger`` returns, and the two names that type a SKUEL logger wrongly.
+"""One logger type: what ``get_logger`` returns, where the app's loggers come from, and the two
+names that type a SKUEL logger wrongly.
 
 ``get_logger`` hands out structlog's filtering bound logger (``setup_logging`` configures
 ``wrapper_class=structlog.make_filtering_bound_logger(...)``). Its type is
-``structlog.typing.FilteringBoundLogger``. Two other names would type-check a SKUEL logger
-wrongly and are held out of the tree here:
+``structlog.typing.FilteringBoundLogger``. Every logger in the trees read here (the app and its
+scripts) comes from it: a ``logging.getLogger`` logger skips the structlog processors (no
+``request_id``, no ``exception`` field) and prints its ``extra=`` context nowhere. The one
+``logging.getLogger`` call in those trees is ``core/utils/logging.py``'s, which sets third-party
+namespaces' levels.
+
+Two other names would type-check a SKUEL logger wrongly and are held out of the tree here:
 
 - ``logging.Logger`` refuses the keyword fields of a structured call and admits calls the
-  structlog logger lacks; it is the true type only for a ``logging.getLogger`` logger.
+  structlog logger lacks.
 - ``structlog.BoundLogger`` resolves every log method through ``__getattr__`` to ``Any``, so no
   log call through it is checked.
 
@@ -33,11 +39,8 @@ from core.utils.logging import get_logger
 
 APP = Path(__file__).resolve().parents[2]
 TREES = ("core", "adapters", "ui", "services_bootstrap", "scripts")
+FILES = ("main.py",)
 LOGGING_MODULE = APP / "core" / "utils" / "logging.py"
-
-# The one annotation where ``logging.Logger`` is the true type: ZPDService's optional logger,
-# whose fallback is ``logging.getLogger`` (a stdlib logger, not one from ``get_logger``).
-STDLIB_LOGGER_ANNOTATIONS = frozenset({("core/services/zpd/zpd_service.py", "logger")})
 
 # Members FilteringBoundLogger declares that the class structlog builds lacks.
 STRUCTLOG_WRAPPER_GAPS = frozenset({"err"})
@@ -90,17 +93,40 @@ def _annotations(tree: ast.Module) -> list[tuple[int, str, str]]:
 
 
 def false_logger_annotations(source: str, rel_path: str) -> list[str]:
-    """Annotations naming ``structlog.BoundLogger`` or a stdlib ``Logger`` outside the registry."""
+    """Annotations naming ``structlog.BoundLogger`` or a stdlib ``Logger``."""
     tree = ast.parse(source)
     bare_is_stdlib = _imports_stdlib_logger_name(tree)
     hits: list[str] = []
     for line, name, text in _annotations(tree):
         stdlib = _STDLIB_LOGGER.search(text) or (bare_is_stdlib and _BARE_LOGGER.search(text))
-        if _BOUND_LOGGER.search(text) or (
-            stdlib and (rel_path, name) not in STDLIB_LOGGER_ANNOTATIONS
-        ):
+        if _BOUND_LOGGER.search(text) or stdlib:
             hits.append(f"{rel_path}:{line} {name}: {text}")
     return hits
+
+
+def stdlib_logger_calls(source: str, rel_path: str) -> list[str]:
+    """Calls of ``logging.getLogger`` or of a ``getLogger`` imported from ``logging``."""
+    tree = ast.parse(source)
+    imported = {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "logging"
+        for alias in node.names
+        if alias.name == "getLogger"
+    }
+    calls: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if (
+            isinstance(func, ast.Attribute)
+            and func.attr == "getLogger"
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "logging"
+        ) or (isinstance(func, ast.Name) and func.id in imported):
+            calls.append((node.lineno, ast.unparse(node)))
+    return [f"{rel_path}:{line} {text}" for line, text in sorted(calls)]
 
 
 def ignored_logger_assignments(source: str, rel_path: str) -> list[str]:
@@ -149,11 +175,11 @@ def logger_err_calls(source: str, rel_path: str) -> list[str]:
 
 
 def _first_party_sources() -> list[tuple[str, str]]:
-    return [
-        (path.relative_to(APP).as_posix(), path.read_text(encoding="utf-8"))
-        for tree in TREES
-        for path in sorted((APP / tree).rglob("*.py"))
+    paths = [
+        *(path for tree in TREES for path in sorted((APP / tree).rglob("*.py"))),
+        *(APP / name for name in FILES),
     ]
+    return [(path.relative_to(APP).as_posix(), path.read_text(encoding="utf-8")) for path in paths]
 
 
 # --------------------------------------------------------------------------- the producer
@@ -213,17 +239,15 @@ def test_no_logger_is_called_through_err() -> None:
     assert hits == []
 
 
-def test_the_stdlib_registry_names_live_annotations() -> None:
-    """Each registered stdlib annotation still exists and still names ``Logger``."""
-    for rel, name in STDLIB_LOGGER_ANNOTATIONS:
-        source = (APP / rel).read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        matches = [
-            text
-            for _, target, text in _annotations(tree)
-            if target == name and _BARE_LOGGER.search(text.replace("FilteringBoundLogger", ""))
-        ]
-        assert matches, (rel, name)
+def test_every_app_logger_comes_from_get_logger() -> None:
+    hits = [hit for rel, src in _first_party_sources() for hit in stdlib_logger_calls(src, rel)]
+    assert [hit for hit in hits if not hit.startswith("core/utils/logging.py:")] == []
+
+
+def test_the_logging_module_calls_getlogger_only_for_third_party_levels() -> None:
+    """Its one call is the loop over ``COMPONENT_LOGGERS``, the third-party namespaces it quiets."""
+    calls = stdlib_logger_calls(LOGGING_MODULE.read_text(encoding="utf-8"), "core/utils/logging.py")
+    assert [call.split(" ", 1)[1] for call in calls] == ["logging.getLogger(logger_name)"]
 
 
 # --------------------------------------------------------------------------- the controls
@@ -266,10 +290,20 @@ def test_control_true_types_pass() -> None:
     assert false_logger_annotations(_TRUE_TYPES, "control.py") == []
 
 
-def test_control_registry_admits_only_its_own_site() -> None:
-    source = "from logging import Logger\n\ndef f(logger: Logger | None = None) -> None: ...\n"
-    assert false_logger_annotations(source, "core/services/zpd/zpd_service.py") == []
-    assert false_logger_annotations(source, "core/services/other.py") != []
+def test_control_stdlib_logger_calls_are_flagged() -> None:
+    source = (
+        "import logging\n"
+        "from logging import getLogger as get\n"
+        "from core.utils.logging import get_logger\n"
+        "a = logging.getLogger(__name__)\n"
+        "b = get('x')\n"
+        "c = get_logger('skuel.x')\n"
+        "d = structlog.getLogger('y')\n"
+    )
+    assert stdlib_logger_calls(source, "control.py") == [
+        "control.py:4 logging.getLogger(__name__)",
+        "control.py:5 get('x')",
+    ]
 
 
 def test_control_ignored_logger_assignment_is_flagged() -> None:

@@ -18,7 +18,7 @@ These are `Any` uses that exist out of habit or because no one got around to typ
 They provide no value and actively undermine type safety.
 
 **Examples of Category A (now fixed):**
-- `logger: Any` — Should be `FilteringBoundLogger` (`structlog.typing`), the type `get_logger` returns (`logging.Logger` only for a `logging.getLogger` logger)
+- `logger: Any` — Should be `FilteringBoundLogger` (`structlog.typing`), the type `get_logger` returns (every logger in the app and its scripts comes from it)
 - `driver: Any` (concrete `__init__` parameter) — Should be `neo4j.AsyncDriver`
 - `prometheus_metrics: Any` — Should be `PrometheusMetrics | None`
 - `services: Any` (in route factories) — Should be `Services | None`

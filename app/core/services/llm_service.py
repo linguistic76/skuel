@@ -14,7 +14,6 @@ The vendor SDKs live in ``adapters/external/llm/``. When no caller is wired
 __version__ = "1.0"
 
 
-import logging
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -25,8 +24,6 @@ from core.services.chat import resolve_chat_model
 from core.services.llm_caller import LLMCallerProtocol
 from core.utils.result_simplified import Errors, Result
 from core.utils.type_converters import EnumLike
-
-logger = logging.getLogger(__name__)
 
 
 class LLMProvider(StrEnum):

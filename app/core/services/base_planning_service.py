@@ -28,11 +28,11 @@ SKUEL runs at full capacity or not at all.
 
 from __future__ import annotations
 
-import logging
 from abc import ABC
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from core.models.type_hints import EntityUID
+from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from core.ports.base_protocols import BackendOperations
@@ -91,7 +91,7 @@ class BasePlanningService(ABC, Generic[BackendT, EntityT]):
 
         self.backend: BackendT = backend
         self._relationship_service: UnifiedRelationshipService | None = relationship_service
-        self.logger = logging.getLogger(self.__class__.__module__)
+        self.logger = get_logger(self.__class__.__module__)
 
     # ========================================================================
     # PROTECTED HELPER METHODS

@@ -66,10 +66,22 @@ rather than adding a flag. Leave it pinned by default: the RUN line carries
 never-read `database.enable_query_logging` field was deleted for this reason —
 it duplicated a driver capability and contradicted the pin.)
 
-**stdlib records** (uvicorn, `neo4j.*`, `logging.getLogger` call sites) never
+**stdlib records** (uvicorn, `neo4j.*`, the other third-party libraries) never
 pass through the structlog processors — they render plain-text through the
-shared stdlib formatter. uvicorn keeps its own non-propagating handlers, so
-its lines appear on stderr only, not in the files.
+shared stdlib formatter, with no `request_id`, and a record's `extra=` is printed
+nowhere (the formatter prints `%(message)s`). uvicorn keeps its own
+non-propagating handlers, so its lines appear on stderr only, not in the files.
+No module of the app or its scripts logs through one: every logger in `core/`,
+`adapters/`, `ui/`, `services_bootstrap/`, `scripts/` and `main.py` comes from
+`get_logger`. The one `logging.getLogger` call there is `setup_logging`'s, which
+sets the third-party levels above; `tests/unit/test_logger_type.py` refuses any
+other.
+
+**Without `setup_logging`** (tests, scripts), structlog runs on its default
+configuration: every level printed to stdout through a `PrintLogger`, which has
+no name. A test reads a module's lines with `structlog.testing.capture_logs`;
+`tests/helpers/log_capture.py` stamps each captured line with the file that
+logged it and renders its traceback, so a test can keep one module's lines.
 
 ## Usage
 
@@ -102,8 +114,8 @@ class MyMixin:
 
 Not `logging.Logger` — it refuses the keyword fields above and passes calls a structlog logger
 lacks — and not `structlog.BoundLogger`, whose log methods all resolve through `__getattr__`
-to `Any`, so no log call is checked. `logging.Logger` is right only for a `logging.getLogger`
-logger. `tests/unit/test_logger_type.py` refuses both names on a logger annotation.
+to `Any`, so no log call is checked. `tests/unit/test_logger_type.py` refuses both names on a
+logger annotation.
 
 One member is a gap in structlog itself: `FilteringBoundLogger` declares `err`, which the class
 `make_filtering_bound_logger` builds does not define, so `logger.err(...)` passes MyPy and raises
@@ -168,7 +180,9 @@ if __name__ == "__main__":
 
 ## Structured Logging for Exception Blocks
 
-When exception blocks must remain (graceful degradation, internal helpers), use the `extra={}` dict for structured context:
+When exception blocks must remain (graceful degradation, internal helpers), use the `extra={}` dict for structured context.
+Through `get_logger`, `extra=` is one more keyword field: the line carries it as a nested `extra`
+object (`{"extra": {"error_type": …}, "event": …}` in JSON), so a log query reads `extra.error_type`.
 
 ### Standard Pattern
 
@@ -256,7 +270,7 @@ except Exception as e:
 
 ### Benefits
 
-1. **Log aggregation**: Filter by `error_type` to find all `ValueError` occurrences
+1. **Log aggregation**: Filter by `extra.error_type` to find all `ValueError` occurrences
 2. **Monitoring**: Create alerts based on specific error types or operations
 3. **Debugging**: Full context available without parsing log messages
 4. **Consistency**: Standard fields make log analysis predictable

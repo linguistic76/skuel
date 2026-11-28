@@ -39,6 +39,7 @@ from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, UnreadableValueError
 from core.utils.result_simplified import ErrorCategory, Result
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+from tests.helpers.log_capture import capture_with_call_sites, lines_from
 
 _UID = "task_0123456789abcdef"
 _OWNER = "user_0123456789abcdef"
@@ -156,9 +157,7 @@ async def test_a_backend_operation_answers_a_refusal_with_its_own_words() -> Non
 
 
 @pytest.mark.asyncio
-async def test_the_backend_boundary_logs_a_write_refusal_and_not_a_read_one_again(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_the_backend_boundary_logs_a_write_refusal_and_not_a_read_one_again() -> None:
     @safe_backend_operation("update")
     async def write() -> Result[None]:
         to_neo4j_patch({"due_date": "soon"}, Task, uid=_UID)
@@ -168,12 +167,14 @@ async def test_the_backend_boundary_logs_a_write_refusal_and_not_a_read_one_agai
     async def read() -> Result[None]:
         raise UnreadableStoredValueError(Task, _UID, "due_date", "soon", "not a date")
 
-    with caplog.at_level("ERROR", logger="core.utils.error_boundary"):
+    with capture_with_call_sites() as logs:
         await write()
         await read()
 
-    refusals = [r for r in caplog.records if r.name == "core.utils.error_boundary"]
-    assert [r.getMessage().split(":")[0] for r in refusals] == ["Backend operation update refused"]
+    refusals = lines_from(logs, "core/utils/error_boundary.py")
+    assert [(line["log_level"], line["event"].split(":")[0]) for line in refusals] == [
+        ("error", "Backend operation update refused")
+    ]
 
 
 def test_a_node_missing_a_field_that_requires_a_value_refuses_the_read() -> None:

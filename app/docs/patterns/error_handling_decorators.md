@@ -1,6 +1,6 @@
 ---
 title: Error Handling Decorators - DRY Pattern Guide
-updated: 2026-11-08
+updated: 2026-11-28
 category: patterns
 related_skills:
 - result-pattern
@@ -147,7 +147,7 @@ For event handlers that should log errors but not propagate them. Event handlers
 ```python
 from core.utils.error_boundary import safe_event_handler
 
-class KuService:
+class PsService:
     @safe_event_handler("knowledge.applied_in_task")
     async def handle_knowledge_applied_in_task(self, event) -> None:
         """
@@ -177,12 +177,13 @@ class KuService:
 
 On exception, the decorator:
 1. Extracts event data from the second argument (after `self`)
-2. Logs structured error with:
+2. Logs one ERROR line, `Event handler failed: {event_name}`, with the exception's traceback
+   (`exc_info=True`) and, in its nested `extra` field:
    - `event_name`: The event being handled
    - `error_type`: Exception class name
    - `error_message`: String representation
    - `handler`: Method name
-   - `event_data`: Serialized event fields
+   - `event_data`: Every public event field, stringified
 3. Swallows the exception (returns `None`)
 
 ### When to Use
@@ -196,7 +197,8 @@ Use `@safe_event_handler` for:
 
 | File | Event Handlers |
 |------|----------------|
-| `core/services/ku_service.py` | 7 knowledge substance event handlers |
+| `core/services/ps_service.py` | 8 knowledge substance event handlers |
+| `core/services/tasks/task_grounding_service.py` | `embedding.stored` (grounds a task by its new vector) |
 
 ## Handling Optional Services (Fail-Fast Pattern)
 

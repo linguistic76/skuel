@@ -42,7 +42,6 @@ hand the value on, so that pass fails on
 from __future__ import annotations
 
 import inspect
-import logging
 import re
 import traceback
 from dataclasses import dataclass, field
@@ -60,6 +59,7 @@ from core.models.enums import NeoLabel
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.services.ingestion.preparer import prepare_edge_data
+from tests.helpers.log_capture import capture_with_call_sites, lines_from
 from tests.helpers.production_backends import build_production_backends
 from tests.helpers.seed_uids import seed_user_uid
 from tests.integration._activity_link_rig import create, signed_in_client
@@ -69,6 +69,7 @@ if TYPE_CHECKING:
 
     import httpx
     from neo4j import AsyncDriver
+    from structlog.typing import EventDict
 
     from adapters.inbound.fasthtml_types import FastHTMLApp
 
@@ -87,6 +88,8 @@ MARK = "jsoncensus"
 READER = seed_user_uid(f"{MARK}_reader")
 # The word in every seeded title, sent as each search door's term.
 WORD = MARK
+# The module whose catch-all turns an exception into a 5xx, and logs its traceback.
+BOUNDARY_MODULE = "adapters/inbound/boundary.py"
 
 KU = f"ku.{MARK}.breath"
 KU_NEXT = f"ku.{MARK}.stillness"
@@ -167,27 +170,13 @@ class Census:
     skipped: dict[str, set[str]] = field(default_factory=dict)
 
 
-class _BoundaryLog(logging.Handler):
-    """The records ``adapters.inbound.boundary``'s catch-all logs during one request.
-
-    The catch-all logs through the stdlib logger, not structlog, so a 5xx's traceback
-    reaches only a handler attached here.
-    """
-
-    def __init__(self) -> None:
-        super().__init__(level=logging.ERROR)
-        self.records: list[logging.LogRecord] = []
-
-    def emit(self, record: logging.LogRecord) -> None:
-        self.records.append(record)
-
-    def tail(self) -> str | None:
-        """The last three lines of the request's last logged traceback, if any."""
-        for record in reversed(self.records):
-            if record.exc_info:
-                lines = "".join(traceback.format_exception(*record.exc_info)).strip()
-                return " | ".join(lines.splitlines()[-3:])
-        return None
+def _boundary_tail(logs: list[EventDict]) -> str | None:
+    """The last three lines of the last traceback ``adapters/inbound/boundary.py`` logged
+    during one request, if any: the exception its catch-all turned into a 5xx."""
+    for line in reversed(lines_from(logs, BOUNDARY_MODULE)):
+        if "exception" in line:
+            return " | ".join(str(line["exception"]).strip().splitlines()[-3:])
+    return None
 
 
 @dataclass(frozen=True)
@@ -582,20 +571,15 @@ async def _crawl(client: httpx.AsyncClient, app: FastHTMLApp, seeds: dict[str, s
     skipped: dict[str, set[str]] = {}
     routes = _read_routes(app, skipped)
     census = Census(routes=len(routes), query_names=_query_names(routes), skipped=skipped)
-    log = _BoundaryLog()
-    boundary = logging.getLogger("adapters.inbound.boundary")
-    boundary.addHandler(log)
-    try:
+    with capture_with_call_sites() as logs:
         for route in routes:
             if route.path in SESSION_ENDING and census.signed_in_before_logout is None:
                 census.signed_in_before_logout = await _still_signed_in(client, seeds["task"])
             uids = list(seeds.values()) if route.takes_uid else [seeds["task"]]
             census.uid_routes += route.takes_uid
             for uid in uids:
-                log.records.clear()
-                await _read(client, census, route.path, uid, seeds, log)
-    finally:
-        boundary.removeHandler(log)
+                logs.clear()
+                await _read(client, census, route.path, uid, seeds, logs)
     return census
 
 
@@ -605,7 +589,7 @@ async def _read(
     path: str,
     uid: str,
     seeds: dict[str, str],
-    log: _BoundaryLog,
+    logs: list[EventDict],
 ) -> None:
     """One GET of ``path`` naming ``uid`` everywhere a door could read it."""
     params = {**dict.fromkeys(SEARCH_NAMES, WORD), **dict.fromkeys(census.query_names, uid)}
@@ -618,7 +602,7 @@ async def _read(
         return
     if response.status_code >= 500:
         # An exception's traceback, or the refusal a failed Result answered with.
-        detail = log.tail() or " ".join(response.text.split())[:200]
+        detail = _boundary_tail(logs) or " ".join(response.text.split())[:200]
         census.server_errors.setdefault(path, []).append(f"{uid}: {response.status_code}: {detail}")
     body = response.text
     if STRAY_STATUS in body and response.status_code < 500:

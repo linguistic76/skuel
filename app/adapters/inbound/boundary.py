@@ -14,7 +14,6 @@ See: /docs/patterns/ERROR_HANDLING.md
 """
 
 import inspect
-import logging
 import time
 from annotationlib import Format
 from collections.abc import Awaitable, Callable, Coroutine, Mapping
@@ -39,7 +38,7 @@ from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Re
 from ui.layouts.base_page import HtmlDocument
 from ui.patterns.error_banner import render_error_banner
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 P = ParamSpec("P")
 
@@ -434,8 +433,6 @@ def status_for_error(error: ErrorContext) -> int:
 # INSTRUMENTED BOUNDARY - Combines Prometheus metrics + Result[T] conversion
 # ============================================================================
 
-_boundary_logger = get_logger(__name__)
-
 
 def instrument_with_boundary_handler(
     prometheus_metrics: Any,
@@ -504,7 +501,7 @@ def instrument_with_boundary_handler(
                         method=method, endpoint=endpoint, status=status_code
                     ).inc()
 
-                _boundary_logger.error(
+                logger.error(
                     f"Request failed: {method} {endpoint}",
                     exc_info=True,
                     extra={"endpoint": endpoint, "method": method},
