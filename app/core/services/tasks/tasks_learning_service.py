@@ -70,11 +70,17 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
     async def get_learning_relevant_tasks(
         self, user_uid: UserUID, learning_position: LpPosition, limit: int = 10
     ) -> Result[list[Task]]:
+        """The learner's tasks not completed, most relevant to their learning-path position first.
+
+        Each task is scored by the knowledge it applies alone —
+        ``LpPosition.assess_task_relevance``, its strongest match on a current or
+        next step of an active path. Staged: no surface calls it yet.
+        """
         # Stays hand-rolled (not delegated to LearningAlignmentBridge): Task knowledge
         # lives on APPLIES_KNOWLEDGE edges, not on the model, so scoring needs a graph
         # read first. The Bridge's sync scorer cannot express that, and
-        # LpPosition.assess_task_relevance has current+next-step semantics distinct
-        # from the Bridge's default sum-based scorer.
+        # LpPosition.assess_task_relevance scores the strongest step match, not the
+        # Bridge's default sum.
         tasks_result = await self.backend.get_user_entities(user_uid, limit=QueryLimit.MAXIMUM)
         if tasks_result.is_error:
             return Result.fail(tasks_result)
@@ -92,14 +98,10 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
             return Result.fail(applies_result)
         applied_knowledge = applies_result.value
 
-        task_scores: list[tuple[Task, float]] = []
-        for task in open_tasks:
-            task_knowledge_uids = applied_knowledge.get(task.uid, [])
-            task_domain = task.priority if task.priority else "general"
-            relevance_score = learning_position.assess_task_relevance(
-                task_domain, task_knowledge_uids
-            )
-            task_scores.append((task, relevance_score))
+        task_scores = [
+            (task, learning_position.assess_task_relevance(applied_knowledge.get(task.uid, [])))
+            for task in open_tasks
+        ]
 
         task_scores.sort(key=itemgetter(1), reverse=True)
         relevant_tasks = [task for task, _ in task_scores[:limit]]

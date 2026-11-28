@@ -915,6 +915,31 @@ class ZPDWeights:
 
 
 # ============================================================================
+# TASK LEARNING RELEVANCE (LpPosition.assess_task_relevance)
+# ============================================================================
+
+
+class TaskLearningRelevance:
+    """How strongly a task serves the learner's learning-path position, 0.0-1.0.
+
+    A task reaches a path only through the knowledge it applies. Its score is
+    the strongest match across the active paths, so matching more never scores
+    less.
+
+    See: core/models/pathways/lp_position.py
+    """
+
+    # The task applies a Ku of a path's current step.
+    CURRENT_STEP: Final = 0.5
+
+    # The task applies a Ku of a path's next step to complete.
+    NEXT_STEP: Final = 0.4
+
+    # The task applies no Ku of a current or next step, or applies none.
+    NO_MATCH: Final = 0.1
+
+
+# ============================================================================
 # NEXT-STEP RANKING (UserContextIntelligence.get_optimal_next_path_steps)
 # ============================================================================
 

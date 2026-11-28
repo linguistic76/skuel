@@ -12,10 +12,12 @@ domain-first refactor: LpPosition uses LearningPath and PathStep models directly
 Steps are stored in path.metadata["steps"] (list[PathStep]).
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from core.constants import TaskLearningRelevance
 from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
@@ -69,51 +71,30 @@ class LpPosition:
         completed = sum(1 for step in steps if step.uid in self.completed_step_uids)
         return completed, len(steps)
 
-    def assess_task_relevance(self, task_domain: str, task_knowledge_uids: list[str]) -> float:
-        """
-        Simple learning path relevance assessment for tasks.
+    def assess_task_relevance(self, task_knowledge_uids: Collection[str]) -> float:
+        """How strongly a task serves this position (0.0-1.0): its strongest knowledge match.
+
+        A task reaches a path only through the knowledge it applies. On each active
+        path, a task applying a Ku of the path's current step scores
+        ``TaskLearningRelevance.CURRENT_STEP`` and one applying a Ku of the path's
+        next step to complete scores ``NEXT_STEP``. The score is the strongest such
+        match across the paths, so a task that matches more never scores less. A
+        task with no match scores ``NO_MATCH``, whether it applies knowledge
+        elsewhere or applies none.
 
         Args:
-            task_domain: Domain of the task
-            task_knowledge_uids: Knowledge UIDs the task applies
-
-        Returns:
-            Relevance score (0.0-1.0) based on learning path position
+            task_knowledge_uids: The Ku uids the task applies (its APPLIES_KNOWLEDGE edges)
         """
-        if not task_knowledge_uids:
-            return 0.1  # Low relevance for tasks without knowledge connections
-
-        relevance_score = 0.0
-        relevance_factors = 0
-
-        # Check relevance across all active learning paths
+        applied = set(task_knowledge_uids)
+        relevance = TaskLearningRelevance.NO_MATCH
         for path in self.active_paths:
-            # Domain alignment
-            if str(path.domain.value) == task_domain:
-                relevance_score += 0.3
-                relevance_factors += 1
-
-            # Knowledge alignment with current and next steps
             current_step = self.current_steps.get(path.uid)
-            if current_step:
-                # Check if task knowledge matches current step (iterate over tuple)
-                for ku_uid in current_step.knowledge_uids:
-                    if ku_uid in task_knowledge_uids:
-                        relevance_score += 0.5  # High relevance for current step knowledge
-                        relevance_factors += 1
-                        break  # Count each step once
-
-                # Check next steps for preparatory relevance
-                next_step = _get_next_step(path, self.completed_step_uids)
-                if next_step:
-                    for ku_uid in next_step.knowledge_uids:
-                        if ku_uid in task_knowledge_uids:
-                            relevance_score += 0.4  # Good relevance for next step preparation
-                            relevance_factors += 1
-                            break  # Count each step once
-
-        # Return average relevance (0.0 if no factors found)
-        return relevance_score / relevance_factors if relevance_factors > 0 else 0.0
+            if current_step is not None and applied.intersection(current_step.knowledge_uids):
+                relevance = max(relevance, TaskLearningRelevance.CURRENT_STEP)
+            next_step = _get_next_step(path, self.completed_step_uids)
+            if next_step is not None and applied.intersection(next_step.knowledge_uids):
+                relevance = max(relevance, TaskLearningRelevance.NEXT_STEP)
+        return relevance
 
     def suggest_habit_alignment(self, habit_category: str) -> list[str]:
         """

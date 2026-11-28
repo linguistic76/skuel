@@ -1,6 +1,6 @@
 ---
 title: Knowledge Application Tracking
-updated: 2026-11-08
+updated: 2026-11-28
 category: patterns
 related_skills:
 - activity-domains
@@ -96,7 +96,9 @@ result = await backend.get_related_uids(task_uid, RelationshipName.APPLIES_KNOWL
 
 - **ZPD** — `ZPDBackend` traverses `APPLIES_KNOWLEDGE` edges to position the learner.
 - **Learning relevance** — `tasks_learning_service.get_learning_relevant_tasks` scores
-  tasks by the knowledge they apply.
+  tasks by the knowledge they apply alone (`LpPosition.assess_task_relevance`): the
+  strongest match on a current or next step of an active path. Staged — no surface calls
+  it yet.
 - **Knowledge substance** — applied knowledge is one of the weighted contributions to a
   Ku's substance score.
 

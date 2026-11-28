@@ -22,7 +22,9 @@ import pytest
 from neo4j import AsyncDriver, AsyncSession
 
 from core.models.enums.neo_labels import NeoLabel
-from core.models.pathways.lp_position import LpPosition
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.lp_position import create_lp_position
+from core.models.pathways.path_step import PathStep
 from core.services.choices.choice_relationships import CHOICE_QUERY_SPECS, ChoiceRelationships
 from core.services.principles.principle_relationships import (
     PRINCIPLE_QUERY_SPECS,
@@ -235,18 +237,14 @@ class TestTaskSetReads:
         assert small_count == large_count
 
     async def test_learning_relevant_tasks(self, services, clean_neo4j, statements):
-        """No active path: every task with no applied knowledge outranks every one with some."""
+        """KU is on the current step: every task applying it outranks every one applying none."""
         driver = services.tasks.backend.driver
         tasks = await _tasks(driver)
-        position = LpPosition(
-            active_paths=[],
-            current_steps={},
-            completed_step_uids=set(),
-            next_recommended=[],
-            user_uid=USER,
-            generated_at=datetime.now(UTC),
-            readiness_scores={},
+        step = PathStep(
+            uid="ps.batched-reads.step", title="Step", intent="Learn it", knowledge_uids=(KU,)
         )
+        path = LearningPath(uid="lp.batched-reads.path", title="Path", metadata={"steps": [step]})
+        position = create_lp_position(USER, [path], set())
 
         small, small_count = await _measure(
             statements,
@@ -265,8 +263,8 @@ class TestTaskSetReads:
         assert small.is_ok, small
         assert large.is_ok, large
         ranked = [task.uid for task in large.value]
-        assert set(ranked[: len(grown)]) == set(grown)
-        assert set(ranked[len(grown) :]) == set(tasks)
+        assert set(ranked[: len(tasks)]) == set(tasks)
+        assert set(ranked[len(tasks) :]) == set(grown)
         assert small_count == large_count
 
 

@@ -285,6 +285,17 @@ _TASKS_LEARNING_METRICS = PlannedEntry(
     "route or an Askesis consumer",
     since=date(2026, 10, 3),
 )
+# Registered by hand: the facade delegates by the same name and the service calls the
+# scorer, so vulture sees each one used.
+_TASKS_LEARNING_RELEVANCE = PlannedEntry(
+    Readiness.DELAYED,
+    "a learner's tasks ranked by the knowledge they apply on a current or next step of "
+    "their active paths (TasksService the one facade delegation, LpPosition."
+    "assess_task_relevance the scorer) — no production code builds an LpPosition and no "
+    "surface calls it; a surface that shows a learner the tasks serving their path wires it "
+    "(name-collision masked, so by hand)",
+    since=date(2026, 11, 28),
+)
 _HABITS_INSIGHTS = PlannedEntry(
     Readiness.DELAYED,
     "habit analytics/AI insight surface staged; wire an insights UI or Askesis consumer",
@@ -1036,6 +1047,12 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/tasks/_productivity_mixin.py::generate_task_knowledge_insights": (
         _TASKS_LEARNING_METRICS
     ),
+    # --- Tasks: learning relevance (ranked by the knowledge a task applies) ---
+    "core/services/tasks/tasks_learning_service.py::get_learning_relevant_tasks": (
+        _TASKS_LEARNING_RELEVANCE
+    ),
+    "core/services/tasks_service.py::get_learning_relevant_tasks": _TASKS_LEARNING_RELEVANCE,
+    "core/models/pathways/lp_position.py::assess_task_relevance": _TASKS_LEARNING_RELEVANCE,
     # --- PS: semantic inference lens ---
     "core/services/ps/ps_semantic_service.py::infer_relationships": _PS_SEMANTIC_INFER,
     # --- PS: guidance-strength intelligence lens ---
