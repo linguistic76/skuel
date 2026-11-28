@@ -1,23 +1,22 @@
 """
-Neo4j Repository Adapter
-========================
+Neo4j Adapter
+=============
 
-Implements the repository port for Neo4j.
-This can be swapped for any other graph database.
+Opens the graph through ``Neo4jConnection`` and hands out its driver, sessions and schema
+services, for the bootstrap and the one-shot scripts. Neo4j is a committed choice (ADR-044),
+not a swappable backend.
 """
 
 __version__ = "1.0"
 
 
-import logging
 from typing import Any
 
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection, get_connection
+from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
-# No longer using GraphRepositoryPort - Neo4jAdapter is a standalone concrete class
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 try:
     from neo4j import Record  # noqa: F401 - imported for availability check
@@ -55,10 +54,7 @@ class Neo4jSessionContext:
 
 
 class Neo4jAdapter:
-    """
-    Neo4j adapter for graph database operations.
-    Standalone implementation without legacy port inheritance.
-    """
+    """Neo4j adapter for graph database operations."""
 
     def __init__(
         self, uri: str | None = None, user: str | None = None, password: str | None = None
@@ -69,10 +65,6 @@ class Neo4jAdapter:
         self.connection: Any = None
         self.driver: Any = None  # Will be set from connection
         self._schema_service: Any = None
-        # Initialize logger
-        from core.utils.logging import get_logger
-
-        self.logger = get_logger("neo4j_adapter")
 
     async def connect(self) -> None:
         """Establish connection to Neo4j using Neo4jConnection"""

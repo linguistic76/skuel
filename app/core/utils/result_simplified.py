@@ -17,13 +17,14 @@ Key Improvements:
 - ~200 lines instead of 900
 """
 
-import logging
 import re
 import traceback
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, TypeVar
+
+from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -36,7 +37,7 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Type variables
 T = TypeVar("T")

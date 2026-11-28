@@ -12,15 +12,15 @@ live in adapters/inbound/boundary.py.
 See: /docs/patterns/ERROR_HANDLING.md
 """
 
-import logging
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
 from typing import Any
 
 from core.utils.exception_types import NEO4J_EXCEPTIONS, UnreadableValueError
+from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ============================================================================
@@ -166,7 +166,7 @@ def safe_event_handler(
             await self.increment_substance_metric(...)
 
     The decorator provides:
-    - Structured logging with event context
+    - Structured logging with event context and the traceback
     - Error categorization for monitoring
     - Consistent error handling across all event handlers
     """
@@ -189,6 +189,7 @@ def safe_event_handler(
 
                 logger.error(
                     f"Event handler failed: {event_name}",
+                    exc_info=True,
                     extra={
                         "event_name": event_name,
                         "error_type": type(e).__name__,

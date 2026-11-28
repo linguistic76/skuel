@@ -39,22 +39,22 @@ See: docs/roadmap/done/zpd-service-architecture.md — full design rationale
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from core.constants import ZPDWeights
 from core.models.type_hints import EntityUID, UserUID
 from core.models.zpd.zpd_assessment import ZoneEvidence, ZPDAction, ZPDAssessment
 from core.ports.zpd_protocols import PrereqCount, SubmissionScore
+from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from logging import Logger
-
     from core.ports.zpd_protocols import ZPDBackendOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.user.unified_user_context import UserContext
+
+logger = get_logger("skuel.services.zpd")
 
 
 # Empty SubmissionScore sentinel used as the default when a KU has no
@@ -80,7 +80,6 @@ class ZPDService:
         habits_intelligence: Optional — enriches current_zone with KUs
             reinforced by active habits. When None, habit reinforcement is
             excluded from the current zone.
-        logger: Standard Python logger. Defaults to skuel.services.zpd.
     """
 
     def __init__(
@@ -88,12 +87,10 @@ class ZPDService:
         backend: ZPDBackendOperations,
         choices_intelligence: ChoicesIntelligenceService | None = None,
         habits_intelligence: HabitsIntelligenceService | None = None,
-        logger: Logger | None = None,
     ) -> None:
         self._backend = backend
         self._choices_intelligence = choices_intelligence
         self._habits_intelligence = habits_intelligence
-        self._logger = logger or logging.getLogger("skuel.services.zpd")
 
     # =========================================================================
     # PUBLIC API (ZPDOperations protocol)
@@ -120,7 +117,7 @@ class ZPDService:
         # Guard: curriculum graph must be populated enough to be meaningful
         ku_count = await self._backend.get_ku_count()
         if ku_count < ZPDWeights.MIN_KU_THRESHOLD:
-            self._logger.debug(
+            logger.debug(
                 "ZPD skipped: curriculum graph has %d KUs (minimum %d required)",
                 ku_count,
                 ZPDWeights.MIN_KU_THRESHOLD,
