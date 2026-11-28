@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from core.models.task.task_request import TaskCreateRequest
     from core.models.type_hints import UserUID
 
-from core.models.enums.activity_enums import EngagementState, Priority
+from core.models.enums.activity_enums import EngagementState, priority_sort_order
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.node_state import GROUNDING_STAMPS
@@ -378,23 +378,17 @@ class Task(UserOwnedEntity):
         )
 
 
-# A task that states no priority sorts after LOW, the last of ``Priority.sort_order()``.
-_NO_PRIORITY_SORT_ORDER = len(Priority)
-
-
 def get_task_urgency(task: Task | TaskDTO) -> tuple[int, date]:
     """
     Sort key: a task's priority, then its due date, for ordering tasks by urgency.
 
-    HIGH first, then MEDIUM, then LOW, then a task that states no priority. Within
-    one priority the earlier due date comes first and a task with no due date last.
-    Task-domain sorting policy (Dynamic Enum Pattern — the policy lives with its
-    domain, not in a generic utils grab-bag).
+    HIGH first, then MEDIUM, then LOW, then a task that states no priority
+    (``priority_sort_order``). Within one priority the earlier due date comes first
+    and a task with no due date last. It is the task list page's priority sort and
+    the order of the next critical tasks. Task-domain sorting policy (Dynamic Enum
+    Pattern — the policy lives with its domain, not in a generic utils grab-bag).
 
     Example:
         critical_tasks.sort(key=get_task_urgency)
     """
-    priority_order = (
-        task.priority.sort_order() if task.priority is not None else _NO_PRIORITY_SORT_ORDER
-    )
-    return (priority_order, task.due_date or date.max)
+    return (priority_sort_order(task.priority), task.due_date or date.max)

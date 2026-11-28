@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
-from core.models.enums import EntityStatus, Priority
+from core.models.enums import EntityStatus, Priority, priority_sort_order
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.domain_protocols import ChoicesOperations
 from core.ports.query_types import EntityHierarchy
@@ -54,7 +54,6 @@ from core.utils.sort_functions import (
     get_decision_deadline,
 )
 from core.utils.timestamp_helpers import as_utc, now_utc
-from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
     from datetime import date
@@ -75,11 +74,6 @@ if TYPE_CHECKING:
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.insight.insight_store import InsightStore
     from core.services.user import UserContext
-
-
-def _get_choice_priority(c: Any) -> str:
-    """Extract priority string for sort key (SKUEL012: named function, no lambda)."""
-    return get_enum_attr_str(c, "priority", "medium")
 
 
 def _compute_choice_stats(all_choices: list[Any]) -> dict[str, int | float]:
@@ -109,9 +103,9 @@ _CHOICE_FILTER_CONFIG: FilterConfig = {
 }
 
 
-def _get_choice_priority_order(c: Any) -> int:
-    """Sort key for priority: HIGH 0, MEDIUM 1, LOW 2; no priority sorts as MEDIUM."""
-    return Priority.from_value(_get_choice_priority(c)).sort_order()
+def _get_choice_priority_order(c: Choice) -> int:
+    """Sort key for priority: HIGH, MEDIUM, LOW, then a choice with no priority."""
+    return priority_sort_order(c.priority)
 
 
 _CHOICE_SORT_CONFIG: SortConfig = {

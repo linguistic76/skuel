@@ -21,7 +21,7 @@ from core.models.calendar_optimization import (
     SchedulingStrategy,
     SlotEnergyLevel,
 )
-from core.models.enums import Priority
+from core.models.enums import Priority, priority_sort_order
 from core.models.task.task import Task
 from core.services.calendar_optimization_types import (
     CognitiveBalancedStrategy,
@@ -112,9 +112,10 @@ class _SchedulingStrategiesMixin:
         """Apply energy-aligned scheduling strategy."""
 
         # Categorize tasks by energy requirements — HIGH priority and
-        # knowledge-mastery work demand peak energy.
+        # knowledge-mastery work demand peak energy; a mastery task with no
+        # priority takes the bucket's last place.
         def _priority_rank(task: Task) -> int:
-            return (task.priority or Priority.MEDIUM).sort_order()
+            return priority_sort_order(task.priority)
 
         high_energy_tasks = sorted(
             (t for t in tasks if t.priority == Priority.HIGH or t.knowledge_mastery_check),

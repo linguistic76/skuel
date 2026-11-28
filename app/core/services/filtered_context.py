@@ -3,7 +3,7 @@
 Domains provide callables for domain-specific stats, filters, and sorting.
 The helper enforces the common pattern: fetch → stats → filter → sort → return.
 
-See: /docs/patterns/FILTERED_CONTEXT_PATTERN.md (planned)
+See: /docs/roadmap/askesis-intelligence-doors.md § The zoom lens's place in it
 """
 
 from __future__ import annotations
@@ -26,6 +26,13 @@ async def build_filtered_context(
     compute_metadata: Callable[[list[Any]], dict[str, Any]] | None = None,
 ) -> Result[ListContext]:
     """Build a filtered, sorted entity list with pre-filter stats.
+
+    The stats half is live; the filter-and-sort half is staged. The one caller, the
+    daily plan's domain-health read (``_query_domain_stats``), passes no ``sort_by``
+    and reads ``stats`` only, so ``entities`` and ``metadata`` have no reader yet.
+    They wait for an Askesis tool-selection entry (``core/services/askesis/query_tools.py``)
+    that answers a typed per-domain read — "my overdue tasks by due date". Registered
+    staged in ``scripts/detect_bloat.py`` (``_ZOOM_LENS_FILTER_HALF``): keep it.
 
     Args:
         fetch_all: Async callable that fetches ALL entities (pre-filtering).

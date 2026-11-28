@@ -26,7 +26,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.events import GoalHabitsChanged, publish_event
-from core.models.enums import EntityStatus, Priority
+from core.models.enums import EntityStatus, Priority, priority_sort_order
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, HabitEssentiality
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
@@ -101,11 +101,6 @@ def _get_goal_status_str(goal: Any) -> str:
     return get_enum_attr_str(goal, "status", "active")
 
 
-def _get_goal_priority_str(goal: Any) -> str:
-    """Extract priority as lowercase string, handling both enum and string."""
-    return get_enum_attr_str(goal, "priority", "medium")
-
-
 def _get_goal_target_date(goal: Any) -> date:
     """Extract target_date as date object, handling both date and string."""
     target = getattr(goal, "target_date", None)
@@ -165,9 +160,9 @@ _GOAL_FILTER_CONFIG: FilterConfig = {
 }
 
 
-def _get_goal_priority_order(goal: Any) -> int:
-    """Sort key for priority: HIGH 0, MEDIUM 1, LOW 2; no priority sorts as MEDIUM."""
-    return Priority.from_value(_get_goal_priority_str(goal)).sort_order()
+def _get_goal_priority_order(goal: Goal) -> int:
+    """Sort key for priority: HIGH, MEDIUM, LOW, then a goal with no priority."""
+    return priority_sort_order(goal.priority)
 
 
 def _get_goal_progress(goal: Goal) -> float:
@@ -176,10 +171,6 @@ def _get_goal_progress(goal: Goal) -> float:
     Sorting on ``current_value`` would rank goals by their domain-unit magnitude
     (100 miles above 8 books), which is not an ordering. Mirrors
     ``entity_filters._goal_sort_by_progress``, the UI-side sort of the same list.
-
-    Typed ``Goal``, unlike its ``Any`` siblings above: they exist to absorb a value
-    that may be an enum or a string, while this one needs the method, and
-    ``get_all_for_user`` returns ``list[Goal]``.
     """
     return goal.calculate_progress()
 

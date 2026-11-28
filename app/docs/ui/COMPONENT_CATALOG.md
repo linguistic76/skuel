@@ -1112,7 +1112,7 @@ Shared helpers extracted from the 6 Activity Domain view files to eliminate dupl
 
 - `MetadataField(label, *value)` — label + value pair for detail page metadata grids. Wraps `Div(Small(label), *value)`. Used ~60 times across all 6 detail views.
 - `safe_id(uid)` — converts UIDs to safe HTML id attributes (replaces `.` and `:` with `-`)
-- `PRIORITY_ORDER` lives in `core/utils/entity_filters.py` (a business rule), not here
+- A priority sort reads `priority_sort_order` (`core/models/enums/activity_enums.py`, a business rule), not a table here
 - `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
 - `ConnectionsSection(connections, removal=None)` — the detail page's Connections block: the page links (`EntityConnection` rows), one list per heading (ADR-090 §2). Given an `InferredLinkRemoval` (the task page, via `TaskConnectionsSection`), it marks each link the grounding pass inferred and offers its owner a remove
 - `ConnectionRows(connections)` — a list card's page links: one compact line per heading, all six Activity cards

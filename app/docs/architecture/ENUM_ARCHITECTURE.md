@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-22
+updated: 2026-11-27
 ---
 
 # Enum Architecture
@@ -556,7 +556,7 @@ way users and admins express dimensional weight across the graph.
 They are orthogonal: Priority says "how important", Confidence says "how certain".
 Both flow into the intelligence layer (planning) and graph visualization (vis.js):
 
-- **Priority → Planning:** every surface that orders by priority (calendar optimization, search scoring, Today, previews, list sorts) ranks through `sort_order()` / `to_numeric()` — no override block
+- **Priority → Planning:** every surface that orders by priority (calendar optimization, search scoring, Today, previews, list sorts) ranks through `sort_order()` / `to_numeric()` — no override block. A list sorted by priority reads `priority_sort_order` (a member's `sort_order()`, no priority after LOW)
 - **Confidence → Vis.js:** Edge line style (solid/dashed/dotted) and opacity in `renderNetwork()`
 
 ```python

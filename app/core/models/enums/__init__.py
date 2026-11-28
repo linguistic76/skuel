@@ -51,6 +51,7 @@ from .activity_enums import (
     Priority,
     ProductivityLevel,
     ProgressLevel,
+    priority_sort_order,
 )
 from .askesis_enums import AggregationPeriod, IntegrationSuccess, QueryComplexity, RelevanceRing
 
@@ -255,6 +256,7 @@ __all__ = [
     "PrincipleSource",
     "PrincipleStrength",
     "Priority",
+    "priority_sort_order",
     "ProficiencyLevel",
     "TriggerType",
     "QueryComplexity",
